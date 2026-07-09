@@ -1,5 +1,71 @@
 [
   {
+    "tag": "RENDER-HOOK-LEAF-RESOLUTION",
+    "summary": "Resolve embedded-kind Text leaves (mention-checked, loud on dangling) before invoking a kind's render() hook, so the refusing clause holds regardless of hook presence",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "renderMemberFence (line ~107) calls value.render(value) with the raw EmbeddedMemberValue when a kind declares render(); resolve each Text leaf via resolveLeaf (mention-checked, loud on a dangling address, same as renderMemberToml's own leaf loop) into a plain-string-leaved value before passing it to render(), so both paths share one resolution point."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "render hook's declared parameter type (`(value: EmbeddedMemberValue) => string`, lines 138/160/224) and doc comments should reflect that leaves are already resolved to plain strings post-fix, so hook authors never need to handle a raw Text leaf themselves."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a kind with a render() hook and a Text leaf carrying a dangling mention refuses with the same error the hook-less default TOML view produces; a resolvable mention's rendered text reaches the hook as a plain string, not a Text object"
+      }
+    ],
+    "acceptance": "Refusing on a dangling embedded-kind leaf mention no longer depends on whether the kind declares render(); sdk/test/emit.test.ts covers both paths with matching refusal behavior.",
+    "notes": "Routed from friction capture build-embedded-leaf-text-render-hook-gap (drained by 965e1dc). EMBEDDED-KIND-RENDER-HOOK (3c6f50b) shipped render() unresolved; EMBEDDED-LEAF-TEXT (18d3406, later) resolved leaves in the default view only -- pipeline.md's Refusing clause binds unconditionally, so the hook path's silent `[object Object]` case must fix too. Rejected: hooks own resolution via exported resolveLeaf -- unenforced per-hook. No Rust-side change. scoped at 965e1dc."
+  },
+  {
+    "tag": "REQUIREMENT-KIND-SDK-TYPE",
+    "summary": "Retype SDK Requirement.kind to KindDefinition<never> so kind: skill/agent/command type-check, completing 0003's stranded SDK-side half",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "Retype `Requirement.kind?: KindDefinition<object>` (line 154) to `KindDefinition<never>`. `KindDefinition<T>`'s sole call signature `(init: MemberInit<T>): Member` (sdk/src/kind.ts:127-128) sits contravariantly in T, so `never` is the universal supertype -- every `KindDefinition<T>` is assignable regardless of T's required fields -- today only kind: rule / kind: memory type-check since KindDefinition<object> rejects a KindDefinition<Skill|Agent|Command> on that same contravariance. A structural `{ readonly key: string }` was considered and rejected: it compiles but admits a hand-written `{ key: \"skil\" }` literal, i.e. identity-by-string, which representation.md's kind section rules out (\"Kind identity travels by import, never by string\")."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "requirement kind: skill, kind: agent, and kind: command type-check and behave like the existing kind: rule cases (currently TS2322 on all three); kind: rule/kind: memory cases keep passing unchanged"
+      }
+    ],
+    "acceptance": "sdk/src/contract.ts's Requirement.kind field accepts every shipped kind (skill, agent, command, rule, memory) with no TS2322; sdk/test/refusals.test.ts gains coverage for at least one required-field kind alongside the existing kind: rule case.",
+    "notes": "SDK-side half of Decision 0003, stranded since 9dc9162 (2026-07-04), three days before ratification. Rust-engine half shipped in SATISFIER-KIND-CLAUSE (94ac5f1/2746b11); that entry's own commit body scoped out sdk/. Sole SDK read site is declarations.ts:326 (`requirement.kind?.key`), never a constructor call -- no Rust-side change, no lock/SEAM_VERSION bump. scoped at 965e1dc."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
