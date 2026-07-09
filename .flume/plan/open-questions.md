@@ -33,6 +33,10 @@ tax.
   member. John rules the authoring surface + emit/write architecture before
   the hook/mcp-server/plugin kinds and the canonical-manifest write file as
   build entries (0014's fetch-and-cite pattern per kind, once unblocked).
+  On resolution, `src/bundle.rs`'s bespoke serde_json manifest writes
+  (~lines 158-291: `plugin.json`, `marketplace.json`, `hooks.json`) convert
+  to general-write instances — 0015's named consequence; correct as
+  hand-builds only until then (inbox note, 07-09).
 
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
   hand-written std-lib ships an `agents-md.memory` built-in kind (glob
@@ -113,7 +117,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   exit clause") — never a standalone entry. Found at residue sweep HEAD
   e6d0311; re-verified still true at HEAD 5f88258 (cb17438 and 5f88258, the
   two intervening src/tests/sdk commits since 37c2411, never touched
-  tests/coverage.rs).
+  tests/coverage.rs). REQUIREMENT-PROSE-PERSISTS (filed 07-09) opens
+  tests/coverage.rs and names the fix in its file description — verify the
+  exit clause fired at its ship audit, then delete this bullet.
 
 - **Pre-corpus-reorg spec-path citations in the SDK — `sdk/src/kind.ts`
   (8 hits) and `sdk/src/contract.ts` (12 hits).** Doc comments cite
@@ -153,6 +159,21 @@ condition arrives, it is the next break. If work touches one, surface it.
   edited them; re-verified against disk this tick) — exit clause still did
   not fire. `contract.ts` untouched by any commit since 3c6f50b (neither
   cb17438 nor 5f88258 opened it) — debt there unchanged.
+  REQUIREMENT-PROSE-PERSISTS (filed 07-09) opens `contract.ts` (the
+  `means`→`prose` rename) and names the 12-line cut in its file
+  description — verify at its ship audit, then shrink this bullet to
+  `kind.ts` alone. `kind.ts` stays riding.
+
+- **Two `src/kind.rs` doc comments are factually false**, both claiming
+  inertness a consumer disproves: `unit_shape`'s "Inert alongside
+  format" (line ~74 — consumed by `src/frontmatter.rs:175`) and
+  `registration`'s "nothing else consumes it yet" (line 82 — consumed by
+  `src/main.rs:452-455` → `graph.rs::live_members` since 207e701).
+  Comment staleness rides whichever entry next opens `src/kind.rs`
+  (rust.md, "the exit clause") — never a standalone entry. From the 0013
+  inbox note (observed 9c3b1c1); both verified on disk at f600965. Note
+  0019's spec-delta derivation (job 2) is likely to open `src/kind.rs`
+  for the content/layout kind fact — that entry owns the fix.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

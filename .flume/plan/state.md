@@ -3,31 +3,27 @@
 - Spec derived through: 048f31f
 - Audited through: 5f88258
 - Residue swept through: 5f88258
-- This tick: Quiet pass (job 5). All four numbered inputs re-verified
-  current, none moved since the last tick: inbox holds only its template
-  comment, `.flume/refactor/` holds only its README placeholder — job 1
-  not live. `git log 048f31f..HEAD -- specs/` — no hits — job 2 not live.
-  `git log 5f88258..HEAD -- src/ tests/ sdk/` — no hits; the two commits
-  since 5f88258 (cdbc0d9, ea859fe) are both plan-phase commits touching
-  only `.flume/plan/*` — jobs 3 and 4 not live, cursors already converged
-  last tick. Queue re-checked: one entry, PACKAGING-CHANNELS, trivially
-  disjoint. Its gate reason re-verified live on disk this tick: no
-  `.github/workflows/release.yml` (`.github/workflows/` holds only
-  `temper.yml`, the check job); root `package.json` is still
-  `"name": "temper-flume-harness"` / `"private": true`, the flume control-
-  plane manifest, not a distribution manifest; `sdk/package.json` still
-  `@dtmd/temper`@0.0.5. Open-questions forks unchanged since the prior
-  residue sweep (no code commits since 5f88258 to re-test any "rides X"
-  or "kept on purpose" bullet against). Live friction unchanged: 1
-  (build-temper-self-rep-unfilled-requirements.md — SessionStart's 2
-  `requirement.unfilled` findings on this repo's own `.temper` self-rep
-  — `friction-capture-procedure`, `pending-entry-discipline` — remain
-  out of scope for plan; `.temper/**` isn't a writable path here, fix
-  needs a human `chore(harness):` session).
-- Queue: PACKAGING-CHANNELS (parked on human release creds + the
-  engine-binary workflow, unchanged this tick).
+- This tick: Inbox drain (job 1). Four notes, every claim re-verified on
+  disk before routing (forward-diff 9c3b1c1..HEAD touches only cb17438 and
+  5f88258, neither near a claimed surface). Routed: the 0001 note →
+  REQUIREMENT-PROSE-PERSISTS (open; verified gap is prose persistence plus
+  the phantom never-interprets quote at main.rs ~1063 and compose.rs:60 —
+  identity/verified_by/clauses already ship, read.rs already narrates the
+  field); the 0014 note → SKILL-CONTRACT-RECITE (open; all 25 builtin_lock
+  cites still 07-01 confirmed); the 0013 note's independent survivor →
+  FRONTMATTER-MALFORMED-LOUD (blockedBy REQUIREMENT-PROSE-PERSISTS, shared
+  src/main.rs), its two false kind.rs comments → new riding-debt bullet;
+  its 0019-superseded slices (layout reader, admissibility, spans)
+  deliberately NOT filed — they are job 2's derivation of 6a04322, which
+  the spec cursor holds; recon for job 2: format's sole consumer is
+  main.rs:1013's collision check, resolve_kind_units (main.rs:807-819)
+  splits YAML unconditionally, no admissibility rules, no span type in
+  extract.rs. The 0015 note → one line appended to the
+  (manifest-authoring-surface) fork record. Inbox emptied.
+- Queue: REQUIREMENT-PROSE-PERSISTS, SKILL-CONTRACT-RECITE (both open,
+  disjoint), FRONTMATTER-MALFORMED-LOUD (blockedBy the first),
+  PACKAGING-CHANNELS (parked, carried verbatim).
 
-Plan continues: no — every numbered input verified current this tick with
-nothing to derive; the queue holds one parked entry with no live gate to
-progress. Loop hibernates until the inbox, a spec commit, a src/tests/sdk
-commit, or a fork resolution gives it fresh input.
+Plan continues: yes — spec delta 6a04322 (decision 0019) is past the spec
+cursor; job 2 derives it next tick, Consequences checklist enumerated
+bullet by bullet, with the routed 0013 recon above in hand.
