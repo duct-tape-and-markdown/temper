@@ -2,19 +2,21 @@
 
 - Spec derived through: f87cc0c
 - Audited through: dd7517a
-- Residue swept through: fba4e32
-- This tick: Ship audit (job 3). 33874ac (build) + dd7517a (chore ship) landed
-  past the 2c853af cursor. Verified on disk: gate() and explain() both now
-  route through builtin_features_by_kind + assemble_by_kind over every
-  builtin_kind::definitions() entry (main.rs:400-438, 890-919) — no more
-  hardcoded skill/rule pair; tests/requirement_roster.rs retargeted to test
-  a genuinely unmodeled kind; `cargo test` all-green. dd7517a's ship commit
-  already removed the entry from pending.json — no rewrite needed. Re-tested
-  PACKAGING-CHANNELS's parked reason at dd7517a: still no
-  .github/workflows/release.yml (only temper.yml); root package.json still
-  the private temper-flume-harness manifest; sdk/package.json @dtmd/temper
-  still at 0.0.5 — reason holds, restamped.
+- Residue swept through: 8dfceee
+- This tick: Residue sweep (job 4). Rechecked fba4e32..8dfceee (33874ac build
+  + dd7517a chore-ship, both already confirmed shipped by the prior ship
+  audit). 33874ac's rewrite touched only src/main.rs and
+  tests/requirement_roster.rs — no duplicate surface left behind, and the two
+  retargeted roster tests now exercise a genuinely unmodeled kind (`widget`)
+  rather than `command`, verified sane on read. Both standing accepted debts
+  reconfirmed live verbatim: tests/session_start.rs still writes `+++`-format
+  `.temper/kinds|packages/spec/{KIND,PACKAGE}.md` fixtures; sdk/src/builtins.ts
+  still doc-comment-cites three deleted `packages/*/PACKAGE.md` files.
+  sdk/dist/ mirrors of both are gitignored build output, not residue. Grepped
+  for other retired vocabulary (published_requirements, own-path surface) —
+  only expected historical comments remain, no live residue. No new fileable
+  gap; pending.json unchanged.
 - Queue: PACKAGING-CHANNELS parked, sole entry.
 
-Plan continues: yes — residue sweep (job 4) is next; the residue cursor
-(fba4e32) still trails HEAD (dd7517a, two src/tests-touching commits ahead).
+Plan continues: yes — quiet closing pass (job 5) is next; residue cursor now
+at HEAD, all four prior inputs current.
