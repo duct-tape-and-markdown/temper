@@ -31,6 +31,97 @@
     "notes": "Field report T16 (inbox, observed 4b0bb0f). check.rs:83's Workspace::load_kinds, the inbox report's cited mechanism, is unreachable for this scenario; the real one is three main.rs sites. SATISFIES-GATE-FROM-LOCK shipped (fe2b22c/7904498), adding a declarations.satisfies union to resolve_kind_units just above these sites — re-verified 2026-07-08 all three still match verbatim at shifted line numbers (was ~428/634/987, now 428/634/997). Unblocked. scoped at 7904498."
   },
   {
+    "tag": "SATISFIES-CLAUSES-RATIONALE-FROM-LOCK",
+    "summary": "explain's satisfies rationale narration (satisfies_clauses) still ignores lock-declared fills — fe2b22c fixed gate's pass/fail but explicitly scoped this half out",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "resolve_kind_units (~L851-892, the shared per-kind Unit resolver both `gate` and custom-kind `explain` narration range over) grafts unit.satisfies_clauses (explain's rationale narration, consumed at ~L441 building read::CustomMember.satisfies) solely from surface_overlay — the pre-0016 own-path `+++`-document read whose only writers are #[cfg(test)]-only (confirmed 2026-07-08: zero production writers anywhere in src/). fe2b22c (2026-07-08) unioned declarations.satisfies into unit.satisfies for gate's pass/fail but its own commit message named satisfies_clauses out of scope ('a separate, narrower concern this entry doesn't touch'), so explain can silently disagree with gate: a custom member filled only via a lock-declared satisfies row (no surface_overlay document) reports as unfilled/no-rationale in explain while gate reports it filled — the exact narration/verdict split specs/model/contract.md's edge section forbids ('narration can never disagree with the verdict'). Union declarations.satisfies into unit.satisfies_clauses too, as document::Satisfies{requirement, rationale: None} entries (skip requirement names surface_overlay already supplied with real rationale), mirroring the existing unit.satisfies union block immediately below in the same function. Update the fn's doc comment (currently states satisfies_clauses 'stays surface_overlay-only') to match."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a custom-kind member filled only via a lock-declared `declarations.satisfies` row (no surface_overlay-authored satisfies_clauses) narrates as filled through `explain`/`why` — no fabricated rationale, but never silently absent — matching gate's pass, mirroring the sibling `a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_authored` test fe2b22c added for gate"
+      }
+    ],
+    "acceptance": "explain's satisfies rationale narration for a custom-kind member never disagrees with gate's fill verdict, including for a member filled only via the lock's declarations.satisfies (no surface-authored rationale).",
+    "notes": "scoped at b4649ff. Closes the gap fe2b22c's own commit body named and deferred. Scope is custom kinds only (via resolve_kind_units + the custom_members loop in main.rs::explain) — built-in skill/rule rationale narration rides the separate dead Workspace path RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY retires; that path already contributes nothing in production today, so retiring it is not a regression. Blocks RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY (same file/function region)."
+  },
+  {
+    "tag": "RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY",
+    "summary": "The pre-0016 own-path '+++' surface-document mechanism (Workspace, Member::from_surface/to_document, surface_overlay, published_requirements) has zero production consumers — retire it",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SATISFIES-CLAUSES-RATIONALE-FROM-LOCK"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Remove `surface_overlay` (~L822-833, now unused once the sibling entry lands the lock-sourced satisfies_clauses union) and its call in resolve_kind_units; drop `unit.published_requirements` population from it. Remove `explain`'s `let ws = Workspace::load(&workspace)?;` (~L451) and the `&ws` arg it threads into `read::explain` (~L488) — confirmed dead: `.temper`'s real layout (module-adjacent prose files like `.temper/rules/rust.md`) never matches the `+++`/per-id-subdirectory shape `Workspace::load` scans for, so `ws` is always empty for any real harness. In `union_published_requirements` (~L1027-1049), drop the per-member `features.published_requirements` branch and derive the roster from `assembly_requirements` (built from `declarations.requirements`, the lock) alone — confirmed complete: the SDK already unions `harness.require` and every `member.requires` into `declarations.requirements` at emit time (`sdk/src/declarations.ts` `requirementRows`, ~L269-296), so the member-published branch can only ever fire off the dead surface_overlay read; it never contributes for a real SDK-composed harness."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "Remove the `Workspace` struct, `load`/`load_kinds`, and their accessor methods (~L34-95) — confirmed unused outside main.rs's two now-removed call sites and bundle.rs's (below). Remove the #[cfg(test)]-only `write_surface_skill`/`write_surface_rule` helpers (~L360-490) and the tests that exist solely to exercise `Workspace::load` through them; where a removed test's real assertion (e.g. a clause firing over a loaded member) is still meaningful, retarget it to construct the member via `frontmatter::Member`/`kind::Unit` directly rather than deleting the coverage."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "Remove `Unit::from_surface_dir`/`from_member_document` (~L609-712) and the `published_requirements` field off `Unit` (~L605, now unpopulated everywhere). Remove or retarget their dependent tests (~L1080-1280) — several (`from_surface_dir_feeds_the_composed_extractor`, `..._lifts_clause_fields_into_frontmatter`, etc.) test Extraction/Features folding, which is still live; retarget those to build a `Unit` directly (a struct literal or `from_source_rooted`) rather than round-tripping through the retired surface writer."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "Remove `Member::from_surface` (~L253-316) and `Member::to_document` (~L340+) plus their round-trip tests (~L640-670) — confirmed no caller outside the retired sites in main.rs/check.rs/kind.rs/builtin_kind.rs. Drop the `published_requirements` field off `Member` if `from_source_rooted` never populates it (verify before removing — it may already default-construct to empty there)."
+        },
+        {
+          "path": "src/document.rs",
+          "description": "Remove `requirements()` (~L447) and `satisfies()` (~L416) — confirmed their only callers are `Member::from_surface` (frontmatter.rs:309) and `Unit::from_member_document` (kind.rs:676), both retired by this entry. Keep `Satisfies`/`PublishedRequirement` type definitions if `compose.rs`/`read.rs` still reference the types (only the parsing functions are dead, not necessarily the shapes)."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Remove the now-dead `Workspace::load(surface)?;` validation call (~L168) — it was already a no-op fail-loud check (never errors for the real `.temper` layout, since `Workspace::load` cannot detect this format as malformed either). Update the module doc comment (~L27-29) which currently cites `Workspace::load` as the read mechanism. Do not invent a replacement validation — if `bundle` still wants a real malformed-surface check, that is a distinct product gap to surface, not to silently fill here."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Remove the #[cfg(test)]-only `surface_unit` helper (~L485-496, builds a Unit by round-tripping through `Member::to_document`/`Unit::from_member_document`, both retired) and retarget its dependent tests to construct a `Unit` directly instead of dropping their coverage of `Features` folding."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`read::explain`'s `workspace: &Workspace` parameter (~L230) and the `members()` helper's `workspace.skills()`/`workspace.rules()` half (~L119-128) become dead once main.rs stops constructing a `Workspace`; drop the parameter (callers thread `custom` alone) and simplify `members()` accordingly. Every downstream consumer already unions this listing with `by_kind` defensively (documented at ~L342-345, ~L1442-1447 — 'Workspace/custom listing lags by_kind'), so dropping the always-empty Workspace half changes no observable behavior for skill/rule members, which never had a live rationale source in production."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain's target resolution and narration for skill/rule/custom members is unchanged after `read::explain` drops its `Workspace` parameter — the unit-level test harness at tests/read_verbs.rs (which already constructs `Workspace::load` over an always-empty tmpdir, ~L75-84) is updated to match the simplified signature, not weakened"
+      }
+    ],
+    "acceptance": "No production or test code references check::Workspace, Member::from_surface/to_document, surface_overlay, document::requirements/satisfies, Unit::from_surface_dir/from_member_document, or Unit::published_requirements; cargo build/test/clippy stay green with no loss of Features/Extraction test coverage.",
+    "notes": "scoped at b4649ff. Confirmed 2026-07-08: zero references to Workspace/from_surface/to_document/surface_overlay in install.rs, drift.rs, engine.rs, roster.rs, compose.rs — the mechanism is fully isolated to the files listed. This is the pre-0016 own-path generation pipeline.md's current model (SDK/emit/lock) has no vocabulary for; retiring it is mechanical, not a design fork."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
