@@ -2,31 +2,29 @@
 
 - Spec derived through: a53eee4
 - Audited through: 9bf90bc
-- Residue swept through: 52b3dcd
-- This tick: Ship audit. Commits past the prior cursor (80697f8) touching
-  src/tests/sdk: 3c6f50b (build: embedded kind render() hook) and 9bf90bc
-  (chore(flume): ship EMBEDDED-KIND-RENDER-HOOK, pending.json-only diff).
-  Verified on disk, not the log alone: sdk/src/kind.ts carries
-  `KindDefinition.render`/`KindOptions.render`, and `embeddedMemberValue()`
-  accepts a `KindDefinition` to carry the hook through; sdk/src/emit.ts's
-  `renderMemberFence` calls the hook in place of `renderMemberToml` when
-  present, the fence wrapper itself unchanged; the stale
-  `parse_embedded_member`/`parse_embedded_info` doc-comment citations
-  flagged as residue at plan 52b3dcd are gone from both files, and a fresh
-  grep confirms no live citation of either symbol remains anywhere.
-  `pnpm --dir sdk test` green, 51/51, including the new render-hook case.
-  EMBEDDED-KIND-RENDER-HOOK's pending entry is already drained (9bf90bc).
-  Re-tested EMBEDDED-LEAF-TEXT's stale `blockedBy EMBEDDED-KIND-RENDER-HOOK`
-  gate per job 3's rule: the blocker shipped, so flipped the gate to `open`
-  after re-verifying every symbol its file descriptions cite still resolves
-  (`EmbeddedMemberValue.leaves`/`embeddedMemberValue()` in kind.ts,
-  `renderMemberToml`/`resolveBody` in emit.ts, `mentionRows()` in
-  declarations.ts, `leaf_addresses_are_structural_member_kind_key_child_path`
-  at tests/nested_member.rs:118). PACKAGING-CHANNELS untouched — its parked
-  reason doesn't depend on this ship.
+- Residue swept through: 3c6f50b
+- This tick: Residue sweep. Only src/tests/sdk-touching commit since 52b3dcd
+  is 3c6f50b (EMBEDDED-KIND-RENDER-HOOK, sdk/src/emit.ts + sdk/src/kind.ts +
+  sdk/test/emit.test.ts only). Re-verified both standing debts unaffected
+  and still live: tests/session_start.rs's `+++`-format kinds/packages
+  fixtures, and sdk/src/builtins.ts:308,348,385's three deleted PACKAGE.md
+  citations — neither file touched by 3c6f50b or its two predecessors since
+  52b3dcd. Also confirmed 3c6f50b's own commit-body fix (stale
+  parse_embedded_member/parse_embedded_info citations) is complete: zero
+  remaining hits repo-wide. New finding: sdk/src/kind.ts (12 hits) and
+  sdk/src/contract.ts (8 hits) doc-comment-cite four numbered spec files
+  (10-contracts.md/15-kinds.md/20-surface.md/40-composition.md) that predate
+  0002's corpus-form reorg and no longer exist under those names — vocabulary
+  the corpus no longer sanctions, compounded by rust.md/sdk.md's "spec
+  citations retired from comments" convention. Per job 4's own exception,
+  citation staleness never gets a standalone entry — recorded as a new
+  "kept on purpose" debt in open-questions.md, riding the next entry that
+  opens each file (kind.ts's exit clause already fires under
+  EMBEDDED-LEAF-TEXT, which has it in its edit list; contract.ts awaits its
+  own next touch). pending.json unchanged — no entry filed.
 - Queue: EMBEDDED-LEAF-TEXT (open, next); PACKAGING-CHANNELS (parked).
-  Disjoint — EMBEDDED-LEAF-TEXT is now the sole open entry.
+  Disjoint — EMBEDDED-LEAF-TEXT is the sole open entry.
 
-Plan continues: yes — residue-swept-through (52b3dcd) still trails HEAD by
-one src/sdk-touching commit (3c6f50b) not yet re-swept; the next tick sweeps
-residue before the loop can go quiet.
+Plan continues: yes — every cursor (spec derived, audited, residue swept) now
+sits at or past the latest relevant commit and the queue is disjoint; the
+next tick is the quiet closing pass (job 5).

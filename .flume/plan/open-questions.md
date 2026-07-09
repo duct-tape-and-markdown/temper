@@ -96,15 +96,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
   `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD
-  52b3dcd — the two intervening src/tests/sdk changes, 5ee0b6d
-  (RETIRE-FOLD-MEMBERS) and 7a3dfff (NESTED-MEMBER-COLLECTIONS-ORDERED),
-  together touched only src/builtin_kind.rs, src/display.rs, src/drift.rs,
-  src/extract.rs, src/kind.rs, src/main.rs, src/read.rs,
-  sdk/src/{declarations,emit,index,kind}.ts, sdk/test/emit.test.ts,
-  tests/agent_kind.rs, tests/command_kind.rs, tests/display_rule.rs,
-  tests/lock_declaration_rows.rs, tests/nested_member.rs, and
-  tests/read_verbs.rs — none of the two debt files. Verify both at the next
-  residue sweep.
+  3c6f50b — the three intervening src/tests/sdk changes since 52b3dcd,
+  5ee0b6d (RETIRE-FOLD-MEMBERS), 7a3dfff (NESTED-MEMBER-COLLECTIONS-ORDERED),
+  and 3c6f50b (EMBEDDED-KIND-RENDER-HOOK, sdk/src/emit.ts + sdk/src/kind.ts +
+  sdk/test/emit.test.ts only), together never touched the two debt files.
+  Verify both at the next residue sweep.
 
 - **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
   `tests/coverage.rs:336-338`'s doc comment on
@@ -114,8 +110,26 @@ condition arrives, it is the next break. If work touches one, surface it.
   src/main.rs but didn't reach this test file. Comment staleness rides the
   next entry that opens `tests/coverage.rs` (`.claude/rules/rust.md`, "the
   exit clause") — never a standalone entry. Found at residue sweep HEAD
-  e6d0311; re-verified still true at HEAD 52b3dcd (5ee0b6d and 7a3dfff, the
-  two intervening src/tests/sdk changes, never touched tests/coverage.rs).
+  e6d0311; re-verified still true at HEAD 3c6f50b (5ee0b6d, 7a3dfff, and
+  3c6f50b, the three intervening src/tests/sdk changes since e6d0311, never
+  touched tests/coverage.rs).
+
+- **Pre-corpus-reorg spec-path citations in the SDK — `sdk/src/kind.ts`
+  (12 hits) and `sdk/src/contract.ts` (8 hits).** Doc comments cite
+  `10-contracts.md`, `15-kinds.md`, `20-surface.md`, `40-composition.md` —
+  numbered, aspect-oriented files from before 0002's reorg
+  (`specs/decisions/0002-corpus-form.md`, "the prior form... aspect-oriented
+  files scattered each noun across five homes"; `specs/model/*.md` replaced
+  them). None of the four names exist in the corpus today — vocabulary the
+  corpus no longer sanctions (`specs/process/engineering.md` residue class).
+  Compounding: `.claude/rules/sdk.md`/`rust.md` ("Style & structure") retire
+  spec-path citations from comments as a class regardless of validity — cut
+  on contact, never annotate (rust.md, "the exit clause") — so this rides
+  the next entry that opens either file rather than a standalone one.
+  EMBEDDED-LEAF-TEXT already opens `kind.ts`; its exit clause fires there.
+  `contract.ts` has no entry touching it yet — rides whichever comes next.
+  Found at residue sweep HEAD 3c6f50b (introduced pre-52b3dcd; 3c6f50b's own
+  diff edited two of kind.ts's other doc comments without reaching these).
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
