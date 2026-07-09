@@ -7,8 +7,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NESTED-MEMBER-LOCK-ROW"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,15 +15,15 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Retire `CustomKind::fold_members` (currently folds `features.nested_members` from re-parsed `features.fenced_blocks`) and its call from `CustomKind::extract`; source `nested_members` from the new `NESTED-MEMBER-LOCK-ROW` lock rows instead. Rework or drop `overlay_templates`, whose purpose was priming the `Primitive::Fenced` substrate `fold_members` folded against — that substrate has no remaining consumer once the fold retires."
+          "description": "Retire `CustomKind::fold_members` (currently folds `features.nested_members` from re-parsed `features.fenced_blocks`) and its call from `CustomKind::extract`; source `nested_members` from `Declarations::nested_members` (`Vec<NestedMemberRow>`, src/drift.rs — shipped by NESTED-MEMBER-LOCK-ROW, keyed by host `kind:name` address) instead. Rework or drop `overlay_templates`, whose purpose was priming the `Primitive::Fenced` substrate `fold_members` folded against — that substrate has no remaining consumer once the fold retires."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "`features()` (the sole choke point every custom/built-in member's `Features` is built through) switches its embedded-member fact source from `kind.extract(unit)`'s fold output to the member's `NESTED-MEMBER-LOCK-ROW` rows."
+          "description": "`features()` (the sole choke point every custom/built-in member's `Features` is built through) switches its embedded-member fact source from `kind.extract(unit)`'s fold output to the member's rows in `Declarations::nested_members` (`NestedMemberRow`, src/drift.rs)."
         },
         {
           "path": "src/extract.rs",
-          "description": "`Features::nested_members`/`embedded_leaves` are populated from lock rows rather than `parse_embedded_info`/`parse_embedded_member`'s TOML re-parse; retire those two parse helpers once no caller survives (verify via `rg` before deleting — `Primitive::Fenced`/`body_fenced_blocks` itself may still be a legitimate raw-text primitive for other uses)."
+          "description": "`Features::nested_members`/`embedded_leaves` are populated from `NestedMemberRow` lock rows (src/drift.rs: `host`/`kind`/`key`/`leaves`/`collections`) rather than `parse_embedded_info`/`parse_embedded_member`'s TOML re-parse; retire those two parse helpers once no caller survives (verify via `rg` before deleting — `Primitive::Fenced`/`body_fenced_blocks` itself may still be a legitimate raw-text primitive for other uses)."
         },
         {
           "path": "src/main.rs",
@@ -61,7 +60,7 @@
       }
     ],
     "acceptance": "`CustomKind::fold_members` and its fence-re-parse dependency are retired with no fallback (0018: 'no caller survives it'); check/gate/explain/impact/context all resolve nested-member facts from declared lock rows; the full test suite (including tests/extract_equivalence.rs, tests/read_verbs.rs) is green.",
-    "notes": "Slice 2 of 2 for decision 0018; scoped at 3ed138f. This is the one atomic swap — the choke point (`builtin_kind::features`) and every downstream caller must move together, since a partial switch would leave some paths reading facts the other paths no longer trust. 0018 explicitly rejected keeping the fence as a lenient second read face."
+    "notes": "Slice 2 of 2 for decision 0018; scoped at a4bb450. Unblocked: NESTED-MEMBER-LOCK-ROW shipped (e082d04), additive, `NestedMemberRow`/`Declarations::nested_members` (src/drift.rs), fold_members untouched. This is the one atomic swap — the choke point (`builtin_kind::features`) and every downstream caller must move together, since a partial switch would leave some paths reading facts the other paths no longer trust. 0018 rejected a lenient fence-based second read face."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -72,7 +71,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at c93eeed (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at a4bb450 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
