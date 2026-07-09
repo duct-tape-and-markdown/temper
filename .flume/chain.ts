@@ -266,8 +266,8 @@ const BUILD_WRITABLE_PATHS = [
   // .claude/** or CLAUDE.md, specs/**, or docs/**. These are RATIFICATION
   // territory, not "human-authored" — nearly every byte in them is
   // agent-drafted, but drafted in-session with a human present, landing via
-  // ceremony commits (`specs:`, `chore(harness):`) whose authority moment is
-  // the human's. Build runs with no cold read in its cycle, so it proposes
+  // ceremony commits (`specs:`, `chore(harness):`). Build runs with no
+  // human in its cycle, so it proposes
   // (leave the entry, surface the question — or a friction capture) instead
   // of writing. The harness writes the post-merge ship commit to
   // pending.json itself.
