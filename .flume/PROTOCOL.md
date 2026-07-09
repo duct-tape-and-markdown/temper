@@ -48,7 +48,8 @@ This repo carries **two** harnesses with different owners:
 Gate placement follows CHAIN-AUTHORING §2, adapted for cargo (compilation is the
 expensive step):
 
-- **afterCommit:** `cargo fmt --all --check` only — no compile, safe to run
+- **afterCommit:** `cargo fmt --all --check` and `cargo machete --with-metadata`
+  (unused-dependency check, adopted 2026-07-08) — neither compiles, safe to run
   N-wide under fanout.
 - **afterMerge:** `cargo clippy --all-targets -- -D warnings` and `cargo test` —
   serial on the trunk, no N-wide contention; a failure reverts only the offending

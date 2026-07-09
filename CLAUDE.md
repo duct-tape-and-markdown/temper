@@ -78,6 +78,7 @@ trunk one validated commit at a time. State is on disk; each tick is a fresh
 - `cargo test` — tests (prefer `insta` snapshots for parse/lint output).
 - `cargo clippy --all-targets -- -D warnings` — the lint bar (afterMerge gate).
 - `cargo fmt --all --check` — formatting (afterCommit gate); `cargo fmt --all` to fix.
+- `cargo machete --with-metadata` — unused-dependency check (afterCommit gate).
 - `pnpm --dir sdk test` — SDK gate: strict `tsc` + `node --test` (afterMerge gate;
   run it whenever a change touches `sdk/**`).
 - `pnpm exec flume status` — baton state.
