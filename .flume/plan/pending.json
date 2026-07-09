@@ -1,48 +1,5 @@
 [
   {
-    "tag": "EMBEDDED-LEAF-TEXT",
-    "summary": "An embedded member's leaf may be a Text (template + mentions), not just a bare string; its mentions lift into the host's mention rows, its resolved display becomes the stored leaf (0018 slice 3/3)",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "edge"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "`EmbeddedMemberValue.leaves`, and a collection entry's leaves, widen from `Readonly<Record<string,string>>` to accept a `Text` (imported from `prose.ts`) per leaf alongside a bare string; `embeddedMemberValue()`'s init type follows."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`renderMemberToml`'s leaf loop (top-level and the nested collection-entry loop, ~72-81) resolves a `Text` leaf the way `resolveBody` resolves member-level `Text` — mention resolution-checked against `options.mentionable` (loud on a dangling address, contract.md 'edge'), rendered by the one display rule — before TOML-string-quoting it; a bare-string leaf is unchanged."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`mentionRows()` (~354-383, today walks only top-level member prose) also walks each `blocks()`-declared `EmbeddedMemberValue`'s `Text` leaves, emitting a `MentionRow` per mention keyed to the leaf's own address — the existing `<member>/<kind>/<key>/<child-path>` leaf-address grammar `src/read.rs`'s `parse_leaf_address` already resolves, not a new one."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "grows a case asserting a Text-valued leaf's mention resolves and renders inline, and an unresolved mention inside a leaf is a loud emit error, mirroring 'a resolved mention renders to its declared value's display form' (~442) / 'an unresolved mention is a loud emit error' (~454) at leaf grain."
-      },
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "'leaf_addresses_are_structural_member_kind_key_child_path' (~118, shifted by NESTED-MEMBER-COLLECTIONS-ORDERED's ordered-collections rework) grows a case where the addressed leaf itself carries a resolved mention, asserting explain/impact still read its plain resolved string."
-      }
-    ],
-    "acceptance": "An embedded member's leaf authored as a text-tagged template with a mention emits with the mention resolved and displayed, contributes a mention row addressed to that leaf, and an unresolved leaf mention refuses emit exactly like a member-level one; a bare-string leaf is unchanged.",
-    "notes": "Slice 3 of 3 for 0018's carried inbox scope (filed 6bed388, cite Consequences). Depended on nothing from slices 1/2 semantically but shared sdk/src/kind.ts + emit.ts + declarations.ts, so blockedBy slice 2 per entry-discipline file-disjointness, matching the inbox's stated do-last order. Slice 2 shipped EMBEDDED-KIND-RENDER-HOOK (3c6f50b/9bf90bc) — unblocked. Scoped at 6bed388."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
