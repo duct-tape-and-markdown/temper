@@ -2,37 +2,48 @@
 
 - Spec derived through: a53eee4
 - Audited through: 80697f8
-- Residue swept through: a3f9f1f
-- This tick: Ship audit. Commits past f000b97 touching `src/`/`sdk/`:
-  7a3dfff (build: preserve authored order in nested-member collections) and
-  80697f8 (chore(flume): ship NESTED-MEMBER-COLLECTIONS-ORDERED). Verified
-  on disk, not just the log: `git show --stat` on both, then read
-  `sdk/src/kind.ts` — `EmbeddedMemberValue.collections` is now `Readonly<
-  Record<string, readonly EmbeddedMemberCollectionEntry[]>>`, each entry an
-  ordered `{key, leaves}` — matching the shipped summary exactly. Ran the
-  full gate set live: `cargo test` (all 7 suites green), `pnpm --dir sdk
-  test` (50/50 green), `tsc --noEmit` (clean) — the ship is sound, not just
-  claimed. `pending.json` already had the shipped entry removed by build's
-  own ship commit (80697f8) — nothing to drop this tick.
-  Re-tested the one stale gate this ship changes: EMBEDDED-KIND-RENDER-HOOK
-  was `blockedBy NESTED-MEMBER-COLLECTIONS-ORDERED`; its blocker is now
-  shipped and gate-green, so it flips to `open`. Its cited file/line refs
-  (`kind.ts` `kind()` ~155, `emit.ts` `renderMemberFence`/`resolveBody`
-  ~93-122) still resolve post-ship — re-grepped, unchanged. EMBEDDED-LEAF-TEXT
-  stays `blockedBy EMBEDDED-KIND-RENDER-HOOK` (that slice hasn't shipped);
-  its own `tests[]` cite to `tests/nested_member.rs`
-  `leaf_addresses_are_structural_member_kind_key_child_path` had drifted
-  from `~94` to `~118` (the shipped rework added lines ahead of it in the
-  same file) — corrected in place, entry otherwise unchanged.
-  PACKAGING-CHANNELS untouched: unrelated to this ship, no re-verification
-  triggered. Spec-delta and residue-sweep cursors copied forward verbatim —
-  neither job serviced this tick.
-- Queue: EMBEDDED-KIND-RENDER-HOOK (open, next) → EMBEDDED-LEAF-TEXT
-  (blockedBy); PACKAGING-CHANNELS (parked) unchanged. Disjoint: the two
-  remaining 0018 entries share `sdk/src/kind.ts`/`emit.ts` but are
-  serialized by `blockedBy`, never both `open`; PACKAGING-CHANNELS shares
-  nothing with them.
+- Residue swept through: 52b3dcd
+- This tick: Residue sweep (was trailing at a3f9f1f). Two src/tests/sdk
+  commits landed since: 5ee0b6d (RETIRE-FOLD-MEMBERS) and 7a3dfff
+  (NESTED-MEMBER-COLLECTIONS-ORDERED) — the intervening `chore(flume) ship`
+  commits (f000b97, 80697f8) carry no src/tests/sdk diff. Re-verified both
+  tracked debts against the actual diffs (not the log): 5ee0b6d touched
+  src/builtin_kind.rs, src/drift.rs, src/extract.rs, src/kind.rs,
+  src/main.rs, tests/agent_kind.rs, tests/command_kind.rs,
+  tests/lock_declaration_rows.rs, tests/nested_member.rs; 7a3dfff touched
+  sdk/src/{declarations,emit,index,kind}.ts, sdk/test/emit.test.ts,
+  src/builtin_kind.rs, src/display.rs, src/drift.rs, src/extract.rs,
+  src/read.rs, tests/display_rule.rs, tests/lock_declaration_rows.rs,
+  tests/nested_member.rs, tests/read_verbs.rs — neither touches
+  tests/session_start.rs, sdk/src/builtins.ts, or tests/coverage.rs, so all
+  three `Kept on purpose` debts stay true; open-questions.md timestamps
+  advanced to 52b3dcd.
+  New residue found and routed (not standalone — rides the already-open
+  entry): RETIRE-FOLD-MEMBERS deleted `CustomKind::fold_members` and its
+  `parse_embedded_info`/`parse_embedded_member` helpers outright (grepped
+  src/ — gone), but sdk/src/kind.ts:187 and sdk/src/emit.ts:68,90 still cite
+  `parse_embedded_member`/`parse_embedded_info` as the mechanism reading a
+  rendered fence back into leaves/members — stale against pipeline.md
+  "Emit" (facts are lock declaration rows, never mined from rendering).
+  Both lines live inside files EMBEDDED-KIND-RENDER-HOOK (open, next)
+  already schedules to edit, so per the comment-staleness exception this
+  rides that entry rather than filing standalone; annotated its two
+  files.edit[] descriptions so build corrects both comments in passing.
+  No other residue found: fold_members/parse_embedded* grep is clean
+  elsewhere (only an accurate "retired" comment in tests/nested_member.rs
+  and unrelated sdk/dist build output, gitignored); the ordered-collections
+  Record<string, entry[]> shape from 7a3dfff is internally consistent
+  end-to-end; display.rs's BTreeMap/fold module doc is still accurate to
+  current code (EmbeddedMember.leaves is still a BTreeMap; "fold" still
+  names the lock-row fold `builtin_kind::features` now performs, not the
+  retired one).
+- Queue: EMBEDDED-KIND-RENDER-HOOK (open, next — now also carries the
+  stale-citation fix) → EMBEDDED-LEAF-TEXT (blockedBy); PACKAGING-CHANNELS
+  (parked) unchanged. Disjoint: the two 0018 entries share
+  sdk/src/kind.ts/emit.ts but are serialized by blockedBy, never both open;
+  PACKAGING-CHANNELS shares nothing with them.
 
-Plan continues: yes — residue sweep is next live: `Residue swept through`
-(a3f9f1f) trails HEAD (80697f8), and inbox/spec-delta/ship-audit are all
-quiet as of this tick.
+Plan continues: yes — quiet closing pass is next: inbox, spec-delta, and
+ship-audit are all current as of this tick (nothing past 80697f8 has
+touched src/tests/sdk besides this residue sweep's own bookkeeping commit),
+and residue is now swept through HEAD.

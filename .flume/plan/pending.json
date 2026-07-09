@@ -15,11 +15,11 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`KindDefinition<T>` gains an optional `render?: (value: EmbeddedMemberValue) => string` — the kind author's own composed view of an embedded member's value, carried alongside `facts`/`key` the way `kind()` (line ~155) already returns them; erased at the seam, so the engine only ever sees the resulting string."
+          "description": "`KindDefinition<T>` gains an optional `render?: (value: EmbeddedMemberValue) => string` — the kind author's own composed view of an embedded member's value, carried alongside `facts`/`key` the way `kind()` (line ~155) already returns them; erased at the seam, so the engine only ever sees the resulting string. While this file is open: `EmbeddedMemberValue`'s own doc comment (~187) still says the rendered fence is 'read back byte-identically by the engine's `parse_embedded_member` fold' — that fold (plus `parse_embedded_info`) was retired with no fallback by RETIRE-FOLD-MEMBERS (5ee0b6d); the comment is now factually wrong against pipeline.md 'Emit' (an embedded member's facts are lock declaration rows, never mined back from its rendering). Correct it in passing (residue found at plan 52b3dcd)."
         },
         {
           "path": "sdk/src/emit.ts",
-          "description": "`resolveBody`'s `blocks` branch / `renderMemberFence` (~93-122, today always `renderMemberToml`'s default `[collection.entry]` view) checks whether the value's originating kind declared a `render` hook and calls it instead when present; the outer `member.<kind> <key>` fence wrapper and mention/leaf resolution discipline are unchanged."
+          "description": "`resolveBody`'s `blocks` branch / `renderMemberFence` (~93-122, today always `renderMemberToml`'s default `[collection.entry]` view) checks whether the value's originating kind declared a `render` hook and calls it instead when present; the outer `member.<kind> <key>` fence wrapper and mention/leaf resolution discipline are unchanged. Same residue as kind.ts: `renderMemberToml`'s and `renderMemberFence`'s own doc comments (~68, ~90) cite the retired `parse_embedded_member`/`parse_embedded_info` fold as what reads the fence back into leaves/members — stale for the same reason; fix both while touching these two functions (residue found at plan 52b3dcd)."
         }
       ],
       "retire": []

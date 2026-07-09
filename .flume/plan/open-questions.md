@@ -95,12 +95,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD a3f9f1f
-  — the sole intervening src/tests change, 5ee0b6d (RETIRE-FOLD-MEMBERS),
-  touched only src/builtin_kind.rs, src/drift.rs, src/extract.rs, src/kind.rs,
-  src/main.rs, tests/agent_kind.rs, tests/command_kind.rs,
-  tests/lock_declaration_rows.rs, and tests/nested_member.rs — none of the
-  two debt files. Verify both at the next residue sweep.
+  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD
+  52b3dcd — the two intervening src/tests/sdk changes, 5ee0b6d
+  (RETIRE-FOLD-MEMBERS) and 7a3dfff (NESTED-MEMBER-COLLECTIONS-ORDERED),
+  together touched only src/builtin_kind.rs, src/display.rs, src/drift.rs,
+  src/extract.rs, src/kind.rs, src/main.rs, src/read.rs,
+  sdk/src/{declarations,emit,index,kind}.ts, sdk/test/emit.test.ts,
+  tests/agent_kind.rs, tests/command_kind.rs, tests/display_rule.rs,
+  tests/lock_declaration_rows.rs, tests/nested_member.rs, and
+  tests/read_verbs.rs — none of the two debt files. Verify both at the next
+  residue sweep.
 
 - **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
   `tests/coverage.rs:336-338`'s doc comment on
@@ -110,8 +114,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   src/main.rs but didn't reach this test file. Comment staleness rides the
   next entry that opens `tests/coverage.rs` (`.claude/rules/rust.md`, "the
   exit clause") — never a standalone entry. Found at residue sweep HEAD
-  e6d0311; re-verified still true at HEAD a3f9f1f (5ee0b6d, the sole
-  intervening src/tests change, never touched tests/coverage.rs).
+  e6d0311; re-verified still true at HEAD 52b3dcd (5ee0b6d and 7a3dfff, the
+  two intervening src/tests/sdk changes, never touched tests/coverage.rs).
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
