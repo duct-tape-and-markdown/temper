@@ -1278,10 +1278,10 @@ pub struct MentionRow {
 /// One host member's declared embedded-member value's declaration row — its
 /// identity (the host's own `kind:name` address, the embedded child kind, and its
 /// key) plus its leaves and keyed sibling collections: the same composed value
-/// `blocks()` renders into the host's `member.<kind> <key>` fence. Additive and
-/// inert — `CustomKind::fold_members` remains the sole fact source the read side
-/// consumes until `RETIRE-FOLD-MEMBERS` switches it over; this row is a second
-/// *read* of the same authored value, never a second copy the engine reads back.
+/// `blocks()` renders into the host's `member.<kind> <key>` fence. The sole fact
+/// source the read side consumes (`crate::builtin_kind::features`, matched by
+/// `host` address) — never a second copy of a value the engine reads back off its
+/// own rendering (0018, "the projection is not the database").
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct NestedMemberRow {
     /// The host member's own `kind:name` address.

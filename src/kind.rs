@@ -82,12 +82,11 @@ pub struct CustomKind {
     /// member's world edge is live iff any one channel is; nothing else consumes it yet.
     pub registration: Vec<Registration>,
     /// The kind's declared **templates** — one per inner layer of nested members it
-    /// hosts at the embedded locus:
-    /// the child kind plus its embedded addressing, per member fence. Extraction folds
-    /// a member's embedded fences into typed [`EmbeddedMember`](crate::extract::EmbeddedMember)s
-    /// against this set ([`CustomKind::extract`]); the shape is the kind's, any
-    /// predicate over it rides the assembly's `expect`/`require` clauses.
-    /// Absent ⇒ empty.
+    /// hosts at the embedded locus: the child kind it nests, a declared fact carried
+    /// through the lock's own [`KindFactRow::templates`]. A host's *actual* embedded
+    /// members are resolved independently, off `Declarations::nested_members` by
+    /// address (`builtin_kind::features`); any predicate over a nested member's
+    /// interior rides the assembly's `expect`/`require` clauses. Absent ⇒ empty.
     pub templates: Vec<Template>,
 }
 
@@ -176,9 +175,9 @@ pub enum Registration {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Template {
     /// The child kind — the `member.<kind>` a fence info string carries
-    /// (`member.decision surface-authority` → `decision`), the token extraction matches
-    /// a fence against to fold it into a typed
-    /// [`EmbeddedMember`](crate::extract::EmbeddedMember).
+    /// (`member.decision surface-authority` → `decision`), the kind's own declared
+    /// nesting fact. A host's actual [`EmbeddedMember`](crate::extract::EmbeddedMember)s
+    /// are resolved independently, off `Declarations::nested_members` by address.
     pub kind: String,
 }
 
@@ -216,11 +215,11 @@ impl CustomKind {
     /// what actually ranges over a custom member's declared fields — never a per-kind
     /// `Field` primitive list.
     ///
-    /// The reconstructed extraction now includes `Fenced` alongside the generic
-    /// markdown-structure set, so the raw fenced-block substrate a member fence needs
-    /// is always available. The row's `templates` column lifts into one
-    /// [`Template`] per declared child-kind name, so a lock-reconstructed kind folds
-    /// the same embedded members its live SDK declaration does.
+    /// The row's `templates` column lifts into one [`Template`] per declared
+    /// child-kind name — the kind's own declared nesting fact; a host's actual
+    /// embedded members are resolved independently, off `Declarations::nested_members`
+    /// by address (`crate::builtin_kind::features`), so the reconstructed extraction
+    /// needs no `Fenced` primitive of its own to serve them.
     #[must_use]
     pub fn from_kind_fact_row(row: &KindFactRow) -> Self {
         CustomKind {
@@ -247,75 +246,34 @@ impl CustomKind {
                     Primitive::Headings,
                     Primitive::Sections,
                     Primitive::Placement,
-                    Primitive::Fenced,
                 ]),
             )
         }
     }
 
-    /// Run the kind's composed extractor over `unit`, then fold its declared templates:
-    /// each
-    /// fenced block whose info string names a declared child kind (`member.<kind> <key>`)
-    /// has its interior TOML parsed into a typed [`EmbeddedMember`](crate::extract::EmbeddedMember)
-    /// and folded into `Features::nested_members`,
-    /// beside its raw form in `fenced_blocks`. This composes the `Fenced` primitive with a
-    /// TOML parse — the typed nested-member layer over the raw-block algebra.
-    /// The single entry point every extract call site routes through, so member folding
-    /// never forks from the primitive extraction. A kind declaring no templates (every
-    /// built-in), or a body with no matching fence, folds nothing.
+    /// Run the kind's composed extractor over `unit` — the primitive algebra only.
+    /// Nested-member facts are never derived here: [`builtin_kind::features`](
+    /// crate::builtin_kind::features), the entry point every extract call site routes
+    /// through, folds them in afterward off the lock's own declared
+    /// `Declarations::nested_members` rows (0018, "the projection is not the
+    /// database").
     #[must_use]
     pub fn extract(&self, unit: &Unit) -> Features {
-        let mut features = self.extraction.extract(unit);
-        self.fold_members(&mut features);
-        features
+        self.extraction.extract(unit)
     }
 
     /// Overlay a lock row's declared `templates` onto this kind: each named child kind
-    /// becomes a [`Template`], and the extraction gains [`Primitive::Fenced`] when it
-    /// doesn't already compose it — the raw fenced-block substrate [`fold_members`](
-    /// CustomKind::fold_members) folds against, so a built-in host gaining a template
-    /// this way (its embedded extraction was never declared with one, since no
-    /// built-in composes `Fenced` on its own) is never left with a template that finds
-    /// no fence to match.
+    /// becomes a [`Template`] — the kind's own declared nesting fact, read back off
+    /// the lock. A host's actual embedded members are resolved independently, off
+    /// `Declarations::nested_members` by address, so this overlay needs no primitive
+    /// of its own to serve them.
     #[must_use]
     pub fn overlay_templates(mut self, templates: &[String]) -> Self {
         self.templates = templates
             .iter()
             .map(|kind| Template { kind: kind.clone() })
             .collect();
-        if !self.extraction.primitives().contains(&Primitive::Fenced) {
-            let mut primitives = self.extraction.primitives().to_vec();
-            primitives.push(Primitive::Fenced);
-            self.extraction = Extraction::new(primitives);
-        }
         self
-    }
-
-    /// Fold this kind's declared templates out of the already-extracted `fenced_blocks`.
-    /// A block whose info string parses as
-    /// `member.<kind> <key>` for a **declared** template and whose interior is well-formed
-    /// TOML becomes an [`EmbeddedMember`](crate::extract::EmbeddedMember); a fence naming
-    /// an undeclared child kind, or any non-member block, stays raw-only — adoption is
-    /// opt-in per block. A pure function of `fenced_blocks` and the declared template
-    /// set, so re-running is byte-identical, the property that keeps a nested member a
-    /// sound gate input.
-    fn fold_members(&self, features: &mut Features) {
-        if self.templates.is_empty() {
-            return;
-        }
-        let mut nested_members = Vec::new();
-        for block in &features.fenced_blocks {
-            let Some((kind, key)) = extract::parse_embedded_info(&block.info) else {
-                continue;
-            };
-            if !self.templates.iter().any(|declared| declared.kind == kind) {
-                continue;
-            }
-            if let Some(member) = extract::parse_embedded_member(&kind, &key, &block.content) {
-                nested_members.push(member);
-            }
-        }
-        features.nested_members = nested_members;
     }
 
     /// The kind's **identity** — its bare `name`. Kept as its own
@@ -952,9 +910,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
                 field: "description".to_string()
             }]
         );
-        // The generic markdown-structure set every built-in composes, plus `Fenced` —
-        // never a per-kind `Field` primitive, since the row carries no field-level
-        // facts.
+        // The generic markdown-structure set every built-in composes — never a
+        // per-kind `Field` primitive, since the row carries no field-level facts.
         assert_eq!(
             kind.extraction.primitives(),
             &[
@@ -962,7 +919,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
                 Primitive::Headings,
                 Primitive::Sections,
                 Primitive::Placement,
-                Primitive::Fenced,
             ]
         );
     }
@@ -1053,8 +1009,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
 
     #[test]
     fn from_kind_fact_row_lifts_declared_templates_by_child_kind() {
-        // Each recorded child-kind name lifts into a `Template` — `fold_members`
-        // keys only on `Template.kind`.
+        // Each recorded child-kind name lifts into a `Template`, keyed by
+        // `Template.kind` alone.
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
@@ -1080,10 +1036,10 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     }
 
     #[test]
-    fn overlay_templates_appends_fenced_to_an_extraction_that_lacks_it() {
-        // A built-in's own extraction never composes `Fenced` (BUILTIN-KIND-TEMPLATES-OVERLAY):
-        // overlaying a declared template must add it, or the fold has no fenced blocks
-        // to search.
+    fn overlay_templates_sets_the_declared_template_set_and_leaves_extraction_untouched() {
+        // Overlaying a declared template records the kind's own nesting fact only — a
+        // host's actual embedded members are resolved off `Declarations::nested_members`
+        // by address, never by anything this kind's own composed extraction yields.
         let kind = CustomKind::new(
             "rule",
             Governs {
@@ -1102,22 +1058,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         );
         assert_eq!(
             kind.extraction.primitives(),
-            &[Primitive::LineCount, Primitive::Headings, Primitive::Fenced]
+            &[Primitive::LineCount, Primitive::Headings]
         );
-    }
-
-    #[test]
-    fn overlay_templates_never_duplicates_an_already_composed_fenced() {
-        let kind = CustomKind::new(
-            "decision",
-            Governs {
-                root: "docs/decisions".to_string(),
-                glob: "*.md".to_string(),
-            },
-            Extraction::new(vec![Primitive::Fenced]),
-        )
-        .overlay_templates(&["decision".to_string()]);
-
-        assert_eq!(kind.extraction.primitives(), &[Primitive::Fenced]);
     }
 }

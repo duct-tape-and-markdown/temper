@@ -12,6 +12,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::drift::NestedMemberRow;
 use crate::extract::{self, Features};
 use crate::kind::{
     CustomKind, Extraction, Format, Governs, KindError, Primitive, Registration, Unit,
@@ -243,33 +244,45 @@ pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
 /// every kind reads, with
 /// **no IR→Unit adapter on the check read**: the caller builds the `Unit` straight
 /// off the imported [`crate::frontmatter::Member`], exactly as any other kind's
-/// members load.
+/// members load. `skill` declares no nesting template, so no lock row can ever
+/// address one of its members.
 #[must_use]
 pub fn skill_features(unit: &Unit) -> Features {
-    features(&claude_code_skill(), unit)
+    features(&claude_code_skill(), unit, &[])
 }
 
 /// Extract a built-in rule's [`Features`] the same way [`skill_features`] does — the
 /// embedded `rule` kind's extraction over the rule's generically-loaded surface [`Unit`].
 #[must_use]
 pub fn rule_features(unit: &Unit) -> Features {
-    features(&claude_code_rule(), unit)
+    features(&claude_code_rule(), unit, &[])
 }
 
-/// Run a built-in `kind`'s embedded extraction over `unit`, then fold every preserved
-/// frontmatter key the composed primitives did not name into the feature map — the
-/// built-in adapter's **permissive extraction**: an unknown key on a known artifact is already
-/// extracted, so a clause (a `forbidden_keys`) can range over it. The closed algebra
-/// cannot enumerate unknown keys, so this bulk preservation is the adapter's, while
-/// each documented field is the composed extraction's. `or_insert` leaves each field
-/// the composed extractor already yielded untouched.
+/// Run a built-in `kind`'s embedded extraction over `unit`, fold every preserved
+/// frontmatter key the composed primitives did not name into the feature map, and
+/// resolve `unit`'s own nested members off `nested_members` — the lock's declared
+/// [`NestedMemberRow`] family, matched by this member's `kind:name` address
+/// ([`extract::nested_members_from_rows`]). The **permissive extraction**: an unknown
+/// key on a known artifact is already extracted, so a clause (a `forbidden_keys`) can
+/// range over it. The closed algebra cannot enumerate unknown keys, so this bulk
+/// preservation is the adapter's, while each documented field is the composed
+/// extraction's. `or_insert` leaves each field the composed extractor already yielded
+/// untouched.
 ///
-/// Takes the resolved [`CustomKind`] rather than a name (the `check` gate holds it from
-/// [`definitions`]), so it is total — the extraction cannot fail once the definition is
-/// in hand. [`skill_features`]/[`rule_features`] stay the thin callers over `skill`/`rule`.
+/// The **sole choke point** every custom/built-in member's [`Features`] is built
+/// through — nested-member facts are declared, never re-derived by re-parsing a
+/// rendered fence (0018, "the projection is not the database"). Takes the resolved
+/// [`CustomKind`] rather than a name (the `check` gate holds it from [`definitions`]),
+/// so it is total — the extraction cannot fail once the definition is in hand.
+/// [`skill_features`]/[`rule_features`] stay the thin callers over `skill`/`rule`,
+/// neither of which any lock row can address a nested member of.
 #[must_use]
-pub fn features(kind: &CustomKind, unit: &Unit) -> Features {
+pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRow]) -> Features {
     let mut features = kind.extract(unit);
+    features.nested_members = extract::nested_members_from_rows(
+        &extract::host_address(&kind.name, &unit.id),
+        nested_members,
+    );
     for (key, value) in &unit.frontmatter {
         features
             .fields
@@ -624,5 +637,48 @@ disable-model-invocation: true\n\
         let bare_features = rule_features(&bare_unit);
         assert!(bare_features.fields.is_empty());
         assert_eq!(bare_features.body_lines, 3);
+    }
+
+    #[test]
+    fn features_resolves_nested_members_off_the_lock_row_matching_this_members_address() {
+        // The choke point every custom/built-in member's `Features` builds through:
+        // a `NestedMemberRow` addressed to this exact `kind:id` folds in, one for a
+        // different host is left out — never a re-parse of the rendered body.
+        let parent = tmpdir("rule-nested-members");
+        let rules = parent.join("rules");
+        std::fs::create_dir_all(&rules).unwrap();
+        let rule = definition("rule").unwrap().unwrap();
+        std::fs::write(rules.join("uses-directive.md"), "# Rule\n\nBody.\n").unwrap();
+        let member =
+            crate::frontmatter::Member::from_source(&rule, &rules.join("uses-directive.md"))
+                .unwrap();
+        let unit = surface_unit(&member);
+
+        let rows = vec![
+            crate::drift::NestedMemberRow {
+                host: "rule:uses-directive".to_string(),
+                kind: "directive".to_string(),
+                key: "at-import".to_string(),
+                leaves: BTreeMap::from([("target".to_string(), "some/path.md".to_string())]),
+                collections: BTreeMap::new(),
+            },
+            crate::drift::NestedMemberRow {
+                host: "rule:some-other-rule".to_string(),
+                kind: "directive".to_string(),
+                key: "unrelated".to_string(),
+                leaves: BTreeMap::new(),
+                collections: BTreeMap::new(),
+            },
+        ];
+
+        let features = features(&rule, &unit, &rows);
+        assert_eq!(features.nested_members.len(), 1);
+        let nested = &features.nested_members[0];
+        assert_eq!(nested.kind, "directive");
+        assert_eq!(nested.key, "at-import");
+        assert_eq!(
+            nested.leaves.get("target").map(String::as_str),
+            Some("some/path.md")
+        );
     }
 }

@@ -823,25 +823,31 @@ fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default()
     );
 }
 
-/// A `rule` member fencing one `member.directive` block — the shape a host kind's
-/// lock-declared `templates` must fold once overlaid, dark otherwise.
+/// A `rule` member whose projected body carries one `member.directive` fence keyed
+/// `rendered-key` — inert prose under 0018 (the projection is write-only), kept here
+/// only to prove `explain` never re-reads it for facts: the lock's own
+/// `nested_member` row below declares the same child kind under a *different* key
+/// (`at-import`), so a fold-through-fence read and a lock-row read would disagree.
 const DIRECTIVE_TEMPLATED_RULE: &str = "# Rule using a nested directive\n\
 \n\
 Some prose.\n\
 \n\
-```member.directive at-import\n\
+```member.directive rendered-key\n\
 target = \"some/path.md\"\n\
 ```\n";
 
 #[test]
-fn a_lock_declared_templates_row_folds_a_builtin_hosts_member_fence() {
-    // BUILTIN-KIND-TEMPLATES-OVERLAY: a lock row naming a built-in (`rule`) and
-    // declaring `templates` legitimately extends that built-in's host with a child
-    // kind (`row_relocates_builtin`'s own doc comment already names a declared,
-    // non-empty `templates` a legitimate extension, never a collision) — but until the
-    // overlay actually lifts it into the kind `explain`/`gate` extract with, the
-    // member's fence stays dark regardless of content. Prove it now folds.
-    let root = common::tmpdir("builtin-templates-overlay");
+fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
+    // NESTED-MEMBER-LOCK-ROW / RETIRE-FOLD-MEMBERS: a lock row naming a built-in
+    // (`rule`) and declaring `templates` legitimately extends that built-in's host
+    // with a child kind (`row_relocates_builtin`'s own doc comment already names a
+    // declared, non-empty `templates` a legitimate extension, never a collision) —
+    // but the member's embedded facts come from its own `[[declaration.nested_member]]`
+    // row, addressed by `kind:name`, never by re-parsing the rule's rendered fence
+    // (0018, "the projection is not the database"). The row below names a *different*
+    // key than the rendered fence does, so `explain` narrating the row's key alone
+    // proves the fence is never re-read.
+    let root = common::tmpdir("nested-member-row-overlay");
     let rules = root.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(rules.join("uses-directive.md"), DIRECTIVE_TEMPLATED_RULE).unwrap();
@@ -855,19 +861,29 @@ fn a_lock_declared_templates_row_folds_a_builtin_hosts_member_fence() {
          provider = \"claude-code\"\n\
          governs_root = \".claude/rules\"\n\
          governs_glob = \"*.md\"\n\
-         templates = [\"directive\"]\n",
+         templates = [\"directive\"]\n\
+         \n\
+         [[declaration.nested_member]]\n\
+         host = \"rule:uses-directive\"\n\
+         kind = \"directive\"\n\
+         key = \"at-import\"\n\
+         leaves = { target = \"declared/not-rendered.md\" }\n",
     )
     .unwrap();
 
     let out = explain_in(&root, "uses-directive");
     assert!(
         out.contains("Nested members (the embedded members it carries):"),
-        "the lock's declared `templates` must fold the rule's member fence into a \
-         visible nested member instead of leaving it dark, got:\n{out}"
+        "the lock's declared nested-member row must surface as a visible nested \
+         member instead of leaving it dark, got:\n{out}"
     );
     assert!(
         out.contains("`directive` member `at-import`"),
-        "the folded nested member must name its declared child kind and key, got:\n{out}"
+        "the folded nested member must name the row's own declared key, got:\n{out}"
+    );
+    assert!(
+        !out.contains("rendered-key"),
+        "the rendered fence's key must never surface — nothing re-reads it, got:\n{out}"
     );
 }
 

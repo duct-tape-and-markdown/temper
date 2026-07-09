@@ -118,7 +118,7 @@ fn an_agent_member_extracts_its_declared_field_schema() {
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
     let unit = common::surface_unit(&member);
-    let features = builtin_kind::features(&kind, &unit);
+    let features = builtin_kind::features(&kind, &unit, &[]);
 
     assert_eq!(
         features.field("name").and_then(|f| f.as_scalar()),
@@ -193,7 +193,7 @@ fn an_uppercase_name_trips_the_charset_clause() {
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
     let unit = common::surface_unit(&member);
-    let features = builtin_kind::features(&kind, &unit);
+    let features = builtin_kind::features(&kind, &unit, &[]);
 
     let contract = builtin::contract("agent").unwrap();
     let diagnostics = engine::validate(&contract, &[features]);
@@ -212,7 +212,7 @@ fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
     let unit = common::surface_unit(&member);
-    let features = builtin_kind::features(&kind, &unit);
+    let features = builtin_kind::features(&kind, &unit, &[]);
 
     let contract = builtin::contract("agent").unwrap();
     let diagnostics = engine::validate(&contract, &[features]);
@@ -244,6 +244,7 @@ fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
             &first_member.body,
             first_member.provenance.source_path.to_str().unwrap(),
         ),
+        &[],
     );
 
     let second_source = write_agent(&harness, "review/two.md", "reviewer");
@@ -256,6 +257,7 @@ fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
             &second_member.body,
             second_member.provenance.source_path.to_str().unwrap(),
         ),
+        &[],
     );
 
     let contract = builtin::contract("agent").unwrap();
@@ -288,6 +290,7 @@ fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
             &first_member.body,
             first_member.provenance.source_path.to_str().unwrap(),
         ),
+        &[],
     );
 
     let second_source = write_agent(&harness, "two.md", "planner");
@@ -300,6 +303,7 @@ fn two_agents_with_distinct_names_trip_no_uniqueness_clause() {
             &second_member.body,
             second_member.provenance.source_path.to_str().unwrap(),
         ),
+        &[],
     );
 
     let contract = builtin::contract("agent").unwrap();

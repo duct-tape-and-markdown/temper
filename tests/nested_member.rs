@@ -1,78 +1,74 @@
-//! The member-fence nested-member fold, end to end.
+//! Nested-member facts, read off the lock's declared rows.
 //!
-//! A kind declaring an inner-layer `template` extracts each member fence (info string
-//! `member.<kind> <key>`, TOML interior with leaf fields and keyed nested members) into
-//! a typed [`EmbeddedMember`] at the embedded locus: its own identity (child kind +
-//! key), its own prose leaves, and its own nested members one layer deeper — one
-//! member shape, whatever locus it lives at. Every leaf is addressed **structurally**
-//! (member + child kind + key + child path, stable under content edits), member
-//! addressing where leaf addressing used to be; an unfenced block stays plain prose —
-//! adoption is opt-in per block, never an error.
+//! An embedded member's facts are declaration rows the lock carries
+//! (`Declarations::nested_members`), matched to their host member by its own
+//! `kind:name` address — never mined by re-parsing the host's rendered TOML fence
+//! (0018, "the projection is not the database"). `builtin_kind::features` is the
+//! **sole choke point** every custom/built-in member's `Features` builds through, so
+//! these proofs drive it directly rather than the retired `CustomKind::fold_members`.
 
 use std::collections::BTreeMap;
 
-use temper::drift::KindFactRow;
-use temper::kind::{CustomKind, Extraction, Governs, Primitive, Template};
+use temper::builtin_kind;
+use temper::drift::{KindFactRow, NestedMemberRow};
+use temper::kind::{CustomKind, Extraction, Governs};
 
 mod common;
 
-/// A custom `decision` kind composing the `fenced` primitive and declaring one
-/// inner-layer template naming its child kind — the predicates over a nested
-/// member's interior are the bound package's, out of this definition.
+/// A custom `decision` kind. Its own composed extraction carries no primitive at
+/// all — nested-member facts never come from a kind's own extraction, so an empty
+/// one is enough to prove the point.
 fn decision_kind() -> CustomKind {
-    CustomKind {
-        templates: vec![Template {
-            kind: "decision".to_string(),
-        }],
-        ..CustomKind::new(
-            "decision",
-            Governs {
-                root: "docs/decisions".to_string(),
-                glob: "*.md".to_string(),
-            },
-            Extraction::new(vec![Primitive::Fenced]),
-        )
+    CustomKind::new(
+        "decision",
+        Governs {
+            root: "docs/decisions".to_string(),
+            glob: "*.md".to_string(),
+        },
+        Extraction::new(Vec::new()),
+    )
+}
+
+/// The lock row a `blocks()` value composes for a host member: leaves plus one keyed
+/// sibling collection, one layer deep — the same shape `sdk/src/declarations.ts`'s
+/// `nestedMemberRow` writes, `host` addressed as `${kind}:${name}`.
+fn surface_authority_row(host: &str) -> NestedMemberRow {
+    let rejected_leaves = BTreeMap::from([(
+        "because".to_string(),
+        "a stamping projector breaks law 5".to_string(),
+    )]);
+    NestedMemberRow {
+        host: host.to_string(),
+        kind: "decision".to_string(),
+        key: "surface-authority".to_string(),
+        leaves: BTreeMap::from([(
+            "chosen".to_string(),
+            "the composition surface is canonical".to_string(),
+        )]),
+        collections: BTreeMap::from([(
+            "rejected".to_string(),
+            BTreeMap::from([("baked-projection".to_string(), rejected_leaves)]),
+        )]),
     }
 }
 
-/// A body with one member fence (leaf fields + a keyed nested-member collection) and one
-/// plain `sh` block that opts into no nested member.
-fn decision_body() -> &'static str {
-    r#"# Decision: the surface is the source of truth
-
-Leading prose that is only prose.
-
-```member.decision surface-authority
-chosen = """the composition surface is canonical"""
-because = "law 7 needs an authored surface"
-
-[rejected.baked-projection]
-because = "a stamping projector breaks law 5"
-```
-
-An ordinary example, opting into no nested member:
-
-```sh
-cargo build
-```
-
-Trailing prose.
-"#
+/// A raw `Unit` for the `05-surface-authority` decision member — its body is
+/// ordinary prose; nothing in it is read for embedded-member facts.
+fn surface_authority_unit() -> temper::kind::Unit {
+    common::raw_unit(
+        "05-surface-authority",
+        BTreeMap::new(),
+        "# Decision: the surface is the source of truth\n\nLeading prose that is only prose.\n",
+        "docs/decisions/05-surface-authority.md",
+    )
 }
 
 #[test]
-fn a_member_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
-    let features = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        decision_body(),
-        "docs/decisions/05-surface-authority.md",
-    ));
+fn a_lock_row_addressed_to_this_member_resolves_with_its_own_leaves_and_children() {
+    let rows = vec![surface_authority_row("decision:05-surface-authority")];
+    let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
 
-    // Exactly one nested member — the `sh` block opted into none (opt-in per block),
-    // and both raw blocks still ride `fenced_blocks` beside the typed layer.
     assert_eq!(features.nested_members.len(), 1);
-    assert_eq!(features.fenced_blocks.len(), 2);
     let member = &features.nested_members[0];
     assert_eq!(member.kind, "decision");
     assert_eq!(member.key, "surface-authority");
@@ -83,14 +79,10 @@ fn a_member_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
         member.leaves.get("chosen").map(String::as_str),
         Some("the composition surface is canonical")
     );
-    assert_eq!(
-        member.leaves.get("because").map(String::as_str),
-        Some("law 7 needs an authored surface")
-    );
 
     // The nested-member collection is keyed at every level (`rejected` →
-    // `baked-projection` → `because`), never positional — the entry is itself a
-    // full nested member, one layer deeper.
+    // `baked-projection` → `because`), never positional — the entry is itself a full
+    // nested member, one layer deeper.
     let entry = &member.members["rejected"]["baked-projection"];
     assert_eq!(entry.key, "baked-projection");
     assert_eq!(
@@ -101,23 +93,18 @@ fn a_member_fence_extracts_a_nested_member_with_its_own_leaves_and_children() {
 
 #[test]
 fn leaf_addresses_are_structural_member_kind_key_child_path() {
-    let features = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        decision_body(),
-        "docs/decisions/05-surface-authority.md",
-    ));
+    let rows = vec![surface_authority_row("decision:05-surface-authority")];
+    let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
 
     // Every leaf carries a full structural address — the member, the nested member's
-    // identity, and the child path — the leaf-grain surface the read family consumes.
-    // "member addressing" where "leaf addressing" used to be.
+    // identity, and the child path — the leaf-grain surface the read family
+    // consumes.
     let leaves = features.embedded_leaves();
     let paths: Vec<&str> = leaves
         .iter()
         .map(|(address, _)| address.child_path.as_str())
         .collect();
     assert!(paths.contains(&"chosen"));
-    assert!(paths.contains(&"because"));
     // The nested entry's path is keyed by structure, not a positional `rejected.0.because`.
     assert!(paths.contains(&"rejected.baked-projection.because"));
     assert!(!paths.iter().any(|path| path.contains(".0.")));
@@ -133,24 +120,40 @@ fn leaf_addresses_are_structural_member_kind_key_child_path() {
 }
 
 #[test]
-fn an_unfenced_block_stays_plain_prose_no_nested_member_no_error() {
-    // A body whose only fence is a plain code block — no member fence at all. Extraction
-    // yields the raw block and *no* nested member, never an error: adoption is opt-in
-    // per block, and no check quantifies over completeness.
-    let body = "# Notes\n\nProse.\n\n```sh\ncargo test\n```\n\nMore prose.\n";
-    let features = decision_kind().extract(&common::raw_unit(
+fn a_row_addressed_to_a_different_host_never_leaks_into_this_members_features() {
+    let rows = vec![surface_authority_row("decision:some-other-member")];
+    let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
+    assert!(features.nested_members.is_empty());
+}
+
+#[test]
+fn a_member_with_no_matching_row_carries_no_nested_members_no_error() {
+    // No row at all, for any host: `Features::nested_members` is simply empty, never
+    // an error — adoption is opt-in per declared value.
+    let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &[]);
+    assert!(features.nested_members.is_empty());
+}
+
+#[test]
+fn a_body_fence_naming_a_declared_child_kind_is_never_re_read_for_facts() {
+    // The body carries a `member.decision` fence a pre-0018 fold would have parsed —
+    // but with no matching lock row, nothing surfaces. The read side never looks at
+    // the body at all for this fact.
+    let body = "# Decision\n\n```member.decision surface-authority\nchosen = \"x\"\n```\n";
+    let unit = common::raw_unit(
         "05-surface-authority",
         BTreeMap::new(),
         body,
         "docs/decisions/05-surface-authority.md",
-    ));
+    );
+    let features = builtin_kind::features(&decision_kind(), &unit, &[]);
     assert!(features.nested_members.is_empty());
-    assert_eq!(features.fenced_blocks.len(), 1);
 }
 
-/// The `decision` kind's declaration row a lock would carry, its `templates`
-/// column recording the same child kind `decision_kind`'s live SDK declaration
-/// composes (`LOCK-NESTING-TEMPLATES`).
+/// The `decision` kind's declaration row a lock would carry, its `templates` column
+/// recording the same child kind `decision_kind`'s live SDK declaration composes
+/// (`LOCK-NESTING-TEMPLATES`) — a declared fact, independent of how nested members
+/// are actually resolved.
 fn decision_kind_fact_row() -> KindFactRow {
     KindFactRow {
         name: "decision".to_string(),
@@ -165,93 +168,20 @@ fn decision_kind_fact_row() -> KindFactRow {
 }
 
 #[test]
-fn a_lock_reconstructed_kind_folds_the_same_embedded_members_as_its_live_declaration() {
-    // `from_kind_fact_row` lifts the row's `templates` column into the same
-    // `Template.kind` set `fold_members` keys on — a lock-reconstructed kind must
-    // fold the identical nested members its live SDK declaration does, closing the
-    // residual gap the row used to drop.
-    let live = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        decision_body(),
-        "docs/decisions/05-surface-authority.md",
-    ));
-    let reconstructed =
-        CustomKind::from_kind_fact_row(&decision_kind_fact_row()).extract(&common::raw_unit(
-            "05-surface-authority",
-            BTreeMap::new(),
-            decision_body(),
-            "docs/decisions/05-surface-authority.md",
-        ));
+fn a_lock_reconstructed_kind_resolves_the_same_embedded_members_as_its_live_declaration() {
+    // Both a live SDK-composed `CustomKind` and one reconstructed off its lock row
+    // share the same bare name, so both address a lock row identically —
+    // `builtin_kind::features` resolves nested members off that address alone, never
+    // off the kind's own extraction or declared `templates`.
+    let rows = vec![surface_authority_row("decision:05-surface-authority")];
+
+    let live = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
+    let reconstructed = builtin_kind::features(
+        &CustomKind::from_kind_fact_row(&decision_kind_fact_row()),
+        &surface_authority_unit(),
+        &rows,
+    );
 
     assert_eq!(reconstructed.nested_members.len(), 1);
     assert_eq!(reconstructed.nested_members, live.nested_members);
-}
-
-#[test]
-fn a_fence_naming_an_undeclared_child_kind_stays_raw() {
-    // A `member.`-prefixed fence whose child kind the host kind does not declare a
-    // template for is matched by no shape — it stays a raw block, not a typed nested
-    // member. The declared template set is the gate on which fences fold.
-    let body = "# X\n\n```member.law fearless-refactoring\nstatement = \"law 6\"\n```\n";
-    let features = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        body,
-        "docs/decisions/05-surface-authority.md",
-    ));
-    assert!(features.nested_members.is_empty());
-    assert_eq!(features.fenced_blocks.len(), 1);
-}
-
-#[test]
-fn a_genre_prefixed_fence_is_now_a_plain_block_not_a_nested_member() {
-    // The read fold speaks the kernel noun: a fence still carrying the retired
-    // `genre.` prefix parses as no member at all (`parse_embedded_info` matches only
-    // `member.`), so it rides `fenced_blocks` raw, never `nested_members`.
-    let body = "# X\n\n```genre.decision surface-authority\nchosen = \"x\"\n```\n";
-    let features = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        body,
-        "docs/decisions/05-surface-authority.md",
-    ));
-    assert!(features.nested_members.is_empty());
-    assert_eq!(features.fenced_blocks.len(), 1);
-    assert_eq!(
-        features.fenced_blocks[0].info,
-        "genre.decision surface-authority"
-    );
-}
-
-#[test]
-fn a_blocks_body_the_sdk_writes_folds_back_to_an_identical_embedded_member() {
-    // The write↔read round trip: the exact bytes `sdk/src/emit.ts`'s `resolveBody`
-    // renders for a `blocks()` value (`member.<kind> <key>` fence, leaves as quoted
-    // TOML strings, a keyed collection as its own `[collection.entry]` table) fold
-    // back through this same kind's extractor to the identical `EmbeddedMember` the
-    // authored-fence fixture above (`decision_body`) yields.
-    let written_body = "# Decision: the surface is the source of truth\n\n\
-```member.decision surface-authority\n\
-chosen = \"the composition surface is canonical\"\n\
-because = \"law 7 needs an authored surface\"\n\
-\n\
-[rejected.baked-projection]\n\
-because = \"a stamping projector breaks law 5\"\n\
-```\n";
-    let written = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        written_body,
-        "docs/decisions/05-surface-authority.md",
-    ));
-    let authored = decision_kind().extract(&common::raw_unit(
-        "05-surface-authority",
-        BTreeMap::new(),
-        decision_body(),
-        "docs/decisions/05-surface-authority.md",
-    ));
-
-    assert_eq!(written.nested_members.len(), 1);
-    assert_eq!(written.nested_members, authored.nested_members);
 }

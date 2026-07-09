@@ -423,7 +423,7 @@ fn explain(target: &str) -> miette::Result<String> {
         let units = resolve_kind_units(&custom_kind, harness_root, &declarations)?;
         let features: Vec<extract::Features> = units
             .iter()
-            .map(|unit| builtin_kind::features(&custom_kind, unit))
+            .map(|unit| builtin_kind::features(&custom_kind, unit, &declarations.nested_members))
             .collect();
         for unit in &units {
             custom_members.push(read::CustomMember {
@@ -847,9 +847,10 @@ fn resolve_kind_units(
 }
 
 /// A kind's members' extracted [`Features`](extract::Features) — [`resolve_kind_units`]
-/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction, so
-/// a lock row's declared `templates` against a built-in host folds that built-in's
-/// nested-member fences exactly as a custom kind's own declared templates already do.
+/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
+/// each member's nested-member facts resolved off the lock's own declared
+/// `nested_members` rows by address ([`builtin_kind::features`]), never by re-parsing
+/// its rendered body.
 ///
 /// # Errors
 ///
@@ -862,7 +863,7 @@ fn kind_features(
     let kind = overlay_builtin_kind(kind, declarations);
     Ok(resolve_kind_units(&kind, harness_root, declarations)?
         .iter()
-        .map(|unit| builtin_kind::features(&kind, unit))
+        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
         .collect())
 }
 
@@ -962,7 +963,7 @@ fn collect_directive_members(
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
         for unit in resolve_kind_units(kind, harness_root, declarations)? {
-            let feature = builtin_kind::features(kind, &unit);
+            let feature = builtin_kind::features(kind, &unit, &declarations.nested_members);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),
                 id: feature.id.clone(),
@@ -975,7 +976,7 @@ fn collect_directive_members(
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
         for unit in resolve_kind_units(&custom_kind, harness_root, declarations)? {
-            let feature = builtin_kind::features(&custom_kind, &unit);
+            let feature = builtin_kind::features(&custom_kind, &unit, &declarations.nested_members);
             members.push(graph::DirectiveMember {
                 kind: custom_kind.name.clone(),
                 id: feature.id.clone(),

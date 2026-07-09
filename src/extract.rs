@@ -300,14 +300,11 @@ pub struct Features {
     /// the same fence boundaries the heading extractor tracks, surfaced whole. Empty
     /// when the kind composes no `fenced` primitive.
     pub fenced_blocks: Vec<FencedBlock>,
-    /// The body's **nested members**, in document order — each a member fence
-    /// (`member.<kind> <key>`) whose interior TOML parsed into a typed
-    /// [`EmbeddedMember`] at the embedded locus. The typed layer
-    /// over [`fenced_blocks`](Features::fenced_blocks): a raw block whose info string
-    /// names a child kind the host kind declares is folded here beside its raw form,
-    /// keyed by the fence's kind+key; every other fenced block stays raw-only. Empty
-    /// when the kind declares no templates, or no block opts into one — adoption is
-    /// per-block, and no check quantifies over its completeness.
+    /// The host member's own **nested members** — its declared [`EmbeddedMember`]s,
+    /// read off the lock's own `Declarations::nested_members` rows by this member's
+    /// `kind:name` address ([`nested_members_from_rows`]), never mined from
+    /// [`fenced_blocks`](Features::fenced_blocks) (0018, "the projection is not the
+    /// database"). Empty when the lock carries no row for this member.
     pub nested_members: Vec<EmbeddedMember>,
     /// The requirements this artifact opts into filling — the authored
     /// `[representation].satisfies` bindings, surfaced for the coverage check.
@@ -523,77 +520,63 @@ fn fence_info(line: &str, fence_char: char) -> String {
         .to_string()
 }
 
-/// Parse a member fence's **info string** into its `(kind, key)` identity, or `None`
-/// when the block is not a member fence: a member fence's info string is `member.<kind> <key>`
-/// (`member.decision surface-authority`) — the `member.` prefix, the child kind name,
-/// then the fence key. Any other info string (a bare `` ``` ``, a `sh`, a `toml`) is a
-/// plain fenced block, not a nested member — adoption is opt-in per block, so a
-/// non-match is silently *not* a nested member, never an error. Exactly two tokens: a
-/// stray third token is a malformed info string, not a third address level, so it
-/// yields `None`.
-pub(crate) fn parse_embedded_info(info: &str) -> Option<(String, String)> {
-    let rest = info.strip_prefix("member.")?;
-    let mut tokens = rest.split_whitespace();
-    let kind = tokens.next()?;
-    let key = tokens.next()?;
-    if tokens.next().is_some() {
-        return None;
-    }
-    Some((kind.to_string(), key.to_string()))
+/// This host member's own `kind:name` lock address — the key
+/// [`crate::drift::NestedMemberRow::host`] carries, the identical `${kind}:${name}`
+/// form `sdk/src/declarations.ts`'s `nestedMemberRows` writes it in.
+#[must_use]
+pub(crate) fn host_address(kind: &str, id: &str) -> String {
+    format!("{kind}:{id}")
 }
 
-/// Parse a member fence's **interior TOML** into an [`EmbeddedMember`], or `None` when
-/// the interior is not well-formed TOML.
-/// A top-level string
-/// value is a **prose leaf**; a top-level table is a keyed collection of **nested
-/// members**, one per sub-table, each entry's own string values its own leaves. Any
-/// other TOML type is neither a prose leaf nor a nested member, so it is not surfaced —
-/// leaves are authored strings, never inferred from a scalar or array.
-/// Malformed interior TOML yields no nested member; the raw [`FencedBlock`] still
-/// carries the bytes, so nothing is lost, and extraction stays total (no error channel
-/// at this boundary).
-pub(crate) fn parse_embedded_member(
-    kind: &str,
-    key: &str,
-    interior: &str,
-) -> Option<EmbeddedMember> {
-    let doc = interior.parse::<toml_edit::DocumentMut>().ok()?;
-    let mut leaves = BTreeMap::new();
-    let mut members = BTreeMap::new();
-    for (field, item) in doc.as_table().iter() {
-        if let Some(text) = item.as_str() {
-            leaves.insert(field.to_string(), text.to_string());
-        } else if let Some(entries_table) = item.as_table_like() {
-            let mut entries = BTreeMap::new();
-            for (entry_key, entry_item) in entries_table.iter() {
-                let Some(entry_table) = entry_item.as_table_like() else {
-                    continue;
-                };
-                let mut entry_leaves = BTreeMap::new();
-                for (leaf, leaf_item) in entry_table.iter() {
-                    if let Some(text) = leaf_item.as_str() {
-                        entry_leaves.insert(leaf.to_string(), text.to_string());
-                    }
-                }
-                entries.insert(
-                    entry_key.to_string(),
-                    EmbeddedMember {
-                        kind: field.to_string(),
-                        key: entry_key.to_string(),
-                        leaves: entry_leaves,
-                        members: BTreeMap::new(),
-                    },
-                );
-            }
-            members.insert(field.to_string(), entries);
-        }
+/// Build a host member's typed nested members off its own declared
+/// [`NestedMemberRow`](crate::drift::NestedMemberRow)s, matched by `host` address — the
+/// read-side replacement for the retired member-fence fold (0018, "the projection is
+/// not the database"): a row exists only because an SDK program declared it, so the
+/// address match is the whole admissibility check, no declared-template leniency layer
+/// on top.
+#[must_use]
+pub(crate) fn nested_members_from_rows(
+    host: &str,
+    rows: &[crate::drift::NestedMemberRow],
+) -> Vec<EmbeddedMember> {
+    rows.iter()
+        .filter(|row| row.host == host)
+        .map(embedded_member_from_row)
+        .collect()
+}
+
+/// Lift one [`NestedMemberRow`](crate::drift::NestedMemberRow) into its typed
+/// [`EmbeddedMember`]: the row's flat `collections` column (collection → entry key →
+/// field → string) expands one layer deep into nested `EmbeddedMember`s, each keyed by
+/// its owning collection name and entry key — the same one-layer shape the retired
+/// fence fold produced.
+fn embedded_member_from_row(row: &crate::drift::NestedMemberRow) -> EmbeddedMember {
+    EmbeddedMember {
+        kind: row.kind.clone(),
+        key: row.key.clone(),
+        leaves: row.leaves.clone(),
+        members: row
+            .collections
+            .iter()
+            .map(|(collection, entries)| {
+                let entries = entries
+                    .iter()
+                    .map(|(entry_key, leaves)| {
+                        (
+                            entry_key.clone(),
+                            EmbeddedMember {
+                                kind: collection.clone(),
+                                key: entry_key.clone(),
+                                leaves: leaves.clone(),
+                                members: BTreeMap::new(),
+                            },
+                        )
+                    })
+                    .collect();
+                (collection.clone(), entries)
+            })
+            .collect(),
     }
-    Some(EmbeddedMember {
-        kind: kind.to_string(),
-        key: key.to_string(),
-        leaves,
-        members,
-    })
 }
 
 /// The fence marker a line carries, if any: the fence character (`` ` `` or
@@ -1044,5 +1027,64 @@ prose below\n";
         assert_eq!(ValueType::from_name("array"), None);
         assert_eq!(ValueType::from_name("int"), None);
         assert_eq!(ValueType::from_name(""), None);
+    }
+
+    /// A [`crate::drift::NestedMemberRow`] carrying leaves plus one keyed sibling
+    /// collection one layer deep — the shape a `blocks()` value composes.
+    fn decision_row() -> crate::drift::NestedMemberRow {
+        crate::drift::NestedMemberRow {
+            host: "decision:05-surface-authority".to_string(),
+            kind: "decision".to_string(),
+            key: "surface-authority".to_string(),
+            leaves: BTreeMap::from([(
+                "chosen".to_string(),
+                "the composition surface is canonical".to_string(),
+            )]),
+            collections: BTreeMap::from([(
+                "rejected".to_string(),
+                BTreeMap::from([(
+                    "baked-projection".to_string(),
+                    BTreeMap::from([(
+                        "because".to_string(),
+                        "a stamping projector breaks law 5".to_string(),
+                    )]),
+                )]),
+            )]),
+        }
+    }
+
+    #[test]
+    fn nested_members_from_rows_matches_only_the_named_host_address() {
+        let rows = vec![decision_row()];
+
+        let matched = nested_members_from_rows("decision:05-surface-authority", &rows);
+        assert_eq!(matched.len(), 1);
+        assert!(nested_members_from_rows("decision:some-other", &rows).is_empty());
+    }
+
+    #[test]
+    fn nested_members_from_rows_lifts_leaves_and_one_layer_of_collections() {
+        let rows = vec![decision_row()];
+        let members = nested_members_from_rows("decision:05-surface-authority", &rows);
+
+        let member = &members[0];
+        assert_eq!(member.kind, "decision");
+        assert_eq!(member.key, "surface-authority");
+        assert_eq!(
+            member.leaves.get("chosen").map(String::as_str),
+            Some("the composition surface is canonical")
+        );
+
+        let entry = &member.members["rejected"]["baked-projection"];
+        assert_eq!(entry.key, "baked-projection");
+        assert_eq!(
+            entry.leaves.get("because").map(String::as_str),
+            Some("a stamping projector breaks law 5")
+        );
+    }
+
+    #[test]
+    fn host_address_is_kind_colon_id() {
+        assert_eq!(host_address("rule", "collaboration"), "rule:collaboration");
     }
 }
