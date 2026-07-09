@@ -1,29 +1,28 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: 5d995a3
+- Audited through: 2c853af
 - Residue swept through: 5d995a3
-- This tick: Quiet closing pass (job 5). Inbox empty, no refactor captures
-  live. No `specs/` commits past f87cc0c. No commits touched src/tests/sdk
-  past dd38241 — `git log dd38241..HEAD -- src tests sdk` is empty (the two
-  intervening commits are both `plan:` bookkeeping), so job 3 has nothing to
-  audit and job 4's prior sweep already covers HEAD's source tree; both
-  cursors advance to HEAD. Spot-verified the open queue's cited surfaces
-  still resolve unchanged: `row_relocates_builtin` (src/main.rs:980-986,
-  the `declared.templates.is_empty() || declared.templates ==
-  builtin.templates` check intact), `published_requirements` sites
-  (extract.rs:328, kind.rs:652, read.rs:1094/1226/1513), `assemble_by_kind`
-  called from both `explain` (:438) and `gate` (:662) confirming the
-  duplication. PACKAGING-CHANNELS parked reason reconfirmed:
-  `.github/workflows/` still holds only `temper.yml`; root `package.json`
-  still `"name": "temper-flume-harness"`, `"private": true`. Queue is
-  disjoint: TEMPLATES-RELOCATION-COLLISION-REGRESSION (open) touches only
-  src/main.rs; RETIRE-DEAD-PUBLISHED-REQUIREMENTS-SURFACE (open) touches
-  extract.rs/kind.rs/read.rs — no overlap; MEMORY-ENTERS-REQUIREMENT-CORPUS
-  is blockedBy the first so never concurrently open with it.
-- Queue: unchanged — TEMPLATES-RELOCATION-COLLISION-REGRESSION open (next);
-  MEMORY-ENTERS-REQUIREMENT-CORPUS blockedBy it; RETIRE-DEAD-PUBLISHED-
-  REQUIREMENTS-SURFACE open, disjoint; PACKAGING-CHANNELS parked.
+- This tick: Ship audit (job 3), commits 5d995a3..2c853af touched src/tests.
+  `3e125da` and `19a4a5c` shipped TEMPLATES-RELOCATION-COLLISION-REGRESSION
+  (main.rs's `row_relocates_builtin` templates equality drop, confirmed —
+  diff matches the entry's description) and RETIRE-DEAD-PUBLISHED-
+  REQUIREMENTS-SURFACE (Features.published_requirements and impact's
+  dangling-demand narration gone, confirmed — zero `published_requirements`
+  hits left in src/); `2c853af` (human `chore(flume)`) already drained both
+  from pending.json. Re-tested the stale `blockedBy` gate on
+  MEMORY-ENTERS-REQUIREMENT-CORPUS per job 3's instruction: its blocker
+  shipped, so verified the entry's premise live on disk —
+  main.rs:582-601 (gate's skill/rule-only dispatch), :893-904
+  (assemble_by_kind's two-param signature), :400-438 (explain's independent
+  re-derivation) all confirmed unchanged by the two builds. Unblocked:
+  gate flips blockedBy -> open, line refs and notes refreshed to HEAD.
+  PACKAGING-CHANNELS parked reason re-checked, unchanged (no
+  `.github/workflows/release.yml`, root package.json still the private
+  flume manifest).
+- Queue: MEMORY-ENTERS-REQUIREMENT-CORPUS open (next, disjoint —
+  touches only src/main.rs); PACKAGING-CHANNELS parked, disjoint (touches
+  package.json + a new release.yml).
 
-Plan continues: no — all inputs current, queue disjoint and pickable, gate
-reasons re-verified true; hand off to build.
+Plan continues: yes — residue sweep cursor (5d995a3) trails HEAD (2c853af);
+job 4 is next.

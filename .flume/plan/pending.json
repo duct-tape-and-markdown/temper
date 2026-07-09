@@ -6,17 +6,14 @@
       "path": "specs/model/contract.md",
       "section": "selection"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "TEMPLATES-RELOCATION-COLLISION-REGRESSION"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "assemble_by_kind (~L896-907) takes exactly `skill_features`/`rule_features` params, not a generic collection. gate()'s built-in loop (~L584-605) captures only `\"skill\"`/`\"rule\"` out of its per-kind dispatch via `match kind.name.as_str() { ... _ => {} }`, discarding every other built-in's features (a memory member's declared `satisfies` never reaches `by_kind`/`all_features`, ~L662-671, though gate's own two-greens validate it fine). explain() (~L400-438) independently re-derives the identical shape by hand — fetching `skill_kind`/`rule_kind` by name rather than looping `builtin_kind::definitions()` — a second implementation of the same corpus assembly, so `gate` and `explain` can silently disagree. Consolidate: one shared helper loops every `builtin_defs` kind (as gate's two-greens loop already does) into a generic `BTreeMap<String, Vec<Features>>`; `assemble_by_kind` takes that map plus `custom_kinds`; both `gate()` and `explain()` call the one helper."
+          "description": "assemble_by_kind (~L893-904) takes exactly `skill_features`/`rule_features` params, not a generic collection. gate()'s built-in loop (~L582-601) captures only `\"skill\"`/`\"rule\"` out of its per-kind dispatch via `match kind.name.as_str() { ... _ => {} }`, discarding every other built-in's features (a memory member's declared `satisfies` never reaches `by_kind`/`all_features`, though gate's own two-greens validate it fine). explain() (~L400-438) independently re-derives the identical shape by hand — fetching `skill_kind`/`rule_kind` by name rather than looping `builtin_kind::definitions()` — a second implementation of the same corpus assembly, so `gate` and `explain` can silently disagree. Consolidate: one shared helper loops every `builtin_defs` kind (as gate's two-greens loop already does) into a generic `BTreeMap<String, Vec<Features>>`; `assemble_by_kind` takes that map plus `custom_kinds`; both `gate()` and `explain()` call the one helper."
         }
       ],
       "retire": []
@@ -33,7 +30,7 @@
       }
     ],
     "acceptance": "explain <requirement> and roster::check/graph::degree/coverage::check agree that a memory member's declared satisfies row counts; gate() and explain() share one corpus-assembly implementation instead of two independent ones.",
-    "notes": "Field-reported (observed at f9cc899), re-verified live at HEAD: main.rs:582-605 dispatch, :896-907 assemble_by_kind, :400-438 explain's independent re-derivation all confirmed on disk. Sibling BUILTIN_DEFAULT_CONTRACT_KINDS (main.rs:57, schema command's contract listing) is a distinct, already self-commented deferral (\"widening it to memory is a separate question\") — out of scope here. Pre-existing debt from skill_rule_corpus (c9a576c), not a new regression. scoped at 967b0e6"
+    "notes": "Field-reported (observed at f9cc899), re-verified live at HEAD 2c853af: main.rs:582-601 dispatch, :893-904 assemble_by_kind, :400-438 explain's independent re-derivation all confirmed on disk. Sibling BUILTIN_DEFAULT_CONTRACT_KINDS (main.rs:57) is a distinct, self-commented deferral — out of scope. Unblocked this tick: blocker TEMPLATES-RELOCATION-COLLISION-REGRESSION shipped at 3e125da, the only other main.rs entry serializing this one. scoped at 967b0e6"
   },
   {
     "tag": "PACKAGING-CHANNELS",
