@@ -1,5 +1,34 @@
 [
   {
+    "tag": "INSTALL-HOOK-APPEND-COVERAGE",
+    "summary": "Add an install.rs fixture exercising json_splice::append_element's populated-array branch — a sibling tool's pre-existing hook entry, appended-after path, currently untested",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/install.rs",
+          "description": "Add a fixture settings.json whose `hooks.SessionStart` (or `hooks.PreToolUse`) array already carries one entry belonging to a different, non-temper tool (not our own hook, so `hook_present`/`guard_present` is false but the key already exists) before `install::run`. Assert temper's own group is appended after the sibling entry, byte-for-byte, without disturbing it. This reaches `splice_hooks`'s `Some(member) =>` arms (src/install.rs:862 for SessionStart, :883 for PreToolUse) which call `json_splice::append_element` (src/json_splice.rs:220-234) — specifically its `Some(&(_, last_end))` populated-array arm (:224-227). Every current fixture (`NON_CANONICAL_SETTINGS_WITH_HOOK` et al.) either starts with no prior hooks key (hitting `insert_member`'s fresh-key path instead) or with temper's own already-matching entry (skipping the append branch entirely), so the populated-array append is exercised nowhere today."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "installing onto a settings.json with a pre-existing sibling hook array (SessionStart or PreToolUse) appends temper's own group after the sibling entry, preserving it, and converges (unchanged) on a second run"
+      }
+    ],
+    "acceptance": "A new tests/install.rs case drives json_splice::append_element's populated-array arm end to end via install::run; cargo test is green.",
+    "notes": "Drained from .flume/refactor/session-install-append-to-existing-untested.md (observed a32a45f); reverified at HEAD cb18a56 — no commits touched install.rs, json_splice.rs, or tests/install.rs since, so the gap is unchanged. Capture file deleted this tick per its own draining protocol. Coverage is a check (CLAUDE.md), not a gate; this entry's own bar is the cargo test gate, not a coverage threshold."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {

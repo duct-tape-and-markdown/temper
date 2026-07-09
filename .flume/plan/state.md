@@ -3,18 +3,21 @@
 - Spec derived through: f87cc0c
 - Audited through: dd7517a
 - Residue swept through: 8dfceee
-- This tick: Quiet closing pass (job 5). Inbox empty, no live refactor
-  captures (only README.md template in .flume/refactor/); no specs/ commits
-  past f87cc0c; no src/tests/sdk commits past dd7517a (8dfceee and 09fee9f
-  are plan bookkeeping only) so audit and residue cursors hold unchanged.
-  Re-verified PACKAGING-CHANNELS's parked reason on disk: .github/workflows/
-  has only temper.yml (a check job), no release.yml; root package.json is
-  still the private temper-flume-harness manifest (no optionalDependencies,
-  no launcher); sdk/package.json @dtmd/temper still at 0.0.5. Sole queue
-  entry stays correctly parked.
-- Queue: PACKAGING-CHANNELS parked, sole entry, disjoint (touches
-  package.json + a new release.yml).
+- This tick: Job 1 (refactor capture). `.flume/refactor/` held one live
+  capture beyond the README template:
+  `session-install-append-to-existing-untested.md` (observed a32a45f),
+  claiming `json_splice::append_element`'s populated-array arm (append a
+  hook into an array that already holds a sibling tool's entry) is untested.
+  Reverified at HEAD cb18a56: no commits touched install.rs, json_splice.rs,
+  or tests/install.rs since a32a45f, and read both files plus every
+  tests/install.rs fixture directly — the claim holds, every fixture either
+  starts hookless (insert_member's fresh path) or already matches temper's
+  own entry (skips the append). Filed INSTALL-HOOK-APPEND-COVERAGE (open,
+  per specs/process/engineering.md "One job, one home") and deleted the
+  capture file.
+- Queue: INSTALL-HOOK-APPEND-COVERAGE (open, next), PACKAGING-CHANNELS
+  (parked). Disjoint — new entry touches only tests/install.rs.
 
-Plan continues: no — all four inputs current, sole entry's parked reason
-reconfirmed; nothing pickable until human release infra + decide-at-release
-calls land; loop hibernates.
+Plan continues: yes — residue sweep (job 4) trails HEAD: cursor 8dfceee vs
+HEAD cb18a56, with .flume/PROTOCOL.md, chain.ts, and projection commits in
+between still unswept.
