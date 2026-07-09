@@ -1,52 +1,5 @@
 [
   {
-    "tag": "NESTED-MEMBER-LOCK-ROW",
-    "summary": "Add a nested-member declaration-row lock family (SDK + Rust) so an embedded member's facts are carried as declared rows, per 0018 — additive; the fold-based read side is untouched this entry",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Add a `NestedMemberRow` struct + `Declarations` field, following the existing `KindFactRow`/`ClauseRow`/`RequirementRow` pattern (the `Declarations` struct, the `insert_family` calls inside `Declarations::write_into`, and `read_declarations`/`parse_declarations`); new TOML family `[[declaration.nested_member]]`, array-of-tables like the other six families."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Add a `NestedMemberRow` interface + `nestedMemberRows()` builder following `clauseRow()`/`requirementRows()`/`mentionRows()`'s shape; wire into `compileDeclarations` (currently returns six families) so it returns seven."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`compileDeclarations`'s traversal needs to also visit each host member's declared `EmbeddedMemberValue`s (today only reached via `resolveBody`'s `blocks` branch, which renders them into the TOML fence) to feed `nestedMemberRows()`. The fence rendering itself (`renderMemberToml`/`renderMemberFence`/`resolveBody`'s `blocks` branch) is unchanged — the artifact is still written; only the fact source doubles into declaration rows per 0018 ('its serialized form is the artifact only... never a second copy the engine reads back')."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "The embedded built-in lock is SDK-derived, never hand-edited (`.claude/rules/sdk.md`, 'The engine seam') — regenerate via the SDK build once the new row family exists, so `tests/builtin_lock_frozen.rs` stays green with the new family present (empty, since no built-in kind declares an embedded member today)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "A declared embedded member's facts round-trip through the lock as `[[declaration.nested_member]]` rows, the same way `a_host_kinds_declared_templates_round_trip_through_the_lock` already proves for the templates row."
-      },
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "`compileDeclarations` produces seven families (the existing 'produces all six families' test at line ~143 grows a seventh), and a harness with a `blocks()`-declared embedded member surfaces a matching `NestedMemberRow` alongside its unchanged rendered fence."
-      }
-    ],
-    "acceptance": "A harness declaring an embedded member emits a `[[declaration.nested_member]]` lock row (SDK `compileDeclarations` and Rust `Declarations` both round-trip it byte-stable); the fence still renders into the host's body unchanged; `CustomKind::fold_members` is untouched and remains the sole fact source until RETIRE-FOLD-MEMBERS lands.",
-    "notes": "Slice 1 of 2 for decision 0018 ('the projection is not the database'); scoped at 3ed138f. Deliberately additive/inert so it ships green alone — RETIRE-FOLD-MEMBERS (blockedBy this tag) is the entry that switches the read side over and retires the fence re-parse, per the decision's own 'sequenced independently-green' framing."
-  },
-  {
     "tag": "RETIRE-FOLD-MEMBERS",
     "summary": "Switch check/gate/explain to read nested-member facts from the new lock rows; retire CustomKind::fold_members's fence re-parse with no fallback, per 0018",
     "per": {
