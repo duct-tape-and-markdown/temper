@@ -133,7 +133,15 @@ condition arrives, it is the next break. If work touches one, surface it.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
-  proves end to end (`specs/model/representation.md`, "Reach").
+  proves end to end (`specs/model/representation.md`, "Reach"). Cost surfaced
+  2026-07-09: `.flume/prompts/{plan,build}.md` now name two `.claude/`
+  members (`pending-entry` rule, `capture-friction` skill) in prose only —
+  `Requirement.kind` takes a `KindDefinition` by import and no built-in kind's
+  `locus` targets `.flume/`, so neither side of that pointer can become a
+  `requires`/`satisfies` edge without a new flume-prompt kind. A rename of
+  either member drifts the prompt's pointer silently; `temper check` stays
+  green regardless. Kept — one drift-risk instance doesn't yet justify the
+  governed-corpus lift.
 
 - **`docs/` is candidate intent, not intent** — human territory,
   fence-excluded; plan never reads a horizon entry as intent.
