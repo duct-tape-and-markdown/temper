@@ -50,6 +50,10 @@ checks are well-formedness: the preconditions of checking at all
    a live session would be hostile, the verdict is surfaced for approval,
    never silently passed. Enforcement mode is author-declared per
    placement.
+6. **Loud or nothing.** A failure temper can detect is an error message at
+   author-time — no path silently degrades, deletes, reconciles, or emits
+   over an unresolved input. The per-surface refusal clauses are instances
+   of this rule; a surface without one is a gap, not a license.
 
 ## Positioning
 
