@@ -75,6 +75,20 @@ routing.
   shape, not yet verified further: `BUILTIN_DEFAULT_CONTRACT_KINDS`
   (`main.rs:63`, still `&["skill", "rule"]`) — worth checking when this
   entry is scoped, in case default-contract lookup has the same gap.
+  One more scoping fact, confirmed by reading both sites in full:
+  `gate()` and `explain()` are two independent implementations of the same
+  corpus-assembly shape, not one function with one caller —
+  `explain()` (`main.rs:~414-444`) separately fetches `skill_kind`/
+  `rule_kind`, computes its own `skill_features`/`rule_features`, and
+  calls the identical `assemble_by_kind(&skill_features, &rule_features,
+  &custom_kinds)` `gate()` does. Widening `assemble_by_kind`'s signature
+  and fixing only one call site leaves the other on the old two-kind
+  assumption — `explain` and `check` would start disagreeing about which
+  members satisfy what, which is worse than both being wrong the same
+  way. Scope this entry to consolidate the two into one shared
+  corpus-assembly helper, not patch each copy — the `specs/process/
+  engineering.md` standard this repo just ratified names this exact
+  shape ("one job, one home").
 
   Not filed, already correctly resolved by plan's own re-verify-before-
   scoping discipline: T14 (kind-rename-deletes-files) does not reproduce —
