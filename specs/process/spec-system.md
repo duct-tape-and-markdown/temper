@@ -52,9 +52,10 @@ Five, by placement:
 
 A change to `model/` is deliberate: update the section to the new truth,
 append one decision record in the same commit, and tag the pre-state when
-the change retires a noun or a mechanism. Drafting is the session's work at
-every tier; the `specs:` commit is the human's cold read over the diff —
-never a formality, and never an autonomous phase's to make. A dissolution
+the change retires a noun or a mechanism. A `specs:` commit belongs to the
+session, where the human is in the loop — never to an autonomous phase; the
+session verifies its own draft against corpus and code before it lands, and
+that verification is nobody else's to perform after the fact. A dissolution
 names what it retires; derived layers demolish only what a decision names.
 
 ## Depth rule
