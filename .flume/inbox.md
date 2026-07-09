@@ -37,12 +37,19 @@ routing.
   only, so the 3-of-5-kinds authoring gap shipped invisibly and no
   subsequent residue sweep named it (nothing routes an unshipped
   decision-consequence by symbol grep the way retired vocabulary does).
-  Fix shape: retype `Requirement.kind` to a narrower structural interface —
-  `{ readonly key: string }`-ish, satisfied by every `KindDefinition<T>`
-  regardless of `T`'s required fields since only `.key` is ever read — never
-  a plain string, preserving "identity travels by import" (`specs/model/
-  contract.md`, "requirement"). No Rust-side change; no lock/SEAM_VERSION
-  bump; `sdk/test/refusals.test.ts`'s existing `kind: rule` cases plus a new
+  Fix shape (recut 2026-07-09 against the invariant, not just compilation):
+  retype to `KindDefinition<never>` — `T` sits contravariantly (the sole
+  call signature `(init: MemberInit<T>) => Member`), so `never` makes it the
+  universal supertype: every `KindDefinition<T>` is assignable regardless of
+  `T`'s required fields, and only `.key` is ever read. Rejected alternative,
+  and the shape this note originally proposed: a structural
+  `{ readonly key: string }` — it compiles, but a hand-written
+  `{ key: "skil" }` literal satisfies it, which is identity-by-string in an
+  object wrapper; the invariant is "identity travels by import, never by
+  string" (`specs/model/representation.md`, "kind"; `specs/builtins.md` —
+  NOT `contract.md` "requirement", which this note first miscited), and the
+  callable bar is what keeps an object literal out. No Rust-side change; no
+  lock/SEAM_VERSION bump; `sdk/test/refusals.test.ts`'s existing `kind: rule` cases plus a new
   `kind: skill`/`kind: agent`/`kind: command` case should cover it. Observed
   at 0f5fcd0.
 
