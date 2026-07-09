@@ -749,6 +749,54 @@ fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default()
     );
 }
 
+/// A `rule` member fencing one `member.directive` block — the shape a host kind's
+/// lock-declared `templates` must fold once overlaid, dark otherwise.
+const DIRECTIVE_TEMPLATED_RULE: &str = "# Rule using a nested directive\n\
+\n\
+Some prose.\n\
+\n\
+```member.directive at-import\n\
+target = \"some/path.md\"\n\
+```\n";
+
+#[test]
+fn a_lock_declared_templates_row_folds_a_builtin_hosts_member_fence() {
+    // BUILTIN-KIND-TEMPLATES-OVERLAY: a lock row naming a built-in (`rule`) and
+    // declaring `templates` legitimately extends that built-in's host with a child
+    // kind (`row_relocates_builtin`'s own doc comment already names a declared,
+    // non-empty `templates` a legitimate extension, never a collision) — but until the
+    // overlay actually lifts it into the kind `explain`/`gate` extract with, the
+    // member's fence stays dark regardless of content. Prove it now folds.
+    let root = common::tmpdir("builtin-templates-overlay");
+    let rules = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("uses-directive.md"), DIRECTIVE_TEMPLATED_RULE).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.kind]]\n\
+         name = \"rule\"\n\
+         provider = \"claude-code\"\n\
+         governs_root = \".claude/rules\"\n\
+         governs_glob = \"*.md\"\n\
+         templates = [\"directive\"]\n",
+    )
+    .unwrap();
+
+    let out = explain_in(&root, "uses-directive");
+    assert!(
+        out.contains("Nested members (the embedded members it carries):"),
+        "the lock's declared `templates` must fold the rule's member fence into a \
+         visible nested member instead of leaving it dark, got:\n{out}"
+    );
+    assert!(
+        out.contains("`directive` member `at-import`"),
+        "the folded nested member must name its declared child kind and key, got:\n{out}"
+    );
+}
+
 #[test]
 fn a_harness_with_no_lock_is_gated_by_the_built_in_lock() {
     // No `.temper/lock.toml` at all (never imported): `declarations.kinds` is empty, so

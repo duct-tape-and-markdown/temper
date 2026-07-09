@@ -270,6 +270,27 @@ impl CustomKind {
         features
     }
 
+    /// Overlay a lock row's declared `templates` onto this kind: each named child kind
+    /// becomes a [`Template`], and the extraction gains [`Primitive::Fenced`] when it
+    /// doesn't already compose it — the raw fenced-block substrate [`fold_members`](
+    /// CustomKind::fold_members) folds against, so a built-in host gaining a template
+    /// this way (its embedded extraction was never declared with one, since no
+    /// built-in composes `Fenced` on its own) is never left with a template that finds
+    /// no fence to match.
+    #[must_use]
+    pub fn overlay_templates(mut self, templates: &[String]) -> Self {
+        self.templates = templates
+            .iter()
+            .map(|kind| Template { kind: kind.clone() })
+            .collect();
+        if !self.extraction.primitives().contains(&Primitive::Fenced) {
+            let mut primitives = self.extraction.primitives().to_vec();
+            primitives.push(Primitive::Fenced);
+            self.extraction = Extraction::new(primitives);
+        }
+        self
+    }
+
     /// Fold this kind's declared templates out of the already-extracted `fenced_blocks`.
     /// A block whose info string parses as
     /// `member.<kind> <key>` for a **declared** template and whose interior is well-formed
@@ -1056,5 +1077,47 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
                 },
             ]
         );
+    }
+
+    #[test]
+    fn overlay_templates_appends_fenced_to_an_extraction_that_lacks_it() {
+        // A built-in's own extraction never composes `Fenced` (BUILTIN-KIND-TEMPLATES-OVERLAY):
+        // overlaying a declared template must add it, or the fold has no fenced blocks
+        // to search.
+        let kind = CustomKind::new(
+            "rule",
+            Governs {
+                root: ".claude/rules".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(vec![Primitive::LineCount, Primitive::Headings]),
+        )
+        .overlay_templates(&["directive".to_string()]);
+
+        assert_eq!(
+            kind.templates,
+            vec![Template {
+                kind: "directive".to_string(),
+            }]
+        );
+        assert_eq!(
+            kind.extraction.primitives(),
+            &[Primitive::LineCount, Primitive::Headings, Primitive::Fenced]
+        );
+    }
+
+    #[test]
+    fn overlay_templates_never_duplicates_an_already_composed_fenced() {
+        let kind = CustomKind::new(
+            "decision",
+            Governs {
+                root: "docs/decisions".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(vec![Primitive::Fenced]),
+        )
+        .overlay_templates(&["decision".to_string()]);
+
+        assert_eq!(kind.extraction.primitives(), &[Primitive::Fenced]);
     }
 }

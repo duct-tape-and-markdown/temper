@@ -595,7 +595,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
     // Every lock-declared kind that is not one of the embedded built-ins:
     // a
-    // built-in's own row is only the governs-override `effective_governs` already
+    // built-in's own row is only the overlay `overlay_builtin_kind` already
     // consumes, never a second kind definition. A custom kind carries no embedded
     // default — its whole default contract is the committed lock's own clause rows
     // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
@@ -760,29 +760,39 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     Ok(diagnostics)
 }
 
-/// This kind's effective `governs` locus: the
-/// committed lock's own kind-fact row when the lock
-/// declares one for it — matched by bare name, the kind's whole identity
-/// — or the kind's own embedded `governs` when it doesn't: the
-/// **built-in lock**, the same declaration shape the engine carries compiled-in for an
-/// unadopted harness.
-fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> kind::Governs {
-    declarations
+/// This kind's effective declaration: the committed lock's own kind-fact row when the
+/// lock declares one that [`row_relocates_builtin`] — matched by bare name, the kind's
+/// whole identity — overlaid onto `kind`'s embedded declaration, or `kind` unchanged
+/// when it doesn't: the **built-in lock**, the same declaration shape the engine
+/// carries compiled-in for an unadopted harness. Two facts overlay from the one
+/// matched row: the `governs` locus always (a relocation may declare no other diverging
+/// fact at all), and `templates` only when the row declares at least one — an empty
+/// row column defers to `kind`'s own (always empty for a built-in), never blanking a
+/// nonexistent override.
+fn overlay_builtin_kind(kind: &CustomKind, declarations: &drift::Declarations) -> CustomKind {
+    let Some(row) = declarations
         .kinds
         .iter()
         .find(|row| row.name == kind.name && row_relocates_builtin(row, kind))
-        .map(|row| kind::Governs {
-            root: row.governs_root.clone(),
-            glob: row.governs_glob.clone(),
-        })
-        .unwrap_or_else(|| kind.governs.clone())
+    else {
+        return kind.clone();
+    };
+    let mut overlaid = kind.clone();
+    overlaid.governs = kind::Governs {
+        root: row.governs_root.clone(),
+        glob: row.governs_glob.clone(),
+    };
+    if !row.templates.is_empty() {
+        overlaid = overlaid.overlay_templates(&row.templates);
+    }
+    overlaid
 }
 
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
 /// range over. Every
-/// member is discovered by walking this kind's [`effective_governs`]
-/// locus, read straight off harness disk so the corpus can never drift from a stale
-/// copy; its `satisfies` fill edges come from the lock's own
+/// member is discovered by walking this kind's [`overlay_builtin_kind`]-overlaid
+/// `governs` locus, read straight off harness disk so the corpus can never drift from a
+/// stale copy; its `satisfies` fill edges come from the lock's own
 /// [`SatisfiesRow`](drift::SatisfiesRow) family, keyed by member id — the real
 /// SDK-emit shape and the only source a converted harness ever populates. Its
 /// rationale-carrying `satisfies_clauses` mirrors it: a lock-declared row narrates as a
@@ -799,7 +809,7 @@ fn resolve_kind_units(
     harness_root: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
-    let governs = effective_governs(kind, declarations);
+    let governs = overlay_builtin_kind(kind, declarations).governs;
     let mut units = Vec::new();
     for file in import::discover_kind_files(harness_root, kind, &governs)? {
         let source = frontmatter::Member::from_source_rooted(
@@ -837,7 +847,9 @@ fn resolve_kind_units(
 }
 
 /// A kind's members' extracted [`Features`](extract::Features) — [`resolve_kind_units`]
-/// run through the kind's own composed extraction.
+/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction, so
+/// a lock row's declared `templates` against a built-in host folds that built-in's
+/// nested-member fences exactly as a custom kind's own declared templates already do.
 ///
 /// # Errors
 ///
@@ -847,9 +859,10 @@ fn kind_features(
     harness_root: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
-    Ok(resolve_kind_units(kind, harness_root, declarations)?
+    let kind = overlay_builtin_kind(kind, declarations);
+    Ok(resolve_kind_units(&kind, harness_root, declarations)?
         .iter()
-        .map(|unit| builtin_kind::features(kind, unit))
+        .map(|unit| builtin_kind::features(&kind, unit))
         .collect())
 }
 
@@ -984,8 +997,8 @@ const KIND_COLLISION_RULE: &str = "kind.admissibility";
 
 /// Whether a lock-declared kind-fact `row` sharing `builtin`'s bare name is admissible
 /// as a **relocation** of it — the tested, legitimate mechanism
-/// (`effective_governs`) that points a built-in's `governs` locus somewhere other than
-/// its embedded default, by declaring a row under the built-in's own name. A row only
+/// (`overlay_builtin_kind`) that points a built-in's `governs` locus somewhere other
+/// than its embedded default, by declaring a row under the built-in's own name. A row only
 /// relocates: every fact besides `governs` either agrees with the built-in's own or is
 /// left undeclared (deferring to it) — `format`, `unit_shape`, `registration`. A row
 /// that declares any of those *differently* is not reconfiguring the built-in, it is a
