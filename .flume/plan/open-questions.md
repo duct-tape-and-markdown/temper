@@ -95,10 +95,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD a4bb450
-  — the sole intervening src/tests change, e082d04 (NESTED-MEMBER-LOCK-ROW),
-  touched only src/drift.rs, sdk/src/declarations.ts, sdk/src/emit.ts,
-  sdk/test/emit.test.ts, and tests/lock_declaration_rows.rs — none of the
+  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD a3f9f1f
+  — the sole intervening src/tests change, 5ee0b6d (RETIRE-FOLD-MEMBERS),
+  touched only src/builtin_kind.rs, src/drift.rs, src/extract.rs, src/kind.rs,
+  src/main.rs, tests/agent_kind.rs, tests/command_kind.rs,
+  tests/lock_declaration_rows.rs, and tests/nested_member.rs — none of the
   two debt files. Verify both at the next residue sweep.
 
 - **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
@@ -109,7 +110,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   src/main.rs but didn't reach this test file. Comment staleness rides the
   next entry that opens `tests/coverage.rs` (`.claude/rules/rust.md`, "the
   exit clause") — never a standalone entry. Found at residue sweep HEAD
-  e6d0311; re-verified still true at HEAD a4bb450 (e082d04, the sole
+  e6d0311; re-verified still true at HEAD a3f9f1f (5ee0b6d, the sole
   intervening src/tests change, never touched tests/coverage.rs).
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
