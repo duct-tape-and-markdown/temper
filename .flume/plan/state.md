@@ -2,35 +2,32 @@
 
 - Spec derived through: a53eee4
 - Audited through: 6d6ae89
-- Residue swept through: 3c6f50b
-- This tick: Ship audit. Commits past 9bf90bc touching src/tests/sdk: only
-  18d3406 (build: embedded member leaves accept a Text template). Verified
-  on disk, not just the log: kind.ts's `EmbeddedMemberValue`/
-  `EmbeddedMemberCollectionEntry.leaves` accept `string | Text`; emit.ts's
-  renderMemberToml and declarations.ts's mentionRows/nested-member-row
-  resolution both route through prose.ts's `resolveLeaf`, matching the
-  commit's claimed shared-address-set consolidation. `pnpm --dir sdk test`
-  55/55 green; `cargo test --test nested_member` 7/7 green. pending.json
-  already had EMBEDDED-LEAF-TEXT retired by the flume dispatcher's own
-  6d6ae89 commit — no entry rewrite needed there. Re-tested PACKAGING-
-  CHANNELS' parked reason: package.json is still `temper-flume-harness`
-  (private), `.github/workflows/` still holds only `temper.yml` — still
-  parked, still accurate; refreshed its re-verification stamp to 6d6ae89.
-  Re-tested the three "kept on purpose" debts' conditions against 18d3406's
-  actual diff (declarations.ts, emit.ts, kind.ts, prose.ts, emit.test.ts,
-  tests/nested_member.rs only): the kinds/packages-retirement debt
-  (tests/session_start.rs `+++` fixtures; sdk/src/builtins.ts:308,348,385
-  citations) and the `overlay_builtin_kind` stale-comment debt
-  (tests/coverage.rs:336-338) are both untouched, both still accurate. The
-  pre-corpus-reorg citation debt's prediction ("EMBEDDED-LEAF-TEXT already
-  opens kind.ts; its exit clause fires there") did NOT hold — 18d3406
-  touched kind.ts but never reached the 8 citation lines; corrected the note
-  (also fixed a pre-existing hit-count transposition between kind.ts (8) and
-  contract.ts (12), verified against disk and `git show 3c6f50b`) — the debt
-  still rides whichever entry opens kind.ts next.
+- Residue swept through: a561e70
+- This tick: Residue sweep. Only src/tests/sdk-touching commit since 3c6f50b
+  is 18d3406 (EMBEDDED-LEAF-TEXT; already fully characterized by the prior
+  ship-audit tick). Read its full diff fresh for this sweep rather than
+  reusing that characterization: declarations.ts/emit.ts's
+  declaredRequirements/declaredAddresses move is a consolidation (one shared
+  address set replacing two copies), not new residue; no new duplicate
+  matcher/normalizer/encoder introduced. The commit's own gap (a render()
+  hook still receiving raw, unresolved leaves — bypassing the
+  dangling-mention refusal a render-less kind gets) was filed to
+  `.flume/friction/build-embedded-leaf-text-render-hook-gap.md` — confirmed
+  present on disk; friction is human-drained per its own README ("humans
+  drain it out of band... then DELETE the file"), not a plan input, so left
+  untouched. Re-verified all three standing "kept on purpose" debts against
+  current disk, independent of the prior tick's diff-based check:
+  tests/session_start.rs:128-146 still writes `+++`-format fixtures;
+  sdk/src/builtins.ts:9,49,86 still cites the three deleted PACKAGE.md
+  files; tests/coverage.rs:336-338's comment still names the pre-rename
+  `effective_governs`; sdk/src/kind.ts still carries 8 and sdk/src/contract.ts
+  still carries 12 pre-reorg spec-path citation hits. All four unchanged and
+  still accurate — refreshed their re-verification stamps to this sweep's
+  HEAD (a561e70) in open-questions.md. No new residue class found; no
+  pending-entry or open-questions rewrite needed beyond the stamps.
 - Queue: PACKAGING-CHANNELS only (still parked on human release creds + the
   engine-binary workflow). No open buildable entries.
 
-Plan continues: yes — residue sweep is next live: `Residue swept through`
-(3c6f50b) trails HEAD (6d6ae89), and inbox/spec-delta/ship-audit are all
-quiet as of this tick.
+Plan continues: yes — every cursor (spec derived, audited, residue swept)
+now sits at or past HEAD (a561e70) and the queue is disjoint; the next tick
+is the quiet closing pass (job 5).
