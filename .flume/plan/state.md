@@ -1,28 +1,29 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: dd38241
-- Residue swept through: 16f2fb6
-- This tick: Residue sweep (job 4). e120e66..HEAD touching src/tests/sdk:
-  1b5dd23 (satisfies rationale from lock — its fallout already filed as
-  MEMORY-ENTERS-REQUIREMENT-CORPUS + the gate/explain duplication it rides)
-  and 664a522 (own-path surface retirement — its fallout already filed as
-  RETIRE-DEAD-PUBLISHED-REQUIREMENTS-SURFACE). Verified the retirement itself
-  left no residue: `rg` for surface_overlay/from_surface/to_document/
-  from_member_document/REQUIREMENT_COLLISION_RULE/to_requirement/
-  check::Workspace/union_published_requirements across src+tests+sdk returns
-  nothing but one test-fn name. No TODO/FIXME/XXX/HACK markers anywhere in
-  src/tests/sdk. Re-verified both accepted "kinds/+packages/ curated trees"
-  debts unchanged at HEAD: session_start.rs's +++-fixtures test untouched by
-  664a522's edits to the same file (only the two satisfies tests moved);
-  builtins.ts:308,348,385 untouched since 706139a. Refreshed both stamps in
-  open-questions.md to this tick's HEAD; retargeted their re-verify pointer
-  from "next ship audit" to "next residue sweep" (this class is residue, not
-  a pending-entry/parked-reason check). No refactor captures live (dir holds
-  only README); friction dir has 3 live notes, out of plan's job per README.
+- Audited through: 5d995a3
+- Residue swept through: 5d995a3
+- This tick: Quiet closing pass (job 5). Inbox empty, no refactor captures
+  live. No `specs/` commits past f87cc0c. No commits touched src/tests/sdk
+  past dd38241 — `git log dd38241..HEAD -- src tests sdk` is empty (the two
+  intervening commits are both `plan:` bookkeeping), so job 3 has nothing to
+  audit and job 4's prior sweep already covers HEAD's source tree; both
+  cursors advance to HEAD. Spot-verified the open queue's cited surfaces
+  still resolve unchanged: `row_relocates_builtin` (src/main.rs:980-986,
+  the `declared.templates.is_empty() || declared.templates ==
+  builtin.templates` check intact), `published_requirements` sites
+  (extract.rs:328, kind.rs:652, read.rs:1094/1226/1513), `assemble_by_kind`
+  called from both `explain` (:438) and `gate` (:662) confirming the
+  duplication. PACKAGING-CHANNELS parked reason reconfirmed:
+  `.github/workflows/` still holds only `temper.yml`; root `package.json`
+  still `"name": "temper-flume-harness"`, `"private": true`. Queue is
+  disjoint: TEMPLATES-RELOCATION-COLLISION-REGRESSION (open) touches only
+  src/main.rs; RETIRE-DEAD-PUBLISHED-REQUIREMENTS-SURFACE (open) touches
+  extract.rs/kind.rs/read.rs — no overlap; MEMORY-ENTERS-REQUIREMENT-CORPUS
+  is blockedBy the first so never concurrently open with it.
 - Queue: unchanged — TEMPLATES-RELOCATION-COLLISION-REGRESSION open (next);
   MEMORY-ENTERS-REQUIREMENT-CORPUS blockedBy it; RETIRE-DEAD-PUBLISHED-
   REQUIREMENTS-SURFACE open, disjoint; PACKAGING-CHANNELS parked.
 
-Plan continues: yes — quiet closing pass next (all four inputs above are now
-current; nothing moved this tick that reopens 1-3).
+Plan continues: no — all inputs current, queue disjoint and pickable, gate
+reasons re-verified true; hand off to build.
