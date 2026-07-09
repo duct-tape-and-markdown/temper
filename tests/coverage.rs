@@ -368,3 +368,47 @@ fn a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic() {
         run.output
     );
 }
+
+#[test]
+fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_diagnostic() {
+    // TEMPLATES-RELOCATION-COLLISION-REGRESSION: a built-in's own `templates` is always
+    // empty (nothing populates it outside `from_kind_fact_row`), so the old equality
+    // check `declared.templates.is_empty() || declared.templates == builtin.templates`
+    // reduced to "declared templates must be empty" — hard-failing the legitimate
+    // pattern of a row extending a built-in host with a declared child template
+    // (e.g. `rule` gaining a `directive` template via `withinHosts: ["rule"]`).
+    // A relocation that additionally declares `templates` must stay admissible.
+    let root = common::tmpdir("kind-relocation-templates");
+    let rules = root.join("custom-locus").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("dev-standards.md"), "# Dev standards\n\nBody.\n").unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                name: "rule".to_string(),
+                provider: None,
+                governs_root: "custom-locus/rules".to_string(),
+                governs_glob: "*.md".to_string(),
+                format: None,
+                unit_shape: None,
+                registration: Vec::new(),
+                templates: vec!["directive".to_string()],
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.output.contains("kind.admissibility"),
+        "a governs relocation declaring templates must never fire the collision rule, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "check --harness . must stay clean for a templates-extending relocation, got:\n{}",
+        run.output
+    );
+}

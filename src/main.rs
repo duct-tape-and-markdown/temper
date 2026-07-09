@@ -973,16 +973,18 @@ const KIND_COLLISION_RULE: &str = "kind.admissibility";
 /// (`effective_governs`) that points a built-in's `governs` locus somewhere other than
 /// its embedded default, by declaring a row under the built-in's own name. A row only
 /// relocates: every fact besides `governs` either agrees with the built-in's own or is
-/// left undeclared (deferring to it) — `format`, `unit_shape`, `registration`,
-/// `templates`. A row that declares any of those *differently* is not reconfiguring the
-/// built-in, it is a distinct kind's shape wearing the built-in's name — a namespace
-/// collision, never silently subsumed into the built-in's walk.
+/// left undeclared (deferring to it) — `format`, `unit_shape`, `registration`. A row
+/// that declares any of those *differently* is not reconfiguring the built-in, it is a
+/// distinct kind's shape wearing the built-in's name — a namespace collision, never
+/// silently subsumed into the built-in's walk. `templates` is excluded from this set: a
+/// built-in's own `templates` is always empty (nothing populates it outside
+/// `from_kind_fact_row`), so a declared, non-empty `templates` legitimately extends the
+/// built-in's host with a child template rather than colliding with it.
 fn row_relocates_builtin(row: &drift::KindFactRow, builtin: &CustomKind) -> bool {
     let declared = CustomKind::from_kind_fact_row(row);
     (declared.format.is_none() || declared.format == builtin.format)
         && (declared.unit_shape.is_none() || declared.unit_shape == builtin.unit_shape)
         && (declared.registration.is_empty() || declared.registration == builtin.registration)
-        && (declared.templates.is_empty() || declared.templates == builtin.templates)
 }
 
 /// Partition the lock's declared kind rows for the three sites (`explain`, `gate`,
