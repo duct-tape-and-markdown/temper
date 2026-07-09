@@ -48,6 +48,28 @@ test("a satisfies claim filling a member-published requirement is a live join", 
   assert.doesNotThrow(() => emit(h));
 });
 
+test("a satisfies claim filling a requirement typed to a required-field kind is a live join", () => {
+  // `skill` (unlike `rule`) declares required fields — a requirement typed to it
+  // exercises `KindDefinition<never>`'s contravariant assignability, not just the
+  // no-required-fields case `rule` happens to cover.
+  const h = harness({
+    members: [
+      rule({
+        name: "gate-playbook",
+        prose: text`# Gate playbook`,
+        requires: { runner: { means: "a skill runs the gate playbook", kind: skill } },
+      }),
+      skill({
+        name: "operate-the-gate",
+        description: "Use when operating the gate.",
+        prose: text`# Operate the gate`,
+        satisfies: ["runner"],
+      }),
+    ],
+  });
+  assert.doesNotThrow(() => emit(h));
+});
+
 // ---------------------------------------------------------------------------
 // (2) Unfilled required requirement — a `required` demand no member satisfies.
 // ---------------------------------------------------------------------------

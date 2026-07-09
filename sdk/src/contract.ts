@@ -151,7 +151,7 @@ export function clause(
  */
 export interface Requirement {
   readonly means: string;
-  readonly kind?: KindDefinition<object>;
+  readonly kind?: KindDefinition<never>;
   readonly required?: boolean;
   readonly clauses?: readonly Clause[];
   readonly verifiedBy?: string;
