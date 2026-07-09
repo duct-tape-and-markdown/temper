@@ -462,7 +462,6 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
-            published_requirements: Vec::new(),
         }
     }
 

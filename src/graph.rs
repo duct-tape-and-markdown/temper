@@ -1041,7 +1041,6 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            published_requirements: Vec::new(),
         }
     }
 
@@ -1544,7 +1543,6 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            published_requirements: Vec::new(),
         };
 
         assert!(dead_registration(&channel, &member, &["src/a/foo.rs".to_string()]).is_none());

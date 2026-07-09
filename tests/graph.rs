@@ -527,7 +527,6 @@ mod reachability {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            published_requirements: Vec::new(),
         }
     }
 

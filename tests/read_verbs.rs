@@ -12,16 +12,15 @@
 use std::collections::BTreeMap;
 
 use temper::compose::Requirement;
-use temper::document::PublishedRequirement;
 use temper::extract::{EmbeddedMember, FeatureValue, Features, ValueType};
 use temper::read::{self, CustomMember};
 
 /// A member's [`Features`] as the read family reads them: its id, the requirements it
-/// opts into, the demands it publishes, and a `description` field (so `impact`'s
-/// reachability strand has a non-panicking registration input). Mirrors `read.rs`'s own
-/// `impact_tests::feature` helper — duplicated here since this file, being outside the
-/// crate, can only build `Features` through its public fields.
-fn feature(id: &str, satisfies: &[&str], published: &[&str]) -> Features {
+/// opts into, and a `description` field (so `impact`'s reachability strand has a
+/// non-panicking registration input). Mirrors `read.rs`'s own `impact_tests::feature`
+/// helper — duplicated here since this file, being outside the crate, can only build
+/// `Features` through its public fields.
+fn feature(id: &str, satisfies: &[&str]) -> Features {
     let mut fields = BTreeMap::new();
     fields.insert(
         "description".to_string(),
@@ -38,15 +37,6 @@ fn feature(id: &str, satisfies: &[&str], published: &[&str]) -> Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
-        published_requirements: published
-            .iter()
-            .map(|name| PublishedRequirement {
-                name: (*name).to_string(),
-                means: None,
-                kind: None,
-                required: true,
-            })
-            .collect(),
     }
 }
 
@@ -75,11 +65,9 @@ fn explain(
     roster: &BTreeMap<String, Requirement>,
     target: &str,
 ) -> String {
-    let assembly: BTreeMap<String, Requirement> = BTreeMap::new();
     let registrations = BTreeMap::new();
     read::explain(
         custom,
-        &assembly,
         roster,
         by_kind,
         &[],
@@ -104,7 +92,7 @@ fn a_member_target_walks_why_impact_and_context() {
         id: "solo".to_string(),
         satisfies: Vec::new(),
     }];
-    let members = [feature("solo", &[], &[])];
+    let members = [feature("solo", &[])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
 
@@ -154,7 +142,7 @@ fn a_member_known_only_to_by_kind_resolves_without_a_spurious_not_found() {
     // resolve existence off `by_kind`, the same corpus the dispatcher's own species
     // resolution already used to dispatch here — never report it not-found and have
     // `impact`/`context` (called right after, over the same target) narrate it anyway.
-    let members = [feature("live", &[], &[])];
+    let members = [feature("live", &[])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
 
@@ -179,7 +167,7 @@ fn a_requirement_satisfied_only_in_by_kind_reports_filled_agreeing_with_the_gate
     // (the gate) counts satisfiers from — never threaded into `custom`. `explain` must
     // report the same fill status the gate reports: filled, never unfilled, even
     // though the custom listing carries no rationale-bearing record of it.
-    let members = [feature("locked", &["req"], &[])];
+    let members = [feature("locked", &["req"])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
     let roster = BTreeMap::from([("req".to_string(), req("req", true))]);
 
@@ -198,7 +186,7 @@ fn a_requirement_satisfied_only_in_by_kind_reports_filled_agreeing_with_the_gate
 
 #[test]
 fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage() {
-    let mut leafy = feature("20-surface", &[], &[]);
+    let mut leafy = feature("20-surface", &[]);
     leafy.nested_members = vec![EmbeddedMember {
         kind: "decision".to_string(),
         key: "surface-authority".to_string(),
@@ -237,7 +225,7 @@ fn a_member_vs_requirement_collision_errors_with_both_qualified_spellings() {
     // `shared` is both a member id and a requirement name — `explain` never guesses
     // which the author meant. Species resolution checks `by_kind` alone (never
     // `custom`), so no custom member is needed to trigger the collision.
-    let members = [feature("shared", &[], &[])];
+    let members = [feature("shared", &[])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &members[..])]);
     let roster = BTreeMap::from([("shared".to_string(), req("shared", false))]);
 
@@ -260,7 +248,7 @@ fn a_qualified_prefix_resolves_directly_even_when_ambiguous() {
         id: "shared".to_string(),
         satisfies: Vec::new(),
     }];
-    let members = [feature("shared", &[], &[])];
+    let members = [feature("shared", &[])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
     let roster = BTreeMap::from([("shared".to_string(), req("shared", false))]);
 

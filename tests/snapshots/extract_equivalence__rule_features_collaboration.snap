@@ -1,6 +1,5 @@
 ---
 source: tests/extract_equivalence.rs
-assertion_line: 296
 expression: features
 ---
 Features {
@@ -28,5 +27,4 @@ Features {
     fenced_blocks: [],
     nested_members: [],
     satisfies: [],
-    published_requirements: [],
 }

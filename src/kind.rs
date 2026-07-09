@@ -646,10 +646,6 @@ impl Extraction {
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does.
             satisfies: unit.satisfies.clone(),
-            // A custom-kind unit has no channel to publish a `[requirement.*]` demand
-            // (the pre-0016 own-path surface that carried it is retired); only the SDK's
-            // assembly-unioned rows populate the roster now.
-            published_requirements: Vec::new(),
         };
         for primitive in &self.primitives {
             primitive.apply(unit, &mut features);

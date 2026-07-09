@@ -217,26 +217,6 @@ impl Satisfies {
     }
 }
 
-/// A `[requirement.<name>]` clause module **published** on a member header:
-/// the member declares a named obligation — the demand side of
-/// the fill edge, joined to the roster by another member's `satisfies`. It carries
-/// the same facets the assembly roster's `[requirement.<name>]` does (`means`,
-/// `kind`, `required`); the richer set-scope facets stay assembly-only.
-/// Authored on the surface, never imported; one namespace with the assembly roster,
-/// so a cross-publisher name collision is an admissibility finding (resolved in the
-/// gate), never a shadow.
-#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
-pub struct PublishedRequirement {
-    /// The requirement's name — the `[requirement.<name>]` module key.
-    pub name: String,
-    /// The authored *intent*, the why. Carried verbatim and never interpreted.
-    pub means: Option<String>,
-    /// The artifact kind that may fill the requirement. Absent ⇒ kind-blind.
-    pub kind: Option<String>,
-    /// Whether an unfilled requirement is gate-blocking. Absent ⇒ `false`.
-    pub required: bool,
-}
-
 /// Get-or-create an *implicit* parent table under `key`, so its children render as
 /// standalone `[key.<child>]` tables (never a bare `[key]` header). This is what
 /// makes each clause module its own labelled `[table]` in the fenced header.
@@ -269,24 +249,6 @@ pub fn add_satisfies(header: &mut DocumentMut, satisfies: &Satisfies) {
         module.insert("rationale", Item::Value(Value::from(rationale.clone())));
     }
     child_table(header, "satisfies").insert(&satisfies.requirement, Item::Table(module));
-}
-
-/// Emit a `[requirement.<name>]` module carrying the facets the member publishes
-/// (`means`, `kind`, `required`). The demand-side mirror of
-/// [`add_satisfies`]; an absent facet (`None`, or `required = false`) is omitted, so
-/// emit is the exact inverse of [`requirements`] and the round-trip is symmetric.
-pub fn add_requirement(header: &mut DocumentMut, requirement: &PublishedRequirement) {
-    let mut module = Table::new();
-    if let Some(means) = &requirement.means {
-        module.insert("means", Item::Value(Value::from(means.clone())));
-    }
-    if let Some(kind) = &requirement.kind {
-        module.insert("kind", Item::Value(Value::from(kind.clone())));
-    }
-    if requirement.required {
-        module.insert("required", Item::Value(Value::from(true)));
-    }
-    child_table(header, "requirement").insert(&requirement.name, Item::Table(module));
 }
 
 /// Emit the generated `[provenance]` module — `source_path` + `source_hash`, the
@@ -611,45 +573,6 @@ Last line, no newline.";
             provenance(parsed.header()),
             Some((".claude/rules/cls.md".to_string(), "abc123".to_string()))
         );
-    }
-
-    #[test]
-    fn published_requirement_modules_emit_as_labelled_tables_and_round_trip() {
-        // A member publishes two `[requirement.<name>]` modules: a fully-facetted one
-        // and a bare (name-only) one. Each emits as its own labelled table and reads
-        // back identically, the demand-side mirror of the satisfies round-trip.
-        let mut header = DocumentMut::new();
-        add_requirement(
-            &mut header,
-            &PublishedRequirement {
-                name: "architecture".to_string(),
-                means: Some("the corpus carries an architecture spec".to_string()),
-                kind: Some("spec".to_string()),
-                required: true,
-            },
-        );
-        add_requirement(
-            &mut header,
-            &PublishedRequirement {
-                name: "bare".to_string(),
-                means: None,
-                kind: None,
-                required: false,
-            },
-        );
-        let doc = Document::new(header, "# Body\n".to_string());
-        let emitted = doc.emit();
-
-        // Each is its own labelled `[requirement.<name>]` table.
-        assert!(emitted.contains("[requirement.architecture]\nmeans ="));
-        assert!(emitted.contains("kind = \"spec\""));
-        assert!(emitted.contains("required = true"));
-        // A bare requirement is an empty module — a name with no facets.
-        assert!(emitted.contains("[requirement.bare]"));
-
-        // Deterministic round-trip: re-parsing then re-emitting is byte-identical.
-        let parsed = Document::parse(&emitted).unwrap();
-        assert_eq!(parsed.emit(), emitted);
     }
 
     #[test]

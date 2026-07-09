@@ -10,10 +10,9 @@
 //! requirement's satisfier set + coverage state, and with a name the blast radius a
 //! removal would strand); [`impact`] narrates the **blast radius of a removal** — what
 //! strands if a member is removed or renamed: the requirements it is the sole satisfier
-//! of (left unfilled), the `satisfies` links onto demands it alone publishes (left
-//! dangling), the `@import` directive edges that point at it (left unbacked), and the
-//! members whose reachability was carried only through it (gone dead) — or, at leaf
-//! grain, a leaf's citations reported separately from its (nonexistent) fallout;
+//! of (left unfilled), the `@import` directive edges that point at it (left unbacked),
+//! and the members whose reachability was carried only through it (gone dead) — or, at
+//! leaf grain, a leaf's citations reported separately from its (nonexistent) fallout;
 //! [`context`] emits the **declared neighborhood** — a member's nested members or a
 //! leaf's siblings, the citers, and the requirements satisfied. All are *projections* over the
 //! data `check` already computes — the opt-in `satisfies` bindings [`crate::coverage`]
@@ -194,8 +193,7 @@ fn resolve<'a>(
 /// read, never a gate — the caller prints this and exits zero on every input, an
 /// ambiguous or unrecognized target included.
 ///
-/// `assembly` and `roster` mirror [`impact`]'s own split (the assembly's own
-/// `[requirement.*]` roster vs. the composed namespace `check` gates); `edges` is the
+/// `roster` is the requirement namespace `check` gates; `edges` is the
 /// declared relationship set [`why`]'s edge walk resolves; `mention_edges` is the
 /// already-resolved mention edge set the same walk folds in, so a member's only
 /// outgoing reference being a mention still narrates rather than reading "it points at
@@ -209,7 +207,6 @@ fn resolve<'a>(
 #[allow(clippy::too_many_arguments)]
 pub fn explain(
     custom: &[CustomMember],
-    assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
@@ -225,7 +222,6 @@ pub fn explain(
             let mut out = why(custom, roster, by_kind, edges, mention_edges, name);
             out.push('\n');
             out.push_str(&impact(
-                assembly,
                 roster,
                 by_kind,
                 registrations,
@@ -241,7 +237,6 @@ pub fn explain(
         Species::Requirement(name) => requirements(custom, roster, by_kind, Some(name)),
         Species::Leaf(address) => {
             let mut out = impact(
-                assembly,
                 roster,
                 by_kind,
                 registrations,
@@ -290,11 +285,8 @@ pub fn explain(
 /// `routes_to` edge the gate resolves is the exact edge `why` narrates, and a member
 /// with no resolved edge stays silent.
 ///
-/// The `roster` is the **composed** requirement namespace `check` gates — the assembly
-/// `[requirement.*]` unioned with every member's published `[requirement.*]`.
-/// Ranging over it — not the assembly roster alone — is
-/// why a `satisfies` link to a member-published demand narrates as filled, matching a
-/// green `check` rather than misreporting the join as dangling.
+/// The `roster` is the requirement namespace `check` gates, so a `satisfies` link
+/// narrates as filled exactly when a green `check` counts it covered.
 #[must_use]
 pub fn why(
     custom: &[CustomMember],
@@ -477,19 +469,16 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 
 /// `temper impact <member>` — narrate the deterministic **blast radius** of removing or
 /// renaming `member`: the graph
-/// payoff promised, given a verb. Four strands, each read off the graph
+/// payoff promised, given a verb. Three strands, each read off the graph
 /// data `check` already carries — no second build, no new engine semantics:
 ///
 /// 1. **Requirements left unfilled** — a requirement `member` satisfies whose *only*
 ///    satisfier is `member`, so removing it drops coverage to zero (an error for a
 ///    `required` one, silent for an advisory).
-/// 2. **`satisfies` left dangling** — a requirement `member` alone **publishes**;
-///    removing its publisher drops the demand from the namespace, so every
-///    *other* member's `satisfies` onto it dangles.
-/// 3. **Directive edges left unbacked** — an `@import` from another member that
+/// 2. **Directive edges left unbacked** — an `@import` from another member that
 ///    resolves to `member`'s file; removing the file leaves that import backing
 ///    nothing, the silent-context-loss class made author-time.
-/// 4. **Reachability that dies with it** — a member live now only because `member`
+/// 3. **Reachability that dies with it** — a member live now only because `member`
 ///    imports it (its own registration dead); removing `member` unreaches it
 ///    ([`graph::reachability_orphaned`], the same closure the gate's `reachable` runs).
 ///
@@ -499,17 +488,14 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// a bare member name and takes the member-grain path below, unchanged.
 ///
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
-/// member or leaf bears included. `assembly` is the assembly's own `[requirement.*]` roster
-/// (to tell a demand `member` alone publishes from one the assembly also carries); `roster`
-/// is the **composed** namespace `check` gates; `by_kind`, `registrations`, `repo_files`,
-/// and `directive_edges` are the exact graph inputs the gate's predicates range over
-/// (READ-EDGE-UNIFY), so the read cannot disagree with a green `check`. `by_kind` also
-/// carries each member's serialized nested-member leaves, the leaf-grain surface;
-/// `citations` are the declared one-way edges naming a leaf.
+/// member or leaf bears included. `roster` is the namespace `check` gates; `by_kind`,
+/// `registrations`, `repo_files`, and `directive_edges` are the exact graph inputs the
+/// gate's predicates range over (READ-EDGE-UNIFY), so the read cannot disagree with a
+/// green `check`. `by_kind` also carries each member's serialized nested-member leaves,
+/// the leaf-grain surface; `citations` are the declared one-way edges naming a leaf.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn impact(
-    assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
@@ -550,7 +536,6 @@ pub fn impact(
             &mut out,
             kind,
             features,
-            assembly,
             roster,
             by_kind,
             registrations,
@@ -1032,14 +1017,13 @@ fn narrate_satisfied(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>, me
     }
 }
 
-/// Narrate one matched node's blast radius into `out` — the four strands for a single
+/// Narrate one matched node's blast radius into `out` — the three strands for a single
 /// `(kind, id)`.
 #[allow(clippy::too_many_arguments)]
 fn impact_one(
     out: &mut String,
     kind: &str,
     features: &Features,
-    assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
@@ -1088,52 +1072,7 @@ fn impact_one(
     }
     out.push('\n');
 
-    // (2) Demands it alone publishes — removing its publisher strands every other
-    // member's `satisfies` onto them.
-    let mut dangling: Vec<(String, Vec<(String, String)>)> = Vec::new();
-    for published in &features.published_requirements {
-        // Another publisher (the assembly, or a second member) keeps the demand in the
-        // namespace, so removing this one strands nothing.
-        if sole_publisher(&published.name, kind, &features.id, assembly, by_kind) {
-            let stranded = other_satisfiers(by_kind, &published.name, kind, &features.id);
-            dangling.push((published.name.clone(), stranded));
-        }
-    }
-    if dangling.is_empty() {
-        let _ = writeln!(
-            out,
-            "`satisfies` left dangling: none — it publishes no requirement that another \
-             member fills and no other surface publishes."
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "`satisfies` left dangling (it alone publishes these demands, so removing it \
-             leaves each opt-in resolving to nothing):"
-        );
-        for (name, stranded) in &dangling {
-            if stranded.is_empty() {
-                let _ = writeln!(
-                    out,
-                    "  • `{name}` — no member fills it today, so nothing dangles yet, but the \
-                     demand leaves the namespace with `{}`.",
-                    features.id
-                );
-            } else {
-                for (satisfier_kind, satisfier_id) in stranded {
-                    let _ = writeln!(
-                        out,
-                        "  • `{satisfier_id}` ({satisfier_kind}) fills `{name}`, which only \
-                         `{}` publishes — its `satisfies` link would dangle.",
-                        features.id
-                    );
-                }
-            }
-        }
-    }
-    out.push('\n');
-
-    // (3) `@import` directive edges that point at this member's file — removing the file
+    // (2) `@import` directive edges that point at this member's file — removing the file
     // unbacks each.
     let node = (kind.to_string(), features.id.clone());
     let unbacked: Vec<&ResolvedEdge> = directive_edges
@@ -1163,7 +1102,7 @@ fn impact_one(
     }
     out.push('\n');
 
-    // (4) Members reachable now only because this one carried their liveness across an
+    // (3) Members reachable now only because this one carried their liveness across an
     // import — removing it unreaches them.
     let orphaned =
         graph::reachability_orphaned(&node, registrations, by_kind, repo_files, directive_edges);
@@ -1205,66 +1144,16 @@ fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize 
         .count()
 }
 
-/// Whether the member `(kind, id)` is the **only** publisher of the demand `name` —
-/// no assembly `[requirement.<name>]` and no other member publishing it. When true,
-/// removing the member drops `name` from the namespace and strands its satisfiers; when
-/// false, another surface keeps the demand alive.
-fn sole_publisher(
-    name: &str,
-    kind: &str,
-    id: &str,
-    assembly: &BTreeMap<String, Requirement>,
-    by_kind: &BTreeMap<&str, &[Features]>,
-) -> bool {
-    if assembly.contains_key(name) {
-        return false;
-    }
-    !by_kind.iter().any(|(&other_kind, members)| {
-        members.iter().any(|features| {
-            !(other_kind == kind && features.id == id)
-                && features
-                    .published_requirements
-                    .iter()
-                    .any(|published| published.name == name)
-        })
-    })
-}
-
-/// The members that satisfy `name` other than `(kind, id)` — the opt-in links a removal
-/// of `name`'s sole publisher would strand, as `(kind, id)` pairs in the corpus's stable
-/// order.
-fn other_satisfiers(
-    by_kind: &BTreeMap<&str, &[Features]>,
-    name: &str,
-    kind: &str,
-    id: &str,
-) -> Vec<(String, String)> {
-    by_kind
-        .iter()
-        .flat_map(|(&member_kind, members)| {
-            members.iter().map(move |features| (member_kind, features))
-        })
-        .filter(|(member_kind, features)| {
-            !(*member_kind == kind && features.id == id)
-                && features.satisfies.iter().any(|req| req == name)
-        })
-        .map(|(member_kind, features)| (member_kind.to_string(), features.id.clone()))
-        .collect()
-}
-
 /// `temper requirements [<name>]` — narrate the requirement roster. Without a name it
 /// is the forward roster view: each requirement with its satisfier set and coverage
 /// state. With a name it is the reverse walk over that one requirement: its satisfiers
 /// and the blast radius a removal would strand.
 /// A read, never a gate — the caller prints this and exits zero on every input.
 ///
-/// The `roster` is the **composed** requirement namespace `check` gates (assembly ∪
-/// member-published, READ-VERBS-PUBLISHED-DEMANDS), built by the caller through the
-/// gate's own union — so `requirements` lists every published obligation, not the
-/// assembly's `[requirement.*]` alone. `by_kind` is the same decidable corpus the
-/// gate's own `roster::check` counts satisfiers from (REQUIREMENT-GATE) — fill status
-/// here is read off the union of it and the custom listing, so `explain`
-/// cannot report a requirement unfilled that `check` counts as covered.
+/// The `roster` is the requirement namespace `check` gates. `by_kind` is the same
+/// decidable corpus the gate's own `roster::check` counts satisfiers from
+/// (REQUIREMENT-GATE), so `explain` cannot report a requirement unfilled that `check`
+/// counts as covered.
 #[must_use]
 pub fn requirements(
     custom: &[CustomMember],
@@ -1288,8 +1177,7 @@ fn roster_overview(
 ) -> String {
     if roster.is_empty() {
         return "No requirements are published — the roster is empty. Declare one in \
-                the SDK program's `harness()` assembly, or publish one on a member, \
-                to name an obligation.\n"
+                the SDK program's `harness()` assembly to name an obligation.\n"
             .to_string();
     }
 
@@ -1479,19 +1367,13 @@ mod impact_tests {
     //! e2e-proven in `tests/read_verbs.rs`.
 
     use super::*;
-    use crate::document::PublishedRequirement;
     use crate::extract::{EmbeddedMember, FeatureValue, ValueType};
 
     /// A member's [`Features`] as `impact` reads them: its id, the requirements it opts
-    /// into, the demands it publishes, and its `description` field (a blank one is a dead
-    /// description-trigger world-edge). Body-derived features are inert here — `impact`
-    /// reads the join, publish, directive, and registration data, all set explicitly.
-    fn feature(
-        id: &str,
-        satisfies: &[&str],
-        published: &[&str],
-        description: Option<&str>,
-    ) -> Features {
+    /// into, and its `description` field (a blank one is a dead description-trigger
+    /// world-edge). Body-derived features are inert here — `impact` reads the join,
+    /// directive, and registration data, all set explicitly.
+    fn feature(id: &str, satisfies: &[&str], description: Option<&str>) -> Features {
         let mut fields = BTreeMap::new();
         if let Some(text) = description {
             fields.insert(
@@ -1510,15 +1392,6 @@ mod impact_tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
-            published_requirements: published
-                .iter()
-                .map(|name| PublishedRequirement {
-                    name: (*name).to_string(),
-                    means: None,
-                    kind: None,
-                    required: true,
-                })
-                .collect(),
         }
     }
 
@@ -1553,25 +1426,15 @@ mod impact_tests {
             ("r1".to_string(), req("r1", true)),
             ("r2".to_string(), req("r2", true)),
         ]);
-        let empty = BTreeMap::new();
         let skills = [
-            feature("solo", &["r1"], &[], Some("d")),
-            feature("pair-a", &["r2"], &[], Some("d")),
-            feature("pair-b", &["r2"], &[], Some("d")),
+            feature("solo", &["r1"], Some("d")),
+            feature("pair-a", &["r2"], Some("d")),
+            feature("pair-b", &["r2"], Some("d")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::new();
 
-        let solo = impact(
-            &empty,
-            &roster,
-            &by_kind,
-            &registrations,
-            &[],
-            &[],
-            &[],
-            "solo",
-        );
+        let solo = impact(&roster, &by_kind, &registrations, &[], &[], &[], "solo");
         assert!(
             solo.contains("Requirements left unfilled (it is the only member filling them):"),
             "{solo}"
@@ -1579,65 +1442,11 @@ mod impact_tests {
         assert!(solo.contains("`r1` — required"), "{solo}");
         assert!(solo.contains("fails the gate"), "{solo}");
 
-        let pair = impact(
-            &empty,
-            &roster,
-            &by_kind,
-            &registrations,
-            &[],
-            &[],
-            &[],
-            "pair-a",
-        );
+        let pair = impact(&roster, &by_kind, &registrations, &[], &[], &[], "pair-a");
         assert!(
             pair.contains("Requirements left unfilled: none"),
             "a non-sole satisfier strands no requirement: {pair}"
         );
-    }
-
-    #[test]
-    fn removing_a_sole_publisher_dangles_every_satisfying_link() {
-        // `publisher` alone publishes `p`, which `filler` satisfies. Removing the
-        // publisher drops `p` from the namespace, so `filler`'s `satisfies` dangles.
-        let empty_assembly = BTreeMap::new();
-        let roster = BTreeMap::from([("p".to_string(), req("p", true))]);
-        let skills = [
-            feature("publisher", &[], &["p"], Some("d")),
-            feature("filler", &["p"], &[], Some("d")),
-        ];
-        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let registrations = BTreeMap::new();
-
-        let out = impact(
-            &empty_assembly,
-            &roster,
-            &by_kind,
-            &registrations,
-            &[],
-            &[],
-            &[],
-            "publisher",
-        );
-        assert!(out.contains("`satisfies` left dangling"), "{out}");
-        assert!(
-            out.contains("`filler` (skill) fills `p`, which only `publisher` publishes"),
-            "{out}"
-        );
-
-        // The same demand also declared by the assembly keeps a second publisher, so
-        // removing `publisher` strands nothing.
-        let assembly = BTreeMap::from([("p".to_string(), req("p", true))]);
-        let out = impact(
-            &assembly,
-            &roster,
-            &by_kind,
-            &registrations,
-            &[],
-            &[],
-            &[],
-            "publisher",
-        );
-        assert!(out.contains("`satisfies` left dangling: none"), "{out}");
     }
 
     #[test]
@@ -1646,23 +1455,14 @@ mod impact_tests {
         // nothing — an unbacked pointer, the silent-context-loss class made author-time.
         let empty = BTreeMap::new();
         let docs = [
-            feature("hub", &[], &[], Some("d")),
-            feature("leaf", &[], &[], Some("d")),
+            feature("hub", &[], Some("d")),
+            feature("leaf", &[], Some("d")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("doc", &docs[..])]);
         let registrations = BTreeMap::new();
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
 
-        let out = impact(
-            &empty,
-            &empty,
-            &by_kind,
-            &registrations,
-            &[],
-            &edges,
-            &[],
-            "leaf",
-        );
+        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "leaf");
         assert!(out.contains("Directive edges left unbacked"), "{out}");
         assert!(
             out.contains("`hub` (doc) imports it via `@at-import`"),
@@ -1670,16 +1470,7 @@ mod impact_tests {
         );
 
         // `hub` imports but is not imported, so nothing points *at* it.
-        let out = impact(
-            &empty,
-            &empty,
-            &by_kind,
-            &registrations,
-            &[],
-            &edges,
-            &[],
-            "hub",
-        );
+        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "hub");
         assert!(out.contains("Directive edges left unbacked: none"), "{out}");
     }
 
@@ -1690,8 +1481,8 @@ mod impact_tests {
         // leaves `leaf` with no live importer, so its reachability dies.
         let empty = BTreeMap::new();
         let docs = [
-            feature("hub", &[], &[], Some("present")),
-            feature("leaf", &[], &[], Some("")),
+            feature("hub", &[], Some("present")),
+            feature("leaf", &[], Some("")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("doc", &docs[..])]);
         let registrations = BTreeMap::from([(
@@ -1702,16 +1493,7 @@ mod impact_tests {
         )]);
         let edges = [directive(("doc", "hub"), ("doc", "leaf"))];
 
-        let out = impact(
-            &empty,
-            &empty,
-            &by_kind,
-            &registrations,
-            &[],
-            &edges,
-            &[],
-            "hub",
-        );
+        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "hub");
         assert!(out.contains("Reachability that dies with it"), "{out}");
         assert!(
             out.contains("`leaf` (doc) — its own registration is dead"),
@@ -1719,16 +1501,7 @@ mod impact_tests {
         );
 
         // Removing `leaf` orphans nobody — it imports nothing.
-        let out = impact(
-            &empty,
-            &empty,
-            &by_kind,
-            &registrations,
-            &[],
-            &edges,
-            &[],
-            "leaf",
-        );
+        let out = impact(&empty, &by_kind, &registrations, &[], &edges, &[], "leaf");
         assert!(
             out.contains("Reachability that dies with it: none"),
             "{out}"
@@ -1742,16 +1515,7 @@ mod impact_tests {
         let empty = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
         let registrations = BTreeMap::new();
-        let out = impact(
-            &empty,
-            &empty,
-            &by_kind,
-            &registrations,
-            &[],
-            &[],
-            &[],
-            "ghost",
-        );
+        let out = impact(&empty, &by_kind, &registrations, &[], &[], &[], "ghost");
         assert!(
             out.contains("No member named `ghost` is in the surface"),
             "{out}"
@@ -1763,7 +1527,7 @@ mod impact_tests {
     /// grain. The e2e drives carry nested members only through a custom kind, so the
     /// leaf strand is unit-proven here beside the directive/reachability strands.
     fn nested_member(id: &str) -> Features {
-        let mut features = feature(id, &[], &[], Some("d"));
+        let mut features = feature(id, &[], Some("d"));
         features.nested_members = vec![EmbeddedMember {
             kind: "decision".to_string(),
             key: "surface-authority".to_string(),
@@ -1798,7 +1562,6 @@ mod impact_tests {
         }];
 
         let out = impact(
-            &empty,
             &empty,
             &by_kind,
             &registrations,
@@ -1841,7 +1604,6 @@ mod impact_tests {
 
         let out = impact(
             &empty,
-            &empty,
             &by_kind,
             &registrations,
             &[],
@@ -1864,7 +1626,6 @@ mod impact_tests {
 
         let missing = impact(
             &empty,
-            &empty,
             &by_kind,
             &registrations,
             &[],
@@ -1878,7 +1639,6 @@ mod impact_tests {
         );
 
         let malformed = impact(
-            &empty,
             &empty,
             &by_kind,
             &registrations,

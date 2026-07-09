@@ -437,18 +437,16 @@ fn explain(target: &str) -> miette::Result<String> {
     }
     let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
-    let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
+    // The one requirement namespace: the assembly's declared `[requirement.*]`
+    // roster — a custom-kind member has no channel of its own to publish one (the
+    // pre-0016 own-path surface that once carried it is retired).
+    let roster: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
         .map(|row| (row.name.clone(), requirement_from_row(row)))
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
     let mention_edges = mention_edges_from_declarations(&declarations);
-
-    // The one requirement namespace: the assembly's declared `[requirement.*]`
-    // roster — a custom-kind member has no channel of its own to publish one (the
-    // pre-0016 own-path surface that once carried it is retired).
-    let roster = assembly_requirements.clone();
 
     // The world's inbound registration channel set into each built-in kind — the same
     // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
@@ -469,7 +467,6 @@ fn explain(target: &str) -> miette::Result<String> {
 
     Ok(read::explain(
         &custom_members,
-        &assembly_requirements,
         &roster,
         &by_kind,
         &assembly_edges,
