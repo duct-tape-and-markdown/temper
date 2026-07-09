@@ -37,7 +37,12 @@ are flume gates, so a violation reverts the commit.
   trait takes the whole workspace, never a single artifact — cross-artifact rules
   must slot in without a signature change.
 - Keep `main.rs` a thin `clap` dispatch; logic lives in the library crate so
-  `tests/` can drive it.
+  `tests/` can drive it. `main.rs` is its own binary crate, not a module of
+  the library — a `#[cfg(test)]`-only helper shared with the library (e.g.
+  `test_support`) needs its own `#[cfg(test)] mod test_support;` re-declaration
+  in `main.rs` pointing at the library's source file (default sibling-module
+  resolution, no `#[path]`), never a bare `use crate::test_support` or
+  `use temper::test_support` — neither resolves across the crate boundary.
 - Public items carry `///` docs: **one-line third-person summary first**, then
   `# Errors`/`# Panics` where reachable (RFC 1574; api-guidelines C-FAILURE).
   Module `//!` headers are an **overview, ~10 lines** —

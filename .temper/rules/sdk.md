@@ -16,7 +16,12 @@ alongside the cargo trio.
   `cargo test` exercises it.
 - A declaration-row change is two-sided by construction: the row builders in
   `sdk/src/declarations.ts`, the Rust reader (`src/read.rs`), and the embedded
-  lock (`src/builtin_lock.toml`) move together, in one commit.
+  lock (`src/builtin_lock.toml`) move together, in one commit. A row field's TS
+  name is the literal wire key the Rust side `#[derive(Deserialize)]`s — always
+  snake_case to match, never the idiomatic TS camelCase, since there is no
+  `#[serde(rename)]`. `cargo test` alone won't catch a mismatch (Rust has no
+  opinion on TS spelling); `pnpm --dir sdk build && cargo test --test
+  builtin_lock_frozen` exercises the real cross-language seam.
 - Rust↔TS ripple is the normal shape of work here, not scope creep. When a
   contract change surfaces in emit output, `rg` both trees for the seam before
   concluding the fix is one-sided — an entry that names only `src/**` may

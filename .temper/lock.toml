@@ -13,14 +13,14 @@ emit_hash = "5a12998ca5fb201c664092c8ec31e69dad6ce23cdcdf3e6338958bf47b13fb9d"
 [[rule]]
 name = "rust"
 source_path = "./.claude/rules/rust.md"
-source_hash = "74e14954e56ed81a2397eb73279ec3f8a6ea7537419e03d9126388ce7e10dd83"
-emit_hash = "74e14954e56ed81a2397eb73279ec3f8a6ea7537419e03d9126388ce7e10dd83"
+source_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
+emit_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
 
 [[rule]]
 name = "sdk"
 source_path = "./.claude/rules/sdk.md"
-source_hash = "9013a6dd577ebbf72254852cfdb2612ff954fe1b9f7c6eaf9a06a265faf1cc92"
-emit_hash = "9013a6dd577ebbf72254852cfdb2612ff954fe1b9f7c6eaf9a06a265faf1cc92"
+source_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
+emit_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
 
 [[declaration.kind]]
 name = "memory"
