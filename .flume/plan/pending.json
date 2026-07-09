@@ -1,36 +1,5 @@
 [
   {
-    "tag": "SATISFIES-CLAUSES-RATIONALE-FROM-LOCK",
-    "summary": "explain's satisfies rationale narration (satisfies_clauses) still ignores lock-declared fills — fe2b22c fixed gate's pass/fail but explicitly scoped this half out",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "resolve_kind_units (~L849-891, the shared per-kind Unit resolver both `gate` and custom-kind `explain` narration range over) grafts unit.satisfies_clauses (explain's rationale narration, consumed at ~L439 building read::CustomMember.satisfies) solely from surface_overlay (~L820) — the pre-0016 own-path `+++`-document read whose only writers are #[cfg(test)]-only (confirmed 2026-07-08: zero production writers anywhere in src/). fe2b22c (2026-07-08) unioned declarations.satisfies into unit.satisfies for gate's pass/fail but its own commit message named satisfies_clauses out of scope ('a separate, narrower concern this entry doesn't touch'), so explain can silently disagree with gate: a custom member filled only via a lock-declared satisfies row (no surface_overlay document) reports as unfilled/no-rationale in explain while gate reports it filled — the exact narration/verdict split specs/model/contract.md's edge section forbids ('narration can never disagree with the verdict'). Union declarations.satisfies into unit.satisfies_clauses too, as document::Satisfies{requirement, rationale: None} entries (skip requirement names surface_overlay already supplied with real rationale), mirroring the existing unit.satisfies union block (~L881-885) immediately below in the same function. Update the fn's doc comment (currently states satisfies_clauses 'stays surface_overlay-only') to match."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a custom-kind member filled only via a lock-declared `declarations.satisfies` row (no surface_overlay-authored satisfies_clauses) narrates as filled through `explain`/`why` — no fabricated rationale, but never silently absent — matching gate's pass, mirroring the sibling `a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_authored` test fe2b22c added for gate"
-      }
-    ],
-    "acceptance": "explain's satisfies rationale narration for a custom-kind member never disagrees with gate's fill verdict, including for a member filled only via the lock's declarations.satisfies (no surface-authored rationale).",
-    "notes": "scoped at 85fdffd. Unblocked this tick (ship audit): KIND-NAME-COLLISION-ADMISSIBILITY shipped clean at 726769d/85fdffd (new tests green, cargo check green), no longer contends for explain's loop (now via partition_kind_rows) — the overlap forcing blockedBy is gone, so this is the sole pickable entry. RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY stays blockedBy this entry. Closes fe2b22c's deferred gap; scope is custom kinds only (resolve_kind_units + explain's custom_members loop)."
-  },
-  {
     "tag": "RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY",
     "summary": "The pre-0016 own-path '+++' surface-document mechanism (Workspace, Member::from_surface/to_document, surface_overlay, published_requirements) has zero production consumers — retire it",
     "per": {
