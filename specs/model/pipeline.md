@@ -38,11 +38,12 @@ The deterministic compile of the harness value into artifacts plus the lock.
   part hand-maintained. Nothing ever parses a projection back — the read
   side stays on the standard formats the engine knows, and a hand-edited
   projection is drift by hash, answered by editing the owning source. An
-  embedded member serializes into its parent's artifact, and such files are
-  regenerated whole. Derived
-  facts are computed, never authored twice: the permission list is the union
-  of the members' declared capability needs, so a permission no member needs
-  is visible as exactly that. Total runs in reverse too: emit reaps a
+  embedded member's facts are declaration rows, captured the same emit pass
+  that renders it; its serialized form is the artifact only, regenerated
+  whole, never a second copy the engine reads back. Derived facts are
+  computed, never authored twice: the permission list is the union of the
+  members' declared capability needs, so a permission no member needs is
+  visible as exactly that. Total runs in reverse too: emit reaps a
   projection whose owning member is gone when the file is byte-identical to
   its lock fingerprint — temper wrote every byte, so nothing authored is
   lost; a drifted ownerless file is a finding, never a silent delete.
@@ -73,11 +74,11 @@ producer — no verb compiles anything else into declaration rows, and the gate
 reads declarations from nowhere but the lock. Two row families: **provenance**
 — per member, source path plus content hash, and the byte hash of each
 emitted artifact: the fingerprints drift compares — and **declaration rows**
-— the program's erased declarations: kinds, clauses, requirement members, the
-root member's bindings. In declaration rows, identity is a compiled label
-written once at emit; the engine treats labels as opaque and never resolves a
-collision — two rows wearing one label is a malformed lock, rejected at
-admissibility.
+— the program's erased declarations: kinds, clauses, requirement members,
+nested-member facts, the root member's bindings. In declaration rows,
+identity is a compiled label written once at emit; the engine treats labels
+as opaque and never resolves a collision — two rows wearing one label is a
+malformed lock, rejected at admissibility.
 
 The gate and every read verb consume committed artifacts plus the lock and
 nothing else: offline, no language runtime. A harness with no lock is still

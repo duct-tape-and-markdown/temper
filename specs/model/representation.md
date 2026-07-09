@@ -27,13 +27,16 @@ The type of a member. A kind declares
 - a **format** — a template literal rendering the member's values into its
   artifact: constant text around interpolated fields, prose, and child
   layers. The kind's format is the default; a member may dictate its own.
-  One declaration derives two one-way faces — the canonical writer for
-  projections, the lenient reader for sources — never a round trip. A
-  format is admissible only when unambiguous (adjacent slots split by
-  constant text neither can absorb; the prose slot terminal or fenced),
-  holds no logic and no derived values, and declares the leniency its
-  source-reads forgive; a structured sublanguage is a slot naming a
-  schema, never syntax spelled as constant text.
+  A **file**-locus kind's format derives two one-way faces — the canonical
+  writer for projections, the lenient reader for sources — never a round
+  trip; admissible only when unambiguous (adjacent slots split by constant
+  text neither can absorb; the prose slot terminal or fenced), holding no
+  logic and no derived values, and declaring the leniency its source-reads
+  forgive; a structured sublanguage is a slot naming a schema, never syntax
+  spelled as constant text. An **embedded**-locus kind's format is
+  writer-only and unconstrained — no admissibility bar — because an
+  embedded member has no hand-authored persona to read back for: its facts
+  are declared (`pipeline.md`, "The lock"), never mined from its rendering.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
@@ -53,13 +56,14 @@ Where a member serializes. Binary:
 
 A kind may template inner layers of members, to arbitrary depth; a nested
 member is a full member with its own kind — one member type in the model;
-nested content never lives in a parallel value shape, whatever machinery
-folds it from the parent's body. Nesting is **model containment**
-and locus is **serialization**, and the two are orthogonal: a skill's bundled
-reference documents are nested in the model yet own their files; a hook is
-nested and embedded in `settings.json`; a spec decision is nested and
-embedded in its document. A prose **leaf** — one addressable authored
-string — is a nested member at the finest grain.
+nested content never lives in a parallel value shape. Nesting is **model
+containment** and locus is **serialization**, and the two are orthogonal: a
+skill's bundled reference documents are nested in the model yet own their
+files; a hook is nested and embedded in `settings.json`; a spec decision is
+nested and embedded in its document. An embedded member's facts are
+declared, carried the same way any other declared fact is — never mined
+from its own rendering (`pipeline.md`, "Emit"). A prose **leaf** — one
+addressable authored string — is a nested member at the finest grain.
 
 ## The root member
 
