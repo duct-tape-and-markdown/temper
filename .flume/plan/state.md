@@ -3,24 +3,28 @@
 - Spec derived through: a53eee4
 - Audited through: f000b97
 - Residue swept through: a3f9f1f
-- This tick: Residue sweep (job 4), a4bb450..a3f9f1f — one src/tests change
-  in range, 5ee0b6d (RETIRE-FOLD-MEMBERS). Swept it clean: `rg` confirms
-  `fold_members`/`parse_embedded_info`/`parse_embedded_member` have zero
-  live callers (one doc-comment historical mention in
-  tests/nested_member.rs, already accepted); `Primitive::Fenced` still an
-  ordinary primitive with no orphaned callers; the new
-  `extract::nested_members_from_rows` / `embedded_member_from_row` /
-  `builtin_kind::host_address` read path is the sole builder of
-  `EmbeddedMember` in src/ (test-fixture literals in
-  tests/display_rule.rs, tests/read_verbs.rs, src/read.rs are ordinary
-  test data, not a second implementation) — no residue, no duplicate
-  matcher. `cargo check --tests` compiles clean. Re-verified the two
-  standing open-questions debts (session_start.rs `+++` fixtures,
-  builtins.ts stale PACKAGE.md citations, tests/coverage.rs stale
-  `effective_governs` comment): none of their three files touched by
-  5ee0b6d; restamped all three to a3f9f1f in open-questions.md.
-- Queue: PACKAGING-CHANNELS (parked, unchanged) — the only pending entry.
+- This tick: Quiet closing pass (job 5). Re-checked all four upstream inputs
+  live rather than trusting the carried-forward state: `.flume/inbox.md`
+  empty and `.flume/refactor/` holds only its README (no live captures —
+  first `ls` glance conflated it with the friction dir's files, re-verified
+  directly with `ls -la`); `git log a53eee4..HEAD -- specs/` empty, no spec
+  delta; `git log f000b97..HEAD -- src tests sdk` and
+  `git log a3f9f1f..HEAD -- src tests sdk` both empty — the two commits
+  since either cursor (a3f9f1f, 43b3471) are plan-only, so ship audit and
+  residue sweep stay current with nothing new to do. Re-tested
+  PACKAGING-CHANNELS's parked reason on disk: `.github/workflows/` still
+  holds only `temper.yml` (a check job, no `release.yml`); root
+  `package.json` still `name: temper-flume-harness`, `private: true` — the
+  parked reason holds unchanged, restamped in pending.json. Queue is
+  disjoint (one entry, no shared `files` paths). open-questions.md
+  unchanged — no fork resolved this tick, all five still OPEN, both
+  accepted debts and the comment-staleness note still condition-true per
+  the last residue sweep (a3f9f1f, and nothing since touched their files).
+  `cargo check` green (see cargo-check).
+- Queue: PACKAGING-CHANNELS (parked, package.json + a new release.yml) — the
+  only pending entry.
 
-Plan continues: yes — quiet closing pass (job 5): every input above is
-current (inbox empty, spec delta empty, ship audit and residue sweep both
-at HEAD a3f9f1f).
+Plan continues: no — every input is current as of HEAD (43b3471); the queue
+holds one entry and it is parked on human release infra, nothing pickable.
+Loop hibernates until the inbox, a spec commit, or a src/tests/sdk commit
+gives it new work.
