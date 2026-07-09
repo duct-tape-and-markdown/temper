@@ -22,7 +22,18 @@ Members are what `emit` projects into artifacts (`pipeline.md`).
 The type of a member. A kind declares
 
 - the **field schema**,
-- the **prose shape**,
+- the **content** — `file`: the body is one verbatim prose value (the
+  default; what install hoists), or a **layout**: a declared template over
+  the body's heading tree in exactly three primitives — prose (verbatim; a
+  region may be an import, a declared reference resolving to a file's
+  contents, fingerprinted and refusing when dangling), a field section (a
+  heading whose span fills a named slot — intent among them), and a member
+  collection (a heading whose child headings are each one member of a named
+  kind; identity is the slugged heading, an explicit key survives
+  retitling). A layout admits no syntax beyond markdown's own and has one
+  face — the reader: the document is the authored home, read, never
+  regenerated. What does not fit the three primitives is two kinds, or it
+  is prose.
 - the **edge fields** — which fields are references, and to what,
 - a **format** — a template literal rendering the member's values into its
   artifact: constant text around interpolated fields, prose, and child
@@ -34,9 +45,11 @@ The type of a member. A kind declares
   logic and no derived values, and declaring the leniency its source-reads
   forgive; a structured sublanguage is a slot naming a schema, never syntax
   spelled as constant text. An **embedded**-locus kind's format is
-  writer-only and unconstrained — no admissibility bar — because an
-  embedded member has no hand-authored persona to read back for: its facts
-  are declared (`pipeline.md`, "The lock"), never mined from its rendering.
+  writer-only and unconstrained — no admissibility bar — when its host is
+  composed: the rendering is a projection, its facts declared (`pipeline.md`,
+  "The lock"), never read back. A member embedded in a layout document has
+  no format of its own: it is read off the host's declared layout — source,
+  never projection.
 - and, when it nests, a **template** per inner layer: the child kind, plus
   the path pattern (relative to the parent's unit) when children are files.
 
@@ -59,11 +72,13 @@ member is a full member with its own kind — one member type in the model;
 nested content never lives in a parallel value shape. Nesting is **model
 containment** and locus is **serialization**, and the two are orthogonal: a
 skill's bundled reference documents are nested in the model yet own their
-files; a hook is nested and embedded in `settings.json`; a spec decision is
-nested and embedded in its document. An embedded member's facts are
-declared, carried the same way any other declared fact is — never mined
-from its own rendering (`pipeline.md`, "Emit"). A prose **leaf** — one
-addressable authored string — is a nested member at the finest grain.
+files; a hook is nested and embedded in `settings.json`; a spec invariant is
+nested and embedded in its document. An embedded member's facts reach the
+lock one of two declared ways: carried from the composing program — a
+projection is never mined for them (`pipeline.md`, "Emit") — or read off a
+layout host's document, whose declared layout is the typed surface they are
+declared on. A prose **leaf** — one addressable authored string — is a
+nested member at the finest grain.
 
 ## The root member
 

@@ -99,8 +99,9 @@ while Discussions, a code of conduct, and `good-first-issue` bait wait for
 a community. Launch sequencing: soft-launch to the Claude Code ecosystem
 first (curated awesome-lists — submission requires the repo public ≥1 week —
 plugin marketplaces, community channels); general stages second. The wedge
-demo: a findings table over famous public harnesses, reproducible with one
-command; every shipped capability is a relaunch moment.
+demo: this repo's own spec corpus governed by a declared spec kind — laws
+and invariants as typed, contracted members the gate holds — reproducible
+with one command; every shipped capability is a relaunch moment.
 
 **The v0.1 launch gate is mechanical:** prebuilt binaries install on all
 three OSes without a Rust toolchain; the zero-config `temper check` produces

@@ -36,11 +36,15 @@ The deterministic compile of the harness value into artifacts plus the lock.
 - **Total, and write-only.** Members are the only source; every artifact is
   its member's format evaluated over its values; no file is part emitted,
   part hand-maintained. Nothing ever parses a projection back — the read
-  side stays on the standard formats the engine knows, and a hand-edited
-  projection is drift by hash, answered by editing the owning source. An
+  side stays on the formats the engine knows, standard and declared-layout
+  alike, and a hand-edited projection is drift by hash, answered by editing
+  the owning source. An
   embedded member's facts are declaration rows, captured the same emit pass
   that renders it; its serialized form is the artifact only, regenerated
-  whole, never a second copy the engine reads back. Derived facts are
+  whole, never a second copy the engine reads back. A layout kind's document
+  is the opposite case and the one governed source: emit reads it under the
+  declared layout, derives its declaration rows in the same pass, and writes
+  nothing at its path — never regenerated, never reaped. Derived facts are
   computed, never authored twice: the permission list is the union of the
   members' declared capability needs, so a permission no member needs is
   visible as exactly that. Total runs in reverse too: emit reaps a
@@ -74,7 +78,8 @@ producer — no verb compiles anything else into declaration rows, and the gate
 reads declarations from nowhere but the lock. Two row families: **provenance**
 — per member, source path plus content hash, and the byte hash of each
 emitted artifact: the fingerprints drift compares — and **declaration rows**
-— the program's erased declarations: kinds, clauses, requirement members,
+— the program's erased declarations and the rows emit derives from layout
+sources: kinds, clauses, requirement members,
 nested-member facts, the root member's bindings. In declaration rows,
 identity is a compiled label written once at emit; the engine treats labels
 as opaque and never resolves a collision — two rows wearing one label is a
@@ -126,7 +131,9 @@ or it is not — one genuine fork, so exactly one question.
 
 The conversion writes no lock and compiles nothing: adoption is the first
 emit. There is no intermediate depth — unrepresented, every artifact is a
-source; represented, every governed artifact is a projection. Re-running
+source; represented, every composed kind's artifact is a projection, and a
+layout kind's document is a source at either depth: its authored home never
+moves, so the lift never converts it. Re-running
 install converges, placements following the lock's current contents. The
 verbs target one project's harness at an explicit path.
 

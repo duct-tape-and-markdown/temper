@@ -1,14 +1,16 @@
 # Intent
 
-`temper` is a type system for agent harnesses. A harness — the customization
-layer of a coding agent: skills, rules, memory files, hooks, permissions, MCP
-servers, settings — is a codebase, and its primary author is increasingly the
-agent itself. temper treats it as one: a typed model the author composes and
-compiles, with a gate that checks the result against a declared contract.
+`temper` is a type system for the documents that program agents. A harness —
+the customization layer of a coding agent: skills, rules, memory files, hooks,
+permissions, MCP servers, settings — is a codebase, and its primary author is
+increasingly the agent itself. temper treats it as one: a typed model the
+author composes and compiles, with a gate that checks the result against a
+declared contract. The model reaches inside the documents: a kind may declare
+its body's layout, so a spec's laws and invariants are typed, addressable,
+contracted members — content under the gate, not prose beside it.
 
-This file is the why and the cross-cutting invariants. The model is `model/` —
-eight nouns in three files. History lives in `decisions/` and git tags, never
-here.
+This file is the why and the cross-cutting invariants; the model is `model/`
+— eight nouns in three files; history lives in `decisions/` and git tags.
 
 ## The problem
 
@@ -48,29 +50,32 @@ checks are well-formedness: the preconditions of checking at all
 5. **Gate, don't lint.** Where blocking is cheap — CI, the author's
    terminal — a failing contract hard-fails. At session start, where blocking
    a live session would be hostile, the verdict is surfaced for approval,
-   never silently passed. Enforcement mode is author-declared per
-   placement.
+   never silently passed. Enforcement mode is author-declared per placement,
+   and a shipped coverage clause enters advisory — escalation is the
+   corpus's declared act, never the default's.
 6. **Loud or nothing.** A failure temper can detect is an error message at
    author-time — no path silently degrades, deletes, reconciles, or emits
    over an unresolved input. The per-surface refusal clauses are instances
    of this rule; a surface without one is a gap, not a license.
+7. **Read or written, never both.** Every governed path is exactly one of: a
+   source temper reads, or a projection temper writes. No projection is read
+   back for meaning; no source is regenerated; no file is part-authored,
+   part-emitted.
 
 ## Positioning
 
 The product is the SDK — the typed surface the harness is composed from — and
 the gate that surface earns: because the model is declared, malformed config
-is caught at author-time, not discovered in the agent's output. The primary
-author of a harness is the agent maintaining its own skills, rules, and
-memory. Agents are demonstrably poor at self-authoring harness artifacts
-unprompted, so the gate catches the structural failures they most commonly
-commit, and each clause's guidance channel delivers best practice at the
-moment of failure — to the author who needs it most and retains it least. The
-human sets the contract; the agent authors under it; temper holds the line
-between them.
+is caught at author-time, not discovered in the agent's output. Agents are
+demonstrably poor at self-authoring harness artifacts unprompted, so the gate
+catches the structural failures they most commonly commit, and each clause's
+guidance channel delivers best practice at the moment of failure — to the
+author who needs it most and retains it least. The human sets the contract;
+the agent authors under it; temper holds the line between them.
 
 `rulesync` makes a harness portable; marketplaces distribute artifacts;
-temper makes a harness correct. A different layer — temper sits downstream of
-both, checking what you installed.
+temper makes a harness correct — downstream of both, checking what you
+installed.
 
 ## The honest bound
 
@@ -78,21 +83,18 @@ both, checking what you installed.
 provable is conformance to a declared contract, so that is all temper
 asserts. The undecidable remainder — does this skill trigger well, does this
 tool work — is delegated: a requirement's prose carries the intent, its
-verifier edge names the test, and execution (CI, evals) judges it, never
-temper.
+verifier edge names the test; execution (CI, evals) judges it, never temper.
 
 ## Self-hosting
 
-temper is built by an agentic pipeline, and it gates the harness that
-builds it. The bound is two greens on temper's own harness: it conforms to
-the contract its assembly attaches, and that contract is admissible. The
-plugin a stranger installs to gate their harness is the one that gates this
-repo; there is no separate external finish line.
+temper is built by an agentic pipeline, and it gates the harness that builds
+it. The bound is two greens on temper's own harness: conformance to the
+contract its assembly attaches, and that contract's admissibility. The plugin
+a stranger installs is the one that gates this repo; no separate finish line.
 
 ## The corpus
 
-Evergreen with a stable center: the corpus is continuously reconciled against
-code, and the kernel nouns (`model/`) are its stable core — a change to a
-kernel noun is a deliberate ceremony recorded in `decisions/` and tagged,
-never an incidental edit. Structure, budgets, and the change ceremony:
-`process/spec-system.md`.
+Evergreen with a stable center: continuously reconciled against code, the
+kernel nouns (`model/`) its stable core — a kernel change is a deliberate
+ceremony recorded in `decisions/` and tagged, never an incidental edit.
+Structure, budgets, ceremony: `process/spec-system.md`.
