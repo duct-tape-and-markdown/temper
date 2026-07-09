@@ -131,12 +131,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   never reached the 8 citation lines (7,57,86,98,125,164,187,204 — hit-count
   and lines re-verified against disk this tick), so the exit clause did not
   fire; the debt still rides whichever entry opens `kind.ts` next.
-  `contract.ts` (12 hits, untouched since 3c6f50b) still has no entry
-  touching it — rides whichever comes next. Original hit-counts were
-  transposed between the two files in the prior note; corrected here against
-  both current disk and `git show 3c6f50b`. Found at residue sweep HEAD
-  3c6f50b (introduced pre-52b3dcd; 3c6f50b's own diff edited two of
-  kind.ts's other doc comments without reaching these).
+  `contract.ts`'s prediction also falsified, same shape, at ship audit HEAD
+  a641e03: a620938 (REQUIREMENT-KIND-SDK-TYPE, the sole src/tests/sdk commit
+  since 6d6ae89) opened `contract.ts`, but its one-line edit (the
+  `Requirement.kind` field's type annotation, line 154) never reached any of
+  the 12 citation lines (5,7,17,34,38,48,57,89,124,142,149,160 — re-verified
+  against disk this tick), so the exit clause did not fire there either; the
+  debt still rides whichever entry opens `contract.ts` next. Original
+  hit-counts were transposed between the two files in the prior note;
+  corrected here against both current disk and `git show 3c6f50b`. Found at
+  residue sweep HEAD 3c6f50b (introduced pre-52b3dcd; 3c6f50b's own diff
+  edited two of kind.ts's other doc comments without reaching these).
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
