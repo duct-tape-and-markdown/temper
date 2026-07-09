@@ -1,22 +1,20 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: 2c853af
+- Audited through: dd7517a
 - Residue swept through: fba4e32
-- This tick: Quiet closing pass (job 5). Inbox empty, no live refactor
-  captures (only README.md template in .flume/refactor/); no specs/ commits
-  past f87cc0c; no src/tests/sdk commits past 2c853af (fba4e32 and b46fb69
-  are plan bookkeeping only) so audit and residue cursors hold unchanged.
-  Re-verified on disk: MEMORY-ENTERS-REQUIREMENT-CORPUS's cited surfaces
-  still resolve (main.rs:893 assemble_by_kind, :582-601 gate's skill/rule-
-  only dispatch match arm, :400-438 explain's independent skill_kind/
-  rule_kind re-derivation); PACKAGING-CHANNELS's parked reason still holds
-  (.github/workflows/ has only temper.yml, no release.yml; root package.json
-  is still the private temper-flume-harness manifest; sdk/package.json
-  @dtmd/temper still at 0.0.5).
-- Queue: MEMORY-ENTERS-REQUIREMENT-CORPUS open (next, disjoint — touches
-  only src/main.rs); PACKAGING-CHANNELS parked, disjoint (touches
-  package.json + a new release.yml).
+- This tick: Ship audit (job 3). 33874ac (build) + dd7517a (chore ship) landed
+  past the 2c853af cursor. Verified on disk: gate() and explain() both now
+  route through builtin_features_by_kind + assemble_by_kind over every
+  builtin_kind::definitions() entry (main.rs:400-438, 890-919) — no more
+  hardcoded skill/rule pair; tests/requirement_roster.rs retargeted to test
+  a genuinely unmodeled kind; `cargo test` all-green. dd7517a's ship commit
+  already removed the entry from pending.json — no rewrite needed. Re-tested
+  PACKAGING-CHANNELS's parked reason at dd7517a: still no
+  .github/workflows/release.yml (only temper.yml); root package.json still
+  the private temper-flume-harness manifest; sdk/package.json @dtmd/temper
+  still at 0.0.5 — reason holds, restamped.
+- Queue: PACKAGING-CHANNELS parked, sole entry.
 
-Plan continues: no — all four inputs current, queue disjoint and pickable,
-both gate reasons reconfirmed; build takes over.
+Plan continues: yes — residue sweep (job 4) is next; the residue cursor
+(fba4e32) still trails HEAD (dd7517a, two src/tests-touching commits ahead).
