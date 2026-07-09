@@ -526,10 +526,10 @@ const makeAgent = (model: string) =>
  * Model routing: the runtime exposes one shared `agent` export for every
  * phase, so per-phase model choice keys on the runtime's `<harness>` preamble
  * line `Phase: build` — the preamble precedes the template, so a template's
- * own headings never reach the match. Both phases currently run Sonnet;
+ * own headings never reach the match. Plan runs Fable, build runs Sonnet;
  * change a phase's model here.
  */
-const planAgent = makeAgent("claude-opus-4.8");
+const planAgent = makeAgent("claude-fable-5");
 const buildAgent = makeAgent("claude-sonnet-5");
 
 export const agent: Agent = {
