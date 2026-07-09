@@ -1,37 +1,5 @@
 [
   {
-    "tag": "BUILTIN-KIND-TEMPLATES-OVERLAY",
-    "summary": "Overlay a built-in kind's lock-declared `templates` (not just `governs`) so gate/explain actually fold nested-member fences on a templated built-in host.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Generalize `effective_governs` (main.rs:769, governs-only today, one call site at `resolve_kind_units` main.rs:802) into one overlay that also lifts the matching lock row's `templates`. `row_relocates_builtin` (main.rs:997) already treats a non-empty declared `templates` as a legitimate relocation extension per its own doc comment (main.rs:993-995), but nothing consumes it. Thread the overlaid kind (not the bare `builtin_kind::definitions()` value) into every built-in extraction path: `gate`'s built-in dispatch loop (main.rs:577-593), `kind_features` (main.rs:845-854), and `builtin_features_by_kind` (main.rs:890-903) — one lookup, no second `effective_templates` function."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "Add a case beside `check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default`: a lock row named after a built-in (e.g. `rule`) declaring `templates = [\"directive\"]`, a rule member file containing a `member.directive <key>` fence, asserting the nested member is now folded and visible (currently dark regardless of fence content)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a built-in host's lock-declared templates fold nested-member fences into gate/explain output instead of staying inert"
-      }
-    ],
-    "acceptance": "A lock row declaring `templates` against a built-in host (e.g. `rule` gaining a `directive` child kind via `withinHosts: [\"rule\"]`) has its member fences folded by `gate`/`explain`, matching what `from_kind_fact_row`'s own unit test (kind.rs:1034) already proves in isolation off the lock row alone.",
-    "notes": "Routed from inbox T18 (observed 3ff0dd1, unblocked, reconfirmed unaffected by TEMPLATES-RELOCATION-COLLISION-REGRESSION and MEMORY-ENTERS-REQUIREMENT-CORPUS). Verified on disk this tick: from_kind_fact_row lifts row templates correctly (kind.rs:225-247); row_relocates_builtin's own doc comment (main.rs:993-995) already names templates a legitimate extension; nothing overlays it before extraction. No code changed since 3ff0dd1."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
