@@ -10,6 +10,7 @@
 //! byte-stable — the round-trip emit pins — and that a bare payload (no requirements,
 //! no satisfies) still round-trips.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -21,8 +22,8 @@ use temper::builtin_lock;
 use temper::contract::Severity;
 use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CountBoundRow, Declarations,
-    DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, MentionRow, Payload, PayloadMember,
-    RequirementRow, SatisfiesRow,
+    DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, MentionRow, NestedMemberRow, Payload,
+    PayloadMember, RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -211,6 +212,7 @@ fn rich_declarations() -> Declarations {
             member: "skill:coordinate".to_string(),
             target: "rule:rust".to_string(),
         }],
+        nested_members: Vec::new(),
     }
 }
 
@@ -665,6 +667,78 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
     assert!(
         rule.templates.is_empty(),
         "a kind declaring no templates round-trips with an empty templates column"
+    );
+}
+
+/// A host member's declared embedded-member value's row — the shape a `blocks()`
+/// value like `tests/nested_member.rs`'s `decision_body` composes: leaves plus one
+/// keyed sibling collection, one layer deep.
+fn nested_member_row() -> NestedMemberRow {
+    let leaves = BTreeMap::from([(
+        "chosen".to_string(),
+        "the composition surface is canonical".to_string(),
+    )]);
+    let rejected_leaves = BTreeMap::from([(
+        "because".to_string(),
+        "a stamping projector breaks law 5".to_string(),
+    )]);
+    let collections = BTreeMap::from([(
+        "rejected".to_string(),
+        BTreeMap::from([("baked-projection".to_string(), rejected_leaves)]),
+    )]);
+    NestedMemberRow {
+        host: "memory:CLAUDE".to_string(),
+        kind: "decision".to_string(),
+        key: "surface-authority".to_string(),
+        leaves,
+        collections,
+    }
+}
+
+/// A declared embedded member's facts round-trip through the lock as
+/// `[[declaration.nested_member]]` rows (`NESTED-MEMBER-LOCK-ROW`), the same way
+/// `a_host_kinds_declared_templates_round_trip_through_the_lock` above proves for the
+/// templates row — additive: the fold-based read side (`tests/nested_member.rs`)
+/// never reads this family, only `emit`/`read_declarations` round-trip it.
+#[test]
+fn a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_member_rows() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        clauses: rich_declarations().clauses,
+        nested_members: vec![nested_member_row()],
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("nested-member-row", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: re-emitting the same payload reproduces the whole
+    // lock byte-for-byte.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    let second = fs::read(&lock).unwrap();
+    assert_eq!(first, second, "a re-emit must not churn the lock");
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let row = declarations
+        .nested_members
+        .iter()
+        .find(|row| row.host == "memory:CLAUDE")
+        .expect("the nested-member row is recorded");
+    assert_eq!(row.kind, "decision");
+    assert_eq!(row.key, "surface-authority");
+    assert_eq!(
+        row.leaves.get("chosen").map(String::as_str),
+        Some("the composition surface is canonical")
+    );
+    assert_eq!(
+        row.collections["rejected"]["baked-projection"]["because"],
+        "a stamping projector breaks law 5"
     );
 }
 

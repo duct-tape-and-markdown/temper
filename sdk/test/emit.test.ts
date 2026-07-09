@@ -140,7 +140,7 @@ See ${{ address: "dev-standards", display: "dev standards" }}.`,
  });
 }
 
-test("compileDeclarations produces all six families, satisfies and mentions included", () => {
+test("compileDeclarations produces all seven families, satisfies and mentions included", () => {
   const declarations = compileDeclarations(fullHarness());
 
   assert.deepEqual(declarations.kinds, [
@@ -199,6 +199,8 @@ test("compileDeclarations produces all six families, satisfies and mentions incl
   assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
   assert.deepEqual(declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
+  // No member declares a blocks()-composed embedded member in this harness.
+  assert.deepEqual(declarations.nested_members, []);
 });
 
 test("compileDeclarations emits no uncoined `authority` fact, and the root member's declared mode round-trips", () => {
@@ -547,6 +549,49 @@ test("an empty blocks() body renders no fences", () => {
   });
   const result = emit(h);
   assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, "\n");
+});
+
+test("a blocks()-declared embedded member surfaces a matching nested_member row alongside its unchanged rendered fence", () => {
+  // NESTED-MEMBER-LOCK-ROW (0018): the composed value feeds both the rendered fence
+  // (untouched — `renderMemberFence`) and, additively, a `nested_member` declaration
+  // row carrying the identical facts.
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: "the composition surface is canonical" },
+            collections: { rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } } },
+          }),
+        ),
+      }),
+    ],
+  });
+
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "CLAUDE")!;
+  assert.equal(
+    member.body,
+    '```member.decision surface-authority\n' +
+      'chosen = "the composition surface is canonical"\n' +
+      "\n" +
+      "[rejected.baked-projection]\n" +
+      'because = "a stamping projector breaks law 5"\n' +
+      "```\n",
+  );
+
+  assert.deepEqual(result.declarations.nested_members, [
+    {
+      host: "memory:CLAUDE",
+      kind: "decision",
+      key: "surface-authority",
+      leaves: { chosen: "the composition surface is canonical" },
+      collections: { rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } } },
+    },
+  ]);
 });
 
 // ---------------------------------------------------------------------------

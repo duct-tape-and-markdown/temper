@@ -9,7 +9,7 @@
  */
 
 import type { Harness } from "./assembly.js";
-import type { KindFacts, Registration } from "./kind.js";
+import type { EmbeddedMemberValue, KindFacts, Registration } from "./kind.js";
 import type { Charset, Clause, Predicate, Requirement } from "./contract.js";
 
 /** One kind's declaration row — its identity and declared runtime facts. */
@@ -165,7 +165,27 @@ export interface MentionRow {
   readonly target: string;
 }
 
-/** The six declaration families — the whole erased program the lock and pipe carry. */
+/**
+ * One host member's declared embedded-member value — the row an embedded member's
+ * facts are carried as (0018, "the projection is not the database"): the same
+ * composed value `blocks()` renders into its host's `member.<kind> <key>` TOML
+ * fence, captured here as declared data rather than a second copy the engine
+ * reads back off the rendered artifact.
+ */
+export interface NestedMemberRow {
+  /** The host member's own `kind:name` address. */
+  readonly host: string;
+  /** The embedded child kind this value instantiates. */
+  readonly kind: string;
+  /** The value's key — the identity a leaf address carries. */
+  readonly key: string;
+  /** Prose leaves, keyed by field name. */
+  readonly leaves: Readonly<Record<string, string>>;
+  /** Keyed sibling collections: collection → entry key → field → authored string. */
+  readonly collections: EmbeddedMemberValue["collections"];
+}
+
+/** The seven declaration families — the whole erased program the lock and pipe carry. */
 export interface Declarations {
   readonly kinds: readonly KindFactRow[];
   readonly clauses: readonly ClauseRow[];
@@ -173,6 +193,7 @@ export interface Declarations {
   readonly assembly: readonly AssemblyFactRow[];
   readonly satisfies: readonly SatisfiesRow[];
   readonly mentions: readonly MentionRow[];
+  readonly nested_members: readonly NestedMemberRow[];
 }
 
 /**
@@ -342,7 +363,33 @@ function mentionRows(harness: Harness): MentionRow[] {
   return rows.sort((a, b) => compareStrings(a.member, b.member) || compareStrings(a.target, b.target));
 }
 
-/** Compile a harness into its six declaration families — the erased program. */
+/** One host member's declared embedded-member value as its declaration row. */
+function nestedMemberRow(host: string, value: EmbeddedMemberValue): NestedMemberRow {
+  return { host, kind: value.kind, key: value.key, leaves: value.leaves, collections: value.collections };
+}
+
+/**
+ * The `nested_member` rows — every host member's `blocks()`-declared embedded-member
+ * values, host-then-kind-then-key sorted. Only `blocks`-kind prose carries them (a
+ * `file()`/`text` body names none); the fence rendering itself is unchanged
+ * (`emit.ts`'s `resolveBody`) — this row is a second *read* of the same authored
+ * value, never a second copy the engine reads back (0018).
+ */
+function nestedMemberRows(harness: Harness): NestedMemberRow[] {
+  const rows: NestedMemberRow[] = [];
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "blocks") continue;
+    const host = `${member.kind}:${member.name}`;
+    for (const value of member.prose.values) {
+      rows.push(nestedMemberRow(host, value));
+ }
+ }
+  return rows.sort(
+    (a, b) => compareStrings(a.host, b.host) || compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key),
+ );
+}
+
+/** Compile a harness into its seven declaration families — the erased program. */
 export function compileDeclarations(harness: Harness): Declarations {
   const allKinds = kindsInPlay(harness);
   const kinds = atLocusKindsInPlay(allKinds);
@@ -359,6 +406,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     assembly: assemblyFactRows(harness, kinds),
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
+    nested_members: nestedMemberRows(harness),
   };
 }
 

@@ -250,7 +250,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
  * double-verifies it.
  */
 export interface EmitResult {
-  /** The declaration rows — the erased program the lock's six families carry. */
+  /** The declaration rows — the erased program the lock's seven families carry. */
   readonly declarations: Declarations;
   /** The projected members — the engine's sole input for every projection. */
   readonly members: readonly PayloadMember[];
@@ -270,7 +270,7 @@ export interface EmitResult {
 
 /**
  * Compile the whole face in one deterministic pass: the declaration rows (its
- * rollup and its six families) and every projected member's erased payload.
+ * rollup and its seven families) and every projected member's erased payload.
  * Prose resolves once (`file()` assets read in, mentions resolution-checked
  * against the harness's declared values). Double-emit verified — nondeterministic
  * authoring is a loud failure, never a silent churn.

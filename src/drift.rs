@@ -265,7 +265,8 @@ pub const SEAM_VERSION: u32 = 2;
 
 /// One projected member's erased payload — the SDK's whole output surface for a
 /// member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). An
-/// embedded member never appears here (it carries no standalone projection).
+/// embedded member never appears here (it carries no standalone projection); its
+/// facts ride the [`NestedMemberRow`] family instead.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct PayloadMember {
     /// The kind's bare name — joins this payload's own `declarations.kinds` family.
@@ -284,14 +285,14 @@ pub struct PayloadMember {
 
 /// The whole seam payload the SDK program prints to stdout:
 /// the
-/// declaration rows (the lock's six families) and every projected member's erased
+/// declaration rows (the lock's seven families) and every projected member's erased
 /// payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct Payload {
     /// The pinned seam version this payload was compiled against.
     pub version: u32,
-    /// The six declaration families.
+    /// The seven declaration families.
     pub declarations: Declarations,
     /// Every projected member.
     pub members: Vec<PayloadMember>,
@@ -1033,10 +1034,11 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 
 /// The lock's **declaration-row family** — the composed program's erased declarations,
 /// beside the
-/// per-member provenance and emit-fingerprint rows. Six sub-families: the program's
+/// per-member provenance and emit-fingerprint rows. Seven sub-families: the program's
 /// [kind facts](KindFactRow), its [clauses](ClauseRow), its [requirements](RequirementRow),
 /// its assembly facts, its
-/// [`satisfies`](SatisfiesRow) fill edges, and its [`mention`](MentionRow) edges.
+/// [`satisfies`](SatisfiesRow) fill edges, its [`mention`](MentionRow) edges, and its
+/// [`nested_member`](NestedMemberRow) rows.
 ///
 /// Written into the lock by [`emit`] off the SDK's own payload ([`Declarations::write_into`])
 /// and read back here ([`read_declarations`]) for the gate's one disk-vs-lock comparison —
@@ -1065,6 +1067,10 @@ pub struct Declarations {
     /// mentions, so the reference graph carries them alongside every other declared
     /// edge locus.
     pub mentions: Vec<MentionRow>,
+    /// The host members' declared embedded-member facts — captured as declaration
+    /// rows rather than a second copy the engine reads back off the rendered fence
+    /// (0018, "the projection is not the database").
+    pub nested_members: Vec<NestedMemberRow>,
 }
 
 /// One kind's declaration row — its identity and declared runtime facts.
@@ -1269,6 +1275,29 @@ pub struct MentionRow {
     pub target: String,
 }
 
+/// One host member's declared embedded-member value's declaration row — its
+/// identity (the host's own `kind:name` address, the embedded child kind, and its
+/// key) plus its leaves and keyed sibling collections: the same composed value
+/// `blocks()` renders into the host's `member.<kind> <key>` fence. Additive and
+/// inert — `CustomKind::fold_members` remains the sole fact source the read side
+/// consumes until `RETIRE-FOLD-MEMBERS` switches it over; this row is a second
+/// *read* of the same authored value, never a second copy the engine reads back.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct NestedMemberRow {
+    /// The host member's own `kind:name` address.
+    pub host: String,
+    /// The embedded child kind this value instantiates.
+    pub kind: String,
+    /// The value's key — the identity a leaf address carries.
+    pub key: String,
+    /// Prose leaves, keyed by field name.
+    #[serde(default)]
+    pub leaves: BTreeMap<String, String>,
+    /// Keyed sibling collections: collection → entry key → field → authored string.
+    #[serde(default)]
+    pub collections: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+}
+
 /// One assembly-scope fact — the root member's own declarations plus the
 /// graph edges the harness binds: a `fact` discriminator (`mode`, `edge`)
 /// plus the columns that fact carries. Absent columns are omitted from the
@@ -1295,7 +1324,8 @@ pub struct AssemblyFactRow {
 impl Declarations {
     /// Serialize the declaration families into `doc` under an implicit `[declaration]`
     /// table — `[[declaration.kind]]`, `[[declaration.clause]]`, `[[declaration.requirement]]`,
-    /// `[[declaration.assembly]]`, `[[declaration.satisfies]]`, `[[declaration.mention]]` —
+    /// `[[declaration.assembly]]`, `[[declaration.satisfies]]`, `[[declaration.mention]]`,
+    /// `[[declaration.nested_member]]` —
     /// each family in its producer's order so a re-emit is
     /// byte-identical. An empty family writes no array (an empty `ArrayOfTables`
     /// vanishes on the toml round-trip, so omitting it keeps write and re-parse symmetric),
@@ -1334,6 +1364,11 @@ impl Declarations {
             &mut table,
             "mention",
             self.mentions.iter().map(MentionRow::to_table),
+        );
+        insert_family(
+            &mut table,
+            "nested_member",
+            self.nested_members.iter().map(NestedMemberRow::to_table),
         );
         if !table.is_empty() {
             doc["declaration"] = Item::Table(table);
@@ -1383,7 +1418,7 @@ pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, Drift
     Ok(declarations_from_doc(&doc))
 }
 
-/// Extract the six declaration families off a parsed lock's `[declaration]` table. A row
+/// Extract the seven declaration families off a parsed lock's `[declaration]` table. A row
 /// missing a required column is skipped rather than erroring — a generated section is never
 /// malformed, and a hand-edited broken row degrades to absent, the tolerant read the other
 /// lock readers take.
@@ -1398,6 +1433,7 @@ fn declarations_from_doc(doc: &DocumentMut) -> Declarations {
         assembly: family(table, "assembly", AssemblyFactRow::from_table),
         satisfies: family(table, "satisfies", SatisfiesRow::from_table),
         mentions: family(table, "mention", MentionRow::from_table),
+        nested_members: family(table, "nested_member", NestedMemberRow::from_table),
     }
 }
 
@@ -1779,6 +1815,104 @@ impl MentionRow {
             target: str_col(table, "target")?,
         })
     }
+}
+
+impl NestedMemberRow {
+    fn to_table(&self) -> Table {
+        let mut table = Table::new();
+        table.insert("host", value(self.host.clone()));
+        table.insert("kind", value(self.kind.clone()));
+        table.insert("key", value(self.key.clone()));
+        if !self.leaves.is_empty() {
+            table.insert("leaves", value(string_map_table(&self.leaves)));
+        }
+        if !self.collections.is_empty() {
+            table.insert("collections", value(collections_table(&self.collections)));
+        }
+        table
+    }
+
+    fn from_table(table: &Table) -> Option<Self> {
+        Some(Self {
+            host: str_col(table, "host")?,
+            kind: str_col(table, "kind")?,
+            key: str_col(table, "key")?,
+            leaves: table
+                .get("leaves")
+                .and_then(Item::as_table_like)
+                .map(string_map_from_table)
+                .unwrap_or_default(),
+            collections: table
+                .get("collections")
+                .and_then(Item::as_table_like)
+                .map(collections_from_table)
+                .unwrap_or_default(),
+        })
+    }
+}
+
+/// Build an inline table off an owned string map — a [`NestedMemberRow`]'s `leaves`
+/// column's wire form.
+fn string_map_table(map: &BTreeMap<String, String>) -> InlineTable {
+    let mut table = InlineTable::new();
+    for (key, text) in map {
+        table.insert(key.as_str(), Value::from(text.clone()));
+    }
+    table
+}
+
+/// Read a string map back off a declaration row column — a non-string value drops
+/// just that entry, the same tolerant-element-inside-a-tolerant-row discipline the
+/// rest of the family takes.
+fn string_map_from_table(table: &dyn TableLike) -> BTreeMap<String, String> {
+    table
+        .iter()
+        .filter_map(|(key, item)| {
+            item.as_str()
+                .map(|text| (key.to_string(), text.to_string()))
+        })
+        .collect()
+}
+
+/// Build a [`NestedMemberRow`]'s `collections` column's wire form: a collection →
+/// entry key → field → string nested inline table, one level deeper than
+/// [`string_map_table`].
+fn collections_table(
+    collections: &BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+) -> InlineTable {
+    let mut table = InlineTable::new();
+    for (collection, entries) in collections {
+        let mut entries_table = InlineTable::new();
+        for (entry_key, leaves) in entries {
+            entries_table.insert(
+                entry_key.as_str(),
+                Value::InlineTable(string_map_table(leaves)),
+            );
+        }
+        table.insert(collection.as_str(), Value::InlineTable(entries_table));
+    }
+    table
+}
+
+/// Read a `collections` column back off its nested inline table — any level that
+/// fails to parse as a table-like drops just that branch, never the whole row.
+fn collections_from_table(
+    table: &dyn TableLike,
+) -> BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>> {
+    table
+        .iter()
+        .filter_map(|(collection, item)| {
+            let entries_table = item.as_table_like()?;
+            let entries = entries_table
+                .iter()
+                .filter_map(|(entry_key, leaves_item)| {
+                    let leaves_table = leaves_item.as_table_like()?;
+                    Some((entry_key.to_string(), string_map_from_table(leaves_table)))
+                })
+                .collect();
+            Some((collection.to_string(), entries))
+        })
+        .collect()
 }
 
 #[cfg(test)]
