@@ -38,7 +38,8 @@
       "section": "The lock"
     },
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tag": "KIND-NAME-COLLISION-ADMISSIBILITY"
     },
     "dependsOnForks": [],
     "files": {
@@ -59,7 +60,7 @@
       }
     ],
     "acceptance": "explain's satisfies rationale narration for a custom-kind member never disagrees with gate's fill verdict, including for a member filled only via the lock's declarations.satisfies (no surface-authored rationale).",
-    "notes": "scoped at b4649ff. Closes the gap fe2b22c's own commit body named and deferred. Scope is custom kinds only (via resolve_kind_units + the custom_members loop in main.rs::explain) — built-in skill/rule rationale narration rides the separate dead Workspace path RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY retires; that path already contributes nothing in production today, so retiring it is not a regression. Blocks RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY (same file/function region)."
+    "notes": "scoped at b4649ff; blockedBy KIND-NAME-COLLISION-ADMISSIBILITY (job 5, 6d00c14 tick) — both edit main.rs::explain's same loop (L427-445): its builtin_defs skip at L428 vs this entry's satisfies_clauses read at L441, real overlap not just same-file; serialized per the disjoint-queue rule. Closes fe2b22c's deferred gap; scope is custom kinds only (resolve_kind_units + explain's custom_members loop). Also blocks RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY."
   },
   {
     "tag": "RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY",
