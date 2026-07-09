@@ -77,6 +77,12 @@ const NON_CANONICAL_SETTINGS: &str = "{\n    \"zeta\": \"first\",\n    \"permiss
 /// to graft.
 const NON_CANONICAL_SETTINGS_WITH_HOOK: &str = "{\n    \"zeta\": \"first\",\n    \"hooks\": {\n        \"SessionStart\": [\n            { \"hooks\": [ { \"type\": \"command\", \"command\": \"temper check . --reporter session-start\" } ] }\n        ]\n    }\n}\n";
 
+/// [`NON_CANONICAL_SETTINGS`], but with a `SessionStart` array already populated by a
+/// different, non-temper tool — `session_start_present` reads `false` (the command
+/// isn't temper's), so the merge must append temper's own group after this sibling
+/// entry rather than take the fresh-key `insert_member` path.
+const NON_CANONICAL_SETTINGS_WITH_SIBLING_HOOK: &str = "{\n    \"zeta\": \"first\",\n    \"hooks\": {\n        \"SessionStart\": [\n            { \"hooks\": [ { \"type\": \"command\", \"command\": \"other-tool check\" } ] }\n        ]\n    }\n}\n";
+
 /// Assert `updated` differs from `original` only inside one contiguous byte range —
 /// a single-hunk diff, provable without depending on where install's own grafted
 /// content happens to land: the longest common prefix and the longest common
@@ -262,6 +268,44 @@ fn the_session_start_merge_never_reserializes_a_non_canonical_settings_file() {
     assert_eq!(
         json["permissions"]["allow"][0], "Bash(cargo test:*)",
         "the human's non-canonical indentation and order survive outside the graft"
+    );
+
+    // Re-running converges: the hook is already in its desired shape, so the second
+    // merge is a byte-for-byte no-op — never a second graft, never renewed churn.
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+    assert_eq!(
+        fs::read_to_string(&settings_path).unwrap(),
+        after,
+        "re-running the merge must converge"
+    );
+}
+
+#[test]
+fn the_session_start_merge_appends_after_a_sibling_tools_existing_hook() {
+    let root = write_harness("format-preserving-append", false);
+    let settings_path = root.join(".claude").join("settings.json");
+    fs::write(&settings_path, NON_CANONICAL_SETTINGS_WITH_SIBLING_HOOK).unwrap();
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::No, false).unwrap();
+
+    let after = fs::read_to_string(&settings_path).unwrap();
+    assert_one_hunk_diff(NON_CANONICAL_SETTINGS_WITH_SIBLING_HOOK, &after);
+
+    let json: serde_json::Value = serde_json::from_str(&after).unwrap();
+    assert_eq!(
+        json["hooks"]["SessionStart"][0]["hooks"][0]["command"], "other-tool check",
+        "the sibling tool's entry survives untouched, in its original position"
+    );
+    assert_eq!(
+        json["hooks"]["SessionStart"][1]["hooks"][0]["command"],
+        "temper check . --reporter session-start",
+        "temper's own group is appended after the sibling entry, never before or in place of it"
+    );
+    assert_eq!(
+        json["zeta"], "first",
+        "the human's non-canonical key survives"
     );
 
     // Re-running converges: the hook is already in its desired shape, so the second
