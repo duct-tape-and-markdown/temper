@@ -7,8 +7,7 @@
       "section": "edge"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-KIND-RENDER-HOOK"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "An embedded member's leaf authored as a text-tagged template with a mention emits with the mention resolved and displayed, contributes a mention row addressed to that leaf, and an unresolved leaf mention refuses emit exactly like a member-level one; a bare-string leaf is unchanged.",
-    "notes": "Slice 3 of 3 for 0018's carried inbox scope (filed 6bed388, cite Consequences). Depends on nothing from slices 1/2 semantically but shares sdk/src/kind.ts + emit.ts + declarations.ts, so blockedBy slice 2 per entry-discipline file-disjointness, matching the inbox's stated do-last order. Scoped at 6bed388."
+    "notes": "Slice 3 of 3 for 0018's carried inbox scope (filed 6bed388, cite Consequences). Depended on nothing from slices 1/2 semantically but shared sdk/src/kind.ts + emit.ts + declarations.ts, so blockedBy slice 2 per entry-discipline file-disjointness, matching the inbox's stated do-last order. Slice 2 shipped EMBEDDED-KIND-RENDER-HOOK (3c6f50b/9bf90bc) — unblocked. Scoped at 6bed388."
   },
   {
     "tag": "PACKAGING-CHANNELS",

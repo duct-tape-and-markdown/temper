@@ -1,26 +1,32 @@
 # Plan state
 
 - Spec derived through: a53eee4
-- Audited through: 80697f8
+- Audited through: 9bf90bc
 - Residue swept through: 52b3dcd
-- This tick: Quiet closing pass. HEAD (7952641) is itself the prior
-  residue-sweep plan commit and carries no src/tests/sdk diff (`git diff
-  --stat 52b3dcd..7952641 -- src tests sdk specs` is empty), so all three
-  cursors are current — nothing to re-audit or re-sweep. Re-verified the
-  live queue and both tracked debt classes directly on disk rather than
-  trusting the cursors alone: PACKAGING-CHANNELS's parked reason still
-  holds (`.github/workflows/` has only `temper.yml`; root `package.json`
-  is still `temper-flume-harness`, `private: true`); EMBEDDED-KIND-RENDER-HOOK's
-  targets are unchanged (sdk/src/kind.ts:187 and sdk/src/emit.ts:68,90 still
-  cite the retired `parse_embedded_member`/`parse_embedded_info` fold, and a
-  fresh repo-wide grep confirms those are the only two live citations); the
-  three `Kept on purpose` open-questions debts (tests/session_start.rs `+++`
-  fixtures, sdk/src/builtins.ts:308/348/385 PACKAGE.md cites,
-  tests/coverage.rs:336 `effective_governs` comment) all still match the
-  tree byte-for-byte. No inbox content, no refactor captures, no spec delta.
-- Queue: EMBEDDED-KIND-RENDER-HOOK (open, next) → EMBEDDED-LEAF-TEXT
-  (blockedBy); PACKAGING-CHANNELS (parked). Disjoint, unchanged from last
-  tick.
+- This tick: Ship audit. Commits past the prior cursor (80697f8) touching
+  src/tests/sdk: 3c6f50b (build: embedded kind render() hook) and 9bf90bc
+  (chore(flume): ship EMBEDDED-KIND-RENDER-HOOK, pending.json-only diff).
+  Verified on disk, not the log alone: sdk/src/kind.ts carries
+  `KindDefinition.render`/`KindOptions.render`, and `embeddedMemberValue()`
+  accepts a `KindDefinition` to carry the hook through; sdk/src/emit.ts's
+  `renderMemberFence` calls the hook in place of `renderMemberToml` when
+  present, the fence wrapper itself unchanged; the stale
+  `parse_embedded_member`/`parse_embedded_info` doc-comment citations
+  flagged as residue at plan 52b3dcd are gone from both files, and a fresh
+  grep confirms no live citation of either symbol remains anywhere.
+  `pnpm --dir sdk test` green, 51/51, including the new render-hook case.
+  EMBEDDED-KIND-RENDER-HOOK's pending entry is already drained (9bf90bc).
+  Re-tested EMBEDDED-LEAF-TEXT's stale `blockedBy EMBEDDED-KIND-RENDER-HOOK`
+  gate per job 3's rule: the blocker shipped, so flipped the gate to `open`
+  after re-verifying every symbol its file descriptions cite still resolves
+  (`EmbeddedMemberValue.leaves`/`embeddedMemberValue()` in kind.ts,
+  `renderMemberToml`/`resolveBody` in emit.ts, `mentionRows()` in
+  declarations.ts, `leaf_addresses_are_structural_member_kind_key_child_path`
+  at tests/nested_member.rs:118). PACKAGING-CHANNELS untouched — its parked
+  reason doesn't depend on this ship.
+- Queue: EMBEDDED-LEAF-TEXT (open, next); PACKAGING-CHANNELS (parked).
+  Disjoint — EMBEDDED-LEAF-TEXT is now the sole open entry.
 
-Plan continues: no — every input is current and re-verified on disk; queue
-is disjoint and ready for build to take EMBEDDED-KIND-RENDER-HOOK.
+Plan continues: yes — residue-swept-through (52b3dcd) still trails HEAD by
+one src/sdk-touching commit (3c6f50b) not yet re-swept; the next tick sweeps
+residue before the loop can go quiet.
