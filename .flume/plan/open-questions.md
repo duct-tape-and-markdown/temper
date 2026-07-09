@@ -140,15 +140,17 @@ condition arrives, it is the next break. If work touches one, surface it.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
-  proves end to end (`specs/model/representation.md`, "Reach"). Cost surfaced
-  2026-07-09: `.flume/prompts/{plan,build}.md` now name two `.claude/`
-  members (`pending-entry` rule, `capture-friction` skill) in prose only —
-  `Requirement.kind` takes a `KindDefinition` by import and no built-in kind's
-  `locus` targets `.flume/`, so neither side of that pointer can become a
-  `requires`/`satisfies` edge without a new flume-prompt kind. A rename of
-  either member drifts the prompt's pointer silently; `temper check` stays
-  green regardless. Kept — one drift-risk instance doesn't yet justify the
-  governed-corpus lift.
+  proves end to end (`specs/model/representation.md`, "Reach"). Narrowed
+  2026-07-09: the existence half of `.flume/prompts/{plan,build}.md`'s two
+  `.claude/` pointers (`pending-entry` rule, `capture-friction` skill) is now
+  graph-tracked — `harness.ts` declares both as `required` assembly
+  requirements, each member `satisfies`-links to its own (a real
+  `requires`/`satisfies` edge needs no `.flume/`-side kind; `emit`/`check`
+  now refuse if either loses its satisfier). What remains genuinely
+  ungoverned: the prompts' prose *spells the identifier* outside any gate —
+  a member rename moves the graph edge with it but leaves the prompt's text
+  stale-but-harmless (neither trigger mechanism reads the prose). Kept — a
+  cosmetic residual, not the drift risk originally logged here.
 
 - **`docs/` is candidate intent, not intent** — human territory,
   fence-excluded; plan never reads a horizon entry as intent.

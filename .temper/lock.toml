@@ -57,6 +57,23 @@ format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
 
+[[declaration.requirement]]
+name = "friction-capture-procedure"
+required = true
+
+[[declaration.requirement]]
+name = "pending-entry-discipline"
+kind = "rule"
+required = true
+
 [[declaration.assembly]]
 fact = "mode"
 value = "warn"
+
+[[declaration.satisfies]]
+member = "capture-friction"
+requirement = "friction-capture-procedure"
+
+[[declaration.satisfies]]
+member = "pending-entry"
+requirement = "pending-entry-discipline"
