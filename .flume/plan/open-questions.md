@@ -112,9 +112,20 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD 0944ed9
-  — the sole intervening src/tests change, a0a3280, touched only
-  tests/install.rs, neither file. Verify both at the next residue sweep.
+  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD e6d0311
+  — the sole intervening src/tests change, e5daf1d, touched only
+  src/kind.rs, src/main.rs, and tests/lock_declaration_rows.rs, none of the
+  two debt files. Verify both at the next residue sweep.
+
+- **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
+  `tests/coverage.rs:336-338`'s doc comment on
+  `a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic`
+  still names the pre-rename symbol `effective_governs` — e5daf1d
+  (BUILTIN-KIND-TEMPLATES-OVERLAY) renamed it to `overlay_builtin_kind` in
+  src/main.rs but didn't reach this test file. Comment staleness rides the
+  next entry that opens `tests/coverage.rs` (`.claude/rules/rust.md`, "the
+  exit clause") — never a standalone entry. Found at residue sweep HEAD
+  e6d0311; verify still true at the next sweep.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
