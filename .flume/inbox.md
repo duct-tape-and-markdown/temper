@@ -45,3 +45,25 @@ routing.
   bump; `sdk/test/refusals.test.ts`'s existing `kind: rule` cases plus a new
   `kind: skill`/`kind: agent`/`kind: command` case should cover it. Observed
   at 0f5fcd0.
+
+- The embedded-kind `render` hook bypasses leaf mention resolution — routed
+  from friction capture `build-embedded-leaf-text-render-hook-gap` (drained).
+  EMBEDDED-LEAF-TEXT (18d3406) made the default view (`emit.ts`'s
+  `renderMemberToml` leaf loop) resolve a `Text` leaf's mentions — loud on a
+  dangling address — before quoting; EMBEDDED-KIND-RENDER-HOOK (3c6f50b) hands
+  a kind's own `render(value)` the *raw* `EmbeddedMemberValue`, leaves
+  unresolved. Net: the identical dangling leaf mention refuses loudly on a
+  hook-less kind and silently stringifies (`[object Object]`-shaped) on a kind
+  that declares `render` — refusal depends on an unrelated authoring choice.
+  That contradicts `contract.md` ("edge"): every edge resolves into one
+  enumeration shared by the gate and every read verb. (The capture cited a
+  "one display rule" framing that does not exist in the corpus — this
+  enumeration clause is the actual ground.) Fix shape: resolve every leaf
+  (mention-checked) before invoking `render`, so a hook always sees plain
+  strings and the refusal bar is uniform. Rejected alternative: document that
+  hooks own their own resolution and re-export `resolveLeaf` through
+  `index.ts` — preserves raw-template access nothing yet wants, at the price
+  of a per-hook refusal bar. Test ask: `render` + `Text` leaf + dangling
+  mention refuses identically with and without the hook. Seam:
+  `sdk/src/emit.ts`, `sdk/src/kind.ts` (hook signature), `sdk/src/prose.ts`
+  (`resolveLeaf`). No Rust-side change expected. Observed at a036328.
