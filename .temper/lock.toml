@@ -11,6 +11,12 @@ source_hash = "5a12998ca5fb201c664092c8ec31e69dad6ce23cdcdf3e6338958bf47b13fb9d"
 emit_hash = "5a12998ca5fb201c664092c8ec31e69dad6ce23cdcdf3e6338958bf47b13fb9d"
 
 [[rule]]
+name = "pending-entry"
+source_path = "./.claude/rules/pending-entry.md"
+source_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
+emit_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
+
+[[rule]]
 name = "rust"
 source_path = "./.claude/rules/rust.md"
 source_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
@@ -21,6 +27,12 @@ name = "sdk"
 source_path = "./.claude/rules/sdk.md"
 source_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
 emit_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
+
+[[skill]]
+name = "capture-friction"
+source_path = "./.claude/skills/capture-friction/SKILL.md"
+source_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
+emit_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
 
 [[declaration.kind]]
 name = "memory"
@@ -36,6 +48,14 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
+
+[[declaration.kind]]
+name = "skill"
+governs_root = ".claude/skills"
+governs_glob = "*/SKILL.md"
+format = "yaml-frontmatter"
+unit_shape = "directory"
+registration = ["user-invoked", "description-trigger(description)"]
 
 [[declaration.assembly]]
 fact = "mode"
