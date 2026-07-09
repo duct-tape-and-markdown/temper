@@ -115,7 +115,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   touched tests/coverage.rs).
 
 - **Pre-corpus-reorg spec-path citations in the SDK — `sdk/src/kind.ts`
-  (12 hits) and `sdk/src/contract.ts` (8 hits).** Doc comments cite
+  (8 hits) and `sdk/src/contract.ts` (12 hits).** Doc comments cite
   `10-contracts.md`, `15-kinds.md`, `20-surface.md`, `40-composition.md` —
   numbered, aspect-oriented files from before 0002's reorg
   (`specs/decisions/0002-corpus-form.md`, "the prior form... aspect-oriented
@@ -126,10 +126,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   spec-path citations from comments as a class regardless of validity — cut
   on contact, never annotate (rust.md, "the exit clause") — so this rides
   the next entry that opens either file rather than a standalone one.
-  EMBEDDED-LEAF-TEXT already opens `kind.ts`; its exit clause fires there.
-  `contract.ts` has no entry touching it yet — rides whichever comes next.
-  Found at residue sweep HEAD 3c6f50b (introduced pre-52b3dcd; 3c6f50b's own
-  diff edited two of kind.ts's other doc comments without reaching these).
+  Prediction falsified at ship audit HEAD 6d6ae89: EMBEDDED-LEAF-TEXT
+  (18d3406) did open `kind.ts` (import line, both `EmbeddedMemberValue`/
+  `EmbeddedMemberCollectionEntry.leaves` doc comments) but its cited scope
+  never reached the 8 citation lines (7,57,86,98,125,164,187,204 — hit-count
+  and lines re-verified against disk this tick), so the exit clause did not
+  fire; the debt still rides whichever entry opens `kind.ts` next.
+  `contract.ts` (12 hits, untouched since 3c6f50b) still has no entry
+  touching it — rides whichever comes next. Original hit-counts were
+  transposed between the two files in the prior note; corrected here against
+  both current disk and `git show 3c6f50b`. Found at residue sweep HEAD
+  3c6f50b (introduced pre-52b3dcd; 3c6f50b's own diff edited two of
+  kind.ts's other doc comments without reaching these).
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

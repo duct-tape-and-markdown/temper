@@ -1,30 +1,36 @@
 # Plan state
 
 - Spec derived through: a53eee4
-- Audited through: 9bf90bc
+- Audited through: 6d6ae89
 - Residue swept through: 3c6f50b
-- This tick: Quiet closing pass. Verified HEAD (2a0c643) carries no new
-  specs/, src/, tests/, or sdk/ commits past any cursor — the two plan-only
-  commits since 9bf90bc (cbd8c1c, 2a0c643) touch only .flume/plan/*. Inbox
-  and refactor-captures empty; friction dir holds only its README. Spot-
-  checked EMBEDDED-LEAF-TEXT's cited line ranges against disk: emit.ts's
-  `renderMemberToml` leaf loops (~72-81), declarations.ts's `mentionRows`
-  (~354-361) and its "only text-kind prose carries mentions" framing,
-  nested_member.rs's `leaf_addresses_are_structural_member_kind_key_child_path`
-  (118), emit.test.ts's resolved/unresolved mention cases (~442/454) — all
-  still line up; the entry is buildable as scoped. Re-verified
-  PACKAGING-CHANNELS's parked reason on disk: root package.json is still
-  `temper-flume-harness` (private, flume-only), `.github/workflows/` holds
-  only `temper.yml` — still parked, still accurate. open-questions.md's five
-  open forks and five kept-on-purpose debts unchanged and untouched by any
-  commit since last verified. Queue disjoint (EMBEDDED-LEAF-TEXT touches
-  sdk/src/{kind,emit,declarations}.ts; PACKAGING-CHANNELS touches
-  .github/workflows/release.yml + root package.json — no overlap). No
-  rewrite needed to pending.json or open-questions.md this tick.
-- Queue: EMBEDDED-LEAF-TEXT (open, next — build can pick it up);
-  PACKAGING-CHANNELS (parked on human release creds + engine-binary
-  workflow).
+- This tick: Ship audit. Commits past 9bf90bc touching src/tests/sdk: only
+  18d3406 (build: embedded member leaves accept a Text template). Verified
+  on disk, not just the log: kind.ts's `EmbeddedMemberValue`/
+  `EmbeddedMemberCollectionEntry.leaves` accept `string | Text`; emit.ts's
+  renderMemberToml and declarations.ts's mentionRows/nested-member-row
+  resolution both route through prose.ts's `resolveLeaf`, matching the
+  commit's claimed shared-address-set consolidation. `pnpm --dir sdk test`
+  55/55 green; `cargo test --test nested_member` 7/7 green. pending.json
+  already had EMBEDDED-LEAF-TEXT retired by the flume dispatcher's own
+  6d6ae89 commit — no entry rewrite needed there. Re-tested PACKAGING-
+  CHANNELS' parked reason: package.json is still `temper-flume-harness`
+  (private), `.github/workflows/` still holds only `temper.yml` — still
+  parked, still accurate; refreshed its re-verification stamp to 6d6ae89.
+  Re-tested the three "kept on purpose" debts' conditions against 18d3406's
+  actual diff (declarations.ts, emit.ts, kind.ts, prose.ts, emit.test.ts,
+  tests/nested_member.rs only): the kinds/packages-retirement debt
+  (tests/session_start.rs `+++` fixtures; sdk/src/builtins.ts:308,348,385
+  citations) and the `overlay_builtin_kind` stale-comment debt
+  (tests/coverage.rs:336-338) are both untouched, both still accurate. The
+  pre-corpus-reorg citation debt's prediction ("EMBEDDED-LEAF-TEXT already
+  opens kind.ts; its exit clause fires there") did NOT hold — 18d3406
+  touched kind.ts but never reached the 8 citation lines; corrected the note
+  (also fixed a pre-existing hit-count transposition between kind.ts (8) and
+  contract.ts (12), verified against disk and `git show 3c6f50b`) — the debt
+  still rides whichever entry opens kind.ts next.
+- Queue: PACKAGING-CHANNELS only (still parked on human release creds + the
+  engine-binary workflow). No open buildable entries.
 
-Plan continues: no — every cursor sits at HEAD, inbox and refactor captures
-are empty, the queue is disjoint with one open buildable entry, and no gate
-reason moved. Handing off to build.
+Plan continues: yes — residue sweep is next live: `Residue swept through`
+(3c6f50b) trails HEAD (6d6ae89), and inbox/spec-delta/ship-audit are all
+quiet as of this tick.
