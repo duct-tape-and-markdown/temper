@@ -128,6 +128,14 @@ export interface KindDefinition<T> {
   (init: MemberInit<T>): Member;
   readonly facts: KindFacts;
   readonly key: string;
+  /**
+   * An embedded kind's own composed view of one of its values (`representation.md`,
+   * "kind": an embedded-locus format is writer-only, so the hook is unconstrained).
+   * Erased at the emit seam — the engine only ever sees the resulting string, never
+   * the function. Absent, `blocks()` renders the kind's values with the default
+   * `[collection.entry]` TOML view.
+   */
+  readonly render?: (value: EmbeddedMemberValue) => string;
 }
 
 /**
@@ -147,12 +155,19 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
   return [...head, ...typed];
 }
 
+/** The options `kind()` takes beyond its five facts — today, only the embedded `render` hook. */
+export interface KindOptions {
+  readonly render?: (value: EmbeddedMemberValue) => string;
+}
+
 /**
  * Define a kind (`15-kinds.md`). Returns a constructor over the kind's typed
  * fields `T`; every type erases at the seam, so what the returned member carries
- * into emit is the five facts plus flat field data.
+ * into emit is the five facts plus flat field data. `options.render`, when given,
+ * rides alongside `facts`/`key` on the returned constructor — never on the member
+ * it builds, since it is erased before a member reaches emit.
  */
-export function kind<T extends object>(facts: KindFacts): KindDefinition<T> {
+export function kind<T extends object>(facts: KindFacts, options: KindOptions = {}): KindDefinition<T> {
   const construct = (init: MemberInit<T>): Member => ({
     kind: facts.name,
     facts,
@@ -163,7 +178,7 @@ export function kind<T extends object>(facts: KindFacts): KindDefinition<T> {
     requires: init.requires ?? {},
     needs: init.needs ?? [],
   });
-  return Object.assign(construct, { facts, key: facts.name });
+  return Object.assign(construct, { facts, key: facts.name, render: options.render });
 }
 
 /**
@@ -183,11 +198,11 @@ export interface EmbeddedMemberCollectionEntry {
  * An **embedded member's** composed value (posture 3, passed to `blocks()`):
  * leaves are authored strings keyed by field name; sibling collections are keyed
  * by collection name, each an authored-order list of entries — leaf addresses
- * are structural and keyed (`20-surface.md`, the leaf-address Decision). Read
- * back byte-identically by the engine's `parse_embedded_member` fold off the
- * `member.<kind> <key>` fence `blocks()` renders (`src/extract.rs`). There is no
- * prescribed child-kind ontology — a corpus that wants one declares its own
- * child kind with the same machinery.
+ * are structural and keyed (`20-surface.md`, the leaf-address Decision). Its
+ * facts are declaration rows, captured the same emit pass that renders it —
+ * never mined back from the `member.<kind> <key>` fence `blocks()` renders
+ * (`pipeline.md`, "Emit"). There is no prescribed child-kind ontology — a
+ * corpus that wants one declares its own child kind with the same machinery.
  */
 export interface EmbeddedMemberValue {
   /** The child kind this value instantiates — the fence info string's `member.<kind>`. */
@@ -198,19 +213,29 @@ export interface EmbeddedMemberValue {
   readonly leaves: Readonly<Record<string, string>>;
   /** Sibling collections: collection name → its entries, in authored order. */
   readonly collections: Readonly<Record<string, readonly EmbeddedMemberCollectionEntry[]>>;
+  /** The originating kind's `render` hook, when declared — resolved once at construction. */
+  readonly render?: (value: EmbeddedMemberValue) => string;
 }
 
-/** Compose an embedded member's value for `blocks()` — the shape any project's own child kind uses. */
+/**
+ * Compose an embedded member's value for `blocks()` — the shape any project's own
+ * child kind uses. `kind` names the child kind: a bare string, or the child kind's
+ * own `KindDefinition` — passing the definition carries its `render` hook (when
+ * declared) through to emit, with no other change to the composed value's shape.
+ */
 export function embeddedMemberValue(init: {
-  kind: string;
+  kind: string | KindDefinition<any>;
   key: string;
   leaves: Readonly<Record<string, string>>;
   collections?: EmbeddedMemberValue["collections"];
 }): EmbeddedMemberValue {
+  const [kindName, render] =
+    typeof init.kind === "string" ? [init.kind, undefined] : [init.kind.key, init.kind.render];
   return {
-    kind: init.kind,
+    kind: kindName,
     key: init.key,
     leaves: init.leaves,
     collections: init.collections ?? {},
+    ...(render !== undefined ? { render } : {}),
   };
 }

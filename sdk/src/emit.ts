@@ -65,8 +65,8 @@ function tomlString(text: string): string {
 /**
  * Render one embedded member's interior TOML: its top-level leaves, then each
  * collection's entries, in authored order, each its own `[collection.entry]`
- * table — the exact shape `parse_embedded_member` (`src/extract.rs`) folds back
- * into leaves/members.
+ * table — the default view a `blocks()` value renders with, when its
+ * originating kind declares no `render` hook (`kind.ts`).
  */
 function renderMemberToml(value: EmbeddedMemberValue): string {
   const lines: string[] = [];
@@ -86,12 +86,14 @@ function renderMemberToml(value: EmbeddedMemberValue): string {
 }
 
 /**
- * Render one embedded member's value to its `member.<kind> <key>` fenced block —
- * the write face `parse_embedded_info`/`parse_embedded_member` (`src/extract.rs`)
- * fold back into an identical `EmbeddedMember`.
+ * Render one embedded member's value to its `member.<kind> <key>` fenced block:
+ * the originating kind's own `render` hook, when declared, in place of the
+ * default `[collection.entry]` TOML view — the fence wrapper itself never
+ * changes, so a `render`-less kind's projection is byte-unchanged.
  */
 function renderMemberFence(value: EmbeddedMemberValue): string {
-  return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(value)}\n\`\`\``;
+  const body = value.render !== undefined ? value.render(value) : renderMemberToml(value);
+  return `\`\`\`member.${value.kind} ${value.key}\n${body}\n\`\`\``;
 }
 
 /**
