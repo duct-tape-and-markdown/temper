@@ -50,9 +50,7 @@ hard.
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
 - Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
-- On John: Apple Developer notarizing (decide at release); USPTO name screen;
-  PR #18 cold read (engineering-shape spec + 6 refactor-channel seeds — hold
-  the loop off the captures until merged).
+- On John: Apple Developer notarizing (decide at release); USPTO name screen.
 
 ## Standing discipline (mechanical, paid for)
 
