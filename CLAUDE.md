@@ -78,14 +78,16 @@ trunk one validated commit at a time. State is on disk; each tick is a fresh
 - `cargo test` — tests (prefer `insta` snapshots for parse/lint output).
 - `cargo clippy --all-targets -- -D warnings` — the lint bar (afterMerge gate).
 - `cargo fmt --all --check` — formatting (afterCommit gate); `cargo fmt --all` to fix.
-- `cargo machete --with-metadata` — unused-dependency check (afterCommit gate).
 - `pnpm --dir sdk test` — SDK gate: strict `tsc` + `node --test` (afterMerge gate;
   run it whenever a change touches `sdk/**`).
-- `cargo llvm-cov --summary-only` — coverage **check, not a gate**: no threshold
-  is enforced, nothing reverts on a drop. Run it manually, periodically, to spot
-  untested branches (2026-07-08's pass found `install.rs`'s append-to-an-
-  existing-hook-entry path untested end to end) — a signal for a human to read,
-  not a bar the pipeline holds.
+
+Manual/periodic **checks** (no pipeline enforcement — a signal for a human to
+read, not a bar the pipeline holds; nothing reverts on either):
+
+- `cargo machete --with-metadata` — unused-dependency scan.
+- `cargo llvm-cov --summary-only` — coverage, no threshold enforced (2026-07-08's
+  pass found `install.rs`'s append-to-an-existing-hook-entry path untested end
+  to end).
 - `pnpm exec flume status` — baton state.
 - `pnpm exec flume render plan` — preview the next plan prompt (no agent call).
 - `pnpm exec flume tick` / `loop` — run the pipeline.

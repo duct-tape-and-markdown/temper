@@ -166,23 +166,10 @@ const fmtGate = shellGate({
   failHint: "Run `cargo fmt --all` — formatting is the cheap structural gate.",
 });
 
-/**
- * Unused-dependency check (`cargo-machete`, adopted 2026-07-08 — dead code sustained
- * beyond what any linter catches: this project's own history shows `dead_code` misses
- * whole abandoned crates, not just unused items). A source+manifest scan, no
- * compilation, so it belongs beside `fmt` on the parallel afterCommit path, not beside
- * `clippy`/`test` on the serial one. `--with-metadata` per the tool's own guidance,
- * to avoid false positives on a dependency whose crate name differs from its
- * Cargo.toml key.
- */
-const macheteGate = shellGate({
-  name: "cargo machete",
-  when: "afterCommit",
-  cmd: "cargo",
-  args: ["machete", "--with-metadata"],
-  failHint:
-    "An unused dependency — remove it from Cargo.toml, or if it's a false positive (a renamed crate, a build-time-only use), file a friction capture rather than silence the gate.",
-});
+// `cargo machete --with-metadata` (unused-dependency scan, adopted 2026-07-08)
+// is deliberately NOT a gate: a manual/periodic check, same standing as
+// `cargo llvm-cov` — see CLAUDE.md, "Common commands". No pipeline enforcement,
+// so no shellGate here.
 
 const clippyGate = shellGate({
   name: "cargo clippy",
@@ -451,7 +438,7 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
-  gates: [fmtGate, macheteGate, clippyGate, testGate, sdkGate],
+  gates: [fmtGate, clippyGate, testGate, sdkGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");
