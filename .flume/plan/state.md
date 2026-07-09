@@ -1,28 +1,26 @@
 # Plan state
 
 - Spec derived through: f87cc0c
-- Audited through: 85fdffd
+- Audited through: 6c89f92
 - Residue swept through: e120e66
-- This tick: Quiet closing pass (job 5). Jobs 1-4 reconfirmed current:
-  inbox/refactor-captures empty; spec-delta empty past f87cc0c; no
-  src/tests/sdk-touching commit past 85fdffd (e120e66 and e67c170 are
-  both plan-only commits, touching only .flume/plan/state.md, so job 3
-  stays quiet); residue cursor e120e66 trails HEAD by that same
-  plan-only commit — no code changed in the gap, so nothing new to
-  sweep. Re-verified live gate reasons: PACKAGING-CHANNELS' parked
-  reason still holds (`.github/workflows/` still only `temper.yml`;
-  root `package.json` still the private `temper-flume-harness`
-  manifest, sdk/package.json still `@dtmd/temper`@0.0.5 unpublished-at-
-  this-version); RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY's blockedBy still
-  holds (`src/main.rs` still shows `resolve_kind_units` grafting
-  `satisfies_clauses` solely from `surface_overlay`, doc comment
-  unchanged, SATISFIES-CLAUSES-RATIONALE-FROM-LOCK unshipped). Queue is
-  disjoint: SATISFIES-CLAUSES-RATIONALE-FROM-LOCK is the sole open
-  entry, editing only src/main.rs; no other open entry shares a path.
-- Queue: SATISFIES-CLAUSES-RATIONALE-FROM-LOCK open (sole pickable
-  entry); RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY blockedBy it;
-  PACKAGING-CHANNELS parked, unchanged. Queue is disjoint.
+- This tick: Ship audit 85fdffd..6c89f92 (job 3). SATISFIES-CLAUSES-RATIONALE-
+  FROM-LOCK shipped clean at 1b5dd23/6c89f92: `resolve_kind_units` now unions
+  `declarations.satisfies` into `unit.satisfies_clauses` too (verified on
+  disk, src/main.rs L885-897), tests/requirement_roster.rs green (21/21).
+  This unblocks RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY: its blockedBy tag
+  shipped, and surface_overlay's own doc comment now confirms no production
+  writer remains, so satisfies_clauses no longer depends on it — gate
+  flipped blockedBy -> open, main.rs file citation refreshed for the
+  17-line shift (surface_overlay ~L820-830, its call ~L876-884,
+  union_published_requirements ~L1036-1059), other files' citations
+  unchanged (untouched by 1b5dd23). PACKAGING-CHANNELS re-checked: parked
+  reason still holds verbatim (no `.github/workflows/release.yml`, root
+  package.json still `temper-flume-harness`, sdk still `@dtmd/temper`@0.0.5).
+- Queue: RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY open (sole pickable entry);
+  PACKAGING-CHANNELS parked, unchanged. Queue is disjoint (single open
+  entry).
 
-Plan continues: no — all five jobs current as of this tick; build owns
-the next move (SATISFIES-CLAUSES-RATIONALE-FROM-LOCK is pickable).
-Hibernate.
+Plan continues: no — spec delta empty, inbox/refactor-captures empty,
+residue cursor trails HEAD only by plan-only commits since e120e66 (no new
+code to sweep). Build owns the next move (RETIRE-DEAD-OWN-PATH-SURFACE-
+OVERLAY is pickable). Hibernate.

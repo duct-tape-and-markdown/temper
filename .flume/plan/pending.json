@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SATISFIES-CLAUSES-RATIONALE-FROM-LOCK"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "Remove `surface_overlay` (~L820-833, now unused once the sibling entry lands the lock-sourced satisfies_clauses union) and its call in resolve_kind_units; drop `unit.published_requirements` population from it. Remove `explain`'s `let ws = Workspace::load(&workspace)?;` (~L449) and the `&ws` arg it threads into `read::explain` (~L488) — confirmed dead: `.temper`'s real layout (module-adjacent prose files like `.temper/rules/rust.md`) never matches the `+++`/per-id-subdirectory shape `Workspace::load` scans for, so `ws` is always empty for any real harness. In `union_published_requirements` (~L1023-1049), drop the per-member `features.published_requirements` branch and derive the roster from `assembly_requirements` (built from `declarations.requirements`, the lock) alone — confirmed complete: the SDK already unions `harness.require` and every `member.requires` into `declarations.requirements` at emit time (`sdk/src/declarations.ts` `requirementRows`, ~L269-296), so the member-published branch can only ever fire off the dead surface_overlay read; it never contributes for a real SDK-composed harness."
+          "description": "Remove `surface_overlay` (~L820-830) and its call in `resolve_kind_units` (guarded `if let Some(surface) = surface_overlay(...)` block, ~L876-884); drop `unit.published_requirements` population from it. 1b5dd23 landed the lock-sourced `satisfies`/`satisfies_clauses` union (the `declarations.satisfies` loop immediately below the surface_overlay block, ~L885-897) that makes the surface_overlay branch genuinely dead in production: surface_overlay's own doc comment (above `resolve_kind_units`) now states it has 'no production writer left', so its `if let Some(surface)` branch never fires outside test fixtures. Remove `explain`'s `let ws = Workspace::load(&workspace)?;` (~L449) and the `&ws` arg it threads into `read::explain` (~L486) — confirmed dead: `.temper`'s real layout (module-adjacent prose files like `.temper/rules/rust.md`) never matches the `+++`/per-id-subdirectory shape `Workspace::load` scans for, so `ws` is always empty for any real harness. In `union_published_requirements` (~L1036-1059), drop the per-member `features.published_requirements` branch and derive the roster from `assembly_requirements` (built from `declarations.requirements`, the lock) alone — confirmed complete: the SDK already unions `harness.require` and every `member.requires` into `declarations.requirements` at emit time (`sdk/src/declarations.ts` `requirementRows`, ~L269-296), so the member-published branch can only ever fire off the dead surface_overlay read; it never contributes for a real SDK-composed harness."
         },
         {
           "path": "src/check.rs",
@@ -57,7 +56,7 @@
       }
     ],
     "acceptance": "No production or test code references check::Workspace, Member::from_surface/to_document, surface_overlay, document::requirements/satisfies, Unit::from_surface_dir/from_member_document, or Unit::published_requirements; cargo build/test/clippy stay green with no loss of Features/Extraction test coverage.",
-    "notes": "scoped at b4649ff. Confirmed 2026-07-08: zero references to Workspace/from_surface/to_document/surface_overlay in install.rs, drift.rs, engine.rs, roster.rs, compose.rs — the mechanism is fully isolated to the files listed. This is the pre-0016 own-path generation pipeline.md's current model (SDK/emit/lock) has no vocabulary for; retiring it is mechanical, not a design fork."
+    "notes": "scoped at 6c89f92. Unblocked this tick (ship audit): SATISFIES-CLAUSES-RATIONALE-FROM-LOCK shipped clean at 1b5dd23 (requirement_roster tests green) — satisfies_clauses now has a lock-sourced fallback, so surface_overlay's removal no longer strands it. Re-confirmed zero refs to Workspace/from_surface/to_document/surface_overlay outside the listed files; only src/main.rs shifted lines since original scoping (b4649ff). Pre-0016 own-path generation; mechanical, not a design fork."
   },
   {
     "tag": "PACKAGING-CHANNELS",
