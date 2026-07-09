@@ -57,6 +57,24 @@ routing.
   independent observation about the world. `explain <requirement>` can
   report "No member satisfies it" while the lock's own `satisfies` row
   says otherwise — a false verdict, not an incomplete one.
+  Scoping note (traced further, same-day): this isn't a missing match arm
+  fixable in isolation — `assemble_by_kind` (`main.rs:956-961`) itself
+  takes exactly two named parameters (`skill_features`, `rule_features`),
+  not a generic collection; the fix widens that signature (and its two
+  call sites), not just the dispatch loop above it. `roster::check`/
+  `graph::degree`/`coverage::check` themselves are already kind-generic —
+  they take a plain `BTreeMap<&str, &[Features]>` and their own tests
+  construct one with a non-real `"manifest"` kind name to prove it — so
+  this is one isolated seam in `main.rs`, not a rewrite of the
+  requirement-satisfaction engine. Traced the origin: this two-kind
+  assumption dates to `skill_rule_corpus` (2026-07-04, `c9a576c`), from
+  before `agent`/`command` shipped as built-ins (decision 0014) — pre-
+  existing debt from when skill/rule genuinely were the only two built-ins
+  with member-level requirement relevance, never revisited as the roster
+  grew, not something introduced recently. A sibling with the identical
+  shape, not yet verified further: `BUILTIN_DEFAULT_CONTRACT_KINDS`
+  (`main.rs:63`, still `&["skill", "rule"]`) — worth checking when this
+  entry is scoped, in case default-contract lookup has the same gap.
 
   Not filed, already correctly resolved by plan's own re-verify-before-
   scoping discipline: T14 (kind-rename-deletes-files) does not reproduce —
