@@ -11,6 +11,7 @@
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Registration } from "./kind.js";
 import type { Charset, Clause, Predicate, Requirement } from "./contract.js";
+import { resolveLeaf } from "./prose.js";
 
 /** One kind's declaration row — its identity and declared runtime facts. */
 export interface KindFactRow {
@@ -170,7 +171,10 @@ export interface MentionRow {
  * facts are carried as (0018, "the projection is not the database"): the same
  * composed value `blocks()` renders into its host's `member.<kind> <key>` TOML
  * fence, captured here as declared data rather than a second copy the engine
- * reads back off the rendered artifact.
+ * reads back off the rendered artifact. A `Text`-authored leaf is resolved (its
+ * mentions display-rendered) before it lands here — the row, like the engine
+ * reading it, carries only the leaf's final stored string, never the template
+ * (`prose.ts`'s `resolveLeaf`).
  */
 export interface NestedMemberRow {
   /** The host member's own `kind:name` address. */
@@ -179,10 +183,18 @@ export interface NestedMemberRow {
   readonly kind: string;
   /** The value's key — the identity a leaf address carries. */
   readonly key: string;
-  /** Prose leaves, keyed by field name. */
+  /** Prose leaves, keyed by field name — each already resolved to its final string. */
   readonly leaves: Readonly<Record<string, string>>;
-  /** Sibling collections: collection name → its entries, in authored order. */
-  readonly collections: EmbeddedMemberValue["collections"];
+  /** Sibling collections: collection name → its entries, in authored order, each entry's leaves resolved. */
+  readonly collections: Readonly<Record<string, readonly ResolvedCollectionEntryRow[]>>;
+}
+
+/** One resolved sibling-collection entry: its own key plus its leaves, already resolved to strings. */
+export interface ResolvedCollectionEntryRow {
+  /** The entry's key among its collection's siblings. */
+  readonly key: string;
+  /** The entry's own leaf fields, already resolved to their final strings. */
+  readonly leaves: Readonly<Record<string, string>>;
 }
 
 /** The seven declaration families — the whole erased program the lock and pipe carry. */
@@ -347,25 +359,87 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
 
 /**
  * The `mention` rows — every member's authored `n` targets, member-then-target
- * sorted. Only `text`-kind prose carries mentions (a `file()`/`blocks()` body
- * names none); recorded off the raw authored address, unconditionally — resolution
- * is `emit`'s own refusal (`emit.ts`), not this row's concern.
+ * sorted. `text`-kind prose contributes one row per mention, keyed to the
+ * member's own `kind:name` address; `blocks()`-kind prose additionally
+ * contributes one row per mention inside a `Text`-authored leaf, keyed to that
+ * leaf's own `<member>/<kind>/<key>/<child-path>` address
+ * ([`embeddedLeafMentionRows`]) — a `file()` body names none. Recorded off the
+ * raw authored address, unconditionally — resolution is `emit`'s own refusal
+ * (`emit.ts`), not this row's concern.
  */
 function mentionRows(harness: Harness): MentionRow[] {
   const rows: MentionRow[] = [];
   for (const member of harness.members) {
-    if (member.prose?.kind !== "text") continue;
-    const address = `${member.kind}:${member.name}`;
-    for (const mention of member.prose.mentions) {
-      rows.push({ member: address, target: mention.target.address });
+    if (member.prose?.kind === "text") {
+      const address = `${member.kind}:${member.name}`;
+      for (const mention of member.prose.mentions) {
+        rows.push({ member: address, target: mention.target.address });
+ }
+ }
+    if (member.prose?.kind === "blocks") {
+      for (const value of member.prose.values) {
+        rows.push(...embeddedLeafMentionRows(member.name, value));
+ }
  }
  }
   return rows.sort((a, b) => compareStrings(a.member, b.member) || compareStrings(a.target, b.target));
 }
 
-/** One host member's declared embedded-member value as its declaration row. */
-function nestedMemberRow(host: string, value: EmbeddedMemberValue): NestedMemberRow {
-  return { host, kind: value.kind, key: value.key, leaves: value.leaves, collections: value.collections };
+/**
+ * The mention rows one `blocks()`-declared embedded-member value's `Text` leaves
+ * contribute — top-level leaves addressed by their bare field name, a
+ * collection entry's leaves addressed `<collection>.<entry>.<field>` (one layer
+ * deep, matching the row's own shape) — each row keyed to the leaf's own
+ * structural address, the `<member>/<kind>/<key>/<child-path>` grammar
+ * `src/read.rs`'s `parse_leaf_address` resolves. A bare-string leaf names no
+ * mention.
+ */
+function embeddedLeafMentionRows(hostName: string, value: EmbeddedMemberValue): MentionRow[] {
+  const rows: MentionRow[] = [];
+  const addressed = (childPath: string): string => `${hostName}/${value.kind}/${value.key}/${childPath}`;
+  for (const [field, leaf] of Object.entries(value.leaves)) {
+    if (typeof leaf === "string") continue;
+    for (const mention of leaf.mentions) {
+      rows.push({ member: addressed(field), target: mention.target.address });
+ }
+ }
+  for (const [collection, entries] of Object.entries(value.collections)) {
+    for (const entry of entries) {
+      for (const [field, leaf] of Object.entries(entry.leaves)) {
+        if (typeof leaf === "string") continue;
+        for (const mention of leaf.mentions) {
+          rows.push({ member: addressed(`${collection}.${entry.key}.${field}`), target: mention.target.address });
+ }
+ }
+ }
+ }
+  return rows;
+}
+
+/**
+ * One host member's declared embedded-member value as its declaration row —
+ * each `Text`-authored leaf resolved to its final stored string
+ * ([`NestedMemberRow`]), mention-resolution-checked against `mentionable` the
+ * identical way `emit.ts`'s `renderMemberToml` checks the same leaf on its way
+ * into the rendered fence.
+ */
+function nestedMemberRow(host: string, value: EmbeddedMemberValue, mentionable: ReadonlySet<string>): NestedMemberRow {
+  const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
+  const leaves: Record<string, string> = {};
+  for (const [field, leaf] of Object.entries(value.leaves)) {
+    leaves[field] = resolveLeaf(leaf, mentionable, context(field));
+ }
+  const collections: Record<string, ResolvedCollectionEntryRow[]> = {};
+  for (const [collection, entries] of Object.entries(value.collections)) {
+    collections[collection] = entries.map((entry) => {
+      const entryLeaves: Record<string, string> = {};
+      for (const [field, leaf] of Object.entries(entry.leaves)) {
+        entryLeaves[field] = resolveLeaf(leaf, mentionable, context(`${collection}.${entry.key}.${field}`));
+ }
+      return { key: entry.key, leaves: entryLeaves };
+ });
+ }
+  return { host, kind: value.kind, key: value.key, leaves, collections };
 }
 
 /**
@@ -375,18 +449,40 @@ function nestedMemberRow(host: string, value: EmbeddedMemberValue): NestedMember
  * (`emit.ts`'s `resolveBody`) — this row is a second *read* of the same authored
  * value, never a second copy the engine reads back (0018).
  */
-function nestedMemberRows(harness: Harness): NestedMemberRow[] {
+function nestedMemberRows(harness: Harness, mentionable: ReadonlySet<string>): NestedMemberRow[] {
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
     const host = `${member.kind}:${member.name}`;
     for (const value of member.prose.values) {
-      rows.push(nestedMemberRow(host, value));
+      rows.push(nestedMemberRow(host, value, mentionable));
  }
  }
   return rows.sort(
     (a, b) => compareStrings(a.host, b.host) || compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key),
  );
+}
+
+/** Every requirement name a `satisfies` claim may fill — assembly `require` ∪ member `requires`. */
+export function declaredRequirements(harness: Harness): Set<string> {
+  const set = new Set<string>();
+  for (const name of Object.keys(harness.require)) set.add(name);
+  for (const member of harness.members) {
+    for (const name of Object.keys(member.requires)) set.add(name);
+ }
+  return set;
+}
+
+/**
+ * Every address a mention may name — declared requirement names ∪ each member's
+ * `kind:name`. Shared by `emit.ts` (a member-level `Text` body's mentions) and
+ * this module (an embedded member's `Text` leaves) — the one resolution-check
+ * set, so a leaf mention and a member mention are held to the identical bar.
+ */
+export function declaredAddresses(harness: Harness): Set<string> {
+  const set = declaredRequirements(harness);
+  for (const member of harness.members) set.add(`${member.kind}:${member.name}`);
+  return set;
 }
 
 /** Compile a harness into its seven declaration families — the erased program. */
@@ -406,7 +502,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     assembly: assemblyFactRows(harness, kinds),
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
-    nested_members: nestedMemberRows(harness),
+    nested_members: nestedMemberRows(harness, declaredAddresses(harness)),
   };
 }
 

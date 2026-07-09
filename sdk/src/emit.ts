@@ -14,10 +14,16 @@ import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, Member } from "./kind.js";
-import { renderText } from "./prose.js";
+import { renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
-import { compareStrings, compileDeclarations, encodeSeam } from "./declarations.js";
+import {
+  compareStrings,
+  compileDeclarations,
+  declaredAddresses,
+  declaredRequirements,
+  encodeSeam,
+} from "./declarations.js";
 
 /** What a mention may resolve against at emit. */
 export interface ResolveOptions {
@@ -66,19 +72,26 @@ function tomlString(text: string): string {
  * Render one embedded member's interior TOML: its top-level leaves, then each
  * collection's entries, in authored order, each its own `[collection.entry]`
  * table — the default view a `blocks()` value renders with, when its
- * originating kind declares no `render` hook (`kind.ts`).
+ * originating kind declares no `render` hook (`kind.ts`). A `Text`-authored
+ * leaf resolves the way `resolveBody` resolves a member-level `Text` body
+ * (mention resolution-checked against `options.mentionable`, loud on a
+ * dangling address) before it is TOML-string-quoted; a bare-string leaf is
+ * unchanged.
  */
-function renderMemberToml(value: EmbeddedMemberValue): string {
+function renderMemberToml(value: EmbeddedMemberValue, options: ResolveOptions): string {
+  const mentionable = options.mentionable ?? new Set<string>();
+  const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const lines: string[] = [];
-  for (const [key, text] of Object.entries(value.leaves)) {
-    lines.push(`${key} = ${tomlString(text)}`);
+  for (const [key, leaf] of Object.entries(value.leaves)) {
+    lines.push(`${key} = ${tomlString(resolveLeaf(leaf, mentionable, context(key)))}`);
   }
   for (const [collection, entries] of Object.entries(value.collections)) {
     for (const entry of entries) {
       if (lines.length > 0) lines.push("");
       lines.push(`[${collection}.${entry.key}]`);
       for (const [leaf, text] of Object.entries(entry.leaves)) {
-        lines.push(`${leaf} = ${tomlString(text)}`);
+        const childPath = `${collection}.${entry.key}.${leaf}`;
+        lines.push(`${leaf} = ${tomlString(resolveLeaf(text, mentionable, context(childPath)))}`);
       }
     }
   }
@@ -91,8 +104,8 @@ function renderMemberToml(value: EmbeddedMemberValue): string {
  * default `[collection.entry]` TOML view — the fence wrapper itself never
  * changes, so a `render`-less kind's projection is byte-unchanged.
  */
-function renderMemberFence(value: EmbeddedMemberValue): string {
-  const body = value.render !== undefined ? value.render(value) : renderMemberToml(value);
+function renderMemberFence(value: EmbeddedMemberValue, options: ResolveOptions): string {
+  const body = value.render !== undefined ? value.render(value) : renderMemberToml(value, options);
   return `\`\`\`member.${value.kind} ${value.key}\n${body}\n\`\`\``;
 }
 
@@ -122,7 +135,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     }
   }
   if (prose.kind === "blocks") {
-    return prose.values.map(renderMemberFence).join("\n\n") + "\n";
+    return prose.values.map((value) => renderMemberFence(value, options)).join("\n\n") + "\n";
   }
   const mentionable = options.mentionable ?? new Set<string>();
   for (const mention of prose.mentions) {
@@ -134,23 +147,6 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     }
   }
   return renderText(prose);
-}
-
-/** Every requirement name a `satisfies` claim may fill — assembly `require` ∪ member `requires`. */
-function declaredRequirements(harness: Harness): Set<string> {
-  const set = new Set<string>();
-  for (const name of Object.keys(harness.require)) set.add(name);
-  for (const member of harness.members) {
-    for (const name of Object.keys(member.requires)) set.add(name);
-  }
-  return set;
-}
-
-/** Every address a mention may name — declared requirement names ∪ each member's `kind:name`. */
-function declaredAddresses(harness: Harness): Set<string> {
-  const set = declaredRequirements(harness);
-  for (const member of harness.members) set.add(`${member.kind}:${member.name}`);
-  return set;
 }
 
 /**

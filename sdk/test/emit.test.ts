@@ -603,6 +603,105 @@ test("an empty blocks() body renders no fences", () => {
   assert.equal(result.members.find((m) => m.name === "CLAUDE")!.body, "\n");
 });
 
+test("a Text-valued leaf's mention resolves and renders inline — in the fence and the nested_member row", () => {
+  const h = harness({
+    members: [
+      rule({ name: "rust", prose: text`# Rust` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: text`See ${{ address: "rule:rust", display: "rust" }} for the standard.` },
+          }),
+        ),
+      }),
+    ],
+  });
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "CLAUDE")!;
+  assert.equal(
+    member.body,
+    '```member.decision surface-authority\nchosen = "See rust for the standard."\n```\n',
+  );
+  assert.deepEqual(result.declarations.nested_members, [
+    {
+      host: "memory:CLAUDE",
+      kind: "decision",
+      key: "surface-authority",
+      leaves: { chosen: "See rust for the standard." },
+      collections: {},
+    },
+  ]);
+});
+
+test("an unresolved mention inside a leaf is a loud emit error, mirroring a member-level dangling mention", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: text`See ${{ address: "rule:ghost", display: "ghost" }}.` },
+          }),
+        ),
+      }),
+    ],
+  });
+  assert.throws(() => emit(h), /a mention cannot dangle/);
+});
+
+test("a leaf's mention contributes a mention row keyed to the leaf's own structural address", () => {
+  const h = harness({
+    members: [
+      rule({ name: "rust", prose: text`# Rust` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: text`See ${{ address: "rule:rust", display: "rust" }}.` },
+            collections: {
+              rejected: [
+                {
+                  key: "baked-projection",
+                  leaves: { because: text`Breaks ${{ address: "rule:rust", display: "rust" }}.` },
+                },
+              ],
+            },
+          }),
+        ),
+      }),
+    ],
+  });
+  assert.deepEqual(compileDeclarations(h).mentions, [
+    { member: "CLAUDE/decision/surface-authority/chosen", target: "rule:rust" },
+    { member: "CLAUDE/decision/surface-authority/rejected.baked-projection.because", target: "rule:rust" },
+  ]);
+});
+
+test("a bare-string leaf is unchanged — no mention row, no resolution check", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: "decision",
+            key: "surface-authority",
+            leaves: { chosen: "the composition surface is canonical" },
+          }),
+        ),
+      }),
+    ],
+  });
+  assert.deepEqual(compileDeclarations(h).mentions, []);
+});
+
 test("a blocks()-declared embedded member surfaces a matching nested_member row alongside its unchanged rendered fence", () => {
   // NESTED-MEMBER-LOCK-ROW (0018): the composed value feeds both the rendered fence
   // (untouched — `renderMemberFence`) and, additively, a `nested_member` declaration

@@ -8,7 +8,7 @@
  * Decision).
  */
 
-import type { Prose } from "./prose.js";
+import type { Prose, Text } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { Requirement } from "./contract.js";
 
@@ -190,8 +190,11 @@ export function kind<T extends object>(facts: KindFacts, options: KindOptions = 
 export interface EmbeddedMemberCollectionEntry {
   /** The entry's key among its collection's siblings. */
   readonly key: string;
-  /** The entry's own leaf fields: field name → authored string. */
-  readonly leaves: Readonly<Record<string, string>>;
+  /**
+   * The entry's own leaf fields: field name → authored string, or a `Text`
+   * template whose mentions resolve the way a member-level `Text` body does.
+   */
+  readonly leaves: Readonly<Record<string, string | Text>>;
 }
 
 /**
@@ -209,8 +212,12 @@ export interface EmbeddedMemberValue {
   readonly kind: string;
   /** The value's key — the identity a leaf address carries (`surface-authority`). */
   readonly key: string;
-  /** Prose leaves: authored strings, law-5 protected one by one. */
-  readonly leaves: Readonly<Record<string, string>>;
+  /**
+   * Prose leaves: authored strings, law-5 protected one by one, or a `Text`
+   * template carrying its own mentions — a leaf mention lifts into the host's
+   * mention rows and resolves the way a member-level `Text` body does.
+   */
+  readonly leaves: Readonly<Record<string, string | Text>>;
   /** Sibling collections: collection name → its entries, in authored order. */
   readonly collections: Readonly<Record<string, readonly EmbeddedMemberCollectionEntry[]>>;
   /** The originating kind's `render` hook, when declared — resolved once at construction. */
@@ -226,7 +233,7 @@ export interface EmbeddedMemberValue {
 export function embeddedMemberValue(init: {
   kind: string | KindDefinition<any>;
   key: string;
-  leaves: Readonly<Record<string, string>>;
+  leaves: Readonly<Record<string, string | Text>>;
   collections?: EmbeddedMemberValue["collections"];
 }): EmbeddedMemberValue {
   const [kindName, render] =

@@ -143,6 +143,38 @@ fn leaf_addresses_are_structural_member_kind_key_child_path() {
 }
 
 #[test]
+fn a_leaf_carrying_a_resolved_mentions_display_text_reads_as_a_plain_string() {
+    // A `Text`-authored leaf resolves its mention before it ever reaches the lock
+    // (`sdk/src/declarations.ts`'s `nestedMemberRow`) — the row is indistinguishable
+    // from a bare-string leaf, which is the point: the engine never sees a mention,
+    // only the resolved display the SDK already rendered into it.
+    let row = NestedMemberRow {
+        host: "decision:05-surface-authority".to_string(),
+        kind: "decision".to_string(),
+        key: "surface-authority".to_string(),
+        leaves: BTreeMap::from([(
+            "chosen".to_string(),
+            "the composition surface is canonical, per the read-only lens rejection".to_string(),
+        )]),
+        collections: Vec::new(),
+    };
+    let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &[row]);
+
+    let leaves = features.embedded_leaves();
+    let (address, leaf) = leaves
+        .iter()
+        .find(|(address, _)| address.child_path == "chosen")
+        .expect("the leaf is addressed");
+    assert_eq!(address.member, "05-surface-authority");
+    assert_eq!(address.kind, "decision");
+    assert_eq!(address.key, "surface-authority");
+    assert_eq!(
+        *leaf,
+        "the composition surface is canonical, per the read-only lens rejection"
+    );
+}
+
+#[test]
 fn a_row_addressed_to_a_different_host_never_leaks_into_this_members_features() {
     let rows = vec![surface_authority_row("decision:some-other-member")];
     let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
