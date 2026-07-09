@@ -1,40 +1,16 @@
 [
   {
-    "tag": "TEMPLATES-RELOCATION-COLLISION-REGRESSION",
-    "summary": "Fix row_relocates_builtin's templates equality check, which reduces to \"declared templates must be empty\" and hard-fails any legitimate templates-extension of a built-in host",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "row_relocates_builtin (~L980-986; KIND_COLLISION_RULE/partition_kind_rows just above/below, ~L963-1010) checks `declared.templates.is_empty() || declared.templates == builtin.templates`. Every compiled built-in's own `templates` is always `Vec::new()` (built-ins are constructed via `builtin_kind::definitions()`/`CustomKind::new`, never `from_kind_fact_row`, so nothing ever populates it), so the second branch is dead and the check collapses to \"declared templates must be empty\" — hard-failing `kind.admissibility` for any row that legitimately extends a built-in host with a declared child template (the pattern e.g. `rule` gaining a `directive` template via `withinHosts: [\"rule\"]`). Drop `templates` from this equality set (keep `format`/`unit_shape`/`registration`) so a declared-templates row on a built-in host defers to the built-in silently, as it did before 726769d, rather than colliding. Leave actually consuming a relocated row's declared templates out of scope — no mechanism reads them yet."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage.rs",
-        "asserts": "a kind row relocating a built-in's governs while additionally declaring a non-empty `templates` fires no `kind.admissibility` collision diagnostic (repro: declare a directive-style template against a built-in host in the lock, `check --harness .` stays clean); the existing format/unit_shape/registration-mismatch collision test and the plain-relocation test both stay green"
-      }
-    ],
-    "acceptance": "check --harness . stays clean when a lock row relocates a built-in and additionally declares templates; the two existing collision/relocation tests in tests/coverage.rs are unaffected.",
-    "notes": "Fresh regression from 85fdffd/726769d (KIND-NAME-COLLISION-ADMISSIBILITY), field-reported observed at f9cc899, re-verified live at HEAD 967b0e6: main.rs:980-986 confirmed, builtin_kind.rs never sets templates, CustomKind::new defaults it Vec::new(). Scope stops at the admissibility check — no templates-lifting mechanism for built-ins. scoped at 967b0e6"
-  },
-  {
     "tag": "MEMORY-ENTERS-REQUIREMENT-CORPUS",
     "summary": "Widen gate/explain's hardcoded skill+rule by-kind corpus to every built-in kind so a memory member's satisfies row reaches roster/graph/coverage instead of being structurally invisible",
     "per": {
       "path": "specs/model/contract.md",
       "section": "selection"
     },
-    "gate": { "kind": "blockedBy", "tag": "TEMPLATES-RELOCATION-COLLISION-REGRESSION" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TEMPLATES-RELOCATION-COLLISION-REGRESSION"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -58,42 +34,6 @@
     ],
     "acceptance": "explain <requirement> and roster::check/graph::degree/coverage::check agree that a memory member's declared satisfies row counts; gate() and explain() share one corpus-assembly implementation instead of two independent ones.",
     "notes": "Field-reported (observed at f9cc899), re-verified live at HEAD: main.rs:582-605 dispatch, :896-907 assemble_by_kind, :400-438 explain's independent re-derivation all confirmed on disk. Sibling BUILTIN_DEFAULT_CONTRACT_KINDS (main.rs:57, schema command's contract listing) is a distinct, already self-commented deferral (\"widening it to memory is a separate question\") — out of scope here. Pre-existing debt from skill_rule_corpus (c9a576c), not a new regression. scoped at 967b0e6"
-  },
-  {
-    "tag": "RETIRE-DEAD-PUBLISHED-REQUIREMENTS-SURFACE",
-    "summary": "Retire Features.published_requirements and impact's sole_publisher/dangling-demand narration — dead since RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY cut kind::Unit's own field, its sole non-empty source",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "Features.published_requirements (~L328) is now populated unconditionally empty everywhere it is constructed (kind.rs's Extraction::extract, main.rs's resolve_kind_units), because RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY removed kind::Unit's own published_requirements field, its sole non-empty source. Retire the field, and document::PublishedRequirement's use here if nothing else reads it."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "Extraction::extract's unconditional `published_requirements: Vec::new()` (~L652) retires with the field."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "impact's sole_publisher (~L1212-1231) and other_satisfiers plus the dangling-demand narration block that calls them (~L1090-1101) read published_requirements; with the field gone this branch can never fire for a real harness (a custom-kind member has no other channel for a `[requirement.*]` demand). Retire the narration alongside the field."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "impact's narration no longer covers a synthetic published_requirements-bearing Features built directly (bypassing Unit) — that test either retires or is rewritten against the surviving narration shape"
-      }
-    ],
-    "acceptance": "No source constructs a non-empty published_requirements; impact's narration reflects only reachable publish channels; no test constructs a synthetic-only Features to exercise the retired branch.",
-    "notes": "Drained from .flume/refactor/build-published-requirements-now-permanently-empty.md (observed at f9cc899, filed by build after RETIRE-DEAD-OWN-PATH-SURFACE-OVERLAY shipped at 664a522); re-verified live at HEAD: extract.rs:328, kind.rs:652 unconditional Vec::new() confirmed, main.rs has zero published_requirements references (union_published_requirements is gone). Capture file deleted. scoped at 967b0e6"
   },
   {
     "tag": "PACKAGING-CHANNELS",
