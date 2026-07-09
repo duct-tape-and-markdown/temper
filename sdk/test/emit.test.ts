@@ -526,6 +526,72 @@ test("a kind()'s render hook replaces the default TOML view inside the member fe
   );
 });
 
+test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, the same as the hook-less default TOML view", () => {
+  const embeddedFacts = {
+    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    unitShape: "file" as const,
+    registration: [],
+  };
+  const decisionWithRender = kind<object>(
+    { name: "decision", ...embeddedFacts },
+    { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
+  );
+
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: decisionWithRender,
+            key: "surface-authority",
+            leaves: { chosen: text`See ${{ address: "rule:ghost", display: "ghost" }}.` },
+          }),
+        ),
+      }),
+    ],
+  });
+
+  assert.throws(() => emit(h), /a mention cannot dangle/);
+});
+
+test("a kind()'s render hook receives a resolvable leaf mention already rendered to a plain string, not a Text object", () => {
+  const embeddedFacts = {
+    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    unitShape: "file" as const,
+    registration: [],
+  };
+  const decisionWithRender = kind<object>(
+    { name: "decision", ...embeddedFacts },
+    { render: (value) => `${value.key} chose: ${value.leaves.chosen}` },
+  );
+
+  const h = harness({
+    members: [
+      rule({ name: "rust", prose: text`# Rust` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: decisionWithRender,
+            key: "surface-authority",
+            leaves: { chosen: text`See ${{ address: "rule:rust", display: "rust" }} for the standard.` },
+          }),
+        ),
+      }),
+    ],
+  });
+
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "CLAUDE")!;
+  assert.equal(
+    member.body,
+    "```member.decision surface-authority\n" +
+      "surface-authority chose: See rust for the standard.\n" +
+      "```\n",
+  );
+});
+
 test("a blocks() body renders a keyed collection entry as its own [collection.entry] table", () => {
   const h = harness({
     members: [

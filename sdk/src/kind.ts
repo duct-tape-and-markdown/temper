@@ -131,11 +131,13 @@ export interface KindDefinition<T> {
   /**
    * An embedded kind's own composed view of one of its values (`representation.md`,
    * "kind": an embedded-locus format is writer-only, so the hook is unconstrained).
-   * Erased at the emit seam — the engine only ever sees the resulting string, never
-   * the function. Absent, `blocks()` renders the kind's values with the default
-   * `[collection.entry]` TOML view.
+   * Every leaf the hook receives is already resolved to its final stored string
+   * (`emit.ts`'s `resolveMemberLeaves`) — a hook author never handles a raw `Text`
+   * template. Erased at the emit seam — the engine only ever sees the resulting
+   * string, never the function. Absent, `blocks()` renders the kind's values with
+   * the default `[collection.entry]` TOML view.
    */
-  readonly render?: (value: EmbeddedMemberValue) => string;
+  readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
 }
 
 /**
@@ -157,7 +159,7 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
 
 /** The options `kind()` takes beyond its five facts — today, only the embedded `render` hook. */
 export interface KindOptions {
-  readonly render?: (value: EmbeddedMemberValue) => string;
+  readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
 }
 
 /**
@@ -221,7 +223,35 @@ export interface EmbeddedMemberValue {
   /** Sibling collections: collection name → its entries, in authored order. */
   readonly collections: Readonly<Record<string, readonly EmbeddedMemberCollectionEntry[]>>;
   /** The originating kind's `render` hook, when declared — resolved once at construction. */
-  readonly render?: (value: EmbeddedMemberValue) => string;
+  readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
+}
+
+/**
+ * One resolved sibling-collection entry: its own key plus its leaf fields,
+ * already resolved to plain strings — no `Text` template remains.
+ */
+export interface ResolvedEmbeddedMemberCollectionEntry {
+  /** The entry's key among its collection's siblings. */
+  readonly key: string;
+  /** The entry's own leaf fields, already resolved to their final strings. */
+  readonly leaves: Readonly<Record<string, string>>;
+}
+
+/**
+ * An {@link EmbeddedMemberValue} after every leaf (top-level and each
+ * collection entry's) resolves to its final stored string
+ * (`emit.ts`'s `resolveMemberLeaves`) — the shape a kind's own `render` hook
+ * receives, so a hook author never handles a raw `Text` leaf.
+ */
+export interface ResolvedEmbeddedMemberValue {
+  /** The child kind this value instantiates. */
+  readonly kind: string;
+  /** The value's key. */
+  readonly key: string;
+  /** Prose leaves, already resolved to their final strings. */
+  readonly leaves: Readonly<Record<string, string>>;
+  /** Sibling collections, each entry's leaves already resolved. */
+  readonly collections: Readonly<Record<string, readonly ResolvedEmbeddedMemberCollectionEntry[]>>;
 }
 
 /**

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
-import type { EmbeddedMemberValue, Member } from "./kind.js";
+import type { EmbeddedMemberValue, Member, ResolvedEmbeddedMemberCollectionEntry, ResolvedEmbeddedMemberValue } from "./kind.js";
 import { renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
@@ -69,29 +69,51 @@ function tomlString(text: string): string {
 }
 
 /**
- * Render one embedded member's interior TOML: its top-level leaves, then each
- * collection's entries, in authored order, each its own `[collection.entry]`
- * table — the default view a `blocks()` value renders with, when its
- * originating kind declares no `render` hook (`kind.ts`). A `Text`-authored
- * leaf resolves the way `resolveBody` resolves a member-level `Text` body
- * (mention resolution-checked against `options.mentionable`, loud on a
- * dangling address) before it is TOML-string-quoted; a bare-string leaf is
- * unchanged.
+ * Resolve one embedded member's value's leaves — top-level and each
+ * collection entry's — to their final stored strings: a `Text`-authored leaf
+ * resolves the way `resolveBody` resolves a member-level `Text` body (mention
+ * resolution-checked against `mentionable`, loud on a dangling address); a
+ * bare-string leaf is unchanged. The one resolution point shared by the
+ * default TOML view and a kind's own `render` hook, so refusing on a dangling
+ * embedded-kind leaf mention never depends on whether the kind declares
+ * `render` (`pipeline.md`, "Emit", the "Refusing" bullet).
  */
-function renderMemberToml(value: EmbeddedMemberValue, options: ResolveOptions): string {
-  const mentionable = options.mentionable ?? new Set<string>();
+function resolveMemberLeaves(value: EmbeddedMemberValue, mentionable: ReadonlySet<string>): ResolvedEmbeddedMemberValue {
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
+  const leaves: Record<string, string> = {};
+  for (const [key, leaf] of Object.entries(value.leaves)) {
+    leaves[key] = resolveLeaf(leaf, mentionable, context(key));
+  }
+  const collections: Record<string, ResolvedEmbeddedMemberCollectionEntry[]> = {};
+  for (const [collection, entries] of Object.entries(value.collections)) {
+    collections[collection] = entries.map((entry) => {
+      const entryLeaves: Record<string, string> = {};
+      for (const [leaf, text] of Object.entries(entry.leaves)) {
+        entryLeaves[leaf] = resolveLeaf(text, mentionable, context(`${collection}.${entry.key}.${leaf}`));
+      }
+      return { key: entry.key, leaves: entryLeaves };
+    });
+  }
+  return { kind: value.kind, key: value.key, leaves, collections };
+}
+
+/**
+ * Render one resolved embedded member's interior TOML: its top-level leaves,
+ * then each collection's entries, in authored order, each its own
+ * `[collection.entry]` table — the default view a `blocks()` value renders
+ * with, when its originating kind declares no `render` hook (`kind.ts`).
+ */
+function renderMemberToml(value: ResolvedEmbeddedMemberValue): string {
   const lines: string[] = [];
   for (const [key, leaf] of Object.entries(value.leaves)) {
-    lines.push(`${key} = ${tomlString(resolveLeaf(leaf, mentionable, context(key)))}`);
+    lines.push(`${key} = ${tomlString(leaf)}`);
   }
   for (const [collection, entries] of Object.entries(value.collections)) {
     for (const entry of entries) {
       if (lines.length > 0) lines.push("");
       lines.push(`[${collection}.${entry.key}]`);
       for (const [leaf, text] of Object.entries(entry.leaves)) {
-        const childPath = `${collection}.${entry.key}.${leaf}`;
-        lines.push(`${leaf} = ${tomlString(resolveLeaf(text, mentionable, context(childPath)))}`);
+        lines.push(`${leaf} = ${tomlString(text)}`);
       }
     }
   }
@@ -102,10 +124,14 @@ function renderMemberToml(value: EmbeddedMemberValue, options: ResolveOptions): 
  * Render one embedded member's value to its `member.<kind> <key>` fenced block:
  * the originating kind's own `render` hook, when declared, in place of the
  * default `[collection.entry]` TOML view — the fence wrapper itself never
- * changes, so a `render`-less kind's projection is byte-unchanged.
+ * changes, so a `render`-less kind's projection is byte-unchanged. Leaves
+ * resolve once (`resolveMemberLeaves`) before either path sees them, so a
+ * hook receives plain strings, never a raw `Text` leaf.
  */
 function renderMemberFence(value: EmbeddedMemberValue, options: ResolveOptions): string {
-  const body = value.render !== undefined ? value.render(value) : renderMemberToml(value, options);
+  const mentionable = options.mentionable ?? new Set<string>();
+  const resolved = resolveMemberLeaves(value, mentionable);
+  const body = value.render !== undefined ? value.render(resolved) : renderMemberToml(resolved);
   return `\`\`\`member.${value.kind} ${value.key}\n${body}\n\`\`\``;
 }
 
