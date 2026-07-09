@@ -161,7 +161,153 @@
       }
     ],
     "acceptance": "check on a harness containing a malformed frontmatter block reports the malformation as an error naming the file; no path treats it as frontmatter-less silently.",
-    "notes": "Scoped at f600965. The 0013 note's independently-surviving slice (observed 9c3b1c1, amended 6a04322). Spans and the layout reader derive from 0019 in the spec-delta job — this is the minimal invariant-6 fix; job 2 may extend it. If the harness's documented behavior makes a non-mapping block a real leniency, declare it cited — open question, never invent. Serialized behind REQUIREMENT-PROSE-PERSISTS (shared src/main.rs)."
+    "notes": "Scoped at f600965. The 0013 note's independently-surviving slice (observed 9c3b1c1, amended 6a04322). The minimal invariant-6 fix; the 0019 entries extend the same resolve_kind_units surface with the layout dispatch. If the harness's documented behavior makes a non-mapping block a real leniency, declare it cited — open question, never invent. Serialized behind REQUIREMENT-PROSE-PERSISTS (shared src/main.rs)."
+  },
+  {
+    "tag": "KIND-CONTENT-FACT",
+    "summary": "A kind declares its content — `file` (default) or a `layout` template in three primitives — a typed SDK fact carried through the lock's kind rows into the engine's CustomKind",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "blockedBy", "tag": "FRONTMATTER-MALFORMED-LOUD" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "New layout type + a `content` fact on KindFacts (absent = file, the default install hoists): ordered regions in exactly the three corpus primitives — prose (optionally an import reference; resolution is LAYOUT-PROSE-IMPORT's), a field section (a heading whose span fills a named slot), a member collection (a heading whose child headings are members of a named kind; identity the slugged heading, explicit key optional). Opening this file fires the riding exit clause on its 8 pre-0002 spec-path citations (lines 7,57,86,98,125,166,189,206): cut on contact, never annotate."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Kind declaration rows carry the content fact; a file-content kind's row stays byte-identical (absent = default) so no existing lock moves."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "KindFactRow (line 1080) gains the content/layout columns, `#[serde(default)]`-absent = file, so src/builtin_lock.toml (all file-content kinds) is untouched and tests/builtin_lock_frozen.rs stays green."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "CustomKind gains the content fact, parsed from the row beside format_from_label/unit_shape_from_label (lines 354-380). Opening this file fires the riding exit clause on its two false doc comments — unit_shape's \"Inert alongside format\" (~line 74; consumed by src/frontmatter.rs:175) and registration's \"nothing else consumes it yet\" (line 82; consumed by src/main.rs:452-455 -> graph::live_members): fix on contact."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "New assert: a layout kind's content fact round-trips SDK emit -> lock row -> engine CustomKind; a content-less kind reads as file."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Assert kind rows carry a declared layout and omit the fact for a file-content kind."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a layout kind's content fact round-trips SDK emit -> lock row -> engine CustomKind; absent reads as file"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "kind rows carry a declared layout; a file-content kind's row is unchanged"
+      }
+    ],
+    "acceptance": "An SDK-declared layout reaches the engine's CustomKind through the lock's kind rows; a kind with no content declaration is file everywhere; src/builtin_lock.toml is byte-unchanged (frozen gate); all gates green.",
+    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind FRONTMATTER-MALFORMED-LOUD to keep the surfaces shared with REQUIREMENT-PROSE-PERSISTS (declarations.ts, drift.rs, lock tests) linear."
+  },
+  {
+    "tag": "LAYOUT-READER",
+    "summary": "A layout kind's document is read under its declared layout — field sections fill slots, collection headings are members, prose verbatim — emit derives its rows and writes nothing at its path",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "blockedBy", "tag": "KIND-CONTENT-FACT" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "A declared layout over a real document: field sections fill named slots; collection members carry slugged-heading identity and an explicit key survives retitling; prose regions land verbatim in rows; emit leaves the document byte-untouched at its path; a document missing a declared section fails loud, naming the file and heading."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/extract.rs",
+          "description": "The heading-tree substrate the reader stands on: Section (line 157) carries heading + body today; a member collection needs the child headings nested under a collection heading. Extend the existing substrate (body_headings and Section) — never a second heading parser (engineering.md, one job one home)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "The extractor is composed from kind data (representation.md, \"A kind is data, never code; its extractor is composed from that data\"): compose the layout reader from the content fact the way format composes the frontmatter reader today."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "resolve_kind_units (lines 807-825) reads every unit through frontmatter::Member::from_source_rooted unconditionally — dispatch on the kind's content: a layout unit is read under its declared layout; a document that does not fit it (a declared section missing, structure no primitive admits) is an error finding naming the file and heading (invariant 6)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "The lock rollup carries the declaration rows emit derives from layout sources in the same pass (pipeline.md, The lock: \"the rows emit derives from layout sources\")."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Emit writes nothing at a layout document's path and the reap step (reap_or_report_orphan, ~line 508) never reaps a layout source — source, never projection; never regenerated, never reaped."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "The lift never converts a layout kind's document — its authored home never moves; a layout document is a source at either depth (pipeline.md, Install)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "field sections fill slots; collection members carry slugged identity, explicit key survives retitling; prose verbatim; emit leaves the document untouched; a non-fitting document fails loud naming file and heading"
+      }
+    ],
+    "acceptance": "A layout kind's members, read off its authored documents, reach the lock as declaration rows and the gate judges them offline from the committed pair; the document is never written, regenerated, or reaped; a non-fitting document is a loud error; all gates green.",
+    "notes": "Scoped at a2279cf (0019). Sections substrate verified shipped: extract.rs Section/body_headings/FencedBlock — extend, never duplicate. Identity: slugged heading; explicit key survives retitling; a rename reports as a move, loudly (0019) — drift's existing fingerprint vocabulary. Span/miette mechanics are code's call (depth rule); the bar is a finding naming file and heading. Prose-region imports excluded: LAYOUT-PROSE-IMPORT."
+  },
+  {
+    "tag": "LAYOUT-PROSE-IMPORT",
+    "summary": "A layout prose region declared as an import resolves to its target file's contents — fingerprinted in the lock, a declared graph edge, refusing loudly when dangling",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "blockedBy", "tag": "LAYOUT-READER" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/layout_prose_import.rs",
+          "description": "An import-declared prose region resolves to its target file's contents; the dependency is fingerprinted in the lock; a dangling target refuses before a byte is written (pipeline.md, Emit: \"Refusing\"); the edge appears in the same resolved enumeration explain/impact narrate."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Thread the import region's resolution through emit and the gate: refusal when dangling, the resolved edge into the one enumeration the gate and read verbs share (contract.md, edge)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The import target's fingerprint reaches the lock — a dependency the lock fingerprints, so a moved target is drift in the one disk-versus-lock vocabulary."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The import edge joins the resolved edge set the gate, explain, and impact already range over — path-resolved against raw disk, never the ignore-filtered discovery view (contract.md, edge)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/layout_prose_import.rs",
+        "asserts": "an import region resolves and is fingerprinted; a dangling import refuses before any write; the edge is narrated by the read verbs"
+      }
+    ],
+    "acceptance": "A layout prose region declared as an import resolves, is fingerprinted in the committed lock, and appears as a declared edge to the gate and read verbs; a dangling import refuses loudly before any byte is written; all gates green.",
+    "notes": "Scoped at a2279cf (0019 Consequences: prose-import resolution). No Include primitive ships anywhere today (rg: mentions only — drift.rs MentionRow). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK declaration shape lands in KIND-CONTENT-FACT; this entry is engine-side resolve + fingerprint + edge."
   },
   {
     "tag": "PACKAGING-CHANNELS",

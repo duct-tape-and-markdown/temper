@@ -1,29 +1,27 @@
 # Plan state
 
-- Spec derived through: 048f31f
+- Spec derived through: 6a04322
 - Audited through: 5f88258
 - Residue swept through: 5f88258
-- This tick: Inbox drain (job 1). Four notes, every claim re-verified on
-  disk before routing (forward-diff 9c3b1c1..HEAD touches only cb17438 and
-  5f88258, neither near a claimed surface). Routed: the 0001 note →
-  REQUIREMENT-PROSE-PERSISTS (open; verified gap is prose persistence plus
-  the phantom never-interprets quote at main.rs ~1063 and compose.rs:60 —
-  identity/verified_by/clauses already ship, read.rs already narrates the
-  field); the 0014 note → SKILL-CONTRACT-RECITE (open; all 25 builtin_lock
-  cites still 07-01 confirmed); the 0013 note's independent survivor →
-  FRONTMATTER-MALFORMED-LOUD (blockedBy REQUIREMENT-PROSE-PERSISTS, shared
-  src/main.rs), its two false kind.rs comments → new riding-debt bullet;
-  its 0019-superseded slices (layout reader, admissibility, spans)
-  deliberately NOT filed — they are job 2's derivation of 6a04322, which
-  the spec cursor holds; recon for job 2: format's sole consumer is
-  main.rs:1013's collision check, resolve_kind_units (main.rs:807-819)
-  splits YAML unconditionally, no admissibility rules, no span type in
-  extract.rs. The 0015 note → one line appended to the
-  (manifest-authoring-surface) fork record. Inbox emptied.
+- This tick: Spec delta (job 2) — derived 6a04322 (decision 0019) whole,
+  Consequences enumerated bullet by bullet in the commit body. Filed three
+  chained entries: KIND-CONTENT-FACT (blockedBy FRONTMATTER-MALFORMED-LOUD;
+  owns the kind.ts 8-citation cut and the kind.rs false-comment fixes) →
+  LAYOUT-READER → LAYOUT-PROSE-IMPORT. Verified moot: coverage-clauses
+  bullet (Predicate::Degree in the vocabulary, graph::degree in the gate at
+  main.rs:696); invariant 5's new advisory sentence contradicts nothing
+  shipped (no coverage clause in the built-in lock; graph::reachable has no
+  gate caller). Sections substrate confirmed shipped (extract.rs Section).
+  The demo act (this repo declaring its spec kind over specs/) is a
+  customer/human act per 0019's own Rejected — `.temper/` territory,
+  unblocked once the three entries ship; not a build entry.
 - Queue: REQUIREMENT-PROSE-PERSISTS, SKILL-CONTRACT-RECITE (both open,
-  disjoint), FRONTMATTER-MALFORMED-LOUD (blockedBy the first),
-  PACKAGING-CHANNELS (parked, carried verbatim).
+  disjoint) → FRONTMATTER-MALFORMED-LOUD → KIND-CONTENT-FACT →
+  LAYOUT-READER → LAYOUT-PROSE-IMPORT (one linear blockedBy chain over the
+  shared main.rs/drift.rs/declarations.ts surfaces); PACKAGING-CHANNELS
+  (parked, carried verbatim).
 
-Plan continues: yes — spec delta 6a04322 (decision 0019) is past the spec
-cursor; job 2 derives it next tick, Consequences checklist enumerated
-bullet by bullet, with the routed 0013 recon above in hand.
+Plan continues: yes — residue sweep trails HEAD (5f88258 < a2279cf; no
+src/tests/sdk commits in the gap, so ship audit is not live, but the 0019
+corpus recut itself is unswept — retired vocabulary like the kind's old
+"prose shape" needs a code sweep).

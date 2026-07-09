@@ -161,8 +161,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   cb17438 nor 5f88258 opened it) — debt there unchanged.
   REQUIREMENT-PROSE-PERSISTS (filed 07-09) opens `contract.ts` (the
   `means`→`prose` rename) and names the 12-line cut in its file
-  description — verify at its ship audit, then shrink this bullet to
-  `kind.ts` alone. `kind.ts` stays riding.
+  description; KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens
+  `kind.ts` (the content fact) and names the 8-line cut in its file
+  description — verify each at its ship audit, then delete this bullet.
 
 - **Two `src/kind.rs` doc comments are factually false**, both claiming
   inertness a consumer disproves: `unit_shape`'s "Inert alongside
@@ -171,9 +172,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   `src/main.rs:452-455` → `graph.rs::live_members` since 207e701).
   Comment staleness rides whichever entry next opens `src/kind.rs`
   (rust.md, "the exit clause") — never a standalone entry. From the 0013
-  inbox note (observed 9c3b1c1); both verified on disk at f600965. Note
-  0019's spec-delta derivation (job 2) is likely to open `src/kind.rs`
-  for the content/layout kind fact — that entry owns the fix.
+  inbox note (observed 9c3b1c1); both verified on disk at f600965.
+  KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens `src/kind.rs`
+  and names both fixes in its file description — verify the exit clause
+  fired at its ship audit, then delete this bullet.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
