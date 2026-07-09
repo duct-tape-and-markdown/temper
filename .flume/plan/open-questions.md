@@ -112,10 +112,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD 8dfceee —
-  33874ac (the intervening src/tests change) touched only main.rs and
-  tests/requirement_roster.rs, neither file. Verify both at the next residue
-  sweep.
+  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD 0944ed9
+  — the sole intervening src/tests change, a0a3280, touched only
+  tests/install.rs, neither file. Verify both at the next residue sweep.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
