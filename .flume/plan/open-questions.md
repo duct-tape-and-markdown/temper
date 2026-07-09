@@ -13,21 +13,6 @@ tax.
 
 ## Open forks
 
-- `(format-template-spelling)` — OPEN (registered 2026-07-07). 0013 recut
-  `format` from a label to declared **template data** — one declaration, two
-  independent one-way faces (a write-only projection, a lenient source-read),
-  never a round trip (`specs/model/representation.md`, "kind"). 0013 fixes the
-  *semantics*: injective-render admissibility (decidable, checked at
-  kind-declaration), declared source-read leniency, the no-logic/no-derived-
-  values bar, structured sublanguage as a schema-naming slot, and
-  total-with-errors extraction carrying source positions. OPEN is the
-  *spelling*: `format` today is the inert string label `"yaml-frontmatter"`
-  (`sdk/src/kind.ts` `Format`, `src/kind.rs` `Format`, the lock
-  `KindFactRow.format` column — consumed by nothing). The SDK template-authoring
-  API, its emit-payload erasure, and the lock format-column encoding are an
-  unsettled design surface needing John before the label→template-data recut
-  and its composed renderer/extractor can be filed as build entries.
-
 - `(manifest-authoring-surface)` — OPEN (registered 2026-07-07). 0015 rules
   structured config files (`settings.json`, `.mcp.json`, a plugin's manifests)
   **manifests**: projections of a container member's controlled segment —
@@ -45,11 +30,9 @@ tax.
   JSON manifest adapter beside `src/frontmatter.rs`, no fields-only kind shape
   beside `Format`/`UnitShape` (`src/kind.rs`), no collection-address kind fact,
   no container-segment emit projection, no SDK API for a hook/mcp-server/plugin
-  member; and the adapter's format is 0013 document delegation, so this rests on
-  `(format-template-spelling)` too. John rules the authoring surface +
-  emit/write architecture before the hook/mcp-server/plugin kinds and the
-  canonical-manifest write file as build entries (0014's fetch-and-cite pattern
-  per kind, once unblocked).
+  member. John rules the authoring surface + emit/write architecture before
+  the hook/mcp-server/plugin kinds and the canonical-manifest write file as
+  build entries (0014's fetch-and-cite pattern per kind, once unblocked).
 
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
   hand-written std-lib ships an `agents-md.memory` built-in kind (glob
