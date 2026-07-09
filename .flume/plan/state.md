@@ -2,44 +2,31 @@
 
 - Spec derived through: 048f31f
 - Audited through: a641e03
-- Residue swept through: a561e70
-- This tick: Spec delta. Two specs/ commits landed past the recorded cursor
-  (a53eee4) mid-tick, from a concurrent interactive ratification session:
-  d0e4fda (retire the cold-read ceremony — spec-system.md's Change ceremony
-  reworded: the `specs:` commit stays the session's, human in the loop, but
-  the verification duty is the session's own, exercised before landing, not
-  a separate human cold read after) and 048f31f (intent gains a sixth
-  invariant, "Loud or nothing" — decisions/0019-loud-or-nothing.md). Both
-  fully routed, no new entries: d0e4fda's downstream already shipped as
-  chore commits in the same window (bb5bb2e reworded
-  `.claude/rules/collaboration.md` — and its `.temper/` source plus lock
-  row; 26b66f5 reworded `.flume/chain.ts`'s writablePaths comment) —
-  grepped `specs/`, `.flume/plan/`, `.flume/prompts/` for "cold read"
-  residue: none left. 048f31f's own Decision text keeps the per-surface
-  refusal clauses as the binding spec text and declines to retrofit
-  existing surfaces ("Patch the instance only" is a rejected alternative);
-  its motivating gap (EMBEDDED-KIND-RENDER-HOOK's render hook bypassing
-  mention resolution) is the already-queued RENDER-HOOK-LEAF-RESOLUTION
-  entry, so nothing new derives from it this tick. Re-confirmed ship audit
-  and residue-sweep cursors both still trail HEAD with no new src/tests/sdk
-  commits in the window (bb5bb2e/26b66f5/9c3b1c1 touch only
-  `.claude`/`.temper`/`.flume`/`docs`), so neither job displaces this one.
-  Found mid-tick but NOT filed (one job per tick): `sdk/src/assembly.ts:19`'s
-  `ExpectBinding.kind` is still typed `KindDefinition<object>` — the
-  identical contravariant-assignability bug a620938 fixed on
-  `Requirement.kind` (Decision 0003's stranded SDK-side half). Verified live
-  via a scratch tsc check: `expect: [{ kind: skill, clauses: [] }]` fails
-  TS2322 ("Property 'description' is missing in type '{}' but required in
-  type 'Skill'"), the same shape `Requirement.kind` threw before a620938.
-  a620938 only retyped `contract.ts`'s sibling field; `assembly.ts`'s
-  `ExpectBinding` was never touched. Ready for next tick's residue sweep to
-  file (fix mirrors a620938: retype to `KindDefinition<never>`;
-  `declarations.ts` reads only `binding.kind.key`/`.facts.name`, so no
-  Rust-side change, same as the precedent).
-- Queue: RENDER-HOOK-LEAF-RESOLUTION (open), PACKAGING-CHANNELS (parked on
-  human release creds + the engine-binary workflow, unchanged this tick).
+- Residue swept through: 37c2411
+- This tick: Residue sweep. `git log a561e70..HEAD -- src/ tests/ sdk/`
+  turns up exactly one commit, a620938 (already covered by the ship-audit
+  cursor a641e03) — no code-bearing commits the residue class list hasn't
+  seen. Filed the one live finding carried forward from last tick:
+  EXPECT-BINDING-KIND-SDK-TYPE — `sdk/src/assembly.ts:19`'s
+  `ExpectBinding.kind` is still `KindDefinition<object>`, the identical
+  contravariant-assignability bug a620938 fixed on `Requirement.kind`
+  (Decision 0003's stranded SDK-side half); re-verified live this tick via
+  a scratch tsc check (`expect: [{ kind: skill, clauses: [] }]` still fails
+  TS2322, same shape). a620938 touched only `contract.ts`'s sibling field
+  and never reached `assembly.ts`. No Rust-side change needed —
+  `declarations.ts` reads only `binding.kind.key`/`.facts.name` (lines
+  ~290, ~493). Re-verified every "kept on purpose" debt bullet in
+  open-questions.md against the same a561e70..HEAD window: a620938 touched
+  only `sdk/src/contract.ts` (1 line, already accounted for by the ship
+  audit) and `sdk/test/refusals.test.ts` — none of `tests/session_start.rs`,
+  `sdk/src/builtins.ts`, `tests/coverage.rs`, or `sdk/src/kind.ts` moved, so
+  every debt bullet stands unchanged. Cursor advances to 37c2411 (HEAD at
+  scoping, pre-this-commit).
+- Queue: RENDER-HOOK-LEAF-RESOLUTION (open), EXPECT-BINDING-KIND-SDK-TYPE
+  (open, new this tick), PACKAGING-CHANNELS (parked on human release creds +
+  the engine-binary workflow, unchanged this tick).
 
-Plan continues: yes — residue sweep is next (Residue swept through a561e70
-trails HEAD; the window carries 0f5fcd0 and a620938 as before, plus the
-newly-routed specs commits and their chore-commit reflections, none
-code-bearing, plus the ExpectBinding.kind finding above ready to file).
+Plan continues: yes — quiet pass is next (all four numbered inputs are now
+current: inbox empty, spec delta cursor at HEAD's last routed commit, ship
+audit and residue sweep cursors both caught up to HEAD; job 5's own closing
+pass — queue disjointness, gate-reason re-check — has not run this tick).

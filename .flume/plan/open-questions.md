@@ -96,10 +96,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
   `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD
-  a561e70 — the one intervening src/tests/sdk change since 3c6f50b
-  (18d3406, EMBEDDED-LEAF-TEXT: declarations.ts, emit.ts, kind.ts, prose.ts,
-  emit.test.ts, tests/nested_member.rs only) never touched the two debt
-  files. Verify both at the next residue sweep.
+  37c2411 — the one intervening src/tests/sdk change since a561e70
+  (a620938, retyping `Requirement.kind` to `KindDefinition<never>`:
+  `sdk/src/contract.ts`, `sdk/test/refusals.test.ts` only) never touched
+  the two debt files. Verify both at the next residue sweep.
 
 - **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
   `tests/coverage.rs:336-338`'s doc comment on
@@ -109,8 +109,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   src/main.rs but didn't reach this test file. Comment staleness rides the
   next entry that opens `tests/coverage.rs` (`.claude/rules/rust.md`, "the
   exit clause") — never a standalone entry. Found at residue sweep HEAD
-  e6d0311; re-verified still true at HEAD a561e70 (18d3406, the sole
-  intervening src/tests/sdk change since 3c6f50b, never touched
+  e6d0311; re-verified still true at HEAD 37c2411 (a620938, the sole
+  intervening src/tests/sdk change since a561e70, never touched
   tests/coverage.rs).
 
 - **Pre-corpus-reorg spec-path citations in the SDK — `sdk/src/kind.ts`
