@@ -99,12 +99,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Both re-verified live at residue sweep HEAD
-  5f88258 — the two intervening src/tests/sdk commits since 37c2411
-  (cb17438/RENDER-HOOK-LEAF-RESOLUTION: `sdk/src/emit.ts`, `sdk/src/kind.ts`,
-  `sdk/test/emit.test.ts`; 5f88258/EXPECT-BINDING-KIND-SDK-TYPE:
-  `sdk/src/assembly.ts`, `sdk/test/refusals.test.ts`) never touched
-  `tests/session_start.rs` or `sdk/src/builtins.ts`. Verify both at the
+  `706139a` (2026-07-07). Both re-verified at residue sweep HEAD ec3d112 —
+  vacuously: zero src/tests/sdk commits in 5f88258..ec3d112 (the 5f88258
+  sweep had walked the two prior code commits directly). Verify both at the
   next residue sweep.
 
 - **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
@@ -176,6 +173,19 @@ condition arrives, it is the next break. If work touches one, surface it.
   KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens `src/kind.rs`
   and names both fixes in its file description — verify the exit clause
   fired at its ship audit, then delete this bullet.
+
+- **Pre-0019 "every governed artifact" universals in install comments.**
+  `src/install.rs:18` and `tests/install.rs:15,382` still state the first
+  emit "regenerates every governed artifact as a canonical projection" —
+  0019 recut the universal: every *composed kind's* artifact is a
+  projection, a layout kind's document a source at either depth
+  (`specs/model/pipeline.md`, "Install"). Comment staleness only — no
+  behavior can diverge until a layout kind ships, and LAYOUT-READER lands
+  the behavior. Rides the exit clause (rust.md), never standalone:
+  LAYOUT-READER (filed 07-09) opens `src/install.rs` and names the line-18
+  fix in its file description — verify at its ship audit;
+  `tests/install.rs:15,382` rides whichever entry next opens that file.
+  Found at residue sweep HEAD ec3d112.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
