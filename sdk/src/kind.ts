@@ -167,14 +167,27 @@ export function kind<T extends object>(facts: KindFacts): KindDefinition<T> {
 }
 
 /**
+ * One entry in a sibling collection: its own key plus its leaf fields
+ * (`rejected."baked-projection"`) — an ordered list element, never a positional
+ * index; the entry's `key` is what a leaf address carries (`20-surface.md`, the
+ * leaf-address Decision).
+ */
+export interface EmbeddedMemberCollectionEntry {
+  /** The entry's key among its collection's siblings. */
+  readonly key: string;
+  /** The entry's own leaf fields: field name → authored string. */
+  readonly leaves: Readonly<Record<string, string>>;
+}
+
+/**
  * An **embedded member's** composed value (posture 3, passed to `blocks()`):
  * leaves are authored strings keyed by field name; sibling collections are keyed
- * at every level (`rejected."baked-projection"`), never positional — leaf
- * addresses are structural and keyed (`20-surface.md`, the leaf-address
- * Decision). Read back byte-identically by the engine's `parse_embedded_member`
- * fold off the `member.<kind> <key>` fence `blocks()` renders (`src/extract.rs`).
- * There is no prescribed child-kind ontology — a corpus that wants one declares
- * its own child kind with the same machinery.
+ * by collection name, each an authored-order list of entries — leaf addresses
+ * are structural and keyed (`20-surface.md`, the leaf-address Decision). Read
+ * back byte-identically by the engine's `parse_embedded_member` fold off the
+ * `member.<kind> <key>` fence `blocks()` renders (`src/extract.rs`). There is no
+ * prescribed child-kind ontology — a corpus that wants one declares its own
+ * child kind with the same machinery.
  */
 export interface EmbeddedMemberValue {
   /** The child kind this value instantiates — the fence info string's `member.<kind>`. */
@@ -183,10 +196,8 @@ export interface EmbeddedMemberValue {
   readonly key: string;
   /** Prose leaves: authored strings, law-5 protected one by one. */
   readonly leaves: Readonly<Record<string, string>>;
-  /** Keyed sibling collections: collection → entry key → field → authored string. */
-  readonly collections: Readonly<
-    Record<string, Readonly<Record<string, Readonly<Record<string, string>>>>>
-  >;
+  /** Sibling collections: collection name → its entries, in authored order. */
+  readonly collections: Readonly<Record<string, readonly EmbeddedMemberCollectionEntry[]>>;
 }
 
 /** Compose an embedded member's value for `blocks()` — the shape any project's own child kind uses. */

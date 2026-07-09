@@ -188,8 +188,8 @@ pub struct FencedBlock {
 /// at the floor. It carries the child kind it instantiates (`decision`) and the fence
 /// key that names this instance among its embedded siblings (`surface-authority`),
 /// plus its own **prose leaves** — top-level authored strings — and its own **nested
-/// members**, one layer deeper: a keyed collection's entries, each itself an
-/// [`EmbeddedMember`] (`rejected.baked-projection`), never positional. Every leaf is
+/// members**, one layer deeper: a collection's entries, each itself an
+/// [`EmbeddedMember`] (`rejected.baked-projection`), in authored order. Every leaf is
 /// addressed structurally (member + kind + key + child path) so drift, `impact`, and
 /// citations survive rewording ([`EmbeddedMember::addressed_leaves`]).
 ///
@@ -208,11 +208,27 @@ pub struct EmbeddedMember {
     /// This member's own top-level **prose leaves** — field name → authored string,
     /// in stable (sorted) key order so serialization is deterministic.
     pub leaves: BTreeMap<String, String>,
-    /// This member's own **nested members**, one layer deeper — collection name →
-    /// (entry key → the entry's own nested member), so a collection leaf addresses as
-    /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Keyed at
-    /// every level, never positional — an address that survives insertion and reorder.
-    pub members: BTreeMap<String, BTreeMap<String, EmbeddedMember>>,
+    /// This member's own **nested members**, one layer deeper — one entry per
+    /// collection member, in authored order, so a collection leaf addresses as
+    /// `<collection>.<entry>.<field>` (`rejected.baked-projection.because`). Each
+    /// entry's collection name and key are keyed identity, never positional — an
+    /// address that survives insertion and reorder even though the list itself is
+    /// ordered.
+    pub members: Vec<EmbeddedMemberCollectionEntry>,
+}
+
+/// One entry in an [`EmbeddedMember`]'s sibling collection: the collection name it
+/// belongs to, its own key among that collection's siblings, and its own nested
+/// member — the same identity a [`CollectionEntryRow`](crate::drift::CollectionEntryRow)
+/// carries, expanded one layer.
+#[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
+pub struct EmbeddedMemberCollectionEntry {
+    /// The collection this entry belongs to.
+    pub collection: String,
+    /// The entry's key among its collection's siblings.
+    pub key: String,
+    /// The entry's own nested member.
+    pub member: EmbeddedMember,
 }
 
 impl EmbeddedMember {
@@ -231,11 +247,9 @@ impl EmbeddedMember {
         for (field, value) in &self.leaves {
             out.push((field.clone(), value.as_str()));
         }
-        for (collection, entries) in &self.members {
-            for (entry, member) in entries {
-                for (path, value) in member.addressed_leaves() {
-                    out.push((format!("{collection}.{entry}.{path}"), value));
-                }
+        for entry in &self.members {
+            for (path, value) in entry.member.addressed_leaves() {
+                out.push((format!("{}.{}.{path}", entry.collection, entry.key), value));
             }
         }
         out
@@ -546,10 +560,9 @@ pub(crate) fn nested_members_from_rows(
 }
 
 /// Lift one [`NestedMemberRow`](crate::drift::NestedMemberRow) into its typed
-/// [`EmbeddedMember`]: the row's flat `collections` column (collection → entry key →
-/// field → string) expands one layer deep into nested `EmbeddedMember`s, each keyed by
-/// its owning collection name and entry key — the same one-layer shape the retired
-/// fence fold produced.
+/// [`EmbeddedMember`]: the row's flat, ordered `collections` column expands one
+/// layer deep into nested `EmbeddedMember`s, one per entry, in the row's own
+/// order — the same one-layer shape the retired fence fold produced.
 fn embedded_member_from_row(row: &crate::drift::NestedMemberRow) -> EmbeddedMember {
     EmbeddedMember {
         kind: row.kind.clone(),
@@ -558,22 +571,15 @@ fn embedded_member_from_row(row: &crate::drift::NestedMemberRow) -> EmbeddedMemb
         members: row
             .collections
             .iter()
-            .map(|(collection, entries)| {
-                let entries = entries
-                    .iter()
-                    .map(|(entry_key, leaves)| {
-                        (
-                            entry_key.clone(),
-                            EmbeddedMember {
-                                kind: collection.clone(),
-                                key: entry_key.clone(),
-                                leaves: leaves.clone(),
-                                members: BTreeMap::new(),
-                            },
-                        )
-                    })
-                    .collect();
-                (collection.clone(), entries)
+            .map(|entry| EmbeddedMemberCollectionEntry {
+                collection: entry.collection.clone(),
+                key: entry.key.clone(),
+                member: EmbeddedMember {
+                    kind: entry.collection.clone(),
+                    key: entry.key.clone(),
+                    leaves: entry.leaves.clone(),
+                    members: Vec::new(),
+                },
             })
             .collect(),
     }
@@ -1029,8 +1035,8 @@ prose below\n";
         assert_eq!(ValueType::from_name(""), None);
     }
 
-    /// A [`crate::drift::NestedMemberRow`] carrying leaves plus one keyed sibling
-    /// collection one layer deep — the shape a `blocks()` value composes.
+    /// A [`crate::drift::NestedMemberRow`] carrying leaves plus one sibling
+    /// collection entry one layer deep — the shape a `blocks()` value composes.
     fn decision_row() -> crate::drift::NestedMemberRow {
         crate::drift::NestedMemberRow {
             host: "decision:05-surface-authority".to_string(),
@@ -1040,16 +1046,14 @@ prose below\n";
                 "chosen".to_string(),
                 "the composition surface is canonical".to_string(),
             )]),
-            collections: BTreeMap::from([(
-                "rejected".to_string(),
-                BTreeMap::from([(
-                    "baked-projection".to_string(),
-                    BTreeMap::from([(
-                        "because".to_string(),
-                        "a stamping projector breaks law 5".to_string(),
-                    )]),
+            collections: vec![crate::drift::CollectionEntryRow {
+                collection: "rejected".to_string(),
+                key: "baked-projection".to_string(),
+                leaves: BTreeMap::from([(
+                    "because".to_string(),
+                    "a stamping projector breaks law 5".to_string(),
                 )]),
-            )]),
+            }],
         }
     }
 
@@ -1075,10 +1079,13 @@ prose below\n";
             Some("the composition surface is canonical")
         );
 
-        let entry = &member.members["rejected"]["baked-projection"];
-        assert_eq!(entry.key, "baked-projection");
+        let entry = member
+            .members
+            .iter()
+            .find(|entry| entry.collection == "rejected" && entry.key == "baked-projection")
+            .expect("the collection entry is lifted");
         assert_eq!(
-            entry.leaves.get("because").map(String::as_str),
+            entry.member.leaves.get("because").map(String::as_str),
             Some("a stamping projector breaks law 5")
         );
     }

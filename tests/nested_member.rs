@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 
 use temper::builtin_kind;
-use temper::drift::{KindFactRow, NestedMemberRow};
+use temper::drift::{CollectionEntryRow, KindFactRow, NestedMemberRow};
 use temper::kind::{CustomKind, Extraction, Governs};
 
 mod common;
@@ -29,14 +29,11 @@ fn decision_kind() -> CustomKind {
     )
 }
 
-/// The lock row a `blocks()` value composes for a host member: leaves plus one keyed
-/// sibling collection, one layer deep — the same shape `sdk/src/declarations.ts`'s
-/// `nestedMemberRow` writes, `host` addressed as `${kind}:${name}`.
+/// The lock row a `blocks()` value composes for a host member: leaves plus one
+/// sibling collection's entries, authored out of alphabetical order — the same
+/// shape `sdk/src/declarations.ts`'s `nestedMemberRow` writes, `host` addressed as
+/// `${kind}:${name}`.
 fn surface_authority_row(host: &str) -> NestedMemberRow {
-    let rejected_leaves = BTreeMap::from([(
-        "because".to_string(),
-        "a stamping projector breaks law 5".to_string(),
-    )]);
     NestedMemberRow {
         host: host.to_string(),
         kind: "decision".to_string(),
@@ -45,10 +42,24 @@ fn surface_authority_row(host: &str) -> NestedMemberRow {
             "chosen".to_string(),
             "the composition surface is canonical".to_string(),
         )]),
-        collections: BTreeMap::from([(
-            "rejected".to_string(),
-            BTreeMap::from([("baked-projection".to_string(), rejected_leaves)]),
-        )]),
+        collections: vec![
+            CollectionEntryRow {
+                collection: "rejected".to_string(),
+                key: "read-only-lens".to_string(),
+                leaves: BTreeMap::from([(
+                    "because".to_string(),
+                    "you cannot compose a harness you only mirror".to_string(),
+                )]),
+            },
+            CollectionEntryRow {
+                collection: "rejected".to_string(),
+                key: "baked-projection".to_string(),
+                leaves: BTreeMap::from([(
+                    "because".to_string(),
+                    "a stamping projector breaks law 5".to_string(),
+                )]),
+            },
+        ],
     }
 }
 
@@ -80,13 +91,25 @@ fn a_lock_row_addressed_to_this_member_resolves_with_its_own_leaves_and_children
         Some("the composition surface is canonical")
     );
 
-    // The nested-member collection is keyed at every level (`rejected` →
-    // `baked-projection` → `because`), never positional — the entry is itself a full
-    // nested member, one layer deeper.
-    let entry = &member.members["rejected"]["baked-projection"];
-    assert_eq!(entry.key, "baked-projection");
+    // The nested-member collection's entries are addressed by identity (`rejected` →
+    // `baked-projection` → `because`), never position — each entry is itself a full
+    // nested member, one layer deeper, in the row's own authored order.
     assert_eq!(
-        entry.leaves.get("because").map(String::as_str),
+        member
+            .members
+            .iter()
+            .map(|entry| entry.key.as_str())
+            .collect::<Vec<_>>(),
+        vec!["read-only-lens", "baked-projection"],
+        "authored order (not alphabetical) survives the lift"
+    );
+    let entry = member
+        .members
+        .iter()
+        .find(|entry| entry.collection == "rejected" && entry.key == "baked-projection")
+        .expect("the collection entry is lifted");
+    assert_eq!(
+        entry.member.leaves.get("because").map(String::as_str),
         Some("a stamping projector breaks law 5")
     );
 }

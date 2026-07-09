@@ -191,7 +191,7 @@ fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage(
         kind: "decision".to_string(),
         key: "surface-authority".to_string(),
         leaves: BTreeMap::from([("chosen".to_string(), "the surface is canonical".to_string())]),
-        members: BTreeMap::new(),
+        members: Vec::new(),
     }];
     let members = [leafy];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);

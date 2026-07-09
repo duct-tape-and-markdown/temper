@@ -181,7 +181,7 @@ export interface NestedMemberRow {
   readonly key: string;
   /** Prose leaves, keyed by field name. */
   readonly leaves: Readonly<Record<string, string>>;
-  /** Keyed sibling collections: collection → entry key → field → authored string. */
+  /** Sibling collections: collection name → its entries, in authored order. */
   readonly collections: EmbeddedMemberValue["collections"];
 }
 

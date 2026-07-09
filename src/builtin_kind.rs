@@ -660,14 +660,14 @@ disable-model-invocation: true\n\
                 kind: "directive".to_string(),
                 key: "at-import".to_string(),
                 leaves: BTreeMap::from([("target".to_string(), "some/path.md".to_string())]),
-                collections: BTreeMap::new(),
+                collections: Vec::new(),
             },
             crate::drift::NestedMemberRow {
                 host: "rule:some-other-rule".to_string(),
                 kind: "directive".to_string(),
                 key: "unrelated".to_string(),
                 leaves: BTreeMap::new(),
-                collections: BTreeMap::new(),
+                collections: Vec::new(),
             },
         ];
 

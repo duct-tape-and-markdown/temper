@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 
 use temper::display::render_member;
-use temper::extract::EmbeddedMember;
+use temper::extract::{EmbeddedMember, EmbeddedMemberCollectionEntry};
 
 /// A collection-entry nested member carrying one `because` leaf — the shape a
 /// `rejected` collection's entries take.
@@ -20,13 +20,23 @@ fn rejected_entry(key: &str, because: &str) -> EmbeddedMember {
         kind: "rejected".to_string(),
         key: key.to_string(),
         leaves: BTreeMap::from([("because".to_string(), because.to_string())]),
-        members: BTreeMap::new(),
+        members: Vec::new(),
+    }
+}
+
+/// One `rejected`-collection entry, pairing its key with its nested member.
+fn rejected_collection_entry(key: &str, because: &str) -> EmbeddedMemberCollectionEntry {
+    EmbeddedMemberCollectionEntry {
+        collection: "rejected".to_string(),
+        key: key.to_string(),
+        member: rejected_entry(key, because),
     }
 }
 
 /// A `decision`-kind nested member with two ordered leaves (`chosen`, then a second
-/// leaf) and a keyed `rejected` collection — the shape the floor's member fence
-/// extracts, the one the emit face renders back into the projection.
+/// leaf) and a `rejected` collection's authored-order entries — the shape the
+/// floor's member fence extracts, the one the emit face renders back into the
+/// projection.
 fn decision_member() -> EmbeddedMember {
     let leaves = BTreeMap::from([
         (
@@ -38,24 +48,18 @@ fn decision_member() -> EmbeddedMember {
             "law 7 needs an authored surface".to_string(),
         ),
     ]);
-    let rejected = BTreeMap::from([
-        (
-            "baked-projection".to_string(),
-            rejected_entry("baked-projection", "a stamping projector breaks law 5"),
+    let rejected = vec![
+        rejected_collection_entry("baked-projection", "a stamping projector breaks law 5"),
+        rejected_collection_entry(
+            "read-only-lens",
+            "you cannot compose a harness you only mirror",
         ),
-        (
-            "read-only-lens".to_string(),
-            rejected_entry(
-                "read-only-lens",
-                "you cannot compose a harness you only mirror",
-            ),
-        ),
-    ]);
+    ];
     EmbeddedMember {
         kind: "decision".to_string(),
         key: "surface-authority".to_string(),
         leaves,
-        members: BTreeMap::from([("rejected".to_string(), rejected)]),
+        members: rejected,
     }
 }
 
@@ -78,7 +82,7 @@ fn a_leaves_only_member_renders_its_leaves_and_no_collection_block() {
             "chosen".to_string(),
             "one authored leaf, no siblings".to_string(),
         )]),
-        members: BTreeMap::new(),
+        members: Vec::new(),
     };
     insta::assert_snapshot!("leaves_only_value", render_member(&member));
 }
@@ -88,18 +92,15 @@ fn a_collections_only_member_renders_its_nested_member_and_no_leaf_block() {
     // A member with a nested collection but no top-level leaves — the heading goes
     // straight to the `**Rejected:**` group; leaves-before-collections still holds
     // trivially (there are none).
-    let rejected = BTreeMap::from([(
-        "baked-stance".to_string(),
-        rejected_entry(
-            "baked-stance",
-            "the tool would determine invasiveness on a surface it was invited onto",
-        ),
-    )]);
+    let rejected = vec![rejected_collection_entry(
+        "baked-stance",
+        "the tool would determine invasiveness on a surface it was invited onto",
+    )];
     let member = EmbeddedMember {
         kind: "decision".to_string(),
         key: "collections-only".to_string(),
         leaves: BTreeMap::new(),
-        members: BTreeMap::from([("rejected".to_string(), rejected)]),
+        members: rejected,
     };
     insta::assert_snapshot!("collections_only_value", render_member(&member));
 }
@@ -112,7 +113,7 @@ fn an_empty_member_renders_its_heading_with_no_body() {
         kind: "decision".to_string(),
         key: "empty".to_string(),
         leaves: BTreeMap::new(),
-        members: BTreeMap::new(),
+        members: Vec::new(),
     };
     insta::assert_snapshot!("empty_value", render_member(&member));
 }
@@ -136,11 +137,9 @@ fn every_authored_leaf_is_rendered_verbatim_as_connective_tissue() {
     for leaf in member.leaves.values() {
         assert!(rendered.contains(leaf.as_str()), "leaf missing: {leaf}");
     }
-    for entries in member.members.values() {
-        for entry_member in entries.values() {
-            for leaf in entry_member.leaves.values() {
-                assert!(rendered.contains(leaf.as_str()), "leaf missing: {leaf}");
-            }
+    for entry in &member.members {
+        for leaf in entry.member.leaves.values() {
+            assert!(rendered.contains(leaf.as_str()), "leaf missing: {leaf}");
         }
     }
 }

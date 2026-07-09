@@ -47,6 +47,7 @@ export {
 // shape `blocks()` composes.
 export type {
   EdgeField,
+  EmbeddedMemberCollectionEntry,
   EmbeddedMemberValue,
   Format,
   KindDefinition,

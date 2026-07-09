@@ -1277,7 +1277,7 @@ pub struct MentionRow {
 
 /// One host member's declared embedded-member value's declaration row — its
 /// identity (the host's own `kind:name` address, the embedded child kind, and its
-/// key) plus its leaves and keyed sibling collections: the same composed value
+/// key) plus its leaves and sibling collections: the same composed value
 /// `blocks()` renders into the host's `member.<kind> <key>` fence. The sole fact
 /// source the read side consumes (`crate::builtin_kind::features`, matched by
 /// `host` address) — never a second copy of a value the engine reads back off its
@@ -1293,9 +1293,76 @@ pub struct NestedMemberRow {
     /// Prose leaves, keyed by field name.
     #[serde(default)]
     pub leaves: BTreeMap<String, String>,
-    /// Keyed sibling collections: collection → entry key → field → authored string.
+    /// Sibling collections, one row per entry, in authored order — the SDK's
+    /// collection-name-keyed wire shape flattened by [`deserialize_collections`].
+    #[serde(default, deserialize_with = "deserialize_collections")]
+    pub collections: Vec<CollectionEntryRow>,
+}
+
+/// One entry belonging to one of a [`NestedMemberRow`]'s sibling collections: the
+/// collection name, the entry's own key, and its leaf fields — the row's
+/// flattened, order-preserving shape (`to_table`/`from_table` serialize the whole
+/// column as one array, the discipline every other array-shaped declaration
+/// family gets from `toml_edit`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CollectionEntryRow {
+    /// The collection this entry belongs to.
+    pub collection: String,
+    /// The entry's key among its collection's siblings.
+    pub key: String,
+    /// The entry's own leaf fields, field name → authored string.
+    pub leaves: BTreeMap<String, String>,
+}
+
+/// One collection entry's wire shape as the SDK payload carries it, nested under
+/// its owning collection name — [`deserialize_collections`] copies the collection
+/// name onto each entry it flattens into a [`CollectionEntryRow`].
+#[derive(Debug, Clone, Deserialize)]
+struct CollectionEntryWire {
+    key: String,
     #[serde(default)]
-    pub collections: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+    leaves: BTreeMap<String, String>,
+}
+
+/// Deserialize a [`NestedMemberRow`]'s `collections` column off the SDK payload's
+/// wire shape: a map of collection name to an authored-order array of `{key,
+/// leaves}` entries. A hand-written visitor rather than an intermediate `Map`
+/// type, so the entries' authored order survives untouched by any incidental
+/// reordering a keyed map's own iteration would introduce.
+fn deserialize_collections<'de, D>(deserializer: D) -> Result<Vec<CollectionEntryRow>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct CollectionsVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for CollectionsVisitor {
+        type Value = Vec<CollectionEntryRow>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a map of collection name to an ordered array of entries")
+        }
+
+        fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+        where
+            A: serde::de::MapAccess<'de>,
+        {
+            let mut rows = Vec::new();
+            while let Some((collection, entries)) =
+                map.next_entry::<String, Vec<CollectionEntryWire>>()?
+            {
+                for entry in entries {
+                    rows.push(CollectionEntryRow {
+                        collection: collection.clone(),
+                        key: entry.key,
+                        leaves: entry.leaves,
+                    });
+                }
+            }
+            Ok(rows)
+        }
+    }
+
+    deserializer.deserialize_map(CollectionsVisitor)
 }
 
 /// One assembly-scope fact — the root member's own declarations plus the
@@ -1827,7 +1894,7 @@ impl NestedMemberRow {
             table.insert("leaves", value(string_map_table(&self.leaves)));
         }
         if !self.collections.is_empty() {
-            table.insert("collections", value(collections_table(&self.collections)));
+            table.insert("collections", value(collections_array(&self.collections)));
         }
         table
     }
@@ -1844,8 +1911,8 @@ impl NestedMemberRow {
                 .unwrap_or_default(),
             collections: table
                 .get("collections")
-                .and_then(Item::as_table_like)
-                .map(collections_from_table)
+                .and_then(Item::as_array)
+                .map(collections_from_array)
                 .unwrap_or_default(),
         })
     }
@@ -1874,43 +1941,43 @@ fn string_map_from_table(table: &dyn TableLike) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// Build a [`NestedMemberRow`]'s `collections` column's wire form: a collection →
-/// entry key → field → string nested inline table, one level deeper than
-/// [`string_map_table`].
-fn collections_table(
-    collections: &BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
-) -> InlineTable {
-    let mut table = InlineTable::new();
-    for (collection, entries) in collections {
-        let mut entries_table = InlineTable::new();
-        for (entry_key, leaves) in entries {
-            entries_table.insert(
-                entry_key.as_str(),
-                Value::InlineTable(string_map_table(leaves)),
-            );
-        }
-        table.insert(collection.as_str(), Value::InlineTable(entries_table));
+/// Build a [`NestedMemberRow`]'s `collections` column's wire form: an
+/// order-preserving array of `{collection, key, leaves}` inline tables, one per
+/// entry — the same array-shaped discipline the other declaration families get
+/// from an `[[declaration.<family>]]` array-of-tables, one level further in since
+/// this column lives inside a single row rather than at the top of the lock.
+fn collections_array(collections: &[CollectionEntryRow]) -> Array {
+    let mut array = Array::new();
+    for entry in collections {
+        let mut inline = InlineTable::new();
+        inline.insert("collection", Value::from(entry.collection.clone()));
+        inline.insert("key", Value::from(entry.key.clone()));
+        inline.insert(
+            "leaves",
+            Value::InlineTable(string_map_table(&entry.leaves)),
+        );
+        array.push(Value::InlineTable(inline));
     }
-    table
+    array
 }
 
-/// Read a `collections` column back off its nested inline table — any level that
-/// fails to parse as a table-like drops just that branch, never the whole row.
-fn collections_from_table(
-    table: &dyn TableLike,
-) -> BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>> {
-    table
+/// Read a `collections` column back off its order-preserving array — an element
+/// that fails to parse as an inline table carrying the expected columns drops
+/// just that entry, never the whole row.
+fn collections_from_array(array: &Array) -> Vec<CollectionEntryRow> {
+    array
         .iter()
-        .filter_map(|(collection, item)| {
-            let entries_table = item.as_table_like()?;
-            let entries = entries_table
-                .iter()
-                .filter_map(|(entry_key, leaves_item)| {
-                    let leaves_table = leaves_item.as_table_like()?;
-                    Some((entry_key.to_string(), string_map_from_table(leaves_table)))
-                })
-                .collect();
-            Some((collection.to_string(), entries))
+        .filter_map(|value| {
+            let table = value.as_inline_table()?;
+            Some(CollectionEntryRow {
+                collection: table.get("collection")?.as_str()?.to_string(),
+                key: table.get("key")?.as_str()?.to_string(),
+                leaves: table
+                    .get("leaves")
+                    .and_then(Value::as_inline_table)
+                    .map(|table| string_map_from_table(table))
+                    .unwrap_or_default(),
+            })
         })
         .collect()
 }

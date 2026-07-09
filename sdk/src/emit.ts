@@ -64,8 +64,9 @@ function tomlString(text: string): string {
 
 /**
  * Render one embedded member's interior TOML: its top-level leaves, then each
- * keyed collection entry as its own `[collection.entry]` table — the exact shape
- * `parse_embedded_member` (`src/extract.rs`) folds back into leaves/members.
+ * collection's entries, in authored order, each its own `[collection.entry]`
+ * table — the exact shape `parse_embedded_member` (`src/extract.rs`) folds back
+ * into leaves/members.
  */
 function renderMemberToml(value: EmbeddedMemberValue): string {
   const lines: string[] = [];
@@ -73,10 +74,10 @@ function renderMemberToml(value: EmbeddedMemberValue): string {
     lines.push(`${key} = ${tomlString(text)}`);
   }
   for (const [collection, entries] of Object.entries(value.collections)) {
-    for (const [entryKey, leaves] of Object.entries(entries)) {
+    for (const entry of entries) {
       if (lines.length > 0) lines.push("");
-      lines.push(`[${collection}.${entryKey}]`);
-      for (const [leaf, text] of Object.entries(leaves)) {
+      lines.push(`[${collection}.${entry.key}]`);
+      for (const [leaf, text] of Object.entries(entry.leaves)) {
         lines.push(`${leaf} = ${tomlString(text)}`);
       }
     }

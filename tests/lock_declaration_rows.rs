@@ -21,9 +21,9 @@ use temper::builtin;
 use temper::builtin_lock;
 use temper::contract::Severity;
 use temper::drift::{
-    self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CountBoundRow, Declarations,
-    DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, MentionRow, NestedMemberRow, Payload,
-    PayloadMember, RequirementRow, SatisfiesRow,
+    self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionEntryRow, CountBoundRow,
+    Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, MentionRow,
+    NestedMemberRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -672,20 +672,30 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
 
 /// A host member's declared embedded-member value's row — the shape a `blocks()`
 /// value like `tests/nested_member.rs`'s `decision_body` composes: leaves plus one
-/// keyed sibling collection, one layer deep.
+/// collection's entries, authored out of alphabetical order.
 fn nested_member_row() -> NestedMemberRow {
     let leaves = BTreeMap::from([(
         "chosen".to_string(),
         "the composition surface is canonical".to_string(),
     )]);
-    let rejected_leaves = BTreeMap::from([(
-        "because".to_string(),
-        "a stamping projector breaks law 5".to_string(),
-    )]);
-    let collections = BTreeMap::from([(
-        "rejected".to_string(),
-        BTreeMap::from([("baked-projection".to_string(), rejected_leaves)]),
-    )]);
+    let collections = vec![
+        CollectionEntryRow {
+            collection: "rejected".to_string(),
+            key: "read-only-lens".to_string(),
+            leaves: BTreeMap::from([(
+                "because".to_string(),
+                "you cannot compose a harness you only mirror".to_string(),
+            )]),
+        },
+        CollectionEntryRow {
+            collection: "rejected".to_string(),
+            key: "baked-projection".to_string(),
+            leaves: BTreeMap::from([(
+                "because".to_string(),
+                "a stamping projector breaks law 5".to_string(),
+            )]),
+        },
+    ];
     NestedMemberRow {
         host: "memory:CLAUDE".to_string(),
         kind: "decision".to_string(),
@@ -736,9 +746,23 @@ fn a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_membe
         row.leaves.get("chosen").map(String::as_str),
         Some("the composition surface is canonical")
     );
+    // Authored out of alphabetical order (`read-only-lens` before `baked-projection`)
+    // — the round trip through the lock preserves that authored order verbatim.
     assert_eq!(
-        row.collections["rejected"]["baked-projection"]["because"],
-        "a stamping projector breaks law 5"
+        row.collections
+            .iter()
+            .map(|entry| entry.key.as_str())
+            .collect::<Vec<_>>(),
+        vec!["read-only-lens", "baked-projection"],
+    );
+    let entry = row
+        .collections
+        .iter()
+        .find(|entry| entry.collection == "rejected" && entry.key == "baked-projection")
+        .expect("the collection entry round-trips");
+    assert_eq!(
+        entry.leaves.get("because").map(String::as_str),
+        Some("a stamping projector breaks law 5")
     );
 }
 

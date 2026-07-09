@@ -20,9 +20,9 @@ use std::fmt::Write;
 use crate::extract::EmbeddedMember;
 
 /// Render an [`EmbeddedMember`] to its projection markdown — the anchored heading, then
-/// its **leaves before its nested members**, each in
-/// `BTreeMap` key order so the output is byte-deterministic. Every leaf value is
-/// rendered verbatim; the heading, the capitalized
+/// its **leaves before its nested members**: leaves in `BTreeMap` key order, nested
+/// members in the member's own authored order, so the output is byte-deterministic.
+/// Every leaf value is rendered verbatim; the heading, the capitalized
 /// labels, and the anchors are the member's declared structure, not prose. An empty
 /// member renders its heading with no body.
 ///
@@ -62,24 +62,27 @@ pub fn render_member(member: &EmbeddedMember) -> String {
         blocks.push(block);
     }
 
-    // Then the nested members, in key order — each a labelled group (`**Rejected:**`)
-    // over its keyed entries, one anchored paragraph per entry leaf. The leaf's child
-    // path is `<collection>.<entry>.<field>`, keyed at every level so the anchor
-    // survives insertion and reorder (leaf addresses are structural and keyed).
-    for (collection, entries) in &member.members {
-        blocks.push(format!("**{}:**", capitalize(collection)));
-        for (entry, entry_member) in entries {
-            for (field, value) in &entry_member.leaves {
-                let child_path = format!("{collection}.{entry}.{field}");
-                let mut block = String::new();
-                let _ = write!(
-                    block,
-                    "<a id=\"{anchor}\"></a>\n*{entry}* — **{label}:** {value}",
-                    anchor = leaf_anchor(member, &child_path),
-                    label = capitalize(field),
-                );
-                blocks.push(block);
-            }
+    // Then the nested members, in authored order — each a labelled group
+    // (`**Rejected:**`) over its entries, one anchored paragraph per entry leaf. The
+    // leaf's child path is `<collection>.<entry>.<field>`, keyed identity so the
+    // anchor survives insertion and reorder even though the list itself is ordered.
+    let mut current_collection: Option<&str> = None;
+    for entry in &member.members {
+        if current_collection != Some(entry.collection.as_str()) {
+            blocks.push(format!("**{}:**", capitalize(&entry.collection)));
+            current_collection = Some(entry.collection.as_str());
+        }
+        for (field, value) in &entry.member.leaves {
+            let child_path = format!("{}.{}.{field}", entry.collection, entry.key);
+            let mut block = String::new();
+            let _ = write!(
+                block,
+                "<a id=\"{anchor}\"></a>\n*{key}* — **{label}:** {value}",
+                anchor = leaf_anchor(member, &child_path),
+                key = entry.key,
+                label = capitalize(field),
+            );
+            blocks.push(block);
         }
     }
 

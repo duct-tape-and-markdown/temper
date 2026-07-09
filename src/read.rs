@@ -1535,7 +1535,7 @@ mod impact_tests {
                 "chosen".to_string(),
                 "the surface is canonical".to_string(),
             )]),
-            members: BTreeMap::new(),
+            members: Vec::new(),
         }];
         features
     }

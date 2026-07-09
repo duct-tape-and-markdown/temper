@@ -373,13 +373,13 @@ test("embeddedMemberValue() composes an author-declared child kind, no built-in 
     kind: "ruling",
     key: "unship-prescribed-child-kinds",
     leaves: { statement: "the SDK ships no built-in child-kind ontology" },
-    collections: { bounds: { scope: { claim: "sdk/ only" } } },
+    collections: { bounds: [{ key: "scope", leaves: { claim: "sdk/ only" } }] },
  });
   assert.deepEqual(value, {
     kind: "ruling",
     key: "unship-prescribed-child-kinds",
     leaves: { statement: "the SDK ships no built-in child-kind ontology" },
-    collections: { bounds: { scope: { claim: "sdk/ only" } } },
+    collections: { bounds: [{ key: "scope", leaves: { claim: "sdk/ only" } }] },
  });
 });
 
@@ -494,7 +494,12 @@ test("a blocks() body renders a keyed collection entry as its own [collection.en
             kind: "decision",
             key: "surface-authority",
             leaves: { chosen: "the composition surface is canonical" },
-            collections: { rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } } },
+            collections: {
+              rejected: [
+                { key: "read-only-lens", leaves: { because: "you cannot compose a harness you only mirror" } },
+                { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
+              ],
+            },
           }),
         ),
       }),
@@ -502,10 +507,15 @@ test("a blocks() body renders a keyed collection entry as its own [collection.en
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
+  // Authored out of alphabetical order (`read-only-lens` before `baked-projection`)
+  // — the rendered fence preserves that authored order, not a re-sort.
   assert.equal(
     member.body,
     '```member.decision surface-authority\n' +
       'chosen = "the composition surface is canonical"\n' +
+      "\n" +
+      "[rejected.read-only-lens]\n" +
+      'because = "you cannot compose a harness you only mirror"\n' +
       "\n" +
       "[rejected.baked-projection]\n" +
       'because = "a stamping projector breaks law 5"\n' +
@@ -564,7 +574,12 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
             kind: "decision",
             key: "surface-authority",
             leaves: { chosen: "the composition surface is canonical" },
-            collections: { rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } } },
+            collections: {
+              rejected: [
+                { key: "read-only-lens", leaves: { because: "you cannot compose a harness you only mirror" } },
+                { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
+              ],
+            },
           }),
         ),
       }),
@@ -573,10 +588,15 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
 
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
+  // Authored out of alphabetical order — both the rendered fence and the row
+  // preserve it.
   assert.equal(
     member.body,
     '```member.decision surface-authority\n' +
       'chosen = "the composition surface is canonical"\n' +
+      "\n" +
+      "[rejected.read-only-lens]\n" +
+      'because = "you cannot compose a harness you only mirror"\n' +
       "\n" +
       "[rejected.baked-projection]\n" +
       'because = "a stamping projector breaks law 5"\n' +
@@ -589,7 +609,12 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
       kind: "decision",
       key: "surface-authority",
       leaves: { chosen: "the composition surface is canonical" },
-      collections: { rejected: { "baked-projection": { because: "a stamping projector breaks law 5" } } },
+      collections: {
+        rejected: [
+          { key: "read-only-lens", leaves: { because: "you cannot compose a harness you only mirror" } },
+          { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
+        ],
+      },
     },
   ]);
 });
