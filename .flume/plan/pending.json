@@ -1,5 +1,144 @@
 [
   {
+    "tag": "NESTED-MEMBER-COLLECTIONS-ORDERED",
+    "summary": "Nested-member `collections` become an ordered {key, leaves} list, not a keyed map, preserving authored order end to end like every other array-shaped lock family (0018 slice 1/3)",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`EmbeddedMemberValue.collections` (line ~187, today `Record<string, Record<string, Record<string,string>>>`) becomes a readonly ordered list of `{key: string, leaves: Record<string,string>}` entries keyed by collection name at the top level only; `embeddedMemberValue()`'s init type and doc comment follow."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`NestedMemberRow.collections` (typed off `EmbeddedMemberValue[\"collections\"]`, line ~184) and `nestedMemberRow()`'s doc comment ('Keyed sibling collections: collection → entry key → field → authored string') follow the new ordered shape; no logic change beyond type/comment."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`renderMemberToml`'s collection loop (`Object.entries(value.collections)` over `Object.entries(entries)`, ~line 76-82) walks the ordered list instead, still emitting one `[collection.entry]` table per entry — order now authored order, not object-key iteration order."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`NestedMemberRow.collections` (line ~1298, `BTreeMap<String, BTreeMap<String, BTreeMap<String,String>>>`) becomes an ordered `Vec` of `{collection, key, leaves}` rows; `to_table`/`from_table` and the `collections_table`/`collections_from_table` helpers (~1877-1908) serialize it as an order-preserving array-of-tables, the same discipline `toml_edit` already gives the other six declaration families."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "`EmbeddedMember.members` (line ~215, `BTreeMap<String, BTreeMap<String, EmbeddedMember>>`) and `embedded_member_from_row` (~549) follow the new ordered row shape; `nested_members_from_rows` and its consumers read order off the row, not `BTreeMap` iteration."
+        },
+        {
+          "path": "src/display.rs",
+          "description": "The `for (collection, entries) in &member.members` loop (line ~69) that narrates a nested member's children iterates the new ordered shape — `explain`'s narration follows declared order, not `BTreeMap`'s alphabetical one."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "'a blocks() body renders a keyed collection entry as its own [collection.entry] table' (~487) and '...surfaces a matching nested_member row...' (~554) grow a multi-entry case authored out of alphabetical order, asserting the projection and the row preserve that authored order."
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "'a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_member_rows' (~704) grows a multi-entry, non-alphabetical collection case asserting the round trip preserves authored order."
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "'leaf_addresses_are_structural_member_kind_key_child_path' (~94) still resolves child leaves correctly off the new ordered shape."
+      }
+    ],
+    "acceptance": "A harness declaring multiple entries in one collection, authored out of alphabetical order, round-trips that exact order through emit → lock → read (explain/check) byte-for-byte; existing single/alphabetical-order fixtures stay green.",
+    "notes": "Slice 1 of 3 for 0018's carried inbox scope (filed 6bed388, cite the decision's Consequences section — no new corpus text needed, inside its ratified scope). The inbox's claim of a testbed '1-classify'/'2-validate-currency' key-prefix ordering hack does not resolve anywhere in src/tests/sdk today (grepped clean at 6bed388) — dropped from scope as unverified, not encoded as fact. Scoped at 6bed388."
+  },
+  {
+    "tag": "EMBEDDED-KIND-RENDER-HOOK",
+    "summary": "A custom embedded-locus kind gains an optional render(value) hook that replaces the default TOML fence view for its blocks() values; absent, projection is byte-unchanged (0018 slice 2/3)",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "NESTED-MEMBER-COLLECTIONS-ORDERED"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`KindDefinition<T>` gains an optional `render?: (value: EmbeddedMemberValue) => string` — the kind author's own composed view of an embedded member's value, carried alongside `facts`/`key` the way `kind()` (line ~155) already returns them; erased at the seam, so the engine only ever sees the resulting string."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`resolveBody`'s `blocks` branch / `renderMemberFence` (~93-122, today always `renderMemberToml`'s default `[collection.entry]` view) checks whether the value's originating kind declared a `render` hook and calls it instead when present; the outer `member.<kind> <key>` fence wrapper and mention/leaf resolution discipline are unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "grows a case asserting a `kind()` with a `render` hook emits its custom string inside the `member.<kind> <key>` fence in place of the default TOML view, and a `kind()` without one keeps today's byte-identical default — regression on 'a blocks() body renders an embedded member as a member.<kind> <key> TOML fence' (~462)."
+      }
+    ],
+    "acceptance": "A project-declared embedded kind supplying render() sees its output verbatim inside the member fence at emit; a kind supplying none is byte-identical to today's projection — zero forced migration.",
+    "notes": "Slice 2 of 3 for 0018's carried inbox scope (filed 6bed388; cite Consequences: an embedded-locus kind's format is 'writer-only and unconstrained... no admissibility bar'). blockedBy slice 1 — both touch sdk/src/kind.ts and sdk/src/emit.ts, entry-discipline file-disjointness, matching the inbox's own 1-then-2 sequencing. Scoped at 6bed388."
+  },
+  {
+    "tag": "EMBEDDED-LEAF-TEXT",
+    "summary": "An embedded member's leaf may be a Text (template + mentions), not just a bare string; its mentions lift into the host's mention rows, its resolved display becomes the stored leaf (0018 slice 3/3)",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMBEDDED-KIND-RENDER-HOOK"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`EmbeddedMemberValue.leaves`, and a collection entry's leaves, widen from `Readonly<Record<string,string>>` to accept a `Text` (imported from `prose.ts`) per leaf alongside a bare string; `embeddedMemberValue()`'s init type follows."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`renderMemberToml`'s leaf loop (top-level and the nested collection-entry loop, ~72-81) resolves a `Text` leaf the way `resolveBody` resolves member-level `Text` — mention resolution-checked against `options.mentionable` (loud on a dangling address, contract.md 'edge'), rendered by the one display rule — before TOML-string-quoting it; a bare-string leaf is unchanged."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`mentionRows()` (~354-383, today walks only top-level member prose) also walks each `blocks()`-declared `EmbeddedMemberValue`'s `Text` leaves, emitting a `MentionRow` per mention keyed to the leaf's own address — the existing `<member>/<kind>/<key>/<child-path>` leaf-address grammar `src/read.rs`'s `parse_leaf_address` already resolves, not a new one."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "grows a case asserting a Text-valued leaf's mention resolves and renders inline, and an unresolved mention inside a leaf is a loud emit error, mirroring 'a resolved mention renders to its declared value's display form' (~442) / 'an unresolved mention is a loud emit error' (~454) at leaf grain."
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "'leaf_addresses_are_structural_member_kind_key_child_path' (~94) grows a case where the addressed leaf itself carries a resolved mention, asserting explain/impact still read its plain resolved string."
+      }
+    ],
+    "acceptance": "An embedded member's leaf authored as a text-tagged template with a mention emits with the mention resolved and displayed, contributes a mention row addressed to that leaf, and an unresolved leaf mention refuses emit exactly like a member-level one; a bare-string leaf is unchanged.",
+    "notes": "Slice 3 of 3 for 0018's carried inbox scope (filed 6bed388, cite Consequences). Depends on nothing from slices 1/2 semantically but shares sdk/src/kind.ts + emit.ts + declarations.ts, so blockedBy slice 2 per entry-discipline file-disjointness, matching the inbox's stated do-last order. Scoped at 6bed388."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
