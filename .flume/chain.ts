@@ -529,7 +529,7 @@ const makeAgent = (model: string) =>
  * own headings never reach the match. Both phases currently run Sonnet;
  * change a phase's model here.
  */
-const planAgent = makeAgent("claude-sonnet-5");
+const planAgent = makeAgent("claude-opus-4.8");
 const buildAgent = makeAgent("claude-sonnet-5");
 
 export const agent: Agent = {

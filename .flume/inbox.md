@@ -59,11 +59,13 @@ routing.
   else consumes it yet" (consumed by `src/main.rs:452-455` →
   `graph.rs::live_members` since 207e701). Comment staleness rides
   whichever entry opens `src/kind.rs` (rust.md exit clause) — named here
-  so that entry knows. Whether (1)-(3) become build entries or a fresh
-  fork is plan's call — 0013's text is ratified intent, but the adapter's
-  consumer set may deserve a re-look given 0018 has since removed the
-  embedded-kind case from format's domain. Untracked before this note.
-  Observed at 9c3b1c1.
+  so that entry knows. SUPERSEDED IN PART by 0019 (ratified after this
+  note): the content fact now owns the body's story — derive the reader,
+  admissibility, and spans against 0019's layout and the recut
+  `representation.md`/`pipeline.md` text, not 0013's format-template
+  framing; what survives of this note independently is the
+  extraction-span gap (frontmatter parse failures still silent) and the
+  two stale kind.rs comments. Observed at 9c3b1c1; amended at 6a04322.
 
 - Decision 0014's "the skill kind's stale profile re-verifies against the
   same fetch" was asserted and never executed. Every clause in
