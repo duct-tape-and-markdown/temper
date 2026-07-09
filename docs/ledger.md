@@ -14,27 +14,24 @@ hard.
   pitchy; docs defer to specs on conflict. Candidate home: a `paths:`-scoped
   rule over `docs/**`. Use it for the docs re-cut below.
 
-## State of the era (2026-07-06, night)
+## State of the era (2026-07-09 — 0019 ratified)
 
-- **KERNEL CORPUS LIVE** (PR #7 merged; `metaphor-era` tag = pre-state).
-  Eight nouns in `specs/model/`; decisions in `specs/decisions/`, outside
-  every read path. Ratified inside it: CLEAN SLATE, the `include` rename,
-  enforcement *mode* (cold-read catch), John's thesis as the kernel (0001).
-- **FLUME UNFROZEN — dispatch model live** (6850c35): one tick = one job
-  (inbox → spec delta → ship audit → residue → quiet), per-input cursors in
-  state.md (seeded at 813ca61), planHonestyGate on the marker, decisions/
-  excluded from the corpus inline. The recut derives via the delta window;
-  0001's consequences list is the chain seed; inbox carries the routing
-  notes (kernel-resolved forks, PACKAGING cite move).
-- **Friction channel live** (`.flume/friction/`): agent→human harness
-  feedback, one uniquely-named file per capture, exceptional never ritual
-  (bar in its README). DRAIN AT SESSION OPEN: triage, implement or route
-  (chore(harness) / chore(flume) / inbox), delete the file. Day-one yield:
-  a livelock fix, the entry reference-resolution gate, two inbox items.
-- Dogfood evidence (for its return case): pending entries are harness
-  artifacts with dangling-reference failure modes — two build frictions
-  traced to entries citing surfaces that don't exist. Entries-as-members
-  under an edge-resolution clause is the product answering its own pipeline.
+- **THE CENTER RECUT (0019, 6a04322)**: temper types the documents that
+  program agents — a kind declares its `content` (file | layout, three
+  primitives, one face: the reader); invariant 7 read-or-written-never-both;
+  0018 scoped to composed hosts. The demo recut with it: this repo's spec
+  corpus governing itself — the manifest fork is OFF the launch critical
+  path (post-launch; its open-questions record stands).
+- **META-FREEZE (John, 07-09)**: no further harness/process/audit
+  investment this side of v0.1. Launch wedge is the standing session focus;
+  the release workflow is the one unblocked pure-engineering item.
+- **KERNEL CORPUS LIVE** (PR #7; `metaphor-era` tag): eight nouns in
+  `specs/model/`, decisions outside every read path. Flume dispatch model:
+  one tick = one job, cursors in state.md, planHonestyGate. Plan phase runs
+  Opus (d4260f8) for the 0019 derivation; build stays Sonnet.
+- **Friction/refactor channels live**; DRAIN AT SESSION OPEN. Decision
+  audit (07-09, six agents): 0001/0013/0014 gaps filed via inbox — 0013's
+  note amended in place, superseded in part by 0019.
 - Follow-up hygiene: docs/README re-cut onto kernel nouns (stale paths in
   docs/how-it-works, cli, example-config, horizons, README); src/sdk comment
   cites to old spec paths die on contact (rust.md exit clause) — now incl.
@@ -67,5 +64,6 @@ hard.
 
 Launch gate per `specs/distribution.md`: prebuilt binaries on three OSes,
 stranger-proof quickstart, regenerable demo, USPTO screen on John. The
-kernel's forward work (hooks/permissions/MCP as members) is the demo
-payload. Weigh every new thread against shipping this.
+demo payload is the spec corpus governing itself (0019); hooks/permissions/
+MCP as members move post-launch. Weigh every new thread against shipping
+this — the meta-freeze holds until the tag.
