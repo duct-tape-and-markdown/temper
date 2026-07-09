@@ -55,15 +55,20 @@ routing.
   unresolved. Net: the identical dangling leaf mention refuses loudly on a
   hook-less kind and silently stringifies (`[object Object]`-shaped) on a kind
   that declares `render` — refusal depends on an unrelated authoring choice.
-  That contradicts `contract.md` ("edge"): every edge resolves into one
-  enumeration shared by the gate and every read verb. (The capture cited a
-  "one display rule" framing that does not exist in the corpus — this
-  enumeration clause is the actual ground.) Fix shape: resolve every leaf
-  (mention-checked) before invoking `render`, so a hook always sees plain
-  strings and the refusal bar is uniform. Rejected alternative: document that
-  hooks own their own resolution and re-export `resolveLeaf` through
-  `index.ts` — preserves raw-template access nothing yet wants, at the price
-  of a per-hook refusal bar. Test ask: `render` + `Text` leaf + dangling
+  The corpus already rules this: `pipeline.md` ("Refusing") — "a dangling
+  edge, an unresolvable mention or include … each refuses before a byte is
+  written" — binds emit unconditionally, and intent's core problem statement
+  (silent runtime failure moved to author-time) is exactly what a silent
+  `[object Object]` emission violates. So this is not a design fork: the
+  capture's alternative (b) (hooks own their own resolution via an exported
+  `resolveLeaf`) would leave the refusing clause unenforced per-hook and is
+  ruled out, not merely dispreferred. (The capture cited a "one display rule"
+  framing that does not exist in the corpus; an earlier routing draft cited
+  `contract.md`'s edge-enumeration clause, which governs the gate/read side,
+  not emit — `pipeline.md`'s refusing clause is the actual ground.) Fix
+  shape: resolve every leaf (mention-checked) before invoking `render`, so a
+  hook always sees plain strings and the refusing clause holds regardless of
+  hook presence. Test ask: `render` + `Text` leaf + dangling
   mention refuses identically with and without the hook. Seam:
   `sdk/src/emit.ts`, `sdk/src/kind.ts` (hook signature), `sdk/src/prose.ts`
   (`resolveLeaf`). No Rust-side change expected. Observed at a036328.
