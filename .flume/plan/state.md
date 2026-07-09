@@ -3,26 +3,20 @@
 - Spec derived through: f87cc0c
 - Audited through: 2c853af
 - Residue swept through: fba4e32
-- This tick: Residue sweep (job 4), cursor 5d995a3..fba4e32. No commits in
-  range added new residue (3e125da/19a4a5c/2c853af were already reconciled by
-  the prior ship-audit tick; fba4e32 is itself a plan commit). Reconfirmed
-  both accepted debts live and unchanged: tests/session_start.rs:121-146
-  still writes `+++`-format `.temper/kinds/spec/KIND.md` +
-  `.temper/packages/spec/PACKAGE.md` fixtures; sdk/src/builtins.ts:308,348,385
-  still doc-comment-cite the three deleted `packages/*/PACKAGE.md` files —
-  both still ride the next entry that touches their file, per
-  open-questions.md. Swept for new residue beyond those two: zero
-  TODO/FIXME/XXX/HACK; no unfiled "duplicate implementation" comments (the
-  one open gate/explain duplication is already MEMORY-ENTERS-REQUIREMENT-
-  CORPUS); specs/builtins.md's five shipped kinds match exactly between
-  src/builtin_kind.rs and sdk/src/builtins.ts; no half-built manifest
-  machinery beyond the tracked `(manifest-authoring-surface)` fork
-  (src/bundle.rs's plugin/marketplace manifest emit is a distinct, already-
-  shipped feature, not Reach residue); no stray deprecated/legacy vocabulary.
-  Nothing new to file.
+- This tick: Quiet closing pass (job 5). Inbox empty, no live refactor
+  captures (only README.md template in .flume/refactor/); no specs/ commits
+  past f87cc0c; no src/tests/sdk commits past 2c853af (fba4e32 and b46fb69
+  are plan bookkeeping only) so audit and residue cursors hold unchanged.
+  Re-verified on disk: MEMORY-ENTERS-REQUIREMENT-CORPUS's cited surfaces
+  still resolve (main.rs:893 assemble_by_kind, :582-601 gate's skill/rule-
+  only dispatch match arm, :400-438 explain's independent skill_kind/
+  rule_kind re-derivation); PACKAGING-CHANNELS's parked reason still holds
+  (.github/workflows/ has only temper.yml, no release.yml; root package.json
+  is still the private temper-flume-harness manifest; sdk/package.json
+  @dtmd/temper still at 0.0.5).
 - Queue: MEMORY-ENTERS-REQUIREMENT-CORPUS open (next, disjoint — touches
   only src/main.rs); PACKAGING-CHANNELS parked, disjoint (touches
   package.json + a new release.yml).
 
-Plan continues: yes — all four inputs (inbox, spec delta, ship audit,
-residue sweep) are now current; job 5 (quiet closing pass) is next.
+Plan continues: no — all four inputs current, queue disjoint and pickable,
+both gate reasons reconfirmed; build takes over.
