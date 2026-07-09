@@ -17,6 +17,10 @@
 //!   per artifact (⇒ non-zero, one finding);
 //! - a non-`required` requirement left unfilled does not block (⇒ zero).
 
+use std::fs;
+
+use temper::drift::{Declarations, KindFactRow};
+
 mod common;
 
 /// A clean skill that trips no floor clause — the isolated subject for the coverage
@@ -269,6 +273,98 @@ fn a_required_requirement_is_covered_by_a_rules_opt_in_same_as_a_skills() {
     assert!(
         run.ok,
         "a rule's opt-in covers a required requirement ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_name_colliding_with_a_built_in_fires_an_admissibility_diagnostic() {
+    // A lock-declared kind sharing a built-in's bare name (`rule`) but an incompatible
+    // shape (`unit_shape: directory`, where the built-in `rule` is `file`) is neither
+    // an admissible relocation of the built-in's `governs` locus (the one legitimate
+    // reason a row reuses a built-in's name) nor a distinct custom kind of its own —
+    // the bare-name namespace has one home per name
+    // (KIND-NAME-COLLISION-ADMISSIBILITY). Before this fix the row was silently
+    // dropped (a bare `continue` on the matching name) with no diagnostic and its
+    // members lost from every corpus.
+    let root = common::tmpdir("kind-collision");
+    let policies = root.join("policies");
+    fs::create_dir_all(&policies).unwrap();
+    fs::write(
+        policies.join("data-retention.md"),
+        "# Data retention\n\nKeep it.\n",
+    )
+    .unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                name: "rule".to_string(),
+                provider: None,
+                governs_root: "policies".to_string(),
+                governs_glob: "*.md".to_string(),
+                format: None,
+                unit_shape: Some("directory".to_string()),
+                registration: Vec::new(),
+                templates: Vec::new(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "a kind-name collision must block ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("kind.admissibility"),
+        "the finding names the admissibility rule, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains('`') && run.output.contains("rule"),
+        "the finding names the colliding kind, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic() {
+    // The legitimate mechanism (`effective_governs`, proven by
+    // `lock_declaration_rows.rs`'s
+    // `check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default`):
+    // a row named exactly like a built-in, declaring only a relocated `governs` and no
+    // diverging `format`/`unit_shape`/`registration`, is a relocation — not a
+    // collision — so it must never trip KIND-NAME-COLLISION-ADMISSIBILITY.
+    let root = common::tmpdir("kind-relocation");
+    let rules = root.join("custom-locus").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("dev-standards.md"), "# Dev standards\n\nBody.\n").unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                name: "rule".to_string(),
+                provider: None,
+                governs_root: "custom-locus/rules".to_string(),
+                governs_glob: "*.md".to_string(),
+                format: None,
+                unit_shape: None,
+                registration: Vec::new(),
+                templates: Vec::new(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.output.contains("kind.admissibility"),
+        "a governs relocation must never fire the collision rule, got:\n{}",
         run.output
     );
 }

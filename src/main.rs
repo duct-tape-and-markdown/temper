@@ -424,10 +424,8 @@ fn explain(target: &str) -> miette::Result<String> {
     let builtin_defs = builtin_kind::definitions()?;
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
     let mut custom_members: Vec<read::CustomMember> = Vec::new();
-    for row in &declarations.kinds {
-        if builtin_defs.contains_key(&row.name) {
-            continue;
-        }
+    let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs);
+    for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
         let units = resolve_kind_units(&custom_kind, harness_root, &workspace, &declarations)?;
         let features: Vec<extract::Features> = units
@@ -630,10 +628,10 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
     // dispatched through the identical two-greens the built-in loop above runs.
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
-    for row in &declarations.kinds {
-        if builtin_defs.contains_key(&row.name) {
-            continue;
-        }
+    let (custom_rows, collisions) = partition_kind_rows(&declarations, &builtin_defs);
+    // The one site among the three dispatchers that can surface a diagnostic.
+    diagnostics.extend(collisions.iter().map(|row| kind_collision_diagnostic(row)));
+    for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name);
         let features = kind_features(&custom_kind, harness_root, workspace, &declarations)?;
@@ -801,7 +799,7 @@ fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> k
     declarations
         .kinds
         .iter()
-        .find(|row| row.name == kind.name)
+        .find(|row| row.name == kind.name && row_relocates_builtin(row, kind))
         .map(|row| kind::Governs {
             root: row.governs_root.clone(),
             glob: row.governs_glob.clone(),
@@ -993,10 +991,8 @@ fn collect_directive_members(
             });
         }
     }
-    for row in &declarations.kinds {
-        if builtin_defs.contains_key(&row.name) {
-            continue;
-        }
+    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs);
+    for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
         for unit in resolve_kind_units(&custom_kind, harness_root, workspace, declarations)? {
             let feature = builtin_kind::features(&custom_kind, &unit);
@@ -1066,6 +1062,74 @@ fn to_requirement(published: &document::PublishedRequirement) -> compose::Requir
         clauses: Vec::new(),
         verified_by: None,
     }
+}
+
+/// The diagnostic `rule` id a lock-declared kind row reports under when its bare name
+/// matches an embedded built-in's but its declared shape does not: it can be admitted
+/// neither as that built-in's relocated `governs` (the one legitimate reason a row
+/// reuses a built-in's name — [`row_relocates_builtin`]) nor as a distinct custom kind
+/// (the name is already claimed). Shares the roster's admissibility tag — a colliding
+/// bare name is inadmissible, decided before anything judges the kind.
+const KIND_COLLISION_RULE: &str = "kind.admissibility";
+
+/// Whether a lock-declared kind-fact `row` sharing `builtin`'s bare name is admissible
+/// as a **relocation** of it — the tested, legitimate mechanism
+/// (`effective_governs`) that points a built-in's `governs` locus somewhere other than
+/// its embedded default, by declaring a row under the built-in's own name. A row only
+/// relocates: every fact besides `governs` either agrees with the built-in's own or is
+/// left undeclared (deferring to it) — `format`, `unit_shape`, `registration`,
+/// `templates`. A row that declares any of those *differently* is not reconfiguring the
+/// built-in, it is a distinct kind's shape wearing the built-in's name — a namespace
+/// collision, never silently subsumed into the built-in's walk.
+fn row_relocates_builtin(row: &drift::KindFactRow, builtin: &CustomKind) -> bool {
+    let declared = CustomKind::from_kind_fact_row(row);
+    (declared.format.is_none() || declared.format == builtin.format)
+        && (declared.unit_shape.is_none() || declared.unit_shape == builtin.unit_shape)
+        && (declared.registration.is_empty() || declared.registration == builtin.registration)
+        && (declared.templates.is_empty() || declared.templates == builtin.templates)
+}
+
+/// Partition the lock's declared kind rows for the three sites (`explain`, `gate`,
+/// `collect_directive_members`) that dispatch every non-built-in kind through the
+/// generic custom-kind path: a row naming no built-in is genuinely custom (returned in
+/// declaration order); a row naming a built-in it does not [`row_relocates_builtin`]
+/// with is a collision (KIND-NAME-COLLISION-ADMISSIBILITY), reported separately so the
+/// one caller that can diagnose (`gate`) does, and every caller skips it identically —
+/// consolidating what were three duplicated `if builtin_defs.contains_key(...) {
+/// continue }` sites. A row that *does* relocate a built-in is neither: it is silently
+/// consumed by that built-in's own [`resolve_kind_units`] call, exactly as before.
+fn partition_kind_rows<'a>(
+    declarations: &'a drift::Declarations,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+) -> (Vec<&'a drift::KindFactRow>, Vec<&'a drift::KindFactRow>) {
+    let mut custom = Vec::new();
+    let mut collisions = Vec::new();
+    for row in &declarations.kinds {
+        match builtin_defs.get(&row.name) {
+            None => custom.push(row),
+            Some(builtin) if !row_relocates_builtin(row, builtin) => collisions.push(row),
+            Some(_) => {}
+        }
+    }
+    (custom, collisions)
+}
+
+/// A [`KIND_COLLISION_RULE`] finding for a colliding row from [`partition_kind_rows`] —
+/// refusing rather than the silent skip that dropped the row's members from every
+/// corpus with no diagnostic (KIND-NAME-COLLISION-ADMISSIBILITY).
+fn kind_collision_diagnostic(row: &drift::KindFactRow) -> check::Diagnostic {
+    check::Diagnostic::error(
+        KIND_COLLISION_RULE,
+        &row.name,
+        format!(
+            "kind `{}` collides with an embedded built-in of the same name: its declared \
+             shape (`format`/`unit_shape`/`registration`) does not match the built-in's, so \
+             it is neither an admissible relocation of the built-in's `governs` locus nor a \
+             distinct custom kind of its own — rename it, or drop the diverging facts to \
+             relocate the built-in instead",
+            row.name
+        ),
+    )
 }
 
 /// Lift the lock's [`drift::RequirementRow`] — the whole requirement shape `import`
