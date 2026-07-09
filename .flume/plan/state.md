@@ -3,28 +3,28 @@
 - Spec derived through: a53eee4
 - Audited through: 9bf90bc
 - Residue swept through: 3c6f50b
-- This tick: Residue sweep. Only src/tests/sdk-touching commit since 52b3dcd
-  is 3c6f50b (EMBEDDED-KIND-RENDER-HOOK, sdk/src/emit.ts + sdk/src/kind.ts +
-  sdk/test/emit.test.ts only). Re-verified both standing debts unaffected
-  and still live: tests/session_start.rs's `+++`-format kinds/packages
-  fixtures, and sdk/src/builtins.ts:308,348,385's three deleted PACKAGE.md
-  citations — neither file touched by 3c6f50b or its two predecessors since
-  52b3dcd. Also confirmed 3c6f50b's own commit-body fix (stale
-  parse_embedded_member/parse_embedded_info citations) is complete: zero
-  remaining hits repo-wide. New finding: sdk/src/kind.ts (12 hits) and
-  sdk/src/contract.ts (8 hits) doc-comment-cite four numbered spec files
-  (10-contracts.md/15-kinds.md/20-surface.md/40-composition.md) that predate
-  0002's corpus-form reorg and no longer exist under those names — vocabulary
-  the corpus no longer sanctions, compounded by rust.md/sdk.md's "spec
-  citations retired from comments" convention. Per job 4's own exception,
-  citation staleness never gets a standalone entry — recorded as a new
-  "kept on purpose" debt in open-questions.md, riding the next entry that
-  opens each file (kind.ts's exit clause already fires under
-  EMBEDDED-LEAF-TEXT, which has it in its edit list; contract.ts awaits its
-  own next touch). pending.json unchanged — no entry filed.
-- Queue: EMBEDDED-LEAF-TEXT (open, next); PACKAGING-CHANNELS (parked).
-  Disjoint — EMBEDDED-LEAF-TEXT is the sole open entry.
+- This tick: Quiet closing pass. Verified HEAD (2a0c643) carries no new
+  specs/, src/, tests/, or sdk/ commits past any cursor — the two plan-only
+  commits since 9bf90bc (cbd8c1c, 2a0c643) touch only .flume/plan/*. Inbox
+  and refactor-captures empty; friction dir holds only its README. Spot-
+  checked EMBEDDED-LEAF-TEXT's cited line ranges against disk: emit.ts's
+  `renderMemberToml` leaf loops (~72-81), declarations.ts's `mentionRows`
+  (~354-361) and its "only text-kind prose carries mentions" framing,
+  nested_member.rs's `leaf_addresses_are_structural_member_kind_key_child_path`
+  (118), emit.test.ts's resolved/unresolved mention cases (~442/454) — all
+  still line up; the entry is buildable as scoped. Re-verified
+  PACKAGING-CHANNELS's parked reason on disk: root package.json is still
+  `temper-flume-harness` (private, flume-only), `.github/workflows/` holds
+  only `temper.yml` — still parked, still accurate. open-questions.md's five
+  open forks and five kept-on-purpose debts unchanged and untouched by any
+  commit since last verified. Queue disjoint (EMBEDDED-LEAF-TEXT touches
+  sdk/src/{kind,emit,declarations}.ts; PACKAGING-CHANNELS touches
+  .github/workflows/release.yml + root package.json — no overlap). No
+  rewrite needed to pending.json or open-questions.md this tick.
+- Queue: EMBEDDED-LEAF-TEXT (open, next — build can pick it up);
+  PACKAGING-CHANNELS (parked on human release creds + engine-binary
+  workflow).
 
-Plan continues: yes — every cursor (spec derived, audited, residue swept) now
-sits at or past the latest relevant commit and the queue is disjoint; the
-next tick is the quiet closing pass (job 5).
+Plan continues: no — every cursor sits at HEAD, inbox and refactor captures
+are empty, the queue is disjoint with one open buildable entry, and no gate
+reason moved. Handing off to build.
