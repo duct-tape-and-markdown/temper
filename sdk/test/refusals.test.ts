@@ -70,6 +70,24 @@ test("a satisfies claim filling a requirement typed to a required-field kind is 
   assert.doesNotThrow(() => emit(h));
 });
 
+test("an expect binding keyed to a required-field kind emits without throwing", () => {
+  // `ExpectBinding.kind` exercises the same contravariant assignability as
+  // `Requirement.kind` above — `skill` declares required fields, so binding
+  // `expect` to it (rather than a no-required-fields kind like `rule`) is the
+  // case `KindDefinition<never>` must accept.
+  const h = harness({
+    members: [
+      skill({
+        name: "operate-the-gate",
+        description: "Use when operating the gate.",
+        prose: text`# Operate the gate`,
+      }),
+    ],
+    expect: [{ kind: skill, clauses: [] }],
+  });
+  assert.doesNotThrow(() => emit(h));
+});
+
 // ---------------------------------------------------------------------------
 // (2) Unfilled required requirement — a `required` demand no member satisfies.
 // ---------------------------------------------------------------------------

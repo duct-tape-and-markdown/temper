@@ -16,7 +16,7 @@ import type { Clause, Requirement } from "./contract.js";
  * — a floor is just a clause array spread into `clauses`.
  */
 export interface ExpectBinding {
-  readonly kind: KindDefinition<object>;
+  readonly kind: KindDefinition<never>;
   readonly clauses: readonly Clause[];
 }
 
