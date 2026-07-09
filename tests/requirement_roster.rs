@@ -25,7 +25,7 @@ use std::process::Command;
 mod common;
 
 use temper::drift::{
-    self, ClauseRow, Declarations, EmitOptions, Payload, RequirementRow, SatisfiesRow,
+    self, ClauseRow, Declarations, EmitOptions, KindFactRow, Payload, RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -825,5 +825,86 @@ fn a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_aut
         harness_run.ok,
         "check --harness must also resolve the lock-declared satisfies row ⇒ zero, got:\n{}",
         harness_run.output
+    );
+}
+
+/// Run `temper explain <target>` from `root`, returning its stdout narration.
+fn explain_in(root: &Path, target: &str) -> String {
+    let out = Command::new(BIN)
+        .current_dir(root)
+        .arg("explain")
+        .arg(target)
+        .output()
+        .unwrap();
+    String::from_utf8_lossy(&out.stdout).into_owned()
+}
+
+#[test]
+fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_fabricated_rationale()
+ {
+    // The custom-kind mirror of the sibling test just above (SATISFIES-CLAUSES-
+    // RATIONALE-FROM-LOCK): `policy` is a custom kind (not a built-in), its one member
+    // written only at its real governed locus — no `.temper/policies/data-retention/`
+    // surface overlay is ever authored, so `surface_overlay` grafts nothing. The lock's
+    // own `declarations.satisfies` row is the sole source naming it as a filler.
+    let root = common::tmpdir("lock-satisfies-custom-explain");
+    let policies = root.join("policies");
+    fs::create_dir_all(&policies).unwrap();
+    fs::write(
+        policies.join("data-retention.md"),
+        "# Data retention\n\nKeep it.\n",
+    )
+    .unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                name: "policy".to_string(),
+                provider: None,
+                governs_root: "policies".to_string(),
+                governs_glob: "*.md".to_string(),
+                format: None,
+                unit_shape: None,
+                registration: Vec::new(),
+                templates: Vec::new(),
+            }],
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("governance", false, Some("policy"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "data-retention".to_string(),
+                requirement: "governance".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    // Gate's verdict: filled, per fe2b22c's union into `unit.satisfies`.
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a custom-kind requirement filled only via a lock-declared satisfies row must pass ⇒ zero, got:\n{}",
+        run.output
+    );
+
+    // `explain`'s narration must agree with that verdict: the member narrates as
+    // filling `governance`, not as opting into no requirements at all — the exact
+    // narration/verdict split this entry closes.
+    let out = explain_in(&root, "data-retention");
+    assert!(
+        out.contains("Requirements it satisfies") && out.contains("governance"),
+        "explain must narrate the lock-declared fill as a satisfied requirement, got:\n{out}"
+    );
+    assert!(
+        !out.contains("It fills no requirements"),
+        "explain must never disagree with gate's fill verdict, got:\n{out}"
+    );
+    // No surface-authored rationale exists, so none is fabricated — the fill is
+    // narrated as present with no rationale text, never silently absent.
+    assert!(
+        out.contains("no rationale authored"),
+        "the lock-declared fill carries no rationale, and none is invented, got:\n{out}"
     );
 }

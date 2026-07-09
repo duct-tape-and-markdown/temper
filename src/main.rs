@@ -839,8 +839,12 @@ fn surface_overlay(
 /// SDK-emit shape and the only one a converted harness ever populates — and
 /// whatever [`surface_overlay`] still grafts from a projected surface document, a
 /// pre-conversion holdover with no production writer left. Its rationale-carrying
-/// `satisfies_clauses`/published requirements stay [`surface_overlay`]-only: the
-/// lock row carries no rationale text.
+/// `satisfies_clauses` unions the same two sources: a lock-declared row with no
+/// surface counterpart still narrates, as a rationale-less
+/// [`document::Satisfies`](document::Satisfies) — the lock row carries no
+/// rationale text — so `explain` can never disagree with the gate about which
+/// requirements a member fills. Published requirements stay
+/// [`surface_overlay`]-only.
 ///
 /// # Errors
 ///
@@ -881,6 +885,15 @@ fn resolve_kind_units(
         for row in &declarations.satisfies {
             if row.member == unit.id && !unit.satisfies.contains(&row.requirement) {
                 unit.satisfies.push(row.requirement.clone());
+            }
+            if row.member == unit.id
+                && !unit
+                    .satisfies_clauses
+                    .iter()
+                    .any(|clause| clause.requirement == row.requirement)
+            {
+                unit.satisfies_clauses
+                    .push(document::Satisfies::new(row.requirement.clone()));
             }
         }
         units.push(unit);
