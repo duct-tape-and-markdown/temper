@@ -16,7 +16,11 @@
 //!   the retired manifest is never read at all, so a stray one carrying either changes
 //!   nothing;
 //! - the roster is itself checked (admissibility);
-//! - a stray retired manifest declaring no roster leaves the floor outcome unchanged.
+//! - a stray retired manifest declaring no roster leaves the floor outcome unchanged;
+//! - every embedded built-in kind reaches the same satisfier corpus, not only
+//!   `skill`/`rule` — a `memory` member's `satisfies` row counts toward cardinality,
+//!   roster admissibility, and a `degree` bound exactly as a skill's does
+//!   (MEMORY-ENTERS-REQUIREMENT-CORPUS).
 
 use std::fs;
 use std::path::Path;
@@ -25,7 +29,8 @@ use std::process::Command;
 mod common;
 
 use temper::drift::{
-    self, ClauseRow, Declarations, EmitOptions, KindFactRow, Payload, RequirementRow, SatisfiesRow,
+    self, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, Payload,
+    RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -316,14 +321,17 @@ fn a_kind_blind_requirement_is_filled_by_opt_ins_of_every_modeled_kind() {
 fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
     let root = common::tmpdir("kind-unmodeled");
     // A floor-clean skill opts in (coverage is satisfied), but the requirement
-    // narrows to `command` — a kind `temper` does not model — so the each-grain
-    // clause it sources can never hold for any satisfier: an admissibility finding,
-    // never a silent "can never be filled" exclusion.
+    // narrows to `widget` — a kind `temper` does not model at all (every embedded
+    // built-in — `agent`/`command`/`skill`/`rule`/`memory` — now reaches `by_kind`,
+    // MEMORY-ENTERS-REQUIREMENT-CORPUS, so this must be a name no built-in or
+    // lock-declared custom kind carries) — so the each-grain clause it sources can
+    // never hold for any satisfier: an admissibility finding, never a silent "can
+    // never be filled" exclusion.
     common::write_skill(&root, "agent-skill", &common::clean_skill("agent-skill"));
     common::author_satisfies(&root, "skills", "agent-skill", &["agents"]);
     common::write_requirements(
         &root,
-        vec![common::requirement("agents", false, Some("command"))],
+        vec![common::requirement("agents", false, Some("widget"))],
     );
 
     let run = common::check_in(&root, &[], None);
@@ -333,7 +341,7 @@ fn a_kind_narrowing_an_unmodeled_kind_is_inadmissible() {
         run.output
     );
     assert!(
-        run.output.contains("agents") && run.output.contains("command"),
+        run.output.contains("agents") && run.output.contains("widget"),
         "the finding names the requirement and the unmodeled kind, got:\n{}",
         run.output
     );
@@ -402,7 +410,9 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
 fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
     let root = common::tmpdir("admit-unknown-kind");
     // A floor-clean skill opts into the requirement (so coverage is satisfied), but the
-    // requirement is typed to `command` — a kind `temper` does not model — so a
+    // requirement is typed to `widget` — a kind `temper` does not model at all (every
+    // embedded built-in now reaches `by_kind`, MEMORY-ENTERS-REQUIREMENT-CORPUS, so
+    // this must be a name no built-in or lock-declared custom kind carries) — so a
     // required requirement over it can never be filled.
     common::write_skill(&root, "lint-rust", &common::clean_skill("lint-rust"));
     common::author_satisfies(&root, "skills", "lint-rust", &["releaser"]);
@@ -410,7 +420,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
         &root,
         vec![RequirementRow {
             required: true,
-            ..common::requirement("releaser", false, Some("command"))
+            ..common::requirement("releaser", false, Some("widget"))
         }],
     );
 
@@ -421,7 +431,7 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
     );
     assert!(
         run.output.contains("releaser")
-            && run.output.contains("command")
+            && run.output.contains("widget")
             && run.output.contains("never be filled"),
         "the finding names the requirement, the kind, and that it can never be filled, got:\n{}",
         run.output
@@ -755,5 +765,117 @@ fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_f
     assert!(
         out.contains("no rationale authored"),
         "the lock-declared fill carries no rationale, and none is invented, got:\n{out}"
+    );
+}
+
+// ---- MEMORY-ENTERS-REQUIREMENT-CORPUS: every built-in kind, not just skill/rule ----
+
+/// Write a repo-root `CLAUDE.md` — the `memory` built-in kind's sole governed locus
+/// (`root = "."`, `glob = "**/CLAUDE.md"`) — so its member id folds to the bare stem
+/// `CLAUDE`, the no-placement case of the file-shaped unit id.
+fn write_claude_md(root: &Path, body: &str) {
+    fs::write(root.join("CLAUDE.md"), body).unwrap();
+}
+
+#[test]
+fn a_memory_members_satisfies_row_fills_a_memory_narrowed_requirement() {
+    let root = common::tmpdir("memory-satisfies-fills");
+    write_claude_md(&root, "# Memory\n\nProject guidance.\n");
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("memory-doc", false, Some("memory"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "CLAUDE".to_string(),
+                requirement: "memory-doc".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    // Before MEMORY-ENTERS-REQUIREMENT-CORPUS, `assemble_by_kind` only ever carried
+    // `skill`/`rule`, so a `memory`-narrowed requirement's each-grain `kind` clause
+    // read as unfillable (`temper` "does not model" a kind it demonstrably does), and
+    // coverage's unioned satisfies never saw the memory member's row either —
+    // `memory-doc` read unfilled despite the lock's own satisfies row naming it. Both
+    // the two-step and one-shot gate must now agree it is filled.
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a memory member's declared satisfies row must fill a memory-narrowed requirement ⇒ zero, got:\n{}",
+        run.output
+    );
+
+    let harness_run = check_harness_in(&root);
+    assert!(
+        harness_run.ok,
+        "check --harness must also resolve the memory member's satisfies row ⇒ zero, got:\n{}",
+        harness_run.output
+    );
+
+    // `explain` must agree with the gate's fill verdict — one shared corpus, not two
+    // independent derivations that could silently disagree.
+    let out = explain_in(&root, "memory-doc");
+    assert!(
+        out.contains("required, filled by 1 member(s)"),
+        "explain must report the memory member as the requirement's satisfier, matching the gate's verdict, got:\n{out}"
+    );
+    assert!(
+        out.contains("`CLAUDE`"),
+        "the narration names the memory member by its folded id, got:\n{out}"
+    );
+}
+
+#[test]
+fn a_memory_narrowed_degree_bound_fires_over_a_memory_satisfier() {
+    let root = common::tmpdir("memory-degree-fires");
+    // `CLAUDE.md` opts into `gate` but nothing points at it — zero incoming edges,
+    // outside the declared `[1, ∞)` band. Before the fix, `graph::degree` iterates
+    // `roster::candidates(by_kind)`, which never carried a `memory` entry: the
+    // memory satisfier was never visited at all, so the bound silently never fired —
+    // a false negative on a real violation, not just a mis-narrated one.
+    write_claude_md(&root, "# Memory\n\nProject guidance.\n");
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![RequirementRow {
+                clauses: vec![required_clause_row(
+                    "degree",
+                    None,
+                    None,
+                    None,
+                    Some(DegreeBoundRow {
+                        incoming: Some(EdgeBoundRow {
+                            min: Some(1),
+                            max: None,
+                        }),
+                        outgoing: None,
+                    }),
+                )],
+                ..common::requirement("gate", false, Some("memory"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "CLAUDE".to_string(),
+                requirement: "gate".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "an under-connected memory satisfier must fail the run on its degree bound ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("gate")
+            && run.output.contains("CLAUDE")
+            && run.output.contains("degree"),
+        "the finding names the requirement, the memory satisfier, and the degree bound, got:\n{}",
+        run.output
     );
 }

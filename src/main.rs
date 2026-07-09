@@ -405,17 +405,16 @@ fn explain(target: &str) -> miette::Result<String> {
     // kind's governs locus off *this*.
     let declarations = drift::read_declarations(&workspace)?;
 
-    let skill_kind = builtin_kind::definition("skill")?
-        .ok_or_else(|| miette::miette!("built-in kind `skill` is not embedded in this binary"))?;
-    let rule_kind = builtin_kind::definition("rule")?
-        .ok_or_else(|| miette::miette!("built-in kind `rule` is not embedded in this binary"))?;
-    let skill_features = kind_features(&skill_kind, harness_root, &declarations)?;
-    let rule_features = kind_features(&rule_kind, harness_root, &declarations)?;
+    // Every embedded built-in kind's discovered features — the same generic loop
+    // `gate`'s two-greens runs, not a hardcoded skill/rule pair
+    // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
+    // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
+    let builtin_defs = builtin_kind::definitions()?;
+    let builtin_features = builtin_features_by_kind(&builtin_defs, harness_root, &declarations)?;
 
     // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs
     // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
     // members exist.
-    let builtin_defs = builtin_kind::definitions()?;
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
     let mut custom_members: Vec<read::CustomMember> = Vec::new();
     let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs);
@@ -435,7 +434,7 @@ fn explain(target: &str) -> miette::Result<String> {
         }
         custom_kinds.push((custom_kind, features));
     }
-    let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+    let by_kind = assemble_by_kind(&builtin_features, &custom_kinds);
 
     // The one requirement namespace: the assembly's declared `[requirement.*]`
     // roster — a custom-kind member has no channel of its own to publish one (the
@@ -565,19 +564,16 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
     // exist — are dispatched to its default contract and validated, so a discovered `CLAUDE.md`
     // memory member fires its `memory` clauses exactly as a skill/rule does — no
-    // longer silently skipped by a hardcoded skill/rule pair.
-    // SCOPE: only this validation path generalizes — the roster/graph tier below
-    // stays skill/rule/custom (no memory member publishes a requirement today;
-    // folding more built-ins into the requirement corpus is a separate scope
-    // question), so `skill`/`rule` are captured out of the dispatch below into
-    // `skill_features`/`rule_features`.
+    // longer silently skipped by a hardcoded skill/rule pair. The resolved features
+    // feed straight into `builtin_features` (MEMORY-ENTERS-REQUIREMENT-CORPUS): every
+    // built-in's satisfies edges reach the roster/graph/coverage tiers below, not only
+    // skill/rule's.
     let mut diagnostics = Vec::new();
     // Per-kind checked-member counts, keyed by bare row label — carried out of
     // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
     // so "checked N members" is stated rather than left as bare silence.
     let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut skill_features: Vec<extract::Features> = Vec::new();
-    let mut rule_features: Vec<extract::Features> = Vec::new();
+    let mut builtin_features: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
@@ -594,11 +590,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
         member_counts.insert(kind.name.clone(), features.len());
-        match kind.name.as_str() {
-            "skill" => skill_features = features,
-            "rule" => rule_features = features,
-            _ => {}
-        }
+        builtin_features.insert(kind.name.clone(), features);
     }
 
     // Every lock-declared kind that is not one of the embedded built-ins:
@@ -656,13 +648,13 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
-    let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
+    let by_kind = assemble_by_kind(&builtin_features, &custom_kinds);
 
-    // Every opt-in-capable member's features (built-in kinds *and* each custom
+    // Every opt-in-capable member's features (every built-in kind *and* each custom
     // kind's members) — the stream coverage ranges over below.
-    let all_features: Vec<extract::Features> = skill_features
-        .iter()
-        .chain(rule_features.iter())
+    let all_features: Vec<extract::Features> = builtin_features
+        .values()
+        .flatten()
         .chain(custom_kinds.iter().flat_map(|(_, features)| features))
         .cloned()
         .collect();
@@ -886,17 +878,42 @@ fn repo_file_set(root: &Path) -> Vec<String> {
 /// shared corpus helpers keep a legible signature (`clippy::type_complexity`).
 type CustomKindEntry = (CustomKind, Vec<extract::Features>);
 
+/// Resolve every embedded built-in kind's discovered [`Features`](extract::Features)
+/// off `harness_root`, keyed by bare kind name — the one loop over
+/// [`builtin_kind::definitions`] that `gate` and `explain` both build their by-kind
+/// corpus from, so a memory member's (or any other built-in's) features reach both
+/// callers identically instead of each hand-picking a `skill`/`rule` pair.
+///
+/// # Errors
+///
+/// As [`kind_features`].
+fn builtin_features_by_kind(
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    harness_root: &Path,
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<String, Vec<extract::Features>>> {
+    let mut by_kind = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        by_kind.insert(
+            kind.name.clone(),
+            kind_features(kind, harness_root, declarations)?,
+        );
+    }
+    Ok(by_kind)
+}
+
 /// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and
-/// graph predicate ranges over: the built-in kinds plus each lock-declared custom
-/// kind's features, keyed by kind name. Borrows every slice, so the caller holds the
-/// owned feature vecs for the map's lifetime.
+/// graph predicate ranges over: every built-in kind ([`builtin_features_by_kind`])
+/// plus each lock-declared custom kind's features, keyed by kind name. Borrows every
+/// slice, so the caller holds the owned feature vecs for the map's lifetime.
 fn assemble_by_kind<'a>(
-    skill_features: &'a [extract::Features],
-    rule_features: &'a [extract::Features],
+    builtin_features: &'a BTreeMap<String, Vec<extract::Features>>,
     custom_kinds: &'a [CustomKindEntry],
 ) -> BTreeMap<&'a str, &'a [extract::Features]> {
-    let mut by_kind: BTreeMap<&str, &[extract::Features]> =
-        BTreeMap::from([("skill", skill_features), ("rule", rule_features)]);
+    let mut by_kind: BTreeMap<&str, &[extract::Features]> = builtin_features
+        .iter()
+        .map(|(name, features)| (name.as_str(), features.as_slice()))
+        .collect();
     for (kind, features) in custom_kinds {
         by_kind.insert(kind.name.as_str(), features.as_slice());
     }
