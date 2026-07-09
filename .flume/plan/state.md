@@ -3,21 +3,23 @@
 - Spec derived through: f87cc0c
 - Audited through: dd7517a
 - Residue swept through: 2f1c259
-- This tick: Residue sweep (job 4). `git diff --stat 8dfceee..HEAD` (six
-  commits: 09fee9f, 8a2459f, a32a45f, 942d28a, cb18a56, 2f1c259) touches only
-  `.flume/**`, `.temper/lock.toml`, `.temper/memory/CLAUDE.md`, `CLAUDE.md` —
-  zero changes to src/, tests/, or sdk/ since the prior sweep, so no new
-  residue can exist there. Both standing accepted debts reread and
-  reconfirmed live verbatim: tests/session_start.rs:121-146 still writes
-  `+++`-format `.temper/kinds/spec/KIND.md` + `.temper/packages/spec/PACKAGE.md`
-  fixtures; sdk/src/builtins.ts:295-395 still doc-comment-cites the deleted
-  `packages/{rule,memory}.anthropic/PACKAGE.md` files (agents-md.memory's own
-  citation rides the still-open `(agents-md-builtin-kind)` fork, not this
-  debt). Grepped `published_requirements` (no hits) and `skill.anthropic`
-  (only its legitimate shipped-kind-label uses) — no other retired
-  vocabulary found live. No new fileable gap; pending.json unchanged.
-- Queue: INSTALL-HOOK-APPEND-COVERAGE (open, next), PACKAGING-CHANNELS
-  (parked). Disjoint — open entry touches only tests/install.rs.
+- This tick: Quiet closing pass (job 5). Inbox empty, `.flume/refactor/`
+  holds only its README template — no live captures. No specs/ commits past
+  f87cc0c. `git diff --stat dd7517a..HEAD -- src tests sdk` is empty — the
+  six commits since (09fee9f, 8a2459f, a32a45f, 942d28a, cb18a56, 2f1c259,
+  b87e3c5) are all plan/flume bookkeeping, so audit and residue cursors hold
+  unchanged. Re-verified on disk: INSTALL-HOOK-APPEND-COVERAGE's cited lines
+  still resolve exactly (src/install.rs:862/883 `Some(member) =>` arms,
+  src/json_splice.rs:224-227 `append_element`'s populated-array arm) and
+  tests/install.rs still exists as the edit target. PACKAGING-CHANNELS's
+  parked reason still holds: `.github/workflows/` has only `temper.yml` (a
+  check job), no `release.yml`; root `package.json` is still the private
+  `temper-flume-harness` manifest; `sdk/package.json` `@dtmd/temper` still at
+  0.0.5. `cargo check --all-targets` green. pending.json and
+  open-questions.md unchanged.
+- Queue: INSTALL-HOOK-APPEND-COVERAGE (open, next, touches only
+  tests/install.rs), PACKAGING-CHANNELS (parked, touches package.json + a
+  new release.yml). Disjoint.
 
-Plan continues: yes — quiet closing pass (job 5) is next; residue cursor now
-at HEAD, all four prior inputs current.
+Plan continues: no — all four inputs current, queue disjoint and pickable,
+both gate reasons reconfirmed; build takes over.
