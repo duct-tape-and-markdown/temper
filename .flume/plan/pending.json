@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NESTED-MEMBER-COLLECTIONS-ORDERED"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "A project-declared embedded kind supplying render() sees its output verbatim inside the member fence at emit; a kind supplying none is byte-identical to today's projection — zero forced migration.",
-    "notes": "Slice 2 of 3 for 0018's carried inbox scope (filed 6bed388; cite Consequences: an embedded-locus kind's format is 'writer-only and unconstrained... no admissibility bar'). blockedBy slice 1 — both touch sdk/src/kind.ts and sdk/src/emit.ts, entry-discipline file-disjointness, matching the inbox's own 1-then-2 sequencing. Scoped at 6bed388."
+    "notes": "Slice 2 of 3 for 0018's carried inbox scope (filed 6bed388; cite Consequences: an embedded-locus kind's format is 'writer-only and unconstrained... no admissibility bar'). Slice 1 (NESTED-MEMBER-COLLECTIONS-ORDERED) shipped 80697f8; ship-audit-verified at 80697f8 (cargo test, sdk `node --test`, and `tsc --noEmit` all green; collections confirmed an ordered {key,leaves} list, cited line refs above still resolve) — gate flips open. Scoped at 6bed388."
   },
   {
     "tag": "EMBEDDED-LEAF-TEXT",
@@ -73,7 +72,7 @@
       },
       {
         "path": "tests/nested_member.rs",
-        "asserts": "'leaf_addresses_are_structural_member_kind_key_child_path' (~94) grows a case where the addressed leaf itself carries a resolved mention, asserting explain/impact still read its plain resolved string."
+        "asserts": "'leaf_addresses_are_structural_member_kind_key_child_path' (~118, shifted by NESTED-MEMBER-COLLECTIONS-ORDERED's ordered-collections rework) grows a case where the addressed leaf itself carries a resolved mention, asserting explain/impact still read its plain resolved string."
       }
     ],
     "acceptance": "An embedded member's leaf authored as a text-tagged template with a mention emits with the mention resolved and displayed, contributes a mention row addressed to that leaf, and an unresolved leaf mention refuses emit exactly like a member-level one; a bare-string leaf is unchanged.",
