@@ -102,7 +102,7 @@ fn a_command_member_extracts_the_skills_declared_field_schema() {
         .unwrap()
         .expect("command is embedded");
     let member = Member::from_source(&command_kind, &source).unwrap();
-    let unit = common::surface_unit(&member, "COMMAND.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&command_kind, &unit);
 
     // The skill's field schema by import: `description` extracts exactly as it does

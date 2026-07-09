@@ -100,36 +100,6 @@ pub enum DocumentError {
         #[source]
         source: Box<toml_edit::TomlError>,
     },
-
-    /// A `[requirement.<name>]` module published on a member header carries a key
-    /// outside its closed facet set (`means`/`kind`/`required`) — the same
-    /// posture as an unknown contract key: a typo that would silently drop a published obligation is a hard
-    /// load error, not a dropped key.
-    #[error("published requirement `{name}` has unknown key `{key}`")]
-    #[diagnostic(
-        code(temper::document::requirement_unknown_key),
-        help("a member-published requirement carries only `means`, `kind`, and `required`")
-    )]
-    RequirementUnknownKey {
-        /// The published requirement carrying the stray key.
-        name: String,
-        /// The unrecognized key.
-        key: String,
-    },
-
-    /// A `[requirement.<name>]` module published on a member header carries a facet
-    /// of the wrong TOML type — `means`/`kind` not a string, or `required`
-    /// not a boolean.
-    #[error("published requirement `{name}` key `{key}` must be {expected}")]
-    #[diagnostic(code(temper::document::requirement_wrong_type))]
-    RequirementWrongType {
-        /// The published requirement whose facet is mistyped.
-        name: String,
-        /// The mistyped facet.
-        key: &'static str,
-        /// The type that was expected, for the message.
-        expected: &'static str,
-    },
 }
 
 impl Document {
@@ -412,95 +382,6 @@ fn value_to_json(val: &Value) -> Option<JsonValue> {
     })
 }
 
-/// The `[satisfies.<requirement>]` modules in `header`, in document order.
-pub fn satisfies(header: &DocumentMut) -> Vec<Satisfies> {
-    header
-        .get("satisfies")
-        .and_then(Item::as_table)
-        .map(|table| {
-            table
-                .iter()
-                .map(|(requirement, item)| Satisfies {
-                    requirement: requirement.to_string(),
-                    rationale: item
-                        .as_table()
-                        .and_then(|module| module.get("rationale"))
-                        .and_then(Item::as_str)
-                        .map(str::to_string),
-                })
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
-/// The `[requirement.<name>]` modules a member **publishes** in its header, in
-/// document order — the demand-side mirror of [`satisfies`]. A
-/// module with no body is a bare (all-facets-absent) obligation, valid like a bare
-/// assembly `[requirement.<name>]`.
-///
-/// # Errors
-///
-/// Rejects a module carrying a key outside the closed facet set
-/// ([`DocumentError::RequirementUnknownKey`]) or a facet of the wrong TOML type
-/// ([`DocumentError::RequirementWrongType`]) — a typo that would silently drop a
-/// published obligation is a hard load error.
-pub fn requirements(header: &DocumentMut) -> Result<Vec<PublishedRequirement>, DocumentError> {
-    let Some(table) = header.get("requirement").and_then(Item::as_table) else {
-        return Ok(Vec::new());
-    };
-    let mut requirements = Vec::new();
-    for (name, item) in table.iter() {
-        let mut means = None;
-        let mut kind = None;
-        let mut required = false;
-        if let Some(module) = item.as_table() {
-            for (key, value) in module.iter() {
-                match key {
-                    "means" => means = Some(requirement_str(value, name, "means")?),
-                    "kind" => kind = Some(requirement_str(value, name, "kind")?),
-                    "required" => required = requirement_bool(value, name)?,
-                    other => {
-                        return Err(DocumentError::RequirementUnknownKey {
-                            name: name.to_string(),
-                            key: other.to_string(),
-                        });
-                    }
-                }
-            }
-        }
-        requirements.push(PublishedRequirement {
-            name: name.to_string(),
-            means,
-            kind,
-            required,
-        });
-    }
-    Ok(requirements)
-}
-
-/// Read one string facet off a published `[requirement.<name>]` module, mapping a
-/// non-string value to a precise [`DocumentError::RequirementWrongType`].
-fn requirement_str(value: &Item, name: &str, key: &'static str) -> Result<String, DocumentError> {
-    value
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| DocumentError::RequirementWrongType {
-            name: name.to_string(),
-            key,
-            expected: "a string",
-        })
-}
-
-/// Read the boolean `required` facet off a published `[requirement.<name>]` module,
-/// mapping a non-boolean value to a precise [`DocumentError::RequirementWrongType`].
-fn requirement_bool(value: &Item, name: &str) -> Result<bool, DocumentError> {
-    value.as_bool().ok_or(DocumentError::RequirementWrongType {
-        name: name.to_string(),
-        key: "required",
-        expected: "a boolean",
-    })
-}
-
 /// The generated `[provenance]` module's `(source_path, source_hash)`, or `None`
 /// when it is absent or missing either key — a surface missing what the tool always
 /// writes is malformed, and the caller turns that `None` into a precise error.
@@ -707,13 +588,6 @@ Last line, no newline.";
             .collect();
         assert_eq!(read, vec!["name".to_string(), "allowed-tools".to_string()]);
         assert_eq!(
-            satisfies(parsed.header()),
-            vec![Satisfies {
-                requirement: "engineering-standards".to_string(),
-                rationale: Some("the home for enforcement".to_string()),
-            }]
-        );
-        assert_eq!(
             provenance(parsed.header()),
             Some(("./SKILL.md".to_string(), "abc123".to_string()))
         );
@@ -773,61 +647,9 @@ Last line, no newline.";
         // A bare requirement is an empty module — a name with no facets.
         assert!(emitted.contains("[requirement.bare]"));
 
+        // Deterministic round-trip: re-parsing then re-emitting is byte-identical.
         let parsed = Document::parse(&emitted).unwrap();
-        assert_eq!(
-            requirements(parsed.header()).unwrap(),
-            vec![
-                PublishedRequirement {
-                    name: "architecture".to_string(),
-                    means: Some("the corpus carries an architecture spec".to_string()),
-                    kind: Some("spec".to_string()),
-                    required: true,
-                },
-                PublishedRequirement {
-                    name: "bare".to_string(),
-                    means: None,
-                    kind: None,
-                    required: false,
-                },
-            ]
-        );
-        // Deterministic round-trip: re-emitting a parsed document is byte-identical.
         assert_eq!(parsed.emit(), emitted);
-    }
-
-    #[test]
-    fn a_published_requirement_with_an_unknown_key_is_rejected() {
-        // A facet outside the closed set (`count` is assembly-only) is a hard load
-        // error, not a silently dropped key.
-        let raw = "+++\n[requirement.x]\ncount = 3\n+++\n# body\n";
-        let doc = Document::parse(raw).unwrap();
-        let err = requirements(doc.header()).unwrap_err();
-        assert!(matches!(
-            err,
-            DocumentError::RequirementUnknownKey { ref name, ref key }
-                if name == "x" && key == "count"
-        ));
-    }
-
-    #[test]
-    fn a_published_requirement_with_a_mistyped_facet_is_rejected() {
-        // `required` must be a boolean; a string is a precise wrong-type error.
-        let raw = "+++\n[requirement.x]\nrequired = \"yes\"\n+++\n# body\n";
-        let doc = Document::parse(raw).unwrap();
-        let err = requirements(doc.header()).unwrap_err();
-        assert!(matches!(
-            err,
-            DocumentError::RequirementWrongType {
-                key: "required",
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn a_header_with_no_requirement_modules_reads_empty() {
-        let doc = Document::parse(FIXTURE).unwrap();
-        assert!(requirements(doc.header()).unwrap().is_empty());
     }
 
     #[test]

@@ -24,9 +24,9 @@
 //! construction — the binary owns the output contract, no hand-escaping (mirroring
 //! [`crate::reporter`]).
 //!
-//! `bundle` **reads the imported surface** it is given (via [`Workspace::load`], an
-//! existing public API — no `compose.rs`/`contract.rs` edits) both to fail loud on a
-//! malformed surface and to report the harness the plugin was composed over. The
+//! `bundle` ships channel 3's assets — the operate-the-gate skill and the
+//! `SessionStart` hook — unconditionally: it never reads the surface it composes
+//! over (`no compose.rs`/`contract.rs` edits). The
 //! bundled contents are `temper`'s own gate-delivery assets, so `temper bundle` over
 //! `temper`'s own surface produces `temper`'s own plugin — the dogfood target.
 //!
@@ -38,8 +38,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value as JsonValue, json};
-
-use crate::check::Workspace;
 
 /// The plugin's name — the `plugin.json` `name`, the marketplace entry name, and the
 /// directory the operate-the-gate skill lands under (`skills/temper/`). `temper` is
@@ -119,8 +117,6 @@ which is wrong, surface it rather than guessing which way to bend.
 ";
 
 /// Errors raised while composing the plugin tree — the write side `bundle` owns.
-/// A surface that fails to load bubbles as its own [`WorkspaceError`](crate::check::WorkspaceError);
-/// this covers the emit half.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum BundleError {
     /// A plugin file or directory could not be written. Fail-loud:
@@ -154,19 +150,15 @@ pub struct BundleReport {
     pub hook_events: Vec<&'static str>,
 }
 
-/// Compose the imported surface at `surface` into a publishable plugin tree under
-/// `out`, alongside a `marketplace.json` listing it.
+/// Compose a publishable plugin tree under `out`, alongside a `marketplace.json`
+/// listing it.
 ///
-/// Reads the surface via [`Workspace::load`] (fail-loud on a malformed one), then
-/// emits the plugin: the manifest, the operate-the-gate skill, the `SessionStart`
-/// hook in its own `hooks.json`, and the marketplace listing. See the module header
-/// for the byte-faithfulness and determinism guarantees.
-pub fn run(surface: &Path, out: &Path) -> miette::Result<BundleReport> {
-    // Read the imported surface: fail loud if it is not a valid workspace. Channel 3
-    // ships the skill and the hook regardless of the surface's member count, so the
-    // load is a validation gate only — its size never feeds the report.
-    Workspace::load(surface)?;
-
+/// `surface` names the harness the plugin is nominally composed over but is not
+/// read: channel 3 ships the skill and the hook unconditionally, regardless of the
+/// surface's contents. Emits the manifest, the operate-the-gate skill, the
+/// `SessionStart` hook in its own `hooks.json`, and the marketplace listing. See the
+/// module header for the byte-faithfulness and determinism guarantees.
+pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     let mut files = Vec::new();
 
     // The plugin manifest and the marketplace listing it — structured, built through

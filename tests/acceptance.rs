@@ -85,7 +85,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
         // Read features off the projected surface member document through the generic
         // `Unit` loader `check` uses — no IR→Unit adapter. `placement` still reads the
         // imported source directory off provenance, so `name-matches-dir` is unchanged.
-        let unit = common::skill_surface_unit(&skill, None);
+        let unit = common::skill_surface_unit(&skill);
         let features = builtin_kind::skill_features(&unit);
         let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
         report.push_str(&format!("## {name}\n"));
@@ -108,7 +108,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
 
     // check — a well-formed skill trips no contract clause, so it is clean. The gate
     // reads each skill's surface member document through the one generic `Unit` loader.
-    let unit = common::skill_surface_unit(&skill, None);
+    let unit = common::skill_surface_unit(&skill);
     let features = [builtin_kind::skill_features(&unit)];
     let diagnostics = engine::validate(&builtin_skill_contract(), &features);
     assert!(

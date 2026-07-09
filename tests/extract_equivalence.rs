@@ -1,14 +1,13 @@
 //! The extraction equivalence baseline.
 //!
 //! Pins the built-in extractors' output — now the composed generic path,
-//! `builtin_kind::skill_features` and `builtin_kind::rule_features`, run over a
-//! surface member document reloaded through the one generic `Unit` loader (`Unit::from_member_document`)
-//! `check` reads — over real Claude Code fixtures that mirror the actual on-disk
+//! `builtin_kind::skill_features` and `builtin_kind::rule_features`, run over a raw
+//! `Unit` lifted straight off an imported `Member` — the exact shape `check`'s
+//! `resolve_kind_units` builds, no disk round trip — over real Claude Code fixtures
+//! that mirror the actual on-disk
 //! layout (`.claude/skills/<name>/SKILL.md`, `.claude/rules/*.md`;
 //! `.claude/rules/rust.md` guidance: never a layout invented for the test). Each
-//! fixture is imported, projected to its authored surface document
-//! (`Member::to_document`), then re-read as a generic `Unit` — the exact check
-//! read path, no IR→Unit adapter. Each resulting `Features` is snapshotted (Debug):
+//! resulting `Features` is snapshotted (Debug):
 //! these `.snap` files were pinned against the retired hand-coded
 //! `skill_features`/`rule_features` and stay byte-identical under the generic surface
 //! read — the unchanged snapshot *is* the equivalence proof.
@@ -25,24 +24,13 @@ mod common;
 use temper::builtin_kind;
 use temper::extract::{FeatureValue, ValueType};
 use temper::frontmatter::Member;
-use temper::kind::{DirectiveSyntax, Extraction, Primitive, Unit};
+use temper::kind::{DirectiveSyntax, Extraction, Primitive};
 
 /// Path to a fixture under the frozen `tests/fixtures/extract_equivalence/.claude`
 /// root, mirroring the real harness layout — so the pinned output is not coupled to
 /// the live dogfood files (which change tick to tick).
 fn fixture(rel: &str) -> PathBuf {
     common::fixture(&format!("extract_equivalence/.claude/{rel}"))
-}
-
-/// The rule counterpart to [`common::skill_surface_unit`]: project the imported rule to its
-/// `<name>/RULE.md` surface document (`Member::to_document`) and reload it as a
-/// generic `Unit`.
-fn rule_surface_unit(member: &Member, name: &str) -> Unit {
-    let dir = common::tmpdir(name).join(name);
-    std::fs::create_dir_all(&dir).unwrap();
-    let doc_path = dir.join("RULE.md");
-    std::fs::write(&doc_path, member.to_document().emit()).unwrap();
-    Unit::from_member_document(&dir, &doc_path).unwrap()
 }
 
 /// The `skill_features` projection over a real-shaped `.claude/skills/<name>/SKILL.md`
@@ -56,7 +44,7 @@ fn skill_features_over_a_real_skill_fixture() {
     let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
     let skill = Member::from_source(&skill_kind, &fixture("skills/coordinate").join("SKILL.md"))
         .expect("the coordinate skill fixture should parse");
-    let unit = common::skill_surface_unit(&skill, Some("coordinate"));
+    let unit = common::skill_surface_unit(&skill);
     let features = builtin_kind::skill_features(&unit);
     insta::assert_debug_snapshot!("skill_features_coordinate", features);
 }
@@ -230,7 +218,7 @@ fn rule_features_over_a_paths_rule_fixture() {
     let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
     let rule = Member::from_source(&rule_kind, &fixture("rules/rust.md"))
         .expect("the rust rule fixture should parse");
-    let unit = rule_surface_unit(&rule, "rust");
+    let unit = common::surface_unit(&rule);
     let features = builtin_kind::rule_features(&unit);
     insta::assert_debug_snapshot!("rule_features_rust", features);
 }
@@ -243,7 +231,7 @@ fn rule_features_over_a_no_frontmatter_rule_fixture() {
     let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
     let rule = Member::from_source(&rule_kind, &fixture("rules/collaboration.md"))
         .expect("the collaboration rule fixture should parse");
-    let unit = rule_surface_unit(&rule, "collaboration");
+    let unit = common::surface_unit(&rule);
     let features = builtin_kind::rule_features(&unit);
     insta::assert_debug_snapshot!("rule_features_collaboration", features);
 }

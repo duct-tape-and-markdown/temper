@@ -31,43 +31,6 @@ use temper::drift::{
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// Author the requirements a member **publishes** on its surface overlay — the demand
-/// side of the fill edge, the mirror of [`author_satisfies`], grafted from the same
-/// live off-disk walk.
-fn author_published(
-    root: &Path,
-    name: &str,
-    published: Vec<temper::document::PublishedRequirement>,
-) {
-    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-    let source = root
-        .join(".claude")
-        .join("skills")
-        .join(name)
-        .join("SKILL.md");
-    let mut skill = temper::frontmatter::Member::from_source(&skill_kind, &source).unwrap();
-    skill.published_requirements = published;
-
-    let dir = root.join(".temper").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
-}
-
-/// A member-published requirement carrying only the facets a member header publishes
-/// (`kind` and `required`; `means` unused by these cases).
-fn published(
-    name: &str,
-    kind: Option<&str>,
-    required: bool,
-) -> temper::document::PublishedRequirement {
-    temper::document::PublishedRequirement {
-        name: name.to_string(),
-        means: None,
-        kind: kind.map(str::to_string),
-        required,
-    }
-}
-
 /// Run `temper check --harness <root>` — the one-shot wedge, gating `root` directly
 /// rather than through the two-step `./.temper` default. `root` already carries its own
 /// `.temper/` surface (`write_requirements`/`author_satisfies` project it there), so
@@ -672,119 +635,6 @@ fn a_retired_role_table_in_a_stray_temper_toml_is_inert() {
     );
 }
 
-// ---- member-published requirements join the one namespace --------------------
-
-#[test]
-fn a_member_published_requirement_filled_by_another_members_satisfies_is_clean() {
-    let root = common::tmpdir("member-published-filled");
-    // `arch-spec` publishes a required `[requirement.architecture]` in its own header;
-    // `arch-impl` fills it by opting in via `satisfies`. One namespace, the demand
-    // published on one surface and the fill claimed on another — coverage resolves the
-    // join green, exactly as it does for an assembly-published requirement.
-    common::write_skill(&root, "arch-spec", &common::clean_skill("arch-spec"));
-    common::write_skill(&root, "arch-impl", &common::clean_skill("arch-impl"));
-    author_published(
-        &root,
-        "arch-spec",
-        vec![published("architecture", Some("skill"), true)],
-    );
-    common::author_satisfies(&root, "skills", "arch-impl", &["architecture"]);
-
-    let run = common::check_in(&root, &[], None);
-    assert!(
-        run.ok,
-        "a member-published requirement filled by another member's `satisfies` passes ⇒ zero, got:\n{}",
-        run.output
-    );
-}
-
-#[test]
-fn an_unfilled_required_member_published_requirement_fires() {
-    let root = common::tmpdir("member-published-unfilled");
-    // `arch-spec` publishes a required `[requirement.architecture]`, but no member
-    // opts in — the published obligation has no resolving home, so the coverage gate
-    // fires exactly as for an unfilled assembly requirement.
-    common::write_skill(&root, "arch-spec", &common::clean_skill("arch-spec"));
-    author_published(
-        &root,
-        "arch-spec",
-        vec![published("architecture", Some("skill"), true)],
-    );
-
-    let run = common::check_in(&root, &[], None);
-    assert!(
-        !run.ok,
-        "an unfilled required member-published requirement must fail the run ⇒ non-zero"
-    );
-    assert!(
-        run.output.contains("architecture") && run.output.contains("unfilled"),
-        "the finding names the requirement and that it is unfilled, got:\n{}",
-        run.output
-    );
-}
-
-#[test]
-fn a_requirement_published_by_two_members_is_an_admissibility_collision() {
-    let root = common::tmpdir("member-published-collision");
-    // Two members publish the same requirement name. A requirement lives in one
-    // namespace, so the second publisher is a collision — an admissibility finding,
-    // never a silent shadow that would let one member quietly redefine another's.
-    common::write_skill(&root, "spec-a", &common::clean_skill("spec-a"));
-    common::write_skill(&root, "spec-b", &common::clean_skill("spec-b"));
-    author_published(
-        &root,
-        "spec-a",
-        vec![published("shared", Some("skill"), false)],
-    );
-    author_published(
-        &root,
-        "spec-b",
-        vec![published("shared", Some("skill"), false)],
-    );
-
-    let run = common::check_in(&root, &[], None);
-    assert!(
-        !run.ok,
-        "a name published by two members must fail the run ⇒ non-zero, got:\n{}",
-        run.output
-    );
-    assert!(
-        run.output.contains("shared") && run.output.contains("more than one surface"),
-        "the finding names the collided requirement and the cross-publisher collision, got:\n{}",
-        run.output
-    );
-}
-
-#[test]
-fn a_name_published_by_both_the_assembly_and_a_member_collides() {
-    let root = common::tmpdir("member-published-assembly-collision");
-    // The assembly *and* a member both publish `architecture`. Same namespace, so the
-    // member's re-declaration collides with the assembly's — the assembly ⊕ member
-    // half of the one-namespace rule.
-    common::write_skill(&root, "arch-spec", &common::clean_skill("arch-spec"));
-    author_published(
-        &root,
-        "arch-spec",
-        vec![published("architecture", Some("skill"), false)],
-    );
-    common::write_requirements(
-        &root,
-        vec![common::requirement("architecture", false, Some("skill"))],
-    );
-
-    let run = common::check_in(&root, &[], None);
-    assert!(
-        !run.ok,
-        "a name published by both the assembly and a member must fail the run ⇒ non-zero, got:\n{}",
-        run.output
-    );
-    assert!(
-        run.output.contains("architecture") && run.output.contains("more than one surface"),
-        "the finding names the collided requirement and the cross-publisher collision, got:\n{}",
-        run.output
-    );
-}
-
 // ---- the lock's own `satisfies` rows fill a requirement directly -----------
 
 #[test]
@@ -844,8 +694,7 @@ fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_f
  {
     // The custom-kind mirror of the sibling test just above (SATISFIES-CLAUSES-
     // RATIONALE-FROM-LOCK): `policy` is a custom kind (not a built-in), its one member
-    // written only at its real governed locus — no `.temper/policies/data-retention/`
-    // surface overlay is ever authored, so `surface_overlay` grafts nothing. The lock's
+    // written only at its real governed locus. The lock's
     // own `declarations.satisfies` row is the sole source naming it as a filler.
     let root = common::tmpdir("lock-satisfies-custom-explain");
     let policies = root.join("policies");

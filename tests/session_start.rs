@@ -169,18 +169,17 @@ fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
 
 #[test]
 fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
-    // The inbox false positive, repro'd: a harness carrying an authored surface (the
-    // lock's declared `required` requirement + a surface member whose document header
-    // `satisfies` it, hand-edited onto the surface after the import that wrote the
-    // lock) must emit ZERO blocking findings at session-start. The surface path
-    // resolves the fill; a fresh import would discard the authored `satisfies`
-    // recognition and report the requirement unfilled — the law-3 false positive the
-    // spec's surface-present clause forbids.
+    // The inbox false positive, repro'd: a harness carrying the lock's declared
+    // `required` requirement plus a `[[declaration.satisfies]]` row hand-edited onto
+    // the committed lock (the real SDK-emit shape a converted harness carries) must
+    // emit ZERO blocking findings at session-start — session-start itself never
+    // re-imports, so the lock-declared row is the sole source naming the member as a
+    // filler.
     let harness = common::tmpdir("authored-surface-src");
 
     // The committed landscape file a prior `import` would have discovered — the gate
-    // walks the lock's governs locus straight off the harness, so the member must exist here too, not just projected onto
-    // the surface below.
+    // walks the lock's governs locus straight off the harness, so the member must exist here too, not just declared in
+    // the lock below.
     let rules = harness.join(".claude").join("rules");
     fs::create_dir_all(&rules).unwrap();
     fs::write(
@@ -195,10 +194,9 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     )
     .unwrap();
 
-    // The gate reads the assembly's requirements off the lock's declaration rows,
-    // so
-    // the fixture stands in for a prior `import` having already written this row —
-    // session-start itself still never re-imports.
+    // The gate reads the assembly's requirements, and each member's `satisfies` fill,
+    // off the lock's declaration rows — the fixture stands in for a prior `import`
+    // having already written both — session-start itself still never re-imports.
     let temper_dir = harness.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
     fs::write(
@@ -206,43 +204,24 @@ fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
         "[[declaration.requirement]]\n\
          name = \"engineering-standards\"\n\
          kind = \"rule\"\n\
-         required = true\n",
-    )
-    .unwrap();
-
-    // The authored surface member: a `rule` whose imported document header opts in
-    // via `satisfies.engineering-standards` — the recognition a fresh import drops.
-    let rule_dir = harness.join(".temper").join("rules").join("rust");
-    fs::create_dir_all(&rule_dir).unwrap();
-    fs::write(
-        rule_dir.join("RULE.md"),
-        "+++\n\
-         [clause.paths]\n\
-         value = [\"src/**/*.rs\"]\n\
+         required = true\n\
  \n\
-         [satisfies.engineering-standards]\n\
-         rationale = \"the path-scoped home for the Rust engineering bar\"\n\
- \n\
-         [provenance]\n\
-         source_path = \"./.claude/rules/rust.md\"\n\
-         source_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
-         +++\n\
-         # Rust conventions\n\
- \n\
-         The engineering bar.\n",
+         [[declaration.satisfies]]\n\
+         member = \"rust\"\n\
+         requirement = \"engineering-standards\"\n",
     )
     .unwrap();
 
     let (ok, payload) = run_session_start(&harness);
 
     // Advisory, and — the point — the required requirement resolves via the
-    // surface's `satisfies`, so no blocking verdict is injected.
+    // lock-declared `satisfies` row, so no blocking verdict is injected.
     assert!(ok, "the session-start gate must exit zero");
     let hook = &payload["hookSpecificOutput"];
     assert_eq!(hook["hookEventName"], "SessionStart");
     assert!(
         hook["additionalContext"].is_null(),
-        "the authored `satisfies` must fill the requirement ⇒ quiet payload, got: {hook}"
+        "the lock-declared `satisfies` must fill the requirement ⇒ quiet payload, got: {hook}"
     );
 }
 
@@ -275,35 +254,21 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
          [[declaration.requirement]]\n\
          name = \"spec-coverage\"\n\
          kind = \"spec\"\n\
-         required = true\n",
+         required = true\n\
+ \n\
+         [[declaration.satisfies]]\n\
+         member = \"00-intent\"\n\
+         requirement = \"spec-coverage\"\n",
     )
     .unwrap();
 
     // The real member on disk, at the lock-declared `governs` locus — the gate walks
-    // this straight off the harness, exactly as it does a built-in's members.
+    // this straight off the harness, exactly as it does a built-in's members. Its
+    // `satisfies` fill is the lock-declared row above — the real SDK-emit shape a
+    // converted harness carries.
     let specs = harness.join("specs");
     fs::create_dir_all(&specs).unwrap();
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
-
-    // The authored surface overlay carrying the `satisfies` fill — the one home a
-    // custom member's opt-in is ever authored at.
-    let overlay_dir = temper_dir.join("specs").join("00-intent");
-    fs::create_dir_all(&overlay_dir).unwrap();
-    fs::write(
-        overlay_dir.join("SPEC.md"),
-        "+++\n\
-         [satisfies.spec-coverage]\n\
-         rationale = \"the spec that documents the north star\"\n\
- \n\
-         [provenance]\n\
-         source_path = \"specs/00-intent.md\"\n\
-         source_hash = \"0000000000000000000000000000000000000000000000000000000000000000\"\n\
-         +++\n\
-         # Intent\n\
- \n\
-         The north star.\n",
-    )
-    .unwrap();
 
     let (ok, payload) = run_session_start(&harness);
 

@@ -15,7 +15,7 @@ use miette::IntoDiagnostic;
 use temper::builtin;
 use temper::builtin_kind;
 use temper::bundle;
-use temper::check::{self, Severity, Workspace};
+use temper::check::{self, Severity};
 use temper::compose;
 use temper::contract;
 use temper::contract::Contract;
@@ -43,12 +43,6 @@ const DEFAULT_WORKSPACE: &str = "./.temper";
 /// Session-start's surface-present branch gates this directly; its surfaceless
 /// branch gates the harness root directly instead.
 const TEMPER_DIR: &str = ".temper";
-
-/// The diagnostic `rule` id a cross-publisher requirement-name collision reports
-/// under: one namespace, so two surfaces publishing one name
-/// is an admissibility finding, never a shadow. Shares the roster's admissibility
-/// tag — a malformed namespace is inadmissible, decided before it judges anything.
-const REQUIREMENT_COLLISION_RULE: &str = "requirement.admissibility";
 
 /// Resolve a built-in kind's bare row label into its default [`Contract`], failing
 /// loud if the build embeds no default contract of that name — a
@@ -415,8 +409,8 @@ fn explain(target: &str) -> miette::Result<String> {
         .ok_or_else(|| miette::miette!("built-in kind `skill` is not embedded in this binary"))?;
     let rule_kind = builtin_kind::definition("rule")?
         .ok_or_else(|| miette::miette!("built-in kind `rule` is not embedded in this binary"))?;
-    let skill_features = kind_features(&skill_kind, harness_root, &workspace, &declarations)?;
-    let rule_features = kind_features(&rule_kind, harness_root, &workspace, &declarations)?;
+    let skill_features = kind_features(&skill_kind, harness_root, &declarations)?;
+    let rule_features = kind_features(&rule_kind, harness_root, &declarations)?;
 
     // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs
     // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
@@ -427,7 +421,7 @@ fn explain(target: &str) -> miette::Result<String> {
     let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
-        let units = resolve_kind_units(&custom_kind, harness_root, &workspace, &declarations)?;
+        let units = resolve_kind_units(&custom_kind, harness_root, &declarations)?;
         let features: Vec<extract::Features> = units
             .iter()
             .map(|unit| builtin_kind::features(&custom_kind, unit))
@@ -443,18 +437,6 @@ fn explain(target: &str) -> miette::Result<String> {
     }
     let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
-    // `why`/`requirements` read a member's existence and its authored `satisfies`
-    // rationale off a `Workspace` + `custom` members (`crate::read`'s own listing), not
-    // off `by_kind`.
-    let ws = Workspace::load(&workspace)?;
-
-    let all_features: Vec<extract::Features> = skill_features
-        .iter()
-        .chain(rule_features.iter())
-        .chain(custom_kinds.iter().flat_map(|(_, features)| features))
-        .cloned()
-        .collect();
-
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
@@ -463,7 +445,10 @@ fn explain(target: &str) -> miette::Result<String> {
     let assembly_edges = edges_from_declarations(&declarations);
     let mention_edges = mention_edges_from_declarations(&declarations);
 
-    let (roster, _collisions) = union_published_requirements(&assembly_requirements, &all_features);
+    // The one requirement namespace: the assembly's declared `[requirement.*]`
+    // roster — a custom-kind member has no channel of its own to publish one (the
+    // pre-0016 own-path surface that once carried it is retired).
+    let roster = assembly_requirements.clone();
 
     // The world's inbound registration channel set into each built-in kind — the same
     // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
@@ -475,7 +460,7 @@ fn explain(target: &str) -> miette::Result<String> {
     }
 
     let repo_files = repo_file_set(Path::new("."));
-    let directive_members = collect_directive_members(harness_root, &workspace, &declarations)?;
+    let directive_members = collect_directive_members(harness_root, &declarations)?;
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
@@ -483,7 +468,6 @@ fn explain(target: &str) -> miette::Result<String> {
     let citations: Vec<read::Citation> = Vec::new();
 
     Ok(read::explain(
-        &ws,
         &custom_members,
         &assembly_requirements,
         &roster,
@@ -608,7 +592,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
             builtin_default_contract(&kind.name)?,
         );
 
-        let features = kind_features(kind, harness_root, workspace, &declarations)?;
+        let features = kind_features(kind, harness_root, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
@@ -634,7 +618,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name);
-        let features = kind_features(&custom_kind, harness_root, workspace, &declarations)?;
+        let features = kind_features(&custom_kind, harness_root, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
@@ -655,7 +639,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // unbacked import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
         graph::classify_directives(
-            &collect_directive_members(harness_root, workspace, &declarations)?,
+            &collect_directive_members(harness_root, &declarations)?,
             &repo_files,
         )
         .findings
@@ -678,8 +662,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let by_kind = assemble_by_kind(&skill_features, &rule_features, &custom_kinds);
 
     // Every opt-in-capable member's features (built-in kinds *and* each custom
-    // kind's members) — the stream coverage ranges over *and* the one the gate
-    // gathers member-published requirements from below.
+    // kind's members) — the stream coverage ranges over below.
     let all_features: Vec<extract::Features> = skill_features
         .iter()
         .chain(rule_features.iter())
@@ -687,14 +670,13 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .cloned()
         .collect();
 
-    // The one requirement namespace: the assembly's
-    // `[requirement.*]` unioned with every member's published `[requirement.*]`.
-    // A name published by two surfaces is one obligation, not a shadow — the
-    // collision is an admissibility finding and the first publisher keeps the slot,
-    // so the roster/coverage passes below judge one coherent namespace.
-    let (requirements, collisions) =
-        union_published_requirements(&assembly_requirements, &all_features);
-    diagnostics.extend(collisions);
+    // The one requirement namespace: the assembly's declared `[requirement.*]`
+    // roster. A custom-kind member has no channel of its own to publish a
+    // requirement (the pre-0016 own-path surface that once carried one is retired);
+    // the SDK already unions `harness.require` and every member's `requires` into
+    // `declarations.requirements` at emit time, rejecting a cross-publisher name
+    // collision there.
+    let requirements = assembly_requirements.clone();
 
     // Each requirement's own definition is validated before the roster is
     // trusted to judge the harness.
@@ -807,53 +789,25 @@ fn effective_governs(kind: &CustomKind, declarations: &drift::Declarations) -> k
         .unwrap_or_else(|| kind.governs.clone())
 }
 
-/// The already-projected surface document's own authored `satisfies`/published
-/// requirements, when one exists at this member's surface location
-/// (`<workspace>/<kind's surface subdir>/<id>/<member document>`) — the one home a
-/// document/module-carried member's fill edges are ever authored at, never mined from
-/// the raw harness file.
-/// `None` when the member has never been projected.
-///
-/// # Errors
-///
-/// Returns an error if the surface document exists but is malformed.
-fn surface_overlay(
-    workspace: &Path,
-    kind: &CustomKind,
-    id: &str,
-) -> miette::Result<Option<frontmatter::Member>> {
-    let dir = workspace.join(kind.surface_subdir()).join(id);
-    let doc = kind.member_document();
-    if !dir.join(&doc).is_file() {
-        return Ok(None);
-    }
-    Ok(Some(frontmatter::Member::from_surface(&dir, &doc)?))
-}
-
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
 /// range over. Every
 /// member is discovered by walking this kind's [`effective_governs`]
 /// locus, read straight off harness disk so the corpus can never drift from a stale
-/// copy; its `satisfies` fill edges are the union of two sources — the lock's own
-/// [`SatisfiesRow`](drift::SatisfiesRow) family, keyed by member id, the real
-/// SDK-emit shape and the only one a converted harness ever populates — and
-/// whatever [`surface_overlay`] still grafts from a projected surface document, a
-/// pre-conversion holdover with no production writer left. Its rationale-carrying
-/// `satisfies_clauses` unions the same two sources: a lock-declared row with no
-/// surface counterpart still narrates, as a rationale-less
-/// [`document::Satisfies`](document::Satisfies) — the lock row carries no
-/// rationale text — so `explain` can never disagree with the gate about which
-/// requirements a member fills. Published requirements stay
-/// [`surface_overlay`]-only.
+/// copy; its `satisfies` fill edges come from the lock's own
+/// [`SatisfiesRow`](drift::SatisfiesRow) family, keyed by member id — the real
+/// SDK-emit shape and the only source a converted harness ever populates. Its
+/// rationale-carrying `satisfies_clauses` mirrors it: a lock-declared row narrates as a
+/// rationale-less [`document::Satisfies`](document::Satisfies) — the lock row carries
+/// no rationale text — so `explain` can never disagree with the gate about which
+/// requirements a member fills.
 ///
 /// # Errors
 ///
-/// Returns an error if a source or surface file is unreadable or malformed, or a
-/// governed directory cannot be enumerated.
+/// Returns an error if a source file is unreadable or malformed, or a governed
+/// directory cannot be enumerated.
 fn resolve_kind_units(
     kind: &CustomKind,
     harness_root: &Path,
-    workspace: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
     let governs = effective_governs(kind, declarations);
@@ -871,17 +825,7 @@ fn resolve_kind_units(
             source_path: source.provenance.source_path.clone(),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
-            published_requirements: Vec::new(),
         };
-        if let Some(surface) = surface_overlay(workspace, kind, &unit.id)? {
-            unit.satisfies = surface
-                .satisfies
-                .iter()
-                .map(|clause| clause.requirement.clone())
-                .collect();
-            unit.satisfies_clauses = surface.satisfies;
-            unit.published_requirements = surface.published_requirements;
-        }
         for row in &declarations.satisfies {
             if row.member == unit.id && !unit.satisfies.contains(&row.requirement) {
                 unit.satisfies.push(row.requirement.clone());
@@ -912,15 +856,12 @@ fn resolve_kind_units(
 fn kind_features(
     kind: &CustomKind,
     harness_root: &Path,
-    workspace: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
-    Ok(
-        resolve_kind_units(kind, harness_root, workspace, declarations)?
-            .iter()
-            .map(|unit| builtin_kind::features(kind, unit))
-            .collect(),
-    )
+    Ok(resolve_kind_units(kind, harness_root, declarations)?
+        .iter()
+        .map(|unit| builtin_kind::features(kind, unit))
+        .collect())
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
@@ -988,13 +929,12 @@ fn assemble_by_kind<'a>(
 /// As [`resolve_kind_units`].
 fn collect_directive_members(
     harness_root: &Path,
-    workspace: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
-        for unit in resolve_kind_units(kind, harness_root, workspace, declarations)? {
+        for unit in resolve_kind_units(kind, harness_root, declarations)? {
             let feature = builtin_kind::features(kind, &unit);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),
@@ -1007,7 +947,7 @@ fn collect_directive_members(
     let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
-        for unit in resolve_kind_units(&custom_kind, harness_root, workspace, declarations)? {
+        for unit in resolve_kind_units(&custom_kind, harness_root, declarations)? {
             let feature = builtin_kind::features(&custom_kind, &unit);
             members.push(graph::DirectiveMember {
                 kind: custom_kind.name.clone(),
@@ -1018,63 +958,6 @@ fn collect_directive_members(
         }
     }
     Ok(members)
-}
-
-/// Union the assembly's published `[requirement.*]` roster with every member's
-/// published `[requirement.*]` into the single requirement namespace the gate judges.
-/// `satisfies` fills whichever surface published the demand, so
-/// one namespace is the whole point.
-///
-/// A name published by two surfaces — assembly ⊕ member, or two members — is **one
-/// obligation, never a shadow**: the collision is reported as an admissibility finding
-/// (returned separately, so the caller folds it into the gate) and the **first
-/// publisher keeps the slot**. The assembly roster seeds the map, then members are
-/// walked in the corpus's stable order, so the winner and the finding set are
-/// deterministic across runs. Every member-published requirement carries only the
-/// three facets a member header publishes (`means`/`kind`/`required`); the
-/// richer set-scope facets stay assembly-only and default here.
-fn union_published_requirements(
-    assembly: &BTreeMap<String, compose::Requirement>,
-    members: &[extract::Features],
-) -> (
-    BTreeMap<String, compose::Requirement>,
-    Vec<check::Diagnostic>,
-) {
-    let mut requirements = assembly.clone();
-    let mut diagnostics = Vec::new();
-    for features in members {
-        for published in &features.published_requirements {
-            if requirements.contains_key(&published.name) {
-                diagnostics.push(check::Diagnostic::error(
-                    REQUIREMENT_COLLISION_RULE,
-                    &published.name,
-                    format!(
-                        "requirement `{}` is published by more than one surface (member `{}` re-declares a name already published); a requirement lives in one namespace and is never shadowed — rename or drop one publisher",
-                        published.name, features.id
-                    ),
- ));
-            } else {
-                requirements.insert(published.name.clone(), to_requirement(published));
-            }
-        }
-    }
-    (requirements, diagnostics)
-}
-
-/// Lift a member-published [`document::PublishedRequirement`] into the shared
-/// [`compose::Requirement`] the roster and coverage passes range over — the four
-/// published facets carried across; a published requirement carries no set-scope
-/// `clauses`. The demand
-/// is the same concept whichever surface authored it, so it joins one type.
-fn to_requirement(published: &document::PublishedRequirement) -> compose::Requirement {
-    compose::Requirement {
-        name: published.name.clone(),
-        means: published.means.clone(),
-        kind: published.kind.clone(),
-        required: published.required,
-        clauses: Vec::new(),
-        verified_by: None,
-    }
 }
 
 /// The diagnostic `rule` id a lock-declared kind row reports under when its bare name

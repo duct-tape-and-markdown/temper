@@ -803,9 +803,6 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     fs::create_dir_all(&rules_dir).unwrap();
     fs::write(rules_dir.join("style.md"), "# Style\n\nBody.\n").unwrap();
 
-    common::author_satisfies(&root, "skills", "coordinate", &["gate"]);
-    common::author_satisfies(&root, "rules", "style", &["gate"]);
-
     common::write_lock(
         &root,
         Declarations {
@@ -819,6 +816,8 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
             ..Declarations::default()
         },
     );
+    common::author_satisfies(&root, "skills", "coordinate", &["gate"]);
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
 
     let (ok, output) = check_in(&root);
     assert!(
@@ -1129,14 +1128,9 @@ fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
     fs::create_dir_all(&rules_dir).unwrap();
     fs::write(rules_dir.join("rust.md"), clean_rule("rust")).unwrap();
 
-    // `why`'s member listing reads the projected surface overlay, not raw harness
-    // disk — author one for `coordinate` too (no `satisfies` claims of its own) so
-    // `explain` resolves it as a member at all.
-    common::author_satisfies(&root, "skills", "coordinate", &[]);
     // The rule `rust` opts into `gate`, whose required `degree` clause bounds its
     // incoming edges to at least one — satisfiable only by the mention, since no
     // reference field is declared anywhere in this harness.
-    common::author_satisfies(&root, "rules", "rust", &["gate"]);
     common::write_lock(
         &root,
         Declarations {
@@ -1148,6 +1142,11 @@ fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
             ..Declarations::default()
         },
     );
+    // `why`'s member listing reads the lock's `satisfies` rows, not raw harness
+    // disk — author one for `coordinate` too (no `satisfies` claims of its own) so
+    // `explain` resolves it as a member at all.
+    common::author_satisfies(&root, "skills", "coordinate", &[]);
+    common::author_satisfies(&root, "rules", "rust", &["gate"]);
 
     let (ok, output) = check_in(&root);
     assert!(

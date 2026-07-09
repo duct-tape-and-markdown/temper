@@ -239,11 +239,11 @@ pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
 }
 
 /// Extract a built-in skill's [`Features`] by running the embedded `skill` kind's
-/// extraction over a generically-loaded surface [`Unit`] — the same composed path
+/// extraction over a generic [`Unit`] — the same composed path
 /// every kind reads, with
-/// **no IR→Unit adapter on the check read**: the caller loads the surface member
-/// document through [`Unit::from_member_document`](crate::kind::Unit::from_member_document),
-/// exactly as any other kind's members load.
+/// **no IR→Unit adapter on the check read**: the caller builds the `Unit` straight
+/// off the imported [`crate::frontmatter::Member`], exactly as any other kind's
+/// members load.
 #[must_use]
 pub fn skill_features(unit: &Unit) -> Features {
     features(&claude_code_skill(), unit)
@@ -481,19 +481,22 @@ mod tests {
         );
     }
 
-    /// Write a member's authored surface member document `<dir>/<member_doc>` exactly
-    /// as `import`/`emit` project it ([`crate::frontmatter::Member::to_document`]),
-    /// then reload it through the generic surface loader `check` reads — the built-in
-    /// kind's member-document read, one generic adapter, no per-kind IR.
-    fn surface_unit(
-        member: &crate::frontmatter::Member,
-        member_doc: &str,
-        dir: &std::path::Path,
-    ) -> Unit {
-        std::fs::create_dir_all(dir).unwrap();
-        let doc_path = dir.join(member_doc);
-        std::fs::write(&doc_path, member.to_document().emit()).unwrap();
-        Unit::from_member_document(dir, &doc_path).unwrap()
+    /// Lift an imported [`crate::frontmatter::Member`] straight into the raw [`Unit`]
+    /// the composed extractor reads — the same fields a built-in kind's member carries
+    /// into `check`, with no disk round trip.
+    fn surface_unit(member: &crate::frontmatter::Member) -> Unit {
+        Unit {
+            id: member.id.clone(),
+            frontmatter: member.fields.iter().cloned().collect(),
+            body: member.body.clone(),
+            source_path: member.provenance.source_path.clone(),
+            satisfies: member
+                .satisfies
+                .iter()
+                .map(|s| s.requirement.clone())
+                .collect(),
+            satisfies_clauses: member.satisfies.clone(),
+        }
     }
 
     #[test]
@@ -526,7 +529,7 @@ Body line two.\n",
         }];
 
         // Read the extracted features off the written surface, not a typed IR.
-        let unit = surface_unit(&member, "SKILL.md", &parent.join("surface-demo"));
+        let unit = surface_unit(&member);
         let features = skill_features(&unit);
 
         // The documented fields come off the composed `field` primitives.
@@ -574,7 +577,7 @@ disable-model-invocation: true\n\
         let skill = definition("skill").unwrap().unwrap();
         let member =
             crate::frontmatter::Member::from_source(&skill, &src.join("SKILL.md")).unwrap();
-        let unit = surface_unit(&member, "SKILL.md", &parent.join("surface-deploy"));
+        let unit = surface_unit(&member);
         let features = skill_features(&unit);
 
         // `disable-model-invocation`/`user-invocable` are ordinary declared fields — a
@@ -603,7 +606,7 @@ disable-model-invocation: true\n\
         .unwrap();
         let member =
             crate::frontmatter::Member::from_source(&rule, &rules.join("rust.md")).unwrap();
-        let unit = surface_unit(&member, "RULE.md", &parent.join("surface-rust"));
+        let unit = surface_unit(&member);
         let features = rule_features(&unit);
         assert_eq!(
             features.field("paths"),
@@ -617,7 +620,7 @@ disable-model-invocation: true\n\
         std::fs::write(rules.join("collab.md"), "# Collaboration\n\nPushback.\n").unwrap();
         let bare =
             crate::frontmatter::Member::from_source(&rule, &rules.join("collab.md")).unwrap();
-        let bare_unit = surface_unit(&bare, "RULE.md", &parent.join("surface-collab"));
+        let bare_unit = surface_unit(&bare);
         let bare_features = rule_features(&bare_unit);
         assert!(bare_features.fields.is_empty());
         assert_eq!(bare_features.body_lines, 3);

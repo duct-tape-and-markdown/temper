@@ -18,7 +18,6 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::document::{Document, PublishedRequirement};
 use crate::drift::KindFactRow;
 use crate::extract::{self, Features};
 
@@ -594,212 +593,16 @@ pub struct Unit {
     /// not just the name coverage reads. The read family (`why`/`requirements`) narrates
     /// the *why* a custom member fills a requirement (READ-CUSTOM-SATISFIERS), so it
     /// needs the rationale the decidable [`satisfies`](Unit::satisfies) name-vec drops.
-    /// Populated from the same header parse (`crate::document::satisfies`); empty when
-    /// the member authors none.
+    /// Empty when the member authors none.
     pub satisfies_clauses: Vec<crate::document::Satisfies>,
-    /// The requirements this unit **publishes** — the authored `[requirement.<name>]`
-    /// header modules. The demand side of the fill edge, threaded
-    /// through unchanged so a custom-kind member (an intent `spec`) publishes into the
-    /// one requirement namespace exactly as the assembly does. Empty when the member
-    /// publishes none.
-    pub published_requirements: Vec<PublishedRequirement>,
 }
 
-impl Unit {
-    /// Reload a written custom-unit surface `<root>/<name>/` into a raw [`Unit`]:
-    /// the id is the surface directory name, and its lone `.md` sibling is the
-    /// member document — a `+++`-fenced `[provenance]`
-    /// header over the byte-faithful body, whose `source_path` `import` wrote
-    /// (`src/import.rs`, `import_custom_unit`).
-    ///
-    /// The generic inverse of that projection: keyed on the surface shape every
-    /// custom kind shares (a lone member document found by extension), not on any
-    /// one kind's IR, so it is the sole reader `check`'s custom-kind path uses and a
-    /// kind rooted at any `governs.root` — not just `specs/` — is read.
-    /// The `[clause.<field>]` header values are lifted
-    /// into `frontmatter`, so the `field` primitive ranges over a custom member's
-    /// declared fields exactly as it does a built-in's parsed frontmatter;
-    /// a member carrying no clause tables reloads with empty
-    /// frontmatter, its whole source file preserved in the body. An unreadable or
-    /// malformed surface is a [`KindError`], never a silent skip.
-    pub fn from_surface_dir(dir: &Path) -> Result<Self, KindError> {
-        let doc_path = lone_body_file(dir)?;
-        Self::from_member_document(dir, &doc_path)
-    }
-
-    /// Reload a surface member from an explicit member document `doc_path` under the
-    /// surface directory `dir`, sharing the whole parse [`from_surface_dir`] runs.
-    ///
-    /// [`from_surface_dir`](Unit::from_surface_dir) finds the member document by the
-    /// lone-`.md` convention every custom kind's surface shares; a **built-in** kind
-    /// whose surface may carry markdown companions (a skill's `PLAYBOOK.md`) names its
-    /// own member document instead — `SKILL.md`, `RULE.md` — so the companion never
-    /// confuses the read. Both faces then read the surface through this one path:
-    /// the `[clause.*]` header lifts into `frontmatter`,
-    /// `[satisfies.*]`/`[requirement.*]` into the edge sets,
-    /// the body byte-faithful. The id is the surface directory name — the member's
-    /// home, never a field it sets.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`KindError`] when the document is unreadable, is not a well-formed
-    /// `+++`-fenced document, or carries no `[provenance]` — the same hard failures
-    /// [`from_surface_dir`](Unit::from_surface_dir) raises, never a silent skip.
-    pub fn from_member_document(dir: &Path, doc_path: &Path) -> Result<Self, KindError> {
-        let id = dir
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(str::to_string)
-            .ok_or_else(|| KindError::SurfaceMissingField {
-                path: dir.to_path_buf(),
-                field: "name",
-            })?;
-
-        let raw = std::fs::read_to_string(doc_path).map_err(|source| KindError::Io {
-            path: doc_path.to_path_buf(),
-            source,
-        })?;
-        let document = Document::parse(&raw).map_err(|source| KindError::Document {
-            path: doc_path.to_path_buf(),
-            source,
-        })?;
-        let (source_path, _source_hash) = crate::document::provenance(document.header())
-            .ok_or_else(|| KindError::SurfaceMissingField {
-                path: doc_path.to_path_buf(),
-                field: "provenance",
-            })?;
-
-        // The rationale-carrying clauses are read whole: coverage feeds off the
-        // requirement name alone (the per-clause `rationale` is the human *why*, never
-        // a decidable feature), while the read family narrates the rationale too
-        // (READ-CUSTOM-SATISFIERS). One parse, both consumers.
-        let satisfies_clauses = crate::document::satisfies(document.header());
-        let satisfies = satisfies_clauses
-            .iter()
-            .map(|s| s.requirement.clone())
-            .collect();
-
-        // The demand side: `[requirement.*]` modules the member publishes, carried
-        // through unchanged into the one namespace the gate unions.
-        let published_requirements =
-            crate::document::requirements(document.header()).map_err(|source| {
-                KindError::Document {
-                    path: doc_path.to_path_buf(),
-                    source,
-                }
-            })?;
-
-        // The `[clause.<field>]` header values are the member's typed fields — lift
-        // each into `frontmatter` so the `field` primitive ranges over a custom member
-        // exactly as it does a built-in's parsed frontmatter. A
-        // clause whose `value` is JSON-null-unrepresentable is dropped, never invented.
-        let frontmatter = crate::document::clauses(document.header())
-            .into_iter()
-            .filter_map(|(field, value)| {
-                crate::document::item_to_json(value).map(|json| (field, json))
-            })
-            .collect();
-
-        Ok(Self {
-            id,
-            frontmatter,
-            body: document.body().to_string(),
-            source_path: PathBuf::from(source_path),
-            satisfies,
-            satisfies_clauses,
-            published_requirements,
-        })
-    }
-}
-
-/// The lone `.md` member document in a custom-unit surface directory — the
-/// `+++`-fenced document `import` writes (`<KIND>.md`; `src/import.rs`). Selected by
-/// extension rather than by the kind's own upper-cased name, so the reader stays
-/// generic over every custom kind. Exactly one is required: zero (no document) or
-/// more than one (an ambiguous surface) is a [`KindError::SurfaceBody`].
-fn lone_body_file(dir: &Path) -> Result<PathBuf, KindError> {
-    let listing = std::fs::read_dir(dir).map_err(|source| KindError::Io {
-        path: dir.to_path_buf(),
-        source,
-    })?;
-    let mut bodies = Vec::new();
-    for entry in listing {
-        let entry = entry.map_err(|source| KindError::Io {
-            path: dir.to_path_buf(),
-            source,
-        })?;
-        let path = entry.path();
-        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
-            bodies.push(path);
-        }
-    }
-    match bodies.len() {
-        1 => Ok(bodies.remove(0)),
-        found => Err(KindError::SurfaceBody {
-            dir: dir.to_path_buf(),
-            found,
-        }),
-    }
-}
-
-/// Errors raised while reloading a written surface unit ([`Unit::from_surface_dir`],
-/// [`Unit::from_member_document`]). Hard failures — distinct from a lint finding,
-/// which the check engine collects rather than throws.
+/// The error type [`crate::builtin_kind`]'s embedded-kind lookups return, kept for API
+/// stability even though every embedded kind is plain Rust data and none of those
+/// lookups can fail: an empty enum, so a `Result::Err` here is statically
+/// unreachable.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum KindError {
-    /// The surface document could not be read.
-    #[error("failed to read {path}")]
-    #[diagnostic(code(temper::kind::io))]
-    Io {
-        /// The path that failed to read.
-        path: PathBuf,
-        /// The underlying I/O error.
-        #[source]
-        source: std::io::Error,
-    },
-
-    /// A written custom-unit surface's member document is not a well-formed
-    /// `+++`-fenced document (missing or unterminated fence, or a malformed TOML
-    /// header). Reloading parses the document `import` wrote, so a malformed one is a
-    /// hard error, never a silent skip.
-    #[error("{path}: {source}")]
-    #[diagnostic(code(temper::kind::bad_document))]
-    Document {
-        /// The surface document that failed to parse.
-        path: PathBuf,
-        /// The underlying fenced-document parse error.
-        #[source]
-        source: crate::document::DocumentError,
-    },
-
-    /// A written custom-unit surface is missing a required part — its directory
-    /// name, its `[provenance]` table, or the `source_path` inside that table.
-    /// Reloading is the inverse of the projection `import` writes, so a surface
-    /// missing what `import` always writes is malformed, never a silent skip.
-    #[error("{path}: custom-unit surface is missing required field `{field}`")]
-    #[diagnostic(code(temper::kind::surface_missing_field))]
-    SurfaceMissingField {
-        /// The surface (its directory, or its `meta.toml`) whose part is absent.
-        path: PathBuf,
-        /// The required field that was absent.
-        field: &'static str,
-    },
-
-    /// A written custom-unit surface does not carry exactly one `.md` member document
-    /// — the `+++`-fenced document the extractor reads (`src/import.rs`,
-    /// `import_custom_unit`). Zero (no document) or more than one (an ambiguous
-    /// surface) is malformed.
-    #[error(
-        "{dir}: custom-unit surface must carry exactly one `.md` member document (found {found})"
-    )]
-    #[diagnostic(code(temper::kind::surface_body))]
-    SurfaceBody {
-        /// The surface directory whose body is missing or ambiguous.
-        dir: PathBuf,
-        /// How many `.md` bodies were found (never exactly one).
-        found: usize,
-    },
-}
+pub enum KindError {}
 
 impl Extraction {
     /// Compose an extractor directly from its ordered [`Primitive`]s — the
@@ -843,9 +646,10 @@ impl Extraction {
             // composed primitive, so a custom-kind member joins coverage exactly as
             // a built-in kind's does.
             satisfies: unit.satisfies.clone(),
-            // The demand side rides through the same way — a published `[requirement.*]`
-            // is authored surface state, never a composed feature.
-            published_requirements: unit.published_requirements.clone(),
+            // A custom-kind unit has no channel to publish a `[requirement.*]` demand
+            // (the pre-0016 own-path surface that carried it is retired); only the SDK's
+            // assembly-unioned rows populate the roster now.
+            published_requirements: Vec::new(),
         };
         for primitive in &self.primitives {
             primitive.apply(unit, &mut features);
@@ -858,7 +662,6 @@ impl Extraction {
 mod tests {
     use super::*;
     use crate::extract::{FeatureValue, ValueType};
-    use crate::test_support::tmpdir;
 
     /// Whether `glob` matches `candidate` through the shared `compile_glob` surface —
     /// `None` (an uncompilable glob) reported as no match, the polarity every
@@ -932,7 +735,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             source_path: PathBuf::from("specs/architecture/15-kinds.md"),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
-            published_requirements: Vec::new(),
         }
     }
 
@@ -994,7 +796,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             source_path: PathBuf::from("skills/demo/SKILL.md"),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
-            published_requirements: Vec::new(),
         };
 
         let features = extraction.extract(&unit);
@@ -1030,7 +831,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             source_path: PathBuf::from("specs/architecture/15-kinds.md"),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
-            published_requirements: Vec::new(),
         };
         let features = extraction.extract(&unit);
         assert_eq!(features.fenced_blocks.len(), 1);
@@ -1054,7 +854,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             source_path: PathBuf::from("skills/demo/SKILL.md"),
             satisfies: Vec::new(),
             satisfies_clauses: Vec::new(),
-            published_requirements: Vec::new(),
         };
         // A key the unit does not carry yields no feature — never a phantom entry.
         assert!(extraction.extract(&unit).field("license").is_none());
@@ -1073,205 +872,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert!(features.headings.is_empty());
         assert!(features.source_dir.is_none());
         assert!(features.fields.is_empty());
-    }
-
-    /// Write a `<root>/<name>/<BODY>.md` surface exactly as `import` projects a
-    /// custom-kind unit: ONE member document — a provenance-only `+++` header over
-    /// the whole body. Returns the surface directory.
-    fn write_surface(
-        root: &Path,
-        name: &str,
-        source_path: &str,
-        body_name: &str,
-        body: &str,
-    ) -> PathBuf {
-        let dir = root.join(name);
-        std::fs::create_dir_all(&dir).unwrap();
-        let document = format!(
-            "+++\n[provenance]\nsource_path = \"{source_path}\"\nsource_hash = \"deadbeef\"\n+++\n{body}"
-        );
-        std::fs::write(dir.join(body_name), document).unwrap();
-        dir
-    }
-
-    #[test]
-    fn from_surface_dir_reloads_a_written_unit_for_any_root() {
-        // The root is `docs/adr`, not `specs` — the reader keys on the surface
-        // shape, never a hardwired `specs` special case, so a kind rooted anywhere
-        // reloads the same way.
-        let root = tmpdir("adr-root").join("docs").join("adr");
-        let body = "# ADR 0001\n\nContext refers to `15-kinds.md`.\n";
-        let dir = write_surface(
-            &root,
-            "0001-use-kinds",
-            "docs/adr/0001-use-kinds.md",
-            "ADR.md",
-            body,
-        );
-
-        let unit = Unit::from_surface_dir(&dir).unwrap();
-
-        // id is the surface directory name.
-        assert_eq!(unit.id, "0001-use-kinds");
-        // body is the lone `.md` sibling, byte-faithful.
-        assert_eq!(unit.body, body);
-        // source_path is read back from the `[provenance]` table.
-        assert_eq!(
-            unit.source_path,
-            PathBuf::from("docs/adr/0001-use-kinds.md")
-        );
-        // A generic surface reload carries no frontmatter — the whole file is body.
-        assert!(unit.frontmatter.is_empty());
-    }
-
-    #[test]
-    fn from_surface_dir_feeds_the_composed_extractor() {
-        // The reloaded unit is exactly what a kind's composed extractor reads: the
-        // spec-shaped extractor over it yields the same features it would over a
-        // freshly-parsed unit — the tie between the generic loader and the check path.
-        let root = tmpdir("feed-root").join("specs");
-        let body = "# Kinds\n\nComposed over the predicate half.\n";
-        let dir = write_surface(
-            &root,
-            "15-kinds",
-            "specs/architecture/15-kinds.md",
-            "SPEC.md",
-            body,
-        );
-
-        let unit = Unit::from_surface_dir(&dir).unwrap();
-        let features = spec_extraction().extract(&unit);
-
-        assert_eq!(features.id, "15-kinds");
-        assert_eq!(features.body_lines, 3);
-        assert_eq!(features.headings, vec!["Kinds".to_string()]);
-        assert_eq!(features.source_dir.as_deref(), Some("architecture"));
-        // The composed `spec` extractor mines no references — `fields` stays empty.
-        assert!(features.fields.is_empty());
-    }
-
-    #[test]
-    fn from_surface_dir_lifts_clause_fields_into_frontmatter() {
-        // A custom member carrying `[clause.<field>]` header tables reloads with those
-        // fields in `frontmatter` — the generic reader that closes the built-in/custom
-        // asymmetry: a custom member's declared fields are the
-        // `field` primitive's locus, like a built-in's parsed frontmatter.
-        let root = tmpdir("clause-fields").join("specs");
-        let dir = root.join("15-kinds");
-        std::fs::create_dir_all(&dir).unwrap();
-        let document = "+++\n\
-[clause.name]\n\
-value = \"15-kinds\"\n\
-[clause.priority]\n\
-value = 7\n\
-[provenance]\n\
-source_path = \"specs/architecture/15-kinds.md\"\n\
-source_hash = \"deadbeef\"\n\
-+++\n\
-# Kinds\n\nBody.\n";
-        std::fs::write(dir.join("SPEC.md"), document).unwrap();
-
-        let unit = Unit::from_surface_dir(&dir).unwrap();
-
-        // The clause values land in `frontmatter`, JSON-kind-faithful: a string stays
-        // a string, a bare integer stays an integer.
-        assert_eq!(
-            unit.frontmatter.get("name"),
-            Some(&JsonValue::String("15-kinds".to_string()))
-        );
-        assert_eq!(unit.frontmatter.get("priority"), Some(&JsonValue::from(7)));
-
-        // And they resolve through the composed `field` primitive exactly as a
-        // built-in's parsed frontmatter does — the asymmetry closed.
-        let extraction = Extraction::new(vec![
-            Primitive::Field {
-                key: "name".to_string(),
-            },
-            Primitive::Field {
-                key: "priority".to_string(),
-            },
-        ]);
-        let features = extraction.extract(&unit);
-        assert_eq!(
-            features.field("name"),
-            Some(&FeatureValue::scalar(ValueType::String, "15-kinds"))
-        );
-        assert_eq!(
-            features.field("priority").map(FeatureValue::kind),
-            Some(ValueType::Integer)
-        );
-    }
-
-    #[test]
-    fn from_surface_dir_with_no_clause_tables_yields_empty_frontmatter() {
-        // A member document with no `[clause.<field>]` tables (only provenance) reloads
-        // with empty frontmatter — the built-in floor's default, unchanged from before
-        // this reader existed.
-        let root = tmpdir("no-clauses").join("specs");
-        let dir = write_surface(
-            &root,
-            "00-intent",
-            "specs/intent.md",
-            "SPEC.md",
-            "# Intent\n\nBody.\n",
-        );
-
-        let unit = Unit::from_surface_dir(&dir).unwrap();
-        assert!(unit.frontmatter.is_empty());
-    }
-
-    #[test]
-    fn a_surface_missing_its_provenance_is_a_load_error() {
-        let root = tmpdir("no-prov");
-        let dir = root.join("00-intent");
-        std::fs::create_dir_all(&dir).unwrap();
-        // A member document whose header carries no `[provenance]` module.
-        std::fs::write(dir.join("SPEC.md"), "+++\n# no provenance\n+++\n# Intent\n").unwrap();
-
-        let err = Unit::from_surface_dir(&dir).unwrap_err();
-        assert!(matches!(
-            err,
-            KindError::SurfaceMissingField {
-                field: "provenance",
-                ..
-            }
-        ));
-    }
-
-    #[test]
-    fn a_surface_with_a_malformed_document_is_a_load_error() {
-        let root = tmpdir("bad-doc");
-        let dir = root.join("00-intent");
-        std::fs::create_dir_all(&dir).unwrap();
-        // The lone `.md` is not a `+++`-fenced document — a hard error, never a skip.
-        std::fs::write(dir.join("SPEC.md"), "# no fence here\nbody\n").unwrap();
-
-        let err = Unit::from_surface_dir(&dir).unwrap_err();
-        assert!(matches!(err, KindError::Document { .. }));
-    }
-
-    #[test]
-    fn a_surface_without_a_body_file_is_a_load_error() {
-        let root = tmpdir("no-body");
-        let dir = root.join("00-intent");
-        std::fs::create_dir_all(&dir).unwrap();
-        // No `.md` member document at all — only a stray non-markdown sibling.
-        std::fs::write(dir.join("notes.txt"), "not a document\n").unwrap();
-
-        let err = Unit::from_surface_dir(&dir).unwrap_err();
-        assert!(matches!(err, KindError::SurfaceBody { found: 0, .. }));
-    }
-
-    #[test]
-    fn a_surface_with_two_body_files_is_ambiguous() {
-        let root = tmpdir("two-body");
-        let dir = root.join("00-intent");
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("SPEC.md"), "+++\n+++\n# One\n").unwrap();
-        std::fs::write(dir.join("EXTRA.md"), "+++\n+++\n# Two\n").unwrap();
-
-        let err = Unit::from_surface_dir(&dir).unwrap_err();
-        assert!(matches!(err, KindError::SurfaceBody { found: 2, .. }));
     }
 
     /// A bare `spec` kind — the shape a built-in or SDK-authored custom kind

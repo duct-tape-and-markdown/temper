@@ -299,7 +299,6 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     );
     // The skill `standards` opts into `gate`, placing it in the degree bound's
     // satisfier set.
-    common::author_satisfies(&root, "skills", "standards", &["gate"]);
     common::write_lock(
         &root,
         Declarations {
@@ -314,6 +313,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
             ..Declarations::default()
         },
     );
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -344,7 +344,6 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
         &common::clean_skill("standards"),
     );
     // The rule `style` opts into `gate`, so the bound ranges over it.
-    common::author_satisfies(&root, "rules", "style", &["gate"]);
     common::write_lock(
         &root,
         Declarations {
@@ -359,6 +358,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
             ..Declarations::default()
         },
     );
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -381,7 +381,6 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
         &common::clean_skill("standards"),
     );
     // The skill `standards` opts into `gate`, so the routed bound ranges over it.
-    common::author_satisfies(&root, "skills", "standards", &["gate"]);
     common::write_lock(
         &root,
         Declarations {
@@ -396,6 +395,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
             ..Declarations::default()
         },
     );
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -419,7 +419,6 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
         &common::clean_skill("standards"),
     );
     // The rule `style` opts into `gate`, so the routed bound ranges over it.
-    common::author_satisfies(&root, "rules", "style", &["gate"]);
     common::write_lock(
         &root,
         Declarations {
@@ -434,6 +433,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
             ..Declarations::default()
         },
     );
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -464,7 +464,6 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
         "standards",
         &common::clean_skill("standards"),
     );
-    common::author_satisfies(&root, "rules", "style", &["gate"]);
     common::write_lock(
         &root,
         Declarations {
@@ -479,6 +478,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
             ..Declarations::default()
         },
     );
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
 
     let run = common::check_in(&root, &[], None);
     assert!(

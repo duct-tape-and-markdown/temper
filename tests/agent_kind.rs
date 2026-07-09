@@ -117,7 +117,7 @@ fn an_agent_member_extracts_its_declared_field_schema() {
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
-    let unit = common::surface_unit(&member, "AGENT.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&kind, &unit);
 
     assert_eq!(
@@ -192,7 +192,7 @@ fn an_uppercase_name_trips_the_charset_clause() {
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
-    let unit = common::surface_unit(&member, "AGENT.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&kind, &unit);
 
     let contract = builtin::contract("agent").unwrap();
@@ -211,7 +211,7 @@ fn a_lowercase_hyphenated_name_trips_no_charset_clause() {
 
     let kind = agent_kind();
     let member = Member::from_source(&kind, &source).unwrap();
-    let unit = common::surface_unit(&member, "AGENT.md", &harness.join("surface"));
+    let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&kind, &unit);
 
     let contract = builtin::contract("agent").unwrap();

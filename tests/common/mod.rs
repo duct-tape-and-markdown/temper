@@ -17,6 +17,7 @@ use std::sync::Once;
 
 use temper::drift::{
     self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow,
+    SatisfiesRow,
 };
 use temper::frontmatter::Member;
 use temper::kind::Unit;
@@ -141,45 +142,50 @@ pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun 
     }
 }
 
-/// Author a member's `satisfies` links on its surface overlay
-/// (`<root>/.temper/<kind_dir>/<name>/<doc>`) — the projected document a live
-/// off-disk walk grafts a member's fill edges from; the real harness file itself
-/// carries no temper annotation. `kind_dir` is the surface subdirectory (`skills`
-/// or `rules`), whose document is `SKILL.md` / `RULE.md`, and whose real source
-/// lives at the harness's own locus.
+/// Read `root`'s current lock declarations (empty if none), apply `patch`, and
+/// re-emit the whole lock — the additive primitive every `write_*`/`author_*` setup
+/// helper composes through below, so a test's setup calls compose regardless of
+/// order (`write_lock` itself is the one exception: a caller building the whole
+/// [`Declarations`] wants it exactly as given, not merged with stale prior state).
+fn merge_lock(root: &Path, patch: impl FnOnce(&mut Declarations)) {
+    let mut declarations = drift::read_declarations(&root.join(".temper")).unwrap();
+    patch(&mut declarations);
+    write_lock(root, declarations);
+}
+
+/// Author a member's `satisfies` links directly on the harness's lock
+/// (`declarations.satisfies`) — the real SDK-emit shape a converted harness
+/// carries; the member's real source file itself carries no temper annotation.
+/// `kind_dir` names the member's real Claude Code locus (`skills` or `rules`),
+/// whose source is `SKILL.md` / `<name>.md` respectively — required to exist
+/// there, mirroring the real harness this stands in for, even though the lock
+/// row itself carries no kind.
 pub fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
-    let satisfies: Vec<temper::document::Satisfies> = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-    match kind_dir {
-        "skills" => {
-            let kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-            let source = root
-                .join(".claude")
-                .join("skills")
-                .join(name)
-                .join("SKILL.md");
-            let mut skill = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
-            skill.satisfies = satisfies;
-            let dir = root.join(".temper").join("skills").join(name);
-            fs::create_dir_all(&dir).unwrap();
-            fs::write(dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
-        }
-        "rules" => {
-            let kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-            let source = root
-                .join(".claude")
-                .join("rules")
-                .join(format!("{name}.md"));
-            let mut rule = temper::frontmatter::Member::from_source(&kind, &source).unwrap();
-            rule.satisfies = satisfies;
-            let dir = root.join(".temper").join("rules").join(name);
-            fs::create_dir_all(&dir).unwrap();
-            fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
-        }
+    let source = match kind_dir {
+        "skills" => root
+            .join(".claude")
+            .join("skills")
+            .join(name)
+            .join("SKILL.md"),
+        "rules" => root
+            .join(".claude")
+            .join("rules")
+            .join(format!("{name}.md")),
         other => panic!("unknown kind_dir {other}"),
-    }
+    };
+    assert!(
+        source.is_file(),
+        "author_satisfies: no real harness source at {}",
+        source.display()
+    );
+    merge_lock(root, |declarations| {
+        declarations
+            .satisfies
+            .extend(requirements.iter().map(|r| SatisfiesRow {
+                member: name.to_string(),
+                requirement: (*r).to_string(),
+            }));
+    });
 }
 
 /// A floor-clean skill named `name` (matching its directory, a lowercase slug, a
@@ -223,20 +229,15 @@ pub fn write_retired_manifest(root: &Path, contents: &str) {
     fs::write(root.join(retired_manifest_name()), contents).unwrap();
 }
 
-/// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
-/// `requirements` — the SDK-emitted fixture standing in for `import::run`'s scratch
-/// projection of the retired manifest's `[requirement.*]` table: the gate sources
-/// requirements from the lock, never a re-imported assembly.
+/// Compile a golden lock at `<root>/.temper/lock.toml` declaring `requirements` —
+/// the SDK-emitted fixture standing in for `import::run`'s scratch projection of the
+/// retired manifest's `[requirement.*]` table: the gate sources requirements from
+/// the lock, never a re-imported assembly. Merges onto whatever the lock already
+/// declares (`merge_lock`), so it composes with `author_satisfies` in either order.
 pub fn write_requirements(root: &Path, requirements: Vec<RequirementRow>) {
-    let payload = Payload {
-        version: drift::SEAM_VERSION,
-        declarations: Declarations {
-            requirements,
-            ..Declarations::default()
-        },
-        members: Vec::new(),
-    };
-    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+    merge_lock(root, |declarations| {
+        declarations.requirements = requirements
+    });
 }
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just `declarations` —
@@ -268,7 +269,6 @@ pub fn raw_unit(
         source_path: PathBuf::from(source_path),
         satisfies: Vec::new(),
         satisfies_clauses: Vec::new(),
-        published_requirements: Vec::new(),
     }
 }
 
@@ -287,24 +287,28 @@ pub fn tree_bytes(dir: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
         .collect()
 }
 
-/// Write a member's authored surface document `<dir>/<member_doc>` exactly as
-/// `import`/`emit` project it (`Member::to_document`), then reload it through
-/// the generic surface loader `check` reads — one generic adapter, no per-kind IR.
-pub fn surface_unit(member: &Member, member_doc: &str, dir: &Path) -> Unit {
-    fs::create_dir_all(dir).unwrap();
-    let doc_path = dir.join(member_doc);
-    fs::write(&doc_path, member.to_document().emit()).unwrap();
-    Unit::from_member_document(dir, &doc_path).unwrap()
+/// Lift an imported [`Member`] straight into the raw [`Unit`] the composed
+/// extractor reads — the same fields a built-in kind's member carries into
+/// `check`, with no disk round trip.
+pub fn surface_unit(member: &Member) -> Unit {
+    Unit {
+        id: member.id.clone(),
+        frontmatter: member.fields.iter().cloned().collect(),
+        body: member.body.clone(),
+        source_path: member.provenance.source_path.clone(),
+        satisfies: member
+            .satisfies
+            .iter()
+            .map(|s| s.requirement.clone())
+            .collect(),
+        satisfies_clauses: member.satisfies.clone(),
+    }
 }
 
-/// Project an imported skill to its authored surface member document
-/// `SKILL.md` and reload it through the generic `Unit` loader `check` reads.
-/// `name` names the surface directory (and the temp-dir label); `None` derives
-/// it from `skill.id`, matching the imported member's own identity.
-pub fn skill_surface_unit(skill: &Member, name: Option<&str>) -> Unit {
-    let name = name.unwrap_or(&skill.id);
-    let dir = tmpdir(&format!("surface-{name}")).join(name);
-    surface_unit(skill, "SKILL.md", &dir)
+/// Lift an imported skill [`Member`] straight into the raw [`Unit`] the composed
+/// extractor reads — the skill-flavored alias of [`surface_unit`].
+pub fn skill_surface_unit(skill: &Member) -> Unit {
+    surface_unit(skill)
 }
 
 /// A hand-built `skill` `PayloadMember` carrying `name`/`description` fields.
@@ -378,24 +382,10 @@ pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
         .collect()
 }
 
-/// Author a rule's `satisfies` links on its surface overlay
-/// (`<root>/.temper/rules/<name>/RULE.md`) — the mirror of [`author_satisfies`]
-/// for the `rule` kind.
+/// Author a rule's `satisfies` links on the harness's lock — the `rule`-kind alias
+/// of [`author_satisfies`].
 pub fn author_rule_satisfies(root: &Path, name: &str, requirements: &[&str]) {
-    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-    let source = root
-        .join(".claude")
-        .join("rules")
-        .join(format!("{name}.md"));
-    let mut rule = Member::from_source(&rule_kind, &source).unwrap();
-    rule.satisfies = requirements
-        .iter()
-        .map(|r| temper::document::Satisfies::new(*r))
-        .collect();
-
-    let dir = root.join(".temper").join("rules").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("RULE.md"), rule.to_document().emit()).unwrap();
+    author_satisfies(root, "rules", name, requirements);
 }
 
 /// A bare `RequirementRow` naming `name`, otherwise the union of the shapes

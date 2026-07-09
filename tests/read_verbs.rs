@@ -11,9 +11,6 @@
 
 use std::collections::BTreeMap;
 
-mod common;
-
-use temper::check::Workspace;
 use temper::compose::Requirement;
 use temper::document::PublishedRequirement;
 use temper::extract::{EmbeddedMember, FeatureValue, Features, ValueType};
@@ -65,24 +62,22 @@ fn req(name: &str, required: bool) -> Requirement {
     }
 }
 
-/// Call `read::explain` over an empty surface workspace, the given custom members
-/// (`why`/`requirements`'s own member listing), and the given by-kind corpus + roster
-/// (`impact`/`context`'s corpus, and the species-resolution existence check) — every
-/// scenario below only needs those to drive target-species resolution. Kept in sync
-/// like `main.rs`'s own `explain` wiring keeps its `Workspace` and by-kind corpus in
-/// sync (both read off the same surface directory there); here the caller threads
-/// matching ids into both by hand.
+/// Call `read::explain` over the given custom members (`why`/`requirements`'s own
+/// member listing), and the given by-kind corpus + roster (`impact`/`context`'s
+/// corpus, and the species-resolution existence check) — every scenario below only
+/// needs those to drive target-species resolution. Kept in sync like `main.rs`'s own
+/// `explain` wiring keeps its custom-member listing and by-kind corpus in sync (both
+/// read off the same surface directory there); here the caller threads matching ids
+/// into both by hand.
 fn explain(
     custom: &[CustomMember],
     by_kind: &BTreeMap<&str, &[Features]>,
     roster: &BTreeMap<String, Requirement>,
     target: &str,
 ) -> String {
-    let ws = Workspace::load(&common::tmpdir("explain")).unwrap();
     let assembly: BTreeMap<String, Requirement> = BTreeMap::new();
     let registrations = BTreeMap::new();
     read::explain(
-        &ws,
         custom,
         &assembly,
         roster,
@@ -153,9 +148,9 @@ fn a_requirement_target_walks_the_reverse_roster() {
 #[test]
 fn a_member_known_only_to_by_kind_resolves_without_a_spurious_not_found() {
     // `live` is discovered live off disk (`by_kind`) but never threaded into the
-    // rationale-carrying Workspace/custom listing — the drift `main.rs`'s two-source
-    // wiring can produce (`by_kind`'s features resolve live off the harness root, while
-    // `Workspace::load` reads only the materialized `.temper` surface). `why` must
+    // rationale-carrying custom listing — a drift `main.rs`'s two-source wiring can
+    // produce (`by_kind`'s features resolve live off the harness root, while the
+    // custom listing is populated only for non-built-in kinds). `why` must
     // resolve existence off `by_kind`, the same corpus the dispatcher's own species
     // resolution already used to dispatch here — never report it not-found and have
     // `impact`/`context` (called right after, over the same target) narrate it anyway.
@@ -183,7 +178,7 @@ fn a_requirement_satisfied_only_in_by_kind_reports_filled_agreeing_with_the_gate
     // `locked` satisfies `req` only through `by_kind` — the corpus `roster::check`
     // (the gate) counts satisfiers from — never threaded into `custom`. `explain` must
     // report the same fill status the gate reports: filled, never unfilled, even
-    // though the Workspace/custom listing carries no rationale-bearing record of it.
+    // though the custom listing carries no rationale-bearing record of it.
     let members = [feature("locked", &["req"], &[])];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
     let roster = BTreeMap::from([("req".to_string(), req("req", true))]);
@@ -303,19 +298,14 @@ fn an_unrecognized_target_is_a_clean_read_naming_no_namespace() {
 mod default_contract_binding {
     use std::collections::BTreeMap;
 
-    use temper::check::Workspace;
     use temper::compose::Requirement;
     use temper::extract::Features;
     use temper::read::{self, CustomMember};
 
-    use super::common;
-
     /// Narrate one custom member (its `kind` and `id`) through `why` over an otherwise-empty
-    /// surface, returning the stdout narration. The workspace loads an empty temp dir (no
-    /// skills/rules) and the roster/edge inputs are empty, so the governing-default-contract
-    /// line is all this exercises.
+    /// corpus, returning the stdout narration. The roster/edge inputs are empty, so the
+    /// governing-default-contract line is all this exercises.
     fn why_kind(kind: &str, id: &str) -> String {
-        let ws = Workspace::load(&common::tmpdir("default-contract-binding")).unwrap();
         let custom = [CustomMember {
             kind: kind.to_string(),
             id: id.to_string(),
@@ -323,7 +313,7 @@ mod default_contract_binding {
         }];
         let roster: BTreeMap<String, Requirement> = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
-        read::why(&ws, &custom, &roster, &by_kind, &[], &[], id)
+        read::why(&custom, &roster, &by_kind, &[], &[], id)
     }
 
     #[test]

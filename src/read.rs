@@ -31,9 +31,9 @@
 //!
 //! ## Scope: every opt-in kind, built-in and custom
 //!
-//! This tier reads the members [`Workspace`] carries — the built-in opt-in kinds
-//! (skill ⊕ rule) — **and** the custom-kind members the caller threads in as
-//! [`CustomMember`]s (READ-CUSTOM-SATISFIERS): temper's own `spec`s, or any consumer's
+//! This tier reads every opt-in kind's members — built-in (skill ⊕ rule) and custom
+//! alike — the caller threads in as [`CustomMember`]s (READ-CUSTOM-SATISFIERS):
+//! temper's own `spec`s, or any consumer's
 //! custom kind whose member fills a requirement. The decidable
 //! [`crate::extract::Features`] drops the `satisfies` rationale, so a custom member
 //! arrives carrying its rationale-preserving [`crate::document::Satisfies`] clauses
@@ -46,7 +46,6 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-use crate::check::Workspace;
 use crate::compose::{Edge, Requirement};
 use crate::document::Satisfies;
 use crate::extract::{Features, MemberAddress};
@@ -54,9 +53,8 @@ use crate::graph::{self, ResolvedEdge};
 use crate::kind::Registration;
 
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
-/// into filling (each with its authored rationale). Built off the typed [`Workspace`]
-/// artifacts — the `satisfies` the surface language authors on each member document,
-/// which the decidable
+/// into filling (each with its authored rationale) — the caller-threaded
+/// [`CustomMember`] listing's `satisfies`, which the decidable
 /// [`crate::extract::Features`] view drops the rationale from but the read family needs
 /// whole. Edges are **not** carried here: `why` narrates the gate's resolved edge set
 /// ([`crate::graph::resolved_edges`]) keyed on the member's `(kind, id)` node, never
@@ -76,10 +74,9 @@ struct Member {
 
 /// A custom-kind member as the read family needs it (READ-CUSTOM-SATISFIERS): its
 /// kind name, its id, and its rationale-carrying `satisfies` clauses. The caller
-/// threads these in — the [`Workspace`] holds only the built-in kinds, so a custom
-/// member's satisfiers (loaded off [`crate::kind::Unit::satisfies_clauses`]) reach the
-/// read family here rather than through the workspace. Kept whole with rationale,
-/// which the decidable [`Features`] view drops.
+/// threads every opt-in kind's members in this way (loaded off
+/// [`crate::kind::Unit::satisfies_clauses`]) — built-in and custom alike. Kept whole
+/// with rationale, which the decidable [`Features`] view drops.
 pub struct CustomMember {
     /// The custom kind's registered name (`spec`, `adr`, …) — the edge node's kind
     /// and what the narration prints.
@@ -112,34 +109,18 @@ pub struct Citation {
     pub target: MemberAddress,
 }
 
-/// Project every opt-in artifact into the read family's [`Member`] view — the
-/// [`Workspace`]'s built-in kinds (skills, then rules) followed by the caller-threaded
-/// custom-kind members, each group name-sorted by its load, so every traversal below
-/// is deterministic without a re-sort (READ-CUSTOM-SATISFIERS).
-fn members(workspace: &Workspace, custom: &[CustomMember]) -> Vec<Member> {
-    let mut members = Vec::new();
-    for skill in workspace.skills() {
-        members.push(Member {
-            kind: "skill".to_string(),
-            id: skill.id.clone(),
-            satisfies: skill.satisfies.clone(),
-        });
-    }
-    for rule in workspace.rules() {
-        members.push(Member {
-            kind: "rule".to_string(),
-            id: rule.id.clone(),
-            satisfies: rule.satisfies.clone(),
-        });
-    }
-    for member in custom {
-        members.push(Member {
+/// Project every caller-threaded opt-in member into the read family's [`Member`]
+/// view, name-sorted by its load, so every traversal below is deterministic without
+/// a re-sort (READ-CUSTOM-SATISFIERS).
+fn members(custom: &[CustomMember]) -> Vec<Member> {
+    custom
+        .iter()
+        .map(|member| Member {
             kind: member.kind.clone(),
             id: member.id.clone(),
             satisfies: member.satisfies.clone(),
-        });
-    }
-    members
+        })
+        .collect()
 }
 
 /// The target species `explain <target>` resolves a positional string into
@@ -227,7 +208,6 @@ fn resolve<'a>(
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn explain(
-    workspace: &Workspace,
     custom: &[CustomMember],
     assembly: &BTreeMap<String, Requirement>,
     roster: &BTreeMap<String, Requirement>,
@@ -242,15 +222,7 @@ pub fn explain(
 ) -> String {
     match resolve(by_kind, roster, target) {
         Species::Member(name) => {
-            let mut out = why(
-                workspace,
-                custom,
-                roster,
-                by_kind,
-                edges,
-                mention_edges,
-                name,
-            );
+            let mut out = why(custom, roster, by_kind, edges, mention_edges, name);
             out.push('\n');
             out.push_str(&impact(
                 assembly,
@@ -266,7 +238,7 @@ pub fn explain(
             out.push_str(&context(by_kind, citations, name));
             out
         }
-        Species::Requirement(name) => requirements(workspace, custom, roster, by_kind, Some(name)),
+        Species::Requirement(name) => requirements(custom, roster, by_kind, Some(name)),
         Species::Leaf(address) => {
             let mut out = impact(
                 assembly,
@@ -325,7 +297,6 @@ pub fn explain(
 /// green `check` rather than misreporting the join as dangling.
 #[must_use]
 pub fn why(
-    workspace: &Workspace,
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -339,15 +310,15 @@ pub fn why(
     let mut resolved = graph::resolved_edges(edges, by_kind);
     resolved.extend(mention_edges.iter().cloned());
 
-    // Every `(kind, id)` naming `member`: the rationale-carrying Workspace/custom
-    // listing, unioned with `by_kind` — the same decidable corpus the dispatcher's own
-    // species resolution (`resolve`) already checked to dispatch here. Existence must
-    // never be decided off the Workspace/custom listing alone: it can lag `by_kind`
+    // Every `(kind, id)` naming `member`: the rationale-carrying custom listing,
+    // unioned with `by_kind` — the same decidable corpus the dispatcher's own species
+    // resolution (`resolve`) already checked to dispatch here. Existence must never be
+    // decided off the custom listing alone: it can lag `by_kind`
     // (a member resolved live off disk but not yet re-imported), and checking it first
     // was the not-found-then-narrates-anyway defect (`explain` calls `why` then
     // `impact`/`context`, and only `why` disagreed with the resolver). A `by_kind`-only
     // match narrates with no rationale (`Features::satisfies` carries none).
-    let mut matches: Vec<Member> = members(workspace, custom)
+    let mut matches: Vec<Member> = members(custom)
         .into_iter()
         .filter(|m| m.id == member)
         .collect();
@@ -1292,17 +1263,16 @@ fn other_satisfiers(
 /// gate's own union — so `requirements` lists every published obligation, not the
 /// assembly's `[requirement.*]` alone. `by_kind` is the same decidable corpus the
 /// gate's own `roster::check` counts satisfiers from (REQUIREMENT-GATE) — fill status
-/// here is read off the union of it and the Workspace/custom listing, so `explain`
+/// here is read off the union of it and the custom listing, so `explain`
 /// cannot report a requirement unfilled that `check` counts as covered.
 #[must_use]
 pub fn requirements(
-    workspace: &Workspace,
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     name: Option<&str>,
 ) -> String {
-    let members = members(workspace, custom);
+    let members = members(custom);
     match name {
         Some(name) => requirement_detail(&members, by_kind, roster, name),
         None => roster_overview(&members, by_kind, roster),
@@ -1439,12 +1409,12 @@ fn requirement_detail(
 
 /// The satisfier set of the requirement named `name` — every member whose `satisfies`
 /// opts into it, paired with its authored rationale when one is available. The
-/// rationale-carrying Workspace/custom listing (`members`) is unioned with `by_kind` —
+/// rationale-carrying custom listing (`members`) is unioned with `by_kind` —
 /// the same opt-in join [`crate::roster::is_satisfier`] reads fill status from — so a
 /// satisfier `check` counts toward coverage is never missing here just because the
-/// Workspace/custom listing lags `by_kind` (a `required` requirement with a satisfier
+/// custom listing lags `by_kind` (a `required` requirement with a satisfier
 /// locked on disk narrating as unfilled was exactly that drift, REQUIREMENT-GATE). A
-/// `(kind, id)` the Workspace/custom listing already carries (with its rationale) is
+/// `(kind, id)` the custom listing already carries (with its rationale) is
 /// not duplicated from `by_kind`, whose decidable `Features::satisfies` carries none.
 fn satisfiers_of(
     members: &[Member],

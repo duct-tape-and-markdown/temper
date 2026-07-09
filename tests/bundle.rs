@@ -23,51 +23,11 @@ use temper::bundle;
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// A skill with frontmatter — a real harness artifact for the surface `bundle` reads.
-const SKILL: &str = "---\n\
-name: coordinate\n\
-description: Use when coordinating agents across axes; not for single-axis work.\n\
----\n\
-# Coordinate\n\
-\n\
-Drive the team through the playbook.\n";
-
-/// A rule with `paths:` frontmatter — so the surface carries both built-in kinds.
-const RULE: &str = "---\n\
-paths:\n\
-  - \"src/**/*.rs\"\n\
----\n\
-# Rust conventions\n\
-\n\
-Prefer a clone over a lifetime fight.\n";
-
-/// Build a one-skill, one-rule surface workspace directly — the shape `bundle` reads
-/// via [`temper::check::Workspace::load`] (`<surface>/<kind's surface subdir>/<id>/<member
-/// doc>`) — by projecting each member through the same generic frontmatter adapter
-/// `import` used, no scratch harness or import verb needed.
+/// A surface path to compose the plugin "over" — `bundle` never reads it (channel 3
+/// ships the operate-the-gate skill and the `SessionStart` hook unconditionally), so
+/// an empty directory stands in for a real imported surface just as well as one.
 fn imported_surface(label: &str) -> PathBuf {
-    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
-
-    let src = common::tmpdir(&format!("{label}-src"));
-    let skill_src = src.join("SKILL.md");
-    fs::write(&skill_src, SKILL).unwrap();
-    let skill = temper::frontmatter::Member::from_source(&skill_kind, &skill_src).unwrap();
-
-    let rule_src = src.join("rust.md");
-    fs::write(&rule_src, RULE).unwrap();
-    let rule = temper::frontmatter::Member::from_source(&rule_kind, &rule_src).unwrap();
-
-    let surface = common::tmpdir(&format!("{label}-surface"));
-    let skill_dir = surface.join("skills").join("coordinate");
-    fs::create_dir_all(&skill_dir).unwrap();
-    fs::write(skill_dir.join("SKILL.md"), skill.to_document().emit()).unwrap();
-
-    let rule_dir = surface.join("rules").join("rust");
-    fs::create_dir_all(&rule_dir).unwrap();
-    fs::write(rule_dir.join("RULE.md"), rule.to_document().emit()).unwrap();
-
-    surface
+    common::tmpdir(label)
 }
 
 #[test]
