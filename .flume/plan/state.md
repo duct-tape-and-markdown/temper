@@ -2,21 +2,19 @@
 
 - Spec derived through: 6a04322
 - Audited through: 485b6a7
-- Residue swept through: c88bcf8
-- This tick: Ship audit (job 3). SEAM-PAYLOAD-TYPED verified on disk at
-  b5b6fb4: emit.ts:27/32 imports and re-exports the generated
-  PayloadMember (hand-authored interface gone), declarationsToJson zero
-  hits anywhere (retired), drift.rs:267 cites the generated home.
-  KIND-CONTENT-FACT unblocked — its anchors re-verified post-ship
-  (KindFactRow drift.rs:1085; kind.rs false comments 74/82; labels
-  357/368 inside cited 354-380; kind.ts 8 citation lines intact; content
-  fact still absent on all three surfaces). PACKAGING-CHANNELS parked
-  reason re-verified (no release.yml, root package.json still the
-  private flume manifest).
+- Residue swept through: 08550e5
+- This tick: Residue sweep (job 4). Window c88bcf8..HEAD holds one code
+  commit, b5b6fb4 (SEAM-PAYLOAD-TYPED) — swept clean: one seam encoder
+  (encodeSeam, declarations.ts:422, typed `Omit<Payload, "version">`),
+  emit.ts rides generated PayloadMember (imported + re-exported, public
+  face unchanged), declarationsToJson zero hits anywhere, every remaining
+  hand-authored SDK interface is an authoring-surface type, never a seam
+  restatement. Standing debts re-verified on disk (b5b6fb4 touched
+  neither file); stamps updated in open-questions.
 - Queue: KIND-CONTENT-FACT (open) → LAYOUT-READER →
   LAYOUT-PROSE-IMPORT (linear blockedBy chain — shared
   drift.rs/declarations.ts/emit.test.ts surfaces); PACKAGING-CHANNELS
-  (parked).
+  (parked). Unchanged this tick.
 
-Plan continues: yes — residue sweep (c88bcf8 trails HEAD; b5b6fb4 is an
-unswept code commit).
+Plan continues: yes — quiet closing pass (all inputs current after this
+sweep).
