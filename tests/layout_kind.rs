@@ -124,6 +124,23 @@ fn a_document_missing_a_declared_section_fails_loud_naming_file_and_heading() {
     assert!(matches!(err, LayoutError::MissingSection { .. }));
 }
 
+#[test]
+fn an_unadmitted_top_level_heading_refuses_loud() {
+    // A field section consumes the first heading; the second top-level heading fits no
+    // declared region — structure no primitive admits.
+    let layout = Layout {
+        regions: vec![LayoutRegion::Field {
+            slot: "intent".to_string(),
+        }],
+    };
+    let doc = "# Intent\nthe intent\n\n# Stray\nunadmitted\n";
+    let err = layout
+        .read(doc, std::path::Path::new("specs/intent.md"))
+        .unwrap_err();
+    assert!(matches!(err, LayoutError::Unadmitted { .. }));
+    assert!(err.to_string().contains("Stray"));
+}
+
 /// The `intent` kind's fact row — a layout kind governing the single `specs/intent.md`
 /// document, carrying the `intent_layout` regions in wire form.
 fn intent_kind_facts() -> KindFactRow {
