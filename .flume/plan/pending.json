@@ -51,6 +51,49 @@
     "notes": "Inbox 63664b2 re-verified, scoped at 5eba801: engine evaluates all five; SDK exports 15 constructors, none of these. Note said six — dependency-exists scoped out: held back by design (inadmissible absent an extractor). Note's 'wire already carries them' wrong for four of five (no predicate_from_row arms; range's f64 bounds don't fit the usize BoundRow). Reject-loud folds in: same decoder, and new arms redefine 'unknown'. First customer: the counterpart corpus's per-Decision Rejected law."
   },
   {
+    "tag": "TEST-SCAFFOLD-ONE-HOME",
+    "summary": "Test scaffolding gets one home — the tmpdir+.temper workspace scaffold hoists into tests/common; prose_include's local rule_member folds into the shared builder; behavior unchanged",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "Add a pub scaffold helper beside the existing builders (tmpdir:31, rule_member:330): common::tmpdir plus a `.temper` workspace dir, covering the specs/ tree the layout suites also lay down — one signature serving both callers is code's call (depth rule)."
+        },
+        {
+          "path": "tests/prose_include.rs",
+          "description": "Adopt the shared scaffold, dropping the local copy (line 47), and replace the local rule_member (line 36) with common::rule_member(name, None, body) — the identical PayloadMember value. rule_kind (line 31) already delegates to common::kind_facts; folding it is code's call."
+        },
+        {
+          "path": "tests/layout_prose_import.rs",
+          "description": "Adopt the shared scaffold, dropping the local copy (line 67)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/prose_include.rs",
+        "asserts": "the suite passes unchanged through the shared scaffold and builder — the consolidation moves no behavior"
+      },
+      {
+        "path": "tests/layout_prose_import.rs",
+        "asserts": "the suite passes unchanged through the shared scaffold"
+      }
+    ],
+    "acceptance": "cargo test green with the workspace scaffold defined once in tests/common; prose_include.rs and layout_prose_import.rs carry no local copy; all gates green.",
+    "notes": "Residue sweep 16a30d6..c2a8cae: a8562b5 added the third scaffold copy (prose_include.rs:47; peers layout_prose_import.rs:67, layout_edge_slot.rs:61) plus a local rule_member equal to common::rule_member(name, None, body). layout_edge_slot.rs's copy rides LAYOUT-RELATIONSHIP-EDGES — that entry opens the file, and filing it here would put one path in two entries (disjoint-or-serialized rule). scoped at c2a8cae."
+  },
+  {
     "tag": "LAYOUT-RELATIONSHIP-EDGES",
     "summary": "A layout host's declared-relationship edge slot's entries reach the one resolved edge enumeration — resolved like a file member's frontmatter reference, never silently dropped",
     "per": {
@@ -75,7 +118,7 @@
         },
         {
           "path": "tests/layout_edge_slot.rs",
-          "description": "Extend the shipped edge-slot suite (one home, engineering.md): a declared-relationship edge slot's entries resolve as the host's edges, visible to the gate and read verbs; a dangling entry is a finding, never a silent drop."
+          "description": "Extend the shipped edge-slot suite (one home, engineering.md): a declared-relationship edge slot's entries resolve as the host's edges, visible to the gate and read verbs; a dangling entry is a finding, never a silent drop. Same pass: adopt tests/common's shared scaffold (TEST-SCAFFOLD-ONE-HOME), retiring this file's local copy (layout_edge_slot.rs:61) — the third of the three copies that sweep consolidated."
         }
       ],
       "retire": []
