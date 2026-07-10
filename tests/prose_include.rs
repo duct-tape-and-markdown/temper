@@ -13,9 +13,7 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use temper::compose::Edge;
-use temper::drift::{
-    self, Declarations, EmitOptions, IncludeRow, KindFactRow, Payload, PayloadMember,
-};
+use temper::drift::{self, Declarations, EmitOptions, IncludeRow, KindFactRow, Payload};
 use temper::extract::Features;
 use temper::graph::{self, ImportDeclaration};
 use temper::read;
@@ -32,27 +30,9 @@ fn rule_kind() -> KindFactRow {
     common::kind_facts("rule", ".claude/rules", "*.md")
 }
 
-/// A field-less `rule` member with the given already-resolved body.
-fn rule_member(name: &str, body: &str) -> PayloadMember {
-    PayloadMember {
-        kind: "rule".to_string(),
-        name: name.to_string(),
-        fields: Vec::new(),
-        body: body.to_string(),
-        source_path: None,
-    }
-}
-
-/// Lay out a `<harness>/.temper` workspace and return the harness root.
-fn scaffold(slug: &str) -> std::path::PathBuf {
-    let harness = common::tmpdir(slug);
-    fs::create_dir_all(harness.join(".temper")).unwrap();
-    harness
-}
-
 #[test]
 fn an_include_lands_byte_identical_and_is_fingerprinted() {
-    let harness = scaffold("prose-include-fingerprint");
+    let harness = common::scaffold("prose-include-fingerprint");
     let into = harness.join(".temper");
     // The include target — a plain repository fragment, not a member.
     fs::write(harness.join("fragment.md"), "shared prose.\n").unwrap();
@@ -69,7 +49,7 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
             }],
             ..Default::default()
         },
-        members: vec![rule_member("host", &host_body)],
+        members: vec![common::rule_member("host", None, &host_body)],
     };
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
@@ -95,7 +75,7 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
 
 #[test]
 fn a_dangling_include_refuses_before_any_byte_is_written() {
-    let harness = scaffold("prose-include-dangling");
+    let harness = common::scaffold("prose-include-dangling");
     let into = harness.join(".temper");
 
     // A host rule including a file that does not exist, beside a sibling rule whose
@@ -112,8 +92,8 @@ fn a_dangling_include_refuses_before_any_byte_is_written() {
             ..Default::default()
         },
         members: vec![
-            rule_member("host", &host_body),
-            rule_member("sibling", "# Sibling\n"),
+            common::rule_member("host", None, &host_body),
+            common::rule_member("sibling", None, "# Sibling\n"),
         ],
     };
 
@@ -137,7 +117,7 @@ fn a_dangling_include_refuses_before_any_byte_is_written() {
 
 #[test]
 fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
-    let harness = scaffold("prose-include-edge");
+    let harness = common::scaffold("prose-include-edge");
     let into = harness.join(".temper");
     // The include target IS another member's own file — pre-placed on disk (an idempotent
     // re-emit sees its projection already there), so the include resolves to a member edge.
@@ -159,8 +139,8 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
             ..Default::default()
         },
         members: vec![
-            rule_member("host", &host_body),
-            rule_member("shared", "shared prose.\n"),
+            common::rule_member("host", None, &host_body),
+            common::rule_member("shared", None, "shared prose.\n"),
         ],
     };
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();

@@ -36,6 +36,18 @@ pub fn tmpdir(label: &str) -> PathBuf {
         .keep()
 }
 
+/// A fresh `<harness>` temp dir carrying an empty `.temper` workspace and a
+/// `specs/` tree — the scaffold the prose-include and layout-import suites both
+/// open a case on. One signature serves both: the empty `specs/` a
+/// prose-include case never reads is inert, so folding the shape into one home
+/// beats two callers re-deriving it.
+pub fn scaffold(slug: &str) -> PathBuf {
+    let harness = tmpdir(slug);
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+    fs::create_dir_all(harness.join("specs")).unwrap();
+    harness
+}
+
 /// Path to a directory under `tests/fixtures`, resolved from the manifest so
 /// the test is independent of the process working directory.
 pub fn fixture(rel: &str) -> PathBuf {

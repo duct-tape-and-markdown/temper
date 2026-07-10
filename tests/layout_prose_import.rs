@@ -63,17 +63,9 @@ fn layout_member(kind: &str) -> PayloadMember {
     }
 }
 
-/// Lay out a `<harness>/.temper` workspace and write a document at `specs/<name>.md`.
-fn scaffold(slug: &str) -> std::path::PathBuf {
-    let harness = common::tmpdir(slug);
-    fs::create_dir_all(harness.join(".temper")).unwrap();
-    fs::create_dir_all(harness.join("specs")).unwrap();
-    harness
-}
-
 #[test]
 fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
-    let harness = scaffold("layout-import-fingerprint");
+    let harness = common::scaffold("layout-import-fingerprint");
     let into = harness.join(".temper");
     // A `guide` document with an import region (resolving to a sibling file) and one
     // field section for the document's single heading.
@@ -116,7 +108,7 @@ fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
 
 #[test]
 fn a_dangling_import_refuses_before_any_byte_is_written() {
-    let harness = scaffold("layout-import-dangling");
+    let harness = common::scaffold("layout-import-dangling");
     let into = harness.join(".temper");
     fs::write(harness.join("specs/guide.md"), "# Intent\nthe intent.\n").unwrap();
 
@@ -179,7 +171,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
 
 #[test]
 fn an_import_edge_joins_the_resolved_enumeration_and_narrates() {
-    let harness = scaffold("layout-import-edge");
+    let harness = common::scaffold("layout-import-edge");
     let into = harness.join(".temper");
     // A `guide` importing the `intent` member's own document — a member target, so the
     // import resolves to a declared member edge, not a bare content dependency.
