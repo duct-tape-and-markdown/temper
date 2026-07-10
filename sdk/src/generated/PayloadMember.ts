@@ -2,7 +2,7 @@
 
 /**
  * One projected member's erased payload — the SDK's whole output surface for a
- * member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). An
+ * member that lives at a path locus (`sdk/src/generated/PayloadMember`). An
  * embedded member never appears here (it carries no standalone projection); its
  * facts ride the [`NestedMemberRow`] family instead.
  */

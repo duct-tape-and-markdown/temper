@@ -73,7 +73,7 @@ export type {
   RequirementRow,
   SatisfiesRow,
 } from "./declarations.js";
-export { SEAM_VERSION, compileDeclarations, declarationsToJson } from "./declarations.js";
+export { SEAM_VERSION, compileDeclarations } from "./declarations.js";
 
 // Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
 // of every projection and the whole lock.

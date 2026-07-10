@@ -24,6 +24,12 @@ import {
   declaredRequirements,
   encodeSeam,
 } from "./declarations.js";
+import type { PayloadMember } from "./generated/index.js";
+
+// The projected-member shape is the generated `ts-rs` binding, re-exported so the
+// public face keeps the name — a Rust-side member-column rename is a compile
+// error here, never a silent shape drift.
+export type { PayloadMember } from "./generated/index.js";
 
 /** What a mention may resolve against at emit. */
 export interface ResolveOptions {
@@ -241,20 +247,6 @@ function fileSourcePath(member: Member): string | undefined {
   return fileURLToPath(new URL(prose.path, prose.moduleUrl));
 }
 
-/** One projected member's erased payload — the engine derives its locus from the kind's own declaration row. */
-export interface PayloadMember {
-  /** The kind's bare name — joins the payload's `declarations.kinds` family. */
-  readonly kind: string;
-  /** Identity within the kind. */
-  readonly name: string;
-  /** The kind's typed fields, flat and ordered — the projected frontmatter. */
-  readonly fields: ReadonlyArray<readonly [string, unknown]>;
-  /** The resolved prose body, byte-faithful. */
-  readonly body: string;
-  /** The resolved `file()` asset's absolute path; absent for `text`/`blocks` prose. */
-  readonly source_path?: string;
-}
-
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
 function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
@@ -263,7 +255,9 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
     .map((member) => ({
       kind: member.kind,
       name: member.name,
-      fields: member.fields,
+      // The generated row carries a mutable field list; the member's is read-only,
+      // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
+      fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
       body: resolveBody(member, options),
       source_path: fileSourcePath(member),
     }));

@@ -20,7 +20,6 @@ import {
   blocks,
   clause,
   compileDeclarations,
-  declarationsToJson,
   embeddedMemberValue,
   emit,
   file,
@@ -258,11 +257,11 @@ test("clauseRow serializes a node-scope predicate's own argument onto the row", 
   );
 });
 
-test("the JSON pipe carries the reduced declaration rows and the pinned version", () => {
-  const seam = JSON.parse(declarationsToJson(compileDeclarations(fullHarness())));
+test("the JSON pipe carries the declaration rows under `declarations` and the pinned version", () => {
+  const seam = JSON.parse(emit(fullHarness()).seam);
   assert.equal(seam.version, 2);
-  assert.deepEqual(seam.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
-  assert.deepEqual(seam.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
+  assert.deepEqual(seam.declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+  assert.deepEqual(seam.declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
 });
 
 test("a member with no satisfies claim contributes no row", () => {

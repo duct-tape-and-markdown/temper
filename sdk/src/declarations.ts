@@ -5,7 +5,7 @@
  * generated `ts-rs` bindings** (`./generated/`, derived from `src/drift.rs`), so a
  * Rust-side row rename is a compile error here, never a silent shape drift. This
  * module authors the builders that fill them; the same rows ride the internal
- * versioned JSON pipe ({@link declarationsToJson}) — not a designed IR, versioned
+ * versioned JSON pipe ({@link encodeSeam}) — not a designed IR, versioned
  * in lockstep.
  */
 
@@ -22,6 +22,7 @@ import type {
   KindFactRow,
   MentionRow,
   NestedMemberRow,
+  Payload,
   RequirementRow,
   SatisfiesRow,
 } from "./generated/index.js";
@@ -413,18 +414,11 @@ export function compileDeclarations(harness: Harness): Declarations {
 export const SEAM_VERSION = 2;
 
 /**
- * Serialize a payload to the internal versioned JSON pipe. Deterministic:
- * insertion-ordered keys and a trailing newline, so a re-emit is byte-identical.
+ * Serialize the seam payload to the internal versioned JSON pipe — `encodeSeam`
+ * stamps `version`, so the caller supplies the rest of the {@link Payload}.
+ * Deterministic: insertion-ordered keys and a trailing newline, so a re-emit is
+ * byte-identical.
  */
-export function encodeSeam(payload: object): string {
+export function encodeSeam(payload: Omit<Payload, "version">): string {
   return JSON.stringify({ version: SEAM_VERSION, ...payload }, null, 2) + "\n";
-}
-
-/**
- * Serialize the declaration rows to the internal versioned JSON pipe.
- * Not a designed IR — a stable public interchange
- * is admitted only when its consumer lands.
- */
-export function declarationsToJson(declarations: Declarations): string {
-  return encodeSeam(declarations);
 }
