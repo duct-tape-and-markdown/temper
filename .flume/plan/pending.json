@@ -1,36 +1,5 @@
 [
   {
-    "tag": "EMBEDDED-EDGE-TARGETS",
-    "summary": "An edge field targeting an embedded-locus kind resolves against that kind's nested members — embedded kinds join the by_kind target set instead of presenting as unmodeled",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "nesting"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "assemble_by_kind (main.rs:1006) keys only kinds carrying a lock kind-fact row; an embedded kind carries none by design (SDK declarations.ts:211-213 — it reaches the lock solely through its host's templates column, which from_kind_fact_row already lifts). So graph::admissibility (graph.rs:157) reports an edge targeting it as unmodeled and its member set is empty even when the host's templates are declared. Key embedded kinds into by_kind off hosts' declared templates, their members' Features off nested_member rows and layout member-collection entries — exact assembly is code's call (depth rule)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "an edge field targeting an embedded kind declared via a host's templates passes admissibility and resolves by identity to a declared nested member; a dangling entry is a route finding; a target kind no host declares stays an admissibility finding"
-      }
-    ],
-    "acceptance": "The field report's repro greens: a relationship edge field targeting an embedded kind (their `serves` -> `domain`) with the host's templates in the lock passes admissibility and resolves by member identity; a dangling entry is a finding; all gates green.",
-    "notes": "Field report (23e43db) re-verified at 5eba801; anchors re-set at ship audit 2f9e277. Blocker LAYOUT-RELATIONSHIP-EDGES shipped (fcaf08e): layout_edge_fields (drift.rs:690) enumerates edge fields off assembly facts — the shared enumeration seam is settled. The by_kind gap survives it: assemble_by_kind still keys only kind-fact-row kinds, so an embedded target stays unmodeled. Spec settled, no fork: a nested member is a full member with its own kind."
-  },
-  {
     "tag": "BUILTIN-CONTRACT-ARRAY-SURGERY",
     "summary": "A built-in kind with lock-declared clause rows gates on those rows whole — extension by spread fires, array-surgery removal holds; the severity-flip-only layer retires",
     "per": {
