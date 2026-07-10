@@ -87,6 +87,69 @@
     "notes": "Scoped at 6115217 (inbox note observed 0af7bb7; re-verified forward): ts-rs pinned unadopted, no sdk/src/generated, declarations.ts hand-restates all 13 row shapes — 36e0556 (means->prose) hand-edited both sides in lockstep again since filing. Kills shape drift as a class, not semantic drift (honest bound). Sequenced before KIND-CONTENT-FACT so 0019's row families are born generated. File-disjoint from FRONTMATTER-MALFORMED-LOUD."
   },
   {
+    "tag": "TEST-ROW-FIXTURES-ONE-HOME",
+    "summary": "Declaration-row test fixtures get one home — bare RequirementRow/ClauseRow/KindFactRow literals and per-file builders consolidate onto tests/common builders plus struct-update overrides",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SEAM-BINDINGS-GENERATED"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The one home grows the missing default-fillers: a ClauseRow builder (requirement_roster.rs's file-local required_clause_row moves in) and a general KindFactRow builder beside skill_kind_facts/rule_kind_facts (lines 347-380); requirement() (line 393) stays the RequirementRow source. Builders fill defaults; call sites override via struct-update — count_band_requirement (tests/requirement_roster.rs:188) is the existing model."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "required_clause_row (line 62) moves to tests/common; its call sites re-point. The file's struct-update requirement fixtures are already the target pattern."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Bare RequirementRow literals (lines 109, 117, 1032, 1310), the 14 bare ClauseRow literals, and the file-local spec_kind_facts_with_template (line 34) recut to struct-update over the common builders — line 429 already models the pattern in this file."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "degree_requirement (line 65): its bare RequirementRow and ClauseRow literals become struct-update over the common builders; the file-local fn may stay as the delta-expressing wrapper."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "The bare drift::RequirementRow push (~line 145) recut to the common builder."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "decision_kind_fact_row (line 212) recut to struct-update over the common KindFactRow builder."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Three bare KindFactRow literals (lines 302, 350, 389) recut."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "One bare KindFactRow literal (line 58) recut."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Two bare KindFactRow literals (lines 974, 984) recut. Opening this file fires the riding exit clause on the pre-0019 universals at lines 15 and 382 — \"regenerates every governed artifact as a canonical projection\"; recut to 0019's truth: every composed kind's artifact is a projection, a layout document a source at either depth (specs/model/pipeline.md, Install). Fix on contact."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "memory_kind_facts (line 44) recut to struct-update over the common KindFactRow builder."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "cargo test green with zero behavior change; each declaration-row family (RequirementRow, ClauseRow, KindFactRow) has exactly one default-filling builder home in tests/common; no bare full literal restating row defaults survives outside tests/common; all gates green.",
+    "notes": "Scoped at fcdbe52 (residue sweep). Demonstrated cost: 36e0556's one prose column rippled through tests/common, tests/graph.rs, tests/emit.rs (its body names the ripple). File-disjoint from SEAM-BINDINGS-GENERATED — serialized behind it only because blockedBy is single-slot and KIND-CONTENT-FACT (shared lock_declaration_rows.rs) must follow both. Per-file delta-expressing builders may stay; engine-side (src/) row construction out of scope."
+  },
+  {
     "tag": "KIND-CONTENT-FACT",
     "summary": "A kind declares its content — `file` (default) or a `layout` template in three primitives — a typed SDK fact carried through the lock's kind rows into the engine's CustomKind",
     "per": {
@@ -95,7 +158,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "SEAM-BINDINGS-GENERATED"
+      "tag": "TEST-ROW-FIXTURES-ONE-HOME"
     },
     "dependsOnForks": [],
     "files": {
@@ -140,7 +203,7 @@
       }
     ],
     "acceptance": "An SDK-declared layout reaches the engine's CustomKind through the lock's kind rows; a kind with no content declaration is file everywhere; src/builtin_lock.toml is byte-unchanged (frozen gate); all gates green.",
-    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Re-serialized 07-09 behind SEAM-BINDINGS-GENERATED (shared drift.rs/declarations.ts row surfaces; the new row columns born generated per the inbox note)."
+    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Re-serialized 07-09 behind SEAM-BINDINGS-GENERATED then TEST-ROW-FIXTURES-ONE-HOME (shared drift.rs/declarations.ts row surfaces, shared tests/lock_declaration_rows.rs; new row columns born generated, landing in one test builder)."
   },
   {
     "tag": "LAYOUT-READER",

@@ -2,21 +2,24 @@
 
 - Spec derived through: 6a04322
 - Audited through: b8f0746
-- Residue swept through: ec3d112
-- This tick: Ship audit (job 3) — 36e0556 (REQUIREMENT-PROSE-PERSISTS) and
-  f36c192 (SKILL-CONTRACT-RECITE) verified on disk. Both awaited exit
-  clauses fired: contract.ts's 12 pre-0002 citations cut (zero hits),
-  tests/coverage.rs's `effective_governs` comment fixed — one bullet
-  deleted, the SDK-citations bullet shrunk to kind.ts only. One prediction
-  falsified: f36c192 opened builtins.ts but left the three PACKAGE.md cites
-  (308/348/385) as unchanged context — debt rides on, bullet updated.
-  PACKAGING-CHANNELS parked reason re-verified at b8f0746 (no release.yml;
-  root package.json still the private flume manifest). No pending entry's
-  work shipped; queue unchanged.
-- Queue: FRONTMATTER-MALFORMED-LOUD, SEAM-BINDINGS-GENERATED (both open,
-  disjoint) → KIND-CONTENT-FACT → LAYOUT-READER → LAYOUT-PROSE-IMPORT
-  (linear blockedBy chain over the shared drift.rs/declarations.ts/main.rs
+- Residue swept through: fcdbe52
+- This tick: Residue sweep (job 4) — window ec3d112..fcdbe52 (code commits
+  36e0556, f36c192). One structural class found and filed:
+  TEST-ROW-FIXTURES-ONE-HOME (per engineering.md "One job, one home" —
+  bare RequirementRow/ClauseRow/KindFactRow test literals and per-file
+  builders beside tests/common; 36e0556's prose column demonstrated the
+  ripple). `means` vocabulary clean (English/narration only); the seam
+  lockstep growth is already routed by SEAM-BINDINGS-GENERATED; both
+  retired-trees debts re-verified on disk (bullet refreshed);
+  tests/install.rs:15,382 universals now ride the new entry. The
+  build-filed friction capture (harness.ts stale `means:` key) is moot at
+  HEAD — 8d741ba shipped its fix; left for the human sweep to delete.
+- Queue: FRONTMATTER-MALFORMED-LOUD, SEAM-BINDINGS-GENERATED (open,
+  disjoint) → TEST-ROW-FIXTURES-ONE-HOME → KIND-CONTENT-FACT →
+  LAYOUT-READER → LAYOUT-PROSE-IMPORT (linear blockedBy chain over the
+  shared drift.rs/declarations.ts/lock_declaration_rows.rs/main.rs
   surfaces); PACKAGING-CHANNELS (parked, carried verbatim).
 
-Plan continues: yes — residue sweep is live: Residue swept through: ec3d112
-trails HEAD (36e0556 and f36c192 are unswept src/tests/sdk commits).
+Plan continues: yes — all inputs current after this sweep; one quiet
+closing pass (queue disjointness, gate reasons, state re-derivation)
+then hand off to build.

@@ -105,7 +105,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context; all three cites verified still on disk, so the exit
   clause did not fire and the debt rides whichever entry opens the file
   next. Debt (1) untouched (no commit since 5f88258 opened
-  tests/session_start.rs). Verify both at the next residue sweep.
+  tests/session_start.rs). Both re-verified on disk at residue sweep HEAD
+  fcdbe52 (session_start.rs `+++` fixtures at lines 128/133/146; the three
+  builtins.ts cites at 308/348/385, line numbers unmoved by f36c192's
+  restamp). Verify both at the next residue sweep.
 
 - **Pre-corpus-reorg spec-path citations in `sdk/src/kind.ts` — 8 hits**
   (lines 7,57,86,98,125,166,189,206; re-verified against disk at ship audit
@@ -146,8 +149,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   the behavior. Rides the exit clause (rust.md), never standalone:
   LAYOUT-READER (filed 07-09) opens `src/install.rs` and names the line-18
   fix in its file description — verify at its ship audit;
-  `tests/install.rs:15,382` rides whichever entry next opens that file.
-  Found at residue sweep HEAD ec3d112.
+  `tests/install.rs:15,382` now rides TEST-ROW-FIXTURES-ONE-HOME (filed at
+  residue sweep HEAD fcdbe52), which opens that file and names the fix in
+  its file description — verify at its ship audit. Found at residue sweep
+  HEAD ec3d112.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
