@@ -1,21 +1,22 @@
 # Plan state
 
 - Spec derived through: 6a04322
-- Audited through: ddae7d4
+- Audited through: 485b6a7
 - Residue swept through: c88bcf8
-- This tick: Quiet pass (job 5). Inbox/refactor empty, spec delta empty,
-  zero code commits past either cursor (ddae7d4..HEAD is two plan-only
-  commits). Queue disjoint; every gate re-verified on disk:
-  SEAM-PAYLOAD-TYPED's anchors all hold (hand-authored PayloadMember at
-  emit.ts:245, seam assembly at emit.ts:314, declarations.ts:419/428,
-  index.ts:76/80, emit.test.ts:262, drift.rs:267 cite; generated/ still
-  has declarations.ts as its sole SDK consumer); blockedBy chain intact;
-  PACKAGING-CHANNELS still parked (no release.yml — only temper.yml;
-  root package.json the private flume manifest).
-- Queue: SEAM-PAYLOAD-TYPED (open) → KIND-CONTENT-FACT → LAYOUT-READER →
+- This tick: Ship audit (job 3). SEAM-PAYLOAD-TYPED verified on disk at
+  b5b6fb4: emit.ts:27/32 imports and re-exports the generated
+  PayloadMember (hand-authored interface gone), declarationsToJson zero
+  hits anywhere (retired), drift.rs:267 cites the generated home.
+  KIND-CONTENT-FACT unblocked — its anchors re-verified post-ship
+  (KindFactRow drift.rs:1085; kind.rs false comments 74/82; labels
+  357/368 inside cited 354-380; kind.ts 8 citation lines intact; content
+  fact still absent on all three surfaces). PACKAGING-CHANNELS parked
+  reason re-verified (no release.yml, root package.json still the
+  private flume manifest).
+- Queue: KIND-CONTENT-FACT (open) → LAYOUT-READER →
   LAYOUT-PROSE-IMPORT (linear blockedBy chain — shared
   drift.rs/declarations.ts/emit.test.ts surfaces); PACKAGING-CHANNELS
   (parked).
 
-Plan continues: no — all inputs current; SEAM-PAYLOAD-TYPED is pickable,
-build takes over.
+Plan continues: yes — residue sweep (c88bcf8 trails HEAD; b5b6fb4 is an
+unswept code commit).
