@@ -110,37 +110,6 @@ condition arrives, it is the next break. If work touches one, surface it.
   builtins.ts cites at 308/348/385 — a538a76 touched neither file). Verify
   both at the next residue sweep.
 
-- **The `src/kind.rs` `format` field doc comment is factually false** (~line
-  66): it claims "today's built-in kinds declare none" and "Inert until
-  DECLARED-FRONTMATTER-ADAPTER: typed, consumed by nothing yet" — but
-  `src/builtin_kind.rs` (lines 68/89/111/144) declares
-  `Some(Format::YamlFrontmatter)` on four built-ins and `src/main.rs:1013`
-  (`row_relocates_builtin`) consumes it. Same inertness-a-consumer-disproves
-  class as the two false comments a538a76 just fixed — that commit corrected
-  `unit_shape` and `registration` on contact but left this third one.
-  Comment staleness rides whichever entry next opens `src/kind.rs` (rust.md,
-  "the exit clause") — never a standalone entry. LAYOUT-READER opens
-  `src/kind.rs` and names the fix in its file description — verify the exit
-  clause fired at its ship audit, then delete this bullet. Found at ship
-  audit HEAD f3a5356. Widened at residue sweep HEAD e9d05f6: the
-  `CustomKind` struct doc (line 39) is the same class — "the five facts of
-  runtime residue" enumerates three and predates the sixth fact a538a76
-  added (content). Same ride, same exit; LAYOUT-READER's kind.rs
-  description names both.
-
-- **Pre-0019 "every governed artifact" universal in `src/install.rs:18`.**
-  The module doc still states the first emit "regenerates every governed
-  artifact as a canonical projection" — 0019 recut the universal: every
-  *composed kind's* artifact is a projection, a layout kind's document a
-  source at either depth (`specs/model/pipeline.md`, "Install"). Comment
-  staleness only — no behavior can diverge until a layout kind ships, and
-  LAYOUT-READER lands the behavior. Rides the exit clause (rust.md), never
-  standalone: LAYOUT-READER (filed 07-09) opens `src/install.rs` and names
-  the line-18 fix in its file description — verify at its ship audit, then
-  delete this bullet. The `tests/install.rs:15,382` half cleared at ship
-  audit HEAD ddae7d4 (1589845's exit clause fired; evidence in that plan
-  commit body). Found at residue sweep HEAD ec3d112.
-
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 14/85/87 — "fact 3, layout" =
   `Format` + `UnitShape`, the projection shape) still spell fact 3 "layout"

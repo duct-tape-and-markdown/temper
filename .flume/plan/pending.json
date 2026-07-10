@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LAYOUT-READER"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -25,7 +24,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The import target's fingerprint reaches the lock — a dependency the lock fingerprints, so a moved target is drift in the one disk-versus-lock vocabulary."
+          "description": "The import target's fingerprint reaches the lock — a dependency the lock fingerprints, so a moved target is drift in the one disk-versus-lock vocabulary. `derive_layout_rows` (the LAYOUT-READER pass reading a layout document, drift.rs:553) is where the layout's regions already surface engine-side."
         },
         {
           "path": "src/graph.rs",
@@ -42,7 +41,7 @@
       }
     ],
     "acceptance": "A layout prose region declared as an import resolves, is fingerprinted in the committed lock, and appears as a declared edge to the gate and read verbs; a dangling import refuses loudly before any byte is written; all gates green.",
-    "notes": "Scoped at a2279cf (0019 Consequences: prose-import resolution). No Include primitive ships anywhere today (rg: mentions only — drift.rs MentionRow). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK shape landed in KIND-CONTENT-FACT (LayoutRegionRow import ref); this entry is engine-side resolve + fingerprint + edge."
+    "notes": "Scoped at a2279cf (0019); unblocked at e3982b5 — LAYOUT-READER shipped (kind.rs Layout::read; its commit names imports out of scope). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK shape landed in KIND-CONTENT-FACT (LayoutRegionRow import ref); this entry is engine-side resolve + fingerprint + edge."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -53,7 +52,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at f3a5356 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 5819ac5 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
