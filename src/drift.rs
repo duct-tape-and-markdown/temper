@@ -1218,6 +1218,10 @@ pub struct RequirementRow {
     /// The external verifier for the behavioral remainder, when declared.
     #[serde(default)]
     pub verified_by: Option<String>,
+    /// The authored intent the requirement exists to carry, when declared —
+    /// carried verbatim, never interpreted.
+    #[serde(default)]
+    pub prose: Option<String>,
 }
 
 /// A requirement row's `count` bound — the satisfier-set size's inclusive `[min, max]`.
@@ -1666,6 +1670,9 @@ impl RequirementRow {
         if let Some(verified_by) = &self.verified_by {
             table.insert("verified_by", value(verified_by.clone()));
         }
+        if let Some(prose) = &self.prose {
+            table.insert("prose", value(prose.clone()));
+        }
         table
     }
 
@@ -1683,6 +1690,7 @@ impl RequirementRow {
                 .map(|array| array.iter().filter_map(ClauseRow::from_table).collect())
                 .unwrap_or_default(),
             verified_by: str_col(table, "verified_by"),
+            prose: str_col(table, "prose"),
         })
     }
 }

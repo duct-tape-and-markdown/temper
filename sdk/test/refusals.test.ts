@@ -38,7 +38,7 @@ test("a satisfies claim filling a member-published requirement is a live join", 
         name: "operate-the-gate",
         description: "Use when operating the gate.",
         prose: text`# Operate the gate`,
-        requires: { playbook: { means: "a shared gate playbook exists", kind: rule } },
+        requires: { playbook: { prose: "a shared gate playbook exists", kind: rule } },
       }),
       rule({ name: "gate-playbook", prose: text`# Gate playbook`, satisfies: ["playbook"] }),
     ],
@@ -57,7 +57,7 @@ test("a satisfies claim filling a requirement typed to a required-field kind is 
       rule({
         name: "gate-playbook",
         prose: text`# Gate playbook`,
-        requires: { runner: { means: "a skill runs the gate playbook", kind: skill } },
+        requires: { runner: { prose: "a skill runs the gate playbook", kind: skill } },
       }),
       skill({
         name: "operate-the-gate",
@@ -96,7 +96,7 @@ test("emit refuses an assembly requirement marked required that no member fills"
   const h = harness({
     require: {
       "engineering-standards": {
-        means: "the repo carries a rule fixing the engineering bar",
+        prose: "the repo carries a rule fixing the engineering bar",
         kind: rule,
         required: true,
       },
@@ -113,7 +113,7 @@ test("emit refuses a member-published requirement marked required that no member
         name: "operate-the-gate",
         description: "Use when operating the gate.",
         prose: text`# Operate the gate`,
-        requires: { playbook: { means: "a shared gate playbook exists", kind: rule, required: true } },
+        requires: { playbook: { prose: "a shared gate playbook exists", kind: rule, required: true } },
       }),
     ],
   });
@@ -128,7 +128,7 @@ test("a clean harness emits without throwing", () => {
   const h = harness({
     require: {
       "engineering-standards": {
-        means: "the repo carries a rule fixing the engineering bar",
+        prose: "the repo carries a rule fixing the engineering bar",
         kind: rule,
         required: true,
       },

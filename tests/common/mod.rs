@@ -397,5 +397,6 @@ pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> Requiremen
         required,
         clauses: Vec::new(),
         verified_by: None,
+        prose: None,
     }
 }

@@ -231,11 +231,11 @@ fn a_kind_blind_required_requirement_with_no_satisfier_still_fires_unfilled() {
 }
 
 #[test]
-fn a_means_less_required_requirement_still_gates() {
-    let root = common::tmpdir("means-less");
+fn a_prose_less_required_requirement_still_gates() {
+    let root = common::tmpdir("prose-less");
     common::write_skill(&root, "dev-standards", CLEAN_SKILL);
-    // The unified requirement makes `means` optional, but coverage keys off `required`, not
-    // `means`: a `required` requirement with no `means` and nothing opting in still
+    // The unified requirement makes `prose` optional, but coverage keys off `required`, not
+    // `prose`: a `required` requirement with no `prose` and nothing opting in still
     // fires UNFILLED and blocks the run.
     common::write_requirements(
         &root,
@@ -245,7 +245,7 @@ fn a_means_less_required_requirement_still_gates() {
     let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
-        "a means-less required requirement left unfilled must block ⇒ non-zero, got:\n{}",
+        "a prose-less required requirement left unfilled must block ⇒ non-zero, got:\n{}",
         run.output
     );
     assert!(
@@ -333,7 +333,7 @@ fn a_kind_name_colliding_with_a_built_in_fires_an_admissibility_diagnostic() {
 
 #[test]
 fn a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic() {
-    // The legitimate mechanism (`effective_governs`, proven by
+    // The legitimate mechanism (`overlay_builtin_kind`, proven by
     // `lock_declaration_rows.rs`'s
     // `check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default`):
     // a row named exactly like a built-in, declaring only a relocated `governs` and no

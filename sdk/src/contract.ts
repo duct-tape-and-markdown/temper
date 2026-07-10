@@ -1,11 +1,10 @@
 /**
  * Contracts — clauses and requirements as typed values.
  * A clause is `predicate · severity · guidance · cite`; a requirement is
- * `means · kind · required · clauses? · verifiedBy?`. Both erase to compiled data
- * at the seam (`20-surface.md`): the author composes typed objects, the engine
+ * `prose · kind · required · clauses? · verifiedBy?`. Both erase to compiled data
+ * at the seam: the author composes typed objects, the engine
  * consumes their rows. The predicate vocabulary is the closed algebra — a clause
- * outside it is a squiggle, not a runtime rejection (`10-contracts.md`, the two
- * walls).
+ * outside it is a squiggle, not a runtime rejection.
  */
 
 import type { KindDefinition } from "./kind.js";
@@ -14,7 +13,7 @@ import type { KindDefinition } from "./kind.js";
 export type Severity = "required" | "advisory";
 
 /**
- * A member of the closed predicate algebra (`10-contracts.md`). Both a kind's
+ * A member of the closed predicate algebra. Both a kind's
  * own `expect` clauses and a requirement's `clauses` compile to the row's full
  * `key`/`field`/`severity`/argument shape (`declarations.ts` `clauseRow`): a
  * floor clause's own `bound`/`charset`/`keys`/`values` ride the row alongside
@@ -31,11 +30,10 @@ export interface Predicate {
   readonly args?: Readonly<Record<string, number>>;
   /**
    * `membership`'s target requirement name — a separate slot from `field` (the
-   * checked field) since `membership` names both (`10-contracts.md`, "Judged
-   * at the node-set scope").
+   * checked field) since `membership` names both.
    */
   readonly target?: string;
-  /** `allowed_chars`'s declared character class (`10-contracts.md`, "allowed_chars"). */
+  /** `allowed_chars`'s declared character class. */
   readonly charset?: Charset;
   /** `forbidden_keys`'s forbidden key list. */
   readonly keys?: readonly string[];
@@ -45,8 +43,7 @@ export interface Predicate {
 
 /**
  * The character class `allowed_chars` admits — inclusive ranges plus individual
- * characters, e.g. `[a-z0-9-]` (`10-contracts.md`, "Decision: `allowed_chars`,
- * not a general `pattern` clause"). Each range is a `"<lo>-<hi>"` two-character
+ * characters, e.g. `[a-z0-9-]`. Each range is a `"<lo>-<hi>"` two-character
  * span (`src/contract.rs` `parse_range`'s wire spelling).
  */
 export interface Charset {
@@ -54,7 +51,7 @@ export interface Charset {
   readonly chars?: string;
 }
 
-// Node-scope predicates (`10-contracts.md`, "The predicate algebra").
+// Node-scope predicates.
 /** A field or marker is present. */
 export const required = (field: string): Predicate => ({ key: "required", field });
 /** The field's parsed scalar type is as declared. */
@@ -86,8 +83,7 @@ export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
 /** Names are unique within the artifact kind (a scope-wide identity collision). */
 export const uniqueName = (): Predicate => ({ key: "unique-name" });
 
-// Node-set/edge-scope predicates (`10-contracts.md`, "Judged at the node-set
-// scope" / "Judged at the edge scope") — a requirement's set-scope demands ride
+// Node-set/edge-scope predicates — a requirement's set-scope demands ride
 // these as ordinary clause values, the same four-channel `clause()` shape as
 // the node-scope predicates above.
 /** The satisfier set's size lies in the inclusive `[min, max]` bound. */
@@ -121,7 +117,7 @@ export const degree = (bounds: {
 /**
  * A clause — a predicate the author marks with a severity, the just-in-time
  * guidance the predicate cannot encode, and the external-fact `cite` that makes
- * a maintained floor auditable (`10-contracts.md`, "The clause").
+ * a maintained floor auditable.
  */
 export interface Clause {
   readonly predicate: Predicate;
@@ -139,25 +135,24 @@ export function clause(
 }
 
 /**
- * A requirement — a named obligation on the harness (`10-contracts.md`,
- * "Requirements"). `means` is the authored intent, carried never interpreted;
- * `kind` constrains what may fill it **by import** (a value, never a string);
- * `required` is the posture declaration; `clauses` are the requirement's own
- * set-/edge-scope demands — ordinary [`Clause`] values whose predicates range
- * over the satisfier set (`count`/`unique`/`membership`) or its graph
- * neighborhood (`degree`), the same four-channel clause as everywhere
- * (`10-contracts.md`, "Decision: set-scope demands are clauses"); `verifiedBy`
- * wires the behavioral remainder.
+ * A requirement — a named obligation on the harness. `prose` is the authored
+ * intent, carried never interpreted; `kind` constrains what may fill it **by
+ * import** (a value, never a string); `required` is the posture declaration;
+ * `clauses` are the requirement's own set-/edge-scope demands — ordinary
+ * [`Clause`] values whose predicates range over the satisfier set
+ * (`count`/`unique`/`membership`) or its graph neighborhood (`degree`), the
+ * same four-channel clause as everywhere; `verifiedBy` wires the behavioral
+ * remainder.
  */
 export interface Requirement {
-  readonly means: string;
+  readonly prose: string;
   readonly kind?: KindDefinition<never>;
   readonly required?: boolean;
   readonly clauses?: readonly Clause[];
   readonly verifiedBy?: string;
 }
 
-/** An identity helper — types a requirement literal at the keystroke (`40-composition.md`). */
+/** An identity helper — types a requirement literal at the keystroke. */
 export function requirement(init: Requirement): Requirement {
   return init;
 }

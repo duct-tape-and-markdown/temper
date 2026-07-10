@@ -44,7 +44,7 @@ fn feature(id: &str, satisfies: &[&str]) -> Features {
 fn req(name: &str, required: bool) -> Requirement {
     Requirement {
         name: name.to_string(),
-        means: None,
+        prose: None,
         kind: None,
         required,
         clauses: Vec::new(),
@@ -131,6 +131,32 @@ fn a_requirement_target_walks_the_reverse_roster() {
     assert!(out.contains("`filler`"), "{out}");
     // Member-grain traversals never fire for a requirement target.
     assert!(!out.contains("everything that holds it in place"), "{out}");
+}
+
+#[test]
+fn a_requirement_targets_authored_prose_narrates_verbatim() {
+    // The requirement's `prose` — carried, never interpreted (contract.md,
+    // "requirement — a shipped kind, not a primitive") — must reach `explain`'s
+    // narration exactly as authored.
+    let custom = [CustomMember {
+        kind: "spec".to_string(),
+        id: "filler".to_string(),
+        satisfies: vec![temper::document::Satisfies::new("only-req")],
+    }];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let roster = BTreeMap::from([(
+        "only-req".to_string(),
+        Requirement {
+            prose: Some("the corpus carries a north-star intent spec".to_string()),
+            ..req("only-req", true)
+        },
+    )]);
+
+    let out = explain(&custom, &by_kind, &roster, "only-req");
+    assert!(
+        out.contains("the corpus carries a north-star intent spec"),
+        "explain must narrate the requirement's authored prose verbatim: {out}"
+    );
 }
 
 #[test]

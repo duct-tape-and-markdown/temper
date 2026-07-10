@@ -471,7 +471,7 @@ mod tests {
     fn requirement(name: &str) -> Requirement {
         Requirement {
             name: name.to_string(),
-            means: None,
+            prose: None,
             kind: None,
             required: false,
             clauses: Vec::new(),
@@ -913,11 +913,11 @@ mod tests {
 
     #[test]
     fn a_bare_requirement_is_admissible() {
-        // A pure opt-in-coverage requirement (only `means` + `required`, no `kind`) has
+        // A pure opt-in-coverage requirement (only `prose` + `required`, no `kind`) has
         // no facet for admissibility to reject — coverage gates its fill, not the
         // roster.
         let req = Requirement {
-            means: Some("the harness maintains dev standards".to_string()),
+            prose: Some("the harness maintains dev standards".to_string()),
             required: true,
             ..requirement("dev-standards")
         };

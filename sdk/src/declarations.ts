@@ -73,6 +73,7 @@ export interface RequirementRow {
   readonly required: boolean;
   readonly clauses: readonly ClauseRow[];
   readonly verified_by?: string;
+  readonly prose: string;
 }
 
 /**
@@ -327,6 +328,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
       required: requirement.required ?? false,
       clauses: (requirement.clauses ?? []).map((clause) => clauseRow(clause)),
       verified_by: requirement.verifiedBy,
+      prose: requirement.prose,
     }));
 }
 

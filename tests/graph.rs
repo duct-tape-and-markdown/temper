@@ -83,6 +83,7 @@ fn degree_requirement(kind: Option<&str>, degree: DegreeBoundRow) -> Requirement
             values: None,
         }],
         verified_by: None,
+        prose: None,
     }
 }
 

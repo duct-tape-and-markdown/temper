@@ -57,9 +57,9 @@ pub struct Edge {
 /// except the name.** Fill is by the artifact's opt-in `satisfies` alone — there is
 /// no name-`match` selector.
 ///
-/// `temper` **never interprets `means`** — it is authored intent the surface carries,
-/// never a thing the engine judges. The decidable shadow is
-/// what `check` gates: [`crate::coverage`] over the `satisfies` edges,
+/// `temper` **carries `prose` verbatim, never interprets it** — it is authored
+/// intent the surface carries, never a thing the engine judges. The decidable
+/// shadow is what `check` gates: [`crate::coverage`] over the `satisfies` edges,
 /// [`crate::roster`]/[`crate::graph`] over the **satisfier set** (the artifacts of
 /// its `kind` that opt in via `satisfies`).
 #[derive(Debug, Clone, PartialEq)]
@@ -68,7 +68,7 @@ pub struct Requirement {
     pub name: String,
     /// The authored *intent*, stated in meaning not predicates. Carried verbatim and
     /// **never interpreted**.
-    pub means: Option<String>,
+    pub prose: Option<String>,
     /// The requirement's declared satisfier kind. Unlike the old name-`match`
     /// selector, this never narrows *which* opt-in artifacts are candidates —
     /// [`crate::roster`]/[`crate::graph`] draw the satisfier set kind-blind from

@@ -148,6 +148,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
             required: true,
             clauses: Vec::new(),
             verified_by: None,
+            prose: None,
         });
     payload.declarations.assembly.push(drift::AssemblyFactRow {
         fact: "authority".to_string(),
@@ -637,7 +638,7 @@ const program = harness({
  ],
   require: {
     agents: requirement({
-      means: "the harness fields a bounded agent roster",
+      prose: "the harness fields a bounded agent roster",
       kind: skill,
       clauses: [clause(count({ min: 1, max: 2 }), { severity: "required" })],
     }),

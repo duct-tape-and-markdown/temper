@@ -131,7 +131,7 @@ See ${{ address: "dev-standards", display: "dev standards" }}.`,
  ],
     require: {
       "dev-standards": {
-        means: "the harness maintains development standards",
+        prose: "the harness maintains development standards",
         kind: rule,
  required: true,
         verifiedBy: "tests/dev-standards.test.ts",
@@ -194,6 +194,7 @@ test("compileDeclarations produces all seven families, satisfies and mentions in
  required: true,
       clauses: [],
       verified_by: "tests/dev-standards.test.ts",
+      prose: "the harness maintains development standards",
  },
   ]);
   assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
@@ -299,9 +300,9 @@ test("satisfies rows are member-then-requirement sorted regardless of authoring 
       rule({ name: "a", prose: text`# A`, satisfies: ["z"] }),
  ],
     require: {
-      x: { means: "x" },
-      y: { means: "y" },
-      z: { means: "z" },
+      x: { prose: "x" },
+      y: { prose: "y" },
+      z: { prose: "z" },
  },
  });
   assert.deepEqual(compileDeclarations(h).satisfies, [

@@ -1333,7 +1333,7 @@ mod tests {
             "gate".to_string(),
             crate::compose::Requirement {
                 name: "gate".to_string(),
-                means: None,
+                prose: None,
                 kind: kind.map(str::to_string),
                 required: false,
                 clauses,

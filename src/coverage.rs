@@ -2,9 +2,9 @@
 //!
 //! Implements the `check` gate (requirements):
 //! a **requirement** declares a semantic
-//! intent (`means`) the harness must fill, and an artifact fills it by *opting in*
+//! intent (`prose`) the harness must fill, and an artifact fills it by *opting in*
 //! from its own representation with a resolving `satisfies` link. `temper` **never
-//! interprets `means`** — that is the author's attestation, optionally backed by a
+//! interprets `prose`** — that is the author's attestation, optionally backed by a
 //! wired `verified_by`. What `check` gates is the **decidable shadow**: referential
 //! coverage over the declared requirements and the authored `satisfies` edges.
 //!
@@ -25,7 +25,7 @@
 //!
 //! This is the **referential** primitive — decidable coverage, a true positive
 //! every time. `temper` NEVER judges
-//! whether the artifact *actually* fulfils `means`; the judged tier is delegated and
+//! whether the artifact *actually* fulfils `prose`; the judged tier is delegated and
 //! advisory, never this gate.
 //!
 //! # Kinship with the graph scope — and why coverage stays here
@@ -76,7 +76,7 @@ const REQUIREMENT_DANGLING_RULE: &str = "requirement.dangling";
 /// artifact's features across every modeled kind, already flattened kind-blind by
 /// the caller — the same unified satisfier set [`crate::roster`]/[`crate::graph`]
 /// range over, so a requirement filled by
-/// *any* kind is covered regardless of its own `kind` facet. `means` is never
+/// *any* kind is covered regardless of its own `kind` facet. `prose` is never
 /// judged — coverage is the whole of the gate.
 #[must_use]
 pub fn check(
@@ -158,13 +158,13 @@ mod tests {
         }
     }
 
-    /// A named requirement with the given `required` flag; `means` is carried but
+    /// A named requirement with the given `required` flag; `prose` is carried but
     /// never read by the coverage check, and the fill/typing facets are absent so the
     /// requirement is the pure opt-in-coverage form the gate ranges over.
-    fn requirement(name: &str, means: Option<&str>, required: bool) -> Requirement {
+    fn requirement(name: &str, prose: Option<&str>, required: bool) -> Requirement {
         Requirement {
             name: name.to_string(),
-            means: means.map(str::to_string),
+            prose: prose.map(str::to_string),
             kind: None,
             required,
             clauses: Vec::new(),
@@ -256,9 +256,9 @@ mod tests {
     }
 
     #[test]
-    fn a_means_less_requirement_still_gates_coverage_via_required() {
-        // `means` is optional on the unified requirement, but coverage keys off
-        // `required`, not `means`: a `required` requirement with no `means` and no
+    fn a_prose_less_requirement_still_gates_coverage_via_required() {
+        // `prose` is optional on the unified requirement, but coverage keys off
+        // `required`, not `prose`: a `required` requirement with no `prose` and no
         // satisfying artifact still fires UNFILLED.
         let requirements = BTreeMap::from([(
             "dev-standards".to_string(),

@@ -230,7 +230,7 @@ fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
     let clause = temper::builtin::kind_narrowing_clause("skill");
     let requirement = temper::compose::Requirement {
         name: "planner".to_string(),
-        means: None,
+        prose: None,
         kind: Some("skill".to_string()),
         required: false,
         clauses: vec![clause.clone()],

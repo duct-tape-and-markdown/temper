@@ -269,7 +269,7 @@ pub fn explain(
 
 /// `temper why <member>` — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
-/// own `means`), the default contract its kind binds, and its resolved edges in and out.
+/// own `prose`), the default contract its kind binds, and its resolved edges in and out.
 /// A read, never a
 /// gate — the caller prints this and exits zero on every input, including a name no
 /// member bears.
@@ -366,7 +366,7 @@ fn why_one(
     );
 
     // Forward walk: the requirements this member fills, each with its authored
-    // rationale and the requirement's own `means`.
+    // rationale and the requirement's own `prose`.
     if member.satisfies.is_empty() {
         let _ = writeln!(
             out,
@@ -434,7 +434,7 @@ fn why_one(
 }
 
 /// Narrate one `satisfies` link of a member's forward walk: the requirement it fills,
-/// its authored rationale, and — resolving the link — the requirement's own `means`
+/// its authored rationale, and — resolving the link — the requirement's own `prose`
 /// and whether it is required, or that the link dangles when no such requirement is
 /// declared (the same referential fault [`crate::coverage`] gates, surfaced as teaching).
 fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<String, Requirement>) {
@@ -446,8 +446,8 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 
     match roster.get(&satisfies.requirement) {
         Some(requirement) => {
-            if let Some(means) = &requirement.means {
-                let _ = writeln!(out, " It means: \"{means}\".");
+            if let Some(prose) = &requirement.prose {
+                let _ = writeln!(out, " It means: \"{prose}\".");
             }
             let obligation = if requirement.required {
                 "It is required — at least one member must fill it."
@@ -1196,8 +1196,8 @@ fn roster_overview(
             requirement.name,
             coverage_state(requirement.required, satisfiers.len())
         );
-        if let Some(means) = &requirement.means {
-            let _ = writeln!(out, " It means: \"{means}\".");
+        if let Some(prose) = &requirement.prose {
+            let _ = writeln!(out, " It means: \"{prose}\".");
         }
         for (member, _) in &satisfiers {
             let _ = writeln!(out, "      ← `{}` ({})", member.id, member.kind);
@@ -1239,8 +1239,8 @@ fn requirement_detail(
     };
 
     let mut out = format!("Requirement `{name}`:\n\n");
-    if let Some(means) = &requirement.means {
-        let _ = writeln!(&mut out, "  It means: \"{means}\".");
+    if let Some(prose) = &requirement.prose {
+        let _ = writeln!(&mut out, "  It means: \"{prose}\".");
     }
     let _ = writeln!(
         &mut out,
@@ -1400,7 +1400,7 @@ mod impact_tests {
     fn req(name: &str, required: bool) -> Requirement {
         Requirement {
             name: name.to_string(),
-            means: None,
+            prose: None,
             kind: None,
             required,
             clauses: Vec::new(),

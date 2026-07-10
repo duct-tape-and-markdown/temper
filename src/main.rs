@@ -1059,14 +1059,12 @@ fn kind_collision_diagnostic(row: &drift::KindFactRow) -> check::Diagnostic {
 }
 
 /// Lift the lock's [`drift::RequirementRow`] — the whole requirement shape `import`
-/// wrote — into the [`compose::Requirement`]
-/// the roster/coverage/graph tiers already take, the mirror of `import`'s own
-/// `requirement_row`. The row carries no `means` (`import` never emits it
-/// — "`temper` never interprets `means`" — no gate reads it), so it defaults here too.
+/// wrote — into the [`compose::Requirement`] the roster/coverage/graph tiers
+/// already take.
 fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
     compose::Requirement {
         name: row.name.clone(),
-        means: None,
+        prose: row.prose.clone(),
         kind: row.kind.clone(),
         required: row.required,
         clauses: row.clauses.iter().filter_map(clause_from_row).collect(),
