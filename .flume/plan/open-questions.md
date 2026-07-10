@@ -106,8 +106,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   clause did not fire and the debt rides whichever entry opens the file
   next. Debt (1) untouched (no commit since 5f88258 opened
   tests/session_start.rs). Both re-verified on disk at residue sweep HEAD
-  e9d05f6 (session_start.rs `+++` fixtures at lines 128/133/146; the three
-  builtins.ts cites at 308/348/385 — a538a76 touched neither file). Verify
+  1284cdf (session_start.rs `+++` fixtures at lines 128/133/146; the three
+  builtins.ts cites at 308/348/385 — e3982b5 touched neither file). Verify
   both at the next residue sweep.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
@@ -120,7 +120,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   the symbols themselves (`Format`, `UnitShape`, `Layout`) are correctly
   named. Rides whichever entry next opens `sdk/src/kind.ts` (no queued
   entry does), never standalone; the fix renames the *fact narration*,
-  never the sanctioned type. Found at residue sweep HEAD e9d05f6.
+  never the sanctioned type. Found at residue sweep HEAD e9d05f6;
+  re-verified on disk at sweep HEAD 1284cdf (e3982b5 touched only the
+  Rust side).
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
@@ -128,7 +130,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
-  at residue sweep HEAD a932bb0.
+  at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
+  HEAD 1284cdf.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
