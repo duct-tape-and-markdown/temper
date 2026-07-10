@@ -1,52 +1,16 @@
 [
   {
-    "tag": "MANIFEST-KIND-MODEL",
-    "summary": "Manifest kind-model foundations: a fields-only embedded-locus kind shape (no body slot) and the collection-address kind fact (which manifest, which key path)",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add the two read-side kind facts 0021 phase 1 needs: (a) the fields-only shape — an embedded-locus kind with no body slot (distinct from `Content::File`, which still carries verbatim prose), so a registration member has fields and edges but no prose to fill; (b) the collection-address kind fact — which manifest (path) and which key path (`hooks.<Event>`, `mcpServers.*`) a member's registration surfaces at, the manifest's fence. Guard each with the same closed-vocabulary load rejection `Format`/`UnitShape`/`Registration` carry (an unknown value is a load error, never skipped)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`KindFactRow` (line ~1749) gains a collection-address column and the fields-only marker, each a tolerant `#[serde(default)]` round-trip like `registration`/`templates` so the existing built-in rows stay byte-identical (absent = today's file-locus, body-bearing kind). The row round-trips through the lock both directions."
-        },
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "Mirror the two facts on the TS kind surface: the fields-only kind shape (no prose/content in `T`) and the collection-address fact, both erasing to the new `KindFactRow` columns at the seam. The six-fact narration and `KindDefinition` extend, not fork."
-        },
-        {
-          "path": "sdk/src/generated/KindFactRow.ts",
-          "description": "Regenerated ts-rs seam binding for the new `KindFactRow` columns (the `sdk/src/generated/` seam home, 36a7662). Build re-runs the seam generator; `tests/seam_bindings_current.rs` gates it current."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "the collection-address kind fact and the fields-only shape round-trip through the lock byte-stably; the existing file-locus built-in rows are unchanged; an unknown collection-address/shape value rejects loud at load"
-      }
-    ],
-    "acceptance": "A kind declares the embedded fields-only shape and a collection address (hooks.<Event> / mcpServers.*); both facts round-trip through the lock and the SDK erasure, and the closed-vocabulary guard rejects an unknown value.",
-    "notes": "Phase 1 of 0021 (manifest authoring surface), read-side foundation — hook-first. Fields-only = no body slot (distinct from Content::File). Closed-vocab guard mirrors Format/UnitShape. Foundation for the adapter + the hook/mcp-server kinds; nothing file-locus or body-bearing regresses. scoped at 8998b73"
-  },
-  {
     "tag": "MANIFEST-ADAPTER-READ",
     "summary": "JSON manifest adapter, read face: a JSON-parser peer to frontmatter.rs — declared collection addresses walk into generic extraction, undeclared keys opaque, registration members inferred",
     "per": {
       "path": "specs/model/representation.md",
       "section": "Reach"
     },
-    "gate": { "kind": "blockedBy", "tag": "MANIFEST-KIND-MODEL" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-KIND-MODEL"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -83,7 +47,11 @@
       "path": "specs/builtins.md",
       "section": "The coverage bar"
     },
-    "gate": { "kind": "blockedBy", "tag": "MANIFEST-ADAPTER-READ" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-ADAPTER-READ"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -136,7 +104,11 @@
       "path": "specs/builtins.md",
       "section": "The coverage bar"
     },
-    "gate": { "kind": "blockedBy", "tag": "HOOK-KIND" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "HOOK-KIND"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -193,6 +165,7 @@
       "kind": "parked",
       "reason": "Phase 2 write side of 0021. The block is phase-1 completion (autonomous, not human action): its surfaces are created by the phase-1 chain — src/json_manifest.rs's write face does not exist until MANIFEST-ADAPTER-READ lands, so a blockedBy entry fails the entry-refs gate (edit paths must be on disk). Re-scope into a blockedBy chain behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
