@@ -99,16 +99,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Debt (2)'s riding prediction falsified at ship
-  audit HEAD b8f0746: f36c192 (SKILL-CONTRACT-RECITE) opened builtins.ts —
-  its cite-restamp hunks bracket all three lines — but left every one as
-  unchanged context; all three cites verified still on disk, so the exit
-  clause did not fire and the debt rides whichever entry opens the file
-  next. Debt (1) untouched (no commit since 5f88258 opened
-  tests/session_start.rs). Both re-verified on disk at residue sweep HEAD
-  9e32fa8 (session_start.rs `+++` fixtures at lines 128/133/146; the three
-  builtins.ts cites at 308/348/385 — 503de24..HEAD's one code commit,
-  ca1e413, touched neither file). Verify both at the next residue sweep.
+  `706139a` (2026-07-07). NB the exit clause fires on *reconciliation*, not
+  on the file being opened: f36c192 opened builtins.ts and left all three
+  cites as unchanged context (verified at ship audit b8f0746). Both
+  re-verified on disk at residue sweep HEAD d029d4b (session_start.rs `+++`
+  fixtures at lines 128/133/146; the three builtins.ts cites at 308/348/385
+  — 9e32fa8..HEAD's two code commits, 4144b20 and 4752b06, touched neither
+  file). Verify both at the next residue sweep.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 14/85/87 — "fact 3, layout" =
@@ -121,7 +118,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   named. Rides whichever entry next opens `sdk/src/kind.ts` (no queued
   entry does), never standalone; the fix renames the *fact narration*,
   never the sanctioned type. Found at residue sweep HEAD e9d05f6;
-  re-verified on disk (lines 4/14/85/87) at sweep HEAD 9e32fa8.
+  re-verified on disk (lines 4/14/85/87) at sweep HEAD d029d4b.
 
 - **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
   The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
@@ -132,7 +129,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   is correct; only the comment names a replacement that will never come.
   Rides whichever entry next opens `src/extract.rs` (0020's own exit
   clause), never standalone. Found routing 0020 at HEAD a0fccaf;
-  re-verified on disk (extract.rs:196-198) at sweep HEAD 9e32fa8.
+  re-verified on disk (extract.rs:196-198) at sweep HEAD d029d4b.
 
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
@@ -147,7 +144,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   entry opens any), never standalone. (`src/kind.rs:1079`'s `15-kinds.md`
   is fixture body text inside a test, not a cite — excluded.) Found at
   residue sweep HEAD c2a8cae; re-verified on disk (all lines) at sweep HEAD
-  9e32fa8. NB sweep mechanics: prose.ts carries literal `\x00`/`\x01`
+  d029d4b. NB sweep mechanics: prose.ts carries literal `\x00`/`\x01`
   sentinel bytes (`MENTION_SLOT`/`INCLUDE_SLOT`), so grep binary-detects
   the file and silently skips it — sweep it with `grep -a` or awk;
   respelling the sentinels as `\u` escapes rides the same next-open entry.
@@ -159,7 +156,19 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
-  HEAD 9e32fa8.
+  HEAD d029d4b.
+
+- **4144b20's retirement of `compose::effective` left two one-line
+  comment stragglers in files that commit itself opened.**
+  `src/compose.rs:233` ("Unlike `effective`, …") cites the retired symbol
+  by name inside `default_contract_from_rows`'s test doc comment;
+  `src/contract.rs:459` ("when `target` (above) names a field for layering
+  purposes") keeps the retired severity-flip layer's vocabulary one hunk
+  from the corrected `Predicate::target` doc — the layer is gone, so
+  `target`'s live job is array-surgery identity, never layering. Behavior
+  and symbols correct; doc-comment staleness only. Each rides whichever
+  entry next opens its file (no queued entry opens either), never
+  standalone. Found at residue sweep HEAD d029d4b.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
