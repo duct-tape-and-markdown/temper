@@ -183,6 +183,52 @@
     "notes": "Phase 1 of 0021, after HOOK-KIND (shares builtin_kind.rs / builtin_lock.rs / builtins.ts / the frozen lock — serialized, not parallel). Collection address mcpServers.*. Build fetches + cites the current Claude Code MCP-server config doc (0014) for the field schema and strictest-profile default contract. .mcp.json is wholly this manifest, so its coverage finding retires cleanly. scoped at 8998b73"
   },
   {
+    "tag": "MANIFEST-WRITE-SIDE",
+    "summary": "Phase 2 of 0021 (manifest write side): SDK member constructors + erasure, canonical whole-manifest emit write, bundle.rs to general-write, guard coverage of represented manifests",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "Phase 2 write side of 0021. The block is phase-1 completion (autonomous, not human action): its surfaces are created by the phase-1 chain — src/json_manifest.rs's write face does not exist until MANIFEST-ADAPTER-READ lands, so a blockedBy entry fails the entry-refs gate (edit paths must be on disk). Re-scope into a blockedBy chain behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "Write face of the JSON manifest adapter (extends the phase-1 read face): canonical whole-manifest regeneration — declared collection-address order then the opaque residue, LF — under the container member's provenance row. Registration members carry no lock rows of their own (0012). Phase-1 MANIFEST-ADAPTER-READ creates this file with the read face; this entry adds the write face."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Emit wires the represented-manifest projection: a container member whose segment is a represented manifest regenerates through the general write face, not json_splice (which stays the unrepresented-manifest path)."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "Convert bundle.rs's bespoke serde_json manifest writes (plugin.json, marketplace.json, hooks.json) to general-write instances of the canonical manifest write (0015's named consequence)."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Guard coverage of represented manifests — the PreToolUse guard checks a represented manifest's members against their contract."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "settings.json's full coverage.unmodeled-surface retirement: once represented, its permissions/opaque residue is covered, completing the retirement HOOK-KIND began for the hooks segment."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "SDK member-authoring constructors for hook/mcp-server registration members and their erasure into the emit payload (the embedded-member facts the write face renders)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "Deferred until re-scoped. When it opens (behind phase 1): a represented JSON manifest regenerates whole via the canonical write face (declared order then residue, LF), bundle.rs's bespoke writes route through it, the guard covers represented manifests, and settings.json's unmodeled-surface finding fully retires.",
+    "notes": "Phase 2 of 0021, write side. Placeholder, NOT one gate-sized entry — re-scope into a blockedBy chain (SDK erasure, emit write face, bundle conversion, guard) once phase 1 ships. Parked not blockedBy: entry-refs gate needs edit paths on disk, and src/json_manifest.rs's write face is created by phase-1 MANIFEST-ADAPTER-READ. chain.ts sanctions re-scoping parked entries before they open; reconciliation re-derives it. scoped at 3830cd9"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
