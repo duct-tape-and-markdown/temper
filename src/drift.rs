@@ -564,7 +564,9 @@ pub fn emit(
                 })?;
         let source_path = harness_root.join(member_projection_path(facts, &member.name));
         if let Content::Layout(layout) = content_from_row(facts) {
-            let derivation = derive_layout_rows(&layout, member, &source_path, &member_index)?;
+            let edge_fields = layout_edge_fields(&payload.declarations.assembly, &member.kind);
+            let derivation =
+                derive_layout_rows(&layout, member, &source_path, &member_index, &edge_fields)?;
             layout_rows.extend(derivation.nested);
             layout_import_rows.extend(derivation.imports);
             layout_satisfies.extend(derivation.satisfies);
@@ -676,6 +678,25 @@ struct LayoutDerivation {
     satisfies: Vec<SatisfiesRow>,
 }
 
+/// The edge-field slots a layout kind's document reads as **addresses** rather than a
+/// verbatim span: the kind's declared relationship fields — its assembly `edge` facts
+/// whose `from` is the kind — plus the framework `satisfies` key every kind carries.
+///
+/// A custom kind's relationships live only in the lock's assembly facts, never on its
+/// kind-fact row, so both the emit read (here) and the gate read (`resolve_kind_units`)
+/// range over this one set — a relationship section never parses as a verbatim field on
+/// one path and as addresses on the other.
+#[must_use]
+pub fn layout_edge_fields(assembly: &[AssemblyFactRow], kind: &str) -> BTreeSet<String> {
+    let mut slots: BTreeSet<String> = assembly
+        .iter()
+        .filter(|fact| fact.fact == "edge" && fact.from.as_deref() == Some(kind))
+        .filter_map(|fact| fact.field.clone())
+        .collect();
+    slots.insert(crate::kind::SATISFIES_EDGE_FIELD.to_string());
+    slots
+}
+
 /// Read one layout member's document off disk and lower it into declaration rows — the
 /// rows emit derives from a layout source (`pipeline.md`, "The lock"). The host address
 /// is the layout member's own `kind:name`; each collection member becomes one embedded
@@ -694,15 +715,13 @@ fn derive_layout_rows(
     member: &PayloadMember,
     source_path: &Path,
     member_index: &BTreeMap<PathBuf, String>,
+    edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDerivation> {
     let body = fs::read_to_string(source_path).map_err(|source| DriftError::Read {
         path: source_path.to_path_buf(),
         source,
     })?;
-    // Emit lowers the framework `satisfies` edge field; a kind's own declared
-    // relationships carry no lock family of their own, so they never land here.
-    let edge_fields = BTreeSet::from([crate::kind::SATISFIES_EDGE_FIELD.to_string()]);
-    let reading = layout.read(&body, source_path, &edge_fields)?;
+    let reading = layout.read(&body, source_path, edge_fields)?;
     let host = host_address(&member.kind, &member.name);
 
     // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its

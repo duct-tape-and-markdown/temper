@@ -805,10 +805,13 @@ fn overlay_builtin_kind(kind: &CustomKind, declarations: &drift::Declarations) -
 
 /// Read one layout-content document at `file` into a [`Unit`], off the kind's declared
 /// `layout`: the whole file is the body's heading tree, the field sections fill the
-/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field) — an
-/// `edge_fields` slot excepted, its addresses reaching the unit's edges off the lock, not
-/// its frontmatter — and the id folds the file's placement under `base` the same way a
-/// file-content member's does. A document that does not fit the layout — a section missing, structure
+/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field). A
+/// declared-relationship edge slot is the exception: its entries are addresses, folded
+/// onto the unit as a list field the reference graph resolves live off the host's
+/// features — like a file member's frontmatter reference list — while `satisfies` reaches
+/// the unit off the lock's own family, keyed by member id, not off the document here. The
+/// id folds the file's placement under `base` the same way a file-content member's does.
+/// A document that does not fit the layout — a section missing, structure
 /// no primitive admits — refuses loud through [`kind::LayoutError`], naming the file and
 /// heading.
 ///
@@ -824,11 +827,23 @@ fn layout_unit(
     let raw = std::fs::read_to_string(file).into_diagnostic()?;
     let reading = layout.read(&raw, file, edge_fields)?;
     let id = frontmatter::fold_file_id(base, file)?;
-    let frontmatter = reading
+    let mut frontmatter: BTreeMap<String, serde_json::Value> = reading
         .fields
         .into_iter()
         .map(|(slot, span)| (slot, serde_json::Value::String(span)))
         .collect();
+    // A relationship edge slot's entries fold on as a list field the reference graph reads
+    // off the host's features. `satisfies` is excepted: it reaches the unit off the lock's
+    // own `satisfies` family below, never off this document read.
+    for (slot, entries) in reading.edges {
+        if slot == kind::SATISFIES_EDGE_FIELD {
+            continue;
+        }
+        frontmatter.insert(
+            slot,
+            serde_json::Value::Array(entries.into_iter().map(serde_json::Value::String).collect()),
+        );
+    }
     Ok(Unit {
         id,
         frontmatter,
@@ -863,10 +878,16 @@ fn resolve_kind_units(
     let governs = overlay_builtin_kind(kind, declarations).governs;
     let base = harness_root.join(&governs.root);
     // The kind's edge-field slots: a layout field section on one of these reads as
-    // addresses, not a verbatim span, so it never lands as a frontmatter field. Its
-    // `satisfies` entries reach the unit off the lock's own family below, exactly as a
-    // file-content member's do.
-    let edge_fields = kind.edge_field_slots();
+    // addresses, not a verbatim span, so it never lands as a frontmatter field. A custom
+    // kind's relationships live only in the lock's assembly facts (its kind-fact row
+    // carries none), so the embedded set is unioned with the lock-declared one — the same
+    // union emit reads by. `satisfies` reaches the unit off the lock's own family below,
+    // exactly as a file-content member's do.
+    let mut edge_fields = kind.edge_field_slots();
+    edge_fields.extend(drift::layout_edge_fields(
+        &declarations.assembly,
+        &kind.name,
+    ));
     let mut units = Vec::new();
     for file in import::discover_kind_files(harness_root, kind, &governs)? {
         // Dispatch on the kind's content: a layout kind's document is read under its

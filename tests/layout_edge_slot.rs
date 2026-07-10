@@ -1,12 +1,13 @@
 //! A layout field section the kind marks as an edge field — an edge slot.
 //!
-//! A field section whose slot is one of the kind's edge fields (`satisfies` among them)
-//! carries addresses, not a verbatim span (`specs/model/representation.md`, "kind"). Emit
-//! derives its entries into ordinary edge rows in the lock's own `satisfies` family — the
-//! same family a file-content member's SDK-emitted fills land in — so a layout host's
-//! fills reach the roster/coverage/read tiers exactly as any other member's do. A dangling
-//! entry needs no new refusal: the derived row flows into the gate's existing
-//! `requirement.dangling` check.
+//! A field section whose slot is one of the kind's edge fields carries addresses, not a
+//! verbatim span. Two species resolve on distinct paths, each keyed by the host's member
+//! id: `satisfies` fills derive into the lock's own `satisfies` family at emit and reach
+//! the roster/coverage/read tiers exactly as a file member's SDK-emitted fills do; a
+//! declared relationship's entries resolve live off the host's features, the same
+//! reference graph a file member's frontmatter list feeds. Either way a dangling entry is
+//! the gate's existing finding — the `requirement.dangling` coverage check for a fill, the
+//! `graph.route` resolution check for a relationship — never a silent drop.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -15,8 +16,8 @@ use temper::check::Severity;
 use temper::compose::Requirement;
 use temper::coverage;
 use temper::drift::{
-    self, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
-    PayloadMember,
+    self, AssemblyFactRow, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow,
+    Payload, PayloadMember,
 };
 use temper::extract::Features;
 use temper::read;
@@ -56,13 +57,31 @@ fn layout_member(kind: &str) -> PayloadMember {
     }
 }
 
-/// Lay out a `<harness>/.temper` workspace and the `specs/` tree a layout document sits
-/// under, returning the harness root.
-fn scaffold(slug: &str) -> std::path::PathBuf {
-    let harness = common::tmpdir(slug);
-    fs::create_dir_all(harness.join(".temper")).unwrap();
-    fs::create_dir_all(harness.join("specs")).unwrap();
-    harness
+/// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table
+/// projects. A custom kind carries its declared edges only here, never on its kind-fact
+/// row, so this is the one place the gate and emit learn a layout slot is a relationship.
+fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "edge".to_string(),
+        value: None,
+        from: Some(from.to_string()),
+        field: Some(field.to_string()),
+        to: Some(to.to_string()),
+    }
+}
+
+/// Run `temper explain <target>` from `root`, capturing stdout+stderr — the read verb
+/// that narrates a member's resolved edges in and out.
+fn explain_in(root: &std::path::Path, target: &str) -> String {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
+        .current_dir(root)
+        .arg("explain")
+        .arg(target)
+        .output()
+        .unwrap();
+    let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
+    narration.push_str(&String::from_utf8_lossy(&out.stderr));
+    narration
 }
 
 /// The `guide` host's `satisfies` fill claims as the lock carries them, in derived order
@@ -108,7 +127,7 @@ fn requirement(name: &str) -> Requirement {
 
 #[test]
 fn a_satisfies_edge_slot_derives_fill_rows_the_gate_and_read_verbs_range_over() {
-    let harness = scaffold("layout-edge-slot-satisfies");
+    let harness = common::scaffold("layout-edge-slot-satisfies");
     let into = harness.join(".temper");
     // A `guide` document with an ordinary field section (a verbatim span) followed by a
     // `satisfies` edge slot whose entries are a bulleted list of requirement names.
@@ -164,7 +183,7 @@ fn a_satisfies_edge_slot_derives_fill_rows_the_gate_and_read_verbs_range_over() 
 
 #[test]
 fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_refusal() {
-    let harness = scaffold("layout-edge-slot-dangling");
+    let harness = common::scaffold("layout-edge-slot-dangling");
     let into = harness.join(".temper");
     // The edge slot names a requirement no roster declares — a dangling fill.
     fs::write(
@@ -200,4 +219,87 @@ fn a_dangling_satisfies_edge_slot_entry_refuses_through_the_existing_coverage_re
     assert_eq!(dangling[0].severity, Severity::Error);
     assert_eq!(dangling[0].artifact, "guide");
     assert!(dangling[0].message.contains("no-such-requirement"));
+}
+
+#[test]
+fn a_declared_relationship_edge_slots_entries_reach_the_gate_and_read_verbs() {
+    let harness = common::scaffold("layout-edge-slot-relationship");
+    // A `guide` layout kind declaring a `routes_to` edge into `skill`, and a document
+    // whose relationship section names a real skill — the addresses resolve live off the
+    // host's features, exactly as a file member's frontmatter reference list does.
+    common::write_skill(&harness, "standards", &common::clean_skill("standards"));
+    fs::write(
+        harness.join("specs/guide.md"),
+        "# Purpose\nA worked layout carrying a relationship edge slot.\n\
+         \n# Routes to\n- standards\n",
+    )
+    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![layout_kind(
+                "guide",
+                vec![field_region("purpose"), field_region("routes_to")],
+            )],
+            assembly: vec![edge("guide", "routes_to", "skill")],
+            ..Default::default()
+        },
+    );
+
+    // The gate ranges over the resolved edge: the entry names a real skill, so the graph
+    // route resolves and the run is clean.
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        run.ok,
+        "a relationship edge resolving to a real skill is clean, got:\n{}",
+        run.output
+    );
+
+    // A read verb narrates the same resolved edge the gate ranges over — the entry parsed
+    // as an address, never a verbatim span (a span would resolve to no node and narrate
+    // nothing).
+    let narration = explain_in(&harness, "guide");
+    assert!(
+        narration.contains("points at `standards`") && narration.contains("routes_to"),
+        "`explain` narrates the host's resolved out-edge: {narration}"
+    );
+}
+
+#[test]
+fn a_dangling_relationship_edge_entry_is_a_route_finding_never_a_silent_drop() {
+    let harness = common::scaffold("layout-edge-slot-relationship-dangling");
+    // The relationship section names a skill no member provides — a dangling address.
+    common::write_skill(&harness, "standards", &common::clean_skill("standards"));
+    fs::write(
+        harness.join("specs/guide.md"),
+        "# Purpose\nx\n\n# Routes to\n- absent\n",
+    )
+    .unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![layout_kind(
+                "guide",
+                vec![field_region("purpose"), field_region("routes_to")],
+            )],
+            assembly: vec![edge("guide", "routes_to", "skill")],
+            ..Default::default()
+        },
+    );
+
+    // The dangling address is the gate's route-resolution finding — never silently
+    // dropped: the run fails and the finding names the host, the target, and the field.
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        !run.ok,
+        "a dangling relationship entry fails the run, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("guide")
+            && run.output.contains("absent")
+            && run.output.contains("routes_to"),
+        "the finding names the host, the dangling target, and the reference field: {}",
+        run.output
+    );
 }
