@@ -3,19 +3,20 @@
 - Spec derived through: a0fccaf
 - Audited through: 2f9e277
 - Residue swept through: 503de24
-- This tick: Residue sweep. fcaf08e (the one unswept code commit) swept:
-  structurally clean — layout_edge_fields (drift.rs:690) is one shared seam
-  consumed by both document-read paths (emit drift.rs:567, gate main.rs:887),
-  the one-job-one-home shape; edges_from_declarations (main.rs:1187) is a
-  different job (graph edges, not slot names), no duplicate. One finding:
-  layout_edge_fields' filter_map (drift.rs:693) silently skips a present
-  edge fact missing its field column — the degrade-to-absent class
-  LOCK-ROW-REJECT-LOUD files; that entry's drift.rs scope amended to name
-  the site, no new entry. Six riding debts re-verified on disk, all
-  unchanged (fcaf08e touched none of their files); stamps advanced.
+- This tick: Quiet pass — all inputs current (503de24..HEAD is the sweep
+  commit alone, `.flume/`-only); queue disjoint (the three-entry main.rs
+  overlap is serialized by the blockedBy chain; PACKAGING-CHANNELS touches
+  neither chain file); every gate reason re-verified on disk (still no
+  release.yml — only temper.yml; root package.json still the private flume
+  manifest; SDK still 0.0.5) and every entry anchor re-verified on disk
+  (assemble_by_kind main.rs:1006, admissibility graph.rs:157,
+  layout_edge_fields drift.rs:690/693, compose::effective compose.rs:110 +
+  doc 108, family/filter_map drift.rs:2179/2183, read_declarations
+  drift.rs:2110, source_deps drift.rs:1402, kind.rs 531/695/723/1323,
+  main.rs:1184, declarations.ts:211-213/460, claude-code.ts:8).
 - Queue: EMBEDDED-EDGE-TARGETS (open); BUILTIN-CONTRACT-ARRAY-SURGERY
   (blockedBy EMBEDDED-EDGE-TARGETS); LOCK-ROW-REJECT-LOUD (blockedBy
   BUILTIN-CONTRACT-ARRAY-SURGERY); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — every input is now current; the quiet closing pass
-(queue disjointness, gate reasons, state re-derivation) is the next job.
+Plan continues: no — inputs quiet; EMBEDDED-EDGE-TARGETS pickable, build
+takes over.
