@@ -310,14 +310,16 @@ fn read_entries(dir: &Path) -> Result<Vec<fs::DirEntry>, ImportError> {
 /// program's own embedded-member facts *and* the rows emit derives from layout sources
 /// in the same pass (`crate::drift::emit` merges them before this write), so a layout
 /// document's members reach the lock as declaration rows without a projection of their own.
-/// `layout_imports` are the layout sources' fingerprinted content dependencies, written
-/// into the same `[declaration]` table.
+/// `layout_imports` and `includes` are the layout sources' and composed prose's
+/// fingerprinted content dependencies, written into the same `[declaration]` table under
+/// their own families.
 pub(crate) fn write_rollup(
     into: &Path,
     builtins: &BTreeMap<String, Vec<RollupEntry>>,
     custom: &BTreeMap<String, Vec<RollupEntry>>,
     declarations: &Declarations,
     layout_imports: &[crate::drift::LayoutImportRow],
+    includes: &[crate::drift::LayoutImportRow],
 ) -> Result<(), ImportError> {
     let mut doc = DocumentMut::new();
     for (kind, rows) in builtins {
@@ -327,9 +329,10 @@ pub(crate) fn write_rollup(
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(units));
     }
     declarations.write_into(&mut doc);
-    // The layout imports' content-dependency fingerprints ride the same `[declaration]`
-    // table, engine-derived alongside the program's own declaration rows.
-    crate::drift::write_layout_imports(&mut doc, layout_imports);
+    // The source-dependency fingerprints ride the same `[declaration]` table, each in its
+    // own family, engine-derived alongside the program's own declaration rows.
+    crate::drift::write_source_deps(&mut doc, "layout_import", layout_imports);
+    crate::drift::write_source_deps(&mut doc, "include", includes);
 
     create_dir_all(into)?;
     write_bytes(&into.join(LOCK_FILENAME), doc.to_string().as_bytes())

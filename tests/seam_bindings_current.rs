@@ -14,8 +14,9 @@ use ts_rs::{Config, TS};
 
 use temper::drift::{
     AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionEntryRow, CollectionEntryWire,
-    CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, KindFactRow, LayoutRegionRow,
-    LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, IncludeRow, KindFactRow,
+    LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
+    RequirementRow, SatisfiesRow,
 };
 use temper::extract::{
     EmbeddedMember, EmbeddedMemberCollectionEntry, FeatureValue, Features, FencedBlock, Section,
@@ -89,6 +90,7 @@ fn fresh_bindings() -> BTreeMap<String, String> {
         EdgeBoundRow,
         SatisfiesRow,
         MentionRow,
+        IncludeRow,
         NestedMemberRow,
         CollectionEntryRow,
         CollectionEntryWire,

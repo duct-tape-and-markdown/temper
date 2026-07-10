@@ -765,10 +765,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // surfaced without failing the run.
     diagnostics.extend(drift::config_stale(workspace));
 
-    // The layout-import freshness fact: a fingerprinted import target whose bytes no
-    // longer match the lock — the target moved and `emit` has not re-run. Advisory, the
-    // same `warn` posture `config.stale` takes over a drifted projection.
+    // The source-dependency freshness facts: a fingerprinted layout-import or
+    // composed-prose include target whose bytes no longer match the lock — the target
+    // moved and `emit` has not re-run. Advisory, the same `warn` posture `config.stale`
+    // takes over a drifted projection.
     diagnostics.extend(drift::layout_import_stale(workspace));
+    diagnostics.extend(drift::include_stale(workspace));
 
     Ok(diagnostics)
 }
@@ -1183,14 +1185,17 @@ fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<gr
     graph::resolved_mention_edges(&mentions)
 }
 
-/// The lock's layout prose imports, lifted into [`graph::ResolvedEdge`]s — the
-/// import-locus mirror of [`mention_edges_from_declarations`], read off the lock's own
-/// `[declaration.layout_import]` family (engine-derived at emit, not a payload row). An
-/// import resolving to a plain repository file names no member, so it carries no address
-/// and reaches no edge here — its content dependency is still fingerprinted for drift.
+/// The lock's prose source dependencies — layout imports and composed-prose includes —
+/// lifted into [`graph::ResolvedEdge`]s, the import-locus mirror of
+/// [`mention_edges_from_declarations`], read off the lock's own
+/// `[declaration.layout_import]`/`[declaration.include]` families (engine-derived at emit,
+/// not payload rows). Both fold into the one `import`-locus edge set. A reference
+/// resolving to a plain repository file names no member, so it carries no address and
+/// reaches no edge here — its content dependency is still fingerprinted for drift.
 fn import_edges_from_lock(workspace_dir: &Path) -> Vec<graph::ResolvedEdge> {
     let imports: Vec<graph::ImportDeclaration> = drift::layout_imports(workspace_dir)
         .into_iter()
+        .chain(drift::includes(workspace_dir))
         .filter(|row| !row.target.is_empty())
         .map(|row| graph::ImportDeclaration {
             member: row.member,

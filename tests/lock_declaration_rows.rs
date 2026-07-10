@@ -183,6 +183,7 @@ fn rich_declarations() -> Declarations {
             member: "skill:coordinate".to_string(),
             target: "rule:rust".to_string(),
         }],
+        includes: Vec::new(),
         nested_members: Vec::new(),
     }
 }

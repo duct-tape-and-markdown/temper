@@ -180,26 +180,64 @@ pub enum DriftError {
         member: String,
     },
 
-    /// A layout member's prose region imports a file that does not exist on disk — a
-    /// dangling include. Refused before a byte is written: the author cannot produce
-    /// output from a source that references content that is not there.
+    /// A prose reference — a layout region's `import` or a composed-prose `include` —
+    /// names a file that does not exist on disk. Refused before a byte is written: the
+    /// author cannot produce output from a source that references content that is not
+    /// there.
     #[error(
-        "layout member `{member}` imports `{import}`, resolving to `{path}`, which does not exist — a dangling import"
+        "member `{member}` references `{import}`, resolving to `{path}`, which does not exist — a dangling reference"
     )]
     #[diagnostic(code(temper::drift::dangling_import))]
     DanglingImport {
-        /// The importing layout member's `kind:name` address.
+        /// The referencing member's `kind:name` address.
         member: String,
-        /// The import reference the region declared, verbatim.
+        /// The reference the source declared, verbatim.
         import: String,
-        /// The path the reference resolved to (relative to the document's directory).
+        /// The path the reference resolved to.
         path: PathBuf,
+    },
+
+    /// A composed-prose include target's bytes are not valid UTF-8 — an include splices
+    /// the target's text into the host projection, so a non-text target cannot be pulled
+    /// in. Refused before a byte is written.
+    #[error(
+        "member `{member}` includes `{path}`, whose bytes are not valid UTF-8 — a composed-prose include pulls text, not binary"
+    )]
+    #[diagnostic(code(temper::drift::include_not_utf8))]
+    IncludeNotUtf8 {
+        /// The including member's `kind:name` address.
+        member: String,
+        /// The include target's path.
+        path: String,
+    },
+
+    /// A composed-prose member's body carries a different number of include slots than
+    /// the payload declares includes for it — a malformed seam (the SDK plants one slot
+    /// per include). Refused before a byte is written.
+    #[error(
+        "member `{member}` declares {declared} include(s) but its body carries {slots} include slot(s) — a malformed seam"
+    )]
+    #[diagnostic(code(temper::drift::include_arity))]
+    IncludeArity {
+        /// The member's `kind:name` address.
+        member: String,
+        /// The number of includes the payload declares for the member.
+        declared: usize,
+        /// The number of include slots the member's body carries.
+        slots: usize,
     },
 }
 
 // ---------------------------------------------------------------------------
 // emit — the write direction
 // ---------------------------------------------------------------------------
+
+/// The marker the SDK plants in a composed-prose body per include, in authored order —
+/// `U+0001`, the include counterpart to the SDK's `U+0000` mention marker (`prose.ts`).
+/// A rendered body carries no mention markers (those resolve to display text SDK-side),
+/// so splitting a body on this byte recovers the literal chunks the include contents
+/// interleave between.
+const INCLUDE_SLOT: char = '\u{1}';
 
 /// Options controlling an [`emit`] run.
 #[derive(Debug, Clone, Copy, Default)]
@@ -485,7 +523,22 @@ pub fn emit(
     // first. Keyed by lexically-normalized path so a resolved target joins it cleanly.
     let member_index = member_path_index(&payload.members, &kind_facts, harness_root);
 
+    // The composed-prose includes each host member declares, grouped by host address in
+    // authored order — the same order the body's include slots carry, so the k-th slot
+    // pulls the k-th include's target.
+    let mut includes_by_member: BTreeMap<&str, Vec<&IncludeRow>> = BTreeMap::new();
+    for include in &payload.declarations.includes {
+        includes_by_member
+            .entry(include.member.as_str())
+            .or_default()
+            .push(include);
+    }
+
     let mut projections = Vec::with_capacity(payload.members.len());
+    // The composed-prose includes emit resolved this pass — each fingerprinted as a
+    // never-reaped source dependency (its own `include` lock family), refusing loud when
+    // the target dangles (below), the same posture a layout import takes.
+    let mut include_rows: Vec<LayoutImportRow> = Vec::new();
     // A layout kind's document is a source, not a projection: emit reads it under the
     // declared layout and derives its declaration rows, but writes nothing at its path
     // and never reaps it. Its rows join the lock's `nested_member` family alongside the
@@ -516,12 +569,35 @@ pub fn emit(
             layout_paths.insert(to_lock_path(&source_path));
             continue;
         }
+        // A composed-prose member whose body declares includes: resolve each against
+        // disk (refusing before any byte is written when it dangles), splice its bytes
+        // into the body at the matching slot, and fingerprint the dependency.
+        let host = host_address(&member.kind, &member.name);
+        let body = match includes_by_member.get(host.as_str()) {
+            None => member.body.clone(),
+            Some(includes) => {
+                let mut contents = Vec::with_capacity(includes.len());
+                for include in includes {
+                    let relative = harness_relative(&include.source_path, harness_root);
+                    let (row, bytes) =
+                        resolve_source_dependency(&host, &relative, harness_root, &member_index)?;
+                    contents.push(String::from_utf8(bytes).map_err(|_| {
+                        DriftError::IncludeNotUtf8 {
+                            member: host.clone(),
+                            path: row.source_path.clone(),
+                        }
+                    })?);
+                    include_rows.push(row);
+                }
+                splice_includes(&host, &member.body, &contents)?
+            }
+        };
         projections.push(Projection {
             kind: member.kind.clone(),
             name: member.name.clone(),
             source_path,
             fields: member.fields.clone(),
-            body: member.body.clone(),
+            body,
         });
     }
 
@@ -575,6 +651,7 @@ pub fn emit(
             &BTreeMap::new(),
             &declarations,
             &layout_import_rows,
+            &include_rows,
         )?;
     }
 
@@ -602,7 +679,7 @@ struct LayoutDerivation {
 /// is the layout member's own `kind:name`; each collection member becomes one embedded
 /// member of its declared child kind, keyed by its slugged-heading (or explicit-key)
 /// identity, carrying its own sub-heading spans as leaves. Each prose region declared as
-/// an import resolves against raw disk to the file's contents ([`resolve_layout_import`]),
+/// an import resolves against raw disk to the file's contents ([`resolve_source_dependency`]),
 /// fingerprinted so a moved target is drift; a dangling target refuses loud before a byte
 /// is written.
 ///
@@ -648,12 +725,9 @@ fn derive_layout_rows(
         else {
             continue;
         };
-        imports.push(resolve_layout_import(
-            &host,
-            target,
-            source_path,
-            member_index,
-        )?);
+        let base_dir = source_path.parent().unwrap_or_else(|| Path::new("."));
+        let (row, _bytes) = resolve_source_dependency(&host, target, base_dir, member_index)?;
+        imports.push(row);
     }
 
     let nested = reading
@@ -674,25 +748,27 @@ fn derive_layout_rows(
     })
 }
 
-/// Resolve one layout prose import to its target file's contents and fingerprint it. The
-/// reference resolves against **raw disk**, relative to the importing document's own
-/// directory (its authored home) — the same lexical resolution a memory `@path` directive
-/// takes ([`crate::graph::normalize_path`]), never the ignore-filtered discovery view. A
-/// target absent from disk is a dangling import, refused loud. When the resolved path is a
-/// member's own projection, the edge names that member; a plain repository file carries a
-/// content dependency but no member edge (an empty `target`).
+/// Resolve one prose reference — a layout region's `import` or a composed-prose
+/// `include` — to its target file's contents, fingerprint it, and return the bytes. The
+/// reference resolves against **raw disk**, `target` joined onto `base_dir` (the
+/// referencing document's directory for a layout import, the harness root for an include
+/// whose SDK-resolved path was relativized against it), never the ignore-filtered
+/// discovery view. A target absent from disk is a dangling reference, refused loud. When
+/// the resolved path is a member's own projection, the edge names that member; a plain
+/// repository file carries a content dependency but no member edge (an empty `target`).
+/// The returned bytes are the same read the fingerprint hashes, so a splicing caller
+/// pulls exactly the bytes it fingerprinted (one read, no time-of-check gap).
 ///
 /// # Errors
 /// Returns [`DriftError::DanglingImport`] when the target does not exist, or
 /// [`DriftError::Read`] when it exists but cannot be read.
-fn resolve_layout_import(
+fn resolve_source_dependency(
     host: &str,
     target: &str,
-    source_path: &Path,
+    base_dir: &Path,
     member_index: &BTreeMap<PathBuf, String>,
-) -> Result<LayoutImportRow, DriftError> {
-    let doc_dir = source_path.parent().unwrap_or_else(|| Path::new("."));
-    let resolved = crate::graph::normalize_path(&doc_dir.join(target));
+) -> Result<(LayoutImportRow, Vec<u8>), DriftError> {
+    let resolved = crate::graph::normalize_path(&base_dir.join(target));
     let bytes = match fs::read(&resolved) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -709,17 +785,58 @@ fn resolve_layout_import(
             });
         }
     };
-    Ok(LayoutImportRow {
+    let row = LayoutImportRow {
         member: host.to_string(),
         target: member_index.get(&resolved).cloned().unwrap_or_default(),
         source_path: to_lock_path(&resolved),
         import_hash: sha256_hex(&bytes),
-    })
+    };
+    Ok((row, bytes))
+}
+
+/// Re-express an include's SDK-resolved absolute `target` as a path relative to
+/// `harness_root`, so [`resolve_source_dependency`] joins it back onto `harness_root`
+/// the way a projection path is built — the resolved path then matches the member index
+/// and lands in the lock with the same absoluteness (relative when emit ran against a
+/// relative workspace, so the committed lock stays portable). A target outside the
+/// harness tree keeps its absolute form, still readable, just unrooted.
+fn harness_relative(target: &str, harness_root: &Path) -> String {
+    let target_abs = std::path::absolute(target).unwrap_or_else(|_| PathBuf::from(target));
+    let root_abs = std::path::absolute(harness_root).unwrap_or_else(|_| harness_root.to_path_buf());
+    match target_abs.strip_prefix(&root_abs) {
+        Ok(relative) => to_lock_path(relative),
+        Err(_) => to_lock_path(&target_abs),
+    }
+}
+
+/// Splice each resolved include's `contents` into `body` at its include slot, in order
+/// — the body carries one [`INCLUDE_SLOT`] per declared include (SDK-planted, authored
+/// order), so the k-th slot becomes the k-th target's text. Splitting on the slot byte
+/// yields `contents.len() + 1` chunks when the counts agree.
+///
+/// # Errors
+/// Returns [`DriftError::IncludeArity`] when the body's slot count disagrees with the
+/// number of declared includes — a malformed seam.
+fn splice_includes(host: &str, body: &str, contents: &[String]) -> Result<String, DriftError> {
+    let chunks: Vec<&str> = body.split(INCLUDE_SLOT).collect();
+    if chunks.len() != contents.len() + 1 {
+        return Err(DriftError::IncludeArity {
+            member: host.to_string(),
+            declared: contents.len(),
+            slots: chunks.len() - 1,
+        });
+    }
+    let mut out = String::from(chunks[0]);
+    for (content, chunk) in contents.iter().zip(&chunks[1..]) {
+        out.push_str(content);
+        out.push_str(chunk);
+    }
+    Ok(out)
 }
 
 /// The projection-path → `kind:name` index every member contributes, keyed by
 /// lexically-normalized path so a resolved layout import joins it the way
-/// [`resolve_layout_import`] resolves its target. A member whose kind the payload carries
+/// [`resolve_source_dependency`] resolves its target. A member whose kind the payload carries
 /// no fact for is skipped — the [`emit`] loop reports that fault where it dispatches.
 fn member_path_index(
     members: &[PayloadMember],
@@ -1192,41 +1309,45 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
 }
 
 // ---------------------------------------------------------------------------
-// layout prose imports — the content dependencies a layout source fingerprints
+// prose source dependencies — the content a layout import or composed-prose include
+// fingerprints (one shape, two families)
 // ---------------------------------------------------------------------------
 
-/// The `rule` id a moved layout-import target reports its drift under.
-const LAYOUT_IMPORT_STALE_RULE: &str = "layout.import-stale";
-
-/// One layout prose-import dependency the lock fingerprints — engine-derived at emit from
-/// a layout kind's document, never a payload declaration. It rides the lock under
-/// `[[declaration.layout_import]]`, its own generic-TOML family the reap/freshness readers
-/// (which key on `name`/`emit_hash`) never see: an import target is a *source* dependency,
-/// not an emit-owned projection, so it is fingerprinted for drift yet never reaped.
+/// One prose source dependency the lock fingerprints — a layout region's `import` or a
+/// composed-prose `include`, resolved and hashed at emit ([`resolve_source_dependency`]).
+/// It rides the lock under its family's own `[[declaration.<family>]]` array, which the
+/// reap/freshness readers (keyed on `name`/`emit_hash`) never see: a referenced target is
+/// a *source* dependency, not an emit-owned projection, so it is fingerprinted for drift
+/// yet never reaped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayoutImportRow {
-    /// The importing layout member's own `kind:name` address.
+    /// The referencing member's own `kind:name` address.
     pub member: String,
-    /// The resolved target member's `kind:name` address, or empty when the import
+    /// The resolved target member's `kind:name` address, or empty when the reference
     /// resolves to a plain repository file that is not a member (a content dependency
     /// with no member edge).
     pub target: String,
-    /// The import target's on-disk path, lock-normalized — the byte source the
-    /// fingerprint hashes and drift re-hashes.
+    /// The target's on-disk path, lock-normalized — the byte source the fingerprint
+    /// hashes and drift re-hashes.
     pub source_path: String,
     /// The SHA-256 of the target's bytes at emit — a moved target re-hashes differently
     /// and surfaces as drift.
     pub import_hash: String,
 }
 
-/// Write the layout-import family into a lock document's `[declaration]` table as
-/// `[[declaration.layout_import]]` — one table per resolved import, in emit order. Called
+/// The lock family key layout imports fingerprint under.
+const LAYOUT_IMPORT_FAMILY: &str = "layout_import";
+/// The lock family key composed-prose includes fingerprint under.
+const INCLUDE_FAMILY: &str = "include";
+
+/// Write a source-dependency `family` into a lock document's `[declaration]` table as
+/// `[[declaration.<family>]]` — one table per resolved reference, in emit order. Called
 /// after [`Declarations::write_into`] so the `[declaration]` table already exists for a
-/// program with any declaration at all; the table is created when absent so an
-/// import-only lock still round-trips. An empty set writes nothing (an empty
+/// program with any declaration at all; the table is created when absent so a
+/// dependency-only lock still round-trips. An empty set writes nothing (an empty
 /// `ArrayOfTables` vanishes on the round-trip, the same discipline every declaration
 /// family keeps).
-pub(crate) fn write_layout_imports(doc: &mut DocumentMut, rows: &[LayoutImportRow]) {
+pub(crate) fn write_source_deps(doc: &mut DocumentMut, family: &str, rows: &[LayoutImportRow]) {
     if rows.is_empty() {
         return;
     }
@@ -1248,17 +1369,16 @@ pub(crate) fn write_layout_imports(doc: &mut DocumentMut, rows: &[LayoutImportRo
         entry["import_hash"] = value(row.import_hash.clone());
         array.push(entry);
     }
-    table.insert("layout_import", Item::ArrayOfTables(array));
+    table.insert(family, Item::ArrayOfTables(array));
 }
 
-/// Every layout-import row a lock at `workspace_dir` carries — the fingerprinted content
-/// dependencies emit wrote, read back for the drift comparison and the import-edge lift.
-/// A missing or malformed lock, or one with no `[declaration.layout_import]` family, yields
-/// none — the same tolerant absence [`config_stale`]/[`read_declarations`] take. A row
-/// missing a required column degrades to absent, the hand-editable-lock tolerance the rest
-/// of the readers share.
-#[must_use]
-pub fn layout_imports(workspace_dir: &Path) -> Vec<LayoutImportRow> {
+/// Every source-dependency row a lock at `workspace_dir` carries under `family` — the
+/// fingerprinted content dependencies emit wrote, read back for the drift comparison and
+/// the reference-edge lift. A missing or malformed lock, or one with no
+/// `[declaration.<family>]` array, yields none — the same tolerant absence
+/// [`config_stale`]/[`read_declarations`] take. A row missing a required column degrades
+/// to absent, the hand-editable-lock tolerance the rest of the readers share.
+fn source_deps(workspace_dir: &Path, family: &str) -> Vec<LayoutImportRow> {
     let path = workspace_dir.join("lock.toml");
     let Ok(text) = fs::read_to_string(&path) else {
         return Vec::new();
@@ -1269,10 +1389,7 @@ pub fn layout_imports(workspace_dir: &Path) -> Vec<LayoutImportRow> {
     let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
         return Vec::new();
     };
-    let Some(array) = table
-        .get("layout_import")
-        .and_then(Item::as_array_of_tables)
-    else {
+    let Some(array) = table.get(family).and_then(Item::as_array_of_tables) else {
         return Vec::new();
     };
     array
@@ -1299,36 +1416,80 @@ pub fn layout_imports(workspace_dir: &Path) -> Vec<LayoutImportRow> {
         .collect()
 }
 
-/// The drift findings for a workspace's layout imports: a fingerprinted import target
-/// whose bytes no longer match the lock's `import_hash` — the target moved and `emit` has
-/// not re-run — or one no longer readable, the dependency gone. One `warn` finding per
-/// drifted import, the same advisory posture [`config_stale`] takes over a committed
-/// projection: the drift is surfaced, never a hard gate the author did not declare.
+/// Every layout-import row a lock at `workspace_dir` carries — the layout sources'
+/// fingerprinted content dependencies, for the drift comparison and the import-edge lift.
 #[must_use]
-pub fn layout_import_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+pub fn layout_imports(workspace_dir: &Path) -> Vec<LayoutImportRow> {
+    source_deps(workspace_dir, LAYOUT_IMPORT_FAMILY)
+}
+
+/// Every composed-prose include row a lock at `workspace_dir` carries — the include
+/// targets' fingerprinted content dependencies, for the drift comparison and the
+/// include-edge lift (folded into the same `import`-locus edge set as a layout import).
+#[must_use]
+pub fn includes(workspace_dir: &Path) -> Vec<LayoutImportRow> {
+    source_deps(workspace_dir, INCLUDE_FAMILY)
+}
+
+/// The drift findings for a workspace's source dependencies under `family`: a
+/// fingerprinted target whose bytes no longer match the lock's `import_hash` — the target
+/// moved and `emit` has not re-run — or one no longer readable, the dependency gone. One
+/// `warn` finding per drifted dependency (under `rule`, its target described as a
+/// `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
+/// the drift is surfaced, never a hard gate the author did not declare.
+fn source_dep_stale(
+    workspace_dir: &Path,
+    family: &str,
+    rule: &str,
+    noun: &str,
+) -> Vec<crate::check::Diagnostic> {
     let mut findings = Vec::new();
-    for row in layout_imports(workspace_dir) {
+    for row in source_deps(workspace_dir, family) {
         match fs::read(&row.source_path) {
             Ok(bytes) if sha256_hex(&bytes) == row.import_hash => {}
             Ok(_) => findings.push(crate::check::Diagnostic::warn(
-                LAYOUT_IMPORT_STALE_RULE,
+                rule,
                 &row.source_path,
                 format!(
-                    "layout import target `{}` (imported by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; re-emit to reconcile",
+                    "{noun} target `{}` (referenced by `{}`) no longer matches the lock's fingerprint — the target changed and `emit` has not run; re-emit to reconcile",
                     row.source_path, row.member
                 ),
             )),
             Err(_) => findings.push(crate::check::Diagnostic::warn(
-                LAYOUT_IMPORT_STALE_RULE,
+                rule,
                 &row.source_path,
                 format!(
-                    "layout import target `{}` (imported by `{}`) is no longer readable — the fingerprinted dependency moved or was removed; re-emit to reconcile",
+                    "{noun} target `{}` (referenced by `{}`) is no longer readable — the fingerprinted dependency moved or was removed; re-emit to reconcile",
                     row.source_path, row.member
                 ),
             )),
         }
     }
     findings
+}
+
+/// The drift findings for a workspace's layout imports — a moved or unreadable import
+/// target, surfaced as a `warn` under `layout.import-stale`.
+#[must_use]
+pub fn layout_import_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+    source_dep_stale(
+        workspace_dir,
+        LAYOUT_IMPORT_FAMILY,
+        "layout.import-stale",
+        "layout import",
+    )
+}
+
+/// The drift findings for a workspace's composed-prose includes — a moved or unreadable
+/// include target, surfaced as a `warn` under `prose.include-stale`.
+#[must_use]
+pub fn include_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+    source_dep_stale(
+        workspace_dir,
+        INCLUDE_FAMILY,
+        "prose.include-stale",
+        "prose include",
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -1424,6 +1585,12 @@ pub struct Declarations {
     /// mentions, so the reference graph carries them alongside every other declared
     /// edge locus.
     pub mentions: Vec<MentionRow>,
+    /// The composed-prose includes — a seam-inbound family only: `emit` resolves each
+    /// against disk, splices the target's bytes into the host's projection, and lowers
+    /// it to a fingerprinted `include` source dependency (never written back into this
+    /// declaration table, so a lock round-trip reads it empty).
+    #[serde(default)]
+    pub includes: Vec<IncludeRow>,
     /// The host members' declared embedded-member facts — captured as declaration
     /// rows rather than a second copy the engine reads back off the rendered fence
     /// (0018, "the projection is not the database").
@@ -1685,6 +1852,20 @@ pub struct MentionRow {
     pub target: String,
 }
 
+/// One composed-prose include the SDK declares — the host member's own `kind:name`
+/// address and the include target's path, resolved by the SDK against the stating
+/// module (never the workspace) to an absolute path. A seam-inbound row only: `emit`
+/// resolves it against disk ([`resolve_source_dependency`]), splices the target's bytes
+/// into the host projection at the body's include slot, and lowers it to a fingerprinted
+/// `include` source dependency — this row itself never reaches the lock.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct IncludeRow {
+    /// The host member's own `kind:name` address.
+    pub member: String,
+    /// The include target's SDK-resolved absolute path.
+    pub source_path: String,
+}
+
 /// One host member's declared embedded-member value's declaration row — its
 /// identity (the host's own `kind:name` address, the embedded child kind, and its
 /// key) plus its leaves and sibling collections: the same composed value
@@ -1916,6 +2097,10 @@ fn declarations_from_doc(doc: &DocumentMut) -> Declarations {
         assembly: family(table, "assembly", AssemblyFactRow::from_table),
         satisfies: family(table, "satisfies", SatisfiesRow::from_table),
         mentions: family(table, "mention", MentionRow::from_table),
+        // Includes are seam-inbound only — lowered to the fingerprinted `include` source
+        // dependency at emit, never written into this declaration table, so a lock
+        // round-trip reads none.
+        includes: Vec::new(),
         nested_members: family(table, "nested_member", NestedMemberRow::from_table),
     }
 }

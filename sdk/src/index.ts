@@ -13,9 +13,9 @@
  * `memory` kinds — lives at the `./claude-code` subpath, never here.
  */
 
-// Prose — three constructors, one field type.
-export type { Blocks, File, Mention, Mentionable, Prose, Text } from "./prose.js";
-export { blocks, file, renderText, text } from "./prose.js";
+// Prose — three constructors, one field type; references (mention · include) ride `text`.
+export type { Blocks, File, Include, Mention, Mentionable, Prose, Reference, Text } from "./prose.js";
+export { blocks, file, include, renderText, text } from "./prose.js";
 
 // Needs — the derived permission union's source.
 export type { Capability } from "./needs.js";

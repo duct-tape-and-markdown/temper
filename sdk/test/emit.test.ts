@@ -25,9 +25,11 @@ import {
   file,
   forbiddenKeys,
   harness,
+  include,
   kind,
   maxLen,
   maxLines,
+  renderText,
   required,
   text,
 } from "../src/index.js";
@@ -139,7 +141,7 @@ See ${{ address: "dev-standards", display: "dev standards" }}.`,
  });
 }
 
-test("compileDeclarations produces all seven families, satisfies and mentions included", () => {
+test("compileDeclarations produces all eight families, satisfies and mentions included", () => {
   const declarations = compileDeclarations(fullHarness());
 
   assert.deepEqual(declarations.kinds, [
@@ -200,6 +202,8 @@ test("compileDeclarations produces all seven families, satisfies and mentions in
   assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
   assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
   assert.deepEqual(declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
+  // No member declares a composed-prose include in this harness.
+  assert.deepEqual(declarations.includes, []);
   // No member declares a blocks()-composed embedded member in this harness.
   assert.deepEqual(declarations.nested_members, []);
 });
@@ -273,6 +277,26 @@ test("a member with no satisfies claim contributes no row", () => {
 test("a member with no mentions in its prose contributes no mention row", () => {
   const h = harness({ members: [rule({ name: "rust", prose: text`# Rust` })] });
   assert.deepEqual(compileDeclarations(h).mentions, []);
+});
+
+test("a composed-prose include contributes an include row with the module-resolved target path", () => {
+  const moduleUrl = pathToFileURL("/repo/.temper/rules/rust.ts").href;
+  const h = harness({
+    members: [
+      rule({ name: "rust", prose: text`Intro.\n${include(moduleUrl, "./fragment.md")}\nOutro.` }),
+    ],
+  });
+  assert.deepEqual(compileDeclarations(h).includes, [
+    { member: "rule:rust", source_path: "/repo/.temper/rules/fragment.md" },
+  ]);
+});
+
+test("an include leaves its slot in the rendered body for the engine to splice, mentions still resolving", () => {
+  const prose = text`Intro. ${{ address: "rule:a", display: "a" }} ${include("file:///m.ts", "./f.md")} tail.`;
+  // The mention becomes its display; the include stays a U+0001 slot the engine fills.
+  assert.equal(renderText(prose), "Intro. a " + "\u0001" + " tail.");
+  assert.equal(prose.includes.length, 1);
+  assert.equal(prose.mentions.length, 1);
 });
 
 test("mention rows are member-then-target sorted regardless of authoring order", () => {

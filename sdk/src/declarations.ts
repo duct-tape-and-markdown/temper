@@ -9,6 +9,8 @@
  * in lockstep.
  */
 
+import { fileURLToPath } from "node:url";
+
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
 import type { Clause, Predicate, Requirement } from "./contract.js";
@@ -19,6 +21,7 @@ import type {
   ClauseRow,
   CollectionEntryWire,
   Declarations,
+  IncludeRow,
   KindFactRow,
   LayoutRegionRow,
   LayoutRow,
@@ -346,6 +349,28 @@ function embeddedLeafMentionRows(hostName: string, value: EmbeddedMemberValue): 
 }
 
 /**
+ * The `include` rows — every member's `text`-body includes, in member-then-authored
+ * order. Each carries the host member's `kind:name` address and the include target's
+ * path resolved against the stating module ({@link fileURLToPath} over the include's own
+ * `moduleUrl`), never the workspace — the engine reads, splices, and fingerprints it.
+ * Member order stays authored (never target-sorted): the body's include slots ride the
+ * same order, so the engine pairs the k-th slot with the k-th row. Only member-level
+ * `text` prose carries includes (a `file()`/`blocks()` body names none; an embedded leaf
+ * is refused at {@link resolveLeaf}).
+ */
+function includeRows(harness: Harness): IncludeRow[] {
+  const rows: IncludeRow[] = [];
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "text") continue;
+    const address = `${member.kind}:${member.name}`;
+    for (const include of member.prose.includes) {
+      rows.push({ member: address, source_path: fileURLToPath(new URL(include.path, include.moduleUrl)) });
+    }
+  }
+  return rows;
+}
+
+/**
  * One host member's declared embedded-member value as its declaration row —
  * each `Text`-authored leaf resolved to its final stored string
  * ([`NestedMemberRow`]), mention-resolution-checked against `mentionable` the
@@ -431,6 +456,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     assembly: assemblyFactRows(harness, kinds),
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
+    includes: includeRows(harness),
     nested_members: nestedMemberRows(harness, declaredAddresses(harness)),
   };
 }
