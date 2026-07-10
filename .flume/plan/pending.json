@@ -1,44 +1,5 @@
 [
   {
-    "tag": "LAYOUT-RELATIONSHIP-EDGES",
-    "summary": "A layout host's declared-relationship edge slot's entries reach the one resolved edge enumeration — resolved like a file member's frontmatter reference, never silently dropped",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`layout_unit` (main.rs:818) drops `LayoutReading::edges`: the Unit carries only `reading.fields`, and `edge_field_slots()` (kind.rs:609) excluded the slot from frontmatter, so the declared-edge check (`graph::check`, wired at main.rs:692 over unit features) never sees a layout host's relationship entries — they silently vanish. Fold the parsed entries onto the unit in the shape the check already consumes — a file member's frontmatter list reference is the precedent; the exact shape is code's call (depth rule)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Emit's layout read passes only the framework `satisfies` set (drift.rs:704, `BTreeSet::from([SATISFIES_EDGE_FIELD])`) where check passes the full `edge_field_slots()` union — one document read under two edge-slot sets. Unify on the union so a relationship slot never parses as a verbatim field on one path and as addresses on the other."
-        },
-        {
-          "path": "tests/layout_edge_slot.rs",
-          "description": "Extend the shipped edge-slot suite (one home, engineering.md): a declared-relationship edge slot's entries resolve as the host's edges, visible to the gate and read verbs; a dangling entry is a finding, never a silent drop. Same pass: adopt tests/common's shared `scaffold` (shipped at 5d0ea5b), retiring this file's local copy (layout_edge_slot.rs:61) — the third of the three copies TEST-SCAFFOLD-ONE-HOME consolidated."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layout_edge_slot.rs",
-        "asserts": "a layout kind declaring an edge field gets that slot's entries into the resolved edge enumeration (gate + read verbs); a dangling entry is a finding; the span never lands as a verbatim frontmatter field"
-      }
-    ],
-    "acceptance": "A layout kind that declares an edge field (SDK-expressible today: `edgeFields` kind.ts:102 beside `content: Layout` kind.ts:105) resolves that slot's entries into the same enumeration the gate and read verbs share; a dangling entry is a finding, never a silent drop; all gates green.",
-    "notes": "Scoped at ced4f94; opened at eab6979 — blocker PREDICATE-CONSTRUCTORS shipped (c8b78c5), gap + anchors re-verified on disk after its drift.rs/main.rs churn. Inbox 37e4834 routed here — same gap, real customer (a counterpart corpus's Depends-on sections). Rejected alternative: member-authored edge-row lock family — read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows are for composed-prose only. Reader general (kind.rs:162/386)."
-  },
-  {
     "tag": "EMBEDDED-EDGE-TARGETS",
     "summary": "An edge field targeting an embedded-locus kind resolves against that kind's nested members — embedded kinds join the by_kind target set instead of presenting as unmodeled",
     "per": {
