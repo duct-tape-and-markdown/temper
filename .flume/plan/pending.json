@@ -7,8 +7,7 @@
       "section": "The SDK"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LAYOUT-EDGE-SLOT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,15 +20,15 @@
       "edit": [
         {
           "path": "sdk/src/prose.ts",
-          "description": "The include declaration on composed prose — an intent apart from the mention: it moves content (pipeline.md, The SDK). Spelling is code's call (depth rule); the mention interpolation (the `MENTION_SLOT` sentinel in this file) is the precedent. The path resolves relative to the stating module, never the workspace."
+          "description": "The include declaration on composed prose — an intent apart from the mention: it moves content (pipeline.md, The SDK). Spelling is code's call (depth rule); the mention interpolation (the `MENTION_SLOT` sentinel, prose.ts:31) is the precedent. NB the sentinel is a literal NUL, so grep treats this file as binary — use `grep -a`. The path resolves relative to the stating module, never the workspace."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "A new include row family beside `mentionRows` (declarations.ts:299), carried across the seam in `Declarations` (mirror: `mentions`, src/drift.rs:1393) — a new `IncludeRow` ts-rs binding lands under sdk/src/generated/."
+          "description": "A new include row family beside `mentionRows` (declarations.ts:299), carried across the seam in `Declarations` (mirror: `mentions`, src/drift.rs:1426) — a new `IncludeRow` ts-rs binding lands under sdk/src/generated/."
         },
         {
           "path": "src/drift.rs",
-          "description": "Engine-side resolve + fingerprint + pull-into-emitted-bytes. The resolution unifies with `resolve_layout_import` (drift.rs:655) — the consolidation LAYOUT-PROSE-IMPORT's notes sanctioned and d27a624 deferred for want of this second consumer; the fingerprint takes the same never-reaped source-dependency posture as `LayoutImportRow`."
+          "description": "Engine-side resolve + fingerprint + pull-into-emitted-bytes. The resolution unifies with `resolve_layout_import` (drift.rs:688) — the consolidation LAYOUT-PROSE-IMPORT's notes sanctioned and d27a624 deferred for want of this second consumer; the fingerprint takes the same never-reaped source-dependency posture as `LayoutImportRow`."
         },
         {
           "path": "src/graph.rs",
@@ -37,7 +36,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "The include edges fold into the same resolved reference set at the existing mention/import merge point (main.rs:1189)."
+          "description": "The include edges fold into the same resolved reference set at the existing mention/import merge sites (main.rs:451/566, helpers at 1174/1191)."
         },
         {
           "path": "tests/seam_bindings_current.rs",
@@ -54,7 +53,7 @@
       }
     ],
     "acceptance": "A composed-prose include pulls its target's contents into the host's emitted bytes, fingerprinted in the committed lock and visible as a declared edge to the gate and read verbs; a dangling include refuses loudly before any byte is written; the resolver is one surface shared with the layout import; all gates green.",
-    "notes": "Scoped at 961c9c2 (residue sweep): pipeline.md 'The SDK' has carried the include since e842a32 (0001/0002) with no entry ever operationalizing it; d27a624's body confirms no engine surface exists. The resolve_layout_import unification is the entry's named consolidation, not creep (engineering.md). Blocked behind LAYOUT-EDGE-SLOT: shared src/drift.rs, src/graph.rs."
+    "notes": "Scoped at 961c9c2 (residue sweep): pipeline.md 'The SDK' has carried the include since e842a32 (0001/0002) with no entry ever operationalizing it; d27a624's body confirms no engine surface exists. The resolve_layout_import unification is the entry's named consolidation, not creep (engineering.md). Unblocked at e30e5a6 ship audit — LAYOUT-EDGE-SLOT shipped (670d54e); all cited anchors re-verified on disk and line-pinned to that HEAD."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -65,7 +64,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 7676c2b (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at e30e5a6 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
