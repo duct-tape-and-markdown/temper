@@ -2,22 +2,22 @@
 
 - Spec derived through: a0fccaf
 - Audited through: 008a995
-- Residue swept through: 503de24
-- This tick: Ship audit — EMBEDDED-EDGE-TARGETS verified on disk (ca1e413:
-  `assemble_by_kind` main.rs:1008 takes the embedded corpus,
-  `embedded_features_by_kind` main.rs:1045, `embedded_member_features`
-  main.rs:1080; tests/graph.rs `embedded_edge_targets` module covers
-  resolve-by-identity, dangling→route finding, unmodeled→admissibility
-  finding). BUILTIN-CONTRACT-ARRAY-SURGERY unblocked (blockedBy was
-  file-serialization only) and re-anchored (gate 590→591; 292/299,
-  compose.rs:110/108, contract.rs:6, schema.rs:6, acceptance.rs:36 hold).
-  LOCK-ROW-REJECT-LOUD re-anchored (edge read main.rs:1184→1269
-  `edges_from_declarations`; layout_edge_fields filter_map at drift.rs:694;
-  drift.rs/kind.rs otherwise untouched). PACKAGING-CHANNELS parked reason
-  re-verified (no release.yml, root package.json still private flume
-  manifest, SDK 0.0.5).
+- Residue swept through: 9e32fa8
+- This tick: Residue sweep — ca1e413 swept; one gap filed
+  (UNTEMPLATED-NESTED-MEMBER-LOUD, open: no SDK check ties a `blocks()`
+  value's kind to any host's `templates` — `templatesFor` reads only
+  `withinHosts` — so an orphaned nested_member row emits legitimately and
+  `embedded_features_by_kind`'s get_mut silently drops it from the by-kind
+  corpus while the host-address read carries it; emit refusal + admissibility
+  backstop, no file overlap with queued entries). Judged clean: the two
+  NestedMemberRow lifts are two jobs (EmbeddedMember host view vs Features
+  edge-target view), and the get_mut drop's declared-absence semantics are
+  loud at every reference once the new entry's admissibility half lands. One
+  new riding comment debt (graph.rs:491 incident narration, rides the new
+  entry); seven riding debts re-verified on disk, stamps advanced.
 - Queue: BUILTIN-CONTRACT-ARRAY-SURGERY (open); LOCK-ROW-REJECT-LOUD
-  (blockedBy BUILTIN-CONTRACT-ARRAY-SURGERY); PACKAGING-CHANNELS (parked).
+  (blockedBy BUILTIN-CONTRACT-ARRAY-SURGERY); UNTEMPLATED-NESTED-MEMBER-LOUD
+  (open); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep (cursor 503de24 trails HEAD; ca1e413 is
-unswept code).
+Plan continues: yes — quiet pass (all inputs current; close the cycle, hand
+off to build).
