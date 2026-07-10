@@ -124,6 +124,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   re-verified on disk at sweep HEAD 1284cdf (e3982b5 touched only the
   Rust side).
 
+- **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
+  The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
+  interpolation "stays deferred until a floor mention syntax is separately
+  ratified" — 0020 ratified the opposite: a declaration types a position,
+  never a pattern within prose, so no floor mention syntax will ever exist
+  and the plain `String` leaf is the permanent shape, not a middle. Behavior
+  is correct; only the comment names a replacement that will never come.
+  Rides whichever entry next opens `src/extract.rs` (0020's own exit
+  clause), never standalone. Found routing 0020 at HEAD a0fccaf.
+
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
   dir exists) and assigns ts-rs the interchange-TS role the seam bindings

@@ -44,6 +44,59 @@
     "notes": "Scoped at a2279cf (0019); unblocked at e3982b5 — LAYOUT-READER shipped (kind.rs Layout::read; its commit names imports out of scope). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK shape landed in KIND-CONTENT-FACT (LayoutRegionRow import ref); this entry is engine-side resolve + fingerprint + edge."
   },
   {
+    "tag": "LAYOUT-EDGE-SLOT",
+    "summary": "A layout field section the kind marks as an edge field is an edge slot — its entries are addresses, derived to ordinary edge rows by the same emit pass, a dangling entry refused",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LAYOUT-PROSE-IMPORT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/layout_edge_slot.rs",
+          "description": "A layout member whose kind's edge fields name one of its field-section slots (`satisfies` among them) derives that section's entries into ordinary edge rows in the lock's existing declaration families; the edges join the same resolved enumeration the gate and read verbs share; a dangling entry hits the existing dangling-edge refusal, never a new one."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "The layout reading surfaces an edge slot: a field section whose slot the kind's declared relationships (`relationships: Vec<Edge>`, the existing fact-5 edge fields) name reads as address entries, not only the verbatim span `LayoutReading::fields` holds today (Layout::read)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`derive_layout_rows` (drift.rs:553) widens: edge-slot entries lower into the same satisfies/edge declaration-row families the program's erased declarations land in — the emit merge point today extends only the `nested_member` family."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The derived edges join the one resolved enumeration gate, explain, and impact already range over; a dangling satisfies entry resolves through the existing dangling-target refusal (contract.md, edge)."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Existing layout-reading assertions the widened field-section reading may ripple into — update assertions/snapshots as needed."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Existing lock row-family assertions the widened derive pass may ripple into — update assertions/snapshots as needed."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/layout_edge_slot.rs",
+        "asserts": "an edge slot's entries derive to ordinary edge rows in the lock; the gate and read verbs see them in the one enumeration; a dangling entry refuses via the existing machinery"
+      }
+    ],
+    "acceptance": "A field section a layout kind's edge fields mark derives its entries into ordinary edge rows in the committed lock — satisfies among them — visible to the gate and read verbs; a dangling entry refuses through the existing refusal; no new declaration surface added; all gates green.",
+    "notes": "Scoped at a0fccaf (0020, Consequences: the derivation rides the existing kind edge-field fact over layout slots). No SDK schema delta: EdgeField (sdk/src/kind.ts:41) and LayoutRegionRow field slots already exist — the marking is slot-name matching the kind's edge fields. Serialized behind LAYOUT-PROSE-IMPORT (shared drift.rs/graph.rs). Entry grain within the span follows the frontmatter `satisfies` field's list-of-addresses semantics; prose spans stay prose (0020)."
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
