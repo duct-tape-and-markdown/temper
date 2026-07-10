@@ -95,7 +95,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`family()` (drift.rs:2179, filter_map at 2183) and the per-family `from_table` lifts silently drop a present row that fails its lift, narrated as 'the hand-editable-lock tolerance the rest of the readers share' (drift.rs:1401, 2144, 2274, 2593, 2711) — a premise pipeline.md rejects (tool-written whole, never patched) and invariant 6 names a gap, not a license: a dropped satisfies row forges an unfilled-requirement finding, a dropped kind row unmodels members. A present-but-malformed row (wrong-typed column, missing required column, malformed array element) becomes a load error surfaced through `read_declarations`' existing miette::Result (drift.rs:2110); a missing lock, an absent family, or an absent optional column stays legitimate absence. `source_deps` (drift.rs:1402) takes the same discipline; the retired narration goes with the behavior."
+          "description": "`family()` (drift.rs:2179, filter_map at 2183) and the per-family `from_table` lifts silently drop a present row that fails its lift, narrated as 'the hand-editable-lock tolerance the rest of the readers share' (drift.rs:1401, 2144, 2274, 2593, 2711) — a premise pipeline.md rejects (tool-written whole, never patched) and invariant 6 names a gap, not a license: a dropped satisfies row forges an unfilled-requirement finding, a dropped kind row unmodels members. A present-but-malformed row (wrong-typed column, missing required column, malformed array element) becomes a load error surfaced through `read_declarations`' existing miette::Result (drift.rs:2110); a missing lock, an absent family, or an absent optional column stays legitimate absence. `source_deps` (drift.rs:1402) takes the same discipline; the retired narration goes with the behavior. `layout_edge_fields` (drift.rs:690; filter_map at 693, new at fcaf08e) skips a present `fact = \"edge\"` row missing its `field` column the same way — one more site of the class, covered by the load-tier reject or made loud in place."
         },
         {
           "path": "src/kind.rs",
@@ -120,7 +120,7 @@
       }
     ],
     "acceptance": "A committed lock carrying one malformed declaration row fails check/emit/read verbs loud at load, naming the row family — never a silently narrowed verdict; a lockless harness and every legitimately absent family/column behave exactly as today; all gates green.",
-    "notes": "Found+scoped at residue sweep e5a7077; drift.rs/main.rs anchors re-set at ship audit 2f9e277 after fcaf08e's churn. c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite — callers keep their signatures. blockedBy is file-serialization only (shares main.rs/drift.rs with upstream entries), no semantic dependency."
+    "notes": "Found+scoped at residue sweep e5a7077; anchors re-set at ship audit 2f9e277; layout_edge_fields site added at sweep 503de24. c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite — callers keep their signatures. blockedBy is file-serialization only (shares main.rs/drift.rs with upstream entries), no semantic dependency."
   },
   {
     "tag": "PACKAGING-CHANNELS",
