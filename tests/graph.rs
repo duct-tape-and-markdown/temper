@@ -17,9 +17,7 @@ use std::path::Path;
 
 mod common;
 
-use temper::drift::{
-    AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow,
-};
+use temper::drift::{AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow};
 
 /// A floor-clean rule carrying a `routes_to` reference field — the declared edge
 /// the graph reads. `routes_to` is not a floor-forbidden rule key, so the rule
@@ -64,26 +62,14 @@ fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
 /// project. `kind: None` is the kind-blind case.
 fn degree_requirement(kind: Option<&str>, degree: DegreeBoundRow) -> RequirementRow {
     RequirementRow {
-        name: "gate".to_string(),
-        kind: kind.map(str::to_string),
-        required: false,
-        clauses: vec![ClauseRow {
-            kind: None,
-            predicate: "degree".to_string(),
-            field: None,
-            severity: "required".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: Some(degree),
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-        }],
-        verified_by: None,
-        prose: None,
+        clauses: vec![common::required_clause_row(
+            "degree",
+            None,
+            None,
+            None,
+            Some(degree),
+        )],
+        ..common::requirement("gate", false, kind)
     }
 }
 

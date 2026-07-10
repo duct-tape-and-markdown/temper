@@ -33,14 +33,10 @@ const BIN: &str = env!("CARGO_BIN_EXE_temper");
 /// the shape [`tests/nested_member.rs`]'s `decision_kind` declares live.
 fn spec_kind_facts_with_template() -> KindFactRow {
     KindFactRow {
-        name: "spec".to_string(),
-        provider: None,
-        governs_root: "specs".to_string(),
-        governs_glob: "*.md".to_string(),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        registration: Vec::new(),
         templates: vec!["decision".to_string()],
+        ..common::kind_facts("spec", "specs", "*.md")
     }
 }
 
@@ -76,104 +72,46 @@ fn rich_declarations() -> Declarations {
         clauses: vec![
             ClauseRow {
                 kind: Some("skill".to_string()),
-                predicate: "required".to_string(),
                 field: Some("description".to_string()),
-                severity: "required".to_string(),
-                guidance: None,
-                cite: None,
-                count: None,
-                target: None,
-                degree: None,
-                bound: None,
-                charset: None,
-                keys: None,
-                values: None,
+                ..common::clause("required", "required")
             },
             ClauseRow {
                 kind: Some("rule".to_string()),
-                predicate: "required".to_string(),
                 field: Some("paths".to_string()),
-                severity: "advisory".to_string(),
-                guidance: None,
-                cite: None,
-                count: None,
-                target: None,
-                degree: None,
-                bound: None,
-                charset: None,
-                keys: None,
-                values: None,
+                ..common::clause("required", "advisory")
             },
         ],
         requirements: vec![
             RequirementRow {
-                name: "review-coverage".to_string(),
-                kind: Some("skill".to_string()),
                 required: true,
-                clauses: Vec::new(),
-                verified_by: None,
-                prose: None,
+                ..common::requirement("review-coverage", false, Some("skill"))
             },
             RequirementRow {
-                name: "roster-coverage".to_string(),
-                kind: Some("skill".to_string()),
-                required: false,
                 clauses: vec![
+                    common::required_clause_row(
+                        "count",
+                        None,
+                        Some(CountBoundRow { min: 1, max: 2 }),
+                        None,
+                        None,
+                    ),
                     ClauseRow {
-                        kind: None,
-                        predicate: "count".to_string(),
-                        field: None,
-                        severity: "required".to_string(),
-                        guidance: None,
-                        cite: None,
-                        count: Some(CountBoundRow { min: 1, max: 2 }),
-                        target: None,
-                        degree: None,
-                        bound: None,
-                        charset: None,
-                        keys: None,
-                        values: None,
-                    },
-                    ClauseRow {
-                        kind: None,
-                        predicate: "unique".to_string(),
                         field: Some("name".to_string()),
-                        severity: "advisory".to_string(),
-                        guidance: None,
-                        cite: None,
-                        count: None,
-                        target: None,
-                        degree: None,
-                        bound: None,
-                        charset: None,
-                        keys: None,
-                        values: None,
+                        ..common::clause("unique", "advisory")
                     },
-                    ClauseRow {
-                        kind: None,
-                        predicate: "membership".to_string(),
-                        field: Some("name".to_string()),
-                        severity: "required".to_string(),
-                        guidance: None,
-                        cite: None,
-                        count: None,
-                        target: Some("review-coverage".to_string()),
-                        degree: None,
-                        bound: None,
-                        charset: None,
-                        keys: None,
-                        values: None,
-                    },
-                    ClauseRow {
-                        kind: None,
-                        predicate: "degree".to_string(),
-                        field: None,
-                        severity: "required".to_string(),
-                        guidance: None,
-                        cite: None,
-                        count: None,
-                        target: None,
-                        degree: Some(DegreeBoundRow {
+                    common::required_clause_row(
+                        "membership",
+                        Some("name"),
+                        None,
+                        Some("review-coverage"),
+                        None,
+                    ),
+                    common::required_clause_row(
+                        "degree",
+                        None,
+                        None,
+                        None,
+                        Some(DegreeBoundRow {
                             incoming: Some(EdgeBoundRow {
                                 min: Some(1),
                                 max: None,
@@ -183,14 +121,9 @@ fn rich_declarations() -> Declarations {
                                 max: Some(3),
                             }),
                         }),
-                        bound: None,
-                        charset: None,
-                        keys: None,
-                        values: None,
-                    },
+                    ),
                 ],
-                verified_by: None,
-                prose: None,
+                ..common::requirement("roster-coverage", false, Some("skill"))
             },
         ],
         assembly: vec![AssemblyFactRow {
@@ -455,58 +388,22 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "count".to_string(),
-        field: None,
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
         count: Some(CountBoundRow { min: 1, max: 3 }),
-        target: None,
-        degree: None,
-        bound: None,
-        charset: None,
-        keys: None,
-        values: None,
+        ..common::clause("count", "required")
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "unique".to_string(),
         field: Some("name".to_string()),
-        severity: "advisory".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
-        degree: None,
-        bound: None,
-        charset: None,
-        keys: None,
-        values: None,
+        ..common::clause("unique", "advisory")
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "membership".to_string(),
         field: Some("model".to_string()),
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
         target: Some("approved-models".to_string()),
-        degree: None,
-        bound: None,
-        charset: None,
-        keys: None,
-        values: None,
+        ..common::clause("membership", "required")
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "degree".to_string(),
-        field: None,
-        severity: "advisory".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
         degree: Some(DegreeBoundRow {
             incoming: Some(EdgeBoundRow {
                 min: Some(1),
@@ -517,10 +414,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
                 max: Some(3),
             }),
         }),
-        bound: None,
-        charset: None,
-        keys: None,
-        values: None,
+        ..common::clause("degree", "advisory")
     });
 
     let payload = golden_payload(declarations);
@@ -579,54 +473,26 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "max_len".to_string(),
         field: Some("name".to_string()),
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
-        degree: None,
         bound: Some(BoundRow {
             min: None,
             max: Some(64),
         }),
-        charset: None,
-        keys: None,
-        values: None,
+        ..common::clause("max_len", "required")
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "forbidden_keys".to_string(),
-        field: None,
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
-        degree: None,
-        bound: None,
-        charset: None,
         keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
-        values: None,
+        ..common::clause("forbidden_keys", "required")
     });
     declarations.clauses.push(ClauseRow {
         kind: Some("skill".to_string()),
-        predicate: "allowed_chars".to_string(),
         field: Some("name".to_string()),
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
-        degree: None,
-        bound: None,
         charset: Some(CharsetRow {
             ranges: vec!["a-z".to_string(), "0-9".to_string()],
             chars: Some("-".to_string()),
         }),
-        keys: None,
-        values: None,
+        ..common::clause("allowed_chars", "required")
     });
 
     let payload = golden_payload(declarations);
@@ -1029,14 +895,7 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
     common::write_lock(
         &root,
         Declarations {
-            requirements: vec![RequirementRow {
-                name: "gate".to_string(),
-                kind: Some("skill".to_string()),
-                required: false,
-                clauses: Vec::new(),
-                verified_by: None,
-                prose: None,
-            }],
+            requirements: vec![common::requirement("gate", false, Some("skill"))],
             ..Declarations::default()
         },
     );
@@ -1308,32 +1167,20 @@ fn explain_in(root: &Path, target: &str) -> String {
 /// `degree` clause bounding incoming edges to at least one.
 fn incoming_degree_requirement() -> RequirementRow {
     RequirementRow {
-        name: "gate".to_string(),
-        kind: Some("rule".to_string()),
-        required: false,
-        clauses: vec![ClauseRow {
-            kind: None,
-            predicate: "degree".to_string(),
-            field: None,
-            severity: "required".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: Some(DegreeBoundRow {
+        clauses: vec![common::required_clause_row(
+            "degree",
+            None,
+            None,
+            None,
+            Some(DegreeBoundRow {
                 incoming: Some(EdgeBoundRow {
                     min: Some(1),
                     max: None,
                 }),
                 outgoing: None,
             }),
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-        }],
-        verified_by: None,
-        prose: None,
+        )],
+        ..common::requirement("gate", false, Some("rule"))
     }
 }
 

@@ -211,14 +211,8 @@ fn a_body_fence_naming_a_declared_child_kind_is_never_re_read_for_facts() {
 /// are actually resolved.
 fn decision_kind_fact_row() -> KindFactRow {
     KindFactRow {
-        name: "decision".to_string(),
-        provider: None,
-        governs_root: "docs/decisions".to_string(),
-        governs_glob: "*.md".to_string(),
-        format: None,
-        unit_shape: None,
-        registration: Vec::new(),
         templates: vec!["decision".to_string()],
+        ..common::kind_facts("decision", "docs/decisions", "*.md")
     }
 }
 

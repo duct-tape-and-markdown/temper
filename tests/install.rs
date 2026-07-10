@@ -12,8 +12,8 @@
 //!   typed property and prose moves module-side (inline or a module-adjacent
 //!   file, never a `file()` back-reference to the original `.claude/` path),
 //!   plus `harness.ts`, and the first real `emit` (over the built SDK, `node` and
-//!   all) regenerates every governed artifact as a canonical projection and
-//!   produces a lock;
+//!   all) regenerates every composed kind's artifact as a canonical projection
+//!   and produces a lock;
 //! - **no own-path** — every scaffolded member is emit-owned from its first
 //!   emit, so the guard/managed-by note claim it immediately — never an
 //!   own-path passthrough;
@@ -379,7 +379,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     assert!(!temper_dir.join("skills").join("coordinate.md").exists());
     assert!(!temper_dir.join("rules").join("rust.md").exists());
 
-    // The first emit regenerates every governed artifact as a canonical
+    // The first emit regenerates every composed kind's artifact as a canonical
     // projection — never an own-path passthrough. `collaboration` carries no
     // frontmatter fields at all, so its canonical projection is its
     // byte-faithful body alone, already matching its hand-authored source;
@@ -971,26 +971,8 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
 
 fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
     vec![
-        temper::drift::KindFactRow {
-            name: "rule".to_string(),
-            provider: None,
-            governs_root: ".claude/rules".to_string(),
-            governs_glob: "*.md".to_string(),
-            format: Some("yaml-frontmatter".to_string()),
-            unit_shape: Some("file".to_string()),
-            registration: Vec::new(),
-            templates: Vec::new(),
-        },
-        temper::drift::KindFactRow {
-            name: "skill".to_string(),
-            provider: None,
-            governs_root: ".claude/skills".to_string(),
-            governs_glob: "*/SKILL.md".to_string(),
-            format: Some("yaml-frontmatter".to_string()),
-            unit_shape: Some("directory".to_string()),
-            registration: Vec::new(),
-            templates: Vec::new(),
-        },
+        common::rule_kind_facts(None, &[]),
+        common::skill_kind_facts(None, &[]),
     ]
 }
 

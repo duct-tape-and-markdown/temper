@@ -29,7 +29,7 @@ use std::process::Command;
 mod common;
 
 use temper::drift::{
-    self, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, Payload,
+    self, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, Payload,
     RequirementRow, SatisfiesRow,
 };
 
@@ -53,33 +53,6 @@ fn check_harness_in(root: &Path) -> common::CheckRun {
     common::CheckRun {
         ok: out.status.success(),
         output,
-    }
-}
-
-/// A required-severity `ClauseRow` wrapping one set-scope predicate — the shape
-/// every case below nests on a `RequirementRow`'s `clauses`. `kind` is `None`: a
-/// nested requirement clause names no kind of its own.
-fn required_clause_row(
-    predicate: &str,
-    field: Option<&str>,
-    count: Option<temper::drift::CountBoundRow>,
-    target: Option<&str>,
-    degree: Option<temper::drift::DegreeBoundRow>,
-) -> ClauseRow {
-    ClauseRow {
-        kind: None,
-        predicate: predicate.to_string(),
-        field: field.map(str::to_string),
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
-        count,
-        target: target.map(str::to_string),
-        degree,
-        bound: None,
-        charset: None,
-        keys: None,
-        values: None,
     }
 }
 
@@ -158,18 +131,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
         &root,
         vec![ClauseRow {
             kind: Some("skill".to_string()),
-            predicate: "forbidden_keys".to_string(),
-            field: None,
-            severity: "advisory".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
+            ..common::clause("forbidden_keys", "advisory")
         }],
     );
     let lock_override = common::check_in(&root, &[], None);
@@ -187,7 +149,7 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
 /// (`count` is its general form). The satisfiers are the skills opting into `agents`.
 fn count_band_requirement(min: usize, max: usize) -> RequirementRow {
     RequirementRow {
-        clauses: vec![required_clause_row(
+        clauses: vec![common::required_clause_row(
             "count",
             None,
             Some(temper::drift::CountBoundRow { min, max }),
@@ -377,7 +339,7 @@ fn a_unique_field_fires_when_two_satisfiers_share_a_value() {
     common::write_requirements(
         &root,
         vec![RequirementRow {
-            clauses: vec![required_clause_row(
+            clauses: vec![common::required_clause_row(
                 "unique",
                 Some("model"),
                 None,
@@ -504,7 +466,7 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
 fn membership_requirements() -> Vec<RequirementRow> {
     vec![
         RequirementRow {
-            clauses: vec![required_clause_row(
+            clauses: vec![common::required_clause_row(
                 "membership",
                 Some("model"),
                 None,
@@ -718,16 +680,7 @@ fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_f
     common::write_lock(
         &root,
         Declarations {
-            kinds: vec![KindFactRow {
-                name: "policy".to_string(),
-                provider: None,
-                governs_root: "policies".to_string(),
-                governs_glob: "*.md".to_string(),
-                format: None,
-                unit_shape: None,
-                registration: Vec::new(),
-                templates: Vec::new(),
-            }],
+            kinds: vec![common::kind_facts("policy", "policies", "*.md")],
             requirements: vec![RequirementRow {
                 required: true,
                 ..common::requirement("governance", false, Some("policy"))
@@ -842,7 +795,7 @@ fn a_memory_narrowed_degree_bound_fires_over_a_memory_satisfier() {
         &root,
         Declarations {
             requirements: vec![RequirementRow {
-                clauses: vec![required_clause_row(
+                clauses: vec![common::required_clause_row(
                     "degree",
                     None,
                     None,

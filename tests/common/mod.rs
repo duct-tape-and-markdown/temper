@@ -16,8 +16,8 @@ use std::process::Command;
 use std::sync::Once;
 
 use temper::drift::{
-    self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember, RequirementRow,
-    SatisfiesRow,
+    self, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EmitOptions, KindFactRow,
+    Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
 use temper::frontmatter::Member;
 use temper::kind::Unit;
@@ -372,6 +372,24 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
     }
 }
 
+/// A [`KindFactRow`] naming `name` over its `governs_root`/`governs_glob` locus,
+/// every optional fact at its default (no provider/format/unit_shape, empty
+/// registration/templates) — the general default-filling home beside the per-kind
+/// [`skill_kind_facts`]/[`rule_kind_facts`]. Call sites override the facts a kind
+/// declares via struct-update.
+pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFactRow {
+    KindFactRow {
+        name: name.to_string(),
+        provider: None,
+        governs_root: governs_root.to_string(),
+        governs_glob: governs_glob.to_string(),
+        format: None,
+        unit_shape: None,
+        registration: Vec::new(),
+        templates: Vec::new(),
+    }
+}
+
 /// The findings whose rule (the `title=<rule>` property) equals `rule` — the
 /// GitHub reporter's per-finding lines this suite's cases scrape for a count.
 pub fn findings_for<'a>(findings: &'a [String], rule: &str) -> Vec<&'a String> {
@@ -398,5 +416,47 @@ pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> Requiremen
         clauses: Vec::new(),
         verified_by: None,
         prose: None,
+    }
+}
+
+/// A [`ClauseRow`] naming `predicate` at `severity`, every other column at its
+/// default (`kind: None`, no field, no predicate argument) — the one default-filling
+/// home for the family. Call sites override the columns they diverge on via
+/// struct-update: a kind-carrying floor clause sets `kind`, a predicate with an
+/// argument sets its own column (`count`/`bound`/`charset`/…).
+pub fn clause(predicate: &str, severity: &str) -> ClauseRow {
+    ClauseRow {
+        kind: None,
+        predicate: predicate.to_string(),
+        field: None,
+        severity: severity.to_string(),
+        guidance: None,
+        cite: None,
+        count: None,
+        target: None,
+        degree: None,
+        bound: None,
+        charset: None,
+        keys: None,
+        values: None,
+    }
+}
+
+/// A `required`-severity [`ClauseRow`] wrapping one set-/edge-scope predicate — the
+/// shape a [`RequirementRow`]'s own `clauses` nest. `kind` is `None`: a nested
+/// requirement clause names no kind of its own.
+pub fn required_clause_row(
+    predicate: &str,
+    field: Option<&str>,
+    count: Option<CountBoundRow>,
+    target: Option<&str>,
+    degree: Option<DegreeBoundRow>,
+) -> ClauseRow {
+    ClauseRow {
+        field: field.map(str::to_string),
+        count,
+        target: target.map(str::to_string),
+        degree,
+        ..clause(predicate, "required")
     }
 }

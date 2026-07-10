@@ -126,30 +126,14 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
     )]);
     payload.declarations.clauses.push(drift::ClauseRow {
         kind: Some("rule".to_string()),
-        predicate: "required".to_string(),
         field: Some("paths".to_string()),
-        severity: "required".to_string(),
-        guidance: None,
-        cite: None,
-        count: None,
-        target: None,
-        degree: None,
-        bound: None,
-        charset: None,
-        keys: None,
-        values: None,
+        ..common::clause("required", "required")
     });
-    payload
-        .declarations
-        .requirements
-        .push(drift::RequirementRow {
-            name: "dev-standards".to_string(),
-            kind: Some("rule".to_string()),
-            required: true,
-            clauses: Vec::new(),
-            verified_by: None,
-            prose: None,
-        });
+    payload.declarations.requirements.push(common::requirement(
+        "dev-standards",
+        true,
+        Some("rule"),
+    ));
     payload.declarations.assembly.push(drift::AssemblyFactRow {
         fact: "authority".to_string(),
         value: Some("warn".to_string()),

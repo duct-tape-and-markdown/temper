@@ -43,14 +43,8 @@ Keep it correct, clear, well-tested.";
 /// `emit` needs no harness scan to compile a hand-built payload.
 fn memory_kind_facts() -> KindFactRow {
     KindFactRow {
-        name: "memory".to_string(),
-        provider: None,
-        governs_root: ".".to_string(),
-        governs_glob: "CLAUDE.md".to_string(),
-        format: None,
         unit_shape: Some("file".to_string()),
-        registration: Vec::new(),
-        templates: Vec::new(),
+        ..common::kind_facts("memory", ".", "CLAUDE.md")
     }
 }
 

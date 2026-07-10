@@ -56,14 +56,8 @@ fn lock_widget_kind(root: &Path) {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
             kinds: vec![KindFactRow {
-                name: "widget".to_string(),
-                provider: None,
-                governs_root: ".claude".to_string(),
-                governs_glob: "settings.json".to_string(),
-                format: None,
                 unit_shape: Some("file".to_string()),
-                registration: Vec::new(),
-                templates: Vec::new(),
+                ..common::kind_facts("widget", ".claude", "settings.json")
             }],
             ..Declarations::default()
         },

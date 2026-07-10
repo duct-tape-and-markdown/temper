@@ -300,14 +300,8 @@ fn a_kind_name_colliding_with_a_built_in_fires_an_admissibility_diagnostic() {
         &root,
         Declarations {
             kinds: vec![KindFactRow {
-                name: "rule".to_string(),
-                provider: None,
-                governs_root: "policies".to_string(),
-                governs_glob: "*.md".to_string(),
-                format: None,
                 unit_shape: Some("directory".to_string()),
-                registration: Vec::new(),
-                templates: Vec::new(),
+                ..common::kind_facts("rule", "policies", "*.md")
             }],
             ..Declarations::default()
         },
@@ -347,16 +341,7 @@ fn a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic() {
     common::write_lock(
         &root,
         Declarations {
-            kinds: vec![KindFactRow {
-                name: "rule".to_string(),
-                provider: None,
-                governs_root: "custom-locus/rules".to_string(),
-                governs_glob: "*.md".to_string(),
-                format: None,
-                unit_shape: None,
-                registration: Vec::new(),
-                templates: Vec::new(),
-            }],
+            kinds: vec![common::kind_facts("rule", "custom-locus/rules", "*.md")],
             ..Declarations::default()
         },
     );
@@ -387,14 +372,8 @@ fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_d
         &root,
         Declarations {
             kinds: vec![KindFactRow {
-                name: "rule".to_string(),
-                provider: None,
-                governs_root: "custom-locus/rules".to_string(),
-                governs_glob: "*.md".to_string(),
-                format: None,
-                unit_shape: None,
-                registration: Vec::new(),
                 templates: vec!["directive".to_string()],
+                ..common::kind_facts("rule", "custom-locus/rules", "*.md")
             }],
             ..Declarations::default()
         },
