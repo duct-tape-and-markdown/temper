@@ -47,7 +47,6 @@ projection on disk; the JSON pipe is in-flight, not a committed artifact.
 
 - **The permission union is carried as data** — the fold into the settings
   artifact lands with the hook/MCP kinds it folds many-to-one.
-- **Publish name/scope** pending the PACKAGING-CHANNELS ruling; `private: true`.
 
 ## Tests
 
