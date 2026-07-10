@@ -1,52 +1,5 @@
 [
   {
-    "tag": "BUILTIN-CONTRACT-ARRAY-SURGERY",
-    "summary": "A built-in kind with lock-declared clause rows gates on those rows whole — extension by spread fires, array-surgery removal holds; the severity-flip-only layer retires",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "Default contracts"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "The gate (main.rs:591) and `schema` (main.rs:292/299) compose a built-in kind's contract via `compose::effective` — the embedded default with per-clause severity flips only, a layering rule builtins.md rejects ('no layering rules, no precedence table'; 'the built-ins are first-party instances of it, never a privileged form'). The SDK erases an expect binding on a built-in kind to ordinary clause rows (declarations.ts:460; `skillDefaultContract` is exported for the spread, claude-code.ts:8), yet those rows otherwise never gate: an appended clause silently drops, an omitted default clause silently still gates. Compose rows-are-the-contract at both call sites: rows present for the kind lift through the same reject-loud path custom kinds use (`compose::default_contract_from_rows`, c8b78c5); no rows falls back to the embedded default (`builtin_default_contract`, main.rs:50) — adoption rides the kind import (builtins.md). Exact wiring is code's call (depth rule)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "`effective` (compose.rs:110) and its severity-flip unit tests retire with the layer — a symbol retirement in a surviving file. Its doc's 'the same tolerant read the rest of the lock takes over hand-editable state' (compose.rs:108) narrates a premise pipeline.md rejects (the lock is tool-written whole, never patched), and the retirement closes the scope cut c8b78c5's commit body named out loud: an out-of-vocabulary row naming a built-in kind was still inert on this path."
-        },
-        {
-          "path": "src/contract.rs",
-          "description": "Module doc (contract.rs:6) cites `crate::compose::effective` — restate over the surviving composition in the same pass."
-        },
-        {
-          "path": "src/schema.rs",
-          "description": "Module doc (schema.rs:6) cites `crate::compose::effective` — restate over the surviving composition in the same pass."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "`builtin_skill_contract` (acceptance.rs:36) and the diagnostic-set fixtures assume the embedded default gates regardless of declared rows — update to the rows-are-the-contract composition and add the gate-level assertions."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/acceptance.rs",
-        "asserts": "a clause row a built-in kind's expect binding declares gates its members — an appended constructor clause (c8b78c5's range/enumOf tier) fires; a default clause the declared array omits does not gate; a rowless built-in kind still gates on the embedded default; an out-of-vocabulary row naming a built-in kind is a load error, never inert"
-      }
-    ],
-    "acceptance": "An author who spreads a shipped default contract and appends a clause sees that clause fire on the kind's members; a clause the author's array omits no longer gates; a built-in kind with no declared rows gates on the embedded default exactly as today; an out-of-vocabulary row naming a built-in kind rejects loud; all gates green.",
-    "notes": "Found+scoped at residue sweep e5a7077; unblocked at ship audit 008a995 (EMBEDDED-EDGE-TARGETS verified on disk; gate anchor re-set 590→591). Rejected alternative: keep the flip layer and admit rows as extra clauses — still a precedence table builtins.md rejects; rows-or-default is pipeline.md's 'one input shape, two sources; there is no third'."
-  },
-  {
     "tag": "LOCK-ROW-REJECT-LOUD",
     "summary": "A present-but-malformed lock declaration row is a load error in every row family — the tool-written lock admits no degrade-to-absent read; absence stays legitimate",
     "per": {
@@ -89,53 +42,6 @@
     ],
     "acceptance": "A committed lock carrying one malformed declaration row fails check/emit/read verbs loud at load, naming the row family — never a silently narrowed verdict; a lockless harness and every legitimately absent family/column behave exactly as today; all gates green.",
     "notes": "Found+scoped at residue sweep e5a7077; layout_edge_fields site added at sweep 503de24; re-anchored at ship audit 008a995 (main.rs edge read 1184→1269). c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite. blockedBy is file-serialization only (shares src/main.rs with BUILTIN-CONTRACT-ARRAY-SURGERY), no semantic dependency."
-  },
-  {
-    "tag": "UNTEMPLATED-NESTED-MEMBER-LOUD",
-    "summary": "A blocks() value of a kind no host template admits refuses at emit; an orphaned nested_member lock row rejects at admissibility — never a silent drop from the by-kind corpus",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`nestedMemberRows` (declarations.ts:417) lifts every `blocks()`-declared value into its `nested_member` row checking only leaf mention-resolution; nothing ties `value.kind` to a host's declared nesting — `templatesFor` (declarations.ts:175) derives `templates` solely from an embedded kind's `withinHosts`, so a value whose kind's `withinHosts` misses the hosting member's kind reaches the lock as a row no `templates` column admits, and the engine unmodels it without a word. Refuse at compile beside the module's existing refusals (`kindFactRow`'s throw, declarations.ts:213): a `blocks()` value's kind must be an in-play embedded kind whose `withinHosts` names the hosting member's kind — nesting is the host template's declaration (representation.md, 'nesting'), so an unadmitted nested member is an unresolved input emit never writes over. Exact seam (declarations vs emit.ts's render path — one refusal, wherever both paths share it) is code's call (depth rule)."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`admissibility` rejects an edge targeting an unmodeled kind (graph.rs:178) but never a committed lock whose `nested_member` row's kind no kind row's `templates` or layout member-collection `member_kind` declares — the same malformed-lock class as two rows wearing one label (pipeline.md, 'The lock'). Reject the orphaned row at admissibility, naming the kind and the host; `embedded_features_by_kind`'s silent `get_mut` drop (main.rs:1067) then guards an unreachable state instead of swallowing a live one, and the host-address read (`extract::nested_members_from_rows`, which carries the orphan today) can no longer disagree with the by-kind corpus over one committed lock."
-        },
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "The emit refusal case: a harness attaching a `blocks()` value of a kind whose `withinHosts` does not name the hosting member's kind throws at compile, naming the value and its host; a host-admitted value compiles exactly as today."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Beside ca1e413's `embedded_edge_targets` module: a hand-authored lock carrying a `nested_member` row whose kind no host declares fails at admissibility naming the kind; the three shipped cases (resolve-by-identity, dangling→route, unmodeled→admissibility) stay green. The module doc's 'the cases mirror the field report's repro' (graph.rs:491) is era narration — cut on contact (the comment exit clause)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/refusals.test.ts",
-        "asserts": "a blocks() value of a kind whose withinHosts does not name the hosting member's kind refuses at compile naming value and host; a host-admitted value compiles unchanged"
-      },
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a committed lock carrying a nested_member row whose kind no kind row's templates or member-collection declares fails check at admissibility naming the kind; every host-admitted embedded member models exactly as today"
-      }
-    ],
-    "acceptance": "An SDK program attaching a blocks() value its host's kind never templates refuses at emit before a byte is written; a committed lock carrying an orphaned nested_member row fails check loud at admissibility; every host-admitted embedded member and ca1e413's three edge-target cases behave exactly as today; cargo and SDK gates green.",
-    "notes": "Found+scoped at residue sweep 9e32fa8: ca1e413's by-kind fold made the orphan consequential — main.rs:1067 drops it silently while the host-address read still carries it. Verified: only templatesFor reads withinHosts; graph::admissibility checks edge targets only. Distinct from LOCK-ROW-REJECT-LOUD (per-row malformation at the from_table tier); this is cross-family coherence at admissibility. No file overlap with queued entries, so it stays open beside them."
   },
   {
     "tag": "PACKAGING-CHANNELS",
