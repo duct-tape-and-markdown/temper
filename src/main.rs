@@ -56,13 +56,25 @@ fn builtin_default_contract(kind: &str) -> miette::Result<Contract> {
 /// to `memory` is a separate question.
 const BUILTIN_DEFAULT_CONTRACT_KINDS: &[&str] = &["skill", "rule"];
 
-/// The built-in default contracts keyed by their bare row label.
-fn builtin_default_contracts() -> miette::Result<Vec<(String, Contract)>> {
-    let mut contracts = Vec::with_capacity(BUILTIN_DEFAULT_CONTRACT_KINDS.len());
-    for kind in BUILTIN_DEFAULT_CONTRACT_KINDS {
-        contracts.push(((*kind).to_string(), builtin_default_contract(kind)?));
+/// A built-in `kind`'s effective [`Contract`]: its lock-declared clause rows are its
+/// whole contract when the lock names any, lifted through the same reject-loud path a
+/// custom kind's rows take ([`compose::default_contract_from_rows`]); with no rows the
+/// kind falls back to the embedded default ([`builtin_default_contract`]).
+/// Rows-or-default — never a severity-flip layer over the embedded default: a spread's
+/// appended clause gates, an array-surgery removal holds, and an out-of-vocabulary row
+/// rejects loud rather than sitting inert.
+///
+/// # Errors
+///
+/// Propagates the [`compose::ClauseRowError`] the row lift raises for a row the closed
+/// vocabulary cannot admit, or the missing-embedded-contract error if a rowless kind
+/// ships none.
+fn builtin_contract(clauses: &[drift::ClauseRow], kind: &str) -> miette::Result<Contract> {
+    if clauses.iter().any(|row| row.kind.as_deref() == Some(kind)) {
+        Ok(compose::default_contract_from_rows(clauses, kind)?)
+    } else {
+        builtin_default_contract(kind)
     }
-    Ok(contracts)
 }
 
 /// A typed maintenance surface for the Claude Code harness.
@@ -271,33 +283,29 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Schema { kind } => {
             // The keystroke placement of the gate:
-            // emit the *active* contract per kind — the same default contract ⊕
-            // lock-declared clause overrides `check` gates against — as an editor
-            // JSON Schema.
+            // emit the *active* contract per kind — the same rows-or-default contract
+            // `check` gates against — as an editor JSON Schema.
             let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE))?;
-
-            // Keyed by each kind's bare row label.
-            let default_contracts = builtin_default_contracts()?;
 
             let json = match kind.as_deref() {
                 // An unknown kind is a hard error, never a silent empty schema.
                 Some(requested) => {
-                    let default_contract = default_contracts
-                        .into_iter()
-                        .find(|(name, _)| name == requested);
-                    let (name, default_contract) = default_contract.ok_or_else(|| {
-                        miette::miette!("unknown kind `{requested}` (temper models: skill, rule)")
-                    })?;
-                    let contract =
-                        compose::effective(&declarations.clauses, &name, default_contract);
+                    let name = BUILTIN_DEFAULT_CONTRACT_KINDS
+                        .iter()
+                        .find(|name| **name == requested)
+                        .ok_or_else(|| {
+                            miette::miette!(
+                                "unknown kind `{requested}` (temper models: skill, rule)"
+                            )
+                        })?;
+                    let contract = builtin_contract(&declarations.clauses, name)?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
-                    for (name, default_contract) in default_contracts {
-                        let contract =
-                            compose::effective(&declarations.clauses, &name, default_contract);
-                        map.insert(name, schema::emit(&contract));
+                    for name in BUILTIN_DEFAULT_CONTRACT_KINDS {
+                        let contract = builtin_contract(&declarations.clauses, name)?;
+                        map.insert((*name).to_string(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
                 }
@@ -587,12 +595,9 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
-        // The per-kind clause overrides source from the lock's declared `clauses`.
-        let contract = compose::effective(
-            &declarations.clauses,
-            &kind.name,
-            builtin_default_contract(&kind.name)?,
-        );
+        // The contract is the lock's declared `clauses` for the kind when it names any,
+        // else the embedded default (`builtin_contract`).
+        let contract = builtin_contract(&declarations.clauses, &kind.name)?;
 
         let features = kind_features(kind, harness_root, &declarations)?;
 

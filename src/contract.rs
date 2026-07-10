@@ -3,8 +3,8 @@
 //! A [`Contract`] is a named set of [`Clause`]s over a **closed** vocabulary of
 //! decidable predicates, each carrying an author-declared [`Severity`]. Every live
 //! `Contract` is built from the lock's `ClauseRow` family ([`crate::builtin`],
-//! `crate::compose::effective`) — there is no hand-authored clause grammar; the
-//! SDK's types are the only authoring spelling.
+//! [`crate::compose::default_contract_from_rows`]) — there is no hand-authored clause
+//! grammar; the SDK's types are the only authoring spelling.
 //!
 //! There is no arbitrary-code clause: adding a predicate is a deliberate language
 //! change, never a per-contract escape hatch.
@@ -372,8 +372,7 @@ impl EdgeBound {
 impl Predicate {
     /// This predicate's clause key — the lock `ClauseRow`'s `predicate`
     /// discriminator, reused verbatim as the diagnostic `rule` id a finding reports
-    /// under (`crate::engine`). It is also half a clause's *layering identity*
-    /// (`crate::compose`): the key plus [`Predicate::target`].
+    /// under (`crate::engine`).
     #[must_use]
     pub fn key(&self) -> &'static str {
         match self {
@@ -405,10 +404,7 @@ impl Predicate {
     /// The field (or marker) this predicate constrains, or `None` for the
     /// artifact- and cross-artifact-level predicates that name no single field
     /// (`forbidden_keys`, `max_lines`, `require_sections`, `name-matches-dir`,
-    /// `unique-name`, `dependency-exists`). With [`Predicate::key`] it identifies
-    /// a clause for layering (`crate::compose`): a layered clause sharing both
-    /// *overrides* the floor clause (a severity flip or parameter change), while a
-    /// new (key, target) pair *extends* the floor with a fresh clause.
+    /// `unique-name`, `dependency-exists`).
     #[must_use]
     pub fn target(&self) -> Option<&str> {
         match self {
@@ -422,12 +418,9 @@ impl Predicate {
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. } => Some(field),
             Predicate::MustDefine { marker } => Some(marker),
-            // The section heading is the layering identity: a layered
-            // `section_contains` on the same heading overrides the floor's (a
-            // severity flip or a changed marker), while a fresh heading extends it.
+            // A `section_contains` constrains the content under one heading, so the
+            // heading is the field it names.
             Predicate::SectionContains { heading, .. } => Some(heading),
-            // `unique`/`membership` both check one field per satisfier, so the
-            // checked field is their layering identity too.
             Predicate::Unique { field } | Predicate::Membership { field, .. } => Some(field),
             Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }

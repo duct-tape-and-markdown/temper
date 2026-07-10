@@ -90,7 +90,7 @@ fn skill_with_forbidden_key(name: &str) -> String {
 }
 
 #[test]
-fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_inert() {
+fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one_is_inert() {
     let root = common::tmpdir("clause-override-from-lock");
     common::write_skill(
         &root,
@@ -106,9 +106,9 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
         floor.output
     );
 
-    // The identical override, written only in a retired-manifest `[kind.skill]`
+    // The identical clause, written only in a retired-manifest `[kind.skill]`
     // layer, is inert — the manifest is never read at all any more (`TEMPER-TOML-ZERO`),
-    // so a stray one carrying a clause override changes nothing.
+    // so a stray one carrying a clause change nothing.
     common::write_retired_manifest(
         &root,
         "[kind.skill]\n\
@@ -120,25 +120,28 @@ fn a_lock_declared_clause_severity_override_gates_but_a_temper_toml_only_one_is_
     let toml_only = common::check_in(&root, &[], None);
     assert!(
         !toml_only.ok,
-        "a manifest-only clause override must not change the verdict ⇒ still non-zero, got:\n{}",
+        "a manifest-only clause must not change the verdict ⇒ still non-zero, got:\n{}",
         toml_only.output
     );
 
-    // The same override declared in the lock's `[[declaration.clause]]` rows
-    // flips the clause's severity to advisory, so the same violation no longer
-    // blocks the run.
+    // The lock's declared skill clause rows ARE the kind's whole contract — no
+    // severity-flip layer over the embedded default. A lone advisory `forbidden_keys`
+    // row (carrying its full `keys` argument, since a row lifts as a complete clause)
+    // replaces the default, so the same `globs` key trips only an advisory and the run
+    // passes.
     write_clauses(
         &root,
         vec![ClauseRow {
             kind: Some("skill".to_string()),
+            keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
             ..common::clause("forbidden_keys", "advisory")
         }],
     );
-    let lock_override = common::check_in(&root, &[], None);
+    let lock_contract = common::check_in(&root, &[], None);
     assert!(
-        lock_override.ok,
-        "a lock-declared clause severity override must change the verdict ⇒ zero, got:\n{}",
-        lock_override.output
+        lock_contract.ok,
+        "a lock-declared skill contract of a lone advisory clause must pass the run ⇒ zero, got:\n{}",
+        lock_contract.output
     );
 }
 

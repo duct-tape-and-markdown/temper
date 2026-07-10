@@ -1,6 +1,6 @@
 //! The harness assembly's domain types — [`Requirement`], [`Edge`], [`EnforcementMode`]
-//! — and [`effective`], which composes the lock's per-clause severity overrides onto
-//! the embedded by-kind default contract. A requirement's
+//! — and the lock-row lift [`default_contract_from_rows`], which builds a kind's whole
+//! default contract from the clause rows naming it. A requirement's
 //! set-/edge-scope demands ride ordinary [`contract::Clause`] values;
 //! their predicate payloads ([`contract::EdgeBound`] and
 //! friends) live in [`crate::contract`], not here.
@@ -97,39 +97,14 @@ pub struct Requirement {
     pub verified_by: Option<String>,
 }
 
-/// The effective contract for `kind`: the embedded default contract with each
-/// clause's severity overridden by a matching row in the lock's declared `clauses`.
-/// A row overrides the default contract's clause
-/// sharing its identity (predicate key + targeted field); a row naming no matching
-/// default contract clause contributes nothing — `effective` only ever flips an
-/// existing clause's severity, never declares a wholly new one from a row's own
-/// argument columns (`count`/`target`/`degree`). A row whose `severity` is outside
-/// the closed vocabulary leaves the default contract's own severity untouched, the
-/// same tolerant read the rest of the lock takes over hand-editable state.
-#[must_use]
-pub fn effective(clauses: &[ClauseRow], kind: &str, mut default_contract: Contract) -> Contract {
-    for clause in &mut default_contract.clauses {
-        let key = clause.predicate.key();
-        let target = clause.predicate.target();
-        let overriding = clauses.iter().find(|row| {
-            row.kind.as_deref() == Some(kind)
-                && row.predicate == key
-                && row.field.as_deref() == target
-        });
-        if let Some(severity) = overriding.and_then(|row| severity_from_label(&row.severity)) {
-            clause.severity = severity;
-        }
-    }
-    default_contract
-}
-
-/// A custom kind's whole default [`Contract`], built directly from the clause rows
-/// naming it in the committed lock. Unlike a
-/// built-in kind — whose default contract is the embedded one, with the lock's own
-/// rows only overriding a clause's severity ([`effective`])
-/// — a custom kind carries no embedded default: its committed rows **are** its
-/// default contract, the same lift [`crate::builtin::contract`] runs over the
-/// *embedded* lock's own rows, run here over the *project's own*.
+/// A kind's whole default [`Contract`], built directly from the clause rows naming it
+/// in the committed lock — the one lift both a custom kind (which carries no embedded
+/// default: its committed rows **are** its contract) and a built-in kind whose lock
+/// declares rows run through. A built-in kind the lock names no row for falls back to
+/// its embedded default instead ([`crate::builtin::contract`]); either way rows-or-
+/// default, never a severity-flip layer over the embedded default. This is the same
+/// lift [`crate::builtin::contract`] runs over the *embedded* lock's own rows, run here
+/// over the committed lock's.
 ///
 /// # Errors
 ///
@@ -230,41 +205,6 @@ mod tests {
 
     use crate::contract::{Clause, Predicate, Severity};
 
-    /// A small skill-shaped default contract: a required `max_len` on `name`, a required
-    /// `forbidden_keys`, and an advisory `max_lines`. Enough distinct identities to
-    /// exercise override-vs-extend.
-    fn default_contract() -> Contract {
-        Contract {
-            name: "skill.anthropic".to_string(),
-            guidance: None,
-            clauses: vec![
-                Clause {
-                    source: None,
-                    severity: Severity::Required,
-                    guidance: None,
-                    predicate: Predicate::MaxLen {
-                        field: "name".to_string(),
-                        max: 64,
-                    },
-                },
-                Clause {
-                    source: None,
-                    severity: Severity::Required,
-                    guidance: None,
-                    predicate: Predicate::ForbiddenKeys {
-                        keys: vec!["globs".to_string()],
-                    },
-                },
-                Clause {
-                    source: None,
-                    severity: Severity::Advisory,
-                    guidance: None,
-                    predicate: Predicate::MaxLines { max: 500 },
-                },
-            ],
-        }
-    }
-
     /// A [`ClauseRow`] at `severity`, every other column defaulted — the base the
     /// reject-loud cases struct-update, overriding only `kind`/`predicate` and any
     /// argument column the case exercises.
@@ -286,95 +226,6 @@ mod tests {
             range: None,
             section: None,
         }
-    }
-
-    #[test]
-    fn effective_with_no_clause_rows_yields_the_default_contract_unchanged() {
-        assert_eq!(
-            effective(&[], "skill", default_contract()),
-            default_contract()
-        );
-    }
-
-    #[test]
-    fn effective_overrides_a_default_contracts_clause_severity_by_matching_identity() {
-        // A row sharing the default contract's `forbidden_keys` identity (predicate key, no
-        // targeted field) flips its severity in place — the lock's `ClauseRow`
-        // family is the sole source `effective` composes from, never a manifest
-        // `[kind.*]` layer.
-        let row = ClauseRow {
-            kind: Some("skill".to_string()),
-            predicate: "forbidden_keys".to_string(),
-            field: None,
-            severity: "advisory".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-            range: None,
-            section: None,
-        };
-        let contract = effective(&[row], "skill", default_contract());
-        assert_eq!(contract.clauses.len(), default_contract().clauses.len());
-        assert_eq!(contract.clauses[1].severity, Severity::Advisory);
-    }
-
-    #[test]
-    fn effective_ignores_a_row_naming_a_different_kind() {
-        let row = ClauseRow {
-            kind: Some("rule".to_string()),
-            predicate: "forbidden_keys".to_string(),
-            field: None,
-            severity: "advisory".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-            range: None,
-            section: None,
-        };
-        assert_eq!(
-            effective(&[row], "skill", default_contract()),
-            default_contract()
-        );
-    }
-
-    #[test]
-    fn effective_ignores_a_row_with_no_matching_default_contract_clause() {
-        // The row names a predicate/field pair the default contract doesn't carry —
-        // `effective` never reconstructs a wholly new clause from a row's own
-        // argument columns, so an unmatched row contributes nothing.
-        let row = ClauseRow {
-            kind: Some("skill".to_string()),
-            predicate: "min_len".to_string(),
-            field: Some("name".to_string()),
-            severity: "required".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-            range: None,
-            section: None,
-        };
-        assert_eq!(
-            effective(&[row], "skill", default_contract()),
-            default_contract()
-        );
     }
 
     #[test]
@@ -480,30 +331,5 @@ mod tests {
             default_contract_from_rows(&bad_severity, "spec"),
             Err(ClauseRowError::Severity { severity, .. }) if severity == "blocking"
         ));
-    }
-
-    #[test]
-    fn effective_ignores_a_row_with_an_out_of_vocabulary_severity() {
-        let row = ClauseRow {
-            kind: Some("skill".to_string()),
-            predicate: "forbidden_keys".to_string(),
-            field: None,
-            severity: "blocking".to_string(),
-            guidance: None,
-            cite: None,
-            count: None,
-            target: None,
-            degree: None,
-            bound: None,
-            charset: None,
-            keys: None,
-            values: None,
-            range: None,
-            section: None,
-        };
-        assert_eq!(
-            effective(&[row], "skill", default_contract()),
-            default_contract()
-        );
     }
 }

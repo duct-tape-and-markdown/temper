@@ -155,6 +155,127 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
     );
 }
 
+/// Write `<corpus>/.temper/lock.toml` verbatim — the SDK-emitted lock a converted
+/// harness carries, stood in for directly so a test declares the exact clause rows a
+/// built-in kind's `expect` binding erases to (`sdk/src/declarations.ts`).
+fn write_lock(corpus: &Path, contents: &str) {
+    let temper = corpus.join(".temper");
+    fs::create_dir_all(&temper).unwrap();
+    fs::write(temper.join("lock.toml"), contents).unwrap();
+}
+
+/// A skill named for its directory `name`, carrying a `tier` frontmatter field and the
+/// Cursor `globs` key — a body clean against every embedded default clause, so the only
+/// findings a case sees are the ones its declared contract produces over `tier`/`globs`
+/// (or the embedded default's `deny(name)` when `name` is a reserved word).
+fn skill_with_tier(name: &str, tier: &str) -> String {
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         tier: {tier}\n\
+         globs: \"**/*.rs\"\n\
+         ---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// A built-in kind the lock declares no clause row for gates on its embedded default:
+/// a skill named `anthropic` trips the shipped `deny(name)` clause with no lock rows to
+/// compose from — the rowless fallback (`builtin_default_contract`) holds exactly as
+/// before the flip layer retired.
+#[test]
+fn builtin_skill_rowless_gates_on_the_embedded_default() {
+    let corpus = common::tmpdir("skill-rowless");
+    common::write_skill(&corpus, "anthropic", &common::clean_skill("anthropic"));
+
+    let run = common::check_in(&corpus, &[], None);
+    assert!(
+        run.output.contains("deny") && run.output.contains("anthropic"),
+        "a rowless built-in kind must gate on the embedded default — `deny(name)` \
+         fires over the reserved `anthropic`, got:\n{}",
+        run.output
+    );
+}
+
+/// The lock's declared skill clause rows ARE the kind's whole contract — a spread that
+/// keeps `required(description)` and appends an `enum(tier)` (the range/enumOf tier),
+/// omitting `deny(name)` and `forbidden_keys`. The appended clause fires on the member;
+/// the omitted defaults no longer gate, even over inputs (`name = anthropic`, a `globs`
+/// key) they would have caught — array surgery removes, no severity-flip layer survives.
+#[test]
+fn builtin_skill_declared_rows_are_the_whole_contract() {
+    let corpus = common::tmpdir("skill-rows-are-contract");
+    common::write_skill(
+        &corpus,
+        "anthropic",
+        &skill_with_tier("anthropic", "experimental"),
+    );
+    write_lock(
+        &corpus,
+        "[[declaration.clause]]\n\
+         kind = \"skill\"\n\
+         predicate = \"required\"\n\
+         field = \"description\"\n\
+         severity = \"required\"\n\
+         \n\
+         [[declaration.clause]]\n\
+         kind = \"skill\"\n\
+         predicate = \"enum\"\n\
+         field = \"tier\"\n\
+         severity = \"required\"\n\
+         values = [\"core\", \"extra\"]\n",
+    );
+
+    let run = common::check_in(&corpus, &[], None);
+    assert!(
+        run.output.contains("enum") && run.output.contains("anthropic"),
+        "the appended enum clause must fire on the member's `tier`, got:\n{}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("deny"),
+        "the omitted `deny(name)` default must not gate — `anthropic` passes, got:\n{}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("forbidden_keys"),
+        "the omitted `forbidden_keys` default must not gate — the `globs` key passes, got:\n{}",
+        run.output
+    );
+}
+
+/// An out-of-vocabulary row naming a built-in kind rejects loud, never sits inert: a
+/// skill clause row whose predicate names nothing in the closed vocabulary fails the
+/// load — the same reject-loud lift a custom kind's rows take, now that a built-in
+/// kind's rows lift the identical way.
+#[test]
+fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
+    let corpus = common::tmpdir("skill-bad-row");
+    common::write_skill(&corpus, "widget", &common::clean_skill("widget"));
+    write_lock(
+        &corpus,
+        "[[declaration.clause]]\n\
+         kind = \"skill\"\n\
+         predicate = \"not_a_predicate\"\n\
+         severity = \"required\"\n",
+    );
+
+    let run = common::check_in(&corpus, &[], None);
+    assert!(
+        !run.ok,
+        "an out-of-vocabulary skill clause row must fail the load, got exit-zero:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("not_a_predicate"),
+        "the load error must name the offending predicate, got:\n{}",
+        run.output
+    );
+}
+
 /// Author a custom kind's `lock.toml` declaration row pair — one
 /// `[[declaration.kind]]` naming its `governs` root/glob, one
 /// `[[declaration.clause]]` binding an advisory `max_lines` budget to it — the
