@@ -44,7 +44,10 @@ regex = "1"
 # version against (specs/distribution.md, acquisition Decision; ratified
 # reconcile, inbox item 2b "schema generation Rust-first").
 schemars = "1"
-ts-rs = "12"
+# `no-serde-warnings`: the seam's `NestedMemberRow.collections` carries a
+# `#[serde(deserialize_with)]` ts-rs cannot read (the field's TS is pinned with
+# `#[ts(as)]` instead) — silence the parse notice for that deliberate override.
+ts-rs = { version = "12", features = ["no-serde-warnings"] }
 
 [dev-dependencies]
 # Golden import/apply fixtures (specs/model/pipeline.md, "Install"). `filters` redacts the per-machine
@@ -56,3 +59,6 @@ serde_json = "1"
 # Test temp dirs (CLAUDE.md, "Tech stack") — the RAII builder behind
 # tests/common::tmpdir and every in-src `#[cfg(test)]` module's own temp dir.
 tempfile = "3"
+# The seam-binding staleness gate (`tests/seam_bindings_current.rs`) names
+# `ts_rs::{TS, Config}` directly to re-export the bindings in memory.
+ts-rs = { version = "12", features = ["no-serde-warnings"] }

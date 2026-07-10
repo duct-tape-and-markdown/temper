@@ -267,13 +267,17 @@ pub const SEAM_VERSION: u32 = 2;
 /// member that lives at a path locus (`sdk/src/emit.ts` `PayloadMember`). An
 /// embedded member never appears here (it carries no standalone projection); its
 /// facts ride the [`NestedMemberRow`] family instead.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct PayloadMember {
     /// The kind's bare name — joins this payload's own `declarations.kinds` family.
     pub kind: String,
     /// Identity within the kind.
     pub name: String,
-    /// The kind's typed fields, flat and ordered — the projected frontmatter.
+    /// The kind's typed fields, flat and ordered — the projected frontmatter. The
+    /// value is arbitrary JSON, so the seam type is `unknown`, never a serde_json
+    /// binding — the SDK reads the field values, never the engine over this pipe.
+    #[ts(type = "Array<[string, unknown]>")]
     pub fields: Vec<(String, JsonValue)>,
     /// The resolved prose body, byte-faithful.
     pub body: String,
@@ -288,7 +292,7 @@ pub struct PayloadMember {
 /// declaration rows (the lock's seven families) and every projected member's erased
 /// payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct Payload {
     /// The pinned seam version this payload was compiled against.
     pub version: u32,
@@ -1048,7 +1052,7 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 /// facet) so the read and write sides are the same shape: the lock is the vocabulary,
 /// not a typed IR. `#[derive(Deserialize)]` doubles this shape as the SDK payload's own
 /// wire format — the same rows, whether they arrive off disk or off the seam's JSON pipe.
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct Declarations {
     /// The kind facts — one per kind in the program.
     pub kinds: Vec<KindFactRow>,
@@ -1076,7 +1080,8 @@ pub struct Declarations {
 /// One kind's declaration row — its identity and declared runtime facts.
 /// The optional facts are omitted from the lock when the kind declares none, so the row
 /// round-trips to exactly what was written.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct KindFactRow {
     /// The bare kind name.
     pub name: String,
@@ -1097,12 +1102,14 @@ pub struct KindFactRow {
     /// Empty for a kind that declares none, the same tolerant round-trip
     /// [`templates`](KindFactRow::templates) takes.
     #[serde(default)]
+    #[ts(as = "Option<Vec<String>>", optional)]
     pub registration: Vec<String>,
     /// The host kind's declared nesting templates — the embedded child kind names it
     /// folds embedded members of. Empty for
     /// a kind that nests nothing, the tolerant round-trip a lockless/template-less
     /// kind takes.
     #[serde(default)]
+    #[ts(as = "Option<Vec<String>>", optional)]
     pub templates: Vec<String>,
 }
 
@@ -1119,7 +1126,8 @@ pub struct KindFactRow {
 /// `unique`'s field rides the shared `field`
 /// column (the same slot `required`/`min_len`/… target); the rest carry their own
 /// optional columns since a plain field/severity pair cannot express them.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct ClauseRow {
     /// The kind whose contract carries the clause. `None` when this row is nested
     /// inside a [`RequirementRow`]'s own [`clauses`](RequirementRow::clauses) — a
@@ -1171,7 +1179,8 @@ pub struct ClauseRow {
 
 /// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`max_lines`'s
 /// `max`, each endpoint optional so the row carries only what the predicate declared.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct BoundRow {
     /// The inclusive lower bound, when the predicate declares one (`min_len`).
     #[serde(default)]
@@ -1184,10 +1193,12 @@ pub struct BoundRow {
 /// An `allowed_chars` clause row's declared character class — the wire form of
 /// [`crate::contract::Charset`]: inclusive `"<lo>-<hi>"` range specs plus a literal
 /// string of individually permitted characters.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct CharsetRow {
     /// The inclusive character ranges, each a two-character `"<lo>-<hi>"` spec.
     #[serde(default)]
+    #[ts(as = "Option<Vec<String>>", optional)]
     pub ranges: Vec<String>,
     /// The individually permitted characters, when any are declared.
     #[serde(default)]
@@ -1200,7 +1211,8 @@ pub struct CharsetRow {
 /// the roster/graph checks range over. No facet columns: a demand's severity,
 /// argument, and — for `unique`/`membership` — targeted field ride the nested
 /// [`ClauseRow`], the identical row shape a kind's own floor clauses use.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct RequirementRow {
     /// The requirement's name.
     pub name: String,
@@ -1225,7 +1237,7 @@ pub struct RequirementRow {
 }
 
 /// A requirement row's `count` bound — the satisfier-set size's inclusive `[min, max]`.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct CountBoundRow {
     /// The inclusive lower bound on the satisfier-set size.
     pub min: usize,
@@ -1235,7 +1247,8 @@ pub struct CountBoundRow {
 
 /// A requirement row's `degree` bound — the in/out edge-count bound every satisfier
 /// must land in.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct DegreeBoundRow {
     /// The bound on a satisfier's incoming edge count, when constrained.
     #[serde(default)]
@@ -1246,7 +1259,8 @@ pub struct DegreeBoundRow {
 }
 
 /// One direction's inclusive `[min, max]` edge-count bound, each endpoint optional.
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct EdgeBoundRow {
     /// The inclusive lower bound. `None` ⇒ no lower bound.
     #[serde(default)]
@@ -1258,7 +1272,7 @@ pub struct EdgeBoundRow {
 
 /// One member→requirement fill edge's declaration row — the `satisfies` join the
 /// roster/coverage tiers need, carried on the lock rather than re-imported.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct SatisfiesRow {
     /// The filling member's id.
     pub member: String,
@@ -1271,7 +1285,7 @@ pub struct SatisfiesRow {
 /// `kind:name`, or a bare requirement name), already resolved at emit. Recorded
 /// unconditionally: a dangling mention never reaches the lock (`emit` refuses
 /// first), so this row carries no resolution state of its own.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct MentionRow {
     /// The citing member's own `kind:name` address.
     pub member: String,
@@ -1286,7 +1300,7 @@ pub struct MentionRow {
 /// source the read side consumes (`crate::builtin_kind::features`, matched by
 /// `host` address) — never a second copy of a value the engine reads back off its
 /// own rendering (0018, "the projection is not the database").
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct NestedMemberRow {
     /// The host member's own `kind:name` address.
     pub host: String,
@@ -1299,7 +1313,10 @@ pub struct NestedMemberRow {
     pub leaves: BTreeMap<String, String>,
     /// Sibling collections, one row per entry, in authored order — the SDK's
     /// collection-name-keyed wire shape flattened by [`deserialize_collections`].
+    /// The Rust side flattens the map to a `Vec`; the seam type carries the wire
+    /// shape the flatten reads, a map of collection name to its ordered entries.
     #[serde(default, deserialize_with = "deserialize_collections")]
+    #[ts(as = "std::collections::BTreeMap<String, Vec<CollectionEntryWire>>")]
     pub collections: Vec<CollectionEntryRow>,
 }
 
@@ -1308,7 +1325,7 @@ pub struct NestedMemberRow {
 /// flattened, order-preserving shape (`to_table`/`from_table` serialize the whole
 /// column as one array, the discipline every other array-shaped declaration
 /// family gets from `toml_edit`).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, ts_rs::TS)]
 pub struct CollectionEntryRow {
     /// The collection this entry belongs to.
     pub collection: String,
@@ -1321,11 +1338,13 @@ pub struct CollectionEntryRow {
 /// One collection entry's wire shape as the SDK payload carries it, nested under
 /// its owning collection name — [`deserialize_collections`] copies the collection
 /// name onto each entry it flattens into a [`CollectionEntryRow`].
-#[derive(Debug, Clone, Deserialize)]
-struct CollectionEntryWire {
-    key: String,
+#[derive(Debug, Clone, Deserialize, ts_rs::TS)]
+pub struct CollectionEntryWire {
+    /// The entry's key among its collection's siblings.
+    pub key: String,
+    /// The entry's own leaf fields, field name → resolved string.
     #[serde(default)]
-    leaves: BTreeMap<String, String>,
+    pub leaves: BTreeMap<String, String>,
 }
 
 /// Deserialize a [`NestedMemberRow`]'s `collections` column off the SDK payload's
@@ -1373,7 +1392,8 @@ where
 /// graph edges the harness binds: a `fact` discriminator (`mode`, `edge`)
 /// plus the columns that fact carries. Absent columns are omitted from the
 /// lock, so each row round-trips to exactly what its producer wrote.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
 pub struct AssemblyFactRow {
     /// The fact discriminator: `mode` or `edge`.
     pub fact: String,

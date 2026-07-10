@@ -1,80 +1,41 @@
 /**
  * Declaration rows — the composed program's erased declarations.
  * Every type erases at the seam: kinds, clauses, requirements, and
- * assembly facts compile to plain rows the engine reads. The **row shape** matches
- * the Rust lock's `[declaration]` families (`src/drift.rs` `Declarations`) — the
- * byte-parity lockstep two writers keep until single-writer lands
- * (`SDK-RECUT-CORPUS-FACE`). The same rows ride the internal versioned JSON pipe
- * ({@link declarationsToJson}) — not a designed IR, versioned in lockstep.
+ * assembly facts compile to plain rows the engine reads. The **row shapes are the
+ * generated `ts-rs` bindings** (`./generated/`, derived from `src/drift.rs`), so a
+ * Rust-side row rename is a compile error here, never a silent shape drift. This
+ * module authors the builders that fill them; the same rows ride the internal
+ * versioned JSON pipe ({@link declarationsToJson}) — not a designed IR, versioned
+ * in lockstep.
  */
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Registration } from "./kind.js";
-import type { Charset, Clause, Predicate, Requirement } from "./contract.js";
+import type { Clause, Predicate, Requirement } from "./contract.js";
 import { resolveLeaf } from "./prose.js";
 
-/** One kind's declaration row — its identity and declared runtime facts. */
-export interface KindFactRow {
-  readonly name: string;
-  readonly provider?: string;
-  readonly governs_root: string;
-  readonly governs_glob: string;
-  readonly format?: string;
-  readonly unit_shape?: string;
-  /** The declared registration channel set's wire labels, in declaration order. */
-  readonly registration?: readonly string[];
-  /** The host's declared nesting templates — its embedded child kinds' names. */
-  readonly templates?: readonly string[];
-}
+import type {
+  AssemblyFactRow,
+  ClauseRow,
+  CollectionEntryWire,
+  Declarations,
+  KindFactRow,
+  MentionRow,
+  NestedMemberRow,
+  RequirementRow,
+  SatisfiesRow,
+} from "./generated/index.js";
 
-/**
- * One clause of a kind's effective contract, or one of a requirement's own
- * set-/edge-scope demands — the same row shape either way (`src/drift.rs`
- * `ClauseRow`). `kind` is absent when this row is nested inside a
- * `RequirementRow`'s own `clauses`: a requirement's demand names no kind of its
- * own.
- */
-export interface ClauseRow {
-  readonly kind?: string;
-  readonly predicate: string;
-  readonly field?: string;
-  readonly severity: string;
- /** The just-in-time teaching channel the predicate cannot encode. */
-  readonly guidance?: string;
- /** The external-fact source backing the clause — a doc URL plus retrieved date. */
-  readonly cite?: string;
-  /** The `count` predicate's satisfier-set-size bound. */
-  readonly count?: { readonly min: number; readonly max: number };
-  /** The `membership` predicate's target requirement name. */
-  readonly target?: string;
-  /** The `degree` predicate's in/out edge-count bound. */
-  readonly degree?: {
-    readonly incoming?: { readonly min?: number; readonly max?: number };
-    readonly outgoing?: { readonly min?: number; readonly max?: number };
-  };
-  /** The `min_len`/`max_len`/`max_lines` predicate's scalar bound. */
-  readonly bound?: { readonly min?: number; readonly max?: number };
-  /** The `allowed_chars` predicate's declared character class. */
-  readonly charset?: Charset;
-  /** The `forbidden_keys` predicate's forbidden key list. */
-  readonly keys?: readonly string[];
-  /** The `deny` predicate's forbidden value list. */
-  readonly values?: readonly string[];
-}
-
-/**
- * One named requirement's declaration row — the scalar facets plus its own
- * `count`/`unique`/`membership`/`degree` clause rows: the requirement's `clauses` array
- * is the whole of its set-/edge-scope demand, no facet columns beside it.
- */
-export interface RequirementRow {
-  readonly name: string;
-  readonly kind?: string;
-  readonly required: boolean;
-  readonly clauses: readonly ClauseRow[];
-  readonly verified_by?: string;
-  readonly prose: string;
-}
+// The row shapes the authoring API surfaces re-export from here, so `index.ts`'s
+// public face is unchanged by the move to generated bindings.
+export type {
+  AssemblyFactRow,
+  ClauseRow,
+  Declarations,
+  KindFactRow,
+  RequirementRow,
+  SatisfiesRow,
+} from "./generated/index.js";
 
 /**
  * Compile one `Clause` into its lock row: the shared `key`/`field`/`severity`/
@@ -111,9 +72,18 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
  }
         : undefined,
     bound: nodeScopeBoundArgs(predicate),
-    charset: predicate.key === "allowed_chars" ? predicate.charset : undefined,
-    keys: predicate.key === "forbidden_keys" ? predicate.keys : undefined,
-    values: predicate.key === "deny" ? predicate.values : undefined,
+    // The generated rows carry mutable columns; the predicate's `charset`/`keys`/
+    // `values` are read-only, so copy each into a fresh array/object — the same
+    // bytes, a shape the row will accept.
+    charset:
+      predicate.key === "allowed_chars" && predicate.charset !== undefined
+        ? {
+            ranges: predicate.charset.ranges ? [...predicate.charset.ranges] : undefined,
+            chars: predicate.charset.chars,
+          }
+        : undefined,
+    keys: predicate.key === "forbidden_keys" && predicate.keys ? [...predicate.keys] : undefined,
+    values: predicate.key === "deny" && predicate.values ? [...predicate.values] : undefined,
   };
 }
 
@@ -138,75 +108,6 @@ function edgeBoundArgs(
   const min = args?.[`${direction}_min`];
   const max = args?.[`${direction}_max`];
   return min === undefined && max === undefined ? undefined : { min, max };
-}
-
-/** One assembly-scope fact — the root member's declared enforcement mode, or an edge. */
-export interface AssemblyFactRow {
-  readonly fact: string;
-  readonly value?: string;
-  readonly from?: string;
-  readonly field?: string;
-  readonly to?: string;
-}
-
-/** One member→requirement fill edge — a resolved `satisfies` key. */
-export interface SatisfiesRow {
-  readonly member: string;
-  readonly requirement: string;
-}
-
-/**
- * One authored `n` mention edge — the citing member's own `kind:name` address and
- * the address it names (another member's `kind:name`, or a bare requirement name).
- * Recorded regardless of resolution — a dangling mention is `emit`'s own refusal
- * (`emit.ts`), never this row's concern, mirroring how a `SatisfiesRow` carries a
- * claim before `refuseBrokenSource` judges it.
- */
-export interface MentionRow {
-  readonly member: string;
-  readonly target: string;
-}
-
-/**
- * One host member's declared embedded-member value — the row an embedded member's
- * facts are carried as (0018, "the projection is not the database"): the same
- * composed value `blocks()` renders into its host's `member.<kind> <key>` TOML
- * fence, captured here as declared data rather than a second copy the engine
- * reads back off the rendered artifact. A `Text`-authored leaf is resolved (its
- * mentions display-rendered) before it lands here — the row, like the engine
- * reading it, carries only the leaf's final stored string, never the template
- * (`prose.ts`'s `resolveLeaf`).
- */
-export interface NestedMemberRow {
-  /** The host member's own `kind:name` address. */
-  readonly host: string;
-  /** The embedded child kind this value instantiates. */
-  readonly kind: string;
-  /** The value's key — the identity a leaf address carries. */
-  readonly key: string;
-  /** Prose leaves, keyed by field name — each already resolved to its final string. */
-  readonly leaves: Readonly<Record<string, string>>;
-  /** Sibling collections: collection name → its entries, in authored order, each entry's leaves resolved. */
-  readonly collections: Readonly<Record<string, readonly ResolvedCollectionEntryRow[]>>;
-}
-
-/** One resolved sibling-collection entry: its own key plus its leaves, already resolved to strings. */
-export interface ResolvedCollectionEntryRow {
-  /** The entry's key among its collection's siblings. */
-  readonly key: string;
-  /** The entry's own leaf fields, already resolved to their final strings. */
-  readonly leaves: Readonly<Record<string, string>>;
-}
-
-/** The seven declaration families — the whole erased program the lock and pipe carry. */
-export interface Declarations {
-  readonly kinds: readonly KindFactRow[];
-  readonly clauses: readonly ClauseRow[];
-  readonly requirements: readonly RequirementRow[];
-  readonly assembly: readonly AssemblyFactRow[];
-  readonly satisfies: readonly SatisfiesRow[];
-  readonly mentions: readonly MentionRow[];
-  readonly nested_members: readonly NestedMemberRow[];
 }
 
 /**
@@ -240,7 +141,7 @@ function registrationLabel(registration: Registration): string {
 
 /** The lock labels for a kind's declared registration **set**, in declaration order —
  * `undefined` for an empty set, the same omit-the-column tolerance `templatesFor` takes. */
-function registrationLabels(registration: readonly Registration[]): readonly string[] | undefined {
+function registrationLabels(registration: readonly Registration[]): string[] | undefined {
   return registration.length > 0 ? registration.map(registrationLabel) : undefined;
 }
 
@@ -254,7 +155,7 @@ export function compareStrings(a: string, b: string): number {
  * whose `withinHosts` names it, name-sorted. `undefined` when the host nests nothing, so the row omits the column
  * rather than carrying an empty array.
  */
-function templatesFor(hostName: string, allKinds: readonly KindFacts[]): readonly string[] | undefined {
+function templatesFor(hostName: string, allKinds: readonly KindFacts[]): string[] | undefined {
   const names = allKinds
     .filter((facts) => facts.locus.kind === "embedded" && facts.locus.withinHosts.includes(hostName))
     .map((facts) => facts.name)
@@ -431,7 +332,7 @@ function nestedMemberRow(host: string, value: EmbeddedMemberValue, mentionable: 
   for (const [field, leaf] of Object.entries(value.leaves)) {
     leaves[field] = resolveLeaf(leaf, mentionable, context(field));
  }
-  const collections: Record<string, ResolvedCollectionEntryRow[]> = {};
+  const collections: Record<string, CollectionEntryWire[]> = {};
   for (const [collection, entries] of Object.entries(value.collections)) {
     collections[collection] = entries.map((entry) => {
       const entryLeaves: Record<string, string> = {};
