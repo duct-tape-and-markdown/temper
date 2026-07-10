@@ -3,18 +3,19 @@
 - Spec derived through: 6a04322
 - Audited through: 5f88258
 - Residue swept through: ec3d112
-- This tick: Quiet pass (job 5) — all four inputs verified current on
-  disk: inbox empty, no specs commits past 6a04322, sole 5f88258..HEAD
-  tree-touching commit is 6a04322 itself (specs-only, already derived),
-  residue swept through ec3d112 with only plan commits since. Open pair
-  verified file-disjoint; every blockedBy blocker still pending;
-  PACKAGING-CHANNELS parked reason re-verified (no release.yml, root
-  package.json still the private flume manifest). No entry moved.
-- Queue: REQUIREMENT-PROSE-PERSISTS, SKILL-CONTRACT-RECITE (both open,
-  disjoint) → FRONTMATTER-MALFORMED-LOUD → KIND-CONTENT-FACT →
-  LAYOUT-READER → LAYOUT-PROSE-IMPORT (one linear blockedBy chain over the
-  shared main.rs/drift.rs/declarations.ts surfaces); PACKAGING-CHANNELS
-  (parked, carried verbatim).
+- This tick: Inbox drain (job 1) — the ts-rs seam note routed as
+  SEAM-BINDINGS-GENERATED (open, per engineering.md "Libraries before
+  hand-rolls"); gap re-verified at HEAD 6115217 (ts-rs pinned unadopted,
+  no sdk/src/generated, declarations.ts hand-restates 13 row shapes).
+  Sequencing ask honored: KIND-CONTENT-FACT re-pointed blockedBy →
+  SEAM-BINDINGS-GENERATED. Forced reconciliation: FRONTMATTER-MALFORMED-LOUD's
+  blocker tag dangled (ship chore 6115217 removed REQUIREMENT-PROSE-PERSISTS);
+  verified shipped on disk (drift.rs RequirementRow.prose) and flipped open.
+- Queue: FRONTMATTER-MALFORMED-LOUD, SEAM-BINDINGS-GENERATED (both open,
+  disjoint) → KIND-CONTENT-FACT → LAYOUT-READER → LAYOUT-PROSE-IMPORT
+  (linear blockedBy chain over the shared drift.rs/declarations.ts/main.rs
+  surfaces); PACKAGING-CHANNELS (parked, carried verbatim).
 
-Plan continues: no — every input current and the queue holds two pickable
-open entries; build takes over.
+Plan continues: yes — ship audit is live: 36e0556 and f36c192 touch
+src/tests/sdk past the audit cursor 5f88258 (exit-clause bullets in
+open-questions await their ship-audit verification there).

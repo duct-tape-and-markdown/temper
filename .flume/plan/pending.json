@@ -7,8 +7,7 @@
       "section": "Invariants"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENT-PROSE-PERSISTS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,59 @@
       }
     ],
     "acceptance": "check on a harness containing a malformed frontmatter block reports the malformation as an error naming the file; no path treats it as frontmatter-less silently.",
-    "notes": "Scoped at f600965. The 0013 note's independently-surviving slice (observed 9c3b1c1, amended 6a04322). The minimal invariant-6 fix; the 0019 entries extend the same resolve_kind_units surface with the layout dispatch. If the harness's documented behavior makes a non-mapping block a real leniency, declare it cited — open question, never invent. Serialized behind REQUIREMENT-PROSE-PERSISTS (shared src/main.rs)."
+    "notes": "Scoped at f600965. The 0013 note's independently-surviving slice (observed 9c3b1c1, amended 6a04322). The minimal invariant-6 fix; the 0019 entries extend the same resolve_kind_units surface with the layout dispatch. If the harness's documented behavior makes a non-mapping block a real leniency, declare it cited — open question, never invent. Unblocked 07-09: REQUIREMENT-PROSE-PERSISTS shipped (36e0556; drift.rs RequirementRow.prose verified on disk)."
+  },
+  {
+    "tag": "SEAM-BINDINGS-GENERATED",
+    "summary": "The TS<->Rust seam's row shapes are born generated — derive TS on drift.rs's payload/declaration-row family, emit bindings into sdk/src/generated/, recut declarations.ts's rows to import them",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Libraries before hand-rolls"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/src/generated/index.ts",
+          "description": "The generated bindings' one home plus its barrel — produced by the export step, never hand-edited; per-type filenames and the barrel's exact mechanics are ts-rs's/code's call."
+        },
+        {
+          "path": "tests/seam_bindings_current.rs",
+          "description": "The staleness gate: a fresh ts-rs export byte-compares against the committed sdk/src/generated/ files, so a Rust-side row change with stale bindings fails cargo test loudly (invariant 6), never ships silent drift."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Derive ts_rs::TS across the whole Deserialize seam family — Payload (line 292), PayloadMember (271), Declarations (~1051), and the 13 row structs KindFactRow through AssemblyFactRow (lines 1079-1377) — wired to the one export destination. serde rename/default attrs are the wire contract ts-rs mirrors."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "The Section family's seven existing TS derives (lines 36-280) join the same generated home — one export destination, never two (engineering.md, one job one home)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Recut the 13 hand-restated row interfaces to imports/re-exports of the generated bindings; the authored builder API (declarationsToJson and friends) stays. Opening the header fires fix-on-contact on its lockstep prose — \"the byte-parity lockstep two writers keep until single-writer lands (SDK-RECUT-CORPUS-FACE)\" — the second writer retires with this entry."
+        },
+        {
+          "path": "Cargo.toml",
+          "description": "ts-rs 12 is already pinned with its intent comment (lines 43-47); enable whatever export mechanics the derive family needs — features are code's call. The crate is in the sanctioned set (CLAUDE.md, Tech stack, points at Cargo.toml)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/seam_bindings_current.rs",
+        "asserts": "committed sdk/src/generated/ bindings byte-match a fresh ts-rs export; a stale binding is a loud cargo test failure"
+      }
+    ],
+    "acceptance": "declarations.ts's row types are the generated bindings, so a Rust-side row rename becomes an SDK compile error (pnpm --dir sdk test), never a silent shape drift; committed bindings byte-match a fresh export under cargo test; emit payload bytes unchanged — tests/builtin_lock_frozen.rs and sdk/test/emit.test.ts stay green; all gates green.",
+    "notes": "Scoped at 6115217 (inbox note observed 0af7bb7; re-verified forward): ts-rs pinned unadopted, no sdk/src/generated, declarations.ts hand-restates all 13 row shapes — 36e0556 (means->prose) hand-edited both sides in lockstep again since filing. Kills shape drift as a class, not semantic drift (honest bound). Sequenced before KIND-CONTENT-FACT so 0019's row families are born generated. File-disjoint from FRONTMATTER-MALFORMED-LOUD."
   },
   {
     "tag": "KIND-CONTENT-FACT",
@@ -44,7 +95,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "FRONTMATTER-MALFORMED-LOUD"
+      "tag": "SEAM-BINDINGS-GENERATED"
     },
     "dependsOnForks": [],
     "files": {
@@ -56,7 +107,7 @@
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Kind declaration rows carry the content fact; a file-content kind's row stays byte-identical (absent = default) so no existing lock moves."
+          "description": "Kind declaration rows carry the content fact; a file-content kind's row stays byte-identical (absent = default) so no existing lock moves. Post-SEAM-BINDINGS-GENERATED the row shape change lands Rust-side and regenerates; this file's builder carries the fact."
         },
         {
           "path": "src/drift.rs",
@@ -89,7 +140,7 @@
       }
     ],
     "acceptance": "An SDK-declared layout reaches the engine's CustomKind through the lock's kind rows; a kind with no content declaration is file everywhere; src/builtin_lock.toml is byte-unchanged (frozen gate); all gates green.",
-    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind FRONTMATTER-MALFORMED-LOUD to keep the surfaces shared with REQUIREMENT-PROSE-PERSISTS (declarations.ts, drift.rs, lock tests) linear."
+    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Re-serialized 07-09 behind SEAM-BINDINGS-GENERATED (shared drift.rs/declarations.ts row surfaces; the new row columns born generated per the inbox note)."
   },
   {
     "tag": "LAYOUT-READER",
