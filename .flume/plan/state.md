@@ -3,16 +3,20 @@
 - Spec derived through: a0fccaf
 - Audited through: 8575dd6
 - Residue swept through: df667e4
-- This tick: Quiet pass — every input re-verified current on disk:
-  spec delta empty (a0fccaf..HEAD touches no specs/), no code commits
-  past the audit cursor (8575dd6..HEAD is plan commits only, so the
-  sweep window is also code-empty), inbox empty, no live refactor
-  captures. PACKAGING-CHANNELS' parked reason re-verified at HEAD
-  6a6faae: still no `.github/workflows/release.yml` (only temper.yml),
-  root package.json still the private flume manifest, sdk still
-  `@dtmd/temper` 0.0.5. Queue of one is trivially disjoint.
-- Queue: PACKAGING-CHANNELS (parked, human release creds + workflow
-  build-out) — none pickable.
+- This tick: Inbox drain — routed both notes. (1) prose.ts NUL/`\x01`
+  sentinels re-verified still literal on disk (grep exit=1 without `-a`)
+  → filed PROSE-SENTINEL-ESCAPE (open); the standing "rides next-open"
+  exit was inert (no queued entry opens prose.ts), so promoted standalone
+  and re-pointed the open-questions sweep-mechanics NB. (2) `impact`
+  re-verified a deliberately-unified internal strand of `explain`
+  (main.rs clap has one read variant, read.rs:190 "the one read verb"),
+  while the model still names it a peer verb → registered fork
+  `(impact-read-verb)`; spec-vs-code collision surfaced, not filled
+  (a session doesn't write specs; the code unification looks intentional).
+- Queue: PROSE-SENTINEL-ESCAPE (open, pickable) · PACKAGING-CHANNELS
+  (parked). Disjoint — sdk/src/prose.ts vs release infra (package.json,
+  release.yml) share no path.
 
-Plan continues: no — all inputs current and the only entry is parked
-on human action; loop hibernates.
+Plan continues: yes — post-ship reconciliation is live below inbox:
+543f2fd bumped sdk to 0.1.0 past both cursors (8575dd6 / df667e4),
+staling PACKAGING-CHANNELS' "still at 0.0.5 pending publish" note.

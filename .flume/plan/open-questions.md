@@ -71,6 +71,25 @@ tax.
   capability mismatch, which harness is authoritative, whether a lossy
   projection is a verdict or an error. No dependents.
 
+- `(impact-read-verb)` — OPEN (registered 2026-07-10). The model names two
+  read verbs as peers: `explain` narrates, `impact` reports removal fallout
+  (`specs/model/contract.md`, "Read verbs"; `specs/model/pipeline.md`, "Read
+  verbs"). The shipped surface unified them: `src/main.rs`'s clap `Command`
+  has one read variant, `Explain`, and `src/read.rs:190` calls it "the one
+  read verb" — `impact` is an internal strand (`read::impact`) `explain`
+  dispatches into, never a CLI verb (READ-EDGE-UNIFY). CLAUDE.md's own
+  identity enumerates seven shipped verbs with no `impact`, re-cut by a human
+  at 827b2f2 *after* the model text — evidence the unified surface is current
+  intent and the model's peer-verb spelling is the stale side. This session's
+  position: the fix is a `specs:` amendment (respell contract.md/pipeline.md
+  "Read verbs" so `impact`/`why`/`context` read as strands of the one
+  `explain` verb, not peers), not a code entry that re-splits a deliberate
+  unification. But amending the model is a kernel-section change John owns
+  (`specs/process/spec-system.md`, "Change ceremony"), and it collides with
+  standing corpus text — surfaced, not encoded either way. Resolution routes
+  back through the inbox: amend the model, or rule `impact` ships as a
+  distinct verb (then a pending entry, `per` contract.md "Read verbs").
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
@@ -146,8 +165,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   residue sweep HEAD c2a8cae; re-verified on disk (all lines) at sweep HEAD
   df667e4. NB sweep mechanics: prose.ts carries literal `\x00`/`\x01`
   sentinel bytes (`MENTION_SLOT`/`INCLUDE_SLOT`), so grep binary-detects
-  the file and silently skips it — sweep it with `grep -a` or awk;
-  respelling the sentinels as `\u` escapes rides the same next-open entry.
+  the file and silently skips it — sweep it with `grep -a` or awk; until
+  it ships, the doc-comment scrub above must read this file with `grep -a`.
+  Respelling the sentinels as `\u` escapes is now queued standalone as
+  PROSE-SENTINEL-ESCAPE (the ride-next-open exit was inert — no queued
+  entry opens prose.ts, and the NUL defeats the pipeline's own grep every
+  tick); retire this NB when that ships.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
