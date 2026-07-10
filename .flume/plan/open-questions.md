@@ -106,9 +106,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   clause did not fire and the debt rides whichever entry opens the file
   next. Debt (1) untouched (no commit since 5f88258 opened
   tests/session_start.rs). Both re-verified on disk at residue sweep HEAD
-  ced4f94 (session_start.rs `+++` fixtures at lines 128/133/146; the three
-  builtins.ts cites at 308/348/385 — 670d54e touched neither file). Verify
-  both at the next residue sweep.
+  16a30d6 (session_start.rs `+++` fixtures at lines 128/133/146; the three
+  builtins.ts cites at 308/348/385 — ced4f94..HEAD is `.flume/`-only).
+  Verify both at the next residue sweep.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 14/85/87 — "fact 3, layout" =
@@ -121,8 +121,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   named. Rides whichever entry next opens `sdk/src/kind.ts` (no queued
   entry does), never standalone; the fix renames the *fact narration*,
   never the sanctioned type. Found at residue sweep HEAD e9d05f6;
-  re-verified on disk at sweep HEAD ced4f94 (670d54e left the file
-  untouched).
+  re-verified on disk (lines 4/14/85/87) at sweep HEAD 16a30d6.
 
 - **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
   The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
@@ -133,7 +132,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   is correct; only the comment names a replacement that will never come.
   Rides whichever entry next opens `src/extract.rs` (0020's own exit
   clause), never standalone. Found routing 0020 at HEAD a0fccaf;
-  re-verified on disk (extract.rs:196-198) at sweep HEAD ced4f94.
+  re-verified on disk (extract.rs:196-198) at sweep HEAD 16a30d6.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
@@ -142,7 +141,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
-  HEAD ced4f94.
+  HEAD 16a30d6.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

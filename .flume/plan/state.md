@@ -2,20 +2,15 @@
 
 - Spec derived through: a0fccaf
 - Audited through: e30e5a6
-- Residue swept through: ced4f94
-- This tick: Inbox drained — the 0020 edge-slot remainder note (37e4834,
-  observed e30e5a6) routed into the already-filed LAYOUT-RELATIONSHIP-EDGES:
-  same gap, re-verified (no code commits e30e5a6..HEAD; `layout_unit`
-  main.rs:816 still drops `LayoutReading::edges`). The note's proposed
-  member-authored edge-row lock family is the recorded rejected alternative —
-  relationship edges resolve live off frontmatter `Features` (graph.rs), a
-  layout document is a source read live at check, so it folds the same way
-  lock-free; lock rows exist only where a reference can't be re-read from a
-  source (composed prose: mentions, PROSE-INCLUDE's includes). Customer
-  evidence (a counterpart corpus's Depends-on sections) carried into the
-  entry's notes.
+- Residue swept through: 16a30d6
+- This tick: Residue sweep — ced4f94..HEAD is `.flume/`-only (37e4834,
+  0e41179, 16a30d6; no src/tests/sdk commits), so no new residue class is
+  possible; all five riding debts re-verified on disk at 16a30d6
+  (session_start.rs `+++` fixtures 128/133/146; builtins.ts cites
+  308/348/385; kind.ts "layout" narration 4/14/85/87; extract.rs:196-198
+  deferral comment; Cargo.toml:42-43 schemars comment). Queue untouched.
 - Queue: PROSE-INCLUDE (open); LAYOUT-RELATIONSHIP-EDGES (blockedBy
   PROSE-INCLUDE); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep cursor (ced4f94) trails HEAD; only plan
-and chore(flume) commits since, so a trivial advance is expected.
+Plan continues: yes — all cursors current; one closing quiet pass remains
+(queue disjointness + gate reasons re-checked), then hand off to build.
