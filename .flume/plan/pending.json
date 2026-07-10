@@ -1,29 +1,5 @@
 [
   {
-    "tag": "PROSE-SENTINEL-ESCAPE",
-    "summary": "Respell prose.ts's mention/include sentinels as unicode escape sequences so the file stays NUL-free text — same runtime string, grep no longer binary-detects it",
-    "per": {
-      "path": ".claude/rules/collaboration.md",
-      "section": "Investigation discipline"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/prose.ts",
-          "description": "MENTION_SLOT (line 56) and INCLUDE_SLOT (line 64) are defined with literal control-byte string values (U+0000 and U+0001), so grep binary-detects the whole file and silently suppresses every match. Respell both literals as the `\\u0000` / `\\u0001` escape sequences — a byte-identical runtime string, the file becomes NUL-free text. Source-form only, behavior unchanged; the module doc/comments that spell the sentinel need no rewrite beyond the two constant lines."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`grep MENTION_SLOT sdk/src/prose.ts` matches without `-a` (file no longer binary-detected); `pnpm --dir sdk test` green — runtime string byte-identical, existing prose tests cover behavior.",
-    "notes": "One-line source-hygiene fix a human flagged via inbox; the NUL defeats the collaboration rule's grep-before-claiming probe every tick and no queued entry opens prose.ts to let it ride the next-open exit. No new test — runtime string unchanged. Friction capture .flume/friction/plan-grep-nul-binary-false-negative.md and open-questions' prose.ts sweep-mechanics warning retire in plan's post-ship audit (build cannot touch .flume/). scoped at ab3bcb8."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
