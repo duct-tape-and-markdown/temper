@@ -60,11 +60,13 @@ registration = ["user-invoked", "description-trigger(description)"]
 [[declaration.requirement]]
 name = "friction-capture-procedure"
 required = true
+prose = "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture"
 
 [[declaration.requirement]]
 name = "pending-entry-discipline"
 kind = "rule"
 required = true
+prose = "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json"
 
 [[declaration.assembly]]
 fact = "mode"

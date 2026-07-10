@@ -23,12 +23,12 @@ import { skill_captureFriction } from "./skills/capture-friction.ts";
 const program = harness({
   require: {
     "pending-entry-discipline": {
-      means: "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json",
+      prose: "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json",
       kind: rule,
       required: true,
     },
     "friction-capture-procedure": {
-      means: "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture",
+      prose: "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture",
       required: true,
     },
   },
