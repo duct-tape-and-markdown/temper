@@ -18,6 +18,7 @@ use std::path::Path;
 mod common;
 
 use temper::drift::{AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow};
+use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, NestedMemberRow};
 
 /// A floor-clean rule carrying a `routes_to` reference field — the declared edge
 /// the graph reads. `routes_to` is not a floor-forbidden rule key, so the rule
@@ -480,6 +481,146 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
         "the finding names the degree bound, the direction, and the unreachable satisfier, got:\n{}",
         run.output
     );
+}
+
+/// End-to-end proof that an edge field targeting an **embedded** kind resolves against
+/// that kind's nested members. An embedded kind carries no kind-fact row — it reaches the
+/// lock only through its host's `templates` column — so without the by-kind fold it reads
+/// as unmodeled and every route over it dangles. Here a `service` layout host declares a
+/// `serves` relationship edge into `domain` and nests one `domain` member off the lock's
+/// `nested_member` family; the cases mirror the field report's repro.
+mod embedded_edge_targets {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    /// A `field` region row filling `slot` — an edge slot when `slot` is one of the
+    /// kind's declared edge fields.
+    fn field_region(slot: &str) -> LayoutRegionRow {
+        LayoutRegionRow {
+            region: "field".to_string(),
+            import: None,
+            slot: Some(slot.to_string()),
+            member_kind: None,
+            key: None,
+        }
+    }
+
+    /// The `service` layout host: a lone document under `specs/` carrying a `purpose`
+    /// field section and a `serves` relationship edge slot, hosting the embedded kinds
+    /// named in `templates`.
+    fn service_kind(templates: &[&str]) -> KindFactRow {
+        KindFactRow {
+            content: Some(LayoutRow {
+                regions: vec![field_region("purpose"), field_region("serves")],
+            }),
+            templates: templates.iter().map(|t| (*t).to_string()).collect(),
+            ..common::kind_facts("service", "specs", "service.md")
+        }
+    }
+
+    /// One embedded `domain` member nested under the `service` host — the lock row emit
+    /// would derive, hand-authored so the case owns its whole corpus.
+    fn domain_row(key: &str) -> NestedMemberRow {
+        NestedMemberRow {
+            host: "service:service".to_string(),
+            kind: "domain".to_string(),
+            key: key.to_string(),
+            leaves: BTreeMap::new(),
+            collections: Vec::new(),
+        }
+    }
+
+    /// Write the `service` document whose `serves` slot names `target`.
+    fn write_service(root: &Path, target: &str) {
+        fs::write(
+            root.join("specs/service.md"),
+            format!("# Purpose\nA service.\n\n# Serves\n- {target}\n"),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn an_edge_targeting_an_embedded_kind_resolves_by_member_identity() {
+        let root = common::scaffold("embedded-edge-resolves");
+        // `service` serves the embedded domain `billing`, declared via the host's
+        // `templates` and nested off the lock — the edge resolves by identity, clean.
+        write_service(&root, "billing");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                assembly: vec![edge("service", "serves", "domain")],
+                nested_members: vec![domain_row("billing")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.ok,
+            "an edge to an embedded kind resolving to a declared nested member is clean, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_dangling_embedded_edge_entry_is_a_route_finding() {
+        let root = common::scaffold("embedded-edge-dangling");
+        // The domain `billing` is nested, but the host serves `absent` — a route over a
+        // modeled embedded kind that resolves to no member, the graph's route finding.
+        write_service(&root, "absent");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&["domain"])],
+                assembly: vec![edge("service", "serves", "domain")],
+                nested_members: vec![domain_row("billing")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "a dangling embedded-edge entry must fail the run ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("service")
+                && run.output.contains("absent")
+                && run.output.contains("serves"),
+            "the finding names the host, the dangling target, and the reference field, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn an_edge_to_a_kind_no_host_declares_stays_an_admissibility_finding() {
+        let root = common::scaffold("embedded-edge-unmodeled");
+        // No host declares `domain` — no `templates` entry, no nested member — so it is
+        // genuinely unmodeled: the edge is an admissibility fault, not a route dangle.
+        write_service(&root, "billing");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&[])],
+                assembly: vec![edge("service", "serves", "domain")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "an edge to an undeclared kind must fail the run ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("domain") && run.output.contains("does not model"),
+            "the finding names the unmodeled kind as an admissibility fault, got:\n{}",
+            run.output
+        );
+    }
 }
 
 /// Library-level fixture proof of the `reachable` predicate: the pure machinery over

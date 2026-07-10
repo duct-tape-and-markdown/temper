@@ -434,7 +434,8 @@ fn explain(target: &str) -> miette::Result<String> {
         }
         custom_kinds.push((custom_kind, features));
     }
-    let by_kind = assemble_by_kind(&builtin_features, &custom_kinds);
+    let embedded_features = embedded_features_by_kind(&declarations);
+    let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
     // The one requirement namespace: the assembly's declared `[requirement.*]`
     // roster — a custom-kind member has no channel of its own to publish one (the
@@ -656,7 +657,8 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
-    let by_kind = assemble_by_kind(&builtin_features, &custom_kinds);
+    let embedded_features = embedded_features_by_kind(&declarations);
+    let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
     // Every opt-in-capable member's features (every built-in kind *and* each custom
     // kind's members) — the stream coverage ranges over below.
@@ -1006,6 +1008,7 @@ fn builtin_features_by_kind(
 fn assemble_by_kind<'a>(
     builtin_features: &'a BTreeMap<String, Vec<extract::Features>>,
     custom_kinds: &'a [CustomKindEntry],
+    embedded_features: &'a BTreeMap<String, Vec<extract::Features>>,
 ) -> BTreeMap<&'a str, &'a [extract::Features]> {
     let mut by_kind: BTreeMap<&str, &[extract::Features]> = builtin_features
         .iter()
@@ -1014,7 +1017,89 @@ fn assemble_by_kind<'a>(
     for (kind, features) in custom_kinds {
         by_kind.insert(kind.name.as_str(), features.as_slice());
     }
+    // An embedded kind carries no kind-fact row of its own — it reaches the lock solely
+    // through its host's `templates` column ([`embedded_features_by_kind`]) — so it is in
+    // neither the built-in nor the custom set. Keyed here, it joins the target set and an
+    // edge targeting it resolves against its nested members instead of reading as
+    // unmodeled. Its name never collides with an `at`-locus kind's (a kind holds one
+    // locus), so it lands last without contention.
+    for (kind, features) in embedded_features {
+        by_kind.insert(kind.as_str(), features.as_slice());
+    }
     by_kind
+}
+
+/// The embedded-kind corpus: every kind declared at the embedded locus keyed to its
+/// members' [`Features`](extract::Features), so [`assemble_by_kind`] can fold it into the
+/// one `by_kind` map every graph predicate ranges over. An embedded kind is named where a
+/// host declares it — a `templates` column entry, or a layout member collection's
+/// `member_kind` — and carries no kind-fact row, so this is the sole seam it enters the
+/// corpus through. Its members are the lock's `nested_member` rows of that kind, each
+/// lifted to a member whose id is the row's key and whose fields are its leaves, so an
+/// edge resolves against it by identity ([`embedded_member_features`]). A declared kind
+/// with no rows keys to an empty slice — modeled, so an edge targeting it is admissible
+/// and a dangling entry is a route finding, not an admissibility one; a kind no host
+/// declares is absent, so an edge targeting it stays an admissibility finding. Depth is
+/// one layer: a `nested_member` row's own sibling collections are the leaf grain the read
+/// family addresses, not a second embedded kind's member set.
+fn embedded_features_by_kind(
+    declarations: &drift::Declarations,
+) -> BTreeMap<String, Vec<extract::Features>> {
+    // The embedded kinds: every child kind a host declares, whether through its
+    // `templates` column or a layout member collection naming a `member_kind`.
+    let mut by_kind: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
+    for row in &declarations.kinds {
+        for template in &row.templates {
+            by_kind.entry(template.clone()).or_default();
+        }
+        if let Some(content) = &row.content {
+            for region in &content.regions {
+                if let Some(member_kind) = &region.member_kind {
+                    by_kind.entry(member_kind.clone()).or_default();
+                }
+            }
+        }
+    }
+    // Each declared embedded kind's members are its `nested_member` rows. A row whose
+    // kind no host declares is left out — the same `get_mut` gate that keeps an undeclared
+    // target unmodeled.
+    for row in &declarations.nested_members {
+        if let Some(features) = by_kind.get_mut(&row.kind) {
+            features.push(embedded_member_features(row));
+        }
+    }
+    by_kind
+}
+
+/// Lift one [`NestedMemberRow`](drift::NestedMemberRow) into the
+/// [`Features`](extract::Features) an edge resolves against: the row's key is the member
+/// id an edge matches by identity, and its leaves surface as string fields so a clause
+/// (or a deeper edge) can range over them exactly as a file member's frontmatter. The
+/// body-derived features are empty — an embedded member has no document of its own; it is
+/// read off its host's declared surface.
+fn embedded_member_features(row: &drift::NestedMemberRow) -> extract::Features {
+    let fields = row
+        .leaves
+        .iter()
+        .map(|(name, text)| {
+            (
+                name.clone(),
+                extract::FeatureValue::scalar(extract::ValueType::String, text),
+            )
+        })
+        .collect();
+    extract::Features {
+        id: row.key.clone(),
+        fields,
+        body_lines: 0,
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+    }
 }
 
 /// Pair each member with the provenance `source_path` the directive classing joins on:
