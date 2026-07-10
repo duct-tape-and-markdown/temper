@@ -84,30 +84,37 @@ chosen job half-done — the job is the atom.
    routed; "derived into N entries" is not itself a completeness argument,
    and the cursor does not advance past an incompletely-checked decision.
 
-3. **Ship audit** — commits past `Audited through:` touched `src/`, `tests/`,
-   or `sdk/`. Verify on disk what shipped (read the files, never the log
-   alone), drop pending entries whose work is done, and re-test every stale
-   gate: a `parked` reason, a `blockedBy`, an open-question's "rides X"
-   routing each name a condition — verify the condition NOW; if the blocker
-   shipped, the work behind it is derivable this tick. Advance the cursor.
+3. **Post-ship reconciliation** — commits past `Audited through:` or
+   `Residue swept through:` touched `src/`, `tests/`, or `sdk/`. One job,
+   two motions over the same window:
+   - **Audit:** verify on disk what shipped (read the files, never the log
+     alone), drop pending entries whose work is done, and re-test every
+     stale gate: a `parked` reason, a `blockedBy`, an open-question's
+     "rides X" routing each name a condition — verify the condition NOW; if
+     the blocker shipped, the work behind it is derivable this tick.
+   - **Sweep:** the same window, code against corpus: a retirement the
+     delta named, body text naming a demolition, symbols or vocabulary the
+     corpus no longer sanctions still living in `src/`, `tests/`, or
+     `sdk/` — each with no pending entry operationalizing it is a fileable
+     gap. A second implementation of one job is the structural residue
+     class, same rule (`specs/process/engineering.md`, "One job, one
+     home"). Cite the owning spec section in `per`, name the living symbols
+     in `files[].description`. Comment and citation staleness is the one
+     exception: it only ever rides whichever entry next opens that file —
+     never a standalone entry, never the queue's only new work. The routing
+     rule from job 2 applies here too: a residue class blocked on an open
+     fork is routed by that fork's record.
 
-4. **Residue sweep** — all above quiet, and `Residue swept through:` trails
-   HEAD. Sweep code against corpus: a retirement the delta named, body text
-   naming a demolition, symbols or vocabulary the corpus no longer sanctions
-   still living in `src/`, `tests/`, or `sdk/` — each with no pending entry
-   operationalizing it is a fileable gap. A second implementation of one job
-   is the structural residue class, same rule
-   (`specs/process/engineering.md`, "One job, one home"). Cite the owning spec section in
-   `per`, name the living symbols in `files[].description`. Comment and
-   citation staleness is the one exception: it only ever rides whichever
-   entry next opens that file — never a standalone entry, never the queue's
-   only new work. The routing rule from job 2 applies here too: a residue
-   class blocked on an open fork is routed by that fork's record. Advance the
-   cursor to HEAD when every class is filed, riding, or fork-routed.
+   Advance both cursors when the window is reconciled. A genuinely large
+   window may split: finish the audit motion, advance `Audited through:`
+   alone, declare `yes — residue sweep continues`, and sweep next tick. The
+   split is the exception a big window earns, never the default.
 
-5. **Quiet** — every input above is current. One closing pass: the queue is
-   disjoint, every gate reason still true, `state.md` re-derived. Write
-   `Plan continues: no` and hand off.
+**Closing the tick.** Every job ends, in the same tick, with the closing
+checklist its commit rides on: the queue is disjoint, every gate reason
+still true, `state.md` re-derived. Quiet is a verdict, never a job — when a
+forced wake finds no live input, run the checklist, write
+`Plan continues: no`, and commit the restamp.
 
 **Entry discipline** binds every job that files or rewrites entries — the
 rule scoped to `.flume/plan/pending.json` (`.claude/rules/pending-entry.md`)

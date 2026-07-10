@@ -524,18 +524,35 @@ const makeAgent = (model: string) =>
 
 /**
  * Model routing: the runtime exposes one shared `agent` export for every
- * phase, so per-phase model choice keys on the runtime's `<harness>` preamble
- * line `Phase: build` — the preamble precedes the template, so a template's
- * own headings never reach the match. Plan runs Fable, build runs Opus;
- * change a phase's model here.
+ * phase, so per-phase model choice keys on the rendered prompt — the
+ * runtime's `<harness>` preamble line `Phase: build` precedes the template,
+ * so a template's own headings never reach the match.
+ *
+ * Build runs Opus. Plan runs Opus for bookkeeping ticks (inbox,
+ * reconciliation, forced-wake restamps) and Fable only when the rendered
+ * `<spec-delta>` section is live — commit lines past the cursor, or the
+ * no-cursor whole-corpus fallback — because derivation is the one plan job
+ * that earns the premium model (2026-07-10 loop-economics pass; the
+ * steady-state plan:build tick ratio ran ~3:1 with plan on Fable).
  */
-const planAgent = makeAgent("claude-fable-5");
-const buildAgent = makeAgent("claude-opus-4-8");
+const opusAgent = makeAgent("claude-opus-4-8");
+const fableAgent = makeAgent("claude-fable-5");
+
+/** A live spec delta: a `%h %s` commit line inside <spec-delta>, or the
+ * preamble's explicit no-cursor fallback (whole corpus as the delta). */
+const specDeltaIsLive = (prompt: string): boolean => {
+  const section = /<spec-delta>([\s\S]*?)<\/spec-delta>/.exec(prompt)?.[1];
+  if (!section) return false;
+  return /^[0-9a-f]{6,40} /m.test(section) || section.includes("(no cursor");
+};
 
 export const agent: Agent = {
   name: "phase-model-router",
   invoke: (inv) =>
-    (inv.prompt.includes("Phase: build") ? buildAgent : planAgent).invoke(
-      inv,
-    ),
+    (inv.prompt.includes("Phase: build")
+      ? opusAgent
+      : specDeltaIsLive(inv.prompt)
+        ? fableAgent
+        : opusAgent
+    ).invoke(inv),
 };

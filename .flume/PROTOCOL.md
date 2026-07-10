@@ -60,8 +60,9 @@ is per-worktree (the cold compile kept off the parallel path on purpose).
 ## Plan dispatch + continuation marker
 
 Plan is iteratively prompted: one tick = one job, dispatched off its stateful
-records (inbox → spec delta → ship audit → residue → quiet; the job table
-lives in `prompts/plan.md`), with per-input cursors in `state.md`
+records (inbox → spec delta → post-ship reconciliation; quiet is a closing
+verdict inside every tick, never its own job — the job table lives in
+`prompts/plan.md`), with per-input cursors in `state.md`
 (`Spec derived through:` / `Audited through:` / `Residue swept through:`).
 `state.md` ends with `Plan continues: yes — <reason>` while a later input is
 live and the harness re-wakes plan; `Plan continues: no` hands to build or
