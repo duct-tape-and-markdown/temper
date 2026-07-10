@@ -1,5 +1,188 @@
 [
   {
+    "tag": "MANIFEST-KIND-MODEL",
+    "summary": "Manifest kind-model foundations: a fields-only embedded-locus kind shape (no body slot) and the collection-address kind fact (which manifest, which key path)",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add the two read-side kind facts 0021 phase 1 needs: (a) the fields-only shape — an embedded-locus kind with no body slot (distinct from `Content::File`, which still carries verbatim prose), so a registration member has fields and edges but no prose to fill; (b) the collection-address kind fact — which manifest (path) and which key path (`hooks.<Event>`, `mcpServers.*`) a member's registration surfaces at, the manifest's fence. Guard each with the same closed-vocabulary load rejection `Format`/`UnitShape`/`Registration` carry (an unknown value is a load error, never skipped)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`KindFactRow` (line ~1749) gains a collection-address column and the fields-only marker, each a tolerant `#[serde(default)]` round-trip like `registration`/`templates` so the existing built-in rows stay byte-identical (absent = today's file-locus, body-bearing kind). The row round-trips through the lock both directions."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Mirror the two facts on the TS kind surface: the fields-only kind shape (no prose/content in `T`) and the collection-address fact, both erasing to the new `KindFactRow` columns at the seam. The six-fact narration and `KindDefinition` extend, not fork."
+        },
+        {
+          "path": "sdk/src/generated/KindFactRow.ts",
+          "description": "Regenerated ts-rs seam binding for the new `KindFactRow` columns (the `sdk/src/generated/` seam home, 36a7662). Build re-runs the seam generator; `tests/seam_bindings_current.rs` gates it current."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the collection-address kind fact and the fields-only shape round-trip through the lock byte-stably; the existing file-locus built-in rows are unchanged; an unknown collection-address/shape value rejects loud at load"
+      }
+    ],
+    "acceptance": "A kind declares the embedded fields-only shape and a collection address (hooks.<Event> / mcpServers.*); both facts round-trip through the lock and the SDK erasure, and the closed-vocabulary guard rejects an unknown value.",
+    "notes": "Phase 1 of 0021 (manifest authoring surface), read-side foundation — hook-first. Fields-only = no body slot (distinct from Content::File). Closed-vocab guard mirrors Format/UnitShape. Foundation for the adapter + the hook/mcp-server kinds; nothing file-locus or body-bearing regresses. scoped at 8998b73"
+  },
+  {
+    "tag": "MANIFEST-ADAPTER-READ",
+    "summary": "JSON manifest adapter, read face: a JSON-parser peer to frontmatter.rs — declared collection addresses walk into generic extraction, undeclared keys opaque, registration members inferred",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "Reach"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MANIFEST-KIND-MODEL" },
+    "files": {
+      "new": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "The JSON manifest adapter, read face only — `frontmatter.rs`'s peer. A real JSON parser owns the grammar; a kind's declared collection address selects which key paths walk into the generic surface extractor (`crate::extract`), each entry read as a fields-only registration member; every undeclared key survives as an opaque field. Reading an unrepresented manifest infers its registration members. Write face (canonical whole-manifest regeneration) is phase 2 — NOT this entry; the unrepresented-manifest write stays 0008's `src/json_splice.rs`, untouched."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/extract.rs",
+          "description": "The generic surface extractor gains the collection-address walk: given a manifest's declared address, resolve the key path and extract each entry as a member's fields, reusing the same `Features`/`Primitive` machinery the frontmatter path rides so the soundness boundary stays one boundary."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Discovery/loader dispatch (`discover_kind_units`/`discover_builtin`) routes an embedded manifest kind to the new JSON adapter instead of the frontmatter loader, keyed off the collection-address fact. Idempotence keystone holds — the read is content-derived."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/manifest_adapter.rs",
+        "asserts": "a JSON manifest with a declared collection address infers one registration member per entry with the declared fields; undeclared keys read back as opaque fields; re-reading an unchanged manifest is idempotent"
+      }
+    ],
+    "acceptance": "temper reads a JSON manifest via the new adapter: declared collection addresses extract as registration members, undeclared keys survive as opaque fields, and an unrepresented manifest infers its members — read idempotent.",
+    "notes": "Phase 1 of 0021, read face only (write face is phase 2). Peer of frontmatter.rs — a real JSON parser owns the grammar; the unrepresented-manifest write stays json_splice.rs (0008), untouched. No kind ships in this entry — a test kind exercises the adapter. scoped at 8998b73"
+  },
+  {
+    "tag": "HOOK-KIND",
+    "summary": "The hook built-in kind — embedded, fields-only, collection address hooks.<Event> — with its cited strictest-documented-profile default contract, in the engine std-lib and the SDK provider face",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The coverage bar"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MANIFEST-ADAPTER-READ" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/hook_kind.rs",
+          "description": "The hook kind reads a real `.claude/settings.json` `hooks.<Event>` entry as a hook member; its default contract fires on a broken hook and passes a clean one (fixture mirrors the real Claude Code layout, per rust.md)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Add the `hook` kind to the embedded std-lib: embedded locus, fields-only shape, collection address `hooks.<Event>`, reusing the `Event` registration channel already carried in `src/kind.rs`. Its field schema is a fetched-and-cited external fact about the Claude Code hooks format (0014)."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "The embedded built-in lock gains the hook kind's declaration rows (kind fact + default-contract clauses), derived from the module, not hand-transcribed."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add the `hook` kind value and `hookDefaultContract` (strictest-documented-profile clauses, each with its cite + retrieved date), built with the same `kind<T>()` constructor as the five shipped kinds."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Export `hook` and `hookDefaultContract` from the `@dtmd/temper/claude-code` provider subpath alongside the existing kinds."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Teach `governed_by_any` that the hook kind's collection address governs the `settings.json` hooks segment, so `coverage.unmodeled-surface` stops flagging that segment as checked-by-nothing once the kind lands."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "`embedded_declaration_rows()` fixture (line ~72) gains the hook rows so the embedded lock still byte-equals the SDK module's own emit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/hook_kind.rs",
+        "asserts": "a settings.json hook reads as a hook member; the shipped hook default contract fires on the strictest documented profile and passes clean input; the embedded and SDK-derived built-in locks stay byte-equal"
+      }
+    ],
+    "acceptance": "temper models a settings.json hook as a hook member; the shipped hook default contract checks the strictest documented profile; the built-in lock (embedded + SDK-derived) stays byte-equal; coverage stops flagging the hooks segment as unmodeled.",
+    "notes": "Phase 1 of 0021, hook before mcp-server. Reuses the Event registration channel in kind.rs. Build fetches + cites the current Claude Code hooks doc (0014) for the field schema and the strictest-profile default contract. settings.json's full unmodeled-surface retirement (it also holds permissions/opaque keys) waits on phase 2's represented-manifest coverage. Updates the frozen built-in lock, both sides. scoped at 8998b73"
+  },
+  {
+    "tag": "MCP-SERVER-KIND",
+    "summary": "The mcp-server built-in kind — embedded, fields-only, collection address mcpServers.* — with its cited strictest-documented-profile default contract, in the engine std-lib and SDK provider",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The coverage bar"
+    },
+    "gate": { "kind": "blockedBy", "tag": "HOOK-KIND" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/mcp_server_kind.rs",
+          "description": "The mcp-server kind reads a real `.mcp.json` `mcpServers.*` entry as an mcp-server member; its default contract fires on a broken server config and passes a clean one (fixture mirrors the real Claude Code layout)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Add the `mcp-server` kind to the embedded std-lib: embedded locus, fields-only shape, collection address `mcpServers.*`. Its field schema is a fetched-and-cited external fact about the Claude Code MCP-server config format (0014)."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "The embedded built-in lock gains the mcp-server kind's declaration rows (kind fact + default-contract clauses), derived from the module."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add the `mcpServer` kind value and `mcpServerDefaultContract` (strictest-documented-profile clauses, each cited + dated), built with the same `kind<T>()` constructor."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Export `mcpServer` and `mcpServerDefaultContract` from the `@dtmd/temper/claude-code` provider subpath."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "Teach `governed_by_any` that the mcp-server kind's collection address governs `.mcp.json`; `.mcp.json` is wholly this manifest, so its `coverage.unmodeled-surface` finding retires cleanly."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "`embedded_declaration_rows()` fixture gains the mcp-server rows so the embedded lock still byte-equals the SDK module's emit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/mcp_server_kind.rs",
+        "asserts": "an .mcp.json server reads as an mcp-server member; the shipped default contract fires on the strictest documented profile and passes clean input; the built-in locks stay byte-equal; .mcp.json no longer fires coverage.unmodeled-surface"
+      }
+    ],
+    "acceptance": "temper models an .mcp.json server as an mcp-server member with its cited default contract; the built-in lock stays byte-equal both sides; .mcp.json no longer fires coverage.unmodeled-surface.",
+    "notes": "Phase 1 of 0021, after HOOK-KIND (shares builtin_kind.rs / builtin_lock.rs / builtins.ts / the frozen lock — serialized, not parallel). Collection address mcpServers.*. Build fetches + cites the current Claude Code MCP-server config doc (0014) for the field schema and strictest-profile default contract. .mcp.json is wholly this manifest, so its coverage finding retires cleanly. scoped at 8998b73"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {

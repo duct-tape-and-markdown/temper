@@ -13,31 +13,6 @@ tax.
 
 ## Open forks
 
-- `(manifest-authoring-surface)` — OPEN (registered 2026-07-07). 0015 rules
-  structured config files (`settings.json`, `.mcp.json`, a plugin's manifests)
-  **manifests**: projections of a container member's controlled segment —
-  fields, its members' registration facts, and derived aggregates (the
-  permission union — already `sdk/src/needs.ts` `permissionUnion`, never a
-  member) (`specs/model/representation.md`, "Reach"; `specs/builtins.md`, "The
-  named expansion"). Settled *semantics*: a registration member is a fields-only
-  kind (no prose, no artifact, no lock rows — 0012) at a **collection address**
-  (`mcpServers.*`, `hooks.<Event>` — a kind fact, the manifest's fence);
-  read-unrepresented infers members, represented regenerates whole (declared
-  order then residue, LF), unrepresented write stays 0008's splice
-  (`src/json_splice.rs`); a plugin is both faces (`temper bundle` the bespoke
-  instance the general write subsumes); levels are peer forests, temper governs
-  the project one. OPEN is the *spelling*: none of the machinery exists — no
-  JSON manifest adapter beside `src/frontmatter.rs`, no fields-only kind shape
-  beside `Format`/`UnitShape` (`src/kind.rs`), no collection-address kind fact,
-  no container-segment emit projection, no SDK API for a hook/mcp-server/plugin
-  member. John rules the authoring surface + emit/write architecture before
-  the hook/mcp-server/plugin kinds and the canonical-manifest write file as
-  build entries (0014's fetch-and-cite pattern per kind, once unblocked).
-  On resolution, `src/bundle.rs`'s bespoke serde_json manifest writes
-  (~lines 158-291: `plugin.json`, `marketplace.json`, `hooks.json`) convert
-  to general-write instances — 0015's named consequence; correct as
-  hand-builds only until then (inbox note, 07-09).
-
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
   hand-written std-lib ships an `agents-md.memory` built-in kind (glob
   `**/AGENTS.md`), but the SDK module and the derived built-in lock export only
