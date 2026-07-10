@@ -1,49 +1,5 @@
 [
   {
-    "tag": "LAYOUT-PROSE-IMPORT",
-    "summary": "A layout prose region declared as an import resolves to its target file's contents — fingerprinted in the lock, a declared graph edge, refusing loudly when dangling",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/layout_prose_import.rs",
-          "description": "An import-declared prose region resolves to its target file's contents; the dependency is fingerprinted in the lock; a dangling target refuses before a byte is written (pipeline.md, Emit: \"Refusing\"); the edge appears in the same resolved enumeration explain/impact narrate."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Thread the import region's resolution through emit and the gate: refusal when dangling, the resolved edge into the one enumeration the gate and read verbs share (contract.md, edge)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "The import target's fingerprint reaches the lock — a dependency the lock fingerprints, so a moved target is drift in the one disk-versus-lock vocabulary. `derive_layout_rows` (the LAYOUT-READER pass reading a layout document, drift.rs:553) is where the layout's regions already surface engine-side."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "The import edge joins the resolved edge set the gate, explain, and impact already range over — path-resolved against raw disk, never the ignore-filtered discovery view (contract.md, edge)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layout_prose_import.rs",
-        "asserts": "an import region resolves and is fingerprinted; a dangling import refuses before any write; the edge is narrated by the read verbs"
-      }
-    ],
-    "acceptance": "A layout prose region declared as an import resolves, is fingerprinted in the committed lock, and appears as a declared edge to the gate and read verbs; a dangling import refuses loudly before any byte is written; all gates green.",
-    "notes": "Scoped at a2279cf (0019); unblocked at e3982b5 — LAYOUT-READER shipped (kind.rs Layout::read; its commit names imports out of scope). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK shape landed in KIND-CONTENT-FACT (LayoutRegionRow import ref); this entry is engine-side resolve + fingerprint + edge."
-  },
-  {
     "tag": "LAYOUT-EDGE-SLOT",
     "summary": "A layout field section the kind marks as an edge field is an edge slot — its entries are addresses, derived to ordinary edge rows by the same emit pass, a dangling entry refused",
     "per": {
