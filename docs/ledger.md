@@ -32,12 +32,9 @@ hard.
 - **Friction/refactor channels live**; DRAIN AT SESSION OPEN. Decision
   audit (07-09, six agents): 0001/0013/0014 gaps filed via inbox — 0013's
   note amended in place, superseded in part by 0019.
-- Follow-up hygiene: docs/README re-cut DONE (07-10 session: README, cli,
-  how-it-works, example-config, horizons, AGENTS.md, CLAUDE.md identity via
-  .temper; docs-voice ruling applied — ruling itself still held above).
-  Remaining: src/sdk comment cites to old spec paths die on contact (rust.md
-  exit clause) — now incl. builtins.ts's four cites to the deleted
-  `packages/*/PACKAGE.md`.
+- Follow-up hygiene: src/sdk comment cites to old spec paths die on contact
+  (rust.md exit clause) — incl. builtins.ts's four cites to the deleted
+  `packages/*/PACKAGE.md`. (Docs/README re-cut shipped 07-10.)
 
 ## Parked (pointers only)
 
@@ -49,7 +46,16 @@ hard.
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
 - Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
-- On John: Apple Developer notarizing (decide at release); USPTO name screen.
+- Docs-language candidate (post-freeze): the determinism ladder — "push every
+  check to the most deterministic layer that can express it" (field
+  feedback, 07-10).
+- On John: Apple Developer notarizing (decide at release); USPTO name screen;
+  npm auth (whoami 401) then go/no-go on publishing @dtmd/temper 0.1.0 —
+  bump committed at 543f2fd, weigh the name-staking against the USPTO
+  screen; manifest-fork sequencing — adversarial case (07-10) that
+  hooks/settings modeling belongs on the launch path (field pain lands in
+  the unmodeled surface; exemplar's own enforcement wiring is ungoverned) —
+  collides with the meta-freeze, grill before ruling.
 
 ## Standing discipline (mechanical, paid for)
 

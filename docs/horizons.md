@@ -125,6 +125,10 @@ that evidence, not preference, is the bite condition.
   intent-level decision, not a feature. *Leaning:* wants its own design
   session before any spec text. *Bite condition:* an explicit human ruling on
   where temper's responsibility ends — scaffold only, orchestrate, or stay out.
+  *Field evidence (2026-07-10):* a consumer's hook substring-matched
+  "developer" and injected irrelevant docs every turn — a declared,
+  deterministic trigger whose relevance was pure noise; "is this trigger
+  signal?" is exactly the question that exits the product today.
 
 - `(agent-agnostic-import)` — **More foreign formats at the on-ramp.** Each
   import source (beyond the Cursor `.mdc` correction that motivated the tool)

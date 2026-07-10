@@ -3,8 +3,10 @@
 The best worked example of a temper surface is the live one in this
 repository. The harness you are reading about is authored at
 [`.temper/`](../.temper/) and gated by `temper check .temper` on every
-session start. Nothing on this page is illustrative; every path is real and
-every excerpt is current at the commit you are reading.
+session start. Every path on this page is real. The excerpts are copies
+made for reading flow, and nothing gates this page against the tree, so if
+a quote and its file ever disagree, the file is right and this page has a
+bug.
 
 ## The shape
 
