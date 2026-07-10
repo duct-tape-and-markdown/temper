@@ -2,18 +2,19 @@
 
 - Spec derived through: a0fccaf
 - Audited through: eab6979
-- Residue swept through: c2a8cae
-- This tick: Ship audit — PREDICATE-CONSTRUCTORS (c8b78c5: five constructors
-  contract.ts:95-111, ClauseRowError loud-reject compose.rs:162/198) and
-  TEST-SCAFFOLD-ONE-HOME (5d0ea5b: tests/common `scaffold`, two suites
-  converted; layout_edge_slot.rs's copy rides as scoped) verified on disk.
-  LAYOUT-RELATIONSHIP-EDGES opened (blocker shipped); its anchors and
-  EMBEDDED-EDGE-TARGETS' re-set after the churn (drift.rs 702→704,
-  graph.rs 173→157, declarations.ts 200-202→211-213); PACKAGING-CHANNELS'
-  parked reason re-verified (no release.yml; root package.json still the
-  private flume manifest).
+- Residue swept through: e5a7077
+- This tick: Residue sweep over c8b78c5 + 5d0ea5b. 5d0ea5b is pure
+  consolidation (no residue; install.rs:189 checked — a different job, not a
+  scaffold copy). c8b78c5 clean in itself but its named scope cut and the
+  premise it retired both file: BUILTIN-CONTRACT-ARRAY-SURGERY (effective's
+  severity-flip layer vs builtins.md "no layering rules") and
+  LOCK-ROW-REJECT-LOUD (from_table degrade-to-absent vs invariant 6), both
+  serialized onto the main.rs chain per the disjoint rule. All six riding
+  debts re-verified on disk; prose.ts found binary-detected (literal \x00/\x01
+  sentinels — grep silently skips it), noted on its record.
 - Queue: LAYOUT-RELATIONSHIP-EDGES (open); EMBEDDED-EDGE-TARGETS (blockedBy
-  LAYOUT-RELATIONSHIP-EDGES); PACKAGING-CHANNELS (parked).
+  LAYOUT-RELATIONSHIP-EDGES); BUILTIN-CONTRACT-ARRAY-SURGERY (blockedBy
+  EMBEDDED-EDGE-TARGETS); LOCK-ROW-REJECT-LOUD (blockedBy
+  BUILTIN-CONTRACT-ARRAY-SURGERY); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep (c2a8cae trails HEAD; c8b78c5 and
-5d0ea5b are unswept code commits).
+Plan continues: yes — all inputs current; quiet closing pass next.
