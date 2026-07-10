@@ -110,34 +110,19 @@ condition arrives, it is the next break. If work touches one, surface it.
   builtins.ts cites at 308/348/385 — neither file touched since fcdbe52;
   b5b6fb4 touched neither). Verify both at the next residue sweep.
 
-- **Pre-corpus-reorg spec-path citations in `sdk/src/kind.ts` — 8 hits**
-  (lines 7,57,86,98,125,166,189,206; re-verified against disk at ship audit
-  HEAD b8f0746). Doc comments cite `10-contracts.md`, `15-kinds.md`,
-  `20-surface.md`, `40-composition.md` — aspect-oriented files 0002's reorg
-  retired; none exist in the corpus today
-  (`specs/process/engineering.md` residue class). Compounding:
-  `.claude/rules/sdk.md` retires spec-path citations from comments as a
-  class regardless of validity — cut on contact, never annotate — so this
-  rides the next entry that opens the file, never a standalone one. Three
-  riding predictions falsified already (18d3406, 3c6f50b, cb17438 each
-  opened `kind.ts` without their scope reaching the citation lines).
-  `contract.ts`'s twin 12-hit debt cleared at ship audit HEAD b8f0746
-  (36e0556's exit clause fired; evidence in that plan commit body).
-  KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens `kind.ts` and
-  names the 8-line cut in its file description — verify the exit clause
-  fired at its ship audit, then delete this bullet.
-
-- **Two `src/kind.rs` doc comments are factually false**, both claiming
-  inertness a consumer disproves: `unit_shape`'s "Inert alongside
-  format" (line ~74 — consumed by `src/frontmatter.rs:175`) and
-  `registration`'s "nothing else consumes it yet" (line 82 — consumed by
-  `src/main.rs:452-455` → `graph.rs::live_members` since 207e701).
-  Comment staleness rides whichever entry next opens `src/kind.rs`
-  (rust.md, "the exit clause") — never a standalone entry. From the 0013
-  inbox note (observed 9c3b1c1); both verified on disk at f600965.
-  KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens `src/kind.rs`
-  and names both fixes in its file description — verify the exit clause
-  fired at its ship audit, then delete this bullet.
+- **The `src/kind.rs` `format` field doc comment is factually false** (~line
+  66): it claims "today's built-in kinds declare none" and "Inert until
+  DECLARED-FRONTMATTER-ADAPTER: typed, consumed by nothing yet" — but
+  `src/builtin_kind.rs` (lines 68/89/111/144) declares
+  `Some(Format::YamlFrontmatter)` on four built-ins and `src/main.rs:1013`
+  (`row_relocates_builtin`) consumes it. Same inertness-a-consumer-disproves
+  class as the two false comments a538a76 just fixed — that commit corrected
+  `unit_shape` and `registration` on contact but left this third one.
+  Comment staleness rides whichever entry next opens `src/kind.rs` (rust.md,
+  "the exit clause") — never a standalone entry. LAYOUT-READER opens
+  `src/kind.rs` and names the fix in its file description — verify the exit
+  clause fired at its ship audit, then delete this bullet. Found at ship
+  audit HEAD f3a5356.
 
 - **Pre-0019 "every governed artifact" universal in `src/install.rs:18`.**
   The module doc still states the first emit "regenerates every governed

@@ -7,8 +7,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-CONTENT-FACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -25,7 +24,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "The extractor is composed from kind data (representation.md, \"A kind is data, never code; its extractor is composed from that data\"): compose the layout reader from the content fact the way format composes the frontmatter reader today."
+          "description": "The extractor is composed from kind data (representation.md, \"A kind is data, never code; its extractor is composed from that data\"): compose the layout reader from the content fact (Content/LayoutRow now ride KindFactRow.content into CustomKind.content, shipped a538a76) the way format composes the frontmatter reader today. Opening this file fires the riding exit clause on the stale format-field doc comment (~line 66): it claims \"today's built-in kinds declare none\" and \"Inert until DECLARED-FRONTMATTER-ADAPTER: typed, consumed by nothing yet\" — src/builtin_kind.rs (lines 68/89/111/144) declares Some(Format::YamlFrontmatter) and src/main.rs:1013 (row_relocates_builtin) consumes it: fix on contact."
         },
         {
           "path": "src/main.rs",
@@ -54,7 +53,7 @@
       }
     ],
     "acceptance": "A layout kind's members, read off its authored documents, reach the lock as declaration rows and the gate judges them offline from the committed pair; the document is never written, regenerated, or reaped; a non-fitting document is a loud error; all gates green.",
-    "notes": "Scoped at a2279cf (0019). Sections substrate verified shipped: extract.rs Section/body_headings/FencedBlock — extend, never duplicate. Identity: slugged heading; explicit key survives retitling; a rename reports as a move, loudly (0019) — drift's existing fingerprint vocabulary. Span/miette mechanics are code's call (depth rule); the bar is a finding naming file and heading. Prose-region imports excluded: LAYOUT-PROSE-IMPORT."
+    "notes": "Scoped at a2279cf (0019). Blocker shipped: content fact rides KindFactRow.content (drift.rs:1118) into CustomKind (a538a76) — compose the reader from it. Substrate shipped: extract.rs Section/body_headings — extend, never duplicate. Identity: slugged heading; explicit key survives retitling; a rename is a loud move (0019). Span/miette mechanics are code's call; the bar is a finding naming file and heading. Prose-region imports excluded: LAYOUT-PROSE-IMPORT."
   },
   {
     "tag": "LAYOUT-PROSE-IMPORT",
@@ -99,7 +98,7 @@
       }
     ],
     "acceptance": "A layout prose region declared as an import resolves, is fingerprinted in the committed lock, and appears as a declared edge to the gate and read verbs; a dangling import refuses loudly before any byte is written; all gates green.",
-    "notes": "Scoped at a2279cf (0019 Consequences: prose-import resolution). No Include primitive ships anywhere today (rg: mentions only — drift.rs MentionRow). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK declaration shape lands in KIND-CONTENT-FACT; this entry is engine-side resolve + fingerprint + edge."
+    "notes": "Scoped at a2279cf (0019 Consequences: prose-import resolution). No Include primitive ships anywhere today (rg: mentions only — drift.rs MentionRow). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK shape landed in KIND-CONTENT-FACT (LayoutRegionRow import ref); this entry is engine-side resolve + fingerprint + edge."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -110,7 +109,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at ddae7d4 (ship audit; the one intervening code commit since ab73a60 is 1589845, a tests-only fixture consolidation, not packaging-adjacent): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at f3a5356 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
