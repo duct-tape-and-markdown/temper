@@ -1,48 +1,5 @@
 [
   {
-    "tag": "LOCK-ROW-REJECT-LOUD",
-    "summary": "A present-but-malformed lock declaration row is a load error in every row family — the tool-written lock admits no degrade-to-absent read; absence stays legitimate",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`family()` (drift.rs:2179, filter_map at 2183) and the per-family `from_table` lifts silently drop a present row that fails its lift, narrated as 'the hand-editable-lock tolerance the rest of the readers share' (drift.rs:1401, 2144, 2274, 2593, 2711) — a premise pipeline.md rejects (tool-written whole, never patched) and invariant 6 names a gap, not a license: a dropped satisfies row forges an unfilled-requirement finding, a dropped kind row unmodels members. A present-but-malformed row (wrong-typed column, missing required column, malformed array element) becomes a load error surfaced through `read_declarations`' existing miette::Result (drift.rs:2110); a missing lock, an absent family, or an absent optional column stays legitimate absence. `source_deps` (drift.rs:1402) takes the same discipline; the retired narration goes with the behavior. `layout_edge_fields` (drift.rs:690; filter_map at 694, new at fcaf08e) skips a present `fact = \"edge\"` row missing its `field` column the same way — one more site of the class, covered by the load-tier reject or made loud in place."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "The lock-row column reads that degrade an out-of-vocabulary value to absent — the locus/format label reads (kind.rs:695, 723) and the KIND.md-era narration beside them (kind.rs:531) — reject loud the same way; the unit test asserting the degrade (kind.rs:1323) flips to asserting the error."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "The `fact = \"edge\"` assembly-row read `edges_from_declarations` (main.rs:1325-1327: 'a row missing a column is skipped, not errored') is the same class — a present edge row missing its column is a load error, never a silently absent edge."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The cases asserting a malformed row reads as silent absence flip to asserting the load error; add per-family malformed-present cases beside the existing legitimate-absence ones."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "each declaration row family rejects a present-but-malformed row (wrong-typed column, out-of-vocabulary label, missing required column) as a read_declarations error naming the family; a missing lock, absent family, or absent optional column still reads as legitimate absence"
-      }
-    ],
-    "acceptance": "A committed lock carrying one malformed declaration row fails check/emit/read verbs loud at load, naming the row family — never a silently narrowed verdict; a lockless harness and every legitimately absent family/column behave exactly as today; all gates green.",
-    "notes": "Found+scoped at residue sweep e5a7077; layout_edge_fields site added at sweep 503de24; unblocked at ship audit 55c8299 (BUILTIN-CONTRACT-ARRAY-SURGERY verified on disk; main.rs edge read re-anchored 1269→1325, drift.rs/kind.rs anchors untouched). c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
