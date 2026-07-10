@@ -16,3 +16,10 @@ routing.
   escape sequence (same runtime string, file stays NUL-free text). Full
   account in `.flume/friction/plan-grep-nul-binary-false-negative.md`;
   retire that capture when this ships. observed at cfbbbf5
+
+- `specs/model/contract.md` ("Read verbs") and `specs/model/pipeline.md`
+  (closing line) both name an `impact` read verb; the binary ships no such
+  verb (blast radius rides `explain`), and neither `pending.json` nor
+  `open-questions.md` carries it. Spec and queue have drifted past the
+  quiet-pass currency claim: either file the verb's entry or surface why
+  the spec sentence stands unqueued. observed at 543f2fd
