@@ -1,42 +1,5 @@
 [
   {
-    "tag": "LOCK-READ-SWALLOW-LOUD",
-    "summary": "Propagate lock-read errors in the two remaining swallows (guard's mode_from_lock, coverage_note's with_locked_kinds); reject an out-of-vocabulary enforcement-mode value loud",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`mode_from_lock` (line 500) `.unwrap_or_default()`s the whole `read_declarations` read — an unreadable, unparseable, or row-malformed lock silently reads as absent, running the guard at default `warn` even where the lock declared `block` — and degrades an out-of-vocabulary `mode` value to the default. Make it fallible: propagate the read error (the Guard arm already returns miette::Result) and reject an unknown `mode` value loud. A genuinely missing lock is already Ok(default) inside read_declarations (drift.rs:2235), so legitimate absence keeps the documented default-warn posture."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`with_locked_kinds` (line 217) `.unwrap_or_default()`s the same read: a corrupt lock reads as \"no kinds declared\", silently dropping the locked-kind suppression, while the row-lift half (`from_kind_fact_row`) is already loud. Propagate the read error through the function's existing `Result` return; keep the missing-lock degrade-to-`kinds`-alone the doc comment names."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "`temper guard` over a workspace whose lock.toml is corrupt (invalid TOML, or a malformed/out-of-vocabulary `mode` assembly row) errors loud, never silently degrading a declared `block` to `warn`; a missing lock still guards at default `warn`"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "the coverage note over a corrupt lock rejects loud instead of silently degrading to built-ins-only suppression; a missing lock still degrades to the built-in kinds alone"
-      }
-    ],
-    "acceptance": "No caller of drift::read_declarations discards its error: a corrupt lock is an error at every placement (intent invariant 6; distribution's fail-loud invariant) and an out-of-vocabulary enforcement-mode value is rejected, never defaulted — while a genuinely absent lock keeps its documented default posture everywhere.",
-    "notes": "Residue of b3ffb52 (LOCK-ROW-REJECT-LOUD): the mode_from_lock half is that commit's own declared queue residual; the with_locked_kinds read-swallow was found this sweep — the commit body claimed coverage_note propagates, but only the row lift is loud, not the read at :217. rg confirms these are the only two swallowing callers of read_declarations. Scoped at 1817f39."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
