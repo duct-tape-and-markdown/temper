@@ -7,8 +7,7 @@
       "section": "Default contracts"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-EDGE-TARGETS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The gate (main.rs:590) and `schema` (main.rs:292/299) compose a built-in kind's contract via `compose::effective` — the embedded default with per-clause severity flips only, a layering rule builtins.md rejects ('no layering rules, no precedence table'; 'the built-ins are first-party instances of it, never a privileged form'). The SDK erases an expect binding on a built-in kind to ordinary clause rows (declarations.ts:460; `skillDefaultContract` is exported for the spread, claude-code.ts:8), yet those rows otherwise never gate: an appended clause silently drops, an omitted default clause silently still gates. Compose rows-are-the-contract at both call sites: rows present for the kind lift through the same reject-loud path custom kinds use (`compose::default_contract_from_rows`, c8b78c5); no rows falls back to the embedded default (`builtin_default_contract`, main.rs:50) — adoption rides the kind import (builtins.md). Exact wiring is code's call (depth rule)."
+          "description": "The gate (main.rs:591) and `schema` (main.rs:292/299) compose a built-in kind's contract via `compose::effective` — the embedded default with per-clause severity flips only, a layering rule builtins.md rejects ('no layering rules, no precedence table'; 'the built-ins are first-party instances of it, never a privileged form'). The SDK erases an expect binding on a built-in kind to ordinary clause rows (declarations.ts:460; `skillDefaultContract` is exported for the spread, claude-code.ts:8), yet those rows otherwise never gate: an appended clause silently drops, an omitted default clause silently still gates. Compose rows-are-the-contract at both call sites: rows present for the kind lift through the same reject-loud path custom kinds use (`compose::default_contract_from_rows`, c8b78c5); no rows falls back to the embedded default (`builtin_default_contract`, main.rs:50) — adoption rides the kind import (builtins.md). Exact wiring is code's call (depth rule)."
         },
         {
           "path": "src/compose.rs",
@@ -45,7 +44,7 @@
       }
     ],
     "acceptance": "An author who spreads a shipped default contract and appends a clause sees that clause fire on the kind's members; a clause the author's array omits no longer gates; a built-in kind with no declared rows gates on the embedded default exactly as today; an out-of-vocabulary row naming a built-in kind rejects loud; all gates green.",
-    "notes": "Found+scoped at residue sweep e5a7077; anchors re-set at ship audit 2f9e277. Rejected alternative: keep the flip layer and admit rows as extra clauses — still a precedence table builtins.md rejects; rows-or-default is pipeline.md's 'one input shape, two sources; there is no third'. blockedBy is file-serialization only (shares src/main.rs with the edge chain per the pending-entry disjoint rule), no semantic dependency."
+    "notes": "Found+scoped at residue sweep e5a7077; unblocked at ship audit 008a995 (EMBEDDED-EDGE-TARGETS verified on disk; gate anchor re-set 590→591). Rejected alternative: keep the flip layer and admit rows as extra clauses — still a precedence table builtins.md rejects; rows-or-default is pipeline.md's 'one input shape, two sources; there is no third'."
   },
   {
     "tag": "LOCK-ROW-REJECT-LOUD",
@@ -64,7 +63,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`family()` (drift.rs:2179, filter_map at 2183) and the per-family `from_table` lifts silently drop a present row that fails its lift, narrated as 'the hand-editable-lock tolerance the rest of the readers share' (drift.rs:1401, 2144, 2274, 2593, 2711) — a premise pipeline.md rejects (tool-written whole, never patched) and invariant 6 names a gap, not a license: a dropped satisfies row forges an unfilled-requirement finding, a dropped kind row unmodels members. A present-but-malformed row (wrong-typed column, missing required column, malformed array element) becomes a load error surfaced through `read_declarations`' existing miette::Result (drift.rs:2110); a missing lock, an absent family, or an absent optional column stays legitimate absence. `source_deps` (drift.rs:1402) takes the same discipline; the retired narration goes with the behavior. `layout_edge_fields` (drift.rs:690; filter_map at 693, new at fcaf08e) skips a present `fact = \"edge\"` row missing its `field` column the same way — one more site of the class, covered by the load-tier reject or made loud in place."
+          "description": "`family()` (drift.rs:2179, filter_map at 2183) and the per-family `from_table` lifts silently drop a present row that fails its lift, narrated as 'the hand-editable-lock tolerance the rest of the readers share' (drift.rs:1401, 2144, 2274, 2593, 2711) — a premise pipeline.md rejects (tool-written whole, never patched) and invariant 6 names a gap, not a license: a dropped satisfies row forges an unfilled-requirement finding, a dropped kind row unmodels members. A present-but-malformed row (wrong-typed column, missing required column, malformed array element) becomes a load error surfaced through `read_declarations`' existing miette::Result (drift.rs:2110); a missing lock, an absent family, or an absent optional column stays legitimate absence. `source_deps` (drift.rs:1402) takes the same discipline; the retired narration goes with the behavior. `layout_edge_fields` (drift.rs:690; filter_map at 694, new at fcaf08e) skips a present `fact = \"edge\"` row missing its `field` column the same way — one more site of the class, covered by the load-tier reject or made loud in place."
         },
         {
           "path": "src/kind.rs",
@@ -72,7 +71,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "The `fact = \"edge\"` assembly-row read (main.rs:1184: 'a row missing a column is skipped, not errored') is the same class — a present edge row missing its column is a load error, never a silently absent edge."
+          "description": "The `fact = \"edge\"` assembly-row read `edges_from_declarations` (main.rs:1269: 'a row missing a column is skipped, not errored') is the same class — a present edge row missing its column is a load error, never a silently absent edge."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
@@ -89,7 +88,7 @@
       }
     ],
     "acceptance": "A committed lock carrying one malformed declaration row fails check/emit/read verbs loud at load, naming the row family — never a silently narrowed verdict; a lockless harness and every legitimately absent family/column behave exactly as today; all gates green.",
-    "notes": "Found+scoped at residue sweep e5a7077; anchors re-set at ship audit 2f9e277; layout_edge_fields site added at sweep 503de24. c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite — callers keep their signatures. blockedBy is file-serialization only (shares main.rs/drift.rs with upstream entries), no semantic dependency."
+    "notes": "Found+scoped at residue sweep e5a7077; layout_edge_fields site added at sweep 503de24; re-anchored at ship audit 008a995 (main.rs edge read 1184→1269). c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite. blockedBy is file-serialization only (shares src/main.rs with BUILTIN-CONTRACT-ARRAY-SURGERY), no semantic dependency."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -100,7 +99,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 2f9e277 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 008a995 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
