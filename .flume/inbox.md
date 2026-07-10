@@ -18,13 +18,16 @@ routing.
   mirroring the existing ones (the ClauseRow wire already carries them —
   the engine's own hand-written built-in contracts prove the read side).
   First customer waiting: a counterpart corpus's "every member of kind K
-  carries marker M" clause — expressible today as an expect binding on K
-  the moment `sectionContains`/`mustDefine` are authorable; no new
+  carries marker M" clause (their per-Decision `Rejected:` law is the
+  named consumer) — expressible today as an expect binding on K the
+  moment `sectionContains`/`mustDefine` are authorable; no new
   machinery, no ratification. Observed at 9833f20.
 
 - First-consumer field report (counterpart corpus, relayed): a declared
   relationship edge field targeting an **embedded-locus kind** fires an
-  admissibility finding. Code-side hypothesis, to re-verify: `by_kind`
+  admissibility finding — **with the host's templates declared in the
+  lock** (repro: their `serves` -> `domain`), so template presence does
+  not populate the target set. Code-side hypothesis, to re-verify: `by_kind`
   ranges each kind's file-locus units (`resolve_kind_units` walks a
   governs locus embedded kinds don't have), so an embedded kind presents
   as unmodeled-or-empty to `graph::admissibility`/route resolution — yet
