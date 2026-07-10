@@ -1,45 +1,5 @@
 [
   {
-    "tag": "MANIFEST-ADAPTER-READ",
-    "summary": "JSON manifest adapter, read face: a JSON-parser peer to frontmatter.rs — declared collection addresses walk into generic extraction, undeclared keys opaque, registration members inferred",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "Reach"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "The JSON manifest adapter, read face only — `frontmatter.rs`'s peer. A real JSON parser owns the grammar; a kind's declared collection address selects which key paths walk into the generic surface extractor (`crate::extract`), each entry read as a fields-only registration member; every undeclared key survives as an opaque field. Reading an unrepresented manifest infers its registration members. Write face (canonical whole-manifest regeneration) is phase 2 — NOT this entry; the unrepresented-manifest write stays 0008's `src/json_splice.rs`, untouched."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "The generic surface extractor gains the collection-address walk: given a manifest's declared address, resolve the key path and extract each entry as a member's fields, reusing the same `Features`/`Primitive` machinery the frontmatter path rides so the soundness boundary stays one boundary."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Discovery/loader dispatch (`discover_kind_units`/`discover_builtin`) routes an embedded manifest kind to the new JSON adapter instead of the frontmatter loader, keyed off the collection-address fact. Idempotence keystone holds — the read is content-derived."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/manifest_adapter.rs",
-        "asserts": "a JSON manifest with a declared collection address infers one registration member per entry with the declared fields; undeclared keys read back as opaque fields; re-reading an unchanged manifest is idempotent"
-      }
-    ],
-    "acceptance": "temper reads a JSON manifest via the new adapter: declared collection addresses extract as registration members, undeclared keys survive as opaque fields, and an unrepresented manifest infers its members — read idempotent.",
-    "notes": "Phase 1 of 0021, read face only (write face is phase 2). Peer of frontmatter.rs — a real JSON parser owns the grammar; the unrepresented-manifest write stays json_splice.rs (0008), untouched. No kind ships in this entry — a test kind exercises the adapter. scoped at 8998b73"
-  },
-  {
     "tag": "HOOK-KIND",
     "summary": "The hook built-in kind — embedded, fields-only, collection address hooks.<Event> — with its cited strictest-documented-profile default contract, in the engine std-lib and the SDK provider face",
     "per": {
