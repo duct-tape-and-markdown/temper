@@ -7,8 +7,7 @@
       "section": "Invariants"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "BUILTIN-CONTRACT-ARRAY-SURGERY"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -24,7 +23,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "The `fact = \"edge\"` assembly-row read `edges_from_declarations` (main.rs:1269: 'a row missing a column is skipped, not errored') is the same class — a present edge row missing its column is a load error, never a silently absent edge."
+          "description": "The `fact = \"edge\"` assembly-row read `edges_from_declarations` (main.rs:1325-1327: 'a row missing a column is skipped, not errored') is the same class — a present edge row missing its column is a load error, never a silently absent edge."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "A committed lock carrying one malformed declaration row fails check/emit/read verbs loud at load, naming the row family — never a silently narrowed verdict; a lockless harness and every legitimately absent family/column behave exactly as today; all gates green.",
-    "notes": "Found+scoped at residue sweep e5a7077; layout_edge_fields site added at sweep 503de24; re-anchored at ship audit 008a995 (main.rs edge read 1184→1269). c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite. blockedBy is file-serialization only (shares src/main.rs with BUILTIN-CONTRACT-ARRAY-SURGERY), no semantic dependency."
+    "notes": "Found+scoped at residue sweep e5a7077; layout_edge_fields site added at sweep 503de24; unblocked at ship audit 55c8299 (BUILTIN-CONTRACT-ARRAY-SURGERY verified on disk; main.rs edge read re-anchored 1269→1325, drift.rs/kind.rs anchors untouched). c8b78c5 set the pattern (ClauseRowError) at the predicate tier; this is the from_table tier beneath it. read_declarations already returns miette::Result, so the ripple stays inside drift/kind/main plus the row suite."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -52,7 +51,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 008a995 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 55c8299 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {

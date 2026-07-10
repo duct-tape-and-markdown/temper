@@ -161,13 +161,6 @@ condition arrives, it is the next break. If work touches one, surface it.
   at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
   HEAD 9e32fa8.
 
-- **`tests/graph.rs:491` narrates its originating incident.** The
-  `embedded_edge_targets` module doc closes "the cases mirror the field
-  report's repro" (ca1e413) — era narration the comment taxonomy cuts; a
-  surface states the rule, never the incident that taught it. Rides
-  whichever entry next opens the file (UNTEMPLATED-NESTED-MEMBER-LOUD does,
-  and names the cut), never standalone. Found at residue sweep HEAD 9e32fa8.
-
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
   proves end to end (`specs/model/representation.md`, "Reach"). Narrowed
