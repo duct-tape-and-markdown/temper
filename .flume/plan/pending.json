@@ -1,144 +1,16 @@
 [
   {
-    "tag": "REQUIREMENT-PROSE-PERSISTS",
-    "summary": "Persist a requirement's authored prose: rename `means` to the corpus noun `prose` SDK-and-engine-wide, emit it in the requirement's lock row, and retire the phantom never-interprets quote",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "requirement — a shipped kind, not a primitive"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/contract.ts",
-          "description": "Rename `Requirement.means: string` (lines 152-158) to `prose` — contract.md's template noun (\"prose — the authored intent the requirement exists to carry; never interpreted\"). Opening this file fires the riding exit clause on its 12 pre-0002 spec-path doc-comment citations (lines 5,7,17,34,38,48,57,89,124,142,149,160): cut them on contact, never annotate."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "requirementRows() (lines 302-330) emits the prose in each row — today an authored `means` verifiably reaches neither the lock nor explain (zero `means` reads anywhere in this file)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Rename `Requirement.means: Option<String>` (line 71) to `prose`; the line-60 doc comment states the same phantom never-interprets ruling — restate it as contract.md's actual bar: carried verbatim, never interpreted."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "RequirementRow (~line 1204) gains the prose column, `#[serde(default)]` like its optional siblings."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "requirement_from_row (~line 1063) carries the prose from the row instead of defaulting `means: None`; retire the doc comment quoting the phantom ruling \"`temper` never interprets `means`\" — zero hits in specs/; contract.md says prose is *carried*, never interpreted — a statement about carrying it, not license to drop it."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Rename ripple only: explain's requirement narration already surfaces the field (lines 272, 369, 437) — with persistence fixed it starts carrying real words."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "Rename ripple: `means` fixture/comment hits (lines 474, 916-920)."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Rename ripple: `means` fixture hit (line 1336)."
-        },
-        {
-          "path": "src/coverage.rs",
-          "description": "Rename ripple: module docs, the `requirement()` test builder, and the means-less-requirement tests (lines 5-28, 79, 161-167, 259-261)."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "Rename ripple: fixture at line 233."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Rename ripple: lock-snapshot fixture at line 640 — the emitted row key changes with the rename."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Rename ripple (line 47), plus a new assert: explain narrates an authored prose verbatim."
-        },
-        {
-          "path": "tests/coverage.rs",
-          "description": "Rename ripple in fixtures. Opening this file fires the riding exit clause on the stale `effective_governs` doc comment (lines 336-338 — e5daf1d renamed the symbol to `overlay_builtin_kind`): fix on contact."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "New assert: a requirement's prose round-trips SDK emit -> lock row -> engine compose verbatim."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Rename ripple in fixtures (lines 134, 302-303), plus assert requirementRows carries the prose."
-        },
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "Rename ripple in fixtures (lines 41, 60, 99)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a requirement's prose round-trips SDK emit -> lock row -> engine compose verbatim"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain narrates a requirement's authored prose"
-      },
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "requirementRows emits the prose in the declaration row"
-      }
-    ],
-    "acceptance": "An authored requirement's prose reaches the committed lock and explain's narration verbatim; `means` and the phantom never-interprets quote grep to zero as symbols across src/ and sdk/src/; all gates green.",
-    "notes": "Scoped at f600965. Inbox note observed 9c3b1c1; no code commit since touches these surfaces. The template's other slots already ship (identity/verified_by/clauses in RequirementRow; read.rs already narrates the field) — the verified gap is persistence plus the phantom quote (main.rs ~1063, compose.rs:60). Opening contract.ts and tests/coverage.rs fires their riding exit-clause debts — cut on contact. If 0019's derivation demands a fuller kind reification, that is a further slice."
-  },
-  {
-    "tag": "SKILL-CONTRACT-RECITE",
-    "summary": "Re-fetch the skill kind's doc sources, diff skillDefaultContract's clauses against them, fix any drifted clause, restamp every stale cite (skill 07-01; rule/memory 07-01/02, same walk)",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The clauses live in code"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Every skillDefaultContract clause cite (lines 182-252) still reads retrieved 2026-07-01; the 07-07 fetch that shipped command/agent demonstrably changed the neighboring kinds and never re-checked skill's. Re-fetch code.claude.com/docs/en/skills + agentskills.io/specification, diff each clause, fix drift, restamp the retrieved dates. The same walk covers the rule/memory clause cites from 07-01/07-02 (lines ~319-398) — one ritual, one file. commandDefaultContract derives from skill's by filter: verify it inherits every fix."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "The embedded built-in lock carries the clause rows (cites included) — re-derive it from the updated module if any clause changed, so tests/builtin_lock_frozen.rs's byte-compare stays green; never hand-transcribe (distribution.md)."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Existing clause assertions may pin the old cites or guidance — reconcile with whatever the fresh fetch changed."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the embedded built-in lock re-derives from the updated module and byte-compares (existing gate; regenerated lock lands in the same commit)"
-      }
-    ],
-    "acceptance": "No skillDefaultContract cite predates the fetch that validated it; any clause the current docs contradict is fixed in the same commit; built-in lock frozen gate green.",
-    "notes": "Scoped at f600965. Inbox note observed 9c3b1c1; no commit since touches skill's citations (706139a was a pure rename). Requires a live doc fetch at build time — the same fetch-and-cite pattern efd6caa/81b6ab4 ran on 07-07. External-facts bar (collaboration rule): verify before encoding — never restamp a date without reading the source it stamps."
-  },
-  {
     "tag": "FRONTMATTER-MALFORMED-LOUD",
     "summary": "A malformed or non-mapping YAML frontmatter block becomes an error finding naming the file — parse_frontmatter silently returns an empty field map today, so the gate judges fabricated absence",
     "per": {
       "path": "specs/intent.md",
       "section": "Invariants"
     },
-    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-PROSE-PERSISTS" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "REQUIREMENT-PROSE-PERSISTS"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -170,7 +42,11 @@
       "path": "specs/model/representation.md",
       "section": "kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "FRONTMATTER-MALFORMED-LOUD" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "FRONTMATTER-MALFORMED-LOUD"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -222,7 +98,11 @@
       "path": "specs/model/pipeline.md",
       "section": "Emit"
     },
-    "gate": { "kind": "blockedBy", "tag": "KIND-CONTENT-FACT" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-CONTENT-FACT"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
@@ -275,7 +155,11 @@
       "path": "specs/model/representation.md",
       "section": "kind"
     },
-    "gate": { "kind": "blockedBy", "tag": "LAYOUT-READER" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LAYOUT-READER"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
