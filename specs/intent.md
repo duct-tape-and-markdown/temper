@@ -33,10 +33,11 @@ checks are well-formedness: the preconditions of checking at all
 
 1. **Declared, never mined.** An entity or relationship exists because an
    author declared it on a typed surface — a field, an edge, a mention, a
-   syntax the target format itself executes. A check may read authored
-   content; it may never derive model structure from it. The bound runs both
-   ways: declaration is opt-in at every grain, and no check may demand
-   declaration density.
+   syntax the target format itself executes. A declaration types a
+   position — a heading, a slot, a fence — never a pattern within prose:
+   matching is mining, and a check may read authored content but never
+   derive model structure from it. The bound runs both ways: declaration
+   is opt-in at every grain, and no check may demand declaration density.
 2. **Decidable only.** A check enters temper iff it is expressible in the
    closed predicate vocabulary. What cannot be decided is behavior, and
    behavior is delegated to a wired verifier, never guessed. A gate that
@@ -74,8 +75,7 @@ author who needs it most and retains it least. The human sets the contract;
 the agent authors under it; temper holds the line between them.
 
 `rulesync` makes a harness portable; marketplaces distribute artifacts;
-temper makes a harness correct — downstream of both, checking what you
-installed.
+temper makes it correct — downstream of both, checking what you installed.
 
 ## The honest bound
 

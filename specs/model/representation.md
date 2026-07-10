@@ -30,7 +30,9 @@ The type of a member. A kind declares
   heading whose span fills a named slot — intent among them), and a member
   collection (a heading whose child headings are each one member of a named
   kind; identity is the slugged heading, an explicit key survives
-  retitling). A layout admits no syntax beyond markdown's own and has one
+  retitling). A field section the kind marks as an edge field declares the
+  member's edges — `satisfies` among them — and its entries are addresses.
+  A layout admits no syntax beyond markdown's own and has one
   face — the reader: the document is the authored home, read, never
   regenerated. What does not fit the three primitives is two kinds, or it
   is prose.
