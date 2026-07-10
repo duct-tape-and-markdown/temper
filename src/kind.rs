@@ -147,6 +147,21 @@ pub enum CollectionKeyPath {
     McpServers,
 }
 
+impl CollectionKeyPath {
+    /// The manifest's **top-level collection key** this key path walks into — the object
+    /// whose entries are the registration members. `hooks.<Event>` reads the `hooks`
+    /// object; `mcpServers.*` the `mcpServers` object. The one place the wire key paths
+    /// map to their manifest object, so the adapter's walk (`crate::json_manifest`) names
+    /// no literal of its own.
+    #[must_use]
+    pub fn collection_key(self) -> &'static str {
+        match self {
+            CollectionKeyPath::HooksEvent => "hooks",
+            CollectionKeyPath::McpServers => "mcpServers",
+        }
+    }
+}
+
 /// A declared **layout** — the ordered regions a `layout`-content kind's body is read as,
 /// each one of the three corpus primitives ([`LayoutRegion`]). The regions are the
 /// declared template; matching them against a member's actual heading tree is the

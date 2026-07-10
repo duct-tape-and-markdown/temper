@@ -25,7 +25,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use serde_json::Value as JsonValue;
+use serde_json::{Map as JsonMap, Value as JsonValue};
 
 /// A field's parsed source kind — the closed scalar/container lattice a kind's
 /// field schema ranges over. Taken from the *parsed*
@@ -912,6 +912,45 @@ pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
     }
 }
 
+/// Walk a parsed JSON manifest to a collection address's **registration members**:
+/// resolve the top-level object named by `collection_key` and read each of its entries
+/// as a fields-only member — the entry key paired with the entry object's fields, each
+/// projected kind-preserving through [`json_to_feature`], the same soundness boundary a
+/// frontmatter `field` rides. Entries come back in the collection's own sorted key order
+/// (`serde_json::Map` is a `BTreeMap`), so a re-read is byte-identical. An entry whose
+/// value is not a JSON object carries no fields — a non-object holds no key/value pairs a
+/// fields-only member reads. Absent — never errored — when the manifest carries no such
+/// collection object: an unrepresented manifest infers no member at that address.
+///
+/// `pub(crate)` so the JSON manifest adapter (`crate::json_manifest`) reads a collection
+/// address's members through the one surface extractor, never a second projector that
+/// could drift from the frontmatter path's field typing.
+pub(crate) fn manifest_members(
+    manifest: &JsonMap<String, JsonValue>,
+    collection_key: &str,
+) -> Vec<(String, BTreeMap<String, FeatureValue>)> {
+    let Some(JsonValue::Object(collection)) = manifest.get(collection_key) else {
+        return Vec::new();
+    };
+    collection
+        .iter()
+        .map(|(key, value)| (key.clone(), entry_fields(value)))
+        .collect()
+}
+
+/// Project one registration entry's value into its fields: an object's members each
+/// projected kind-preserving through [`json_to_feature`]; a non-object value yields no
+/// fields, since it holds no key/value pairs a fields-only member reads.
+fn entry_fields(value: &JsonValue) -> BTreeMap<String, FeatureValue> {
+    match value {
+        JsonValue::Object(fields) => fields
+            .iter()
+            .map(|(key, value)| (key.clone(), json_to_feature(value)))
+            .collect(),
+        _ => BTreeMap::new(),
+    }
+}
+
 /// The source kind of a JSON number: `integer` when it parsed as a whole number
 /// (`i64`/`u64`), else `number` (a floating-point value).
 fn number_kind(n: &serde_json::Number) -> ValueType {
@@ -1106,6 +1145,41 @@ prose below\n";
         // gate input.
         let body = "```toml\nk = 1\n```\n";
         assert_eq!(body_fenced_blocks(body), body_fenced_blocks(body));
+    }
+
+    #[test]
+    fn manifest_members_walk_each_entry_kind_preserving_and_skip_a_non_object() {
+        // The collection object's entries each become a member's fields, in the map's own
+        // sorted key order, projected through the same `json_to_feature` a `field`
+        // primitive rides. A non-object entry contributes no fields (it holds no
+        // key/value pairs a fields-only member reads).
+        let manifest = serde_json::json!({
+            "mcpServers": {
+                "gmail": { "command": "npx", "timeout": 30 },
+                "opaque": "not-an-object"
+            },
+            "permissions": { "allow": ["Bash"] }
+        });
+        let manifest = manifest.as_object().unwrap();
+
+        let members = manifest_members(manifest, "mcpServers");
+        let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
+        assert_eq!(keys, vec!["gmail", "opaque"]);
+
+        let gmail = &members[0].1;
+        assert_eq!(
+            gmail.get("command"),
+            Some(&FeatureValue::scalar(ValueType::String, "npx"))
+        );
+        assert_eq!(
+            gmail.get("timeout").map(FeatureValue::kind),
+            Some(ValueType::Integer)
+        );
+        // The string-valued entry has no object fields to read.
+        assert!(members[1].1.is_empty());
+
+        // An absent collection key yields no members — absent, never errored.
+        assert!(manifest_members(manifest, "hooks").is_empty());
     }
 
     #[test]
