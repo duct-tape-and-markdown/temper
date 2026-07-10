@@ -27,8 +27,9 @@ hard.
   the release workflow is the one unblocked pure-engineering item.
 - **KERNEL CORPUS LIVE** (PR #7; `metaphor-era` tag): eight nouns in
   `specs/model/`, decisions outside every read path. Flume dispatch model:
-  one tick = one job, cursors in state.md, planHonestyGate. Plan phase runs
-  Opus (d4260f8) for the 0019 derivation; build stays Sonnet.
+  one tick = one job, cursors in state.md, planHonestyGate. Loop economics
+  re-cut 07-10: audit+sweep merged, quiet-as-job deleted, plan on Opus with
+  Fable only on a live spec delta; build Opus.
 - **Friction/refactor channels live**; DRAIN AT SESSION OPEN. Decision
   audit (07-09, six agents): 0001/0013/0014 gaps filed via inbox — 0013's
   note amended in place, superseded in part by 0019.
