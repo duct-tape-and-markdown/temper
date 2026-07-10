@@ -2,18 +2,18 @@
 
 - Spec derived through: a0fccaf
 - Audited through: 8575dd6
-- Residue swept through: 1817f39
-- This tick: Ship audit — 3024687..HEAD, one code commit (9e48cd8,
-  LOCK-READ-SWALLOW-LOUD) verified on disk: `mode_from_lock`
-  (main.rs:508) and `with_locked_kinds` (coverage_note.rs:216) both
-  propagate the `read_declarations` error; an out-of-vocabulary mode
-  raises `LockRowError::Vocabulary`; rg confirms every remaining caller
-  uses `?` (main.rs 288/414/509/579/771, coverage_note.rs:221); tests
-  landed at tests/cli.rs:484 and tests/coverage_note.rs:188. The entry
-  was already dropped from pending by the ship chore. PACKAGING-CHANNELS
-  parked reason re-verified (still no release.yml; root package.json
-  still the private flume manifest) and restamped at 8575dd6.
+- Residue swept through: df667e4
+- This tick: Residue sweep — 1817f39..HEAD, one code commit (9e48cd8)
+  swept clean: no retired vocabulary in its hunks; the mode-string parse
+  has one home (main.rs:518-520 — install.rs maps enum→enum, sdk
+  assembly.ts is the authoring-side type, not a second parser); the
+  out-of-vocabulary rejection reuses `drift::LockRowError::Vocabulary`,
+  no second error shape; new tests use `common::tmpdir`, and their
+  hand-written malformed lock strings are correct spelling
+  (`common::write_lock` serializes a typed value that cannot express
+  corrupt bytes). Nothing fileable. All eight riding debts re-verified
+  on disk at df667e4 and restamped — 9e48cd8 touched none of their
+  files.
 - Queue: PACKAGING-CHANNELS (parked) — none pickable.
 
-Plan continues: yes — residue sweep (swept-through 1817f39 trails HEAD;
-9e48cd8's hunks unswept).
+Plan continues: yes — quiet pass (closing verification, then hand off).
