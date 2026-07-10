@@ -24,9 +24,11 @@ use toml_edit::{
     Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value,
 };
 
+use crate::extract::host_address;
 use crate::hash::sha256_hex;
 use crate::import::{RollupEntry, write_rollup};
 use crate::install;
+use crate::kind::{Content, Layout, content_from_row};
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
 /// a source or lock that fails to read, write, parse, or reproduce deterministically.
@@ -462,6 +464,12 @@ pub fn emit(
         .collect();
 
     let mut projections = Vec::with_capacity(payload.members.len());
+    // A layout kind's document is a source, not a projection: emit reads it under the
+    // declared layout and derives its declaration rows, but writes nothing at its path
+    // and never reaps it. Its rows join the lock's `nested_member` family alongside the
+    // program's own.
+    let mut layout_rows = Vec::new();
+    let mut layout_paths: BTreeSet<String> = BTreeSet::new();
     for member in &payload.members {
         let facts =
             kind_facts
@@ -471,6 +479,11 @@ pub fn emit(
                     member: member.name.clone(),
                 })?;
         let source_path = harness_root.join(member_projection_path(facts, &member.name));
+        if let Content::Layout(layout) = content_from_row(facts) {
+            layout_rows.extend(derive_layout_rows(&layout, member, &source_path)?);
+            layout_paths.insert(to_lock_path(&source_path));
+            continue;
+        }
         projections.push(Projection {
             kind: member.kind.clone(),
             name: member.name.clone(),
@@ -501,10 +514,12 @@ pub fn emit(
     // reaps it here. The new lock is about to be rewritten whole from `rollups`
     // alone, so this is the one point where a dropped member's row is still on
     // hand to compare against.
-    let owned_paths: BTreeSet<String> = projections
+    let mut owned_paths: BTreeSet<String> = projections
         .iter()
         .map(|projection| to_lock_path(&projection.source_path))
         .collect();
+    // A layout document is a source — never reaped even when no rollup row projects it.
+    owned_paths.extend(layout_paths);
     for row in read_prior_provenance(workspace_dir) {
         if owned_paths.contains(&row.source_path) {
             continue;
@@ -515,15 +530,48 @@ pub fn emit(
     }
 
     if !options.dry_run {
-        write_rollup(
-            workspace_dir,
-            &rollups,
-            &BTreeMap::new(),
-            &payload.declarations,
-        )?;
+        // The lock carries the program's declaration rows plus the ones emit derived
+        // from layout sources this same pass — merged into the `nested_member` family.
+        let mut declarations = payload.declarations.clone();
+        declarations.nested_members.extend(layout_rows);
+        write_rollup(workspace_dir, &rollups, &BTreeMap::new(), &declarations)?;
     }
 
     Ok(EmitReport { entries })
+}
+
+/// Read one layout member's document off disk and lower its member collections into
+/// `nested_member` declaration rows — the rows emit derives from a layout source
+/// (`pipeline.md`, "The lock"). The host address is the layout member's own `kind:name`;
+/// each collection member becomes one embedded member of its declared child kind, keyed
+/// by its slugged-heading (or explicit-key) identity, carrying its own sub-heading spans
+/// as leaves.
+///
+/// # Errors
+/// Returns a [`DriftError`] if the document cannot be read, or a `LayoutError` (as a
+/// [`miette::Report`]) when the document does not fit its declared layout.
+fn derive_layout_rows(
+    layout: &Layout,
+    member: &PayloadMember,
+    source_path: &Path,
+) -> miette::Result<Vec<NestedMemberRow>> {
+    let body = fs::read_to_string(source_path).map_err(|source| DriftError::Read {
+        path: source_path.to_path_buf(),
+        source,
+    })?;
+    let reading = layout.read(&body, source_path)?;
+    let host = host_address(&member.kind, &member.name);
+    Ok(reading
+        .members
+        .into_iter()
+        .map(|member| NestedMemberRow {
+            host: host.clone(),
+            kind: member.member_kind,
+            key: member.key,
+            leaves: member.leaves,
+            collections: Vec::new(),
+        })
+        .collect())
 }
 
 /// One provenance row read back off a workspace's prior `lock.toml` — the same

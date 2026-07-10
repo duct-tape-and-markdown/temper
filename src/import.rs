@@ -306,7 +306,10 @@ fn read_entries(dir: &Path) -> Result<Vec<fs::DirEntry>, ImportError> {
 /// After the per-member sections come the program's **declaration rows** — kind facts,
 /// clauses, requirements, assembly facts under an implicit `[declaration]` table;
 /// the drift/gate side reads them
-/// through [`crate::drift::read_declarations`].
+/// through [`crate::drift::read_declarations`]. The `nested_member` family carries the
+/// program's own embedded-member facts *and* the rows emit derives from layout sources
+/// in the same pass (`crate::drift::emit` merges them before this write), so a layout
+/// document's members reach the lock as declaration rows without a projection of their own.
 pub(crate) fn write_rollup(
     into: &Path,
     builtins: &BTreeMap<String, Vec<RollupEntry>>,

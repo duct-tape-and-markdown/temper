@@ -417,7 +417,7 @@ pub(crate) fn scan_companions(
 ///
 /// Returns [`FrontmatterError::NoId`] if the source has no filename stem, or a
 /// placement component that is not valid UTF-8 — the same failure a bare stem raises.
-pub(crate) fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, FrontmatterError> {
+pub fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, FrontmatterError> {
     let no_id = || FrontmatterError::NoId {
         path: source_file.to_path_buf(),
         shape: "file",

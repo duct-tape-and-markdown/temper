@@ -371,6 +371,116 @@ impl Features {
     }
 }
 
+/// One node of a markdown body's **heading tree**: an ATX heading, the body span
+/// beneath it (byte-faithful, exactly as a [`Section`]'s body — the deeper
+/// subsections stay part of the span as text), and the immediate deeper headings
+/// nested under it as their own nodes. A [`Section`] is this same heading+span
+/// pair flattened; the tree adds the parent→child nesting a member collection reads
+/// (a collection heading's child headings are each one member), tracked off the same
+/// ATX/fence primitives so the two views never disagree on what a heading is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HeadingNode {
+    /// The heading text, `#` markers stripped exactly as [`body_headings`] strips them.
+    pub heading: String,
+    /// The heading's ATX level (1..=6) — the nesting depth the tree is built by.
+    pub level: usize,
+    /// The body span beneath the heading, up to the next heading of the same or a
+    /// shallower level — the intervening lines rejoined with `\n`, deeper subsections
+    /// included as text, exactly as [`Section::body`].
+    pub body: String,
+    /// The immediate deeper headings nested under this one, in document order.
+    pub children: Vec<HeadingNode>,
+}
+
+/// The heading lines of a byte-faithful markdown body *outside* fenced code — each
+/// with its line index, ATX level, and stripped text, in document order. The section
+/// boundaries [`body_sections`] and [`body_heading_tree`] both partition, collected
+/// once off the shared [`atx_heading`]/[`track_fence`] primitives so neither view
+/// forks a second heading scan.
+fn collect_heads(lines: &[&str]) -> Vec<(usize, usize, String)> {
+    let mut heads = Vec::new();
+    let mut fence: Option<(char, usize)> = None;
+    for (index, line) in lines.iter().enumerate() {
+        if track_fence(line, &mut fence) {
+            continue;
+        }
+        if fence.is_none()
+            && let Some((level, text)) = atx_heading(line)
+        {
+            heads.push((index, level, text));
+        }
+    }
+    heads
+}
+
+/// Build the byte-faithful markdown body's **heading tree**: the top-level headings
+/// (the shallowest ATX level present), each carrying the immediate deeper headings
+/// nested under it, to arbitrary depth. The span and fence semantics are
+/// [`body_sections`]'s exactly — the tree is that flat section list re-partitioned by
+/// level, off the one [`collect_heads`] scan — so a member collection reads a
+/// collection heading's children the same way `section_contains` reads a section's
+/// body. A body with no heading yields no nodes (its whole text is preamble, the
+/// reader's to place).
+///
+/// `pub(crate)` so the [`crate::kind`] layout reader stands on this exact heading
+/// substrate rather than a second parser that could drift from the section/fence logic.
+pub(crate) fn body_heading_tree(body: &str) -> Vec<HeadingNode> {
+    let lines: Vec<&str> = body.lines().collect();
+    let heads = collect_heads(&lines);
+    build_heading_nodes(&heads, &lines, 0, heads.len(), lines.len())
+}
+
+/// Recursively partition the flat `heads` slice `[lo, hi)` into nested [`HeadingNode`]s.
+/// Each node at this level owns the contiguous run of strictly-deeper headings that
+/// follow it (its descendants) until the next heading of the same or a shallower level;
+/// that run recurses into the node's own children. `range_end` is the line the
+/// enclosing span ends at, so the final node's body runs to the parent's end rather
+/// than the whole document.
+fn build_heading_nodes(
+    heads: &[(usize, usize, String)],
+    lines: &[&str],
+    lo: usize,
+    hi: usize,
+    range_end: usize,
+) -> Vec<HeadingNode> {
+    let mut nodes = Vec::new();
+    let mut i = lo;
+    while i < hi {
+        let (start, level, ref text) = heads[i];
+        // Advance past every strictly-deeper heading — the node's descendants — to the
+        // next same-or-shallower sibling (or the range end).
+        let mut j = i + 1;
+        while j < hi && heads[j].1 > level {
+            j += 1;
+        }
+        let child_end = if j < hi { heads[j].0 } else { range_end };
+        let body = lines[start + 1..child_end].join("\n");
+        let children = build_heading_nodes(heads, lines, i + 1, j, child_end);
+        nodes.push(HeadingNode {
+            heading: text.clone(),
+            level,
+            body,
+            children,
+        });
+        i = j;
+    }
+    nodes
+}
+
+/// The verbatim **preamble** of a byte-faithful markdown body — the text before its
+/// first ATX heading (fence-aware, off the shared [`collect_heads`] scan), rejoined
+/// with `\n`. The whole body when it carries no heading. The span a layout's leading
+/// prose region lands.
+///
+/// `pub(crate)` so the [`crate::kind`] layout reader places a verbatim prose region off
+/// the same heading boundaries [`body_heading_tree`] partitions.
+pub(crate) fn body_preamble(body: &str) -> String {
+    let lines: Vec<&str> = body.lines().collect();
+    let heads = collect_heads(&lines);
+    let end = heads.first().map_or(lines.len(), |head| head.0);
+    lines[..end].join("\n")
+}
+
 /// The line count of a byte-faithful markdown body — the `max_lines` feature.
 /// A single home for the count so the per-kind projectors and the data-driven
 /// [`crate::kind`] composer read it the identical way rather than each writing
@@ -424,18 +534,7 @@ pub(crate) fn body_sections(body: &str) -> Vec<Section> {
     let lines: Vec<&str> = body.lines().collect();
     // First pass: the heading lines *outside* fenced code, each with its line
     // index, level, and stripped text — the section boundaries.
-    let mut heads: Vec<(usize, usize, String)> = Vec::new();
-    let mut fence: Option<(char, usize)> = None;
-    for (index, line) in lines.iter().enumerate() {
-        if track_fence(line, &mut fence) {
-            continue;
-        }
-        if fence.is_none()
-            && let Some((level, text)) = atx_heading(line)
-        {
-            heads.push((index, level, text));
-        }
-    }
+    let heads = collect_heads(&lines);
 
     // Second pass: each heading's body runs to the next heading of the same or a
     // shallower level (`next_level <= level`), so a subsection nests inside its
@@ -1093,5 +1192,63 @@ prose below\n";
     #[test]
     fn host_address_is_kind_colon_id() {
         assert_eq!(host_address("rule", "collaboration"), "rule:collaboration");
+    }
+
+    #[test]
+    fn heading_tree_nests_children_under_their_parent_and_carries_spans() {
+        // Two top-level `#` headings; the second nests two `##` children (a member
+        // collection's members), each with its own `###` sub-heading. The tree pairs
+        // each heading with its span and its immediate deeper children, off the same
+        // ATX/fence scan `body_sections` runs.
+        let body = "preamble line\n\
+\n\
+# Intent\n\
+the intent span\n\
+\n\
+# Invariants\n\
+\n\
+## Determinism\n\
+### key\n\
+det-core\n\
+\n\
+## Idempotence\n\
+### key\n\
+idem-core\n";
+        let tree = body_heading_tree(body);
+
+        let top: Vec<&str> = tree.iter().map(|node| node.heading.as_str()).collect();
+        assert_eq!(top, vec!["Intent", "Invariants"]);
+
+        // The field-section heading's span is its body, verbatim.
+        assert!(tree[0].body.contains("the intent span"));
+        assert!(tree[0].children.is_empty());
+
+        // The collection heading's immediate children are the two members.
+        let members: Vec<&str> = tree[1]
+            .children
+            .iter()
+            .map(|node| node.heading.as_str())
+            .collect();
+        assert_eq!(members, vec!["Determinism", "Idempotence"]);
+
+        // Each member carries its own `### key` sub-heading, one layer deeper.
+        let first = &tree[1].children[0];
+        assert_eq!(first.level, 2);
+        assert_eq!(first.children.len(), 1);
+        assert_eq!(first.children[0].heading, "key");
+        assert!(first.children[0].body.contains("det-core"));
+    }
+
+    #[test]
+    fn preamble_is_the_text_before_the_first_heading() {
+        assert_eq!(
+            body_preamble("lead one\nlead two\n\n# First\nunder\n"),
+            "lead one\nlead two\n"
+        );
+        // A body with no heading is all preamble.
+        assert_eq!(
+            body_preamble("just prose\nno heading\n"),
+            "just prose\nno heading"
+        );
     }
 }

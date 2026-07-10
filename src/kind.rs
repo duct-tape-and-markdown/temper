@@ -36,11 +36,13 @@ pub struct Governs {
     pub glob: String,
 }
 
-/// A kind's declared definition — a constructor plus the five facts of runtime
-/// residue: the [`governs`](CustomKind::governs) locus, the composed
-/// [`Extraction`], and the declared [`relationships`](CustomKind::relationships).
-/// Every kind is Rust data — a built-in is authored directly in
-/// [`crate::builtin_kind`]; there is no `KIND.md` file format to parse it from.
+/// A kind's declared definition — a constructor plus its runtime residue: the
+/// [`governs`](CustomKind::governs) locus, the composed [`Extraction`], the declared
+/// [`relationships`](CustomKind::relationships), and the declared shape facts
+/// ([`format`](CustomKind::format), [`unit_shape`](CustomKind::unit_shape),
+/// [`registration`](CustomKind::registration), [`templates`](CustomKind::templates),
+/// [`content`](CustomKind::content)). Every kind is Rust data — a built-in is authored
+/// directly in [`crate::builtin_kind`]; there is no `KIND.md` file format to parse it from.
 ///
 /// A custom kind is purely declare-side — it carries no clauses. Predicates over
 /// its members ride the assembly's `expect`/`require` clauses.
@@ -64,9 +66,9 @@ pub struct CustomKind {
     /// Absent ⇒ empty (the default [`CustomKind::new`] leaves it at).
     pub relationships: Vec<Edge>,
     /// The declared projection format — how a member's on-disk artifact is shaped.
-    /// A closed vocabulary; absent ⇒ `None` (today's built-in kinds
-    /// declare none). Inert until DECLARED-FRONTMATTER-ADAPTER: typed, consumed by
-    /// nothing yet.
+    /// A closed vocabulary; absent ⇒ `None`. Each built-in frontmatter kind declares
+    /// [`Format::YamlFrontmatter`]; a relocation row that diverges on it is a namespace
+    /// collision, decided by `row_relocates_builtin`.
     pub format: Option<Format>,
     /// The declared unit shape — whether a member is a lone file (id from the stem),
     /// a directory with companions (id from the directory name), or a lone file whose
@@ -140,6 +142,239 @@ pub enum LayoutRegion {
         /// An explicit identity key overriding the slugged heading, when declared.
         key: Option<String>,
     },
+}
+
+/// The typed reading of a `layout`-content document: what emit derives its
+/// declaration rows from and the gate reads its fields off, all off the one authored
+/// source. Field sections fill named [`fields`](LayoutReading::fields); member
+/// collections yield [`members`](LayoutReading::members) carrying slugged-heading (or
+/// explicit-key) identity; verbatim prose regions land in
+/// [`prose`](LayoutReading::prose), in document order. The document is never written
+/// back — it is the source, read (`pipeline.md`, "Emit").
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LayoutReading {
+    /// Each field section's named slot filled by its heading's verbatim span.
+    pub fields: BTreeMap<String, String>,
+    /// Each member collection's members, in document order — one per child heading of
+    /// a collection heading.
+    pub members: Vec<LayoutMember>,
+    /// Each verbatim prose region's span, in document order (an importing prose region
+    /// is out of this reader's scope and lands empty).
+    pub prose: Vec<String>,
+}
+
+/// One member read off a layout document's member collection: its child kind, its
+/// identity (the slugged heading, or the explicit key when the collection declares
+/// one — surviving a retitle of the heading), the authored heading it was read from,
+/// and its own leaves (the immediate deeper sub-headings' spans, keyed by slug).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayoutMember {
+    /// The child kind this member instantiates — the collection region's `member_kind`.
+    pub member_kind: String,
+    /// The member's identity: the slugged child heading, or the explicit key's value
+    /// when the collection declares a `key` (stable across a heading retitle).
+    pub key: String,
+    /// The authored child heading this member was read from — its identity source when
+    /// no explicit key overrides, kept so a rename surfaces as a move.
+    pub heading: String,
+    /// The member's own prose leaves — its immediate deeper sub-headings' spans, keyed
+    /// by the slug of each sub-heading.
+    pub leaves: BTreeMap<String, String>,
+}
+
+/// The failures a layout read surfaces loud — each naming the file and the heading at
+/// fault, never a degraded empty reading (invariant 6: loud or nothing). A document
+/// that does not fit its declared layout is an error, not a silent gap.
+#[derive(Debug, thiserror::Error, miette::Diagnostic)]
+pub enum LayoutError {
+    /// The layout declares a field section or member collection at a position the
+    /// document has no top-level heading for.
+    #[error("{path}: layout declares a {region} but the document has no heading for `{heading}`")]
+    #[diagnostic(code(temper::layout::missing_section))]
+    MissingSection {
+        /// The layout document at fault.
+        path: PathBuf,
+        /// The declared region kind (`field section` / `member collection`).
+        region: &'static str,
+        /// The declared identity the missing heading was to carry (the field slot or
+        /// the collection's member kind).
+        heading: String,
+    },
+
+    /// A collection declares an explicit identity `key`, but a member carries no
+    /// sub-heading of that name to read the key from.
+    #[error(
+        "{path}: collection member `{heading}` has no `{key}` sub-heading for its explicit key"
+    )]
+    #[diagnostic(code(temper::layout::missing_key))]
+    MissingKey {
+        /// The layout document at fault.
+        path: PathBuf,
+        /// The member heading missing the key sub-heading.
+        heading: String,
+        /// The declared key sub-heading name.
+        key: String,
+    },
+
+    /// The document carries a top-level heading the layout's regions never admit —
+    /// structure no primitive covers (`representation.md`: "two kinds, or it is prose").
+    #[error("{path}: heading `{heading}` fits no declared layout region")]
+    #[diagnostic(code(temper::layout::unadmitted))]
+    Unadmitted {
+        /// The layout document at fault.
+        path: PathBuf,
+        /// The unadmitted heading.
+        heading: String,
+    },
+}
+
+impl Layout {
+    /// Read `body` under this declared layout, off the document at `source_path` (named
+    /// only in diagnostics). The regions map in document order onto the body's top-level
+    /// headings ([`extract::body_heading_tree`]): a field section fills its slot with
+    /// the heading's verbatim span, a member collection turns each child heading into a
+    /// member, and a verbatim prose region takes the document preamble. A declared
+    /// section with no heading, an explicit key with no sub-heading, or a top-level
+    /// heading no region admits, each refuses loud ([`LayoutError`]) rather than reading
+    /// a partial document.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`LayoutError`] naming the file and heading when the document does not
+    /// fit the declared layout.
+    pub fn read(&self, body: &str, source_path: &Path) -> Result<LayoutReading, LayoutError> {
+        let tree = extract::body_heading_tree(body);
+        let mut reading = LayoutReading::default();
+        // The cursor into the document's top-level headings the field/collection regions
+        // consume in order; a preamble taken once by the first verbatim prose region.
+        let mut cursor = 0;
+        let mut preamble_taken = false;
+        for region in &self.regions {
+            match region {
+                LayoutRegion::Prose { import } => {
+                    // An importing prose region resolves elsewhere (LAYOUT-PROSE-IMPORT);
+                    // a verbatim one takes the document preamble, once. The blank lines
+                    // that separate regions are structure, trimmed off the captured span.
+                    let span = if import.is_none() && !preamble_taken {
+                        preamble_taken = true;
+                        extract::body_preamble(body).trim().to_string()
+                    } else {
+                        String::new()
+                    };
+                    reading.prose.push(span);
+                }
+                LayoutRegion::Field { slot } => {
+                    let node =
+                        next_heading(&tree, &mut cursor, source_path, "field section", slot)?;
+                    reading
+                        .fields
+                        .insert(slot.clone(), node.body.trim().to_string());
+                }
+                LayoutRegion::Collection { member_kind, key } => {
+                    let node = next_heading(
+                        &tree,
+                        &mut cursor,
+                        source_path,
+                        "member collection",
+                        member_kind,
+                    )?;
+                    for child in &node.children {
+                        reading.members.push(read_collection_member(
+                            child,
+                            member_kind,
+                            key,
+                            source_path,
+                        )?);
+                    }
+                }
+            }
+        }
+        // Every top-level heading the regions did not consume is structure no primitive
+        // admits — loud, never silently dropped.
+        if let Some(extra) = tree.get(cursor) {
+            return Err(LayoutError::Unadmitted {
+                path: source_path.to_path_buf(),
+                heading: extra.heading.clone(),
+            });
+        }
+        Ok(reading)
+    }
+}
+
+/// The next unconsumed top-level heading a field/collection region binds to, advancing
+/// the cursor — or a [`LayoutError::MissingSection`] naming the file and the region's
+/// declared identity when the document runs out of headings.
+fn next_heading<'a>(
+    tree: &'a [extract::HeadingNode],
+    cursor: &mut usize,
+    source_path: &Path,
+    region: &'static str,
+    heading: &str,
+) -> Result<&'a extract::HeadingNode, LayoutError> {
+    let node = tree
+        .get(*cursor)
+        .ok_or_else(|| LayoutError::MissingSection {
+            path: source_path.to_path_buf(),
+            region,
+            heading: heading.to_string(),
+        })?;
+    *cursor += 1;
+    Ok(node)
+}
+
+/// Read one collection member off its child heading `node`: its identity is the
+/// slugged heading, or — when the collection declares an explicit `key` — the slug of
+/// the value under the member's `key` sub-heading, which a heading retitle leaves
+/// untouched. Its leaves are the member's immediate sub-headings' spans, keyed by slug.
+fn read_collection_member(
+    node: &extract::HeadingNode,
+    member_kind: &str,
+    key: &Option<String>,
+    source_path: &Path,
+) -> Result<LayoutMember, LayoutError> {
+    let mut leaves = BTreeMap::new();
+    for child in &node.children {
+        leaves.insert(slugify(&child.heading), child.body.trim().to_string());
+    }
+    let identity = match key {
+        None => slugify(&node.heading),
+        Some(key) => {
+            let slug = slugify(key);
+            let value = leaves.get(&slug).ok_or_else(|| LayoutError::MissingKey {
+                path: source_path.to_path_buf(),
+                heading: node.heading.clone(),
+                key: key.clone(),
+            })?;
+            slugify(value)
+        }
+    };
+    Ok(LayoutMember {
+        member_kind: member_kind.to_string(),
+        key: identity,
+        heading: node.heading.clone(),
+        leaves,
+    })
+}
+
+/// Slugify a heading (or explicit-key value) into a stable identity token: ASCII
+/// alphanumerics lower-cased, every other run collapsed to a single `-`, leading and
+/// trailing `-` trimmed. The identity a member collection keys on when no explicit key
+/// overrides — `## Baked projection` → `baked-projection`.
+fn slugify(text: &str) -> String {
+    let mut out = String::new();
+    let mut pending_sep = false;
+    for ch in text.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if pending_sep && !out.is_empty() {
+                out.push('-');
+            }
+            pending_sep = false;
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            pending_sep = true;
+        }
+    }
+    out
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
@@ -435,7 +670,7 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
 /// column is [`Content::File`] (the default every built-in takes), a present one a
 /// [`Layout`] whose region rows lift through [`layout_region_from_row`] — a malformed
 /// region dropped tolerantly, the way the rest of a hand-editable lock's rows degrade.
-fn content_from_row(row: &KindFactRow) -> Content {
+pub(crate) fn content_from_row(row: &KindFactRow) -> Content {
     match &row.content {
         None => Content::File,
         Some(layout) => Content::Layout(Layout {
@@ -1251,6 +1486,119 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
                 },
             ]
         );
+    }
+
+    fn intent_layout() -> Layout {
+        Layout {
+            regions: vec![
+                LayoutRegion::Prose { import: None },
+                LayoutRegion::Field {
+                    slot: "intent".to_string(),
+                },
+                LayoutRegion::Collection {
+                    member_kind: "invariant".to_string(),
+                    key: None,
+                },
+            ],
+        }
+    }
+
+    const INTENT_DOC: &str = "The product intent, in prose.\n\
+\n\
+# Intent\n\
+temper makes a harness good.\n\
+\n\
+# Invariants\n\
+\n\
+## Loud or nothing\n\
+A gate never fabricates absence.\n\
+\n\
+## The projection is not the database\n\
+Facts are declared, never mined back.\n";
+
+    #[test]
+    fn read_fills_field_slots_verbatim_and_collects_members_by_slugged_heading() {
+        let reading = intent_layout()
+            .read(INTENT_DOC, Path::new("specs/intent.md"))
+            .unwrap();
+
+        // The leading prose region lands the document preamble verbatim.
+        assert_eq!(
+            reading.prose,
+            vec!["The product intent, in prose.".to_string()]
+        );
+
+        // The field section fills its slot with the heading's verbatim span.
+        assert_eq!(
+            reading.fields.get("intent").map(String::as_str),
+            Some("temper makes a harness good.")
+        );
+
+        // Each collection member carries its slugged-heading identity, in document order.
+        let ids: Vec<&str> = reading.members.iter().map(|m| m.key.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec!["loud-or-nothing", "the-projection-is-not-the-database"]
+        );
+        assert!(reading.members.iter().all(|m| m.member_kind == "invariant"));
+    }
+
+    #[test]
+    fn an_explicit_key_survives_a_heading_retitle() {
+        let layout = Layout {
+            regions: vec![LayoutRegion::Collection {
+                member_kind: "invariant".to_string(),
+                key: Some("id".to_string()),
+            }],
+        };
+        let doc = |heading: &str| {
+            format!("# Invariants\n\n## {heading}\nunder the heading\n### id\ndeterminism-core\n")
+        };
+
+        let first = layout
+            .read(&doc("Determinism"), Path::new("specs/intent.md"))
+            .unwrap();
+        let retitled = layout
+            .read(
+                &doc("Foundational determinism"),
+                Path::new("specs/intent.md"),
+            )
+            .unwrap();
+
+        // The explicit key reads off the `id` sub-heading, so a heading retitle leaves
+        // identity untouched — where a slug would have moved.
+        assert_eq!(first.members[0].key, "determinism-core");
+        assert_eq!(retitled.members[0].key, "determinism-core");
+        assert_eq!(retitled.members[0].heading, "Foundational determinism");
+    }
+
+    #[test]
+    fn a_missing_declared_section_refuses_loud_naming_file_and_heading() {
+        // The layout declares a field section and a collection, but the document carries
+        // only one top-level heading — the collection has none, a loud refusal.
+        let doc = "lead\n\n# Intent\nthe intent\n";
+        let err = intent_layout()
+            .read(doc, Path::new("specs/intent.md"))
+            .unwrap_err();
+        let rendered = err.to_string();
+        assert!(rendered.contains("specs/intent.md"));
+        assert!(rendered.contains("invariant"));
+        assert!(matches!(err, LayoutError::MissingSection { .. }));
+    }
+
+    #[test]
+    fn an_unadmitted_top_level_heading_refuses_loud() {
+        // A field section consumes the first heading; the second top-level heading fits
+        // no declared region — structure no primitive admits.
+        let layout = Layout {
+            regions: vec![LayoutRegion::Field {
+                slot: "intent".to_string(),
+            }],
+        };
+        let doc = "# Intent\nthe intent\n\n# Stray\nunadmitted\n";
+        let err = layout.read(doc, Path::new("specs/intent.md")).unwrap_err();
+        assert!(matches!(err, LayoutError::Unadmitted { .. }));
+        assert!(err.to_string().contains("Stray"));
     }
 
     #[test]

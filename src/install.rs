@@ -15,8 +15,9 @@
 //!   field hoists into a typed property and prose moves module-side (inline for
 //!   a short body, a module-adjacent file for a document) — plus a `harness.ts`
 //!   skeleton — runs the first `emit` (the adoption moment,
-//!   [`drift::emit_program`]), which regenerates every governed artifact as a
-//!   canonical projection, and places the guard hook / managed-by note /
+//!   [`drift::emit_program`]), which regenerates every composed kind's artifact as a
+//!   canonical projection — a layout kind's document stays a source at either depth,
+//!   never regenerated — and places the guard hook / managed-by note /
 //!   schema modeline at every path the fresh lock declares **emit-owned**
 //!   ([`drift::emit_owned_targets`], [`evaluate_placements`]) — the first emit's
 //!   diff is the one reviewable adoption diff, never an own-path passthrough.
@@ -45,6 +46,7 @@ use crate::drift::{self, ApplyOutcome, EmitReport};
 use crate::frontmatter;
 use crate::import;
 use crate::json_splice::{self, Edit};
+use crate::kind;
 
 /// The workspace directory a represented project's SDK program lives under, beside
 /// the harness it governs.
@@ -1073,6 +1075,11 @@ fn scaffold(
         let Some(kind) = kinds.get(name) else {
             continue;
         };
+        // A layout kind's document is a source, not a projection — its authored home
+        // never moves, so the lift never converts it into a member module.
+        if kind.content != kind::Content::File {
+            continue;
+        }
         for file in files {
             lifted.push((name.clone(), frontmatter::Member::from_source(kind, file)?));
         }

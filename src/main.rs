@@ -788,6 +788,36 @@ fn overlay_builtin_kind(kind: &CustomKind, declarations: &drift::Declarations) -
     overlaid
 }
 
+/// Read one layout-content document at `file` into a [`Unit`], off the kind's declared
+/// `layout`: the whole file is the body's heading tree, the field sections fill the
+/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field), and
+/// the id folds the file's placement under `base` the same way a file-content member's
+/// does. A document that does not fit the layout — a declared section missing, structure
+/// no primitive admits — refuses loud through [`kind::LayoutError`], naming the file and
+/// heading.
+///
+/// # Errors
+///
+/// Returns an error if the document is unreadable or does not fit its declared layout.
+fn layout_unit(layout: &kind::Layout, file: &Path, base: &Path) -> miette::Result<Unit> {
+    let raw = std::fs::read_to_string(file).into_diagnostic()?;
+    let reading = layout.read(&raw, file)?;
+    let id = frontmatter::fold_file_id(base, file)?;
+    let frontmatter = reading
+        .fields
+        .into_iter()
+        .map(|(slot, span)| (slot, serde_json::Value::String(span)))
+        .collect();
+    Ok(Unit {
+        id,
+        frontmatter,
+        body: raw,
+        source_path: file.to_path_buf(),
+        satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
+    })
+}
+
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
 /// range over. Every
 /// member is discovered by walking this kind's [`overlay_builtin_kind`]-overlaid
@@ -810,20 +840,26 @@ fn resolve_kind_units(
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
     let governs = overlay_builtin_kind(kind, declarations).governs;
+    let base = harness_root.join(&governs.root);
     let mut units = Vec::new();
     for file in import::discover_kind_files(harness_root, kind, &governs)? {
-        let source = frontmatter::Member::from_source_rooted(
-            kind,
-            &file,
-            &harness_root.join(&governs.root),
-        )?;
-        let mut unit = Unit {
-            id: source.id.clone(),
-            frontmatter: source.fields.iter().cloned().collect(),
-            body: source.body.clone(),
-            source_path: source.provenance.source_path.clone(),
-            satisfies: Vec::new(),
-            satisfies_clauses: Vec::new(),
+        // Dispatch on the kind's content: a layout kind's document is read under its
+        // declared layout — its field sections fill the unit's fields, a non-fitting
+        // document refusing loud — where a file-content kind reads through the generic
+        // frontmatter adapter.
+        let mut unit = match &kind.content {
+            kind::Content::Layout(layout) => layout_unit(layout, &file, &base)?,
+            kind::Content::File => {
+                let source = frontmatter::Member::from_source_rooted(kind, &file, &base)?;
+                Unit {
+                    id: source.id.clone(),
+                    frontmatter: source.fields.iter().cloned().collect(),
+                    body: source.body.clone(),
+                    source_path: source.provenance.source_path.clone(),
+                    satisfies: Vec::new(),
+                    satisfies_clauses: Vec::new(),
+                }
+            }
         };
         for row in &declarations.satisfies {
             if row.member == unit.id && !unit.satisfies.contains(&row.requirement) {
