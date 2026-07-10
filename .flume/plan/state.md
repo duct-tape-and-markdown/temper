@@ -3,17 +3,16 @@
 - Spec derived through: a0fccaf
 - Audited through: 8575dd6
 - Residue swept through: df667e4
-- This tick: Residue sweep — 1817f39..HEAD, one code commit (9e48cd8)
-  swept clean: no retired vocabulary in its hunks; the mode-string parse
-  has one home (main.rs:518-520 — install.rs maps enum→enum, sdk
-  assembly.ts is the authoring-side type, not a second parser); the
-  out-of-vocabulary rejection reuses `drift::LockRowError::Vocabulary`,
-  no second error shape; new tests use `common::tmpdir`, and their
-  hand-written malformed lock strings are correct spelling
-  (`common::write_lock` serializes a typed value that cannot express
-  corrupt bytes). Nothing fileable. All eight riding debts re-verified
-  on disk at df667e4 and restamped — 9e48cd8 touched none of their
-  files.
-- Queue: PACKAGING-CHANNELS (parked) — none pickable.
+- This tick: Quiet pass — every input re-verified current on disk:
+  spec delta empty (a0fccaf..HEAD touches no specs/), no code commits
+  past the audit cursor (8575dd6..HEAD is plan commits only, so the
+  sweep window is also code-empty), inbox empty, no live refactor
+  captures. PACKAGING-CHANNELS' parked reason re-verified at HEAD
+  6a6faae: still no `.github/workflows/release.yml` (only temper.yml),
+  root package.json still the private flume manifest, sdk still
+  `@dtmd/temper` 0.0.5. Queue of one is trivially disjoint.
+- Queue: PACKAGING-CHANNELS (parked, human release creds + workflow
+  build-out) — none pickable.
 
-Plan continues: yes — quiet pass (closing verification, then hand off).
+Plan continues: no — all inputs current and the only entry is parked
+on human action; loop hibernates.
