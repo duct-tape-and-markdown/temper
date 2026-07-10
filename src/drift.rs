@@ -1780,6 +1780,30 @@ pub struct KindFactRow {
     /// kind whose body is a declared layout over its heading tree.
     #[serde(default)]
     pub content: Option<LayoutRow>,
+    /// The **fields-only** body-shape marker — `fields` for a no-body-slot kind (a hook,
+    /// an MCP server); absent for a body-bearing kind, whose body is `file` or a `content`
+    /// layout. The tolerant `#[serde(default)]` round-trip the rest of the optional facts
+    /// take, so a body-bearing kind's row stays byte-identical.
+    #[serde(default)]
+    pub shape: Option<String>,
+    /// The declared **collection address** — for a registration member surfacing inside a
+    /// host manifest, which manifest and which key path it keys at. Absent for a
+    /// file-locus kind, so an ordinary row stays byte-identical.
+    #[serde(default)]
+    pub collection_address: Option<CollectionAddressRow>,
+}
+
+/// A kind's declared **collection address** row — the manifest a registration member
+/// surfaces in and the key path it keys at, the presence-coupled pair
+/// [`KindFactRow::collection_address`] carries. Absent from a [`KindFactRow`] means the
+/// kind owns its own file locus.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct CollectionAddressRow {
+    /// The host manifest the registration surfaces in (`settings.json`, `.mcp.json`).
+    pub manifest: String,
+    /// The manifest key path the registration keys at (`hooks.<Event>`, `mcpServers.*`), a
+    /// closed vocabulary the engine's kind lift rejects an unknown value from.
+    pub key_path: String,
 }
 
 /// A kind's declared **layout** — the ordered region rows a `layout`-content kind's body
@@ -2409,6 +2433,15 @@ impl KindFactRow {
         if let Some(content) = &self.content {
             table.insert("content", value(content_table(content)));
         }
+        if let Some(shape) = &self.shape {
+            table.insert("shape", value(shape.clone()));
+        }
+        if let Some(address) = &self.collection_address {
+            table.insert(
+                "collection_address",
+                value(collection_address_table(address)),
+            );
+        }
         table
     }
 
@@ -2426,8 +2459,32 @@ impl KindFactRow {
                 Some(content) => Some(content_from_table(content)?),
                 None => None,
             },
+            shape: opt_str(table, "shape")?,
+            collection_address: match opt_table(table, "collection_address")? {
+                Some(address) => Some(collection_address_from_table(address)?),
+                None => None,
+            },
         })
     }
+}
+
+/// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ manifest =
+/// "…", key_path = "…" }` inline table, the presence-coupled pair carried as one column.
+fn collection_address_table(address: &CollectionAddressRow) -> InlineTable {
+    let mut table = InlineTable::new();
+    table.insert("manifest", Value::from(address.manifest.clone()));
+    table.insert("key_path", Value::from(address.key_path.clone()));
+    table
+}
+
+/// Read a `collection_address` column back off its inline table — a missing `manifest` or
+/// `key_path` is a [`RowError`], the same required-column discipline the rest of the row
+/// family holds.
+fn collection_address_from_table(table: &dyn TableLike) -> Result<CollectionAddressRow, RowError> {
+    Ok(CollectionAddressRow {
+        manifest: req_str(table, "manifest")?,
+        key_path: req_str(table, "key_path")?,
+    })
 }
 
 /// Build a [`KindFactRow`]'s `content` column's wire form: a `{ regions = [...] }` inline

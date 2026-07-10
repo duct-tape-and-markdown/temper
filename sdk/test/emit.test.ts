@@ -155,6 +155,8 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       registration: ["paths-match(paths)"],
       templates: undefined,
       content: undefined,
+      shape: undefined,
+      collection_address: undefined,
  },
   ]);
   assert.deepEqual(declarations.clauses, [

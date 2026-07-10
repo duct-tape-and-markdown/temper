@@ -1,10 +1,12 @@
 /**
  * Kinds — the engine room. A kind is a plain typed surface — an interface
  * `T` and a constructor `kind<T>()` — plus six facts of runtime residue: label,
- * locus, layout, registration, edge fields, and content. `tsc` is the keystroke wall;
- * every type erases at the seam, and what a kind leaves behind is those six facts,
- * riding the lock as rows. Identity travels by import, never by string — a `kind`
- * reference is the imported value.
+ * locus, layout, registration, edge fields, and content. A registration kind (a hook,
+ * an MCP server) extends the content fact with a fields-only `shape` and a
+ * `collectionAddress` naming the host manifest it surfaces in. `tsc` is the keystroke
+ * wall; every type erases at the seam, and what a kind leaves behind rides the lock as
+ * rows. Identity travels by import, never by string — a `kind` reference is the imported
+ * value.
  */
 
 import type { Prose, Text } from "./prose.js";
@@ -74,6 +76,25 @@ export interface Layout {
   readonly regions: readonly LayoutRegion[];
 }
 
+/**
+ * A kind's **body shape** marker — `"fields"` for a fields-only kind: no body slot at
+ * all, the member its typed fields and edges and nothing more (a hook, an MCP server).
+ * Absent leaves the kind body-bearing, its body `file` (the default) or a declared
+ * {@link Layout}.
+ */
+export type Shape = "fields";
+
+/**
+ * A registration member's **collection address** — where inside a host manifest its
+ * registration surfaces: which `manifest` (`settings.json`, `.mcp.json`) and which
+ * `keyPath` (`hooks.<Event>`, `mcpServers.*`) it keys at. Carried by a fields-only
+ * registration kind; absent for a kind that owns its own file locus.
+ */
+export interface CollectionAddress {
+  readonly manifest: string;
+  readonly keyPath: "hooks.<Event>" | "mcpServers.*";
+}
+
 /** The six facts of a kind's runtime residue. */
 export interface KindFacts {
   /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
@@ -103,6 +124,12 @@ export interface KindFacts {
   /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
    * leaves the kind `file`-content (one verbatim prose body, the default). */
   readonly content?: Layout;
+  /** Fact 6b, content — the fields-only body shape (`"fields"`, no body slot); absent
+   * leaves the kind body-bearing (`file` or a {@link Layout}). */
+  readonly shape?: Shape;
+  /** The registration member's {@link CollectionAddress} — which manifest and key path
+   * its registration surfaces at; absent for a kind that owns its own file locus. */
+  readonly collectionAddress?: CollectionAddress;
 }
 
 /**

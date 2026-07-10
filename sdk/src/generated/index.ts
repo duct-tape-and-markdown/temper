@@ -3,6 +3,7 @@ export type { AssemblyFactRow } from "./AssemblyFactRow.js";
 export type { BoundRow } from "./BoundRow.js";
 export type { CharsetRow } from "./CharsetRow.js";
 export type { ClauseRow } from "./ClauseRow.js";
+export type { CollectionAddressRow } from "./CollectionAddressRow.js";
 export type { CollectionEntryRow } from "./CollectionEntryRow.js";
 export type { CollectionEntryWire } from "./CollectionEntryWire.js";
 export type { CountBoundRow } from "./CountBoundRow.js";

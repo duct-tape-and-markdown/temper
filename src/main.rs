@@ -928,7 +928,10 @@ fn resolve_kind_units(
         // frontmatter adapter.
         let mut unit = match &kind.content {
             kind::Content::Layout(layout) => layout_unit(layout, &file, &base, &edge_fields)?,
-            kind::Content::File => {
+            // A fields-only kind carries no body slot, but its fields still read off
+            // frontmatter exactly as a file-content member's do — the shape differs only
+            // in projection (no prose body), never in this read-side field extraction.
+            kind::Content::File | kind::Content::Fields => {
                 let source = frontmatter::Member::from_source_rooted(kind, &file, &base)?;
                 Unit {
                     id: source.id.clone(),

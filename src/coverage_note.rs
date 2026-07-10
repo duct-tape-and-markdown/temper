@@ -445,6 +445,8 @@ mod tests {
                     registration: Vec::new(),
                     templates: Vec::new(),
                     content: None,
+                    shape: None,
+                    collection_address: None,
                 }],
                 ..crate::drift::Declarations::default()
             },

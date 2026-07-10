@@ -91,21 +91,60 @@ pub struct CustomKind {
     /// interior rides the assembly's `expect`/`require` clauses. Absent ⇒ empty.
     pub templates: Vec<Template>,
     /// The kind's declared **content** — whether a member's body is one verbatim prose
-    /// value ([`Content::File`], the default), or a declared [`Layout`] over the body's
-    /// heading tree. Absent from the row reads as [`Content::File`].
+    /// value ([`Content::File`], the default), a declared [`Layout`] over the body's
+    /// heading tree, or [`Content::Fields`] (no body slot at all). Absent from the row
+    /// reads as [`Content::File`].
     pub content: Content,
+    /// The kind's declared **collection address** — for a registration member surfacing
+    /// inside a host manifest (a hook, an MCP server), which manifest and which key path
+    /// it registers at. `None` for a kind that owns its own file locus. Read back off the
+    /// row's `collection_address` column.
+    pub collection_address: Option<CollectionAddress>,
 }
 
-/// A kind's declared **content** — how a member's authored body is shaped. Either the
-/// body is one verbatim prose value ([`File`](Content::File), the default every built-in
-/// takes), or it is a declared [`Layout`]: an ordered template over the body's heading
-/// tree. An absent row column reads as `File`.
+/// A kind's declared **content** — how a member's authored body is shaped. The body is
+/// one verbatim prose value ([`File`](Content::File), the default every built-in takes),
+/// a declared [`Layout`] over the body's heading tree, or nothing at all
+/// ([`Fields`](Content::Fields) — a registration member has fields and edges but no prose
+/// to fill). An absent row column reads as `File`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Content {
     /// `file` — the body is one verbatim prose value, copied byte-for-byte.
     File,
     /// `layout` — the body is a declared template over its heading tree.
     Layout(Layout),
+    /// `fields` — no body slot: the member is its typed fields and edges, nothing more
+    /// (a hook, an MCP server). Distinct from [`File`](Content::File), which still carries
+    /// a verbatim prose body.
+    Fields,
+}
+
+/// A registration member's declared **collection address** — where inside a host manifest
+/// its registration surfaces. A hook registers under its lifecycle event in
+/// `settings.json`'s `hooks`; an MCP server registers by name under `.mcp.json`'s
+/// `mcpServers`. The manifest is a free path; the [`key_path`](CollectionAddress::key_path)
+/// is a closed vocabulary, the same load-time reject [`Format`]/[`UnitShape`]/
+/// [`Registration`] carry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CollectionAddress {
+    /// The host manifest the registration surfaces in (`settings.json`, `.mcp.json`), a
+    /// path relative to the harness.
+    pub manifest: String,
+    /// The key path within the manifest the member's registration keys at.
+    pub key_path: CollectionKeyPath,
+}
+
+/// A collection address's **key path** — the closed vocabulary of manifest key paths a
+/// registration member surfaces at. Any other wire label is a load error, the same
+/// closed-vocabulary guard [`Format`]/[`UnitShape`]/[`Registration`] carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectionKeyPath {
+    /// `hooks.<Event>` — a hook keys under its lifecycle event in the manifest's `hooks`
+    /// map (`settings.json`).
+    HooksEvent,
+    /// `mcpServers.*` — an MCP server keys by name under the manifest's `mcpServers` map
+    /// (`.mcp.json`).
+    McpServers,
 }
 
 /// A declared **layout** — the ordered regions a `layout`-content kind's body is read as,
@@ -521,6 +560,7 @@ impl CustomKind {
             registration: Vec::new(),
             templates: Vec::new(),
             content: Content::File,
+            collection_address: None,
         }
     }
 
@@ -541,9 +581,10 @@ impl CustomKind {
     ///
     /// # Errors
     ///
-    /// Returns a [`LockRowError`] when a `format`/`unit_shape`/`registration` label or a
-    /// layout region falls outside its closed vocabulary — the tool-written lock carries
-    /// only labels the SDK could emit, so an unknown one is corruption rejected at load.
+    /// Returns a [`LockRowError`] when a `format`/`unit_shape`/`registration`/`shape`/
+    /// `collection_address` label or a layout region falls outside its closed vocabulary —
+    /// the tool-written lock carries only labels the SDK could emit, so an unknown one is
+    /// corruption rejected at load.
     pub fn from_kind_fact_row(row: &KindFactRow) -> Result<Self, LockRowError> {
         Ok(CustomKind {
             format: match &row.format {
@@ -569,6 +610,7 @@ impl CustomKind {
                 .map(|kind| Template { kind: kind.clone() })
                 .collect(),
             content: content_from_row(row)?,
+            collection_address: collection_address_from_row(row)?,
             ..CustomKind::new(
                 row.name.clone(),
                 Governs {
@@ -737,15 +779,21 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     })
 }
 
-/// Lift a [`KindFactRow`]'s optional `content` column into typed [`Content`]: an absent
-/// column is [`Content::File`] (the default every built-in takes), a present one a
-/// [`Layout`] whose region rows lift through [`layout_region_from_row`].
+/// Lift a [`KindFactRow`]'s content facts into typed [`Content`]. The `shape` marker wins
+/// when present — its sole recognized value is `fields` ([`Content::Fields`], a
+/// no-body-slot kind); absent, an absent `content` column is [`Content::File`] (the
+/// default every built-in takes) and a present one a [`Layout`] whose region rows lift
+/// through [`layout_region_from_row`].
 ///
 /// # Errors
 ///
-/// Returns a [`LockRowError`] when a present region names a primitive outside the closed
-/// vocabulary, or omits the column that primitive requires.
+/// Returns a [`LockRowError`] when the `shape` marker carries a label outside its closed
+/// vocabulary, or a present region names a primitive outside the closed vocabulary or
+/// omits the column that primitive requires.
 pub(crate) fn content_from_row(row: &KindFactRow) -> Result<Content, LockRowError> {
+    if let Some(label) = &row.shape {
+        return kind_vocab(label, "shape", content_shape_from_label(label));
+    }
     match &row.content {
         None => Ok(Content::File),
         Some(layout) => Ok(Content::Layout(Layout {
@@ -755,6 +803,51 @@ pub(crate) fn content_from_row(row: &KindFactRow) -> Result<Content, LockRowErro
                 .map(layout_region_from_row)
                 .collect::<Result<Vec<_>, _>>()?,
         })),
+    }
+}
+
+/// Parse a [`KindFactRow::shape`] marker label into its typed [`Content`] — `None` for any
+/// label outside the closed vocabulary, whose sole member is `fields`.
+fn content_shape_from_label(label: &str) -> Option<Content> {
+    match label {
+        "fields" => Some(Content::Fields),
+        _ => None,
+    }
+}
+
+/// Lift a [`KindFactRow`]'s optional `collection_address` column into a typed
+/// [`CollectionAddress`]: absent for a file-locus kind, present for a registration member
+/// whose key path lifts through the closed [`CollectionKeyPath`] vocabulary.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when the recorded `key_path` label falls outside the closed
+/// vocabulary — the tool-written lock carries only labels the SDK could emit, so an
+/// unknown one is corruption rejected at load.
+fn collection_address_from_row(
+    row: &KindFactRow,
+) -> Result<Option<CollectionAddress>, LockRowError> {
+    match &row.collection_address {
+        None => Ok(None),
+        Some(address) => Ok(Some(CollectionAddress {
+            manifest: address.manifest.clone(),
+            key_path: kind_vocab(
+                &address.key_path,
+                "collection_address",
+                collection_key_path_from_label(&address.key_path),
+            )?,
+        })),
+    }
+}
+
+/// Parse a [`CollectionAddressRow::key_path`](crate::drift::CollectionAddressRow::key_path)
+/// label into its typed [`CollectionKeyPath`] — `None` for any label outside the closed
+/// vocabulary (`hooks.<Event>`, `mcpServers.*`).
+fn collection_key_path_from_label(label: &str) -> Option<CollectionKeyPath> {
+    match label {
+        "hooks.<Event>" => Some(CollectionKeyPath::HooksEvent),
+        "mcpServers.*" => Some(CollectionKeyPath::McpServers),
+        _ => None,
     }
 }
 
@@ -1289,6 +1382,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             registration: Vec::new(),
             templates: Vec::new(),
             content: None,
+            shape: None,
+            collection_address: None,
         }
     }
 
@@ -1336,6 +1431,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             registration: vec!["description-trigger(description)".to_string()],
             templates: Vec::new(),
             content: None,
+            shape: None,
+            collection_address: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
 
@@ -1382,6 +1479,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             registration: vec!["bogus".to_string()],
             templates: Vec::new(),
             content: None,
+            shape: None,
+            collection_address: None,
         };
         let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
         assert!(
@@ -1405,6 +1504,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             registration: vec!["user-invoked".to_string(), "bogus".to_string()],
             templates: Vec::new(),
             content: None,
+            shape: None,
+            collection_address: None,
         };
         let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
         assert!(
@@ -1430,6 +1531,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             ],
             templates: Vec::new(),
             content: None,
+            shape: None,
+            collection_address: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(
@@ -1455,6 +1558,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             registration: Vec::new(),
             templates: Vec::new(),
             content: None,
+            shape: None,
+            collection_address: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(kind.format, None);
@@ -1599,6 +1704,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             registration: Vec::new(),
             templates: vec!["decision".to_string(), "law".to_string()],
             content: None,
+            shape: None,
+            collection_address: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(

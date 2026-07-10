@@ -13,10 +13,10 @@ use std::path::{Path, PathBuf};
 use ts_rs::{Config, TS};
 
 use temper::drift::{
-    AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionEntryRow, CollectionEntryWire,
-    CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, IncludeRow, KindFactRow,
-    LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember, RangeBoundRow,
-    RequirementRow, SatisfiesRow, SectionContainsRow,
+    AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow, CollectionEntryRow,
+    CollectionEntryWire, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, IncludeRow,
+    KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
+    RangeBoundRow, RequirementRow, SatisfiesRow, SectionContainsRow,
 };
 use temper::extract::{
     EmbeddedMember, EmbeddedMemberCollectionEntry, FeatureValue, Features, FencedBlock, Section,
@@ -79,6 +79,7 @@ fn fresh_bindings() -> BTreeMap<String, String> {
         PayloadMember,
         Declarations,
         KindFactRow,
+        CollectionAddressRow,
         LayoutRow,
         LayoutRegionRow,
         ClauseRow,

@@ -19,6 +19,7 @@ import { resolveLeaf } from "./prose.js";
 import type {
   AssemblyFactRow,
   ClauseRow,
+  CollectionAddressRow,
   CollectionEntryWire,
   Declarations,
   IncludeRow,
@@ -202,9 +203,20 @@ function contentRow(content: Layout | undefined): LayoutRow | undefined {
 }
 
 /**
+ * Lower a kind's declared {@link CollectionAddress} into its `collection_address` row —
+ * `keyPath` spelled as the wire's snake_case `key_path`. `undefined` for a file-locus
+ * kind, so its row omits the column and stays byte-identical.
+ */
+function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefined {
+  if (facts.collectionAddress === undefined) return undefined;
+  return { manifest: facts.collectionAddress.manifest, key_path: facts.collectionAddress.keyPath };
+}
+
+/**
  * One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`,
  * `templates` names the embedded kinds (among `allKinds`) declared within it, and
- * `content` lowers a declared layout (absent for a `file`-content kind).
+ * `content` lowers a declared layout (absent for a `file`-content kind). A registration
+ * kind extends the row with its `shape` marker and `collection_address`.
  */
 function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
   if (facts.locus.kind !== "at") {
@@ -222,6 +234,8 @@ function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFact
     registration: registrationLabels(facts.registration),
     templates: templatesFor(facts.name, allKinds),
     content: contentRow(facts.content),
+    shape: facts.shape,
+    collection_address: collectionAddressRow(facts),
   };
 }
 

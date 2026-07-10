@@ -51,6 +51,7 @@ export {
 // The engine room — kinds as typed constructors, plus the embedded-member value
 // shape `blocks()` composes.
 export type {
+  CollectionAddress,
   EdgeField,
   EmbeddedMemberCollectionEntry,
   EmbeddedMemberValue,
@@ -63,6 +64,7 @@ export type {
   Member,
   MemberInit,
   Registration,
+  Shape,
   UnitShape,
 } from "./kind.js";
 export { embeddedMemberValue, kind } from "./kind.js";

@@ -124,6 +124,8 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
         registration: Vec::new(),
         templates: Vec::new(),
         content: None,
+        shape: None,
+        collection_address: None,
     };
     let payload = Payload {
         version: drift::SEAM_VERSION,

@@ -21,14 +21,17 @@ use temper::builtin;
 use temper::builtin_lock;
 use temper::contract::{self, Clause, Contract, Predicate, Severity};
 use temper::drift::{
-    self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionEntryRow, CountBoundRow,
-    Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow,
-    LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember, RangeBoundRow, RequirementRow,
-    SatisfiesRow, SectionContainsRow,
+    self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow,
+    CollectionEntryRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
+    KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
+    RangeBoundRow, RequirementRow, SatisfiesRow, SectionContainsRow,
 };
 use temper::engine;
 use temper::extract::Features;
-use temper::kind::{Content, CustomKind, Extraction, Layout, LayoutRegion, Primitive};
+use temper::kind::{
+    CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Layout, LayoutRegion,
+    Primitive,
+};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -76,6 +79,21 @@ fn spec_kind_facts_with_layout() -> KindFactRow {
             ],
         }),
         ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// A `hook` kind declaring the two manifest-authoring facts 0021 phase 1 adds: the
+/// fields-only body shape (no body slot) and the collection address it registers at
+/// (`settings.json`'s `hooks.<Event>`). The shape an SDK-declared registration kind's row
+/// carries into the lock.
+fn hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+        }),
+        ..common::kind_facts("hook", ".claude", "settings.json")
     }
 }
 
@@ -893,6 +911,110 @@ fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kin
     assert_eq!(
         CustomKind::from_kind_fact_row(rule_row).unwrap().content,
         Content::File
+    );
+}
+
+/// A registration kind's two manifest-authoring facts round-trip SDK emit → lock kind row
+/// → engine `CustomKind`: the fields-only `shape` lifts to `Content::Fields` and the
+/// `collection_address` to the typed `CollectionAddress`, byte-stably across a double
+/// emit, while a file-locus body-bearing kind (`rule`) carries neither column — nothing
+/// file-locus or body-bearing regresses.
+#[test]
+fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            hook_kind_facts(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("collection-address", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the new columns are a pure function of the payload.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    // The registration kind's facts reach the engine's CustomKind through the row.
+    let hook_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "hook")
+        .expect("the registration kind row is recorded");
+    assert_eq!(hook_row.shape.as_deref(), Some("fields"));
+    let hook = CustomKind::from_kind_fact_row(hook_row).unwrap();
+    assert_eq!(hook.content, Content::Fields);
+    assert_eq!(
+        hook.collection_address,
+        Some(CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: CollectionKeyPath::HooksEvent,
+        }),
+    );
+
+    // A file-locus, body-bearing kind carries neither new column — both absent from its
+    // row, `Content::File` and no collection address in the reconstructed CustomKind.
+    let rule_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the file-locus kind row is recorded");
+    assert!(rule_row.shape.is_none(), "a body-bearing kind omits shape");
+    assert!(
+        rule_row.collection_address.is_none(),
+        "a file-locus kind omits the collection address"
+    );
+    let rule = CustomKind::from_kind_fact_row(rule_row).unwrap();
+    assert_eq!(rule.content, Content::File);
+    assert_eq!(rule.collection_address, None);
+}
+
+/// An out-of-vocabulary collection-address `key_path` label survives the TOML-typed read
+/// but is a corrupt lock the kind lift rejects loud — never a silently narrowed address.
+#[test]
+fn from_kind_fact_row_rejects_an_out_of_vocabulary_collection_key_path() {
+    let row = KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.everything".to_string(),
+        }),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    };
+    let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+    assert!(
+        matches!(&err, drift::LockRowError::Vocabulary { column, value, .. }
+            if column == "collection_address" && value == "hooks.everything"),
+        "expected an out-of-vocabulary collection key-path reject, got: {err:?}"
+    );
+}
+
+/// An out-of-vocabulary `shape` marker is likewise a load error — the fields-only marker
+/// admits only `fields`, so any other value rejects loud rather than reading a phantom
+/// content mode.
+#[test]
+fn from_kind_fact_row_rejects_an_out_of_vocabulary_shape() {
+    let row = KindFactRow {
+        shape: Some("bodyless".to_string()),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    };
+    let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+    assert!(
+        matches!(&err, drift::LockRowError::Vocabulary { column, value, .. }
+            if column == "shape" && value == "bodyless"),
+        "expected an out-of-vocabulary shape reject, got: {err:?}"
     );
 }
 
