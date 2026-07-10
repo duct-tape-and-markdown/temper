@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PREDICATE-CONSTRUCTORS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -20,11 +19,11 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "Emit's layout read passes only the framework `satisfies` set (drift.rs:702, `BTreeSet::from([SATISFIES_EDGE_FIELD])`) where check passes the full `edge_field_slots()` union — one document read under two edge-slot sets. Unify on the union so a relationship slot never parses as a verbatim field on one path and as addresses on the other."
+          "description": "Emit's layout read passes only the framework `satisfies` set (drift.rs:704, `BTreeSet::from([SATISFIES_EDGE_FIELD])`) where check passes the full `edge_field_slots()` union — one document read under two edge-slot sets. Unify on the union so a relationship slot never parses as a verbatim field on one path and as addresses on the other."
         },
         {
           "path": "tests/layout_edge_slot.rs",
-          "description": "Extend the shipped edge-slot suite (one home, engineering.md): a declared-relationship edge slot's entries resolve as the host's edges, visible to the gate and read verbs; a dangling entry is a finding, never a silent drop. Same pass: adopt tests/common's shared scaffold (TEST-SCAFFOLD-ONE-HOME), retiring this file's local copy (layout_edge_slot.rs:61) — the third of the three copies that sweep consolidated."
+          "description": "Extend the shipped edge-slot suite (one home, engineering.md): a declared-relationship edge slot's entries resolve as the host's edges, visible to the gate and read verbs; a dangling entry is a finding, never a silent drop. Same pass: adopt tests/common's shared `scaffold` (shipped at 5d0ea5b), retiring this file's local copy (layout_edge_slot.rs:61) — the third of the three copies TEST-SCAFFOLD-ONE-HOME consolidated."
         }
       ],
       "retire": []
@@ -37,7 +36,7 @@
       }
     ],
     "acceptance": "A layout kind that declares an edge field (SDK-expressible today: `edgeFields` kind.ts:102 beside `content: Layout` kind.ts:105) resolves that slot's entries into the same enumeration the gate and read verbs share; a dangling entry is a finding, never a silent drop; all gates green.",
-    "notes": "Scoped at ced4f94; gap + anchors re-verified at d9bb51d after a8562b5's drift.rs churn. Inbox 37e4834 routed here — same gap, real customer (a counterpart corpus's Depends-on sections). Rejected alternative: member-authored edge-row lock family — read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows are for composed-prose only. Reader general (kind.rs:162/386). Serialized behind PREDICATE-CONSTRUCTORS on the src/drift.rs overlap."
+    "notes": "Scoped at ced4f94; opened at eab6979 — blocker PREDICATE-CONSTRUCTORS shipped (c8b78c5), gap + anchors re-verified on disk after its drift.rs/main.rs churn. Inbox 37e4834 routed here — same gap, real customer (a counterpart corpus's Depends-on sections). Rejected alternative: member-authored edge-row lock family — read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows are for composed-prose only. Reader general (kind.rs:162/386)."
   },
   {
     "tag": "EMBEDDED-EDGE-TARGETS",
@@ -56,7 +55,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "assemble_by_kind (main.rs:985) keys only kinds carrying a lock kind-fact row; an embedded kind carries none by design (SDK declarations.ts:200-202 — it reaches the lock solely through its host's templates column, which from_kind_fact_row already lifts). So graph::admissibility (graph.rs:173) reports an edge targeting it as unmodeled and its member set is empty even when the host's templates are declared. Key embedded kinds into by_kind off hosts' declared templates, their members' Features off nested_member rows and layout member-collection entries — exact assembly is code's call (depth rule)."
+          "description": "assemble_by_kind (main.rs:985) keys only kinds carrying a lock kind-fact row; an embedded kind carries none by design (SDK declarations.ts:211-213 — it reaches the lock solely through its host's templates column, which from_kind_fact_row already lifts). So graph::admissibility (graph.rs:157) reports an edge targeting it as unmodeled and its member set is empty even when the host's templates are declared. Key embedded kinds into by_kind off hosts' declared templates, their members' Features off nested_member rows and layout member-collection entries — exact assembly is code's call (depth rule)."
         }
       ],
       "retire": []
@@ -69,7 +68,7 @@
       }
     ],
     "acceptance": "The field report's repro greens: a relationship edge field targeting an embedded kind (their `serves` -> `domain`) with the host's templates in the lock passes admissibility and resolves by member identity; a dangling entry is a finding; all gates green.",
-    "notes": "Field report (23e43db) re-verified, scoped at 5eba801: an embedded kind carries no kind-fact row, so by_kind never keys it — the reported admissibility finding reproduces structurally. Spec settled, no fork: a nested member is a full member with its own kind, one member type in the model; nothing scopes edge targets to file locus. blockedBy: same enumeration seam as LAYOUT-RELATIONSHIP-EDGES — one widened-enumeration ruling decides both (per the report)."
+    "notes": "Field report (23e43db) re-verified, scoped at 5eba801; anchors re-set at eab6979. An embedded kind carries no kind-fact row, so by_kind never keys it — the reported admissibility finding reproduces structurally. Spec settled, no fork: a nested member is a full member with its own kind, one member type in the model; nothing scopes edge targets to file locus. blockedBy: same enumeration seam as LAYOUT-RELATIONSHIP-EDGES — one widened-enumeration ruling decides both (per the report)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -80,7 +79,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at d9bb51d (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at eab6979 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {

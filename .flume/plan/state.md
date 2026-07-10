@@ -1,18 +1,19 @@
 # Plan state
 
 - Spec derived through: a0fccaf
-- Audited through: d9bb51d
+- Audited through: eab6979
 - Residue swept through: c2a8cae
-- This tick: Quiet pass — all inputs current (c2a8cae..HEAD is the sweep
-  commit alone, `.flume/`-only); queue disjoint, overlaps serialized by the
-  blockedBy chain; every gate reason re-verified on disk (no release.yml,
-  root package.json still the private flume manifest; predicate_from_row /
-  dependency-exists hold-back / compose.rs tolerant-skip anchors hold; 15
-  SDK constructors, none of the five; all three scaffold copies and the
-  edge-slot anchors present as scoped).
-- Queue: PREDICATE-CONSTRUCTORS (open); TEST-SCAFFOLD-ONE-HOME (open,
-  disjoint); LAYOUT-RELATIONSHIP-EDGES (blockedBy PREDICATE-CONSTRUCTORS);
-  EMBEDDED-EDGE-TARGETS (blockedBy LAYOUT-RELATIONSHIP-EDGES);
-  PACKAGING-CHANNELS (parked).
+- This tick: Ship audit — PREDICATE-CONSTRUCTORS (c8b78c5: five constructors
+  contract.ts:95-111, ClauseRowError loud-reject compose.rs:162/198) and
+  TEST-SCAFFOLD-ONE-HOME (5d0ea5b: tests/common `scaffold`, two suites
+  converted; layout_edge_slot.rs's copy rides as scoped) verified on disk.
+  LAYOUT-RELATIONSHIP-EDGES opened (blocker shipped); its anchors and
+  EMBEDDED-EDGE-TARGETS' re-set after the churn (drift.rs 702→704,
+  graph.rs 173→157, declarations.ts 200-202→211-213); PACKAGING-CHANNELS'
+  parked reason re-verified (no release.yml; root package.json still the
+  private flume manifest).
+- Queue: LAYOUT-RELATIONSHIP-EDGES (open); EMBEDDED-EDGE-TARGETS (blockedBy
+  LAYOUT-RELATIONSHIP-EDGES); PACKAGING-CHANNELS (parked).
 
-Plan continues: no — inputs quiet; two open entries pickable, build takes over.
+Plan continues: yes — residue sweep (c2a8cae trails HEAD; c8b78c5 and
+5d0ea5b are unswept code commits).
