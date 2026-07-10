@@ -44,41 +44,6 @@
     "notes": "Scoped at a2279cf (0019); unblocked at e3982b5 — LAYOUT-READER shipped (kind.rs Layout::read; its commit names imports out of scope). Kin to the composed-prose include (pipeline.md, The SDK): if one resolution surface honestly serves both, unifying them is the sanctioned consolidation (engineering.md), named in the commit body — never creep. SDK shape landed in KIND-CONTENT-FACT (LayoutRegionRow import ref); this entry is engine-side resolve + fingerprint + edge."
   },
   {
-    "tag": "LAYOUT-READER-TEST-DEDUP",
-    "summary": "Consolidate the layout reader's duplicated test suites — the four Layout::read behaviors and their intent fixtures assert once, in tests/layout_kind.rs",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Retire the #[cfg(test)] duplicates of the reader suite — `read_fills_field_slots_verbatim_and_collects_members_by_slugged_heading` (kind.rs:1520), `an_explicit_key_survives_a_heading_retitle` (1547), `a_missing_declared_section_refuses_loud_naming_file_and_heading` (1576), and the duplicated `intent_layout()` (1491) / `INTENT_DOC` (1506) fixtures. `an_unadmitted_top_level_heading_refuses_loud` (1590) moves to the integration suite rather than being dropped — it is the one reader behavior asserted nowhere else. The rest of the test module (overlay/lift tests) stays."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "The one home for the reader's behavior tests: absorb the unadmitted-top-level-heading refusal beside the existing reader tests (`the_reader_fills_slots_collects_members_and_lands_prose_verbatim`, `an_explicit_key_survives_a_heading_retitle`, `a_document_missing_a_declared_section_fails_loud_naming_file_and_heading`); the emit-face tests stay as-is."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "all four reader behaviors — slot fill + member collection + verbatim prose, explicit-key retitle survival, missing-section refusal, unadmitted-heading refusal — in the single integration suite"
-      }
-    ],
-    "acceptance": "Layout::read's behavior is asserted in exactly one suite (tests/layout_kind.rs), the unadmitted-heading refusal included; src/kind.rs's test module carries no duplicate reader tests or intent fixtures; all gates green.",
-    "notes": "Scoped at 1284cdf (residue sweep of e3982b5): the reader landed with near-verbatim twin suites — same fixture, same public Layout::read — in src/kind.rs unit tests and tests/layout_kind.rs. Keep the integration home (it already holds the emit face); extract.rs's unit tests stay (they pin pub(crate) internals unreachable from the integration crate). Disjoint from LAYOUT-PROSE-IMPORT — no shared file; resolution is engine-side per kind.rs's Prose-arm comment."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
