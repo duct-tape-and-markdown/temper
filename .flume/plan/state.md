@@ -2,16 +2,18 @@
 
 - Spec derived through: a0fccaf
 - Audited through: 7676c2b
-- Residue swept through: f6a4af5
-- This tick: Ship audit (job 3). d27a624 shipped LAYOUT-PROSE-IMPORT —
-  verified on disk (tests/layout_prose_import.rs; resolve_layout_import +
-  LayoutImportRow + write_layout_imports in drift.rs; resolved_import_edges
-  graph.rs:910, folded at main.rs:1189). LAYOUT-EDGE-SLOT unblocked → open;
-  its drift.rs anchor refreshed (derive_layout_rows moved :553 → :601 under
-  the import pass; Layout::read still kind.rs:245). PACKAGING-CHANNELS park
-  reason re-verified true at 7676c2b (workflows/ holds only temper.yml;
-  root package.json still the private flume manifest).
-- Queue: LAYOUT-EDGE-SLOT (open); PACKAGING-CHANNELS (parked).
+- Residue swept through: 961c9c2
+- This tick: Residue sweep (job 4), f6a4af5..961c9c2 (one build commit,
+  d27a624). Two finds: the composed-prose include (pipeline.md, "The SDK" —
+  standing since e842a32, never operationalized; d27a624's body confirms no
+  engine surface) filed as PROSE-INCLUDE, blockedBy LAYOUT-EDGE-SLOT; the
+  hand-rolled layout KindFactRow test builders (layout_prose_import.rs:26,
+  layout_kind.rs:146) beside `common::kind_facts` routed into
+  LAYOUT-EDGE-SLOT as its sanctioned consolidation. Judged not-residue:
+  drift.rs's 4× tolerant lock-open prelude (below the job grain, deliberate
+  doc-commented idiom); prose.ts's NUL byte (the MENTION_SLOT sentinel).
+  All five riding debts re-verified on disk, stamps advanced.
+- Queue: LAYOUT-EDGE-SLOT (open); PROSE-INCLUDE (blockedBy LAYOUT-EDGE-SLOT);
+  PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep (Residue swept through f6a4af5 trails
-HEAD 7676c2b; d27a624 unswept).
+Plan continues: yes — quiet pass (closing re-check of the amended queue).

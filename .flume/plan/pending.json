@@ -14,7 +14,7 @@
       "new": [
         {
           "path": "tests/layout_edge_slot.rs",
-          "description": "A layout member whose kind's edge fields name one of its field-section slots (`satisfies` among them) derives that section's entries into ordinary edge rows in the lock's existing declaration families; the edges join the same resolved enumeration the gate and read verbs share; a dangling entry hits the existing dangling-edge refusal, never a new one."
+          "description": "A layout member whose kind's edge fields name one of its field-section slots (`satisfies` among them) derives that section's entries into ordinary edge rows in the lock's existing declaration families; the edges join the same resolved enumeration the gate and read verbs share; a dangling entry hits the existing dangling-edge refusal, never a new one. Builds its kind facts by struct-update over `common::kind_facts` (tests/common/mod.rs:382) — never a new local KindFactRow literal."
         }
       ],
       "edit": [
@@ -32,11 +32,15 @@
         },
         {
           "path": "tests/layout_kind.rs",
-          "description": "Existing layout-reading assertions the widened field-section reading may ripple into — update assertions/snapshots as needed."
+          "description": "Existing layout-reading assertions the widened field-section reading may ripple into — update assertions/snapshots as needed. Same pass: `intent_kind_facts` (layout_kind.rs:146) hand-rolls the full KindFactRow literal — convert to struct-update over `common::kind_facts`, the pattern tests/lock_declaration_rows.rs already rides (engineering.md, 'One job, one home': test scaffolding is a surface too)."
         },
         {
           "path": "tests/lock_declaration_rows.rs",
           "description": "Existing lock row-family assertions the widened derive pass may ripple into — update assertions/snapshots as needed."
+        },
+        {
+          "path": "tests/layout_prose_import.rs",
+          "description": "Consolidation only: the local `layout_kind` builder (layout_prose_import.rs:26) hand-rolls the full KindFactRow literal beside the one home — convert to struct-update over `common::kind_facts`; region/member helpers stay local (they duplicate nothing)."
         }
       ],
       "retire": []
@@ -49,7 +53,64 @@
       }
     ],
     "acceptance": "A field section a layout kind's edge fields mark derives its entries into ordinary edge rows in the committed lock — satisfies among them — visible to the gate and read verbs; a dangling entry refuses through the existing refusal; no new declaration surface added; all gates green.",
-    "notes": "Scoped at a0fccaf (0020, Consequences: the derivation rides the existing kind edge-field fact over layout slots). No SDK schema delta: EdgeField (sdk/src/kind.ts:41) and LayoutRegionRow field slots already exist. Unblocked at 7676c2b — LAYOUT-PROSE-IMPORT shipped; anchors re-verified (derive_layout_rows now drift.rs:601). Entry grain within the span follows the frontmatter `satisfies` field's list-of-addresses semantics; prose spans stay prose (0020)."
+    "notes": "Scoped at a0fccaf (0020: the derivation rides the existing kind edge-field fact over layout slots). No SDK schema delta — EdgeField (sdk/src/kind.ts:41) and LayoutRegionRow field slots exist. Unblocked at 7676c2b; anchors re-verified (derive_layout_rows drift.rs:601). Entry grain follows the frontmatter `satisfies` list-of-addresses semantics; prose spans stay prose (0020). Owns the layout kind-facts builder consolidation into tests/common (sweep 961c9c2)."
+  },
+  {
+    "tag": "PROSE-INCLUDE",
+    "summary": "Composed prose declares an include — the target's contents pulled into the host's emitted bytes, fingerprinted in the lock, a declared edge, refusing loudly when dangling",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The SDK"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LAYOUT-EDGE-SLOT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/prose_include.rs",
+          "description": "An include declared in composed prose lands the target's contents byte-identical inside the host's emitted artifact; the dependency is fingerprinted in the lock so a moved target is drift; the edge joins the one resolved enumeration explain/impact narrate; a dangling include refuses before a byte is written (pipeline.md, Emit: 'Refusing' names the unresolvable include explicitly)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "The include declaration on composed prose — an intent apart from the mention: it moves content (pipeline.md, The SDK). Spelling is code's call (depth rule); the mention interpolation (the `MENTION_SLOT` sentinel in this file) is the precedent. The path resolves relative to the stating module, never the workspace."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "A new include row family beside `mentionRows` (declarations.ts:299), carried across the seam in `Declarations` (mirror: `mentions`, src/drift.rs:1393) — a new `IncludeRow` ts-rs binding lands under sdk/src/generated/."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Engine-side resolve + fingerprint + pull-into-emitted-bytes. The resolution unifies with `resolve_layout_import` (drift.rs:655) — the consolidation LAYOUT-PROSE-IMPORT's notes sanctioned and d27a624 deferred for want of this second consumer; the fingerprint takes the same never-reaped source-dependency posture as `LayoutImportRow`."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The include edge reuses `ImportDeclaration`/`resolved_import_edges` (graph.rs:896/910) under the existing `IMPORT_FIELD` locus — path-resolved once at emit, no second lift."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The include edges fold into the same resolved reference set at the existing mention/import merge point (main.rs:1189)."
+        },
+        {
+          "path": "tests/seam_bindings_current.rs",
+          "description": "Guards the generated seam bindings — the new `IncludeRow` binding ripples here; regenerate and re-assert."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/prose_include.rs",
+        "asserts": "include content lands byte-identical in the emitted artifact; the dependency fingerprint reaches the lock; the edge is in the one enumeration; a dangling include refuses before any write"
+      }
+    ],
+    "acceptance": "A composed-prose include pulls its target's contents into the host's emitted bytes, fingerprinted in the committed lock and visible as a declared edge to the gate and read verbs; a dangling include refuses loudly before any byte is written; the resolver is one surface shared with the layout import; all gates green.",
+    "notes": "Scoped at 961c9c2 (residue sweep): pipeline.md 'The SDK' has carried the include since e842a32 (0001/0002) with no entry ever operationalizing it; d27a624's body confirms no engine surface exists. The resolve_layout_import unification is the entry's named consolidation, not creep (engineering.md). Blocked behind LAYOUT-EDGE-SLOT: shared src/drift.rs, src/graph.rs."
   },
   {
     "tag": "PACKAGING-CHANNELS",
