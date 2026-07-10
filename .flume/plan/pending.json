@@ -1,5 +1,56 @@
 [
   {
+    "tag": "PREDICATE-CONSTRUCTORS",
+    "summary": "Five evaluable predicates become SDK-authorable — constructors plus lock-row decode (optional/range/enum/must_define/section_contains); an out-of-vocabulary clause row rejects loud, never skips",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "Export five constructors mirroring the existing 15: optional, range, enum, mustDefine, sectionContains. dependencyExists is deliberately excluded — held back in the engine (contract.rs:188-194: no decidable reference syntax or extractor, so a hand-authored clause fails admissibility); a constructor would ship an always-failing clause."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "clauseRow() (declarations.ts:59) carries the new argument columns: enum's values ride the deny precedent, must_define's marker rides field (the engine's field accessor already reads it there, contract.rs:402); range's f64 min/max and section_contains' heading+marker need column homes — BoundRow is usize-shaped (drift.rs:1743-1750), so range cannot ride it. Exact column mapping is code's call (depth rule)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "ClauseRow gains the columns the argument shapes above need; ts-rs regen flows to sdk/src/generated (the seam-bindings gate, tests/seam_bindings_current.rs, holds the pair in lockstep)."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "predicate_from_row (contract.rs:265) gains arms for range/enum/must_define/section_contains — optional already decodes (contract.rs:270); the engine's hand-built built-in contracts construct Predicate values directly in Rust, so they never proved the row-decode side the inbox note assumed."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "clause_from_row/default_contract_from_rows filter_map-skip an out-of-vocabulary or argument-missing row (compose.rs:133-135, 149-152) under a 'tolerant hand-editable lock' rationale — but contract.md ('clause') rules an unknown predicate rejected at load, never skipped, and pipeline.md rules the lock tool-written, never patched. Reject loud; the finding tier (load error vs admissibility) is code's call."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "each of the five constructors produces the wire row the engine decodes — arguments land in their columns"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "SDK-emitted clause rows for the five lift into evaluating predicates (round-trip: author -> row -> Predicate -> finding on a violating member); a row naming an unknown predicate or missing its required argument is rejected loud, never silently dropped"
+      }
+    ],
+    "acceptance": "A corpus authors optional/range/enum/mustDefine/sectionContains clauses through the SDK and the gate evaluates them — the counterpart corpus's 'every Decision section carries a Rejected marker' law is expressible as an expect binding; an out-of-vocabulary clause row errors loud; all gates green.",
+    "notes": "Inbox 63664b2 re-verified, scoped at 5eba801: engine evaluates all five; SDK exports 15 constructors, none of these. Note said six — dependency-exists scoped out: held back by design (inadmissible absent an extractor). Note's 'wire already carries them' wrong for four of five (no predicate_from_row arms; range's f64 bounds don't fit the usize BoundRow). Reject-loud folds in: same decoder, and new arms redefine 'unknown'. First customer: the counterpart corpus's per-Decision Rejected law."
+  },
+  {
     "tag": "LAYOUT-RELATIONSHIP-EDGES",
     "summary": "A layout host's declared-relationship edge slot's entries reach the one resolved edge enumeration — resolved like a file member's frontmatter reference, never silently dropped",
     "per": {
@@ -8,7 +59,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "PROSE-INCLUDE"
+      "tag": "PREDICATE-CONSTRUCTORS"
     },
     "dependsOnForks": [],
     "files": {
@@ -37,7 +88,39 @@
       }
     ],
     "acceptance": "A layout kind that declares an edge field (SDK-expressible today: `edgeFields` kind.ts:102 beside `content: Layout` kind.ts:105) resolves that slot's entries into the same enumeration the gate and read verbs share; a dangling entry is a finding, never a silent drop; all gates green.",
-    "notes": "Scoped at ced4f94 (check-time silent drop vs invariant 6); inbox note 37e4834 (observed e30e5a6; no code commits since) routed here: same gap, real customer — a counterpart corpus's Depends-on field sections. The note's member-authored edge-row lock family is the recorded rejected alternative: read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows exist only for composed-prose references. Reader already general (kind.rs:162/386)."
+    "notes": "Scoped at ced4f94 (silent check-time drop vs invariant 6); inbox 37e4834 routed here — same gap, real customer (a counterpart corpus's Depends-on sections). Rejected alternative: member-authored edge-row lock family — read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows are for composed-prose only. Reader general (kind.rs:162/386). Prior blocker PROSE-INCLUDE shipped (a8562b5); re-serialized behind PREDICATE-CONSTRUCTORS on the src/drift.rs overlap."
+  },
+  {
+    "tag": "EMBEDDED-EDGE-TARGETS",
+    "summary": "An edge field targeting an embedded-locus kind resolves against that kind's nested members — embedded kinds join the by_kind target set instead of presenting as unmodeled",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "nesting"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LAYOUT-RELATIONSHIP-EDGES"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "assemble_by_kind (main.rs:985) keys only kinds carrying a lock kind-fact row; an embedded kind carries none by design (SDK declarations.ts:200-202 — it reaches the lock solely through its host's templates column, which from_kind_fact_row already lifts). So graph::admissibility (graph.rs:173) reports an edge targeting it as unmodeled and its member set is empty even when the host's templates are declared. Key embedded kinds into by_kind off hosts' declared templates, their members' Features off nested_member rows and layout member-collection entries — exact assembly is code's call (depth rule)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "an edge field targeting an embedded kind declared via a host's templates passes admissibility and resolves by identity to a declared nested member; a dangling entry is a route finding; a target kind no host declares stays an admissibility finding"
+      }
+    ],
+    "acceptance": "The field report's repro greens: a relationship edge field targeting an embedded kind (their `serves` -> `domain`) with the host's templates in the lock passes admissibility and resolves by member identity; a dangling entry is a finding; all gates green.",
+    "notes": "Field report (23e43db) re-verified, scoped at 5eba801: an embedded kind carries no kind-fact row, so by_kind never keys it — the reported admissibility finding reproduces structurally. Spec settled, no fork: a nested member is a full member with its own kind, one member type in the model; nothing scopes edge targets to file locus. blockedBy: same enumeration seam as LAYOUT-RELATIONSHIP-EDGES — one widened-enumeration ruling decides both (per the report)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
