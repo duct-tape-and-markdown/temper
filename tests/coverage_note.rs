@@ -15,12 +15,15 @@
 //! coverage note's advisories are asserted exactly. Every coverage-note finding is
 //! `warning` (advisory) — it never gates and never injects a session-start verdict.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
 mod common;
 
+use temper::coverage_note;
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
+use temper::kind::CustomKind;
 
 /// Write a clean one-skill surface at `<root>/.claude/skills/<name>/SKILL.md` — the
 /// real Claude Code locus, never a layout invented for the test (`.claude/rules/rust.md`).
@@ -179,6 +182,43 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
         "a fully-modeled harness flags no unmodeled surface, got: {findings:#?}"
     );
     assert!(success, "the clean run exits success, got: {findings:#?}");
+}
+
+#[test]
+fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kinds() {
+    // The note reads `<root>/.temper/lock.toml` for any custom kind's `governs` beyond
+    // the built-ins. That read must be loud: a corrupt lock silently reading as "no
+    // kinds declared" would drop the locked-kind suppression (LOCK-READ-SWALLOW-LOUD).
+    // Driven directly against the library, since the CLI gate reads the same lock a
+    // step earlier — this pins the note's own read, the swept swallow.
+    let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
+
+    // (1) A corrupt (unparseable) lock rejects loud rather than degrading to
+    // built-ins-only suppression.
+    let corrupt = common::tmpdir("coverage-note-corrupt-lock");
+    fs::create_dir_all(corrupt.join(".temper")).unwrap();
+    fs::write(
+        corrupt.join(".temper/lock.toml"),
+        "this is not = = valid toml",
+    )
+    .unwrap();
+    assert!(
+        coverage_note::check(&corrupt, &empty_kinds, &BTreeMap::new()).is_err(),
+        "a corrupt lock must reject loud, not degrade to built-ins-only suppression"
+    );
+
+    // (2) A genuinely missing lock still degrades to the built-in kinds alone — the
+    // note succeeds and still flags an ungoverned present surface.
+    let missing = common::tmpdir("coverage-note-missing-lock");
+    write_mcp_json(&missing);
+    let diagnostics = coverage_note::check(&missing, &empty_kinds, &BTreeMap::new())
+        .expect("a missing lock degrades to the built-in kinds, never an error");
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json"),
+        "a missing lock still flags the ungoverned surface, got: {diagnostics:#?}"
+    );
 }
 
 #[test]

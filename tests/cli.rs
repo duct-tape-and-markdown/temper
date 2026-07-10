@@ -481,6 +481,75 @@ fn guard_reads_a_pretooluse_payload_and_acts_on_the_posture() {
 }
 
 #[test]
+fn guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one() {
+    use std::io::Write;
+
+    // The guard reads its enforcement mode off the harness's lock. A corrupt lock —
+    // unparseable TOML, or a present `mode` fact outside the closed `{note, warn,
+    // block}` vocabulary — must reject loud, never silently degrade a declared `block`
+    // to the default `warn` (LOCK-READ-SWALLOW-LOUD). A genuinely absent lock still
+    // guards at the documented default `warn` (allow, exit 0).
+    let payload = "{\"tool_input\":{\"file_path\":\".claude/rules/rust.md\"}}";
+    let run_guard = |root: &Path| {
+        let mut child = Command::new(BIN)
+            .arg("guard")
+            .arg(root)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .unwrap();
+        // The read error fires before stdin is consumed; a small payload fits the pipe
+        // buffer, but tolerate a closed pipe if the child has already exited loud.
+        let _ = child.stdin.take().unwrap().write_all(payload.as_bytes());
+        child.wait_with_output().unwrap()
+    };
+
+    // (1) Unparseable TOML → loud, never a silent default-warn allow.
+    let bad_toml = common::tmpdir("guard-corrupt-toml");
+    let temper_dir = bad_toml.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(temper_dir.join("lock.toml"), "this is not = = valid toml").unwrap();
+    let out = run_guard(&bad_toml);
+    assert!(
+        !out.status.success(),
+        "a corrupt (unparseable) lock must reject loud, got exit {:?}",
+        out.status.code()
+    );
+
+    // (2) A present but out-of-vocabulary `mode` value → loud, never degraded to warn.
+    let bad_mode = common::tmpdir("guard-corrupt-mode");
+    let temper_dir = bad_mode.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"clobber\"\n",
+    )
+    .unwrap();
+    let out = run_guard(&bad_mode);
+    assert!(
+        !out.status.success(),
+        "an out-of-vocabulary enforcement mode must reject loud, got exit {:?}",
+        out.status.code()
+    );
+    assert!(
+        String::from_utf8_lossy(&out.stderr).contains("clobber"),
+        "the rejection names the offending value, got stderr:\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    // (3) A genuinely absent lock still guards at the default `warn` — a projection
+    // write is allowed (exit 0), never blocked by the missing-lock read.
+    let no_lock = common::tmpdir("guard-no-lock");
+    let out = run_guard(&no_lock);
+    assert!(
+        out.status.success(),
+        "a missing lock keeps the default-warn allow, got exit {:?}",
+        out.status.code()
+    );
+}
+
+#[test]
 fn help_text_speaks_the_current_enforcement_vocabulary_and_layout() {
     // HELP-TEXT-RECUT: no user-facing help/about string may still speak the
     // retired `shared`/`surface` enforcement-mode pair (EnforcementMode recut to

@@ -101,12 +101,14 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
 ///
 /// # Errors
 ///
-/// Returns a [`drift::LockRowError`] when a lock-declared kind row cannot be lifted.
+/// Returns an error when `root`'s committed lock cannot be read or parsed, or when a
+/// lock-declared kind row cannot be lifted — a corrupt lock is loud here, never a
+/// silent degrade to built-ins-only suppression.
 pub fn check(
     root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
-) -> Result<Vec<Diagnostic>, drift::LockRowError> {
+) -> miette::Result<Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
 
     // (1) State what WAS checked: each kind's member count, so a clean run reads as
@@ -208,13 +210,15 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
 ///
 /// # Errors
 ///
-/// Returns a [`drift::LockRowError`] when a declared kind row cannot be lifted.
+/// Returns an error when the committed lock cannot be read or parsed, or when a
+/// declared kind row cannot be lifted — a corrupt lock never silently reads as "no
+/// kinds declared", which would drop the locked-kind suppression.
 fn with_locked_kinds(
     root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
-) -> Result<BTreeMap<String, CustomKind>, drift::LockRowError> {
+) -> miette::Result<BTreeMap<String, CustomKind>> {
     let mut merged = kinds.clone();
-    let locked = drift::read_declarations(&root.join(TEMPER_DIR)).unwrap_or_default();
+    let locked = drift::read_declarations(&root.join(TEMPER_DIR))?;
     for row in &locked.kinds {
         if !merged.contains_key(&row.name) {
             merged.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);

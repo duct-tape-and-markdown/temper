@@ -344,7 +344,7 @@ fn main() -> miette::Result<ExitCode> {
             // `compose::EnforcementMode`'s own default, and falls back to binding any
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(TEMPER_DIR);
-            let mode = mode_from_lock(&workspace_dir);
+            let mode = mode_from_lock(&workspace_dir)?;
             let lock_present = workspace_dir.join("lock.toml").is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let mut payload = String::new();
@@ -496,21 +496,35 @@ fn explain(target: &str) -> miette::Result<String> {
 /// fact in `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented
 /// harness (no lock, or one predating the field) reads
 /// [`compose::EnforcementMode::default`] — `warn` — matching the lock-less
-/// "nothing to bind" posture everywhere else in this module.
-fn mode_from_lock(workspace_dir: &Path) -> compose::EnforcementMode {
-    drift::read_declarations(workspace_dir)
-        .unwrap_or_default()
+/// "nothing to bind" posture everywhere else in this module. A present `mode` fact
+/// whose value is outside the closed `{note, warn, block}` vocabulary rejects loud
+/// rather than degrading to the default — a corrupt lock must never silently soften a
+/// declared `block` to `warn`.
+///
+/// # Errors
+///
+/// Returns the read error when the lock cannot be read or parsed, and a
+/// [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an unrecognized value.
+fn mode_from_lock(workspace_dir: &Path) -> miette::Result<compose::EnforcementMode> {
+    let Some(value) = drift::read_declarations(workspace_dir)?
         .assembly
-        .iter()
+        .into_iter()
         .find(|row| row.fact == "mode")
-        .and_then(|row| row.value.as_deref())
-        .and_then(|value| match value {
-            "note" => Some(compose::EnforcementMode::Note),
-            "warn" => Some(compose::EnforcementMode::Warn),
-            "block" => Some(compose::EnforcementMode::Block),
-            _ => None,
-        })
-        .unwrap_or_default()
+        .and_then(|row| row.value)
+    else {
+        return Ok(compose::EnforcementMode::default());
+    };
+    match value.as_str() {
+        "note" => Ok(compose::EnforcementMode::Note),
+        "warn" => Ok(compose::EnforcementMode::Warn),
+        "block" => Ok(compose::EnforcementMode::Block),
+        other => Err(drift::LockRowError::Vocabulary {
+            family: "assembly".to_string(),
+            column: "mode".to_string(),
+            value: other.to_string(),
+        }
+        .into()),
+    }
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)
