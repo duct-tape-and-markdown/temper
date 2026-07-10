@@ -445,7 +445,11 @@ fn explain(target: &str) -> miette::Result<String> {
         .map(|row| (row.name.clone(), requirement_from_row(row)))
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
-    let mention_edges = mention_edges_from_declarations(&declarations);
+    // Mentions and layout prose imports both resolve once at emit and lift off the lock;
+    // `why` narrates them in the same resolved-edge set the gate's graph predicates range
+    // over, so a read cannot disagree with the gate (READ-EDGE-UNIFY).
+    let mut mention_edges = mention_edges_from_declarations(&declarations);
+    mention_edges.extend(import_edges_from_lock(&workspace));
 
     // The world's inbound registration channel set into each built-in kind — the same
     // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
@@ -556,7 +560,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .map(|row| (row.name.clone(), requirement_from_row(row)))
         .collect();
     let assembly_edges = edges_from_declarations(&declarations);
-    let mention_edges = mention_edges_from_declarations(&declarations);
+    // The already-resolved reference edges the graph predicates and read verbs fold in
+    // alongside the declared-field arcs: authored mentions and layout prose imports, each
+    // resolved once at emit and lifted off the lock's own declaration family.
+    let mut mention_edges = mention_edges_from_declarations(&declarations);
+    mention_edges.extend(import_edges_from_lock(workspace));
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
@@ -756,6 +764,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // fingerprints recorded), advisory so a hand-edited or un-re-emitted projection is
     // surfaced without failing the run.
     diagnostics.extend(drift::config_stale(workspace));
+
+    // The layout-import freshness fact: a fingerprinted import target whose bytes no
+    // longer match the lock — the target moved and `emit` has not re-run. Advisory, the
+    // same `warn` posture `config.stale` takes over a drifted projection.
+    diagnostics.extend(drift::layout_import_stale(workspace));
 
     Ok(diagnostics)
 }
@@ -1157,6 +1170,23 @@ fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<gr
         })
         .collect();
     graph::resolved_mention_edges(&mentions)
+}
+
+/// The lock's layout prose imports, lifted into [`graph::ResolvedEdge`]s — the
+/// import-locus mirror of [`mention_edges_from_declarations`], read off the lock's own
+/// `[declaration.layout_import]` family (engine-derived at emit, not a payload row). An
+/// import resolving to a plain repository file names no member, so it carries no address
+/// and reaches no edge here — its content dependency is still fingerprinted for drift.
+fn import_edges_from_lock(workspace_dir: &Path) -> Vec<graph::ResolvedEdge> {
+    let imports: Vec<graph::ImportDeclaration> = drift::layout_imports(workspace_dir)
+        .into_iter()
+        .filter(|row| !row.target.is_empty())
+        .map(|row| graph::ImportDeclaration {
+            member: row.member,
+            target: row.target,
+        })
+        .collect();
+    graph::resolved_import_edges(&imports)
 }
 
 #[cfg(test)]

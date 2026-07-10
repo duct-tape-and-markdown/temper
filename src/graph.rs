@@ -51,6 +51,11 @@ const DIRECTIVE_FIELD: &str = "at-import";
 /// reference edge in the one resolved-edge set.
 const MENTION_FIELD: &str = "mention";
 
+/// The reference `field` a layout-prose-import [`ResolvedEdge`] records — a declared
+/// include of a file's contents, not a frontmatter field. Lets a reader tell an import
+/// edge from a declared reference edge in the one resolved-edge set.
+const IMPORT_FIELD: &str = "import";
+
 /// The maximum import-recursion depth reachability propagates a live importer's
 /// liveness across — the `at-import` grammar is recursion-capped at five hops
 /// (code.claude.com/docs/en/memory, retrieved 2026-07-02), so an import chain
@@ -878,6 +883,37 @@ pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEd
             from: node_from_address(&mention.member),
             field: MENTION_FIELD.to_string(),
             to: node_from_address(&mention.target),
+        })
+        .collect()
+}
+
+/// One layout prose-import edge the lock already resolved at emit — the importing
+/// layout member's own `kind:name` address and the `kind:name` address its import
+/// region resolved to (another member, path-resolved against raw disk at emit). The
+/// [`ImportDeclaration`] mirror of [`MentionDeclaration`]: an import whose target is a
+/// plain repository file, not a member, carries no address and reaches the graph as no
+/// edge (its content dependency is still fingerprinted in the lock — `crate::drift`).
+pub struct ImportDeclaration {
+    /// The importing layout member's own `kind:name` address.
+    pub member: String,
+    /// The `kind:name` address the import resolved to.
+    pub target: String,
+}
+
+/// Fold the lock's already-resolved layout-import rows into [`ResolvedEdge`]s — the
+/// import-locus mirror of [`resolved_mention_edges`]: no dangling check runs here (a
+/// dangling import never reaches the lock, `emit` refuses before a byte is written),
+/// just the address parse [`node_from_address`] on both ends. A path-resolved edge
+/// resolved once, at emit, so it lands in the one resolved-edge enumeration the gate and
+/// every read verb range over exactly as a mention does.
+#[must_use]
+pub fn resolved_import_edges(imports: &[ImportDeclaration]) -> Vec<ResolvedEdge> {
+    imports
+        .iter()
+        .map(|import| ResolvedEdge {
+            from: node_from_address(&import.member),
+            field: IMPORT_FIELD.to_string(),
+            to: node_from_address(&import.target),
         })
         .collect()
 }
