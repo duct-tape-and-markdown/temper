@@ -1,21 +1,23 @@
 # Plan state
 
 - Spec derived through: 6a04322
-- Audited through: ab73a60
+- Audited through: ddae7d4
 - Residue swept through: a932bb0
-- This tick: Quiet pass (job 5). Inbox/refactor empty, spec delta empty,
-  zero code commits past either cursor. Queue disjoint; every gate
-  re-verified on disk: TEST-ROW-FIXTURES-ONE-HOME's anchors hold
-  (requirement_roster.rs:62, common/mod.rs:347-393,
-  lock_declaration_rows.rs:34/109/117), SEAM-PAYLOAD-TYPED's premise
-  holds (hand-authored PayloadMember at emit.ts:245), PACKAGING-CHANNELS
-  still parked (no release.yml; root package.json the private flume
-  manifest). Friction capture build-requirement-prose-harness-ts-stale-key
-  is resolved on disk (8d741ba) but undrained — human sweep deletes it.
-- Queue: TEST-ROW-FIXTURES-ONE-HOME (open) → SEAM-PAYLOAD-TYPED →
-  KIND-CONTENT-FACT → LAYOUT-READER → LAYOUT-PROSE-IMPORT (linear
-  blockedBy chain — shared drift.rs/declarations.ts/emit.test.ts/
-  lock_declaration_rows.rs surfaces); PACKAGING-CHANNELS (parked).
+- This tick: Ship audit (job 3). TEST-ROW-FIXTURES-ONE-HOME verified on
+  disk (1589845): row-family default-fillers one home in
+  tests/common/mod.rs (kind_facts:380, requirement:411, clause:427,
+  required_clause_row:448); the tests/install.rs:15,382 pre-0019
+  universals fixed on contact — that half of the install-comment debt
+  cleared (src/install.rs:18 still stale, rides LAYOUT-READER).
+  SEAM-PAYLOAD-TYPED unblocked: gate flipped open, premise re-verified
+  (hand-authored PayloadMember at emit.ts:245; generated Payload{,Member}
+  zero SDK consumers; every cited line anchor holds). PACKAGING-CHANNELS
+  parked reason re-verified (no release.yml; root package.json the
+  private flume manifest).
+- Queue: SEAM-PAYLOAD-TYPED (open) → KIND-CONTENT-FACT → LAYOUT-READER →
+  LAYOUT-PROSE-IMPORT (linear blockedBy chain — shared
+  drift.rs/declarations.ts/emit.test.ts surfaces); PACKAGING-CHANNELS
+  (parked).
 
-Plan continues: no — all inputs current; TEST-ROW-FIXTURES-ONE-HOME is
-pickable, build takes over.
+Plan continues: yes — residue sweep trails HEAD (a932bb0 < ddae7d4;
+1589845 touched tests/).

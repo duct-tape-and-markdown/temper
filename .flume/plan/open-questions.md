@@ -139,20 +139,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   and names both fixes in its file description — verify the exit clause
   fired at its ship audit, then delete this bullet.
 
-- **Pre-0019 "every governed artifact" universals in install comments.**
-  `src/install.rs:18` and `tests/install.rs:15,382` still state the first
-  emit "regenerates every governed artifact as a canonical projection" —
-  0019 recut the universal: every *composed kind's* artifact is a
-  projection, a layout kind's document a source at either depth
-  (`specs/model/pipeline.md`, "Install"). Comment staleness only — no
-  behavior can diverge until a layout kind ships, and LAYOUT-READER lands
-  the behavior. Rides the exit clause (rust.md), never standalone:
-  LAYOUT-READER (filed 07-09) opens `src/install.rs` and names the line-18
-  fix in its file description — verify at its ship audit;
-  `tests/install.rs:15,382` now rides TEST-ROW-FIXTURES-ONE-HOME (filed at
-  residue sweep HEAD fcdbe52), which opens that file and names the fix in
-  its file description — verify at its ship audit. Found at residue sweep
-  HEAD ec3d112.
+- **Pre-0019 "every governed artifact" universal in `src/install.rs:18`.**
+  The module doc still states the first emit "regenerates every governed
+  artifact as a canonical projection" — 0019 recut the universal: every
+  *composed kind's* artifact is a projection, a layout kind's document a
+  source at either depth (`specs/model/pipeline.md`, "Install"). Comment
+  staleness only — no behavior can diverge until a layout kind ships, and
+  LAYOUT-READER lands the behavior. Rides the exit clause (rust.md), never
+  standalone: LAYOUT-READER (filed 07-09) opens `src/install.rs` and names
+  the line-18 fix in its file description — verify at its ship audit, then
+  delete this bullet. The `tests/install.rs:15,382` half cleared at ship
+  audit HEAD ddae7d4 (1589845's exit clause fired; evidence in that plan
+  commit body). Found at residue sweep HEAD ec3d112.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

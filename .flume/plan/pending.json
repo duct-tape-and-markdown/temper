@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TEST-ROW-FIXTURES-ONE-HOME"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -40,7 +39,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "sdk strict tsc references generated Payload/PayloadMember on the emit path, so a Rust-side member-column rename fails `pnpm --dir sdk test` instead of drifting silently; no hand-restated seam shape survives outside sdk/src/generated/; emit bytes unchanged (sdk/test/emit.test.ts and tests/builtin_lock_frozen.rs green); all gates green.",
-    "notes": "Scoped at a932bb0 (residue sweep). 36a7662 wired the declaration rows to the generated home but generated/Payload{,Member} have zero SDK consumers (only declarations.ts imports generated/) — the silent-shape-drift class it filed to kill survives on the member half. blockedBy is fence serialization only (keeps the chain linear so KIND-CONTENT-FACT's single blockedBy suffices); no semantic dependency on the test-fixture work."
+    "notes": "Scoped at a932bb0 (residue sweep); unblocked at ddae7d4 ship audit — TEST-ROW-FIXTURES-ONE-HOME shipped (1589845, tests-only), every line anchor re-verified on disk. 36a7662 wired the declaration rows to the generated home but generated/Payload{,Member} have zero SDK consumers (only declarations.ts imports generated/) — the silent-shape-drift class it filed to kill survives on the member half."
   },
   {
     "tag": "KIND-CONTENT-FACT",
@@ -96,7 +95,7 @@
       }
     ],
     "acceptance": "An SDK-declared layout reaches the engine's CustomKind through the lock's kind rows; a kind with no content declaration is file everywhere; src/builtin_lock.toml is byte-unchanged (frozen gate); all gates green.",
-    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind SEAM-PAYLOAD-TYPED, itself behind TEST-ROW-FIXTURES-ONE-HOME — shared drift.rs/declarations.ts/emit.test.ts and tests/lock_declaration_rows.rs; anchors restamped at ab73a60."
+    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind SEAM-PAYLOAD-TYPED (queue head since ddae7d4) — shared drift.rs/declarations.ts/emit.test.ts and tests/lock_declaration_rows.rs; anchors restamped at ab73a60."
   },
   {
     "tag": "LAYOUT-READER",
@@ -209,7 +208,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at ab73a60 (ship audit; intervening src/tests/sdk commits since b8f0746 are 4f5df8d/FRONTMATTER-MALFORMED-LOUD and 36a7662/SEAM-BINDINGS-GENERATED, a frontmatter refusal and the ts-rs seam codegen, neither packaging-adjacent): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at ddae7d4 (ship audit; the one intervening code commit since ab73a60 is 1589845, a tests-only fixture consolidation, not packaging-adjacent): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
