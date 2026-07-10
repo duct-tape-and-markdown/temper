@@ -1,22 +1,23 @@
 # Plan state
 
 - Spec derived through: a0fccaf
-- Audited through: 8575dd6
-- Residue swept through: df667e4
-- This tick: Inbox drain — routed both notes. (1) prose.ts NUL/`\x01`
-  sentinels re-verified still literal on disk (grep exit=1 without `-a`)
-  → filed PROSE-SENTINEL-ESCAPE (open); the standing "rides next-open"
-  exit was inert (no queued entry opens prose.ts), so promoted standalone
-  and re-pointed the open-questions sweep-mechanics NB. (2) `impact`
-  re-verified a deliberately-unified internal strand of `explain`
-  (main.rs clap has one read variant, read.rs:190 "the one read verb"),
-  while the model still names it a peer verb → registered fork
-  `(impact-read-verb)`; spec-vs-code collision surfaced, not filled
-  (a session doesn't write specs; the code unification looks intentional).
+- Audited through: 8615be0
+- Residue swept through: 8615be0
+- This tick: Post-ship reconciliation — window df667e4..HEAD carries one
+  code commit, 543f2fd (sdk `@dtmd/temper` 0.0.5→0.1.0 + stale README-line
+  removal + lockfile refresh). Audit: no pending entry completes on a bump;
+  PACKAGING-CHANNELS' parked note "still at 0.0.5 pending publish" is now
+  stale → refreshed to "public on npm, bumped to 0.1.0 (543f2fd)"; parked
+  conditions re-verified live at 8615be0 (still no `release.yml`, only the
+  `temper.yml` check job; root package.json still the private
+  `temper-flume-harness`) → gate stays parked. PROSE-SENTINEL-ESCAPE premise
+  re-verified on disk (prose.ts NUL sentinels still literal — grep exit=1
+  without `-a`). Sweep: version bump + doc/lockfile only, no retirement or
+  residue introduced — nothing fileable. Both cursors → 8615be0.
 - Queue: PROSE-SENTINEL-ESCAPE (open, pickable) · PACKAGING-CHANNELS
   (parked). Disjoint — sdk/src/prose.ts vs release infra (package.json,
   release.yml) share no path.
 
-Plan continues: yes — post-ship reconciliation is live below inbox:
-543f2fd bumped sdk to 0.1.0 past both cursors (8575dd6 / df667e4),
-staling PACKAGING-CHANNELS' "still at 0.0.5 pending publish" note.
+Plan continues: no — inbox empty, no spec delta past a0fccaf, window
+reconciled and both cursors at HEAD. PROSE-SENTINEL-ESCAPE is pickable;
+build takes over.
