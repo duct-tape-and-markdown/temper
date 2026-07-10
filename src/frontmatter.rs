@@ -118,6 +118,19 @@ pub enum FrontmatterError {
         /// The frontmatter field the id was to be read from.
         field: String,
     },
+
+    /// A source carries a present frontmatter block that is malformed YAML, or valid
+    /// YAML that is not a mapping (a bare scalar or a sequence) — so no fields can be
+    /// read from it. Surfaced loud rather than degraded to an empty field map, which
+    /// would let the gate judge fabricated field absence (invariant 6: loud or nothing).
+    #[error("{path}: {detail}")]
+    #[diagnostic(code(temper::frontmatter::malformed))]
+    Malformed {
+        /// The file whose frontmatter block could not be read as a mapping.
+        path: PathBuf,
+        /// What was wrong with the block (unparseable, a bare scalar, a sequence).
+        detail: String,
+    },
 }
 
 impl Member {
@@ -134,8 +147,9 @@ impl Member {
     ///
     /// # Errors
     ///
-    /// Returns a [`FrontmatterError`] if the source cannot be read, is not UTF-8, or
-    /// yields no id for its declared shape.
+    /// Returns a [`FrontmatterError`] if the source cannot be read, is not UTF-8, carries
+    /// a malformed or non-mapping frontmatter block, or yields no id for its declared
+    /// shape.
     pub fn from_source(kind: &CustomKind, source_file: &Path) -> Result<Self, FrontmatterError> {
         // No scan-root context: a file-shaped unit folds no placement (its immediate
         // parent is the base, so the relative placement is empty — the bare stem). The
@@ -170,7 +184,10 @@ impl Member {
             source,
         })?;
 
-        let parsed = parse_frontmatter(&raw);
+        let parsed = parse_frontmatter(&raw).map_err(|detail| FrontmatterError::Malformed {
+            path: source_file.to_path_buf(),
+            detail,
+        })?;
 
         let (id, companions) = match &kind.unit_shape {
             Some(UnitShape::Directory) => {
@@ -260,16 +277,37 @@ fn order_fields(
 }
 
 /// Parse a source file's YAML frontmatter into a JSON map, dropping nulls (TOML has no
-/// null) so the surface stays representable and the round-trip symmetric. A file with
-/// no frontmatter block yields an empty map.
-fn parse_frontmatter(raw: &str) -> JsonMap<String, JsonValue> {
+/// null) so the surface stays representable and the round-trip symmetric. A file with no
+/// frontmatter block, or one whose block is empty, yields an empty map.
+///
+/// A present block that is malformed YAML, or valid YAML that is not a mapping (a bare
+/// scalar or a sequence), is an `Err` carrying the malformation detail — never a silent
+/// empty map, which would let the gate judge fabricated field absence. `gray_matter`
+/// collapses a YAML parse failure to [`Pod::Null`], so a null result over non-empty input
+/// reads as unparseable.
+///
+/// # Errors
+///
+/// Returns the malformation detail (without the file path — the caller attaches it) when
+/// a present, non-empty block is not a YAML mapping.
+fn parse_frontmatter(raw: &str) -> Result<JsonMap<String, JsonValue>, String> {
     let Some(matter) = split_frontmatter(raw).0 else {
-        return JsonMap::new();
+        return Ok(JsonMap::new());
     };
-    let fields = match YAML::parse(matter.trim()) {
+    let trimmed = matter.trim();
+    // An empty block is a legitimate no-fields source, not a malformation.
+    if trimmed.is_empty() {
+        return Ok(JsonMap::new());
+    }
+    let fields = match YAML::parse(trimmed) {
         Pod::Hash(hash) => hash,
-        // Frontmatter present but not a mapping (a bare scalar/list): no keys to read.
-        _ => return JsonMap::new(),
+        Pod::Null => {
+            return Err("frontmatter block is not valid YAML, or is an explicit null".to_string());
+        }
+        Pod::Array(_) => {
+            return Err("frontmatter block is a YAML sequence, not a mapping".to_string());
+        }
+        _ => return Err("frontmatter block is a bare YAML scalar, not a mapping".to_string()),
     };
     let mut out = JsonMap::new();
     for (key, pod) in fields {
@@ -278,7 +316,7 @@ fn parse_frontmatter(raw: &str) -> JsonMap<String, JsonValue> {
         }
         out.insert(key, pod.into());
     }
-    out
+    Ok(out)
 }
 
 /// Split a source file into its YAML frontmatter block and a byte-faithful body.
@@ -499,6 +537,50 @@ Last line, no newline.";
                 PathBuf::from("scripts").join("run.sh"),
             ]
         );
+    }
+
+    #[test]
+    fn a_non_mapping_frontmatter_block_is_a_loud_error_not_empty_fields() {
+        let dir = tmpdir("non-mapping-frontmatter");
+        fs::write(
+            dir.join("collaboration.md"),
+            "---\njust a bare scalar\n---\n# Collab\n\nBody.\n",
+        )
+        .unwrap();
+
+        let err = Member::from_source(&rule_kind(), &dir.join("collaboration.md")).unwrap_err();
+        assert!(matches!(err, FrontmatterError::Malformed { .. }));
+        // Names the malformation, not a fabricated missing field.
+        assert!(err.to_string().contains("not a mapping"));
+    }
+
+    #[test]
+    fn a_malformed_yaml_frontmatter_block_is_a_loud_error() {
+        let dir = tmpdir("malformed-yaml-frontmatter");
+        // An unterminated flow sequence is not valid YAML; `gray_matter` collapses the
+        // parse failure to a null Pod, which must surface loud rather than as no fields.
+        fs::write(
+            dir.join("rust.md"),
+            "---\npaths: [\"unterminated\n---\n# Rust\n\nBody.\n",
+        )
+        .unwrap();
+
+        let err = Member::from_source(&rule_kind(), &dir.join("rust.md")).unwrap_err();
+        assert!(matches!(err, FrontmatterError::Malformed { .. }));
+    }
+
+    #[test]
+    fn an_empty_frontmatter_block_is_no_fields_not_an_error() {
+        let dir = tmpdir("empty-frontmatter");
+        fs::write(
+            dir.join("collaboration.md"),
+            "---\n---\n# Collab\n\nBody.\n",
+        )
+        .unwrap();
+
+        let member = Member::from_source(&rule_kind(), &dir.join("collaboration.md")).unwrap();
+        assert!(member.fields.is_empty());
+        assert_eq!(member.body, "# Collab\n\nBody.\n");
     }
 
     #[test]

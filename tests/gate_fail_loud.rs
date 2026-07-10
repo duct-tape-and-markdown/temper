@@ -97,6 +97,51 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
 }
 
 #[test]
+fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
+    // A skill whose SKILL.md carries a present-but-non-mapping frontmatter block. The
+    // parse used to degrade to an empty field map, so the floor judged fabricated
+    // absence (a missing `name`/`description`). Invariant 6 wants the malformation
+    // surfaced loud — an error naming the file, never a missing-field finding over
+    // silently-emptied fields.
+    let root = common::tmpdir("malformed-frontmatter");
+    let malformed = "---\n\
+        this is a bare scalar, not a mapping\n\
+        ---\n\
+        # Broken\n\
+        \n\
+        Body.\n";
+    common::write_skill(&root, "broken", malformed);
+
+    let run = common::check_in(&root, &["."], Some("github"));
+
+    assert!(
+        !run.ok,
+        "a malformed frontmatter block must fail check, got success:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("SKILL.md"),
+        "the error must name the offending file, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("mapping"),
+        "the error must name the malformation, got:\n{}",
+        run.output
+    );
+    // The block aborts loud; no field-level finding is emitted over the emptied fields.
+    let findings: Vec<&str> = run
+        .output
+        .lines()
+        .filter(|line| line.starts_with("::"))
+        .collect();
+    assert!(
+        findings.is_empty(),
+        "a malformed block aborts loud; it must not emit field findings, got:\n{findings:#?}"
+    );
+}
+
+#[test]
 fn a_genuinely_empty_harness_stays_silent() {
     // No declared requirements at all: the assembly declares nothing, so zero resolved
     // members is legitimate and the guard must never fire.
