@@ -24,7 +24,10 @@ hard.
   path (post-launch; its open-questions record stands).
 - **META-FREEZE (John, 07-09)**: no further harness/process/audit
   investment this side of v0.1. Launch wedge is the standing session focus;
-  the release workflow is the one unblocked pure-engineering item.
+  the release workflow is the one unblocked pure-engineering item. Amended
+  07-10 (0021): the manifest campaign is admitted — tag and campaign gate
+  neither direction; all else stays frozen. SDK 0.0.6 published; 0.1.0 is
+  the tag's to stake.
 - **KERNEL CORPUS LIVE** (PR #7; `metaphor-era` tag): eight nouns in
   `specs/model/`, decisions outside every read path. Flume dispatch model:
   one tick = one job, cursors in state.md, planHonestyGate. Loop economics
@@ -50,13 +53,7 @@ hard.
 - Docs-language candidate (post-freeze): the determinism ladder — "push every
   check to the most deterministic layer that can express it" (field
   feedback, 07-10).
-- On John: Apple Developer notarizing (decide at release); USPTO name screen;
-  npm auth (whoami 401) then go/no-go on publishing @dtmd/temper 0.1.0 —
-  bump committed at 543f2fd, weigh the name-staking against the USPTO
-  screen; manifest-fork sequencing — adversarial case (07-10) that
-  hooks/settings modeling belongs on the launch path (field pain lands in
-  the unmodeled surface; exemplar's own enforcement wiring is ungoverned) —
-  collides with the meta-freeze, grill before ruling.
+- On John: Apple Developer notarizing (decide at release); USPTO name screen.
 
 ## Standing discipline (mechanical, paid for)
 
