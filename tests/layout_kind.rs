@@ -11,6 +11,7 @@
 //!   document is a source: emit derives its members into the lock's `nested_member`
 //!   family and writes nothing at its path, never regenerating or reaping it.
 
+use std::collections::BTreeSet;
 use std::fs;
 
 use temper::drift::{
@@ -20,6 +21,12 @@ use temper::drift::{
 use temper::kind::{Layout, LayoutError, LayoutRegion};
 
 mod common;
+
+/// No edge-field slots — the reader treats every field section as a verbatim span, the
+/// shape these non-edge cases exercise.
+fn no_edges() -> BTreeSet<String> {
+    BTreeSet::new()
+}
 
 const INTENT_DOC: &str = "The product intent, authored in prose.\n\
 \n\
@@ -54,7 +61,11 @@ fn intent_layout() -> Layout {
 #[test]
 fn the_reader_fills_slots_collects_members_and_lands_prose_verbatim() {
     let reading = intent_layout()
-        .read(INTENT_DOC, std::path::Path::new("specs/intent.md"))
+        .read(
+            INTENT_DOC,
+            std::path::Path::new("specs/intent.md"),
+            &no_edges(),
+        )
         .unwrap();
 
     // A field section fills its named slot with the heading's verbatim span.
@@ -94,10 +105,15 @@ fn an_explicit_key_survives_a_heading_retitle() {
         .read(
             &doc("Loud or nothing"),
             std::path::Path::new("specs/intent.md"),
+            &no_edges(),
         )
         .unwrap();
     let retitled = layout
-        .read(&doc("Fail loud"), std::path::Path::new("specs/intent.md"))
+        .read(
+            &doc("Fail loud"),
+            std::path::Path::new("specs/intent.md"),
+            &no_edges(),
+        )
         .unwrap();
 
     // Identity reads off the `id` sub-heading, so a heading retitle leaves it untouched
@@ -113,7 +129,7 @@ fn a_document_missing_a_declared_section_fails_loud_naming_file_and_heading() {
     // single top-level heading — the collection has none.
     let doc = "lead prose\n\n# Intent\nthe intent\n";
     let err = intent_layout()
-        .read(doc, std::path::Path::new("specs/intent.md"))
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
         .unwrap_err();
     let rendered = err.to_string();
     assert!(
@@ -135,7 +151,7 @@ fn an_unadmitted_top_level_heading_refuses_loud() {
     };
     let doc = "# Intent\nthe intent\n\n# Stray\nunadmitted\n";
     let err = layout
-        .read(doc, std::path::Path::new("specs/intent.md"))
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
         .unwrap_err();
     assert!(matches!(err, LayoutError::Unadmitted { .. }));
     assert!(err.to_string().contains("Stray"));
@@ -145,14 +161,6 @@ fn an_unadmitted_top_level_heading_refuses_loud() {
 /// document, carrying the `intent_layout` regions in wire form.
 fn intent_kind_facts() -> KindFactRow {
     KindFactRow {
-        name: "intent".to_string(),
-        provider: None,
-        governs_root: "specs".to_string(),
-        governs_glob: "intent.md".to_string(),
-        format: None,
-        unit_shape: None,
-        registration: Vec::new(),
-        templates: Vec::new(),
         content: Some(LayoutRow {
             regions: vec![
                 LayoutRegionRow {
@@ -178,6 +186,7 @@ fn intent_kind_facts() -> KindFactRow {
                 },
             ],
         }),
+        ..common::kind_facts("intent", "specs", "intent.md")
     }
 }
 

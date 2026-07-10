@@ -494,6 +494,10 @@ pub fn emit(
     // The layout prose imports emit resolved this pass — each a content dependency the
     // lock fingerprints, refusing loud when the target is dangling (below).
     let mut layout_import_rows: Vec<LayoutImportRow> = Vec::new();
+    // The `satisfies` fill edges emit derived from layout edge slots this pass — merged
+    // into the program's own `satisfies` family, so a layout host's fills reach the
+    // roster/coverage/graph tiers exactly as a file-content member's do.
+    let mut layout_satisfies: Vec<SatisfiesRow> = Vec::new();
     let mut layout_paths: BTreeSet<String> = BTreeSet::new();
     for member in &payload.members {
         let facts =
@@ -508,6 +512,7 @@ pub fn emit(
             let derivation = derive_layout_rows(&layout, member, &source_path, &member_index)?;
             layout_rows.extend(derivation.nested);
             layout_import_rows.extend(derivation.imports);
+            layout_satisfies.extend(derivation.satisfies);
             layout_paths.insert(to_lock_path(&source_path));
             continue;
         }
@@ -558,10 +563,12 @@ pub fn emit(
 
     if !options.dry_run {
         // The lock carries the program's declaration rows plus the ones emit derived
-        // from layout sources this same pass — merged into the `nested_member` family,
-        // with the layout imports' content-dependency fingerprints alongside.
+        // from layout sources this same pass — collection members merged into the
+        // `nested_member` family and edge-slot fills into the `satisfies` family, with
+        // the layout imports' content-dependency fingerprints alongside.
         let mut declarations = payload.declarations.clone();
         declarations.nested_members.extend(layout_rows);
+        declarations.satisfies.extend(layout_satisfies);
         write_rollup(
             workspace_dir,
             &rollups,
@@ -575,14 +582,19 @@ pub fn emit(
 }
 
 /// What emit derives from one layout source in a single read: its member collections
-/// as `nested_member` declaration rows, and its prose imports as content-dependency
-/// [`LayoutImportRow`]s the lock fingerprints. Both fall out of the one document read,
-/// so they travel together rather than forcing a second pass over the same source.
+/// as `nested_member` declaration rows, its prose imports as content-dependency
+/// [`LayoutImportRow`]s the lock fingerprints, and its `satisfies` edge slot as
+/// [`SatisfiesRow`] fill edges. All fall out of the one document read, so they travel
+/// together rather than forcing a second pass over the same source.
 struct LayoutDerivation {
     /// The collection members, lowered into `nested_member` rows.
     nested: Vec<NestedMemberRow>,
     /// The prose imports, resolved and fingerprinted.
     imports: Vec<LayoutImportRow>,
+    /// The `satisfies` edge slot's entries, lowered into `satisfies` fill-edge rows —
+    /// the layout host's own fill claims, keyed by its member name exactly as a
+    /// file-content member's SDK-emitted rows are.
+    satisfies: Vec<SatisfiesRow>,
 }
 
 /// Read one layout member's document off disk and lower it into declaration rows — the
@@ -608,8 +620,25 @@ fn derive_layout_rows(
         path: source_path.to_path_buf(),
         source,
     })?;
-    let reading = layout.read(&body, source_path)?;
+    // Emit lowers the framework `satisfies` edge field; a kind's own declared
+    // relationships carry no lock family of their own, so they never land here.
+    let edge_fields = BTreeSet::from([crate::kind::SATISFIES_EDGE_FIELD.to_string()]);
+    let reading = layout.read(&body, source_path, &edge_fields)?;
     let host = host_address(&member.kind, &member.name);
+
+    // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its
+    // member name (the id `resolve_kind_units` folds them back onto) — a dangling one is
+    // the gate's existing `requirement.dangling` refusal to catch, never a new one.
+    let satisfies = reading
+        .edges
+        .get(crate::kind::SATISFIES_EDGE_FIELD)
+        .into_iter()
+        .flatten()
+        .map(|requirement| SatisfiesRow {
+            member: member.name.clone(),
+            requirement: requirement.clone(),
+        })
+        .collect();
 
     let mut imports = Vec::new();
     for region in &layout.regions {
@@ -638,7 +667,11 @@ fn derive_layout_rows(
             collections: Vec::new(),
         })
         .collect();
-    Ok(LayoutDerivation { nested, imports })
+    Ok(LayoutDerivation {
+        nested,
+        imports,
+        satisfies,
+    })
 }
 
 /// Resolve one layout prose import to its target file's contents and fingerprint it. The

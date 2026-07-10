@@ -12,7 +12,7 @@
 //! projectors use (`crate::extract`), so the soundness boundary is one boundary,
 //! not a forked implementation that can drift.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use serde_json::Value as JsonValue;
@@ -155,6 +155,11 @@ pub enum LayoutRegion {
 pub struct LayoutReading {
     /// Each field section's named slot filled by its heading's verbatim span.
     pub fields: BTreeMap<String, String>,
+    /// Each **edge** section's slot mapped to its parsed address entries, in document
+    /// order. A field section whose slot the kind marks as an edge field carries
+    /// addresses, not a verbatim span, so its entries land here rather than in
+    /// [`fields`](LayoutReading::fields) — `satisfies` among them.
+    pub edges: BTreeMap<String, Vec<String>>,
     /// Each member collection's members, in document order — one per child heading of
     /// a collection heading.
     pub members: Vec<LayoutMember>,
@@ -228,21 +233,32 @@ pub enum LayoutError {
     },
 }
 
+/// The framework edge field every kind carries — the fill-edge key whose entries name
+/// requirements. A layout field section on this slot is always an edge slot, alongside
+/// any the kind's own declared [`relationships`](CustomKind::relationships) name.
+pub const SATISFIES_EDGE_FIELD: &str = "satisfies";
+
 impl Layout {
     /// Read `body` under this declared layout, off the document at `source_path` (named
     /// only in diagnostics). The regions map in document order onto the body's top-level
     /// headings ([`extract::body_heading_tree`]): a field section fills its slot with
-    /// the heading's verbatim span, a member collection turns each child heading into a
-    /// member, and a verbatim prose region takes the document preamble. A declared
-    /// section with no heading, an explicit key with no sub-heading, or a top-level
-    /// heading no region admits, each refuses loud ([`LayoutError`]) rather than reading
-    /// a partial document.
+    /// the heading's verbatim span — unless the slot is one of `edge_fields`, when its
+    /// entries are parsed as addresses into [`edges`](LayoutReading::edges) instead — a
+    /// member collection turns each child heading into a member, and a verbatim prose
+    /// region takes the document preamble. A declared section with no heading, an
+    /// explicit key with no sub-heading, or a top-level heading no region admits, each
+    /// refuses loud ([`LayoutError`]) rather than reading a partial document.
     ///
     /// # Errors
     ///
     /// Returns a [`LayoutError`] naming the file and heading when the document does not
     /// fit the declared layout.
-    pub fn read(&self, body: &str, source_path: &Path) -> Result<LayoutReading, LayoutError> {
+    pub fn read(
+        &self,
+        body: &str,
+        source_path: &Path,
+        edge_fields: &BTreeSet<String>,
+    ) -> Result<LayoutReading, LayoutError> {
         let tree = extract::body_heading_tree(body);
         let mut reading = LayoutReading::default();
         // The cursor into the document's top-level headings the field/collection regions
@@ -266,9 +282,15 @@ impl Layout {
                 LayoutRegion::Field { slot } => {
                     let node =
                         next_heading(&tree, &mut cursor, source_path, "field section", slot)?;
-                    reading
-                        .fields
-                        .insert(slot.clone(), node.body.trim().to_string());
+                    if edge_fields.contains(slot) {
+                        reading
+                            .edges
+                            .insert(slot.clone(), parse_edge_entries(&node.body));
+                    } else {
+                        reading
+                            .fields
+                            .insert(slot.clone(), node.body.trim().to_string());
+                    }
                 }
                 LayoutRegion::Collection { member_kind, key } => {
                     let node = next_heading(
@@ -354,6 +376,19 @@ fn read_collection_member(
         heading: node.heading.clone(),
         leaves,
     })
+}
+
+/// Parse an edge slot's heading span into its ordered address entries: one entry per
+/// non-empty line, a leading markdown list marker (`-`/`*`/`+`) and surrounding
+/// whitespace stripped. The authored form a `satisfies` (or other edge-field) section
+/// lists its targets as — bare requirement names for `satisfies`, `kind:name` addresses
+/// for a declared relationship.
+fn parse_edge_entries(span: &str) -> Vec<String> {
+    span.lines()
+        .map(|line| line.trim().trim_start_matches(['-', '*', '+']).trim())
+        .filter(|entry| !entry.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 /// Slugify a heading (or explicit-key value) into a stable identity token: ASCII
@@ -563,6 +598,22 @@ impl CustomKind {
             .map(|kind| Template { kind: kind.clone() })
             .collect();
         self
+    }
+
+    /// The kind's **edge-field slot** names — its declared [`relationships`](
+    /// CustomKind::relationships) fields plus the framework
+    /// [`satisfies`](SATISFIES_EDGE_FIELD) key every kind carries. A layout field
+    /// section whose slot is one of these is an edge slot: its entries are addresses,
+    /// not a verbatim span.
+    #[must_use]
+    pub fn edge_field_slots(&self) -> BTreeSet<String> {
+        let mut slots: BTreeSet<String> = self
+            .relationships
+            .iter()
+            .map(|edge| edge.field.clone())
+            .collect();
+        slots.insert(SATISFIES_EDGE_FIELD.to_string());
+        slots
     }
 
     /// The kind's **identity** — its bare `name`. Kept as its own

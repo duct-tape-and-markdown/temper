@@ -5,7 +5,7 @@
 //! mirrors the pipeline verbs; all logic lives in the
 //! library so `tests/` can drive it.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -803,18 +803,24 @@ fn overlay_builtin_kind(kind: &CustomKind, declarations: &drift::Declarations) -
 
 /// Read one layout-content document at `file` into a [`Unit`], off the kind's declared
 /// `layout`: the whole file is the body's heading tree, the field sections fill the
-/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field), and
-/// the id folds the file's placement under `base` the same way a file-content member's
-/// does. A document that does not fit the layout — a declared section missing, structure
+/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field) — an
+/// `edge_fields` slot excepted, its addresses reaching the unit's edges off the lock, not
+/// its frontmatter — and the id folds the file's placement under `base` the same way a
+/// file-content member's does. A document that does not fit the layout — a section missing, structure
 /// no primitive admits — refuses loud through [`kind::LayoutError`], naming the file and
 /// heading.
 ///
 /// # Errors
 ///
 /// Returns an error if the document is unreadable or does not fit its declared layout.
-fn layout_unit(layout: &kind::Layout, file: &Path, base: &Path) -> miette::Result<Unit> {
+fn layout_unit(
+    layout: &kind::Layout,
+    file: &Path,
+    base: &Path,
+    edge_fields: &BTreeSet<String>,
+) -> miette::Result<Unit> {
     let raw = std::fs::read_to_string(file).into_diagnostic()?;
-    let reading = layout.read(&raw, file)?;
+    let reading = layout.read(&raw, file, edge_fields)?;
     let id = frontmatter::fold_file_id(base, file)?;
     let frontmatter = reading
         .fields
@@ -854,6 +860,11 @@ fn resolve_kind_units(
 ) -> miette::Result<Vec<Unit>> {
     let governs = overlay_builtin_kind(kind, declarations).governs;
     let base = harness_root.join(&governs.root);
+    // The kind's edge-field slots: a layout field section on one of these reads as
+    // addresses, not a verbatim span, so it never lands as a frontmatter field. Its
+    // `satisfies` entries reach the unit off the lock's own family below, exactly as a
+    // file-content member's do.
+    let edge_fields = kind.edge_field_slots();
     let mut units = Vec::new();
     for file in import::discover_kind_files(harness_root, kind, &governs)? {
         // Dispatch on the kind's content: a layout kind's document is read under its
@@ -861,7 +872,7 @@ fn resolve_kind_units(
         // document refusing loud — where a file-content kind reads through the generic
         // frontmatter adapter.
         let mut unit = match &kind.content {
-            kind::Content::Layout(layout) => layout_unit(layout, &file, &base)?,
+            kind::Content::Layout(layout) => layout_unit(layout, &file, &base, &edge_fields)?,
             kind::Content::File => {
                 let source = frontmatter::Member::from_source_rooted(kind, &file, &base)?;
                 Unit {

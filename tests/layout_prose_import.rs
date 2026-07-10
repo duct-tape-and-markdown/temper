@@ -25,15 +25,8 @@ mod common;
 /// given ordered region rows. The one shape every case here builds a member of.
 fn layout_kind(name: &str, regions: Vec<LayoutRegionRow>) -> KindFactRow {
     KindFactRow {
-        name: name.to_string(),
-        provider: None,
-        governs_root: "specs".to_string(),
-        governs_glob: format!("{name}.md"),
-        format: None,
-        unit_shape: None,
-        registration: Vec::new(),
-        templates: Vec::new(),
         content: Some(LayoutRow { regions }),
+        ..common::kind_facts(name, "specs", &format!("{name}.md"))
     }
 }
 
