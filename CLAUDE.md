@@ -2,13 +2,16 @@
 
 ## Identity
 
-- **Project:** `temper` — a typed maintenance surface for the Claude Code
-  harness. Import the whole harness (skills, commands, agents, hooks, MCP/LSP,
-  `CLAUDE.md` rules, plugin & marketplace manifests, settings) into one typed,
-  validated config surface; lint it against the documented schemas + best
-  practices; compose into publishable bundles; write back with drift-aware
-  `apply`. Positioning: `rulesync` makes a harness portable; `temper` makes it
-  *good*.
+- **Project:** `temper` — a type system for the documents that program
+  agents, the Claude Code harness first (skills, rules, agents, hooks,
+  MCP/LSP, `CLAUDE.md` memory, settings, plugin & marketplace manifests).
+  The harness is authored as a typed program (`@dtmd/temper`), compiled by a
+  deterministic `emit` with drift routed to the authored source, and gated by
+  `check` against a declared contract; a kind may type its body's layout, so
+  document content sits under the same gate. Seven verbs ship: `check`,
+  `explain`, `emit`, `schema`, `guard`, `install`, `bundle`. Positioning:
+  `rulesync` makes a harness portable; marketplaces distribute; `temper`
+  makes it *correct* — downstream of both.
 
 ## Source of truth
 
