@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LAYOUT-PROSE-IMPORT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,15 +20,15 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "The layout reading surfaces an edge slot: a field section whose slot the kind's declared relationships (`relationships: Vec<Edge>`, the existing fact-5 edge fields) name reads as address entries, not only the verbatim span `LayoutReading::fields` holds today (Layout::read)."
+          "description": "The layout reading surfaces an edge slot: a field section whose slot the kind's declared relationships (`relationships: Vec<Edge>`, the existing fact-5 edge fields) name reads as address entries, not only the verbatim span `LayoutReading::fields` holds today (Layout::read, kind.rs:245)."
         },
         {
           "path": "src/drift.rs",
-          "description": "`derive_layout_rows` (drift.rs:553) widens: edge-slot entries lower into the same satisfies/edge declaration-row families the program's erased declarations land in — the emit merge point today extends only the `nested_member` family."
+          "description": "`derive_layout_rows` (drift.rs:601) widens: edge-slot entries lower into the same satisfies/edge declaration-row families the program's erased declarations land in — the emit merge point today extends the `nested_member` family and (since LAYOUT-PROSE-IMPORT) the `layout_import` family, never edges."
         },
         {
           "path": "src/graph.rs",
-          "description": "The derived edges join the one resolved enumeration gate, explain, and impact already range over; a dangling satisfies entry resolves through the existing dangling-target refusal (contract.md, edge)."
+          "description": "The derived edges join the one resolved enumeration gate, explain, and impact already range over (main.rs:1189 already folds mention and import edges into that set); a dangling satisfies entry resolves through the existing dangling-target refusal (contract.md, edge)."
         },
         {
           "path": "tests/layout_kind.rs",
@@ -50,7 +49,7 @@
       }
     ],
     "acceptance": "A field section a layout kind's edge fields mark derives its entries into ordinary edge rows in the committed lock — satisfies among them — visible to the gate and read verbs; a dangling entry refuses through the existing refusal; no new declaration surface added; all gates green.",
-    "notes": "Scoped at a0fccaf (0020, Consequences: the derivation rides the existing kind edge-field fact over layout slots). No SDK schema delta: EdgeField (sdk/src/kind.ts:41) and LayoutRegionRow field slots already exist — the marking is slot-name matching the kind's edge fields. Serialized behind LAYOUT-PROSE-IMPORT (shared drift.rs/graph.rs). Entry grain within the span follows the frontmatter `satisfies` field's list-of-addresses semantics; prose spans stay prose (0020)."
+    "notes": "Scoped at a0fccaf (0020, Consequences: the derivation rides the existing kind edge-field fact over layout slots). No SDK schema delta: EdgeField (sdk/src/kind.ts:41) and LayoutRegionRow field slots already exist. Unblocked at 7676c2b — LAYOUT-PROSE-IMPORT shipped; anchors re-verified (derive_layout_rows now drift.rs:601). Entry grain within the span follows the frontmatter `satisfies` field's list-of-addresses semantics; prose spans stay prose (0020)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
@@ -61,7 +60,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 5819ac5 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at 7676c2b (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {

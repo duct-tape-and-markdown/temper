@@ -1,18 +1,17 @@
 # Plan state
 
 - Spec derived through: a0fccaf
-- Audited through: d209e0a
+- Audited through: 7676c2b
 - Residue swept through: f6a4af5
-- This tick: Quiet pass (job 5). Inbox empty; no refactor captures (the
-  one `.flume/friction/` capture is the human session sweep's to drain,
-  not plan's); no spec/code commits past any cursor. Queue re-verified
-  disjoint; every gate anchor re-checked on disk: derive_layout_rows
-  drift.rs:553, Layout::read kind.rs:245, LayoutRegionRow.import,
-  EdgeField sdk/src/kind.ts:41, relationships Vec<Edge> kind.rs:67;
-  PACKAGING-CHANNELS park reason still true (workflows/ holds only
-  temper.yml; root package.json still the private flume manifest).
-- Queue: LAYOUT-PROSE-IMPORT (open); LAYOUT-EDGE-SLOT (blockedBy
-  LAYOUT-PROSE-IMPORT); PACKAGING-CHANNELS (parked).
+- This tick: Ship audit (job 3). d27a624 shipped LAYOUT-PROSE-IMPORT —
+  verified on disk (tests/layout_prose_import.rs; resolve_layout_import +
+  LayoutImportRow + write_layout_imports in drift.rs; resolved_import_edges
+  graph.rs:910, folded at main.rs:1189). LAYOUT-EDGE-SLOT unblocked → open;
+  its drift.rs anchor refreshed (derive_layout_rows moved :553 → :601 under
+  the import pass; Layout::read still kind.rs:245). PACKAGING-CHANNELS park
+  reason re-verified true at 7676c2b (workflows/ holds only temper.yml;
+  root package.json still the private flume manifest).
+- Queue: LAYOUT-EDGE-SLOT (open); PACKAGING-CHANNELS (parked).
 
-Plan continues: no — all inputs current; LAYOUT-PROSE-IMPORT is
-pickable; hand off to build.
+Plan continues: yes — residue sweep (Residue swept through f6a4af5 trails
+HEAD 7676c2b; d27a624 unswept).
