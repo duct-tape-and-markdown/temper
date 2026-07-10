@@ -2,17 +2,19 @@
 
 - Spec derived through: a0fccaf
 - Audited through: e30e5a6
-- Residue swept through: 961c9c2
-- This tick: Ship audit. LAYOUT-EDGE-SLOT verified on disk (670d54e):
-  tests/layout_edge_slot.rs live, edge-slot parse kind.rs:381/606, fill-edge
-  lowering drift.rs:594/629, lock fills consumed main.rs:844; entry already
-  removed at ship. PROSE-INCLUDE unblocked — gate flipped open, anchors
-  re-pinned on disk (resolve_layout_import drift.rs:688, mentions mirror
-  drift.rs:1426, merge sites main.rs:451/566, MENTION_SLOT prose.ts:31; NB
-  grep binary-detects prose.ts via the NUL sentinel — friction filed).
-  PACKAGING-CHANNELS park holds (still no release.yml, only temper.yml;
-  root package.json still the private flume manifest).
-- Queue: PROSE-INCLUDE (open); PACKAGING-CHANNELS (parked).
+- Residue swept through: ced4f94
+- This tick: Residue sweep of 961c9c2..HEAD (one code commit, 670d54e). One
+  gap filed: LAYOUT-RELATIONSHIP-EDGES — a layout host's declared-relationship
+  edge slot is silently dropped at check (`layout_unit` main.rs:816 discards
+  `LayoutReading::edges`; the slot is excluded from frontmatter, so
+  `graph::check` main.rs:692 never sees it) vs representation.md "kind" +
+  invariant 6; SDK-expressible today (kind.ts:102/105). Serialized behind
+  PROSE-INCLUDE (shared drift.rs/main.rs). Otherwise clean:
+  `parse_edge_entries` is the tree's only list parse; the kind_facts test
+  consolidation verified on disk; all five riding debts re-verified, stamps
+  advanced to ced4f94.
+- Queue: PROSE-INCLUDE (open); LAYOUT-RELATIONSHIP-EDGES (blockedBy
+  PROSE-INCLUDE); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep: Residue swept through (961c9c2) trails
-HEAD; 670d54e touched src/ and tests/.
+Plan continues: yes — quiet pass: closing disjointness/gate re-check before
+hand-off to build.
