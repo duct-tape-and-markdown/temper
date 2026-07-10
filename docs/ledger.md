@@ -32,10 +32,12 @@ hard.
 - **Friction/refactor channels live**; DRAIN AT SESSION OPEN. Decision
   audit (07-09, six agents): 0001/0013/0014 gaps filed via inbox — 0013's
   note amended in place, superseded in part by 0019.
-- Follow-up hygiene: docs/README re-cut onto kernel nouns (stale paths in
-  docs/how-it-works, cli, example-config, horizons, README); src/sdk comment
-  cites to old spec paths die on contact (rust.md exit clause) — now incl.
-  builtins.ts's four cites to the deleted `packages/*/PACKAGE.md`.
+- Follow-up hygiene: docs/README re-cut DONE (07-10 session: README, cli,
+  how-it-works, example-config, horizons, AGENTS.md, CLAUDE.md identity via
+  .temper; docs-voice ruling applied — ruling itself still held above).
+  Remaining: src/sdk comment cites to old spec paths die on contact (rust.md
+  exit clause) — now incl. builtins.ts's four cites to the deleted
+  `packages/*/PACKAGE.md`.
 
 ## Parked (pointers only)
 

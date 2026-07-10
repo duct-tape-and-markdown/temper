@@ -3,9 +3,9 @@
 Product opportunities surfaced in design sessions, parked here until the human
 ratifies one as a bite. **Nothing in this file is contract.** It lives in
 `docs/`, not `specs/`, deliberately: plan reconciles `specs/` against code every
-tick (`specs/process/90-spec-system.md`), so an un-ratified idea placed there would be
+tick (`specs/process/spec-system.md`), so an un-ratified idea placed there would be
 read as intent by the autonomous loop — a derived layer must never receive
-intent the human hasn't authored (`00-intent.md` law 4). This file is upstream
+intent the human hasn't authored (`specs/process/spec-system.md`). This file is upstream
 of the corpus, not part of it.
 
 Not `.flume/plan/open-questions.md` either: that file holds forks *blocking
@@ -16,7 +16,7 @@ already-filed work*. A horizon is pre-intent — no pending entry may cite one.
 Each entry is keyed `(slug)` (the open-questions convention). Taking a bite:
 
 1. The human authors the spec section(s) in an interactive session — new intent
-   is never written by a phase (`90-spec-system.md`). The entry's fields are the
+   is never written by a phase (`specs/process/spec-system.md`). The entry's fields are the
    raw material for the spec's Decision: leaning → chosen, parked → rejected.
 2. Mark the entry `RATIFIED → <spec file/section>` (or `DROPPED`, with why) and
    delete its body — the spec is now the home; a stale copy here would drift.
@@ -35,9 +35,9 @@ system behaves marks it `UNVERIFIED` until cited (`.claude/rules/collaboration.m
 ## Delivery posture — a standing note, not an entry
 
 The corpus's delivery stance is **CLI instructed by skill**: the bundled skill
-teaches the agent to operate the gate; the graph verbs (`why`, `requirements`,
-`check`, `diff`) are the CLI's, and the agent shells out
-(`50-distribution.md`). An **MCP server** carrying the same verbs was proposed
+teaches the agent to operate the gate; the graph verbs (`check`, `explain`)
+are the CLI's, and the agent shells out
+(`specs/distribution.md`). An **MCP server** carrying the same verbs was proposed
 and is **parked**: it duplicates a transport the agent already has, adds a
 server surface to version and secure, and the skill-taught CLI keeps one
 vocabulary in one mouth. Reopen only with evidence the shell-out path fails
@@ -46,17 +46,18 @@ that evidence, not preference, is the bite condition.
 
 ## Entries
 
-- `(impact-verb)` — RATIFIED → `specs/architecture/20-surface.md`, "CLI
-  surface" (`temper impact <member>`), 2026-07-03.
+- `(impact-verb)` — RATIFIED 2026-07-03; current home `specs/model/contract.md`,
+  "Read verbs" (`impact` is specified there and not yet shipped — the binary's
+  `explain` carries blast radius today).
 
 - `(vet)` — **Check what you install, before you install it.** A verb aimed at
   the *consumer*: run the gate over a plugin or marketplace artifact pre-install
-  (and audit what's already installed). `00-intent.md` positioning already says
-  temper "can sit downstream of the others, checking what you installed" — this
+  (and audit what's already installed). `specs/intent.md` positioning already says
+  temper sits "downstream of both, checking what you installed" — this
   names the verb. *Rents:* the checker, built-in packages, `bundle`'s artifact
-  shapes (`50-distribution.md`). *Tensions:* a vet verdict over a *stranger's*
+  shapes (`specs/distribution.md`). *Tensions:* a vet verdict over a *stranger's*
   artifact has no author to teach — the guidance channel's framing may need a
-  consumer voice; also risks reading as taste about others' work (law 2) unless
+  consumer voice; also risks reading as taste about others' work (the spine rule) unless
   it stays strictly the decidable tier. *Leaning:* do it; second wedge with a
   distinct audience. *Bite condition:* decide the verb's name and whether it is
   `check --harness` over an unpacked plugin or a distinct surface.
@@ -64,35 +65,35 @@ that evidence, not preference, is the bite condition.
 - `(graph-explorer)` — **A read-only rendered harness explorer.** Static HTML
   export of the graph: members by kind, requirement coverage, `satisfies`
   edges, drift state, blast radius on hover. Read-only by law: a GUI *editor*
-  would be a second authored home and is ruled out (law 5 — the surface is the
-  single authored home). Deterministic projection makes a render safe and
-  regenerable; every exported page doubles as the launch demo's hero
-  (`55-offering.md`). *Rents:* the graph, deterministic projection (law 5),
-  the offering's demo posture. *Tensions:* keep it a *projection of real
-  output* — a hand-curated visual is the drift failure as marketing
-  (`55-offering.md` decision). *Leaning:* after `(impact-verb)` — the explorer
+  would be a second authored home and is ruled out (invariant 7, read or
+  written never both — `specs/intent.md`). Deterministic projection makes a
+  render safe and regenerable; every exported page doubles as the launch
+  demo's hero (`specs/distribution.md`). *Rents:* the graph, deterministic
+  projection (invariant 3), the demo posture. *Tensions:* keep it a
+  *projection of real output* — a hand-curated visual is the drift failure as
+  marketing (`specs/distribution.md`). *Leaning:* after `(impact-verb)` — the explorer
   renders what impact computes. *Bite condition:* decide the emission form
   (verb flag vs. reporter) so it joins the one-reporter-family model.
 
 - `(lsp)` — **The gate as a language server.** The schema modeline is the
-  keystroke placement today; `50-distribution.md` already says "served over LSP
+  keystroke placement today; `specs/distribution.md` already says "served over LSP
   later." An LSP deepens it beyond frontmatter: hover = package guidance,
-  go-to-definition across `satisfies` edges, rename over the harness — law 6
-  (fearless refactoring) made interactive instead of batch. *Rents:* schema
+  go-to-definition across `satisfies` edges, rename over the harness —
+  fearless refactoring made interactive instead of batch. *Rents:* schema
   emission, the two-channel split (validation vs. docs — the medium enforces
-  law 2), the graph. *Tensions:* rename is a *write* through a new door; it
-  must route through the same drift-aware apply path, never a second writer.
-  *Leaning:* medium-term; heaviest single build here. *Bite condition:*
-  `apply`'s write path stable enough to sit under an interactive client.
+  the spine rule), the graph. *Tensions:* rename is a *write* through a new
+  door; it must route through the same drift-aware emit path, never a second
+  writer. *Leaning:* medium-term; heaviest single build here. *Bite condition:*
+  emit's write path stable enough to sit under an interactive client.
 
 - `(package-identity)` — **Versioning and provenance for shared packages.**
-  Packages are first-class publishable artifacts (`50-distribution.md`) and
-  project-authorable as peers (law 2) — community packages are the network
+  Packages are first-class publishable artifacts (`specs/distribution.md`) and
+  project-authorable as peers (the spine rule) — community packages are the network
   effect. Missing is the thin identity layer: a version field, a provenance
   convention, compatibility semantics for a package a stranger binds. No
   bespoke registry pre-traction — ride git + marketplaces — but identity
   designed late forces a breaking migration on every published package.
-  *Rents:* `bundle`, the package medium (`10-contracts.md`). *Tensions:*
+  *Rents:* `bundle`, the package medium (`specs/model/contract.md`). *Tensions:*
   version-compatibility checking must stay decidable or stay out. *Leaning:*
   design the identity fields early, ship the ecosystem play later. *Bite
   condition:* first real external consumer of a project-authored package —
@@ -109,13 +110,15 @@ that evidence, not preference, is the bite condition.
   where that choice is authored. *Leaning:* hold in view; not a now-thing.
   *Bite condition:* `(package-identity)` ratified first; an org-shaped user.
 
-- `(verifier-layer)` — **Scaffolding the `verified_by` side.** The model
-  delegates behavior and checks only wiring — right, per law 3, but the
+- `(verifier-layer)` — **Scaffolding the verifier side.** The model
+  delegates behavior and checks only wiring — right, per "decidable only"
+  (`specs/intent.md`), but the
   author's most valuable question ("does this skill actually trigger?")
   currently exits the product. The idea: temper *projects* eval harnesses for
   common verifier shapes (skill-trigger evals over a prompt set, hook smoke
   tests) and reads pass/fail back as evidence — temper still never judges;
-  execution does. *Rents:* `verified_by` (`00-intent.md`), projection.
+  execution does. *Rents:* the verifier edge (`specs/model/contract.md`,
+  "requirement"), projection.
   *Tensions:* the largest scope question in this file — this is adjacent to a
   second product (a test runner for harnesses), and the corpus deliberately
   ends at "wired, not passing." Ratifying it moves that boundary; that is an
@@ -128,7 +131,7 @@ that evidence, not preference, is the bite condition.
   is both a feature and an acquisition channel, and is what eventually earns
   intent's "(then agent-agnostic)" clause. Every format's layout is an external
   fact: cited per source, at the point of claim, or not encoded. *Rents:*
-  import-as-migration (law 5), "migrate, with a fix" (`50-distribution.md`).
+  import-as-migration, "migrate, with a fix" (`specs/distribution.md`).
   *Tensions:* none structural; per-format cost is citation diligence.
   *Leaning:* demand-driven — add formats when a real migration asks. *Bite
   condition:* a named format with a citable layout and a user who wants in.
@@ -142,12 +145,14 @@ that evidence, not preference, is the bite condition.
   dangles. Blast radius crosses the landscape boundary (`impact src/kind.rs`
   lights up harness artifacts). The tag moves with the code it annotates, so
   neither join end holds a fragile `file:line` coordinate. *Rents:* the join
-  doctrine (`45-governance.md`), the cross-landscape seam (`30-landscapes.md`
-  — this makes "checked both directions" authored rather than
+  doctrine and the cross-landscape seam (both from the retired pre-kernel
+  spec cut; the nearest current home is `specs/model/representation.md`,
+  "Reach" — this makes "checked both directions" authored rather than
   resolution-shaped), set-scope predicates (one invariant, many code sites =
   a satisfier set; `count`/coverage apply unchanged), and the repo's own
   DO-178C trace-tag convention (`.claude/rules/rust.md`) — the one-way version
-  already practiced, waiting for its mechanism. *Tensions:* law 8 — a
+  already practiced, waiting for its mechanism. *Tensions:* "declared, never
+  mined" (`specs/intent.md`, invariant 1) — a
   name-mention in a comment is prose; this stays legal only as a **deliberate
   tag in a grammar the code kind's extraction declares** (authored to be
   machine-read = a declaration; the code author writing it is the opt-in).
@@ -159,8 +164,8 @@ that evidence, not preference, is the bite condition.
   it. *Bite condition:* corpus migration shipped; then a design session for
   the tag grammar + the code kind's extraction shape.
 
-- `(surface-authority-lock)` — RATIFIED → `specs/architecture/20-surface.md`,
-  "Decision: surface authority is a declared posture, never a baked stance",
-  2026-07-03. The **drift re-cut** noted in the ratified Decision still rides
-  behind the shipped lock — it re-enters here or the workshop when the lock
-  proves the inversion.
+- `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
+  declared posture, never a baked stance"); current home `specs/intent.md`
+  invariant 5 and `specs/model/pipeline.md`, "Drift". The **drift re-cut**
+  noted in the ratified Decision still rides behind the shipped lock — it
+  re-enters here or the workshop when the lock proves the inversion.

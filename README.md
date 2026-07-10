@@ -1,13 +1,14 @@
 # temper
 
-**The type checker for your Claude Code harness.** A linter ships its opinions
-about your files. `temper` ships a model: your skills, rules, agents, hooks,
-`CLAUDE.md`, and plugin manifests become one typed, composed artifact, with
-requirements you declare and a graph you can ask questions of. Think `tsc`,
-not ESLint.
+**A type system for the documents that program agents.** A Claude Code
+harness (skills, rules, agents, hooks, settings, `CLAUDE.md`) is a codebase,
+and its primary author is increasingly the agent itself. temper treats it
+like one: a typed model you compose and compile, checked against a contract
+you declare. Think `tsc`, not ESLint.
 
-> Tools like [`rulesync`](https://github.com/dyoshikawa/rulesync) make your
-> harness portable across assistants. `temper` makes it good.
+> Tools like [`rulesync`](https://github.com/dyoshikawa/rulesync) make a
+> harness portable across assistants, and marketplaces distribute artifacts.
+> temper sits downstream of both, checking that what you have is correct.
 
 ![status: pre-1.0](https://img.shields.io/badge/status-pre--1.0-orange)
 &nbsp;![license: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)
@@ -41,14 +42,20 @@ finding arrives with the reason attached.
   `.claude/` with no declaration. Findings render through
   [`miette`](https://github.com/zkat/miette) with the clause's guidance
   attached, so the output explains itself instead of pointing at a rule id.
-- **A typed surface.** `init` scans the whole harness (skills, rules, agents,
-  hooks, MCP/LSP servers, `CLAUDE.md` rules, plugin and marketplace manifests,
-  settings) into one validated model you can reorganize, compose, and query.
-- **Requirements you declare.** You author the harness as a small typed
-  program, including what it must contain. `emit` compiles that into the lock,
-  the single source `check` gates against. `temper` then answers what fills
-  each requirement and what would strand it, coverage a file-by-file linter
-  cannot see.
+- **A typed authoring surface.** With the
+  [`@dtmd/temper`](https://www.npmjs.com/package/@dtmd/temper) SDK you author
+  the harness as a small typed program: members as typed values, composition
+  as ordinary imports, requirements you declare alongside the members that
+  fill them. `temper install` converts an existing harness into that program
+  for you.
+- **A gate over what you declared.** `emit` compiles the program into the
+  lock, the single source `check` gates against. temper then answers what
+  fills each requirement and what would strand it, coverage a file-by-file
+  linter cannot see.
+- **Typed document content.** A kind may declare the layout of its body, so a
+  document's sections and the members inside them are typed, addressable, and
+  under the same contract as any file. This repository's own spec corpus is
+  governed that way.
 - **Deterministic emit.** `emit` regenerates every projected file whole, byte
   for byte the same on every run, and verifies itself by emitting twice. Your
   prose lands untouched. A hand edit to a generated file shows up as drift
@@ -63,25 +70,28 @@ finding arrives with the reason attached.
 ## Install
 
 `temper` is pre-1.0. The first tagged release with prebuilt binaries and the
-Claude Code plugin is still ahead. Until then, build from source with a Rust
-1.96+ toolchain:
+Claude Code plugin is still ahead. Until then, build the binary from source
+with a Rust 1.96+ toolchain:
 
 ```sh
 cargo install --path .
 temper check --harness .
 ```
 
-Distribution will be through npm and the Claude Code plugin; a crates.io
-publish is not currently planned.
+The authoring SDK is on npm as
+[`@dtmd/temper`](https://www.npmjs.com/package/@dtmd/temper); `temper
+install` wires it into a project for you. Binary distribution will be through
+npm and the Claude Code plugin; a crates.io publish is not currently planned.
 
 ## Status
 
 `temper` is pre-1.0 and built in the open, one gated commit at a time. The
-command surface is landing incrementally (`init`, `check`, `schema`, `emit`,
-`guard`, `install`, `bundle`, `explain`), so expect sharp edges and breaking
-changes before 1.0. Following the [`ty`](https://github.com/astral-sh/ty)
-model, versions stay `0.x` until the surface stabilizes. Releases will be
-small, frequent, and tagged, each recorded in the root `CHANGELOG`.
+binary ships seven verbs today (`check`, `explain`, `emit`, `schema`,
+`guard`, `install`, `bundle`; see [`docs/cli.md`](docs/cli.md)), and the
+surface is still moving, so expect sharp edges and breaking changes before
+1.0. Following the [`ty`](https://github.com/astral-sh/ty) model, versions
+stay `0.x` until the surface stabilizes. Releases will be small, frequent,
+and tagged, each recorded in the root `CHANGELOG`.
 
 The codebase itself is largely agent-built under human-authored specs, shipped
 through gated, validated commits. That is the project's own thesis in
@@ -93,11 +103,12 @@ policy.
 
 - **How it works**: [`docs/how-it-works.md`](docs/how-it-works.md), the model
   in plain words.
-- **The command line**: [`docs/cli.md`](docs/cli.md), the eight verbs.
+- **The command line**: [`docs/cli.md`](docs/cli.md), the seven verbs.
 - **Why it exists**: [`specs/intent.md`](specs/intent.md),
   the north star.
-- **The contract model**: [`specs/model/contract.md`](specs/model/contract.md).
-- **The config surface**: [`specs/model/pipeline.md`](specs/model/pipeline.md).
+- **The model**: [`specs/model/representation.md`](specs/model/representation.md),
+  [`specs/model/contract.md`](specs/model/contract.md), and
+  [`specs/model/pipeline.md`](specs/model/pipeline.md), the eight nouns.
 - **Distribution and the gate**: [`specs/distribution.md`](specs/distribution.md).
 - **Contributing**: [`.github/CONTRIBUTING.md`](.github/CONTRIBUTING.md) ·
   **Security**: [`.github/SECURITY.md`](.github/SECURITY.md).

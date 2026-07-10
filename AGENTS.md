@@ -22,11 +22,12 @@ agent pipeline, and it is hand-curated — do not edit it, or anything under
 ## Architecture, briefly
 
 Logic lives in the library crate; `src/main.rs` is a thin `clap` dispatch.
-One artifact kind per module (`skill.rs`, `rule.rs`). The load-bearing halves:
-`contract.rs`/`engine.rs` (the closed predicate vocabulary and its evaluation),
-`kind.rs`/`extract.rs` (the extraction algebra), `document.rs` (the
-`+++`-fenced member document), `import.rs`/`drift.rs` (the surface `init`
-scans and `emit` projects, and drift's one-direction, two-freshness-fact
+A kind is data, never code: the built-in kinds are declared in
+`builtin_kind.rs`, and `kind.rs`/`extract.rs` compose each kind's extractor
+from that data. The other load-bearing halves: `contract.rs`/`engine.rs`
+(the closed predicate vocabulary and its evaluation), `document.rs` (the
+`+++`-fenced member document), `import.rs`/`drift.rs` (the surface `install`
+lifts and `emit` projects, and drift's one-direction, two-freshness-fact
 model), `compose.rs`/`roster.rs`/`coverage.rs`/`graph.rs`
 (the assembly: bindings, requirements, satisfier sets, the relation graph).
 The evergreen intent lives in `specs/` (start at `specs/intent.md`) — specs
