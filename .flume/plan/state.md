@@ -3,17 +3,16 @@
 - Spec derived through: a0fccaf
 - Audited through: d209e0a
 - Residue swept through: f6a4af5
-- This tick: Residue sweep (job 4). One code commit past the cursor,
-  d4207b8 (LAYOUT-READER-TEST-DEDUP): pure subtraction — three reader
-  tests + twin intent_layout()/INTENT_DOC fixtures deleted from
-  src/kind.rs, the uniquely-held unadmitted-heading refusal moved into
-  tests/layout_kind.rs. No twin remains (fixtures grep to layout_kind.rs
-  only); the kept unit suites (kind.rs overlay/lift, extract.rs
-  pub(crate) internals) are distinct jobs, not mirrors. Nothing filed.
-  All five riding debts re-verified on disk at f6a4af5, none of their
-  files opened; stamps updated in open-questions.
+- This tick: Quiet pass (job 5). Inbox empty; no refactor captures (the
+  one `.flume/friction/` capture is the human session sweep's to drain,
+  not plan's); no spec/code commits past any cursor. Queue re-verified
+  disjoint; every gate anchor re-checked on disk: derive_layout_rows
+  drift.rs:553, Layout::read kind.rs:245, LayoutRegionRow.import,
+  EdgeField sdk/src/kind.ts:41, relationships Vec<Edge> kind.rs:67;
+  PACKAGING-CHANNELS park reason still true (workflows/ holds only
+  temper.yml; root package.json still the private flume manifest).
 - Queue: LAYOUT-PROSE-IMPORT (open); LAYOUT-EDGE-SLOT (blockedBy
   LAYOUT-PROSE-IMPORT); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — quiet pass remains (closing check, then hand off
-to build).
+Plan continues: no — all inputs current; LAYOUT-PROSE-IMPORT is
+pickable; hand off to build.
