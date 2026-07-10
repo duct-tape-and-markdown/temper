@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SEAM-BINDINGS-GENERATED"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -60,7 +59,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "cargo test green with zero behavior change; each declaration-row family (RequirementRow, ClauseRow, KindFactRow) has exactly one default-filling builder home in tests/common; no bare full literal restating row defaults survives outside tests/common; all gates green.",
-    "notes": "Scoped at fcdbe52 (residue sweep). Demonstrated cost: 36e0556's one prose column rippled through tests/common, tests/graph.rs, tests/emit.rs (its body names the ripple). File-disjoint from SEAM-BINDINGS-GENERATED — serialized behind it only because blockedBy is single-slot and KIND-CONTENT-FACT (shared lock_declaration_rows.rs) must follow both. Per-file delta-expressing builders may stay; engine-side (src/) row construction out of scope."
+    "notes": "Scoped at fcdbe52 (residue sweep); unblocked at ab73a60 — SEAM-BINDINGS-GENERATED verified shipped, cited line anchors re-verified on disk. Demonstrated cost: 36e0556's one prose column rippled through tests/common, tests/graph.rs, tests/emit.rs (its body names the ripple). Per-file delta-expressing builders may stay; engine-side (src/) row construction out of scope."
   },
   {
     "tag": "KIND-CONTENT-FACT",
@@ -83,11 +82,11 @@
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Kind declaration rows carry the content fact; a file-content kind's row stays byte-identical (absent = default) so no existing lock moves. Post-SEAM-BINDINGS-GENERATED the row shape change lands Rust-side and regenerates; this file's builder carries the fact."
+          "description": "Kind declaration rows carry the content fact; a file-content kind's row stays byte-identical (absent = default) so no existing lock moves. The row shape is a generated ts-rs binding now (sdk/src/generated/KindFactRow.ts): the shape change lands Rust-side and regenerates; this file's builder carries the fact."
         },
         {
           "path": "src/drift.rs",
-          "description": "KindFactRow (line 1080) gains the content/layout columns, `#[serde(default)]`-absent = file, so src/builtin_lock.toml (all file-content kinds) is untouched and tests/builtin_lock_frozen.rs stays green."
+          "description": "KindFactRow (line 1085) gains the content/layout columns, `#[serde(default)]`-absent = file, so src/builtin_lock.toml (all file-content kinds) is untouched and tests/builtin_lock_frozen.rs stays green. The new columns regenerate the seam bindings (BLESS_SEAM_BINDINGS=1; tests/seam_bindings_current.rs holds the byte-compare)."
         },
         {
           "path": "src/kind.rs",
@@ -116,7 +115,7 @@
       }
     ],
     "acceptance": "An SDK-declared layout reaches the engine's CustomKind through the lock's kind rows; a kind with no content declaration is file everywhere; src/builtin_lock.toml is byte-unchanged (frozen gate); all gates green.",
-    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Re-serialized 07-09 behind SEAM-BINDINGS-GENERATED then TEST-ROW-FIXTURES-ONE-HOME (shared drift.rs/declarations.ts row surfaces, shared tests/lock_declaration_rows.rs; new row columns born generated, landing in one test builder)."
+    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind TEST-ROW-FIXTURES-ONE-HOME (shared tests/lock_declaration_rows.rs; new columns land in the one test builder); upstream SEAM-BINDINGS-GENERATED shipped at 36a7662, anchors restamped at ab73a60."
   },
   {
     "tag": "LAYOUT-READER",
@@ -156,7 +155,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "Emit writes nothing at a layout document's path and the reap step (reap_or_report_orphan, ~line 508) never reaps a layout source — source, never projection; never regenerated, never reaped."
+          "description": "Emit writes nothing at a layout document's path and the reap step (reap_or_report_orphan, line 592) never reaps a layout source — source, never projection; never regenerated, never reaped."
         },
         {
           "path": "src/install.rs",
@@ -229,7 +228,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at b8f0746 (ship audit; intervening src/tests/sdk commits since a641e03 are 36e0556/REQUIREMENT-PROSE-PERSISTS and f36c192/SKILL-CONTRACT-RECITE, a requirement-prose rename and a cite restamp, neither packaging-adjacent): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at ab73a60 (ship audit; intervening src/tests/sdk commits since b8f0746 are 4f5df8d/FRONTMATTER-MALFORMED-LOUD and 36a7662/SEAM-BINDINGS-GENERATED, a frontmatter refusal and the ts-rs seam codegen, neither packaging-adjacent): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {
