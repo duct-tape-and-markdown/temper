@@ -93,7 +93,7 @@
       }
     ],
     "acceptance": "A layout kind that declares an edge field (SDK-expressible today: `edgeFields` kind.ts:102 beside `content: Layout` kind.ts:105) resolves that slot's entries into the same enumeration the gate and read verbs share; a dangling entry is a finding, never a silent drop; all gates green.",
-    "notes": "Scoped at ced4f94 (residue sweep of 670d54e): the ship wired only `satisfies` and named the cut ('no wired consumer'), but the check-time silent drop violates intent invariant 6. No new lock family needed: file members' relationship edges resolve live off frontmatter; a layout document is a source read live at check, so it folds the same way. Reader side already general (LayoutReading::edges kind.rs:162, parse_edge_entries kind.rs:386)."
+    "notes": "Scoped at ced4f94 (check-time silent drop vs invariant 6); inbox note 37e4834 (observed e30e5a6; no code commits since) routed here: same gap, real customer — a counterpart corpus's Depends-on field sections. The note's member-authored edge-row lock family is the recorded rejected alternative: read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows exist only for composed-prose references. Reader already general (kind.rs:162/386)."
   },
   {
     "tag": "PACKAGING-CHANNELS",
