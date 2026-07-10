@@ -226,7 +226,7 @@ fn a_lock_reconstructed_kind_resolves_the_same_embedded_members_as_its_live_decl
 
     let live = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &rows);
     let reconstructed = builtin_kind::features(
-        &CustomKind::from_kind_fact_row(&decision_kind_fact_row()),
+        &CustomKind::from_kind_fact_row(&decision_kind_fact_row()).unwrap(),
         &surface_authority_unit(),
         &rows,
     );

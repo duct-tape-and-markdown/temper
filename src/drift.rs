@@ -226,6 +226,98 @@ pub enum DriftError {
         /// The number of include slots the member's body carries.
         slots: usize,
     },
+
+    /// A committed lock carries a present-but-malformed declaration row — a required
+    /// column absent, a column the wrong type, a malformed nested element, or a label
+    /// outside its closed vocabulary. Surfaced at load rather than silently dropped: a
+    /// dropped row would narrow the gate's verdict against a corrupt lock.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    LockRow(#[from] LockRowError),
+}
+
+/// A present declaration row the lock reader could not lift. The lock is tool-written
+/// and never hand-patched, so a row the SDK could not have emitted is a corrupt lock
+/// rejected loud at load, never a silently dropped row narrowing the gate's verdict. A
+/// missing lock, an absent family, and an absent optional column stay legitimate
+/// absence — only a *present* row that fails its lift is an error.
+#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
+#[diagnostic(code(temper::drift::lock_row))]
+pub enum LockRowError {
+    /// A present row omits a column its family requires.
+    #[error("lock `{family}` declaration row is missing the required `{column}` column")]
+    MissingColumn {
+        /// The declaration family the row belongs to.
+        family: String,
+        /// The absent required column.
+        column: String,
+    },
+    /// A present row's column is not the TOML type its family declares.
+    #[error("lock `{family}` declaration row column `{column}` is not the expected {want}")]
+    WrongType {
+        /// The declaration family the row belongs to.
+        family: String,
+        /// The mis-typed column.
+        column: String,
+        /// The type the column was expected to hold.
+        want: String,
+    },
+    /// A present family is not the array-of-tables shape the reader expects.
+    #[error("lock `{family}` declaration family is not an array of tables")]
+    FamilyShape {
+        /// The mis-shaped declaration family.
+        family: String,
+    },
+    /// A present row carries a label outside its column's closed vocabulary.
+    #[error(
+        "lock `{family}` declaration row column `{column}` value `{value}` is outside the closed vocabulary"
+    )]
+    Vocabulary {
+        /// The declaration family the row belongs to.
+        family: String,
+        /// The column carrying the out-of-vocabulary label.
+        column: String,
+        /// The unrecognized label.
+        value: String,
+    },
+}
+
+/// A declaration-row column problem before the family that scopes it is known — the
+/// per-column lifts raise this, and [`family`] attaches the family name to make a
+/// [`LockRowError`].
+enum RowError {
+    Missing { column: String },
+    WrongType { column: String, want: &'static str },
+}
+
+impl RowError {
+    fn missing(column: &str) -> Self {
+        Self::Missing {
+            column: column.to_string(),
+        }
+    }
+
+    fn wrong(column: &str, want: &'static str) -> Self {
+        Self::WrongType {
+            column: column.to_string(),
+            want,
+        }
+    }
+
+    /// Scope this column problem to `family`, producing the surfaced [`LockRowError`].
+    fn at(self, family: &str) -> LockRowError {
+        match self {
+            RowError::Missing { column } => LockRowError::MissingColumn {
+                family: family.to_string(),
+                column,
+            },
+            RowError::WrongType { column, want } => LockRowError::WrongType {
+                family: family.to_string(),
+                column,
+                want: want.to_string(),
+            },
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -563,8 +655,8 @@ pub fn emit(
                     member: member.name.clone(),
                 })?;
         let source_path = harness_root.join(member_projection_path(facts, &member.name));
-        if let Content::Layout(layout) = content_from_row(facts) {
-            let edge_fields = layout_edge_fields(&payload.declarations.assembly, &member.kind);
+        if let Content::Layout(layout) = content_from_row(facts)? {
+            let edge_fields = layout_edge_fields(&payload.declarations.assembly, &member.kind)?;
             let derivation =
                 derive_layout_rows(&layout, member, &source_path, &member_index, &edge_fields)?;
             layout_rows.extend(derivation.nested);
@@ -686,15 +778,31 @@ struct LayoutDerivation {
 /// kind-fact row, so both the emit read (here) and the gate read (`resolve_kind_units`)
 /// range over this one set — a relationship section never parses as a verbatim field on
 /// one path and as addresses on the other.
-#[must_use]
-pub fn layout_edge_fields(assembly: &[AssemblyFactRow], kind: &str) -> BTreeSet<String> {
-    let mut slots: BTreeSet<String> = assembly
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when a present `edge` fact for this kind omits its required
+/// `field` column — a corrupt assembly row surfaced loud, never a silently dropped slot.
+pub fn layout_edge_fields(
+    assembly: &[AssemblyFactRow],
+    kind: &str,
+) -> Result<BTreeSet<String>, LockRowError> {
+    let mut slots = BTreeSet::new();
+    for fact in assembly
         .iter()
         .filter(|fact| fact.fact == "edge" && fact.from.as_deref() == Some(kind))
-        .filter_map(|fact| fact.field.clone())
-        .collect();
+    {
+        let field = fact
+            .field
+            .clone()
+            .ok_or_else(|| LockRowError::MissingColumn {
+                family: "assembly".to_string(),
+                column: "field".to_string(),
+            })?;
+        slots.insert(field);
+    }
     slots.insert(crate::kind::SATISFIES_EDGE_FIELD.to_string());
-    slots
+    Ok(slots)
 }
 
 /// Read one layout member's document off disk and lower it into declaration rows — the
@@ -1393,62 +1501,63 @@ pub(crate) fn write_source_deps(doc: &mut DocumentMut, family: &str, rows: &[Lay
     table.insert(family, Item::ArrayOfTables(array));
 }
 
-/// Every source-dependency row a lock at `workspace_dir` carries under `family` — the
+/// Lift one source-dependency row off its `[[declaration.<family>]]` table — the
+/// `member`/`source_path`/`import_hash` columns required, `target` optional.
+fn source_dep_row(row: &Table) -> Result<LayoutImportRow, RowError> {
+    Ok(LayoutImportRow {
+        member: req_str(row, "member")?,
+        target: opt_str(row, "target")?.unwrap_or_default(),
+        source_path: req_str(row, "source_path")?,
+        import_hash: req_str(row, "import_hash")?,
+    })
+}
+
+/// Every source-dependency row a lock at `workspace_dir` carries under `family_key` — the
 /// fingerprinted content dependencies emit wrote, read back for the drift comparison and
-/// the reference-edge lift. A missing or malformed lock, or one with no
-/// `[declaration.<family>]` array, yields none — the same tolerant absence
-/// [`config_stale`]/[`read_declarations`] take. A row missing a required column degrades
-/// to absent, the hand-editable-lock tolerance the rest of the readers share.
-fn source_deps(workspace_dir: &Path, family: &str) -> Vec<LayoutImportRow> {
+/// the reference-edge lift. A missing lock or an absent family yields none; a present
+/// row missing a required column, or the wrong type in one, is surfaced loud.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock exists but cannot be read or parsed, or if a
+/// present dependency row is malformed.
+fn source_deps(workspace_dir: &Path, family_key: &str) -> Result<Vec<LayoutImportRow>, DriftError> {
     let path = workspace_dir.join("lock.toml");
-    let Ok(text) = fs::read_to_string(&path) else {
-        return Vec::new();
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(source) => return Err(DriftError::LockRead { path, source }),
     };
-    let Ok(doc) = text.parse::<DocumentMut>() else {
-        return Vec::new();
-    };
+    let doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
     let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
-    let Some(array) = table.get(family).and_then(Item::as_array_of_tables) else {
-        return Vec::new();
-    };
-    array
-        .iter()
-        .filter_map(|row| {
-            let (Some(member), Some(source_path), Some(import_hash)) = (
-                row.get("member").and_then(Item::as_str),
-                row.get("source_path").and_then(Item::as_str),
-                row.get("import_hash").and_then(Item::as_str),
-            ) else {
-                return None;
-            };
-            Some(LayoutImportRow {
-                member: member.to_string(),
-                target: row
-                    .get("target")
-                    .and_then(Item::as_str)
-                    .unwrap_or_default()
-                    .to_string(),
-                source_path: source_path.to_string(),
-                import_hash: import_hash.to_string(),
-            })
-        })
-        .collect()
+    Ok(family(table, family_key, source_dep_row)?)
 }
 
 /// Every layout-import row a lock at `workspace_dir` carries — the layout sources'
 /// fingerprinted content dependencies, for the drift comparison and the import-edge lift.
-#[must_use]
-pub fn layout_imports(workspace_dir: &Path) -> Vec<LayoutImportRow> {
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
+pub fn layout_imports(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
     source_deps(workspace_dir, LAYOUT_IMPORT_FAMILY)
 }
 
 /// Every composed-prose include row a lock at `workspace_dir` carries — the include
 /// targets' fingerprinted content dependencies, for the drift comparison and the
 /// include-edge lift (folded into the same `import`-locus edge set as a layout import).
-#[must_use]
-pub fn includes(workspace_dir: &Path) -> Vec<LayoutImportRow> {
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
+pub fn includes(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
     source_deps(workspace_dir, INCLUDE_FAMILY)
 }
 
@@ -1458,14 +1567,18 @@ pub fn includes(workspace_dir: &Path) -> Vec<LayoutImportRow> {
 /// `warn` finding per drifted dependency (under `rule`, its target described as a
 /// `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
 /// the drift is surfaced, never a hard gate the author did not declare.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
 fn source_dep_stale(
     workspace_dir: &Path,
     family: &str,
     rule: &str,
     noun: &str,
-) -> Vec<crate::check::Diagnostic> {
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let mut findings = Vec::new();
-    for row in source_deps(workspace_dir, family) {
+    for row in source_deps(workspace_dir, family)? {
         match fs::read(&row.source_path) {
             Ok(bytes) if sha256_hex(&bytes) == row.import_hash => {}
             Ok(_) => findings.push(crate::check::Diagnostic::warn(
@@ -1486,13 +1599,18 @@ fn source_dep_stale(
             )),
         }
     }
-    findings
+    Ok(findings)
 }
 
 /// The drift findings for a workspace's layout imports — a moved or unreadable import
 /// target, surfaced as a `warn` under `layout.import-stale`.
-#[must_use]
-pub fn layout_import_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
+pub fn layout_import_stale(
+    workspace_dir: &Path,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     source_dep_stale(
         workspace_dir,
         LAYOUT_IMPORT_FAMILY,
@@ -1503,8 +1621,11 @@ pub fn layout_import_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic
 
 /// The drift findings for a workspace's composed-prose includes — a moved or unreadable
 /// include target, surfaced as a `warn` under `prose.include-stale`.
-#[must_use]
-pub fn include_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
+pub fn include_stale(workspace_dir: &Path) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     source_dep_stale(
         workspace_dir,
         INCLUDE_FAMILY,
@@ -2128,7 +2249,8 @@ pub fn read_declarations(workspace_dir: &Path) -> miette::Result<Declarations> {
 ///
 /// # Errors
 ///
-/// Returns a [`DriftError::LockParse`] if `text` is not valid TOML.
+/// Returns a [`DriftError::LockParse`] if `text` is not valid TOML, or a
+/// [`DriftError::LockRow`] if a present declaration row is malformed.
 pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, DriftError> {
     let doc = text
         .parse::<DocumentMut>()
@@ -2136,30 +2258,34 @@ pub fn parse_declarations(path: &Path, text: &str) -> Result<Declarations, Drift
             path: path.to_path_buf(),
             source,
         })?;
-    Ok(declarations_from_doc(&doc))
+    Ok(declarations_from_doc(&doc)?)
 }
 
-/// Extract the seven declaration families off a parsed lock's `[declaration]` table. A row
-/// missing a required column is skipped rather than erroring — a generated section is never
-/// malformed, and a hand-edited broken row degrades to absent, the tolerant read the other
-/// lock readers take.
-fn declarations_from_doc(doc: &DocumentMut) -> Declarations {
+/// Extract the seven declaration families off a parsed lock's `[declaration]` table. A
+/// present row that fails its lift — a required column absent, a column the wrong type,
+/// a malformed nested element — is a [`LockRowError`]; an absent family or an absent
+/// optional column is legitimate absence.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] naming the family of the first present-but-malformed row.
+fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, LockRowError> {
     let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
-        return Declarations::default();
+        return Ok(Declarations::default());
     };
-    Declarations {
-        kinds: family(table, "kind", KindFactRow::from_table),
-        clauses: family(table, "clause", ClauseRow::from_table),
-        requirements: family(table, "requirement", RequirementRow::from_table),
-        assembly: family(table, "assembly", AssemblyFactRow::from_table),
-        satisfies: family(table, "satisfies", SatisfiesRow::from_table),
-        mentions: family(table, "mention", MentionRow::from_table),
+    Ok(Declarations {
+        kinds: family(table, "kind", KindFactRow::from_table)?,
+        clauses: family(table, "clause", ClauseRow::from_table)?,
+        requirements: family(table, "requirement", RequirementRow::from_table)?,
+        assembly: family(table, "assembly", AssemblyFactRow::from_table)?,
+        satisfies: family(table, "satisfies", SatisfiesRow::from_table)?,
+        mentions: family(table, "mention", MentionRow::from_table)?,
         // Includes are seam-inbound only — lowered to the fingerprinted `include` source
         // dependency at emit, never written into this declaration table, so a lock
         // round-trip reads none.
         includes: Vec::new(),
-        nested_members: family(table, "nested_member", NestedMemberRow::from_table),
-    }
+        nested_members: family(table, "nested_member", NestedMemberRow::from_table)?,
+    })
 }
 
 /// Push a family's rows as an `[[declaration.<key>]]` array-of-tables, but only when
@@ -2175,19 +2301,88 @@ fn insert_family(table: &mut Table, key: &str, rows: impl Iterator<Item = Table>
 }
 
 /// Read one `[[declaration.<key>]]` family off the lock's declaration table, parsing each
-/// table through `parse` and dropping any malformed row.
-fn family<T>(table: &dyn TableLike, key: &str, parse: impl Fn(&Table) -> Option<T>) -> Vec<T> {
-    table
-        .get(key)
-        .and_then(Item::as_array_of_tables)
-        .map(|array| array.iter().filter_map(parse).collect())
-        .unwrap_or_default()
+/// present row through `parse`. An absent family is empty; a present family that is not
+/// an array of tables, or one whose row fails its lift, is a [`LockRowError`] naming the
+/// family.
+fn family<T>(
+    table: &dyn TableLike,
+    key: &str,
+    parse: impl Fn(&Table) -> Result<T, RowError>,
+) -> Result<Vec<T>, LockRowError> {
+    let Some(item) = table.get(key) else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array_of_tables()
+        .ok_or_else(|| LockRowError::FamilyShape {
+            family: key.to_string(),
+        })?;
+    array
+        .iter()
+        .map(|row| parse(row).map_err(|err| err.at(key)))
+        .collect()
 }
 
-/// One required/optional string column off a declaration row — `None` when absent (or not
-/// a string), which a required column treats as a malformed, skipped row.
-fn str_col(table: &Table, key: &str) -> Option<String> {
-    table.get(key).and_then(Item::as_str).map(str::to_string)
+/// A required string column — absent or non-string is a [`RowError`].
+fn req_str(table: &dyn TableLike, column: &str) -> Result<String, RowError> {
+    opt_str(table, column)?.ok_or_else(|| RowError::missing(column))
+}
+
+/// An optional string column — absent is `Ok(None)`, a present non-string is a [`RowError`].
+fn opt_str(table: &dyn TableLike, column: &str) -> Result<Option<String>, RowError> {
+    match table.get(column) {
+        None => Ok(None),
+        Some(item) => item
+            .as_str()
+            .map(|text| Some(text.to_string()))
+            .ok_or_else(|| RowError::wrong(column, "string")),
+    }
+}
+
+/// An optional boolean column — absent is `Ok(None)`, a present non-boolean is a [`RowError`].
+fn opt_bool(table: &dyn TableLike, column: &str) -> Result<Option<bool>, RowError> {
+    match table.get(column) {
+        None => Ok(None),
+        Some(item) => item
+            .as_bool()
+            .map(Some)
+            .ok_or_else(|| RowError::wrong(column, "boolean")),
+    }
+}
+
+/// An optional array-of-strings column — absent is `Ok(None)`; a present non-array, or one
+/// carrying a non-string element, is a [`RowError`] (a tolerant row, never a tolerant element).
+fn opt_str_array(table: &dyn TableLike, column: &str) -> Result<Option<Vec<String>>, RowError> {
+    let Some(item) = table.get(column) else {
+        return Ok(None);
+    };
+    let array = item
+        .as_array()
+        .ok_or_else(|| RowError::wrong(column, "array"))?;
+    let mut out = Vec::with_capacity(array.len());
+    for element in array.iter() {
+        out.push(
+            element
+                .as_str()
+                .ok_or_else(|| RowError::wrong(column, "array of strings"))?
+                .to_string(),
+        );
+    }
+    Ok(Some(out))
+}
+
+/// An optional nested table column — absent is `Ok(None)`, a present non-table is a [`RowError`].
+fn opt_table<'a>(
+    table: &'a dyn TableLike,
+    column: &str,
+) -> Result<Option<&'a dyn TableLike>, RowError> {
+    match table.get(column) {
+        None => Ok(None),
+        Some(item) => item
+            .as_table_like()
+            .map(Some)
+            .ok_or_else(|| RowError::wrong(column, "table")),
+    }
 }
 
 impl KindFactRow {
@@ -2217,26 +2412,20 @@ impl KindFactRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            name: str_col(table, "name")?,
-            provider: str_col(table, "provider"),
-            governs_root: str_col(table, "governs_root")?,
-            governs_glob: str_col(table, "governs_glob")?,
-            format: str_col(table, "format"),
-            unit_shape: str_col(table, "unit_shape"),
-            registration: table
-                .get("registration")
-                .and_then(string_array_from_item)
-                .unwrap_or_default(),
-            templates: table
-                .get("templates")
-                .and_then(string_array_from_item)
-                .unwrap_or_default(),
-            content: table
-                .get("content")
-                .and_then(Item::as_table_like)
-                .map(content_from_table),
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            name: req_str(table, "name")?,
+            provider: opt_str(table, "provider")?,
+            governs_root: req_str(table, "governs_root")?,
+            governs_glob: req_str(table, "governs_glob")?,
+            format: opt_str(table, "format")?,
+            unit_shape: opt_str(table, "unit_shape")?,
+            registration: opt_str_array(table, "registration")?.unwrap_or_default(),
+            templates: opt_str_array(table, "templates")?.unwrap_or_default(),
+            content: match opt_table(table, "content")? {
+                Some(content) => Some(content_from_table(content)?),
+                None => None,
+            },
         })
     }
 }
@@ -2269,35 +2458,33 @@ fn content_table(content: &LayoutRow) -> InlineTable {
     table
 }
 
-/// Read a `content` column back off its inline table — a region element that is not an
-/// inline table carrying a `region` discriminator drops just that region, never the whole
-/// layout, the tolerant read the rest of the lock's array columns take.
-fn content_from_table(table: &dyn TableLike) -> LayoutRow {
-    let regions = table
-        .get("regions")
-        .and_then(Item::as_array)
-        .map(|array| {
-            array
-                .iter()
-                .filter_map(|value| {
-                    let inline = value.as_inline_table()?;
-                    Some(LayoutRegionRow {
-                        region: inline.get("region")?.as_str()?.to_string(),
-                        import: inline_str(inline, "import"),
-                        slot: inline_str(inline, "slot"),
-                        member_kind: inline_str(inline, "member_kind"),
-                        key: inline_str(inline, "key"),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    LayoutRow { regions }
-}
-
-/// One optional string column off an inline table — `None` when absent or not a string.
-fn inline_str(table: &InlineTable, key: &str) -> Option<String> {
-    table.get(key).and_then(Value::as_str).map(str::to_string)
+/// Read a `content` column back off its inline table — an absent `regions` array is
+/// empty; a present non-array, a non-inline-table element, or a region missing its
+/// required `region` discriminator is a [`RowError`].
+fn content_from_table(table: &dyn TableLike) -> Result<LayoutRow, RowError> {
+    let regions = match table.get("regions") {
+        None => Vec::new(),
+        Some(item) => {
+            let array = item
+                .as_array()
+                .ok_or_else(|| RowError::wrong("regions", "array"))?;
+            let mut out = Vec::with_capacity(array.len());
+            for element in array.iter() {
+                let inline = element
+                    .as_inline_table()
+                    .ok_or_else(|| RowError::wrong("regions", "array of tables"))?;
+                out.push(LayoutRegionRow {
+                    region: req_str(inline, "region")?,
+                    import: opt_str(inline, "import")?,
+                    slot: opt_str(inline, "slot")?,
+                    member_kind: opt_str(inline, "member_kind")?,
+                    key: opt_str(inline, "key")?,
+                });
+            }
+            out
+        }
+    };
+    Ok(LayoutRow { regions })
 }
 
 impl ClauseRow {
@@ -2347,41 +2534,41 @@ impl ClauseRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            kind: str_col(table, "kind"),
-            predicate: str_col(table, "predicate")?,
-            field: str_col(table, "field"),
-            severity: str_col(table, "severity")?,
-            guidance: str_col(table, "guidance"),
-            cite: str_col(table, "cite"),
-            count: table
-                .get("count")
-                .and_then(Item::as_table_like)
-                .and_then(count_bound_from_table),
-            target: str_col(table, "target"),
-            degree: table
-                .get("degree")
-                .and_then(Item::as_table_like)
-                .and_then(degree_bound_from_table),
-            bound: table
-                .get("bound")
-                .and_then(Item::as_table_like)
-                .map(bound_from_table),
-            charset: table
-                .get("charset")
-                .and_then(Item::as_table_like)
-                .map(charset_from_table),
-            keys: table.get("keys").and_then(string_array_from_item),
-            values: table.get("values").and_then(string_array_from_item),
-            range: table
-                .get("range")
-                .and_then(Item::as_table_like)
-                .and_then(range_bound_from_table),
-            section: table
-                .get("section")
-                .and_then(Item::as_table_like)
-                .and_then(section_contains_from_table),
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            kind: opt_str(table, "kind")?,
+            predicate: req_str(table, "predicate")?,
+            field: opt_str(table, "field")?,
+            severity: req_str(table, "severity")?,
+            guidance: opt_str(table, "guidance")?,
+            cite: opt_str(table, "cite")?,
+            count: match opt_table(table, "count")? {
+                Some(count) => Some(count_bound_from_table(count)?),
+                None => None,
+            },
+            target: opt_str(table, "target")?,
+            degree: match opt_table(table, "degree")? {
+                Some(degree) => Some(degree_bound_from_table(degree)?),
+                None => None,
+            },
+            bound: match opt_table(table, "bound")? {
+                Some(bound) => Some(bound_from_table(bound)?),
+                None => None,
+            },
+            charset: match opt_table(table, "charset")? {
+                Some(charset) => Some(charset_from_table(charset)?),
+                None => None,
+            },
+            keys: opt_str_array(table, "keys")?,
+            values: opt_str_array(table, "values")?,
+            range: match opt_table(table, "range")? {
+                Some(range) => Some(range_bound_from_table(range)?),
+                None => None,
+            },
+            section: match opt_table(table, "section")? {
+                Some(section) => Some(section_contains_from_table(section)?),
+                None => None,
+            },
         })
     }
 }
@@ -2410,41 +2597,59 @@ impl RequirementRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            name: str_col(table, "name")?,
-            kind: str_col(table, "kind"),
-            required: table
-                .get("required")
-                .and_then(Item::as_bool)
-                .unwrap_or(false),
-            clauses: table
-                .get("clauses")
-                .and_then(Item::as_array_of_tables)
-                .map(|array| array.iter().filter_map(ClauseRow::from_table).collect())
-                .unwrap_or_default(),
-            verified_by: str_col(table, "verified_by"),
-            prose: str_col(table, "prose"),
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            name: req_str(table, "name")?,
+            kind: opt_str(table, "kind")?,
+            required: opt_bool(table, "required")?.unwrap_or(false),
+            clauses: match table.get("clauses") {
+                None => Vec::new(),
+                Some(item) => {
+                    let array = item
+                        .as_array_of_tables()
+                        .ok_or_else(|| RowError::wrong("clauses", "array of tables"))?;
+                    array
+                        .iter()
+                        .map(ClauseRow::from_table)
+                        .collect::<Result<Vec<_>, _>>()?
+                }
+            },
+            verified_by: opt_str(table, "verified_by")?,
+            prose: opt_str(table, "prose")?,
         })
     }
 }
 
-/// One integer column off an inline table-like as a `usize`. Any miss — absent,
-/// non-integer, or negative — is `None`.
-fn usize_col(table: &dyn TableLike, key: &str) -> Option<usize> {
-    table
-        .get(key)?
+/// An optional integer column as a `usize` — absent is `Ok(None)`; a present non-integer
+/// or negative value is a [`RowError`].
+fn opt_usize(table: &dyn TableLike, column: &str) -> Result<Option<usize>, RowError> {
+    let Some(item) = table.get(column) else {
+        return Ok(None);
+    };
+    let raw = item
         .as_integer()
-        .and_then(|n| usize::try_from(n).ok())
+        .ok_or_else(|| RowError::wrong(column, "integer"))?;
+    let n = usize::try_from(raw).map_err(|_| RowError::wrong(column, "non-negative integer"))?;
+    Ok(Some(n))
 }
 
-/// One numeric column off an inline table-like as an `f64` — a TOML integer widens
-/// to float so a hand-authored `1` reads the same as `1.0`. Any miss (absent,
-/// non-numeric) is `None`.
-fn f64_col(table: &dyn TableLike, key: &str) -> Option<f64> {
-    let item = table.get(key)?;
-    item.as_float()
-        .or_else(|| item.as_integer().map(|n| n as f64))
+/// A required integer column as a `usize` — absent is a missing-column [`RowError`].
+fn req_usize(table: &dyn TableLike, column: &str) -> Result<usize, RowError> {
+    opt_usize(table, column)?.ok_or_else(|| RowError::missing(column))
+}
+
+/// A required numeric column as an `f64` — a TOML integer widens to float so an authored
+/// `1` reads the same as `1.0`. Absent is a missing-column [`RowError`]; a present
+/// non-numeric value is a wrong-type one.
+fn req_f64(table: &dyn TableLike, column: &str) -> Result<f64, RowError> {
+    let item = table.get(column).ok_or_else(|| RowError::missing(column))?;
+    if let Some(float) = item.as_float() {
+        Ok(float)
+    } else if let Some(int) = item.as_integer() {
+        Ok(int as f64)
+    } else {
+        Err(RowError::wrong(column, "number"))
+    }
 }
 
 fn range_bound_table(range: &RangeBoundRow) -> InlineTable {
@@ -2454,10 +2659,10 @@ fn range_bound_table(range: &RangeBoundRow) -> InlineTable {
     table
 }
 
-fn range_bound_from_table(table: &dyn TableLike) -> Option<RangeBoundRow> {
-    Some(RangeBoundRow {
-        min: f64_col(table, "min")?,
-        max: f64_col(table, "max")?,
+fn range_bound_from_table(table: &dyn TableLike) -> Result<RangeBoundRow, RowError> {
+    Ok(RangeBoundRow {
+        min: req_f64(table, "min")?,
+        max: req_f64(table, "max")?,
     })
 }
 
@@ -2468,10 +2673,10 @@ fn section_contains_table(section: &SectionContainsRow) -> InlineTable {
     table
 }
 
-fn section_contains_from_table(table: &dyn TableLike) -> Option<SectionContainsRow> {
-    Some(SectionContainsRow {
-        heading: table.get("heading")?.as_str()?.to_string(),
-        marker: table.get("marker")?.as_str()?.to_string(),
+fn section_contains_from_table(table: &dyn TableLike) -> Result<SectionContainsRow, RowError> {
+    Ok(SectionContainsRow {
+        heading: req_str(table, "heading")?,
+        marker: req_str(table, "marker")?,
     })
 }
 
@@ -2488,10 +2693,10 @@ fn count_bound_table(count: &CountBoundRow) -> InlineTable {
     table
 }
 
-fn count_bound_from_table(table: &dyn TableLike) -> Option<CountBoundRow> {
-    Some(CountBoundRow {
-        min: usize_col(table, "min")?,
-        max: usize_col(table, "max")?,
+fn count_bound_from_table(table: &dyn TableLike) -> Result<CountBoundRow, RowError> {
+    Ok(CountBoundRow {
+        min: req_usize(table, "min")?,
+        max: req_usize(table, "max")?,
     })
 }
 
@@ -2506,16 +2711,16 @@ fn degree_bound_table(degree: &DegreeBoundRow) -> InlineTable {
     table
 }
 
-fn degree_bound_from_table(table: &dyn TableLike) -> Option<DegreeBoundRow> {
-    Some(DegreeBoundRow {
-        incoming: table
-            .get("incoming")
-            .and_then(Item::as_table_like)
-            .and_then(edge_bound_from_table),
-        outgoing: table
-            .get("outgoing")
-            .and_then(Item::as_table_like)
-            .and_then(edge_bound_from_table),
+fn degree_bound_from_table(table: &dyn TableLike) -> Result<DegreeBoundRow, RowError> {
+    Ok(DegreeBoundRow {
+        incoming: match opt_table(table, "incoming")? {
+            Some(incoming) => Some(edge_bound_from_table(incoming)?),
+            None => None,
+        },
+        outgoing: match opt_table(table, "outgoing")? {
+            Some(outgoing) => Some(edge_bound_from_table(outgoing)?),
+            None => None,
+        },
     })
 }
 
@@ -2530,10 +2735,10 @@ fn edge_bound_table(bound: &EdgeBoundRow) -> InlineTable {
     table
 }
 
-fn edge_bound_from_table(table: &dyn TableLike) -> Option<EdgeBoundRow> {
-    Some(EdgeBoundRow {
-        min: usize_col(table, "min"),
-        max: usize_col(table, "max"),
+fn edge_bound_from_table(table: &dyn TableLike) -> Result<EdgeBoundRow, RowError> {
+    Ok(EdgeBoundRow {
+        min: opt_usize(table, "min")?,
+        max: opt_usize(table, "max")?,
     })
 }
 
@@ -2548,11 +2753,11 @@ fn bound_table(bound: &BoundRow) -> InlineTable {
     table
 }
 
-fn bound_from_table(table: &dyn TableLike) -> BoundRow {
-    BoundRow {
-        min: usize_col(table, "min"),
-        max: usize_col(table, "max"),
-    }
+fn bound_from_table(table: &dyn TableLike) -> Result<BoundRow, RowError> {
+    Ok(BoundRow {
+        min: opt_usize(table, "min")?,
+        max: opt_usize(table, "max")?,
+    })
 }
 
 fn charset_table(charset: &CharsetRow) -> InlineTable {
@@ -2566,17 +2771,11 @@ fn charset_table(charset: &CharsetRow) -> InlineTable {
     table
 }
 
-fn charset_from_table(table: &dyn TableLike) -> CharsetRow {
-    CharsetRow {
-        ranges: table
-            .get("ranges")
-            .and_then(string_array_from_item)
-            .unwrap_or_default(),
-        chars: table
-            .get("chars")
-            .and_then(Item::as_str)
-            .map(str::to_string),
-    }
+fn charset_from_table(table: &dyn TableLike) -> Result<CharsetRow, RowError> {
+    Ok(CharsetRow {
+        ranges: opt_str_array(table, "ranges")?.unwrap_or_default(),
+        chars: opt_str(table, "chars")?,
+    })
 }
 
 /// Build a TOML array off owned strings — the `keys`/`values`/charset-`ranges`
@@ -2587,18 +2786,6 @@ fn string_array(values: &[String]) -> Array {
         array.push(value.clone());
     }
     array
-}
-
-/// Read a TOML array of strings back off a declaration row column. Any element
-/// that is not a string fails the whole column — the same tolerant-row (not
-/// tolerant-element) degrade the rest of the lock's array columns take.
-fn string_array_from_item(item: &Item) -> Option<Vec<String>> {
-    let array = item.as_array()?;
-    let mut out = Vec::with_capacity(array.len());
-    for value in array.iter() {
-        out.push(value.as_str()?.to_string());
-    }
-    Some(out)
 }
 
 impl AssemblyFactRow {
@@ -2620,13 +2807,13 @@ impl AssemblyFactRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            fact: str_col(table, "fact")?,
-            value: str_col(table, "value"),
-            from: str_col(table, "from"),
-            field: str_col(table, "field"),
-            to: str_col(table, "to"),
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            fact: req_str(table, "fact")?,
+            value: opt_str(table, "value")?,
+            from: opt_str(table, "from")?,
+            field: opt_str(table, "field")?,
+            to: opt_str(table, "to")?,
         })
     }
 }
@@ -2639,10 +2826,10 @@ impl SatisfiesRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            member: str_col(table, "member")?,
-            requirement: str_col(table, "requirement")?,
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            member: req_str(table, "member")?,
+            requirement: req_str(table, "requirement")?,
         })
     }
 }
@@ -2655,10 +2842,10 @@ impl MentionRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            member: str_col(table, "member")?,
-            target: str_col(table, "target")?,
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            member: req_str(table, "member")?,
+            target: req_str(table, "target")?,
         })
     }
 }
@@ -2678,21 +2865,24 @@ impl NestedMemberRow {
         table
     }
 
-    fn from_table(table: &Table) -> Option<Self> {
-        Some(Self {
-            host: str_col(table, "host")?,
-            kind: str_col(table, "kind")?,
-            key: str_col(table, "key")?,
-            leaves: table
-                .get("leaves")
-                .and_then(Item::as_table_like)
-                .map(string_map_from_table)
-                .unwrap_or_default(),
-            collections: table
-                .get("collections")
-                .and_then(Item::as_array)
-                .map(collections_from_array)
-                .unwrap_or_default(),
+    fn from_table(table: &Table) -> Result<Self, RowError> {
+        Ok(Self {
+            host: req_str(table, "host")?,
+            kind: req_str(table, "kind")?,
+            key: req_str(table, "key")?,
+            leaves: match opt_table(table, "leaves")? {
+                Some(leaves) => string_map_from_table(leaves)?,
+                None => BTreeMap::new(),
+            },
+            collections: match table.get("collections") {
+                None => Vec::new(),
+                Some(item) => {
+                    let array = item
+                        .as_array()
+                        .ok_or_else(|| RowError::wrong("collections", "array"))?;
+                    collections_from_array(array)?
+                }
+            },
         })
     }
 }
@@ -2707,17 +2897,17 @@ fn string_map_table(map: &BTreeMap<String, String>) -> InlineTable {
     table
 }
 
-/// Read a string map back off a declaration row column — a non-string value drops
-/// just that entry, the same tolerant-element-inside-a-tolerant-row discipline the
-/// rest of the family takes.
-fn string_map_from_table(table: &dyn TableLike) -> BTreeMap<String, String> {
-    table
-        .iter()
-        .filter_map(|(key, item)| {
-            item.as_str()
-                .map(|text| (key.to_string(), text.to_string()))
-        })
-        .collect()
+/// Read a string map back off a declaration row column — a non-string value under any
+/// key is a [`RowError`] naming that key.
+fn string_map_from_table(table: &dyn TableLike) -> Result<BTreeMap<String, String>, RowError> {
+    let mut out = BTreeMap::new();
+    for (key, item) in table.iter() {
+        let text = item
+            .as_str()
+            .ok_or_else(|| RowError::wrong(key, "string"))?;
+        out.insert(key.to_string(), text.to_string());
+    }
+    Ok(out)
 }
 
 /// Build a [`NestedMemberRow`]'s `collections` column's wire form: an
@@ -2740,25 +2930,24 @@ fn collections_array(collections: &[CollectionEntryRow]) -> Array {
     array
 }
 
-/// Read a `collections` column back off its order-preserving array — an element
-/// that fails to parse as an inline table carrying the expected columns drops
-/// just that entry, never the whole row.
-fn collections_from_array(array: &Array) -> Vec<CollectionEntryRow> {
-    array
-        .iter()
-        .filter_map(|value| {
-            let table = value.as_inline_table()?;
-            Some(CollectionEntryRow {
-                collection: table.get("collection")?.as_str()?.to_string(),
-                key: table.get("key")?.as_str()?.to_string(),
-                leaves: table
-                    .get("leaves")
-                    .and_then(Value::as_inline_table)
-                    .map(|table| string_map_from_table(table))
-                    .unwrap_or_default(),
-            })
-        })
-        .collect()
+/// Read a `collections` column back off its order-preserving array — a non-inline-table
+/// element, or one missing its required `collection`/`key` column, is a [`RowError`].
+fn collections_from_array(array: &Array) -> Result<Vec<CollectionEntryRow>, RowError> {
+    let mut out = Vec::with_capacity(array.len());
+    for element in array.iter() {
+        let inline = element
+            .as_inline_table()
+            .ok_or_else(|| RowError::wrong("collections", "array of tables"))?;
+        out.push(CollectionEntryRow {
+            collection: req_str(inline, "collection")?,
+            key: req_str(inline, "key")?,
+            leaves: match opt_table(inline, "leaves")? {
+                Some(leaves) => string_map_from_table(leaves)?,
+                None => BTreeMap::new(),
+            },
+        });
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

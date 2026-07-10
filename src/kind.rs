@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::drift::KindFactRow;
+use crate::drift::{KindFactRow, LockRowError};
 use crate::extract::{self, Features};
 
 /// The file locus a custom kind reads: the root
@@ -525,40 +525,50 @@ impl CustomKind {
     }
 
     /// Reconstruct a kind's declared definition from the committed lock's own
-    /// [`KindFactRow`]: the row's five-fact
-    /// residue lifts into `governs`/`format`/
-    /// `unit_shape`/`registration` directly, each channel label this projection cannot
-    /// parse dropped from the reconstructed set — the same tolerant read the rest of a
-    /// hand-editable lock takes. A `KIND.md` file format never carried field-level
-    /// extraction primitives either, so the
-    /// reconstructed extractor stays the same generic markdown-structure set every
-    /// built-in composes (`headings`/`sections`/`line_count`/`placement`); a floor
-    /// clause's own `field` column, plus the permissive frontmatter fold every custom
-    /// member's extraction already runs through (`crate::builtin_kind::features`), is
-    /// what actually ranges over a custom member's declared fields — never a per-kind
-    /// `Field` primitive list.
+    /// [`KindFactRow`]: the row's five-fact residue lifts into `governs`/`format`/
+    /// `unit_shape`/`registration` directly. The reconstructed extractor stays the
+    /// same generic markdown-structure set every built-in composes
+    /// (`headings`/`sections`/`line_count`/`placement`); a floor clause's own `field`
+    /// column, plus the permissive frontmatter fold every custom member's extraction
+    /// already runs through (`crate::builtin_kind::features`), is what actually ranges
+    /// over a custom member's declared fields — never a per-kind `Field` primitive list.
     ///
     /// The row's `templates` column lifts into one [`Template`] per declared
     /// child-kind name — the kind's own declared nesting fact; a host's actual
     /// embedded members are resolved independently, off `Declarations::nested_members`
     /// by address (`crate::builtin_kind::features`), so the reconstructed extraction
     /// needs no `Fenced` primitive of its own to serve them.
-    #[must_use]
-    pub fn from_kind_fact_row(row: &KindFactRow) -> Self {
-        CustomKind {
-            format: row.format.as_deref().and_then(format_from_label),
-            unit_shape: row.unit_shape.as_deref().and_then(unit_shape_from_label),
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`LockRowError`] when a `format`/`unit_shape`/`registration` label or a
+    /// layout region falls outside its closed vocabulary — the tool-written lock carries
+    /// only labels the SDK could emit, so an unknown one is corruption rejected at load.
+    pub fn from_kind_fact_row(row: &KindFactRow) -> Result<Self, LockRowError> {
+        Ok(CustomKind {
+            format: match &row.format {
+                Some(label) => Some(kind_vocab(label, "format", format_from_label(label))?),
+                None => None,
+            },
+            unit_shape: match &row.unit_shape {
+                Some(label) => Some(kind_vocab(
+                    label,
+                    "unit_shape",
+                    unit_shape_from_label(label),
+                )?),
+                None => None,
+            },
             registration: row
                 .registration
                 .iter()
-                .filter_map(|label| registration_from_label(label))
-                .collect(),
+                .map(|label| kind_vocab(label, "registration", registration_from_label(label)))
+                .collect::<Result<Vec<_>, _>>()?,
             templates: row
                 .templates
                 .iter()
                 .map(|kind| Template { kind: kind.clone() })
                 .collect(),
-            content: content_from_row(row),
+            content: content_from_row(row)?,
             ..CustomKind::new(
                 row.name.clone(),
                 Governs {
@@ -572,7 +582,7 @@ impl CustomKind {
                     Primitive::Placement,
                 ]),
             )
-        }
+        })
     }
 
     /// Run the kind's composed extractor over `unit` — the primitive algebra only.
@@ -691,9 +701,19 @@ impl Governs {
     }
 }
 
+/// Surface a `kind`-fact column's label as an out-of-vocabulary [`LockRowError`] when its
+/// closed-vocabulary lookup came back empty — the shared reject the label lifts route a
+/// present-but-unrecognized value through.
+fn kind_vocab<T>(label: &str, column: &'static str, parsed: Option<T>) -> Result<T, LockRowError> {
+    parsed.ok_or_else(|| LockRowError::Vocabulary {
+        family: "kind".to_string(),
+        column: column.to_string(),
+        value: label.to_string(),
+    })
+}
+
 /// Parse a [`KindFactRow::format`] label into its typed [`Format`] — `None` for any
-/// label outside the closed vocabulary, the tolerant read the rest of a hand-editable
-/// lock takes.
+/// label outside the closed vocabulary.
 fn format_from_label(label: &str) -> Option<Format> {
     match label {
         "yaml-frontmatter" => Some(Format::YamlFrontmatter),
@@ -719,39 +739,68 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
 
 /// Lift a [`KindFactRow`]'s optional `content` column into typed [`Content`]: an absent
 /// column is [`Content::File`] (the default every built-in takes), a present one a
-/// [`Layout`] whose region rows lift through [`layout_region_from_row`] — a malformed
-/// region dropped tolerantly, the way the rest of a hand-editable lock's rows degrade.
-pub(crate) fn content_from_row(row: &KindFactRow) -> Content {
+/// [`Layout`] whose region rows lift through [`layout_region_from_row`].
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when a present region names a primitive outside the closed
+/// vocabulary, or omits the column that primitive requires.
+pub(crate) fn content_from_row(row: &KindFactRow) -> Result<Content, LockRowError> {
     match &row.content {
-        None => Content::File,
-        Some(layout) => Content::Layout(Layout {
+        None => Ok(Content::File),
+        Some(layout) => Ok(Content::Layout(Layout {
             regions: layout
                 .regions
                 .iter()
-                .filter_map(layout_region_from_row)
-                .collect(),
-        }),
+                .map(layout_region_from_row)
+                .collect::<Result<Vec<_>, _>>()?,
+        })),
     }
 }
 
 /// Lift one [`LayoutRegionRow`](crate::drift::LayoutRegionRow) into a typed
-/// [`LayoutRegion`] — `None` when the `region` discriminator is outside the closed
+/// [`LayoutRegion`].
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when the `region` discriminator is outside the closed
 /// three-primitive vocabulary, or the row omits the column that primitive requires (a
 /// `field` with no `slot`, a `collection` with no `member_kind`).
-fn layout_region_from_row(row: &crate::drift::LayoutRegionRow) -> Option<LayoutRegion> {
+fn layout_region_from_row(
+    row: &crate::drift::LayoutRegionRow,
+) -> Result<LayoutRegion, LockRowError> {
     match row.region.as_str() {
-        "prose" => Some(LayoutRegion::Prose {
+        "prose" => Ok(LayoutRegion::Prose {
             import: row.import.clone(),
         }),
-        "field" => row.slot.clone().map(|slot| LayoutRegion::Field { slot }),
-        "collection" => row
-            .member_kind
-            .clone()
-            .map(|member_kind| LayoutRegion::Collection {
+        "field" => {
+            let slot = row
+                .slot
+                .clone()
+                .ok_or_else(|| LockRowError::MissingColumn {
+                    family: "kind".to_string(),
+                    column: "slot".to_string(),
+                })?;
+            Ok(LayoutRegion::Field { slot })
+        }
+        "collection" => {
+            let member_kind =
+                row.member_kind
+                    .clone()
+                    .ok_or_else(|| LockRowError::MissingColumn {
+                        family: "kind".to_string(),
+                        column: "member_kind".to_string(),
+                    })?;
+            Ok(LayoutRegion::Collection {
                 member_kind,
                 key: row.key.clone(),
-            }),
-        _ => None,
+            })
+        }
+        other => Err(LockRowError::Vocabulary {
+            family: "kind".to_string(),
+            column: "content".to_string(),
+            value: other.to_string(),
+        }),
     }
 }
 
@@ -1288,7 +1337,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             templates: Vec::new(),
             content: None,
         };
-        let kind = CustomKind::from_kind_fact_row(&row);
+        let kind = CustomKind::from_kind_fact_row(&row).unwrap();
 
         assert_eq!(kind.name, "spec");
         assert_eq!(
@@ -1320,9 +1369,9 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     }
 
     #[test]
-    fn from_kind_fact_row_degrades_unrecognized_labels_to_absent() {
-        // A hand-editable lock's out-of-vocabulary label degrades to absent rather
-        // than erroring — the same tolerance the rest of the lock's readers take.
+    fn from_kind_fact_row_rejects_an_out_of_vocabulary_label() {
+        // The lock is tool-written, so a label the closed vocabulary cannot admit is a
+        // corrupt lock rejected loud at load, never a channel silently dropped.
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
@@ -1334,16 +1383,18 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             templates: Vec::new(),
             content: None,
         };
-        let kind = CustomKind::from_kind_fact_row(&row);
-        assert_eq!(kind.format, None);
-        assert!(kind.registration.is_empty());
+        let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+        assert!(
+            matches!(&err, LockRowError::Vocabulary { family, column, value }
+                if family == "kind" && column == "format" && value == "xml"),
+            "expected an out-of-vocabulary `format` reject, got: {err:?}"
+        );
     }
 
     #[test]
-    fn from_kind_fact_row_drops_only_the_unrecognized_channel_from_a_mixed_set() {
-        // A set carrying one recognized and one bogus label lifts the recognized
-        // channel and silently drops the other — per-channel tolerance, not a
-        // whole-set failure.
+    fn from_kind_fact_row_rejects_an_out_of_vocabulary_registration_channel() {
+        // A registration set carrying one unrecognized label is corruption — the whole
+        // lift rejects loud rather than dropping the bad channel and keeping the rest.
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
@@ -1355,8 +1406,12 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             templates: Vec::new(),
             content: None,
         };
-        let kind = CustomKind::from_kind_fact_row(&row);
-        assert_eq!(kind.registration, vec![Registration::UserInvoked]);
+        let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+        assert!(
+            matches!(&err, LockRowError::Vocabulary { column, value, .. }
+                if column == "registration" && value == "bogus"),
+            "expected an out-of-vocabulary `registration` reject, got: {err:?}"
+        );
     }
 
     #[test]
@@ -1376,7 +1431,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             templates: Vec::new(),
             content: None,
         };
-        let kind = CustomKind::from_kind_fact_row(&row);
+        let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(
             kind.registration,
             vec![
@@ -1401,7 +1456,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             templates: Vec::new(),
             content: None,
         };
-        let kind = CustomKind::from_kind_fact_row(&row);
+        let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
         assert!(kind.registration.is_empty());
@@ -1415,7 +1470,10 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             ..spec_row()
         };
-        assert_eq!(CustomKind::from_kind_fact_row(&row).content, Content::File);
+        assert_eq!(
+            CustomKind::from_kind_fact_row(&row).unwrap().content,
+            Content::File
+        );
     }
 
     #[test]
@@ -1452,7 +1510,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             ..spec_row()
         };
         assert_eq!(
-            CustomKind::from_kind_fact_row(&row).content,
+            CustomKind::from_kind_fact_row(&row).unwrap().content,
             Content::Layout(Layout {
                 regions: vec![
                     LayoutRegion::Prose {
@@ -1471,21 +1529,14 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
     }
 
     #[test]
-    fn from_kind_fact_row_drops_a_malformed_layout_region() {
-        // Tolerant read: a region whose discriminator is outside the vocabulary, or one
-        // missing the column its primitive requires, drops without failing the layout.
+    fn from_kind_fact_row_rejects_an_out_of_vocabulary_layout_region() {
+        // A region whose discriminator is outside the closed three-primitive vocabulary
+        // is a corrupt lock — rejected loud, never dropped from an otherwise-valid layout.
         let row = KindFactRow {
             content: Some(crate::drift::LayoutRow {
                 regions: vec![
                     crate::drift::LayoutRegionRow {
                         region: "bogus".to_string(),
-                        import: None,
-                        slot: None,
-                        member_kind: None,
-                        key: None,
-                    },
-                    crate::drift::LayoutRegionRow {
-                        region: "field".to_string(),
                         import: None,
                         slot: None,
                         member_kind: None,
@@ -1502,11 +1553,35 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             }),
             ..spec_row()
         };
-        assert_eq!(
-            CustomKind::from_kind_fact_row(&row).content,
-            Content::Layout(Layout {
-                regions: vec![LayoutRegion::Prose { import: None }],
+        let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+        assert!(
+            matches!(&err, LockRowError::Vocabulary { column, value, .. }
+                if column == "content" && value == "bogus"),
+            "expected an out-of-vocabulary region reject, got: {err:?}"
+        );
+    }
+
+    #[test]
+    fn from_kind_fact_row_rejects_a_layout_region_missing_its_required_column() {
+        // A `field` region carries no `slot`: the primitive's required column is absent,
+        // so the present region is malformed and rejected loud, never silently dropped.
+        let row = KindFactRow {
+            content: Some(crate::drift::LayoutRow {
+                regions: vec![crate::drift::LayoutRegionRow {
+                    region: "field".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: None,
+                    key: None,
+                }],
             }),
+            ..spec_row()
+        };
+        let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
+        assert!(
+            matches!(&err, LockRowError::MissingColumn { family, column }
+                if family == "kind" && column == "slot"),
+            "expected a missing-`slot` reject, got: {err:?}"
         );
     }
 
@@ -1525,7 +1600,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             templates: vec!["decision".to_string(), "law".to_string()],
             content: None,
         };
-        let kind = CustomKind::from_kind_fact_row(&row);
+        let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(
             kind.templates,
             vec![

@@ -92,7 +92,7 @@ fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
     // The import reached the lock as a fingerprinted content dependency: the host member,
     // the resolved target path, and a non-empty hash of its bytes. The target is a plain
     // file, not a member, so the edge names no member.
-    let imports = drift::layout_imports(&into);
+    let imports = drift::layout_imports(&into).unwrap();
     assert_eq!(imports.len(), 1);
     assert_eq!(imports[0].member, "guide:guide");
     assert!(imports[0].source_path.ends_with("specs/included.md"));
@@ -100,9 +100,9 @@ fn an_import_region_resolves_to_its_target_and_is_fingerprinted_in_the_lock() {
     assert!(!imports[0].import_hash.is_empty());
 
     // The fingerprint tracks the target's bytes: fresh now, drift once the target moves.
-    assert!(drift::layout_import_stale(&into).is_empty());
+    assert!(drift::layout_import_stale(&into).unwrap().is_empty());
     fs::write(harness.join("specs/included.md"), "edited prose.\n").unwrap();
-    let stale = drift::layout_import_stale(&into);
+    let stale = drift::layout_import_stale(&into).unwrap();
     assert_eq!(stale.len(), 1, "a moved target is drift: {stale:?}");
 }
 
@@ -166,7 +166,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
         "no projection is written when a sibling import dangles"
     );
     // And nothing was fingerprinted — the refusal precedes the lock write.
-    assert!(drift::layout_imports(&into).is_empty());
+    assert!(drift::layout_imports(&into).unwrap().is_empty());
 }
 
 #[test]
@@ -203,7 +203,7 @@ fn an_import_edge_joins_the_resolved_enumeration_and_narrates() {
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
     // The import resolved to the `intent` member: the lock names the member edge.
-    let imports = drift::layout_imports(&into);
+    let imports = drift::layout_imports(&into).unwrap();
     let guide_import = imports
         .iter()
         .find(|row| row.member == "guide:guide")

@@ -98,12 +98,15 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
 /// what was checked, then one finding per known Claude Code surface present on
 /// disk that no in-scope kind governs — so the gate's silence about an unmodeled
 /// surface never reads as "checked".
-#[must_use]
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError`] when a lock-declared kind row cannot be lifted.
 pub fn check(
     root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
-) -> Vec<Diagnostic> {
+) -> Result<Vec<Diagnostic>, drift::LockRowError> {
     let mut diagnostics = Vec::new();
 
     // (1) State what WAS checked: each kind's member count, so a clean run reads as
@@ -133,7 +136,7 @@ pub fn check(
     // The governing set is the built-ins plus every kind the committed lock declares,
     // so a locked custom kind (e.g. a `widget` kind rooted at `.claude`, selecting
     // `settings.json`) suppresses the surface it governs exactly as a built-in does.
-    let governing_kinds = with_locked_kinds(root, kinds);
+    let governing_kinds = with_locked_kinds(root, kinds)?;
     for surface in KNOWN_SURFACES {
         if present(root, surface) && !governed_by_any(&governing_kinds, surface) {
             diagnostics.push(Diagnostic::warn(
@@ -164,7 +167,7 @@ pub fn check(
         ));
     }
 
-    diagnostics
+    Ok(diagnostics)
 }
 
 /// Every entry directly under `<root>/.claude` (not recursive), as a
@@ -200,21 +203,24 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
 
 /// `kinds` plus every kind `root`'s committed lock declares that is not already in
 /// `kinds` — so a locked custom kind's `governs` locus joins the built-ins for the
-/// unmodeled-surface suppression below. A missing or malformed lock degrades to
-/// `kinds` alone, the same absent-evidence-forges-no-finding tolerance
-/// [`drift::read_declarations`] itself takes.
+/// unmodeled-surface suppression below. A missing lock declares no kinds and degrades to
+/// `kinds` alone; a present kind row outside its closed vocabulary rejects loud.
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError`] when a declared kind row cannot be lifted.
 fn with_locked_kinds(
     root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
-) -> BTreeMap<String, CustomKind> {
+) -> Result<BTreeMap<String, CustomKind>, drift::LockRowError> {
     let mut merged = kinds.clone();
     let locked = drift::read_declarations(&root.join(TEMPER_DIR)).unwrap_or_default();
     for row in &locked.kinds {
-        merged
-            .entry(row.name.clone())
-            .or_insert_with(|| CustomKind::from_kind_fact_row(row));
+        if !merged.contains_key(&row.name) {
+            merged.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
+        }
     }
-    merged
+    Ok(merged)
 }
 
 /// Whether a known surface exists on disk at `root`, probed as its declared shape — a
@@ -315,7 +321,8 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
-        );
+        )
+        .unwrap();
         let summary = diagnostics
             .iter()
             .find(|d| d.rule == CHECKED_RULE)
@@ -336,7 +343,8 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
-        );
+        )
+        .unwrap();
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("checked 1 member across 1 kind:"));
     }
@@ -353,7 +361,8 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
-        );
+        )
+        .unwrap();
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
         assert!(summary.message.contains("command (2)"));
         assert!(!summary.message.contains("built-in"));
@@ -453,7 +462,7 @@ mod tests {
         std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
 
         let counts = BTreeMap::from([("widget".to_string(), 0usize)]);
-        let diagnostics = check(&root, &builtin_set(), &counts);
+        let diagnostics = check(&root, &builtin_set(), &counts).unwrap();
 
         assert!(
             diagnostics
@@ -469,7 +478,7 @@ mod tests {
         std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
         let counts = BTreeMap::new();
-        let diagnostics = check(&root, &builtin_set(), &counts);
+        let diagnostics = check(&root, &builtin_set(), &counts).unwrap();
 
         assert!(
             diagnostics
@@ -485,7 +494,7 @@ mod tests {
         std::fs::create_dir_all(root.join(".claude")).unwrap();
         std::fs::write(root.join(".claude/.clauignore"), "").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
 
         let matches: Vec<_> = diagnostics
             .iter()
@@ -501,7 +510,7 @@ mod tests {
         let root = tmpdir("governed-locus");
         std::fs::create_dir_all(root.join(".claude/skills")).unwrap();
 
-        let diagnostics = check(&root, &builtin_set(), &BTreeMap::new());
+        let diagnostics = check(&root, &builtin_set(), &BTreeMap::new()).unwrap();
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -516,7 +525,7 @@ mod tests {
         std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
         std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -540,7 +549,7 @@ mod tests {
         std::fs::write(root.join(".claude/.gitignore"), "ignored-stray.md\n").unwrap();
         std::fs::write(root.join(".claude/ignored-stray.md"), "").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new());
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
 
         assert!(
             diagnostics

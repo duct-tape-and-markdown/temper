@@ -59,7 +59,7 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
 
     // The dependency reached the lock as a fingerprinted content dependency: the host, the
     // resolved target path, a non-empty hash, and — a plain file, not a member — no edge.
-    let includes = drift::includes(&into);
+    let includes = drift::includes(&into).unwrap();
     assert_eq!(includes.len(), 1);
     assert_eq!(includes[0].member, "rule:host");
     assert!(includes[0].source_path.ends_with("fragment.md"));
@@ -67,9 +67,9 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
     assert!(!includes[0].import_hash.is_empty());
 
     // The fingerprint tracks the target's bytes: fresh now, drift once the target moves.
-    assert!(drift::include_stale(&into).is_empty());
+    assert!(drift::include_stale(&into).unwrap().is_empty());
     fs::write(harness.join("fragment.md"), "edited prose.\n").unwrap();
-    let stale = drift::include_stale(&into);
+    let stale = drift::include_stale(&into).unwrap();
     assert_eq!(stale.len(), 1, "a moved include target is drift: {stale:?}");
 }
 
@@ -112,7 +112,7 @@ fn a_dangling_include_refuses_before_any_byte_is_written() {
         !harness.join(".claude/rules/sibling.md").exists(),
         "no projection is written when a sibling include dangles"
     );
-    assert!(drift::includes(&into).is_empty());
+    assert!(drift::includes(&into).unwrap().is_empty());
 }
 
 #[test]
@@ -146,7 +146,7 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
     // The include resolved to the `shared` member: the lock names the member edge.
-    let includes = drift::includes(&into);
+    let includes = drift::includes(&into).unwrap();
     let host_include = includes
         .iter()
         .find(|row| row.member == "rule:host")

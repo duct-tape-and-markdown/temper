@@ -860,7 +860,7 @@ fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kin
         .iter()
         .find(|k| k.name == "spec")
         .expect("the layout kind row is recorded");
-    let spec = CustomKind::from_kind_fact_row(spec_row);
+    let spec = CustomKind::from_kind_fact_row(spec_row).unwrap();
     assert_eq!(
         spec.content,
         Content::Layout(Layout {
@@ -891,7 +891,7 @@ fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kin
         "a file-content kind's row omits the content column"
     );
     assert_eq!(
-        CustomKind::from_kind_fact_row(rule_row).content,
+        CustomKind::from_kind_fact_row(rule_row).unwrap().content,
         Content::File
     );
 }
@@ -1013,6 +1013,126 @@ fn a_missing_lock_reads_empty() {
     let dir: &Path = &common::tmpdir("missing-lock");
     let declarations = drift::read_declarations(dir).unwrap();
     assert_eq!(declarations, drift::Declarations::default());
+}
+
+/// Read a raw `lock.toml` off a fresh workspace — the shape the present-but-malformed
+/// cases drive `read_declarations` over directly, no emit round-trip.
+fn read_raw(label: &str, lock: &str) -> miette::Result<Declarations> {
+    let dir = common::tmpdir(label);
+    fs::write(dir.join("lock.toml"), lock).unwrap();
+    drift::read_declarations(&dir)
+}
+
+/// A present row missing a required column is a load error naming its family — one case
+/// per declaration family. The tool-written lock admits no degrade-to-absent read of a
+/// malformed row: a dropped `satisfies` row would forge an unfilled-requirement finding,
+/// a dropped `kind` row would unmodel members.
+#[test]
+fn read_declarations_rejects_a_present_row_missing_a_required_column() {
+    let cases = [
+        (
+            "kind",
+            "[[declaration.kind]]\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+        ),
+        (
+            "clause",
+            "[[declaration.clause]]\nseverity = \"required\"\n",
+        ),
+        (
+            "requirement",
+            "[[declaration.requirement]]\nrequired = true\n",
+        ),
+        ("assembly", "[[declaration.assembly]]\nvalue = \"block\"\n"),
+        (
+            "satisfies",
+            "[[declaration.satisfies]]\nmember = \"skill:x\"\n",
+        ),
+        ("mention", "[[declaration.mention]]\nmember = \"skill:x\"\n"),
+        (
+            "nested_member",
+            "[[declaration.nested_member]]\nkind = \"decision\"\nkey = \"k\"\n",
+        ),
+    ];
+    for (family, body) in cases {
+        let err = read_raw(&format!("missing-col-{family}"), body).unwrap_err();
+        assert!(
+            err.to_string().contains(family),
+            "the `{family}` family's missing-column load error must name the family, got:\n{err}"
+        );
+    }
+}
+
+/// A present column of the wrong TOML type is a load error naming its family and column —
+/// the tool never emits an integer `name`, so a lock carrying one is corruption.
+#[test]
+fn read_declarations_rejects_a_wrong_typed_column() {
+    let err = read_raw(
+        "wrong-typed-kind-name",
+        "[[declaration.kind]]\nname = 42\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+    )
+    .unwrap_err();
+    let message = err.to_string();
+    assert!(
+        message.contains("kind") && message.contains("name"),
+        "a wrong-typed column names its family and column, got:\n{message}"
+    );
+}
+
+/// A malformed element inside a present row's array column fails the whole row — a
+/// tolerant row, never a tolerant element.
+#[test]
+fn read_declarations_rejects_a_malformed_array_element() {
+    let err = read_raw(
+        "malformed-array-element",
+        "[[declaration.clause]]\npredicate = \"unique\"\nseverity = \"required\"\nkeys = [\"a\", 3]\n",
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("clause"),
+        "a non-string array element fails the whole `clause` row, got:\n{err}"
+    );
+}
+
+/// A well-formed row omitting every optional column reads clean — absent optional
+/// columns stay legitimate absence; only a *present* malformed row errors.
+#[test]
+fn read_declarations_reads_a_row_with_absent_optional_columns() {
+    let declarations = read_raw(
+        "absent-optional-columns",
+        "[[declaration.kind]]\nname = \"spec\"\ngoverns_root = \"specs\"\ngoverns_glob = \"*.md\"\n",
+    )
+    .unwrap();
+    assert_eq!(declarations.kinds.len(), 1);
+    assert_eq!(declarations.kinds[0].format, None);
+    assert!(declarations.kinds[0].registration.is_empty());
+}
+
+/// An out-of-vocabulary `format` label survives the TOML-typed read but is a corrupt lock
+/// the kind lift rejects loud at `check` — never a silently narrowed kind. The label read
+/// tier's mirror of [`check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit`].
+#[test]
+fn check_rejects_a_lock_kind_row_with_an_out_of_vocabulary_format_label() {
+    let root = common::tmpdir("reject-out-of-vocabulary-format");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                format: Some("xml".to_string()),
+                ..common::kind_facts("spec", "specs", "*.md")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "an out-of-vocabulary format label must fail check loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("xml"),
+        "the load error names the offending label rather than dropping it, got:\n{output}"
+    );
 }
 
 // ---- check resolves members via the lock's governs locus --------------------

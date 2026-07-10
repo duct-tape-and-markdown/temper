@@ -425,9 +425,9 @@ fn explain(target: &str) -> miette::Result<String> {
     // members exist.
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
     let mut custom_members: Vec<read::CustomMember> = Vec::new();
-    let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs);
+    let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row);
+        let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let units = resolve_kind_units(&custom_kind, harness_root, &declarations)?;
         let features: Vec<extract::Features> = units
             .iter()
@@ -453,12 +453,12 @@ fn explain(target: &str) -> miette::Result<String> {
         .iter()
         .map(|row| Ok((row.name.clone(), requirement_from_row(row)?)))
         .collect::<Result<_, compose::ClauseRowError>>()?;
-    let assembly_edges = edges_from_declarations(&declarations);
+    let assembly_edges = edges_from_declarations(&declarations)?;
     // Mentions and layout prose imports both resolve once at emit and lift off the lock;
     // `why` narrates them in the same resolved-edge set the gate's graph predicates range
     // over, so a read cannot disagree with the gate (READ-EDGE-UNIFY).
     let mut mention_edges = mention_edges_from_declarations(&declarations);
-    mention_edges.extend(import_edges_from_lock(&workspace));
+    mention_edges.extend(import_edges_from_lock(&workspace)?);
 
     // The world's inbound registration channel set into each built-in kind — the same
     // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
@@ -568,12 +568,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .iter()
         .map(|row| Ok((row.name.clone(), requirement_from_row(row)?)))
         .collect::<Result<_, compose::ClauseRowError>>()?;
-    let assembly_edges = edges_from_declarations(&declarations);
+    let assembly_edges = edges_from_declarations(&declarations)?;
     // The already-resolved reference edges the graph predicates and read verbs fold in
     // alongside the declared-field arcs: authored mentions and layout prose imports, each
     // resolved once at emit and lifted off the lock's own declaration family.
     let mut mention_edges = mention_edges_from_declarations(&declarations);
-    mention_edges.extend(import_edges_from_lock(workspace));
+    mention_edges.extend(import_edges_from_lock(workspace)?);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
@@ -615,11 +615,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
     // dispatched through the identical two-greens the built-in loop above runs.
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
-    let (custom_rows, collisions) = partition_kind_rows(&declarations, &builtin_defs);
+    let (custom_rows, collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     // The one site among the three dispatchers that can surface a diagnostic.
     diagnostics.extend(collisions.iter().map(|row| kind_collision_diagnostic(row)));
     for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row);
+        let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
         let features = kind_features(&custom_kind, harness_root, &declarations)?;
 
@@ -745,7 +745,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         harness_root,
         &builtin_kind::definitions()?,
         &member_counts,
-    ));
+    )?);
 
     // The fail-loud coherence tripwire: the harness was adopted (its own `.temper/lock.toml`
     // declares requirements) but the gate resolved none of them and the workspace it
@@ -781,8 +781,8 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // composed-prose include target whose bytes no longer match the lock — the target
     // moved and `emit` has not re-run. Advisory, the same `warn` posture `config.stale`
     // takes over a drifted projection.
-    diagnostics.extend(drift::layout_import_stale(workspace));
-    diagnostics.extend(drift::include_stale(workspace));
+    diagnostics.extend(drift::layout_import_stale(workspace)?);
+    diagnostics.extend(drift::include_stale(workspace)?);
 
     Ok(diagnostics)
 }
@@ -796,13 +796,19 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 /// fact at all), and `templates` only when the row declares at least one — an empty
 /// row column defers to `kind`'s own (always empty for a built-in), never blanking a
 /// nonexistent override.
-fn overlay_builtin_kind(kind: &CustomKind, declarations: &drift::Declarations) -> CustomKind {
-    let Some(row) = declarations
-        .kinds
-        .iter()
-        .find(|row| row.name == kind.name && row_relocates_builtin(row, kind))
-    else {
-        return kind.clone();
+fn overlay_builtin_kind(
+    kind: &CustomKind,
+    declarations: &drift::Declarations,
+) -> Result<CustomKind, drift::LockRowError> {
+    let mut matched = None;
+    for row in &declarations.kinds {
+        if row.name == kind.name && row_relocates_builtin(row, kind)? {
+            matched = Some(row);
+            break;
+        }
+    }
+    let Some(row) = matched else {
+        return Ok(kind.clone());
     };
     let mut overlaid = kind.clone();
     overlaid.governs = kind::Governs {
@@ -812,7 +818,7 @@ fn overlay_builtin_kind(kind: &CustomKind, declarations: &drift::Declarations) -
     if !row.templates.is_empty() {
         overlaid = overlaid.overlay_templates(&row.templates);
     }
-    overlaid
+    Ok(overlaid)
 }
 
 /// Read one layout-content document at `file` into a [`Unit`], off the kind's declared
@@ -887,7 +893,7 @@ fn resolve_kind_units(
     harness_root: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
-    let governs = overlay_builtin_kind(kind, declarations).governs;
+    let governs = overlay_builtin_kind(kind, declarations)?.governs;
     let base = harness_root.join(&governs.root);
     // The kind's edge-field slots: a layout field section on one of these reads as
     // addresses, not a verbatim span, so it never lands as a frontmatter field. A custom
@@ -899,7 +905,7 @@ fn resolve_kind_units(
     edge_fields.extend(drift::layout_edge_fields(
         &declarations.assembly,
         &kind.name,
-    ));
+    )?);
     let mut units = Vec::new();
     for file in import::discover_kind_files(harness_root, kind, &governs)? {
         // Dispatch on the kind's content: a layout kind's document is read under its
@@ -955,7 +961,7 @@ fn kind_features(
     harness_root: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
-    let kind = overlay_builtin_kind(kind, declarations);
+    let kind = overlay_builtin_kind(kind, declarations)?;
     Ok(resolve_kind_units(&kind, harness_root, declarations)?
         .iter()
         .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
@@ -1196,9 +1202,9 @@ fn collect_directive_members(
             });
         }
     }
-    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs);
+    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
     for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row);
+        let custom_kind = CustomKind::from_kind_fact_row(row)?;
         for unit in resolve_kind_units(&custom_kind, harness_root, declarations)? {
             let feature = builtin_kind::features(&custom_kind, &unit, &declarations.nested_members);
             members.push(graph::DirectiveMember {
@@ -1232,11 +1238,16 @@ const KIND_COLLISION_RULE: &str = "kind.admissibility";
 /// built-in's own `templates` is always empty (nothing populates it outside
 /// `from_kind_fact_row`), so a declared, non-empty `templates` legitimately extends the
 /// built-in's host with a child template rather than colliding with it.
-fn row_relocates_builtin(row: &drift::KindFactRow, builtin: &CustomKind) -> bool {
-    let declared = CustomKind::from_kind_fact_row(row);
-    (declared.format.is_none() || declared.format == builtin.format)
-        && (declared.unit_shape.is_none() || declared.unit_shape == builtin.unit_shape)
-        && (declared.registration.is_empty() || declared.registration == builtin.registration)
+fn row_relocates_builtin(
+    row: &drift::KindFactRow,
+    builtin: &CustomKind,
+) -> Result<bool, drift::LockRowError> {
+    let declared = CustomKind::from_kind_fact_row(row)?;
+    Ok(
+        (declared.format.is_none() || declared.format == builtin.format)
+            && (declared.unit_shape.is_none() || declared.unit_shape == builtin.unit_shape)
+            && (declared.registration.is_empty() || declared.registration == builtin.registration),
+    )
 }
 
 /// Partition the lock's declared kind rows for the three sites (`explain`, `gate`,
@@ -1248,20 +1259,21 @@ fn row_relocates_builtin(row: &drift::KindFactRow, builtin: &CustomKind) -> bool
 /// consolidating what were three duplicated `if builtin_defs.contains_key(...) {
 /// continue }` sites. A row that *does* relocate a built-in is neither: it is silently
 /// consumed by that built-in's own [`resolve_kind_units`] call, exactly as before.
+#[allow(clippy::type_complexity)]
 fn partition_kind_rows<'a>(
     declarations: &'a drift::Declarations,
     builtin_defs: &BTreeMap<String, CustomKind>,
-) -> (Vec<&'a drift::KindFactRow>, Vec<&'a drift::KindFactRow>) {
+) -> Result<(Vec<&'a drift::KindFactRow>, Vec<&'a drift::KindFactRow>), drift::LockRowError> {
     let mut custom = Vec::new();
     let mut collisions = Vec::new();
     for row in &declarations.kinds {
         match builtin_defs.get(&row.name) {
             None => custom.push(row),
-            Some(builtin) if !row_relocates_builtin(row, builtin) => collisions.push(row),
+            Some(builtin) if !row_relocates_builtin(row, builtin)? => collisions.push(row),
             Some(_) => {}
         }
     }
-    (custom, collisions)
+    Ok((custom, collisions))
 }
 
 /// A [`KIND_COLLISION_RULE`] finding for a colliding row from [`partition_kind_rows`] —
@@ -1322,21 +1334,36 @@ fn clause_from_row(row: &drift::ClauseRow) -> Result<contract::Clause, compose::
 }
 
 /// The assembly's declared edges off the lock's `assembly` fact family — every
-/// `fact = "edge"` row, tolerantly (a row missing a column is skipped, not errored;
-/// `drift::read_declarations`'s tolerance).
-fn edges_from_declarations(declarations: &drift::Declarations) -> Vec<compose::Edge> {
+/// `fact = "edge"` row. A present edge row missing a required `field`/`from`/`to` column
+/// is a load error naming the assembly family, never a silently absent edge.
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError`] when a present edge fact omits a required column.
+fn edges_from_declarations(
+    declarations: &drift::Declarations,
+) -> Result<Vec<compose::Edge>, drift::LockRowError> {
     declarations
         .assembly
         .iter()
         .filter(|fact| fact.fact == "edge")
-        .filter_map(|fact| {
-            Some(compose::Edge {
-                field: fact.field.clone()?,
-                from: fact.from.clone()?,
-                to: fact.to.clone()?,
+        .map(|fact| {
+            Ok(compose::Edge {
+                field: edge_column(fact.field.clone(), "field")?,
+                from: edge_column(fact.from.clone(), "from")?,
+                to: edge_column(fact.to.clone(), "to")?,
             })
         })
         .collect()
+}
+
+/// One required column off a present `edge` assembly fact — an absent one is a load error
+/// naming the assembly family, the same reject a malformed row takes at load.
+fn edge_column(value: Option<String>, column: &str) -> Result<String, drift::LockRowError> {
+    value.ok_or_else(|| drift::LockRowError::MissingColumn {
+        family: "assembly".to_string(),
+        column: column.to_string(),
+    })
 }
 
 /// The lock's already-resolved `mention` rows, lifted into [`graph::ResolvedEdge`]s —
@@ -1362,17 +1389,22 @@ fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<gr
 /// not payload rows). Both fold into the one `import`-locus edge set. A reference
 /// resolving to a plain repository file names no member, so it carries no address and
 /// reaches no edge here — its content dependency is still fingerprinted for drift.
-fn import_edges_from_lock(workspace_dir: &Path) -> Vec<graph::ResolvedEdge> {
-    let imports: Vec<graph::ImportDeclaration> = drift::layout_imports(workspace_dir)
+///
+/// # Errors
+///
+/// Returns a [`drift::DriftError`] when the lock cannot be read/parsed or a present
+/// source-dependency row is malformed.
+fn import_edges_from_lock(workspace_dir: &Path) -> miette::Result<Vec<graph::ResolvedEdge>> {
+    let imports: Vec<graph::ImportDeclaration> = drift::layout_imports(workspace_dir)?
         .into_iter()
-        .chain(drift::includes(workspace_dir))
+        .chain(drift::includes(workspace_dir)?)
         .filter(|row| !row.target.is_empty())
         .map(|row| graph::ImportDeclaration {
             member: row.member,
             target: row.target,
         })
         .collect();
-    graph::resolved_import_edges(&imports)
+    Ok(graph::resolved_import_edges(&imports))
 }
 
 #[cfg(test)]
