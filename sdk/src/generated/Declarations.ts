@@ -25,6 +25,8 @@ import type { SatisfiesRow } from "./SatisfiesRow.js";
  * facet) so the read and write sides are the same shape: the lock is the vocabulary,
  * not a typed IR. `#[derive(Deserialize)]` doubles this shape as the SDK payload's own
  * wire format — the same rows, whether they arrive off disk or off the seam's JSON pipe.
+ *
+ * Not `Eq`: its [`ClauseRow`]s may carry `f64` `range` bounds.
  */
 export type Declarations = { 
 /**

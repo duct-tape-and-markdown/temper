@@ -3,6 +3,8 @@ import type { BoundRow } from "./BoundRow.js";
 import type { CharsetRow } from "./CharsetRow.js";
 import type { CountBoundRow } from "./CountBoundRow.js";
 import type { DegreeBoundRow } from "./DegreeBoundRow.js";
+import type { RangeBoundRow } from "./RangeBoundRow.js";
+import type { SectionContainsRow } from "./SectionContainsRow.js";
 
 /**
  * One clause of a kind's effective contract, reduced to the columns the lock records:
@@ -18,6 +20,10 @@ import type { DegreeBoundRow } from "./DegreeBoundRow.js";
  * `unique`'s field rides the shared `field`
  * column (the same slot `required`/`min_len`/… target); the rest carry their own
  * optional columns since a plain field/severity pair cannot express them.
+ *
+ * Not `Eq`: the `range` column carries `f64` bounds ([`RangeBoundRow`]), so the
+ * whole clause-row family it rides is `PartialEq`-only — the same trade
+ * [`crate::contract::Predicate`] already makes for its own `Range` bounds.
  */
 export type ClauseRow = { 
 /**
@@ -80,4 +86,13 @@ keys?: Array<string>,
 /**
  * The `deny` clause's forbidden value list, when the predicate is `deny`.
  */
-values?: Array<string>, };
+values?: Array<string>, 
+/**
+ * The `range` clause's inclusive numeric bound, when the predicate is `range`.
+ */
+range?: RangeBoundRow, 
+/**
+ * The `section_contains` clause's heading prefix and required marker, when the
+ * predicate is `section_contains`.
+ */
+section?: SectionContainsRow, };

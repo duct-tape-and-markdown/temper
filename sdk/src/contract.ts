@@ -39,6 +39,10 @@ export interface Predicate {
   readonly keys?: readonly string[];
   /** `enum`/`deny`'s permitted or forbidden value list. */
   readonly values?: readonly string[];
+  /** `range`'s inclusive numeric bound. */
+  readonly range?: { readonly min: number; readonly max: number };
+  /** `section_contains`'s heading-text prefix and the marker each governed section must carry. */
+  readonly section?: { readonly heading: string; readonly marker: string };
 }
 
 /**
@@ -82,6 +86,32 @@ export const requireSections = (): Predicate => ({ key: "require_sections" });
 export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
 /** Names are unique within the artifact kind (a scope-wide identity collision). */
 export const uniqueName = (): Predicate => ({ key: "unique-name" });
+/**
+ * The named field may be present — always satisfied, recording the key as part of a
+ * declared (closed) schema. `dependency-exists` has no constructor: the engine holds
+ * it back absent a decidable reference syntax, so a hand-authored clause would fail
+ * admissibility.
+ */
+export const optional = (field: string): Predicate => ({ key: "optional", field });
+/** The field's numeric value lies within the inclusive `[min, max]` bound. */
+export const range = (field: string, min: number, max: number): Predicate => ({
+  key: "range",
+  field,
+  range: { min, max },
+});
+/** The field's value is one of `values`. Spelled `enumOf` — `enum` is a reserved word. */
+export const enumOf = (field: string, values: readonly string[]): Predicate => ({
+  key: "enum",
+  field,
+  values,
+});
+/** The named body marker is defined (e.g. `disable-model-invocation`). */
+export const mustDefine = (marker: string): Predicate => ({ key: "must_define", field: marker });
+/** Every body section whose heading *starts with* `heading` carries `marker` in its body. */
+export const sectionContains = (heading: string, marker: string): Predicate => ({
+  key: "section_contains",
+  section: { heading, marker },
+});
 
 // Node-set/edge-scope predicates — a requirement's set-scope demands ride
 // these as ordinary clause values, the same four-channel `clause()` shape as

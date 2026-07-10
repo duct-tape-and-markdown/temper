@@ -348,7 +348,9 @@ pub struct PayloadMember {
 /// declaration rows (the lock's seven families) and every projected member's erased
 /// payload. The engine is the sole compiler of every projection and the whole lock
 /// from this one value — no harness re-supply, the payload IS the source.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+///
+/// Not `Eq`: its declarations may carry `f64` `range` bounds ([`RangeBoundRow`]).
+#[derive(Debug, Clone, Deserialize, PartialEq, ts_rs::TS)]
 pub struct Payload {
     /// The pinned seam version this payload was compiled against.
     pub version: u32,
@@ -1566,7 +1568,9 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 /// facet) so the read and write sides are the same shape: the lock is the vocabulary,
 /// not a typed IR. `#[derive(Deserialize)]` doubles this shape as the SDK payload's own
 /// wire format — the same rows, whether they arrive off disk or off the seam's JSON pipe.
-#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq, ts_rs::TS)]
+///
+/// Not `Eq`: its [`ClauseRow`]s may carry `f64` `range` bounds.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, ts_rs::TS)]
 pub struct Declarations {
     /// The kind facts — one per kind in the program.
     pub kinds: Vec<KindFactRow>,
@@ -1685,7 +1689,11 @@ pub struct LayoutRegionRow {
 /// `unique`'s field rides the shared `field`
 /// column (the same slot `required`/`min_len`/… target); the rest carry their own
 /// optional columns since a plain field/severity pair cannot express them.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+///
+/// Not `Eq`: the `range` column carries `f64` bounds ([`RangeBoundRow`]), so the
+/// whole clause-row family it rides is `PartialEq`-only — the same trade
+/// [`crate::contract::Predicate`] already makes for its own `Range` bounds.
+#[derive(Debug, Clone, Deserialize, PartialEq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct ClauseRow {
     /// The kind whose contract carries the clause. `None` when this row is nested
@@ -1734,6 +1742,34 @@ pub struct ClauseRow {
     /// The `deny` clause's forbidden value list, when the predicate is `deny`.
     #[serde(default)]
     pub values: Option<Vec<String>>,
+    /// The `range` clause's inclusive numeric bound, when the predicate is `range`.
+    #[serde(default)]
+    pub range: Option<RangeBoundRow>,
+    /// The `section_contains` clause's heading prefix and required marker, when the
+    /// predicate is `section_contains`.
+    #[serde(default)]
+    pub section: Option<SectionContainsRow>,
+}
+
+/// A `range` clause row's inclusive numeric bound — `f64` so one predicate spans both
+/// integer and fractional fields. Not `Eq`: `f64` is only `PartialEq`, which is why
+/// the whole clause-row family it rides is `PartialEq`-only.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, ts_rs::TS)]
+pub struct RangeBoundRow {
+    /// The inclusive lower bound.
+    pub min: f64,
+    /// The inclusive upper bound.
+    pub max: f64,
+}
+
+/// A `section_contains` clause row's arguments — the heading-text prefix selecting the
+/// governed sections and the marker every governed section's body must carry.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct SectionContainsRow {
+    /// The heading-text prefix that selects the sections the clause governs.
+    pub heading: String,
+    /// The marker text every governed section's body must contain.
+    pub marker: String,
 }
 
 /// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`max_lines`'s
@@ -1770,7 +1806,9 @@ pub struct CharsetRow {
 /// the roster/graph checks range over. No facet columns: a demand's severity,
 /// argument, and — for `unique`/`membership` — targeted field ride the nested
 /// [`ClauseRow`], the identical row shape a kind's own floor clauses use.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+///
+/// Not `Eq`: its nested [`ClauseRow`]s may carry `f64` `range` bounds.
+#[derive(Debug, Clone, Deserialize, PartialEq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct RequirementRow {
     /// The requirement's name.
@@ -2281,6 +2319,12 @@ impl ClauseRow {
         if let Some(values) = &self.values {
             table.insert("values", value(string_array(values)));
         }
+        if let Some(range) = &self.range {
+            table.insert("range", value(range_bound_table(range)));
+        }
+        if let Some(section) = &self.section {
+            table.insert("section", value(section_contains_table(section)));
+        }
         table
     }
 
@@ -2311,6 +2355,14 @@ impl ClauseRow {
                 .map(charset_from_table),
             keys: table.get("keys").and_then(string_array_from_item),
             values: table.get("values").and_then(string_array_from_item),
+            range: table
+                .get("range")
+                .and_then(Item::as_table_like)
+                .and_then(range_bound_from_table),
+            section: table
+                .get("section")
+                .and_then(Item::as_table_like)
+                .and_then(section_contains_from_table),
         })
     }
 }
@@ -2365,6 +2417,43 @@ fn usize_col(table: &dyn TableLike, key: &str) -> Option<usize> {
         .get(key)?
         .as_integer()
         .and_then(|n| usize::try_from(n).ok())
+}
+
+/// One numeric column off an inline table-like as an `f64` — a TOML integer widens
+/// to float so a hand-authored `1` reads the same as `1.0`. Any miss (absent,
+/// non-numeric) is `None`.
+fn f64_col(table: &dyn TableLike, key: &str) -> Option<f64> {
+    let item = table.get(key)?;
+    item.as_float()
+        .or_else(|| item.as_integer().map(|n| n as f64))
+}
+
+fn range_bound_table(range: &RangeBoundRow) -> InlineTable {
+    let mut table = InlineTable::new();
+    table.insert("min", Value::from(range.min));
+    table.insert("max", Value::from(range.max));
+    table
+}
+
+fn range_bound_from_table(table: &dyn TableLike) -> Option<RangeBoundRow> {
+    Some(RangeBoundRow {
+        min: f64_col(table, "min")?,
+        max: f64_col(table, "max")?,
+    })
+}
+
+fn section_contains_table(section: &SectionContainsRow) -> InlineTable {
+    let mut table = InlineTable::new();
+    table.insert("heading", Value::from(section.heading.clone()));
+    table.insert("marker", Value::from(section.marker.clone()));
+    table
+}
+
+fn section_contains_from_table(table: &dyn TableLike) -> Option<SectionContainsRow> {
+    Some(SectionContainsRow {
+        heading: table.get("heading")?.as_str()?.to_string(),
+        marker: table.get("marker")?.as_str()?.to_string(),
+    })
 }
 
 fn count_bound_table(count: &CountBoundRow) -> InlineTable {

@@ -129,36 +129,83 @@ pub fn effective(clauses: &[ClauseRow], kind: &str, mut default_contract: Contra
 /// rows only overriding a clause's severity ([`effective`])
 /// — a custom kind carries no embedded default: its committed rows **are** its
 /// default contract, the same lift [`crate::builtin::contract`] runs over the
-/// *embedded* lock's own rows, run here over the *project's own*. Tolerant like the
-/// rest of a hand-editable lock's readers: a row naming an unsupported predicate, an
-/// out-of-vocabulary severity, or one missing its own required argument is skipped
-/// rather than trusted.
-#[must_use]
-pub fn default_contract_from_rows(clauses: &[ClauseRow], kind: &str) -> Contract {
-    Contract {
+/// *embedded* lock's own rows, run here over the *project's own*.
+///
+/// # Errors
+///
+/// A row naming a predicate outside the closed vocabulary, or missing an argument its
+/// predicate requires, is a [`ClauseRowError`] — the lock is tool-written, never
+/// hand-patched (`specs/model/pipeline.md`), so a row the closed vocabulary cannot
+/// admit is a corrupt lock rejected loud, never a clause silently dropped.
+pub fn default_contract_from_rows(
+    clauses: &[ClauseRow],
+    kind: &str,
+) -> Result<Contract, ClauseRowError> {
+    let clauses = clauses
+        .iter()
+        .filter(|row| row.kind.as_deref() == Some(kind))
+        .map(clause_from_row)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Contract {
         name: kind.to_string(),
-        clauses: clauses
-            .iter()
-            .filter(|row| row.kind.as_deref() == Some(kind))
-            .filter_map(clause_from_row)
-            .collect(),
+        clauses,
         guidance: None,
-    }
+    })
+}
+
+/// A lock clause row the closed predicate vocabulary cannot admit — an unknown
+/// predicate or one missing its required argument, or an out-of-vocabulary severity.
+/// Surfaced as a load error rather than a silent skip: the lock is tool-written, so a
+/// row the SDK could not have emitted is corruption, not a tolerable hand-edit
+/// (`specs/model/contract.md`, "clause": an unknown predicate is rejected at load).
+#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
+pub enum ClauseRowError {
+    /// The row names a predicate outside the closed vocabulary, or omits an argument
+    /// its predicate requires — either way no clause can be built.
+    #[error(
+        "lock clause row names predicate `{predicate}`, which is not in the closed \
+         vocabulary or is missing a required argument"
+    )]
+    Predicate {
+        /// The offending row's predicate key.
+        predicate: String,
+    },
+    /// The row's severity label is outside the closed `required`/`advisory` vocabulary.
+    #[error(
+        "lock clause row for predicate `{predicate}` declares severity `{severity}`, \
+         outside the closed `required`/`advisory` vocabulary"
+    )]
+    Severity {
+        /// The offending row's predicate key.
+        predicate: String,
+        /// The unrecognized severity label.
+        severity: String,
+    },
 }
 
 /// Lift one clause row into its typed [`contract::Clause`] — predicate, severity,
-/// guidance, and cite, the clause's full four channels. A row naming an unsupported
-/// predicate, an out-of-vocabulary severity, or one missing its own required argument
-/// yields `None` — the same tolerant read the rest of a hand-editable lock takes.
+/// guidance, and cite, the clause's full four channels.
 /// `pub` (not `pub(crate)`, same reasoning as [`severity_from_label`]): the `main`
 /// binary is a separate crate from this library, so its requirement-nested lift
 /// needs this visible across the crate boundary to wrap it, as `crate::builtin`'s
 /// embedded-lock lift also does.
-#[must_use]
-pub fn clause_from_row(row: &ClauseRow) -> Option<contract::Clause> {
-    Some(contract::Clause {
-        severity: severity_from_label(&row.severity)?,
-        predicate: contract::predicate_from_row(row)?,
+///
+/// # Errors
+///
+/// A row naming a predicate outside the closed vocabulary, missing a required
+/// argument, or declaring an out-of-vocabulary severity is a [`ClauseRowError`] —
+/// rejected loud, never a silently dropped clause (see [`default_contract_from_rows`]).
+pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, ClauseRowError> {
+    let severity = severity_from_label(&row.severity).ok_or_else(|| ClauseRowError::Severity {
+        predicate: row.predicate.clone(),
+        severity: row.severity.clone(),
+    })?;
+    let predicate = contract::predicate_from_row(row).ok_or_else(|| ClauseRowError::Predicate {
+        predicate: row.predicate.clone(),
+    })?;
+    Ok(contract::Clause {
+        severity,
+        predicate,
         guidance: row.guidance.clone(),
         source: row.cite.clone(),
     })
@@ -218,6 +265,29 @@ mod tests {
         }
     }
 
+    /// A [`ClauseRow`] at `severity`, every other column defaulted — the base the
+    /// reject-loud cases struct-update, overriding only `kind`/`predicate` and any
+    /// argument column the case exercises.
+    fn clause_row(severity: &str) -> ClauseRow {
+        ClauseRow {
+            kind: None,
+            predicate: String::new(),
+            field: None,
+            severity: severity.to_string(),
+            guidance: None,
+            cite: None,
+            count: None,
+            target: None,
+            degree: None,
+            bound: None,
+            charset: None,
+            keys: None,
+            values: None,
+            range: None,
+            section: None,
+        }
+    }
+
     #[test]
     fn effective_with_no_clause_rows_yields_the_default_contract_unchanged() {
         assert_eq!(
@@ -246,6 +316,8 @@ mod tests {
             charset: None,
             keys: None,
             values: None,
+            range: None,
+            section: None,
         };
         let contract = effective(&[row], "skill", default_contract());
         assert_eq!(contract.clauses.len(), default_contract().clauses.len());
@@ -268,6 +340,8 @@ mod tests {
             charset: None,
             keys: None,
             values: None,
+            range: None,
+            section: None,
         };
         assert_eq!(
             effective(&[row], "skill", default_contract()),
@@ -294,6 +368,8 @@ mod tests {
             charset: None,
             keys: None,
             values: None,
+            range: None,
+            section: None,
         };
         assert_eq!(
             effective(&[row], "skill", default_contract()),
@@ -324,6 +400,8 @@ mod tests {
                 charset: None,
                 keys: None,
                 values: None,
+                range: None,
+                section: None,
             },
             ClauseRow {
                 kind: Some("rule".to_string()),
@@ -342,10 +420,12 @@ mod tests {
                 charset: None,
                 keys: None,
                 values: None,
+                range: None,
+                section: None,
             },
         ];
 
-        let contract = default_contract_from_rows(&rows, "spec");
+        let contract = default_contract_from_rows(&rows, "spec").unwrap();
         assert_eq!(contract.name, "spec");
         assert_eq!(
             contract.clauses,
@@ -359,46 +439,47 @@ mod tests {
     }
 
     #[test]
-    fn default_contract_from_rows_skips_a_row_it_cannot_lift() {
-        // An unsupported predicate and an out-of-vocabulary severity both degrade to
-        // absent, the tolerant read the rest of a hand-editable lock takes.
-        let rows = vec![
-            ClauseRow {
-                kind: Some("spec".to_string()),
-                predicate: "section_contains".to_string(),
-                field: None,
-                severity: "advisory".to_string(),
-                guidance: None,
-                cite: None,
-                count: None,
-                target: None,
-                degree: None,
-                bound: None,
-                charset: None,
-                keys: None,
-                values: None,
-            },
-            ClauseRow {
-                kind: Some("spec".to_string()),
-                predicate: "max_lines".to_string(),
-                field: None,
-                severity: "blocking".to_string(),
-                guidance: None,
-                cite: None,
-                count: None,
-                target: None,
-                degree: None,
-                bound: Some(crate::drift::BoundRow {
-                    min: None,
-                    max: Some(150),
-                }),
-                charset: None,
-                keys: None,
-                values: None,
-            },
-        ];
+    fn default_contract_from_rows_rejects_a_row_it_cannot_lift() {
+        // The lock is tool-written, never hand-patched: a row the closed vocabulary
+        // cannot admit is corruption rejected loud, never a clause silently dropped.
+        // An unknown predicate names nothing in the vocabulary.
+        let unknown = vec![ClauseRow {
+            kind: Some("spec".to_string()),
+            predicate: "not_a_predicate".to_string(),
+            ..clause_row("advisory")
+        }];
+        assert!(matches!(
+            default_contract_from_rows(&unknown, "spec"),
+            Err(ClauseRowError::Predicate { predicate }) if predicate == "not_a_predicate"
+        ));
 
-        assert!(default_contract_from_rows(&rows, "spec").clauses.is_empty());
+        // A known predicate missing its required argument (`section_contains` with no
+        // `section` column) cannot be built either — the same loud rejection.
+        let missing_arg = vec![ClauseRow {
+            kind: Some("spec".to_string()),
+            predicate: "section_contains".to_string(),
+            ..clause_row("advisory")
+        }];
+        assert!(matches!(
+            default_contract_from_rows(&missing_arg, "spec"),
+            Err(ClauseRowError::Predicate { .. })
+        ));
+
+        // A severity outside the closed `required`/`advisory` vocabulary is rejected
+        // on the severity channel.
+        let bad_severity = vec![ClauseRow {
+            kind: Some("spec".to_string()),
+            predicate: "max_lines".to_string(),
+            bound: Some(crate::drift::BoundRow {
+                min: None,
+                max: Some(150),
+            }),
+            ..clause_row("blocking")
+        }];
+        assert!(matches!(
+            default_contract_from_rows(&bad_severity, "spec"),
+            Err(ClauseRowError::Severity { severity, .. }) if severity == "blocking"
+        ));
     }
 
     #[test]
@@ -417,6 +498,8 @@ mod tests {
             charset: None,
             keys: None,
             values: None,
+            range: None,
+            section: None,
         };
         assert_eq!(
             effective(&[row], "skill", default_contract()),

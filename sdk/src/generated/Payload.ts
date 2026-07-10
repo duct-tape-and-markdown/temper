@@ -8,6 +8,8 @@ import type { PayloadMember } from "./PayloadMember.js";
  * declaration rows (the lock's seven families) and every projected member's erased
  * payload. The engine is the sole compiler of every projection and the whole lock
  * from this one value — no harness re-supply, the payload IS the source.
+ *
+ * Not `Eq`: its declarations may carry `f64` `range` bounds ([`RangeBoundRow`]).
  */
 export type Payload = { 
 /**

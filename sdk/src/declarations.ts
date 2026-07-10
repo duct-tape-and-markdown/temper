@@ -89,7 +89,18 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
           }
         : undefined,
     keys: predicate.key === "forbidden_keys" && predicate.keys ? [...predicate.keys] : undefined,
-    values: predicate.key === "deny" && predicate.values ? [...predicate.values] : undefined,
+    values:
+      (predicate.key === "deny" || predicate.key === "enum") && predicate.values
+        ? [...predicate.values]
+        : undefined,
+    range:
+      predicate.key === "range" && predicate.range !== undefined
+        ? { min: predicate.range.min, max: predicate.range.max }
+        : undefined,
+    section:
+      predicate.key === "section_contains" && predicate.section !== undefined
+        ? { heading: predicate.section.heading, marker: predicate.section.marker }
+        : undefined,
   };
 }
 

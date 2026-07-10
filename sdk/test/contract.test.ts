@@ -7,7 +7,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { clause, count, degree, membership, unique } from "../src/index.js";
+import {
+  clause,
+  compileDeclarations,
+  count,
+  degree,
+  enumOf,
+  harness,
+  membership,
+  mustDefine,
+  optional,
+  range,
+  sectionContains,
+  text,
+  unique,
+} from "../src/index.js";
+import type { ClauseRow, Predicate } from "../src/index.js";
+import { skill } from "../src/claude-code.js";
 
 test("count composes a satisfier-set-size bound as an ordinary predicate", () => {
   assert.deepEqual(count({ min: 1, max: 3 }), { key: "count", args: { min: 1, max: 3 } });
@@ -42,4 +58,71 @@ test("every set-/edge-scope predicate composes into a clause value like any othe
   assert.equal(demand.predicate.key, "count");
   assert.equal(demand.severity, "required");
   assert.equal(demand.guidance, "exactly one release-tool");
+});
+
+// The five evaluable predicates that became SDK-authorable — each composes an
+// ordinary `Predicate` value whose arguments erase into the lock row's own columns,
+// the wire form the engine decodes (`src/contract.rs` `predicate_from_row`).
+
+/**
+ * Compile a single `expect` clause on `skill` and return its lock row — the erased
+ * wire form the engine reads back. Filtering by the predicate's own key isolates it
+ * from `skill`'s floor clauses.
+ */
+function skillClauseRow(predicate: Predicate): ClauseRow {
+  const h = harness({
+    members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
+    expect: [{ kind: skill, clauses: [clause(predicate, { severity: "required" })] }],
+  });
+  const rows = compileDeclarations(h).clauses.filter(
+    (row) => row.kind === "skill" && row.predicate === predicate.key,
+  );
+  assert.equal(rows.length, 1, `exactly one ${predicate.key} row`);
+  return rows[0]!;
+}
+
+test("optional composes a schema-membership predicate landing its field column", () => {
+  assert.deepEqual(optional("model"), { key: "optional", field: "model" });
+  assert.equal(skillClauseRow(optional("model")).field, "model");
+});
+
+test("range composes an inclusive numeric bound landing its range column", () => {
+  assert.deepEqual(range("priority", 1, 5), {
+    key: "range",
+    field: "priority",
+    range: { min: 1, max: 5 },
+  });
+  const row = skillClauseRow(range("priority", 1, 5));
+  assert.deepEqual(row.range, { min: 1, max: 5 });
+  assert.equal(row.field, "priority");
+});
+
+test("enumOf composes a permitted-value set riding the deny-precedent values column", () => {
+  assert.deepEqual(enumOf("status", ["draft", "final"]), {
+    key: "enum",
+    field: "status",
+    values: ["draft", "final"],
+  });
+  const row = skillClauseRow(enumOf("status", ["draft", "final"]));
+  assert.deepEqual(row.values, ["draft", "final"]);
+  assert.equal(row.field, "status");
+});
+
+test("mustDefine composes a body marker landing in the field column", () => {
+  assert.deepEqual(mustDefine("disable-model-invocation"), {
+    key: "must_define",
+    field: "disable-model-invocation",
+  });
+  assert.equal(skillClauseRow(mustDefine("disable-model-invocation")).field, "disable-model-invocation");
+});
+
+test("sectionContains composes a heading/marker predicate landing its section column", () => {
+  assert.deepEqual(sectionContains("Decision", "Rejected"), {
+    key: "section_contains",
+    section: { heading: "Decision", marker: "Rejected" },
+  });
+  assert.deepEqual(skillClauseRow(sectionContains("Decision", "Rejected")).section, {
+    heading: "Decision",
+    marker: "Rejected",
+  });
 });

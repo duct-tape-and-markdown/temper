@@ -8,6 +8,8 @@ import type { ClauseRow } from "./ClauseRow.js";
  * the roster/graph checks range over. No facet columns: a demand's severity,
  * argument, and — for `unique`/`membership` — targeted field ride the nested
  * [`ClauseRow`], the identical row shape a kind's own floor clauses use.
+ *
+ * Not `Eq`: its nested [`ClauseRow`]s may carry `f64` `range` bounds.
  */
 export type RequirementRow = { 
 /**

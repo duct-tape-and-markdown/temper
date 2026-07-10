@@ -442,8 +442,8 @@ fn explain(target: &str) -> miette::Result<String> {
     let roster: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
-        .map(|row| (row.name.clone(), requirement_from_row(row)))
-        .collect();
+        .map(|row| Ok((row.name.clone(), requirement_from_row(row)?)))
+        .collect::<Result<_, compose::ClauseRowError>>()?;
     let assembly_edges = edges_from_declarations(&declarations);
     // Mentions and layout prose imports both resolve once at emit and lift off the lock;
     // `why` narrates them in the same resolved-edge set the gate's graph predicates range
@@ -557,8 +557,8 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
-        .map(|row| (row.name.clone(), requirement_from_row(row)))
-        .collect();
+        .map(|row| Ok((row.name.clone(), requirement_from_row(row)?)))
+        .collect::<Result<_, compose::ClauseRowError>>()?;
     let assembly_edges = edges_from_declarations(&declarations);
     // The already-resolved reference edges the graph predicates and read verbs fold in
     // alongside the declared-field arcs: authored mentions and layout prose imports, each
@@ -614,7 +614,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     diagnostics.extend(collisions.iter().map(|row| kind_collision_diagnostic(row)));
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row);
-        let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name);
+        let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
         let features = kind_features(&custom_kind, harness_root, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract));
@@ -1123,27 +1123,35 @@ fn kind_collision_diagnostic(row: &drift::KindFactRow) -> check::Diagnostic {
 /// Lift the lock's [`drift::RequirementRow`] — the whole requirement shape `import`
 /// wrote — into the [`compose::Requirement`] the roster/coverage/graph tiers
 /// already take.
-fn requirement_from_row(row: &drift::RequirementRow) -> compose::Requirement {
-    compose::Requirement {
+fn requirement_from_row(
+    row: &drift::RequirementRow,
+) -> Result<compose::Requirement, compose::ClauseRowError> {
+    Ok(compose::Requirement {
         name: row.name.clone(),
         prose: row.prose.clone(),
         kind: row.kind.clone(),
         required: row.required,
-        clauses: row.clauses.iter().filter_map(clause_from_row).collect(),
+        clauses: row
+            .clauses
+            .iter()
+            .map(clause_from_row)
+            .collect::<Result<Vec<_>, _>>()?,
         verified_by: row.verified_by.clone(),
-    }
+    })
 }
 
 /// Lift one of a requirement row's nested [`drift::ClauseRow`]s into a
 /// [`contract::Clause`] — the mirror of [`requirement_from_row`] for the set-/edge-scope
 /// demand it carries, via the shared [`compose::clause_from_row`] lift. A
 /// requirement-nested row's guidance/source isn't carried the same way as a
-/// kind-level clause's, so both are overwritten to `None` on the `Some` case
-/// rather than passed through. A row naming an unrecognized predicate, or missing
-/// the argument its predicate requires, degrades to absent — the same tolerant
-/// read the rest of the lock takes over hand-editable state
-/// (`crate::drift::read_declarations`).
-fn clause_from_row(row: &drift::ClauseRow) -> Option<contract::Clause> {
+/// kind-level clause's, so both are overwritten to `None` on success rather than
+/// passed through.
+///
+/// # Errors
+///
+/// Propagates the [`compose::ClauseRowError`] the shared lift raises for a row the
+/// closed vocabulary cannot admit — rejected loud, never a silently dropped clause.
+fn clause_from_row(row: &drift::ClauseRow) -> Result<contract::Clause, compose::ClauseRowError> {
     compose::clause_from_row(row).map(|clause| contract::Clause {
         guidance: None,
         source: None,

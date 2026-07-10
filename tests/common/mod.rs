@@ -442,6 +442,8 @@ pub fn clause(predicate: &str, severity: &str) -> ClauseRow {
         charset: None,
         keys: None,
         values: None,
+        range: None,
+        section: None,
     }
 }
 

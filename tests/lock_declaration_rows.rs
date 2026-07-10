@@ -19,13 +19,16 @@ mod common;
 
 use temper::builtin;
 use temper::builtin_lock;
-use temper::contract::Severity;
+use temper::contract::{self, Clause, Contract, Predicate, Severity};
 use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionEntryRow, CountBoundRow,
     Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow,
-    LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember, RangeBoundRow, RequirementRow,
+    SatisfiesRow, SectionContainsRow,
 };
-use temper::kind::{Content, CustomKind, Layout, LayoutRegion};
+use temper::engine;
+use temper::extract::Features;
+use temper::kind::{Content, CustomKind, Extraction, Layout, LayoutRegion, Primitive};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -565,6 +568,191 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
         .expect("the charset is recorded");
     assert_eq!(charset.ranges, vec!["a-z".to_string(), "0-9".to_string()]);
     assert_eq!(charset.chars.as_deref(), Some("-"));
+}
+
+/// The `range` (f64 bounds) and `section_contains` (heading+marker) clause rows
+/// round-trip their arguments through `to_table`/`from_table` byte-stably — the
+/// column homes `PREDICATE-CONSTRUCTORS` adds beside the existing node-scope args
+/// (`a_floor_clause_row_round_trips_its_node_scope_predicate_argument`).
+#[test]
+fn a_range_and_section_clause_row_round_trip_the_lock() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        kind: Some("skill".to_string()),
+        field: Some("priority".to_string()),
+        range: Some(RangeBoundRow { min: 1.0, max: 5.5 }),
+        ..common::clause("range", "advisory")
+    });
+    declarations.clauses.push(ClauseRow {
+        kind: Some("skill".to_string()),
+        section: Some(SectionContainsRow {
+            heading: "Decision".to_string(),
+            marker: "Rejected".to_string(),
+        }),
+        ..common::clause("section_contains", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("range-section-args", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the f64 bound formats stably across the round trip.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let range_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "range")
+        .expect("the range clause row round-trips");
+    let range = range_row.range.expect("the range bound is recorded");
+    assert_eq!((range.min, range.max), (1.0, 5.5));
+    assert_eq!(range_row.field.as_deref(), Some("priority"));
+
+    let section_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "section_contains")
+        .expect("the section_contains clause row round-trips");
+    let section = section_row
+        .section
+        .as_ref()
+        .expect("the section args are recorded");
+    assert_eq!(section.heading, "Decision");
+    assert_eq!(section.marker, "Rejected");
+}
+
+/// The five SDK-authorable predicates lift from their lock rows into the typed
+/// `Predicate` the engine evaluates (`PREDICATE-CONSTRUCTORS`): the row an SDK
+/// constructor emits decodes through `predicate_from_row`, and the lifted
+/// `section_contains` fires on a violating member — author → row → `Predicate` →
+/// finding.
+#[test]
+fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
+    let optional = ClauseRow {
+        field: Some("model".to_string()),
+        ..common::clause("optional", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&optional),
+        Some(Predicate::Optional {
+            field: "model".to_string()
+        })
+    );
+
+    let range = ClauseRow {
+        field: Some("priority".to_string()),
+        range: Some(RangeBoundRow { min: 1.0, max: 5.0 }),
+        ..common::clause("range", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&range),
+        Some(Predicate::Range {
+            field: "priority".to_string(),
+            min: 1.0,
+            max: 5.0,
+        })
+    );
+
+    let enumerated = ClauseRow {
+        field: Some("status".to_string()),
+        values: Some(vec!["draft".to_string(), "final".to_string()]),
+        ..common::clause("enum", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&enumerated),
+        Some(Predicate::Enum {
+            field: "status".to_string(),
+            values: vec!["draft".to_string(), "final".to_string()],
+        })
+    );
+
+    let must_define = ClauseRow {
+        field: Some("disable-model-invocation".to_string()),
+        ..common::clause("must_define", "required")
+    };
+    assert_eq!(
+        contract::predicate_from_row(&must_define),
+        Some(Predicate::MustDefine {
+            marker: "disable-model-invocation".to_string()
+        })
+    );
+
+    let section = ClauseRow {
+        section: Some(SectionContainsRow {
+            heading: "Decision".to_string(),
+            marker: "Rejected".to_string(),
+        }),
+        ..common::clause("section_contains", "required")
+    };
+    let predicate = contract::predicate_from_row(&section).expect("section_contains lifts");
+    assert_eq!(
+        predicate,
+        Predicate::SectionContains {
+            heading: "Decision".to_string(),
+            marker: "Rejected".to_string(),
+        }
+    );
+
+    // The lifted predicate is a true positive: a `## Decision` section with no
+    // `Rejected` marker fires exactly one finding.
+    let contract = Contract {
+        name: "spec".to_string(),
+        guidance: None,
+        clauses: vec![Clause {
+            severity: Severity::Required,
+            predicate,
+            guidance: None,
+            source: None,
+        }],
+    };
+    let unit = common::raw_unit(
+        "10-decisions",
+        BTreeMap::new(),
+        "# Spec\n\n## Decision: pick the generic engine\n\nChosen it; no alternative named.\n",
+        "specs/decisions.md",
+    );
+    let features: Features = Extraction::new(vec![Primitive::Sections]).extract(&unit);
+    let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
+    assert_eq!(diagnostics.len(), 1, "the bare Decision section fires once");
+    assert_eq!(diagnostics[0].rule, "section_contains");
+}
+
+/// A lock clause row the closed vocabulary cannot admit fails the run loud, never a
+/// silently dropped clause (`specs/model/contract.md`, "clause": an unknown predicate
+/// is rejected at load; `specs/model/pipeline.md`: the lock is tool-written, never
+/// hand-patched). A custom `spec` kind carrying a bogus-predicate clause row must
+/// error rather than check clean.
+#[test]
+fn check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit() {
+    let root = common::tmpdir("reject-out-of-vocabulary-clause");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![ClauseRow {
+                kind: Some("spec".to_string()),
+                ..common::clause("not_a_predicate", "advisory")
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "an out-of-vocabulary clause row must fail the run loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("not_a_predicate"),
+        "the load error names the offending predicate rather than dropping it, got:\n{output}"
+    );
 }
 
 /// A payload with no requirements/satisfies/assembly facts at all still emits and

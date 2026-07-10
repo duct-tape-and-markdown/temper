@@ -270,6 +270,28 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "optional" => Predicate::Optional {
             field: row.field.clone()?,
         },
+        "range" => {
+            let bound = row.range?;
+            Predicate::Range {
+                field: row.field.clone()?,
+                min: bound.min,
+                max: bound.max,
+            }
+        }
+        "enum" => Predicate::Enum {
+            field: row.field.clone()?,
+            values: row.values.clone()?,
+        },
+        "must_define" => Predicate::MustDefine {
+            marker: row.field.clone()?,
+        },
+        "section_contains" => {
+            let section = row.section.as_ref()?;
+            Predicate::SectionContains {
+                heading: section.heading.clone(),
+                marker: section.marker.clone(),
+            }
+        }
         "min_len" => Predicate::MinLen {
             field: row.field.clone()?,
             min: row.bound?.min?,
