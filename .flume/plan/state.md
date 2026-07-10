@@ -2,21 +2,20 @@
 
 - Spec derived through: 6a04322
 - Audited through: f3a5356
-- Residue swept through: 08550e5
-- This tick: Ship audit (job 3). a538a76 (KIND-CONTENT-FACT) verified on
-  disk: KindFactRow.content Option<LayoutRow> at drift.rs:1118 with TOML
-  round-trip (content_table/content_from_table); CustomKind.content;
-  SDK fact 6 at kind.ts:105 lowered by declarations.ts contentRow;
-  generated LayoutRow/LayoutRegionRow bindings present. Both riding exit
-  clauses fired — kind.ts's 8 stale spec-path cites cut (grep: zero hits),
-  kind.rs's two false inertness comments corrected — both bullets deleted.
-  New finding: kind.rs's format-field doc comment (~66) is a third false
-  inertness claim (builtin_kind.rs declares it 4×, main.rs:1013 consumes
-  it) — logged as a riding bullet, fix named in LAYOUT-READER's kind.rs
-  description. LAYOUT-READER unblocked → open. PACKAGING-CHANNELS park
-  re-verified (workflows/ still only temper.yml; root package.json still
-  the private flume manifest).
+- Residue swept through: e9d05f6
+- This tick: Residue sweep (job 4). Delta 08550e5..e9d05f6 is one build
+  commit, a538a76 (KIND-CONTENT-FACT). No structural residue: the SDK's
+  contentRow lowers into the generated LayoutRow/LayoutRegionRow bindings
+  (seam discipline held); drift.rs's content codec follows the file's
+  per-row inline-table pattern; fixtures extended in tests/common. Two
+  comment-staleness finds, both riding: kind.rs:39 "five facts" struct doc
+  (widened onto the existing kind.rs ride — LAYOUT-READER's description
+  now names both); kind.ts's pre-0019 "layout" fact-3 naming, colliding
+  with the exported Layout type (new bullet — rides the next kind.ts
+  opener). Standing debts re-verified on disk (session_start.rs
+  128/133/146; builtins.ts 308/348/385 — a538a76 touched neither).
 - Queue: LAYOUT-READER (open) → LAYOUT-PROSE-IMPORT (blockedBy — shared
   main.rs/drift.rs surfaces); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — residue sweep (cursor 08550e5 trails HEAD).
+Plan continues: yes — quiet closing pass (all inputs current after this
+sweep).

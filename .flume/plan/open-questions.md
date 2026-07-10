@@ -106,9 +106,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   clause did not fire and the debt rides whichever entry opens the file
   next. Debt (1) untouched (no commit since 5f88258 opened
   tests/session_start.rs). Both re-verified on disk at residue sweep HEAD
-  08550e5 (session_start.rs `+++` fixtures at lines 128/133/146; the three
-  builtins.ts cites at 308/348/385 — neither file touched since fcdbe52;
-  b5b6fb4 touched neither). Verify both at the next residue sweep.
+  e9d05f6 (session_start.rs `+++` fixtures at lines 128/133/146; the three
+  builtins.ts cites at 308/348/385 — a538a76 touched neither file). Verify
+  both at the next residue sweep.
 
 - **The `src/kind.rs` `format` field doc comment is factually false** (~line
   66): it claims "today's built-in kinds declare none" and "Inert until
@@ -122,7 +122,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   "the exit clause") — never a standalone entry. LAYOUT-READER opens
   `src/kind.rs` and names the fix in its file description — verify the exit
   clause fired at its ship audit, then delete this bullet. Found at ship
-  audit HEAD f3a5356.
+  audit HEAD f3a5356. Widened at residue sweep HEAD e9d05f6: the
+  `CustomKind` struct doc (line 39) is the same class — "the five facts of
+  runtime residue" enumerates three and predates the sixth fact a538a76
+  added (content). Same ride, same exit; LAYOUT-READER's kind.rs
+  description names both.
 
 - **Pre-0019 "every governed artifact" universal in `src/install.rs:18`.**
   The module doc still states the first emit "regenerates every governed
@@ -136,6 +140,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   delete this bullet. The `tests/install.rs:15,382` half cleared at ship
   audit HEAD ddae7d4 (1589845's exit clause fired; evidence in that plan
   commit body). Found at residue sweep HEAD ec3d112.
+
+- **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
+  (line 4) and the fact-3 doc comments (lines 14/85/87 — "fact 3, layout" =
+  `Format` + `UnitShape`, the projection shape) still spell fact 3 "layout"
+  — vocabulary now colliding, in the same file, with the sanctioned
+  `Layout` content type a538a76 exported (0019: a layout is the declared
+  content template — `specs/model/representation.md`, "kind"; one name per
+  concept, `specs/process/spec-system.md`). Doc-comment staleness only —
+  the symbols themselves (`Format`, `UnitShape`, `Layout`) are correctly
+  named. Rides whichever entry next opens `sdk/src/kind.ts` (no queued
+  entry does), never standalone; the fix renames the *fact narration*,
+  never the sanctioned type. Found at residue sweep HEAD e9d05f6.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
