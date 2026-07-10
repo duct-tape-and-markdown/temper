@@ -96,9 +96,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   `706139a` (2026-07-07). NB the exit clause fires on *reconciliation*, not
   on the file being opened: f36c192 opened builtins.ts and left all three
   cites as unchanged context (verified at ship audit b8f0746). Both
-  re-verified on disk at residue sweep HEAD 3d13eb4 (session_start.rs `+++`
+  re-verified on disk at residue sweep HEAD 77d590e (session_start.rs `+++`
   fixtures at lines 128/133/146; the three builtins.ts cites at 308/348/385
-  — the window's one code commit, cd1ca29, the fields-only-kind shape,
+  — this window's one code commit, 3611335 (the JSON manifest read face),
   touched neither file). Verify both at the next residue sweep.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
@@ -117,7 +117,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   *fresh* in the retired "layout" vocabulary (self-propagation, again) —
   yet left the fact-3 narration, so per the reconciliation-not-opening
   precedent the rider is undischarged; re-verified on disk (lines
-  4/16/106/108) at reconcile HEAD 3d13eb4.
+  4/16/106/108) at reconcile HEAD 77d590e (this window touched engine
+  `src/kind.rs`, not `sdk/src/kind.ts`).
 
 - **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
   The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
@@ -127,25 +128,32 @@ condition arrives, it is the next break. If work touches one, surface it.
   and the plain `String` leaf is the permanent shape, not a middle. Behavior
   is correct; only the comment names a replacement that will never come.
   Rides whichever entry next opens `src/extract.rs` (0020's own exit
-  clause), never standalone. Found routing 0020 at HEAD a0fccaf;
-  re-verified on disk (extract.rs:196-198) at sweep HEAD 3d13eb4.
+  clause), never standalone. Found routing 0020 at HEAD a0fccaf. 3611335
+  opened extract.rs (hunks at 25/912/1108) but left 196-198 as unchanged
+  context, so — reconciliation-not-opening — undischarged; re-verified on
+  disk (extract.rs:196-198) at reconcile HEAD 77d590e.
 
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
   renamed `NNNN-*.md`) still narrates `sdk/src/prose.ts` ("law 5" at
   5/83/184, "law 8" at 10, "posture N" at 68/98/100/127/176, pre-recut
   decision cites `` `15-kinds.md` ``:68 and `` `20-surface.md` ``:139 —
-  neither file exists), `sdk/src/kind.ts:252` ("posture 3"), and
-  `src/extract.rs:1153/1188` ("law 5"). Doc-comment staleness only —
+  neither file exists) and `sdk/src/kind.ts:252` ("posture 3"). Doc-comment
+  staleness only —
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
   in the retired vocabulary, so the narration self-propagates by imitation
   until scrubbed. Rides whichever entry next opens each file (no queued
-  entry opens any), never standalone. (`src/kind.rs:1079`'s `15-kinds.md`
-  is fixture body text inside a test, not a cite — excluded.) Found at
+  entry opens any), never standalone. (Fixture body text inside tests —
+  not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
+  strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
+  which 3611335 shifted 1153/1188→1227/1262 and this sweep reclassified out
+  of the doc-comment list above on finding them `.to_string()` test data.)
+  Found at
   residue sweep HEAD c2a8cae. MANIFEST-KIND-MODEL (cd1ca29) opened
   `sdk/src/kind.ts` and shifted its "posture 3" line 225→252 while leaving
-  the narration; `prose.ts`/`extract.rs` untouched in the window. Re-verified
-  on disk (all lines) at reconcile HEAD 3d13eb4. PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
+  the narration; `prose.ts`/`kind.ts` untouched in this window (3611335 hit
+  only `src/extract.rs`, whose remaining hits are the excluded fixtures).
+  Re-verified on disk at reconcile HEAD 77d590e. PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
   unicode escape sequences (050ef2b), so prose.ts is now NUL-free — grep
   reads it as text without `-a`, and the sweep-mechanics NB retired with
   it. That entry opened prose.ts (lines 56/64) yet left these doc comments
@@ -160,7 +168,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
-  HEAD 3d13eb4.
+  HEAD 77d590e.
 
 - **4144b20's retirement of `compose::effective` left two one-line
   comment stragglers in files that commit itself opened.**
@@ -173,7 +181,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   and symbols correct; doc-comment staleness only. Each rides whichever
   entry next opens its file (no queued entry opens either), never
   standalone. Found at residue sweep HEAD d029d4b; re-verified on disk
-  (compose.rs:233, contract.rs:459) at sweep HEAD 3d13eb4.
+  (compose.rs:233, contract.rs:459) at sweep HEAD 77d590e.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

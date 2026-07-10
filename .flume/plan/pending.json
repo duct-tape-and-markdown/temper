@@ -7,8 +7,7 @@
       "section": "The coverage bar"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-ADAPTER-READ"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -40,6 +39,10 @@
           "description": "Teach `governed_by_any` that the hook kind's collection address governs the `settings.json` hooks segment, so `coverage.unmodeled-surface` stops flagging that segment as checked-by-nothing once the kind lands."
         },
         {
+          "path": "src/main.rs",
+          "description": "Wire `resolve_kind_units` to route a manifest kind (a `Fields` kind carrying a `collection_address`) through `json_manifest::Manifest::read_kind` instead of the frontmatter loader — the runtime gate-path dispatch MANIFEST-ADAPTER-READ (3611335) delivered as a library adapter but deferred wiring until the first manifest kind ships. The hook kind is that kind, so its `settings.json` members read at check-time."
+        },
+        {
           "path": "tests/builtin_lock_frozen.rs",
           "description": "`embedded_declaration_rows()` fixture (line ~72) gains the hook rows so the embedded lock still byte-equals the SDK module's own emit."
         }
@@ -54,7 +57,7 @@
       }
     ],
     "acceptance": "temper models a settings.json hook as a hook member; the shipped hook default contract checks the strictest documented profile; the built-in lock (embedded + SDK-derived) stays byte-equal; coverage stops flagging the hooks segment as unmodeled.",
-    "notes": "Phase 1 of 0021, hook before mcp-server. Reuses the Event registration channel in kind.rs. Build fetches + cites the current Claude Code hooks doc (0014) for the field schema and the strictest-profile default contract. settings.json's full unmodeled-surface retirement (it also holds permissions/opaque keys) waits on phase 2's represented-manifest coverage. Updates the frozen built-in lock, both sides. scoped at 8998b73"
+    "notes": "Phase 1 of 0021, hook before mcp-server; blocker MANIFEST-ADAPTER-READ shipped (3611335), flipped open. First manifest kind — lands the deferred resolve_kind_units read-path dispatch (main.rs). Build fetches + cites the Claude Code hooks doc (0014) for field schema + strictest-profile contract. Reuses the Event channel in kind.rs. Updates the frozen lock both sides. settings.json's full unmodeled-surface retirement waits on phase 2. scoped at 8998b73"
   },
   {
     "tag": "MCP-SERVER-KIND",
@@ -122,7 +125,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "Phase 2 write side of 0021. The block is phase-1 completion (autonomous, not human action): its surfaces are created by the phase-1 chain — src/json_manifest.rs's write face does not exist until MANIFEST-ADAPTER-READ lands, so a blockedBy entry fails the entry-refs gate (edit paths must be on disk). Re-scope into a blockedBy chain behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
+      "reason": "Phase 2 write side of 0021, still a placeholder — NOT one gate-sized entry. MANIFEST-ADAPTER-READ shipped (3611335): src/json_manifest.rs is on disk with its read face, so the original entry-refs blocker (write-face file absent) has cleared — but the rest of phase 1 (HOOK-KIND → MCP-SERVER-KIND) has not shipped, and this entry needs decomposing into a real chain before it can be blockedBy. Re-scope into a blockedBy chain (SDK erasure, emit write face, bundle conversion, guard) behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
     },
     "dependsOnForks": [],
     "files": {
