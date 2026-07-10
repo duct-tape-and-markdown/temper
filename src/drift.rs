@@ -1111,6 +1111,45 @@ pub struct KindFactRow {
     #[serde(default)]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub templates: Vec<String>,
+    /// The declared content: absent for a `file`-content kind (the default the whole
+    /// built-in set takes, so those rows stay byte-identical), a [`LayoutRow`] for a
+    /// kind whose body is a declared layout over its heading tree.
+    #[serde(default)]
+    pub content: Option<LayoutRow>,
+}
+
+/// A kind's declared **layout** — the ordered region rows a `layout`-content kind's body
+/// is read as. Absent from a [`KindFactRow`] means the kind is `file`-content; a present
+/// (even empty) layout means the body is a declared template.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+pub struct LayoutRow {
+    /// The layout's regions, in declared document order.
+    #[serde(default)]
+    pub regions: Vec<LayoutRegionRow>,
+}
+
+/// One [`LayoutRow`] region — one of the three corpus primitives, flattened to a
+/// discriminator plus each primitive's own optional columns (the same discriminator +
+/// optional-columns shape [`AssemblyFactRow`] takes). `prose` carries an optional
+/// `import`; `field` a `slot`; `collection` a `member_kind` and an optional `key`.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
+pub struct LayoutRegionRow {
+    /// The primitive discriminator: `prose`, `field`, or `collection`.
+    pub region: String,
+    /// A `prose` region's import reference, when it imports a file's contents rather
+    /// than carrying its own verbatim words.
+    #[serde(default)]
+    pub import: Option<String>,
+    /// A `field` region's named field slot.
+    #[serde(default)]
+    pub slot: Option<String>,
+    /// A `collection` region's child member kind.
+    #[serde(default)]
+    pub member_kind: Option<String>,
+    /// A `collection` region's explicit identity key, when declared.
+    #[serde(default)]
+    pub key: Option<String>,
 }
 
 /// One clause of a kind's effective contract, reduced to the columns the lock records:
@@ -1577,6 +1616,9 @@ impl KindFactRow {
         if !self.templates.is_empty() {
             table.insert("templates", value(string_array(&self.templates)));
         }
+        if let Some(content) = &self.content {
+            table.insert("content", value(content_table(content)));
+        }
         table
     }
 
@@ -1596,8 +1638,71 @@ impl KindFactRow {
                 .get("templates")
                 .and_then(string_array_from_item)
                 .unwrap_or_default(),
+            content: table
+                .get("content")
+                .and_then(Item::as_table_like)
+                .map(content_from_table),
         })
     }
+}
+
+/// Build a [`KindFactRow`]'s `content` column's wire form: a `{ regions = [...] }` inline
+/// table whose array carries one inline table per region, each an order-preserving
+/// discriminator + optional columns — the same array-of-inline-tables discipline a
+/// [`NestedMemberRow`]'s `collections` column takes.
+fn content_table(content: &LayoutRow) -> InlineTable {
+    let mut regions = Array::new();
+    for region in &content.regions {
+        let mut inline = InlineTable::new();
+        inline.insert("region", Value::from(region.region.clone()));
+        if let Some(import) = &region.import {
+            inline.insert("import", Value::from(import.clone()));
+        }
+        if let Some(slot) = &region.slot {
+            inline.insert("slot", Value::from(slot.clone()));
+        }
+        if let Some(member_kind) = &region.member_kind {
+            inline.insert("member_kind", Value::from(member_kind.clone()));
+        }
+        if let Some(key) = &region.key {
+            inline.insert("key", Value::from(key.clone()));
+        }
+        regions.push(Value::InlineTable(inline));
+    }
+    let mut table = InlineTable::new();
+    table.insert("regions", Value::Array(regions));
+    table
+}
+
+/// Read a `content` column back off its inline table — a region element that is not an
+/// inline table carrying a `region` discriminator drops just that region, never the whole
+/// layout, the tolerant read the rest of the lock's array columns take.
+fn content_from_table(table: &dyn TableLike) -> LayoutRow {
+    let regions = table
+        .get("regions")
+        .and_then(Item::as_array)
+        .map(|array| {
+            array
+                .iter()
+                .filter_map(|value| {
+                    let inline = value.as_inline_table()?;
+                    Some(LayoutRegionRow {
+                        region: inline.get("region")?.as_str()?.to_string(),
+                        import: inline_str(inline, "import"),
+                        slot: inline_str(inline, "slot"),
+                        member_kind: inline_str(inline, "member_kind"),
+                        key: inline_str(inline, "key"),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    LayoutRow { regions }
+}
+
+/// One optional string column off an inline table — `None` when absent or not a string.
+fn inline_str(table: &InlineTable, key: &str) -> Option<String> {
+    table.get(key).and_then(Value::as_str).map(str::to_string)
 }
 
 impl ClauseRow {

@@ -152,6 +152,7 @@ test("compileDeclarations produces all seven families, satisfies and mentions in
       unit_shape: "file",
       registration: ["paths-match(paths)"],
       templates: undefined,
+      content: undefined,
  },
   ]);
   assert.deepEqual(declarations.clauses, [
@@ -360,6 +361,45 @@ test("a host kind's fact row carries its declared embedded children as templates
   const declarations = compileDeclarations(mixed);
   const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
   assert.deepEqual(ruleRow.templates, ["decision"]);
+});
+
+test("a kind's declared layout lowers into its content row; a file-content kind omits it", () => {
+  // A `layout`-content kind exercising all three primitives: an importing prose region,
+  // a field section filling a named slot, and a member collection of a named kind.
+  const specDoc = kind<Record<never, never>>({
+    name: "spec",
+    locus: { kind: "at", root: "specs", glob: "*.md" },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    content: {
+      regions: [
+        { region: "prose", import: "specs/intent.md" },
+        { region: "field", slot: "intent" },
+        { region: "collection", memberKind: "invariant" },
+      ],
+    },
+  });
+  const h = harness({
+    members: [
+      specDoc({ name: "representation", prose: text`# Representation` }),
+      rule({ name: "rust", prose: text`# Rust` }),
+    ],
+  });
+  const declarations = compileDeclarations(h);
+
+  // The layout lowers verbatim, `memberKind` spelled as the wire's `member_kind`.
+  const specRow = declarations.kinds.find((k) => k.name === "spec")!;
+  assert.deepEqual(specRow.content, {
+    regions: [
+      { region: "prose", import: "specs/intent.md" },
+      { region: "field", slot: "intent" },
+      { region: "collection", member_kind: "invariant", key: undefined },
+    ],
+  });
+
+  // The file-content rule declares no layout, so its row omits the column entirely.
+  const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
+  assert.equal(ruleRow.content, undefined);
 });
 
 // ---------------------------------------------------------------------------

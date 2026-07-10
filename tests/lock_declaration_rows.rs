@@ -22,9 +22,10 @@ use temper::builtin_lock;
 use temper::contract::Severity;
 use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionEntryRow, CountBoundRow,
-    Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, MentionRow,
-    NestedMemberRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, KindFactRow, LayoutRegionRow,
+    LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
+use temper::kind::{Content, CustomKind, Layout, LayoutRegion};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
@@ -36,6 +37,41 @@ fn spec_kind_facts_with_template() -> KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         templates: vec!["decision".to_string()],
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// A `spec` kind declaring a `layout` content in all three corpus primitives — an
+/// importing prose region, a field section filling a named slot, and a member collection
+/// of a named kind carrying an explicit key. The shape an SDK-declared layout kind's row
+/// carries into the lock.
+fn spec_kind_facts_with_layout() -> KindFactRow {
+    KindFactRow {
+        content: Some(LayoutRow {
+            regions: vec![
+                LayoutRegionRow {
+                    region: "prose".to_string(),
+                    import: Some("specs/intent.md".to_string()),
+                    slot: None,
+                    member_kind: None,
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "field".to_string(),
+                    import: None,
+                    slot: Some("intent".to_string()),
+                    member_kind: None,
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "collection".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: Some("invariant".to_string()),
+                    key: Some("core".to_string()),
+                },
+            ],
+        }),
         ..common::kind_facts("spec", "specs", "*.md")
     }
 }
@@ -594,6 +630,80 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
     assert!(
         rule.templates.is_empty(),
         "a kind declaring no templates round-trips with an empty templates column"
+    );
+}
+
+/// A kind's `layout`-content fact round-trips SDK emit → lock kind row → engine
+/// `CustomKind` (`KIND-CONTENT-FACT`): the declared regions survive the lock byte-stably
+/// and reach `CustomKind::from_kind_fact_row`'s `content`, while a kind declaring no
+/// content reads as `Content::File` everywhere — the column absent from its row.
+#[test]
+fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kind() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_layout(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("layout-content", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the content column is a pure function of the payload.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    // The layout kind's declared content reaches the engine's CustomKind through the row.
+    let spec_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the layout kind row is recorded");
+    let spec = CustomKind::from_kind_fact_row(spec_row);
+    assert_eq!(
+        spec.content,
+        Content::Layout(Layout {
+            regions: vec![
+                LayoutRegion::Prose {
+                    import: Some("specs/intent.md".to_string()),
+                },
+                LayoutRegion::Field {
+                    slot: "intent".to_string(),
+                },
+                LayoutRegion::Collection {
+                    member_kind: "invariant".to_string(),
+                    key: Some("core".to_string()),
+                },
+            ],
+        }),
+    );
+
+    // A kind with no content declaration is file everywhere — the column absent from the
+    // row, `Content::File` in the reconstructed CustomKind.
+    let rule_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "rule")
+        .expect("the file-content kind row is recorded");
+    assert!(
+        rule_row.content.is_none(),
+        "a file-content kind's row omits the content column"
+    );
+    assert_eq!(
+        CustomKind::from_kind_fact_row(rule_row).content,
+        Content::File
     );
 }
 

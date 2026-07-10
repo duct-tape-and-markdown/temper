@@ -354,6 +354,7 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
         unit_shape: Some("directory".to_string()),
         registration: registration.iter().map(|r| r.to_string()).collect(),
         templates: Vec::new(),
+        content: None,
     }
 }
 
@@ -369,6 +370,7 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
         unit_shape: Some("file".to_string()),
         registration: registration.iter().map(|r| r.to_string()).collect(),
         templates: Vec::new(),
+        content: None,
     }
 }
 
@@ -387,6 +389,7 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
         unit_shape: None,
         registration: Vec::new(),
         templates: Vec::new(),
+        content: None,
     }
 }
 

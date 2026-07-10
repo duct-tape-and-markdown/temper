@@ -10,7 +10,7 @@
  */
 
 import type { Harness } from "./assembly.js";
-import type { EmbeddedMemberValue, KindFacts, Registration } from "./kind.js";
+import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
 import type { Clause, Predicate, Requirement } from "./contract.js";
 import { resolveLeaf } from "./prose.js";
 
@@ -20,6 +20,8 @@ import type {
   CollectionEntryWire,
   Declarations,
   KindFactRow,
+  LayoutRegionRow,
+  LayoutRow,
   MentionRow,
   NestedMemberRow,
   Payload,
@@ -165,8 +167,30 @@ function templatesFor(hostName: string, allKinds: readonly KindFacts[]): string[
 }
 
 /**
+ * Lower a kind's declared {@link Layout} into its `content` row — one flat
+ * discriminator-plus-columns [`LayoutRegionRow`] per region, `memberKind` spelled as the
+ * wire's snake_case `member_kind`. `undefined` for a `file`-content kind (no declared
+ * content), so its row omits the column and stays byte-identical.
+ */
+function contentRow(content: Layout | undefined): LayoutRow | undefined {
+  if (content === undefined) return undefined;
+  const regions = content.regions.map((region): LayoutRegionRow => {
+    switch (region.region) {
+      case "prose":
+        return { region: "prose", import: region.import };
+      case "field":
+        return { region: "field", slot: region.slot };
+      case "collection":
+        return { region: "collection", member_kind: region.memberKind, key: region.key };
+    }
+  });
+  return { regions };
+}
+
+/**
  * One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`,
- * and `templates` names the embedded kinds (among `allKinds`) declared within it.
+ * `templates` names the embedded kinds (among `allKinds`) declared within it, and
+ * `content` lowers a declared layout (absent for a `file`-content kind).
  */
 function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
   if (facts.locus.kind !== "at") {
@@ -183,6 +207,7 @@ function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFact
     unit_shape: unitShapeLabel(facts),
     registration: registrationLabels(facts.registration),
     templates: templatesFor(facts.name, allKinds),
+    content: contentRow(facts.content),
   };
 }
 

@@ -15,6 +15,8 @@ export type { FeatureValue } from "./FeatureValue.js";
 export type { Features } from "./Features.js";
 export type { FencedBlock } from "./FencedBlock.js";
 export type { KindFactRow } from "./KindFactRow.js";
+export type { LayoutRegionRow } from "./LayoutRegionRow.js";
+export type { LayoutRow } from "./LayoutRow.js";
 export type { MentionRow } from "./MentionRow.js";
 export type { NestedMemberRow } from "./NestedMemberRow.js";
 export type { Payload } from "./Payload.js";

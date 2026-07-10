@@ -431,6 +431,7 @@ mod tests {
                     unit_shape: Some("file".to_string()),
                     registration: Vec::new(),
                     templates: Vec::new(),
+                    content: None,
                 }],
                 ..crate::drift::Declarations::default()
             },

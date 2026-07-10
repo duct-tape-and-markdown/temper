@@ -52,6 +52,8 @@ export type {
   Format,
   KindDefinition,
   KindFacts,
+  Layout,
+  LayoutRegion,
   Locus,
   Member,
   MemberInit,

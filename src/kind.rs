@@ -71,15 +71,15 @@ pub struct CustomKind {
     /// The declared unit shape — whether a member is a lone file (id from the stem),
     /// a directory with companions (id from the directory name), or a lone file whose
     /// id is read from a declared frontmatter field (an agent's `name`).
-    /// A closed enum; absent ⇒ `None`. Inert alongside
-    /// [`format`](CustomKind::format).
+    /// A closed enum; absent ⇒ `None`. Read by the surface loader
+    /// ([`crate::frontmatter`]) to derive a member's id from its unit.
     pub unit_shape: Option<UnitShape>,
     /// The declared registration — the kind's world fact: the **set** of documented
     /// channels a member reaches the world over (user invocation and description
     /// trigger are channels, not rivals; `builtins.md`, "The shipped kinds"). A closed
     /// per-channel vocabulary; empty ⇒ no declared registration (today's built-in kinds
-    /// each declare at least one). Stored inert — REACHABILITY reads it to decide a
-    /// member's world edge is live iff any one channel is; nothing else consumes it yet.
+    /// each declare at least one). Read by the reachability walk ([`crate::graph`]) to
+    /// decide a member's world edge is live iff any one channel is.
     pub registration: Vec<Registration>,
     /// The kind's declared **templates** — one per inner layer of nested members it
     /// hosts at the embedded locus: the child kind it nests, a declared fact carried
@@ -88,6 +88,58 @@ pub struct CustomKind {
     /// address (`builtin_kind::features`); any predicate over a nested member's
     /// interior rides the assembly's `expect`/`require` clauses. Absent ⇒ empty.
     pub templates: Vec<Template>,
+    /// The kind's declared **content** — whether a member's body is one verbatim prose
+    /// value ([`Content::File`], the default), or a declared [`Layout`] over the body's
+    /// heading tree. Absent from the row reads as [`Content::File`].
+    pub content: Content,
+}
+
+/// A kind's declared **content** — how a member's authored body is shaped. Either the
+/// body is one verbatim prose value ([`File`](Content::File), the default every built-in
+/// takes), or it is a declared [`Layout`]: an ordered template over the body's heading
+/// tree. An absent row column reads as `File`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Content {
+    /// `file` — the body is one verbatim prose value, copied byte-for-byte.
+    File,
+    /// `layout` — the body is a declared template over its heading tree.
+    Layout(Layout),
+}
+
+/// A declared **layout** — the ordered regions a `layout`-content kind's body is read as,
+/// each one of the three corpus primitives ([`LayoutRegion`]). The regions are the
+/// declared template; matching them against a member's actual heading tree is the
+/// reader's job, not this fact's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Layout {
+    /// The layout's regions, in declared document order.
+    pub regions: Vec<LayoutRegion>,
+}
+
+/// One region of a [`Layout`] — a single corpus primitive over the body's heading tree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LayoutRegion {
+    /// **prose** — a verbatim span, or, when `import` is declared, a reference resolving
+    /// to a file's contents (fingerprinted, refusing when dangling — the resolver's job).
+    Prose {
+        /// The import reference this region resolves from, when it imports a file's
+        /// contents rather than carrying its own verbatim words.
+        import: Option<String>,
+    },
+    /// **field section** — a heading whose span fills the named field `slot`.
+    Field {
+        /// The field slot the heading's span fills.
+        slot: String,
+    },
+    /// **member collection** — a heading whose child headings are each one member of the
+    /// named kind; a member's identity is its slugged child heading, or `key` when an
+    /// explicit one is declared (surviving a retitle).
+    Collection {
+        /// The child member kind each child heading instantiates.
+        member_kind: String,
+        /// An explicit identity key overriding the slugged heading, when declared.
+        key: Option<String>,
+    },
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
@@ -198,6 +250,7 @@ impl CustomKind {
             unit_shape: None,
             registration: Vec::new(),
             templates: Vec::new(),
+            content: Content::File,
         }
     }
 
@@ -235,6 +288,7 @@ impl CustomKind {
                 .iter()
                 .map(|kind| Template { kind: kind.clone() })
                 .collect(),
+            content: content_from_row(row),
             ..CustomKind::new(
                 row.name.clone(),
                 Governs {
@@ -375,6 +429,44 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     (name == "named-field").then(|| UnitShape::NamedField {
         field: field.to_string(),
     })
+}
+
+/// Lift a [`KindFactRow`]'s optional `content` column into typed [`Content`]: an absent
+/// column is [`Content::File`] (the default every built-in takes), a present one a
+/// [`Layout`] whose region rows lift through [`layout_region_from_row`] — a malformed
+/// region dropped tolerantly, the way the rest of a hand-editable lock's rows degrade.
+fn content_from_row(row: &KindFactRow) -> Content {
+    match &row.content {
+        None => Content::File,
+        Some(layout) => Content::Layout(Layout {
+            regions: layout
+                .regions
+                .iter()
+                .filter_map(layout_region_from_row)
+                .collect(),
+        }),
+    }
+}
+
+/// Lift one [`LayoutRegionRow`](crate::drift::LayoutRegionRow) into a typed
+/// [`LayoutRegion`] — `None` when the `region` discriminator is outside the closed
+/// three-primitive vocabulary, or the row omits the column that primitive requires (a
+/// `field` with no `slot`, a `collection` with no `member_kind`).
+fn layout_region_from_row(row: &crate::drift::LayoutRegionRow) -> Option<LayoutRegion> {
+    match row.region.as_str() {
+        "prose" => Some(LayoutRegion::Prose {
+            import: row.import.clone(),
+        }),
+        "field" => row.slot.clone().map(|slot| LayoutRegion::Field { slot }),
+        "collection" => row
+            .member_kind
+            .clone()
+            .map(|member_kind| LayoutRegion::Collection {
+                member_kind,
+                key: row.key.clone(),
+            }),
+        _ => None,
+    }
 }
 
 /// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]
@@ -849,6 +941,22 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert!(features.fields.is_empty());
     }
 
+    /// A bare `spec` [`KindFactRow`] with every optional fact absent — the base the
+    /// `from_kind_fact_row` content tests override the one column they exercise onto.
+    fn spec_row() -> KindFactRow {
+        KindFactRow {
+            name: "spec".to_string(),
+            provider: None,
+            governs_root: "specs".to_string(),
+            governs_glob: "*.md".to_string(),
+            format: None,
+            unit_shape: None,
+            registration: Vec::new(),
+            templates: Vec::new(),
+            content: None,
+        }
+    }
+
     /// A bare `spec` kind — the shape a built-in or SDK-authored custom kind
     /// constructs ([`CustomKind::new`]), no file format involved.
     fn spec_kind() -> CustomKind {
@@ -871,6 +979,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert!(kind.registration.is_empty());
         assert!(kind.relationships.is_empty());
         assert!(kind.templates.is_empty());
+        assert_eq!(kind.content, Content::File);
     }
 
     #[test]
@@ -891,6 +1000,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             unit_shape: Some("directory".to_string()),
             registration: vec!["description-trigger(description)".to_string()],
             templates: Vec::new(),
+            content: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
 
@@ -936,6 +1046,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             unit_shape: Some("directory".to_string()),
             registration: vec!["bogus".to_string()],
             templates: Vec::new(),
+            content: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
@@ -956,6 +1067,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             unit_shape: None,
             registration: vec!["user-invoked".to_string(), "bogus".to_string()],
             templates: Vec::new(),
+            content: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.registration, vec![Registration::UserInvoked]);
@@ -976,6 +1088,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
                 "description-trigger(description)".to_string(),
             ],
             templates: Vec::new(),
+            content: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(
@@ -1000,11 +1113,115 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             unit_shape: None,
             registration: Vec::new(),
             templates: Vec::new(),
+            content: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(kind.format, None);
         assert_eq!(kind.unit_shape, None);
         assert!(kind.registration.is_empty());
+    }
+
+    #[test]
+    fn from_kind_fact_row_with_no_content_column_is_file_content() {
+        // Every built-in kind is file-content: an absent `content` column lifts to
+        // `Content::File`, never a phantom empty layout.
+        let row = KindFactRow {
+            content: None,
+            ..spec_row()
+        };
+        assert_eq!(CustomKind::from_kind_fact_row(&row).content, Content::File);
+    }
+
+    #[test]
+    fn from_kind_fact_row_lifts_a_declared_layout_in_all_three_primitives() {
+        // A `layout`-content kind's row carries its ordered regions — an importing
+        // prose region, a field section filling a slot, and a member collection of a
+        // named kind — each lifting into its typed `LayoutRegion`.
+        let row = KindFactRow {
+            content: Some(crate::drift::LayoutRow {
+                regions: vec![
+                    crate::drift::LayoutRegionRow {
+                        region: "prose".to_string(),
+                        import: Some("specs/intent.md".to_string()),
+                        slot: None,
+                        member_kind: None,
+                        key: None,
+                    },
+                    crate::drift::LayoutRegionRow {
+                        region: "field".to_string(),
+                        import: None,
+                        slot: Some("intent".to_string()),
+                        member_kind: None,
+                        key: None,
+                    },
+                    crate::drift::LayoutRegionRow {
+                        region: "collection".to_string(),
+                        import: None,
+                        slot: None,
+                        member_kind: Some("invariant".to_string()),
+                        key: None,
+                    },
+                ],
+            }),
+            ..spec_row()
+        };
+        assert_eq!(
+            CustomKind::from_kind_fact_row(&row).content,
+            Content::Layout(Layout {
+                regions: vec![
+                    LayoutRegion::Prose {
+                        import: Some("specs/intent.md".to_string()),
+                    },
+                    LayoutRegion::Field {
+                        slot: "intent".to_string(),
+                    },
+                    LayoutRegion::Collection {
+                        member_kind: "invariant".to_string(),
+                        key: None,
+                    },
+                ],
+            }),
+        );
+    }
+
+    #[test]
+    fn from_kind_fact_row_drops_a_malformed_layout_region() {
+        // Tolerant read: a region whose discriminator is outside the vocabulary, or one
+        // missing the column its primitive requires, drops without failing the layout.
+        let row = KindFactRow {
+            content: Some(crate::drift::LayoutRow {
+                regions: vec![
+                    crate::drift::LayoutRegionRow {
+                        region: "bogus".to_string(),
+                        import: None,
+                        slot: None,
+                        member_kind: None,
+                        key: None,
+                    },
+                    crate::drift::LayoutRegionRow {
+                        region: "field".to_string(),
+                        import: None,
+                        slot: None,
+                        member_kind: None,
+                        key: None,
+                    },
+                    crate::drift::LayoutRegionRow {
+                        region: "prose".to_string(),
+                        import: None,
+                        slot: None,
+                        member_kind: None,
+                        key: None,
+                    },
+                ],
+            }),
+            ..spec_row()
+        };
+        assert_eq!(
+            CustomKind::from_kind_fact_row(&row).content,
+            Content::Layout(Layout {
+                regions: vec![LayoutRegion::Prose { import: None }],
+            }),
+        );
     }
 
     #[test]
@@ -1020,6 +1237,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             unit_shape: None,
             registration: Vec::new(),
             templates: vec!["decision".to_string(), "law".to_string()],
+            content: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row);
         assert_eq!(

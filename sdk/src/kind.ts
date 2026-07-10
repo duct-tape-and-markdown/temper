@@ -1,11 +1,10 @@
 /**
  * Kinds — the engine room. A kind is a plain typed surface — an interface
- * `T` and a constructor `kind<T>()` — plus five facts of runtime residue: label,
- * locus, layout, registration, and edge fields. `tsc` is the keystroke wall; every
- * type erases at the seam, and what a kind leaves behind is those five facts,
+ * `T` and a constructor `kind<T>()` — plus six facts of runtime residue: label,
+ * locus, layout, registration, edge fields, and content. `tsc` is the keystroke wall;
+ * every type erases at the seam, and what a kind leaves behind is those six facts,
  * riding the lock as rows. Identity travels by import, never by string — a `kind`
- * reference is the imported value (`15-kinds.md`, the built-ins-are-a-module
- * Decision).
+ * reference is the imported value.
  */
 
 import type { Prose, Text } from "./prose.js";
@@ -54,7 +53,28 @@ export type Locus =
   | { readonly kind: "at"; readonly root: string; readonly glob: string }
   | { readonly kind: "embedded"; readonly withinHosts: readonly string[] };
 
-/** The five facts of a kind's runtime residue (`15-kinds.md`). */
+/**
+ * One region of a kind's **layout** — one of the three corpus primitives over the
+ * body's heading tree. `prose` is a verbatim span, or an `import` reference resolving to
+ * a file's contents; `field` is a heading whose span fills a named field `slot`;
+ * `collection` is a heading whose child headings are each one member of `memberKind`,
+ * identity the slugged child heading unless an explicit `key` overrides it.
+ */
+export type LayoutRegion =
+  | { readonly region: "prose"; readonly import?: string }
+  | { readonly region: "field"; readonly slot: string }
+  | { readonly region: "collection"; readonly memberKind: string; readonly key?: string };
+
+/**
+ * A declared **layout** — the ordered regions a `layout`-content kind's body is read as.
+ * Declaring one on a kind's `content` makes the kind `layout`-content; leaving `content`
+ * absent leaves it `file`-content (one verbatim prose body, the default).
+ */
+export interface Layout {
+  readonly regions: readonly LayoutRegion[];
+}
+
+/** The six facts of a kind's runtime residue. */
 export interface KindFacts {
   /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
   readonly name: string;
@@ -80,22 +100,25 @@ export interface KindFacts {
   readonly identityField?: string;
   /** Fact 5, edge fields — the kind's fields that are references to other members. */
   readonly edgeFields?: readonly EdgeField[];
+  /** Fact 6, content — a declared {@link Layout} over the body's heading tree; absent
+   * leaves the kind `file`-content (one verbatim prose body, the default). */
+  readonly content?: Layout;
 }
 
 /**
- * One authored member — a typed value in the library (`20-surface.md`, "The
- * member"). Kind identity travels by import (`facts`), never by string; the
+ * One authored member — a typed value in the library. Kind identity travels by
+ * import (`facts`), never by string; the
  * typed fields are flat at the top level, carried as an ordered pair list so the
  * projected frontmatter key order is the author's.
  */
 export interface Member {
   /** The kind's name — its declaration-row and lock identity. */
   readonly kind: string;
-  /** The kind's five facts — carried for projection and the declaration rows. */
+  /** The kind's six facts — carried for projection and the declaration rows. */
   readonly facts: KindFacts;
   /** Identity within the kind. */
   readonly name: string;
-  /** The member's words (`20-surface.md`, "Prose"). */
+  /** The member's words. */
   readonly prose?: Prose;
   /** The kind's typed fields, flat and ordered — the projected frontmatter. */
   readonly fields: ReadonlyArray<readonly [string, unknown]>;
@@ -120,9 +143,9 @@ export type MemberInit<T> = {
 } & T;
 
 /**
- * A kind — a callable constructor carrying its five facts. Calling it builds a
+ * A kind — a callable constructor carrying its six facts. Calling it builds a
  * member; `key` (its name) keys `expect` and a `kind` reference in a requirement.
- * The value *is* the identity (`15-kinds.md`, "identity travels by import").
+ * The value *is* the identity — it travels by import, never by string.
  */
 export interface KindDefinition<T> {
   (init: MemberInit<T>): Member;
@@ -157,15 +180,15 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
   return [...head, ...typed];
 }
 
-/** The options `kind()` takes beyond its five facts — today, only the embedded `render` hook. */
+/** The options `kind()` takes beyond its six facts — today, only the embedded `render` hook. */
 export interface KindOptions {
   readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
 }
 
 /**
- * Define a kind (`15-kinds.md`). Returns a constructor over the kind's typed
+ * Define a kind. Returns a constructor over the kind's typed
  * fields `T`; every type erases at the seam, so what the returned member carries
- * into emit is the five facts plus flat field data. `options.render`, when given,
+ * into emit is the six facts plus flat field data. `options.render`, when given,
  * rides alongside `facts`/`key` on the returned constructor — never on the member
  * it builds, since it is erased before a member reaches emit.
  */
@@ -186,8 +209,7 @@ export function kind<T extends object>(facts: KindFacts, options: KindOptions = 
 /**
  * One entry in a sibling collection: its own key plus its leaf fields
  * (`rejected."baked-projection"`) — an ordered list element, never a positional
- * index; the entry's `key` is what a leaf address carries (`20-surface.md`, the
- * leaf-address Decision).
+ * index; the entry's `key` is what a leaf address carries.
  */
 export interface EmbeddedMemberCollectionEntry {
   /** The entry's key among its collection's siblings. */
@@ -203,7 +225,7 @@ export interface EmbeddedMemberCollectionEntry {
  * An **embedded member's** composed value (posture 3, passed to `blocks()`):
  * leaves are authored strings keyed by field name; sibling collections are keyed
  * by collection name, each an authored-order list of entries — leaf addresses
- * are structural and keyed (`20-surface.md`, the leaf-address Decision). Its
+ * are structural and keyed. Its
  * facts are declaration rows, captured the same emit pass that renders it —
  * never mined back from the `member.<kind> <key>` fence `blocks()` renders
  * (`pipeline.md`, "Emit"). There is no prescribed child-kind ontology — a
