@@ -106,9 +106,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   clause did not fire and the debt rides whichever entry opens the file
   next. Debt (1) untouched (no commit since 5f88258 opened
   tests/session_start.rs). Both re-verified on disk at residue sweep HEAD
-  a932bb0 (session_start.rs `+++` fixtures at lines 128/133/146; the three
-  builtins.ts cites at 308/348/385 — neither file touched since fcdbe52).
-  Verify both at the next residue sweep.
+  c88bcf8 (session_start.rs `+++` fixtures at lines 128/133/146; the three
+  builtins.ts cites at 308/348/385 — neither file touched since fcdbe52;
+  1589845 touched neither). Verify both at the next residue sweep.
 
 - **Pre-corpus-reorg spec-path citations in `sdk/src/kind.ts` — 8 hits**
   (lines 7,57,86,98,125,166,189,206; re-verified against disk at ship audit
