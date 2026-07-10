@@ -366,6 +366,13 @@ function embeddedKind<T extends object>(name: string, withinHosts: readonly stri
   });
 }
 
+/**
+ * The `decision` embedded kind the `blocks()` cases nest under a `memory` host — bound
+ * into each harness via `expect` so it is in play and its `withinHosts` admits the
+ * nesting (`emit` refuses a value its host never templates).
+ */
+const memoryDecision = embeddedKind<Record<never, never>>("decision", ["memory"]);
+
 test("an embedded member neither projects nor takes a kind-fact row", () => {
   const decisionBlock = embeddedKind<Record<never, never>>("decision-block", ["spec"]);
   const mixed = harness({
@@ -541,6 +548,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -580,6 +588,7 @@ test("a kind()'s render hook replaces the default TOML view inside the member fe
         ),
       }),
     ],
+    expect: [{ kind: decisionWithRender, clauses: [] }],
   });
 
   const result = emit(h);
@@ -648,6 +657,7 @@ test("a kind()'s render hook receives a resolvable leaf mention already rendered
         ),
       }),
     ],
+    expect: [{ kind: decisionWithRender, clauses: [] }],
   });
 
   const result = emit(h);
@@ -680,6 +690,7 @@ test("a blocks() body renders a keyed collection entry as its own [collection.en
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -714,6 +725,7 @@ test("multiple blocks() values render as sibling fences, and a leaf's quotes/new
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -752,6 +764,7 @@ test("a Text-valued leaf's mention resolves and renders inline — in the fence 
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -811,6 +824,7 @@ test("a leaf's mention contributes a mention row keyed to the leaf's own structu
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
   assert.deepEqual(compileDeclarations(h).mentions, [
     { member: "CLAUDE/decision/surface-authority/chosen", target: "rule:rust" },
@@ -832,6 +846,7 @@ test("a bare-string leaf is unchanged — no mention row, no resolution check", 
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
   assert.deepEqual(compileDeclarations(h).mentions, []);
 });
@@ -859,6 +874,7 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
         ),
       }),
     ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
   });
 
   const result = emit(h);

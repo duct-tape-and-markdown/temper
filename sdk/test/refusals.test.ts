@@ -14,8 +14,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { emit, harness, text } from "../src/index.js";
-import { rule, skill } from "../src/claude-code.js";
+import { blocks, embeddedMemberValue, emit, harness, kind, text } from "../src/index.js";
+import { memory, rule, skill } from "../src/claude-code.js";
+
+/** An embedded-locus kind named `decision`, templating within `withinHosts`. */
+function decisionKind(withinHosts: readonly string[]) {
+  return kind<object>({
+    name: "decision",
+    locus: { kind: "embedded", withinHosts },
+    unitShape: "file",
+    registration: [],
+  });
+}
 
 // ---------------------------------------------------------------------------
 // (1) Dangling join — a `satisfies` claim resolving to no declared requirement.
@@ -118,6 +128,60 @@ test("emit refuses a member-published requirement marked required that no member
     ],
   });
   assert.throws(() => emit(h), /an unfilled required requirement/);
+});
+
+// ---------------------------------------------------------------------------
+// (3) Untemplated nesting — a `blocks()` value of a kind the host never templates.
+// ---------------------------------------------------------------------------
+
+test("emit refuses a blocks() value whose kind does not template within the host kind", () => {
+  // `decision` templates within `skill`, but the value is attached to a `memory` host —
+  // an untemplated nesting that would reach the lock as a row no `templates` admits.
+  const decision = decisionKind(["skill"]);
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: decision, key: "surface-authority", leaves: { chosen: "x" } }),
+        ),
+      }),
+    ],
+    expect: [{ kind: decision, clauses: [] }],
+  });
+  assert.throws(() => emit(h), /surface-authority.*does not nest within host kind `memory`/s);
+});
+
+test("emit refuses a blocks() value whose kind is no in-play embedded kind", () => {
+  // No `decision` kind is registered at all — a bare-string value name that ties to no
+  // declared nesting refuses just as a host-mismatch does.
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: "decision", key: "orphan", leaves: { chosen: "x" } })),
+      }),
+    ],
+  });
+  assert.throws(() => emit(h), /does not nest within host kind/);
+});
+
+test("a host-admitted blocks() value compiles without throwing", () => {
+  // `decision` templates within `memory` and is attached to a `memory` host — an
+  // admitted nesting, so emit produces output exactly as before.
+  const decision = decisionKind(["memory"]);
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: decision, key: "surface-authority", leaves: { chosen: "x" } }),
+        ),
+      }),
+    ],
+    expect: [{ kind: decision, clauses: [] }],
+  });
+  assert.doesNotThrow(() => emit(h));
 });
 
 // ---------------------------------------------------------------------------

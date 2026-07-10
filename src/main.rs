@@ -660,6 +660,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // skip.
     let edges = assembly_edges.clone();
 
+    // Cross-family coherence: a `nested_member` row of a kind no host templates is an
+    // orphan the by-kind corpus below would unmodel while the host-address read still
+    // carries it. Reject it at admissibility, before the corpus is trusted.
+    diagnostics.extend(nested_member_admissibility(&declarations));
+
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
     let embedded_features = embedded_features_by_kind(&declarations);
@@ -1050,30 +1055,76 @@ fn assemble_by_kind<'a>(
 fn embedded_features_by_kind(
     declarations: &drift::Declarations,
 ) -> BTreeMap<String, Vec<extract::Features>> {
-    // The embedded kinds: every child kind a host declares, whether through its
-    // `templates` column or a layout member collection naming a `member_kind`.
-    let mut by_kind: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
-    for row in &declarations.kinds {
-        for template in &row.templates {
-            by_kind.entry(template.clone()).or_default();
-        }
-        if let Some(content) = &row.content {
-            for region in &content.regions {
-                if let Some(member_kind) = &region.member_kind {
-                    by_kind.entry(member_kind.clone()).or_default();
-                }
-            }
-        }
-    }
+    let mut by_kind: BTreeMap<String, Vec<extract::Features>> =
+        declared_embedded_kinds(declarations)
+            .into_iter()
+            .map(|kind| (kind, Vec::new()))
+            .collect();
     // Each declared embedded kind's members are its `nested_member` rows. A row whose
-    // kind no host declares is left out — the same `get_mut` gate that keeps an undeclared
-    // target unmodeled.
+    // kind no host declares is an orphan rejected at admissibility
+    // ([`nested_member_admissibility`]), so this `get_mut` now backstops that already-loud
+    // unreachable state rather than swallowing a live one.
     for row in &declarations.nested_members {
         if let Some(features) = by_kind.get_mut(&row.kind) {
             features.push(embedded_member_features(row));
         }
     }
     by_kind
+}
+
+/// The embedded kinds the lock declares: every child kind a host names, whether through
+/// its `templates` column or a layout member collection's `member_kind`. The set a
+/// `nested_member` row's kind must belong to — a row of any other kind is an orphan no
+/// host templates ([`nested_member_admissibility`]) — and the keys
+/// [`embedded_features_by_kind`] seeds its corpus with.
+fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<String> {
+    let mut kinds = BTreeSet::new();
+    for row in &declarations.kinds {
+        for template in &row.templates {
+            kinds.insert(template.clone());
+        }
+        if let Some(content) = &row.content {
+            for region in &content.regions {
+                if let Some(member_kind) = &region.member_kind {
+                    kinds.insert(member_kind.clone());
+                }
+            }
+        }
+    }
+    kinds
+}
+
+/// The diagnostic `rule` id an orphaned `nested_member` row reports under — a committed
+/// lock's cross-family incoherence, decided before the by-kind corpus is trusted to model
+/// the harness.
+const NESTED_MEMBER_ADMISSIBILITY_RULE: &str = "nested-member.admissibility";
+
+/// Validate the lock's `nested_member` rows against the declared nesting: every row's kind
+/// must be an embedded kind some host declares — a `templates` column entry or a layout
+/// member collection's `member_kind`. A row of a kind no host templates is an orphan the
+/// by-kind corpus ([`embedded_features_by_kind`]) would unmodel while the host-address read
+/// ([`extract::nested_members_from_rows`]) still carries it — the two disagreeing over one
+/// committed lock. Reject it here, naming the kind and its host, the same malformed-lock
+/// class as two rows wearing one label.
+fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<check::Diagnostic> {
+    let declared = declared_embedded_kinds(declarations);
+    declarations
+        .nested_members
+        .iter()
+        .filter(|row| !declared.contains(&row.kind))
+        .map(|row| {
+            check::Diagnostic::error(
+                NESTED_MEMBER_ADMISSIBILITY_RULE,
+                &row.host,
+                format!(
+                    "nested member `{}` under `{}` is of kind `{}`, which no host declares as a \
+                     nested template — an orphaned lock row no kind's `templates` or member \
+                     collection admits",
+                    row.key, row.host, row.kind
+                ),
+            )
+        })
+        .collect()
 }
 
 /// Lift one [`NestedMemberRow`](drift::NestedMemberRow) into the

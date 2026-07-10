@@ -408,18 +408,52 @@ function nestedMemberRow(host: string, value: EmbeddedMemberValue, mentionable: 
 }
 
 /**
+ * Every in-play embedded kind's declared host kinds, keyed by kind name — the map
+ * {@link nestedMemberRows} checks a `blocks()` value's kind against. An embedded kind
+ * reaches this map through `kindsInPlay` (a member of it, or an `expect` binding), and
+ * its `withinHosts` is the set of host kinds it templates within; a value whose kind is
+ * absent here, or whose hosts miss the hosting member's kind, is untemplated nesting.
+ */
+function embeddedHostsByKind(harness: Harness): Map<string, ReadonlySet<string>> {
+  const map = new Map<string, ReadonlySet<string>>();
+  for (const facts of kindsInPlay(harness)) {
+    if (facts.locus.kind === "embedded") {
+      map.set(facts.name, new Set(facts.locus.withinHosts));
+    }
+  }
+  return map;
+}
+
+/**
  * The `nested_member` rows — every host member's `blocks()`-declared embedded-member
  * values, host-then-kind-then-key sorted. Only `blocks`-kind prose carries them (a
  * `file()`/`text` body names none); the fence rendering itself is unchanged
  * (`emit.ts`'s `resolveBody`) — this row is a second *read* of the same authored
  * value, never a second copy the engine reads back (0018).
+ *
+ * Refuses an untemplated nesting before a byte is written: a value's kind must be an
+ * in-play embedded kind whose `withinHosts` names the hosting member's kind. `templates`
+ * derives solely from `withinHosts` ({@link templatesFor}), so a value the host never
+ * templates would reach the lock as a `nested_member` row no `templates` column admits,
+ * to be unmodeled without a word — nesting is the host template's own declaration, so an
+ * unadmitted nested member is an unresolved input, not output to write over.
  */
 function nestedMemberRows(harness: Harness, mentionable: ReadonlySet<string>): NestedMemberRow[] {
+  const hostsByKind = embeddedHostsByKind(harness);
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
     const host = `${member.kind}:${member.name}`;
     for (const value of member.prose.values) {
+      const hosts = hostsByKind.get(value.kind);
+      if (hosts === undefined || !hosts.has(member.kind)) {
+        throw new Error(
+          `member \`${member.name}\`: embedded value \`${value.key}\` is of kind ` +
+            `\`${value.kind}\`, which does not nest within host kind \`${member.kind}\` — a ` +
+            `\`blocks()\` value's kind must be an in-play embedded kind whose \`withinHosts\` ` +
+            `names the host (specs/model/representation.md, "nesting").`,
+        );
+      }
       rows.push(nestedMemberRow(host, value, mentionable));
  }
  }

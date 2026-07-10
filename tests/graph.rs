@@ -488,7 +488,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
 /// lock only through its host's `templates` column — so without the by-kind fold it reads
 /// as unmodeled and every route over it dangles. Here a `service` layout host declares a
 /// `serves` relationship edge into `domain` and nests one `domain` member off the lock's
-/// `nested_member` family; the cases mirror the field report's repro.
+/// `nested_member` family.
 mod embedded_edge_targets {
     use super::*;
     use std::collections::BTreeMap;
@@ -590,6 +590,38 @@ mod embedded_edge_targets {
                 && run.output.contains("absent")
                 && run.output.contains("serves"),
             "the finding names the host, the dangling target, and the reference field, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn an_orphaned_nested_member_row_fails_at_admissibility() {
+        let root = common::scaffold("embedded-nested-member-orphan");
+        // A `domain` nested member is committed to the lock, but no host declares
+        // `domain` as a nested template — no `templates` entry, no member collection. The
+        // by-kind corpus would unmodel the orphan while the host-address read still
+        // carries it; admissibility rejects the malformed lock instead, naming the kind.
+        write_service(&root, "billing");
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![service_kind(&[])],
+                nested_members: vec![domain_row("billing")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "an orphaned nested-member row must fail the run ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("domain")
+                && run.output.contains("billing")
+                && run.output.contains("nested"),
+            "the finding names the orphaned kind, the member, and its nested-template class, got:\n{}",
             run.output
         );
     }
