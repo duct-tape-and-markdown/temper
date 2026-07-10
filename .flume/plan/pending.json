@@ -67,11 +67,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "`layout_unit` (main.rs:816) drops `LayoutReading::edges`: the Unit carries only `reading.fields`, and `edge_field_slots()` (kind.rs:609) excluded the slot from frontmatter, so the declared-edge check (`graph::check`, wired at main.rs:692 over unit features) never sees a layout host's relationship entries — they silently vanish. Fold the parsed entries onto the unit in the shape the check already consumes — a file member's frontmatter list reference is the precedent; the exact shape is code's call (depth rule)."
+          "description": "`layout_unit` (main.rs:818) drops `LayoutReading::edges`: the Unit carries only `reading.fields`, and `edge_field_slots()` (kind.rs:609) excluded the slot from frontmatter, so the declared-edge check (`graph::check`, wired at main.rs:692 over unit features) never sees a layout host's relationship entries — they silently vanish. Fold the parsed entries onto the unit in the shape the check already consumes — a file member's frontmatter list reference is the precedent; the exact shape is code's call (depth rule)."
         },
         {
           "path": "src/drift.rs",
-          "description": "Emit's layout read passes only the framework `satisfies` set (drift.rs:625) where check passes the full `edge_field_slots()` union — one document read under two edge-slot sets. Unify on the union so a relationship slot never parses as a verbatim field on one path and as addresses on the other."
+          "description": "Emit's layout read passes only the framework `satisfies` set (drift.rs:702, `BTreeSet::from([SATISFIES_EDGE_FIELD])`) where check passes the full `edge_field_slots()` union — one document read under two edge-slot sets. Unify on the union so a relationship slot never parses as a verbatim field on one path and as addresses on the other."
         },
         {
           "path": "tests/layout_edge_slot.rs",
@@ -88,7 +88,7 @@
       }
     ],
     "acceptance": "A layout kind that declares an edge field (SDK-expressible today: `edgeFields` kind.ts:102 beside `content: Layout` kind.ts:105) resolves that slot's entries into the same enumeration the gate and read verbs share; a dangling entry is a finding, never a silent drop; all gates green.",
-    "notes": "Scoped at ced4f94 (silent check-time drop vs invariant 6); inbox 37e4834 routed here — same gap, real customer (a counterpart corpus's Depends-on sections). Rejected alternative: member-authored edge-row lock family — read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows are for composed-prose only. Reader general (kind.rs:162/386). Prior blocker PROSE-INCLUDE shipped (a8562b5); re-serialized behind PREDICATE-CONSTRUCTORS on the src/drift.rs overlap."
+    "notes": "Scoped at ced4f94; gap + anchors re-verified at d9bb51d after a8562b5's drift.rs churn. Inbox 37e4834 routed here — same gap, real customer (a counterpart corpus's Depends-on sections). Rejected alternative: member-authored edge-row lock family — read-surface references resolve live off frontmatter Features (graph.rs precedent); lock rows are for composed-prose only. Reader general (kind.rs:162/386). Serialized behind PREDICATE-CONSTRUCTORS on the src/drift.rs overlap."
   },
   {
     "tag": "EMBEDDED-EDGE-TARGETS",
@@ -131,7 +131,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at e30e5a6 (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, still at 0.0.5 pending publish — SDK-VERSION-LOCKSTEP); channel 1's SDK foundation shipped. Re-verified at d9bb51d (ship audit): still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
     },
     "dependsOnForks": [],
     "files": {

@@ -1,19 +1,20 @@
 # Plan state
 
 - Spec derived through: a0fccaf
-- Audited through: e30e5a6
+- Audited through: d9bb51d
 - Residue swept through: 16a30d6
-- This tick: Inbox drained — two notes re-verified against 5eba801 and
-  routed. Unauthorable-predicates note filed as PREDICATE-CONSTRUCTORS
-  (open; scoped to five, dependency-exists held back by design; reject-loud
-  row lift folded in). Embedded-edge-target field report filed as
-  EMBEDDED-EDGE-TARGETS (blockedBy LAYOUT-RELATIONSHIP-EDGES — one
-  enumeration ruling). LAYOUT-RELATIONSHIP-EDGES re-serialized behind
-  PREDICATE-CONSTRUCTORS (src/drift.rs overlap; its prior blocker
-  PROSE-INCLUDE shipped at a8562b5 and had left the queue).
+- This tick: Ship audit — a8562b5 (PROSE-INCLUDE) verified on disk whole:
+  `include()` + embedded-leaf refusal (prose.ts:172/210), includeRows →
+  IncludeRow seam, `resolve_source_dependency` consolidation (drift.rs:765),
+  generalized `include` lock family; suites green (prose_include 3,
+  lock_declaration_rows 21, seam_bindings 1). All queue gates re-tested
+  true; LAYOUT-RELATIONSHIP-EDGES re-anchored after the drift.rs churn
+  (625→702, 816→818 — gap itself intact); PACKAGING-CHANNELS parked
+  reason re-stamped.
 - Queue: PREDICATE-CONSTRUCTORS (open); LAYOUT-RELATIONSHIP-EDGES
   (blockedBy PREDICATE-CONSTRUCTORS); EMBEDDED-EDGE-TARGETS (blockedBy
   LAYOUT-RELATIONSHIP-EDGES); PACKAGING-CHANNELS (parked).
 
-Plan continues: yes — ship audit: a8562b5 (PROSE-INCLUDE) landed in
-src/+sdk/ past the audit cursor (e30e5a6) and needs on-disk verification.
+Plan continues: yes — residue sweep: 16a30d6..HEAD includes a8562b5's new
+include machinery (src/drift.rs, src/import.rs, sdk/src/prose.ts) not yet
+swept against the corpus.
