@@ -62,6 +62,49 @@
     "notes": "Scoped at fcdbe52 (residue sweep); unblocked at ab73a60 — SEAM-BINDINGS-GENERATED verified shipped, cited line anchors re-verified on disk. Demonstrated cost: 36e0556's one prose column rippled through tests/common, tests/graph.rs, tests/emit.rs (its body names the ripple). Per-file delta-expressing builders may stay; engine-side (src/) row construction out of scope."
   },
   {
+    "tag": "SEAM-PAYLOAD-TYPED",
+    "summary": "The seam's member half rides the generated bindings — emit.ts's hand-restated PayloadMember retires for the generated type, the payload assembly type-checks against generated Payload",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TEST-ROW-FIXTURES-ONE-HOME"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "The hand-authored PayloadMember interface (line 245) retires for sdk/src/generated/PayloadMember, imported and re-exported so index.ts:80's public face keeps the name — the exact move declarations.ts:31-38 models; the seam assembly (encodeSeam({ declarations, members }), line 314) type-checks against generated/Payload with encodeSeam stamping version. Mutable generated columns replace the readonly ones: the same recut 36a7662's builders took."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "encodeSeam's `payload: object` (line 419) gains the Payload shape (version omitted — encodeSeam stamps it; spelling is code's call). declarationsToJson (line 428) retires: its {version, ...Declarations} spread parses as no engine shape (src/drift.rs:368 reads only Payload) and its sole consumer is one SDK test — subtraction before addition."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Line 76 drops the declarationsToJson export (pre-1.0 carries no backward-compatibility burden — specs/distribution.md, The offering); line 80's PayloadMember re-export becomes the generated type via emit.ts."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The line-262 JSON-pipe test recut onto the one live pipe shape: parse emit()'s seam (or encodeSeam over the full payload), assert version and the same satisfies/mentions rows under `declarations`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "PayloadMember's doc cite of the TS twin (line 267, \"sdk/src/emit.ts PayloadMember\") recut — after the retire it names a dead symbol; point it at the generated binding home. Regenerate the bindings (BLESS_SEAM_BINDINGS=1); tests/seam_bindings_current.rs holds the byte-compare."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "sdk strict tsc references generated Payload/PayloadMember on the emit path, so a Rust-side member-column rename fails `pnpm --dir sdk test` instead of drifting silently; no hand-restated seam shape survives outside sdk/src/generated/; emit bytes unchanged (sdk/test/emit.test.ts and tests/builtin_lock_frozen.rs green); all gates green.",
+    "notes": "Scoped at a932bb0 (residue sweep). 36a7662 wired the declaration rows to the generated home but generated/Payload{,Member} have zero SDK consumers (only declarations.ts imports generated/) — the silent-shape-drift class it filed to kill survives on the member half. blockedBy is fence serialization only (keeps the chain linear so KIND-CONTENT-FACT's single blockedBy suffices); no semantic dependency on the test-fixture work."
+  },
+  {
     "tag": "KIND-CONTENT-FACT",
     "summary": "A kind declares its content — `file` (default) or a `layout` template in three primitives — a typed SDK fact carried through the lock's kind rows into the engine's CustomKind",
     "per": {
@@ -70,7 +113,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "TEST-ROW-FIXTURES-ONE-HOME"
+      "tag": "SEAM-PAYLOAD-TYPED"
     },
     "dependsOnForks": [],
     "files": {
@@ -115,7 +158,7 @@
       }
     ],
     "acceptance": "An SDK-declared layout reaches the engine's CustomKind through the lock's kind rows; a kind with no content declaration is file everywhere; src/builtin_lock.toml is byte-unchanged (frozen gate); all gates green.",
-    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind TEST-ROW-FIXTURES-ONE-HOME (shared tests/lock_declaration_rows.rs; new columns land in the one test builder); upstream SEAM-BINDINGS-GENERATED shipped at 36a7662, anchors restamped at ab73a60."
+    "notes": "Scoped at a2279cf (0019, spec commit 6a04322). Fact + persistence only — the reader is LAYOUT-READER, import resolution LAYOUT-PROSE-IMPORT. Verified absent on disk: zero content-fact hits in sdk/src/kind.ts KindFacts, drift.rs KindFactRow, kind.rs CustomKind. Serialized behind SEAM-PAYLOAD-TYPED, itself behind TEST-ROW-FIXTURES-ONE-HOME — shared drift.rs/declarations.ts/emit.test.ts and tests/lock_declaration_rows.rs; anchors restamped at ab73a60."
   },
   {
     "tag": "LAYOUT-READER",
