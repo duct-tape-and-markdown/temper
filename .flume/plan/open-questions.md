@@ -99,68 +99,30 @@ condition arrives, it is the next break. If work touches one, surface it.
   `sdk/src/builtins.ts:308,348,385` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). Both re-verified at residue sweep HEAD ec3d112 —
-  vacuously: zero src/tests/sdk commits in 5f88258..ec3d112 (the 5f88258
-  sweep had walked the two prior code commits directly). Verify both at the
-  next residue sweep.
+  `706139a` (2026-07-07). Debt (2)'s riding prediction falsified at ship
+  audit HEAD b8f0746: f36c192 (SKILL-CONTRACT-RECITE) opened builtins.ts —
+  its cite-restamp hunks bracket all three lines — but left every one as
+  unchanged context; all three cites verified still on disk, so the exit
+  clause did not fire and the debt rides whichever entry opens the file
+  next. Debt (1) untouched (no commit since 5f88258 opened
+  tests/session_start.rs). Verify both at the next residue sweep.
 
-- **`overlay_builtin_kind` rename (e5daf1d) left one stale comment.**
-  `tests/coverage.rs:336-338`'s doc comment on
-  `a_kind_row_relocating_a_built_ins_governs_fires_no_collision_diagnostic`
-  still names the pre-rename symbol `effective_governs` — e5daf1d
-  (BUILTIN-KIND-TEMPLATES-OVERLAY) renamed it to `overlay_builtin_kind` in
-  src/main.rs but didn't reach this test file. Comment staleness rides the
-  next entry that opens `tests/coverage.rs` (`.claude/rules/rust.md`, "the
-  exit clause") — never a standalone entry. Found at residue sweep HEAD
-  e6d0311; re-verified still true at HEAD 5f88258 (cb17438 and 5f88258, the
-  two intervening src/tests/sdk commits since 37c2411, never touched
-  tests/coverage.rs). REQUIREMENT-PROSE-PERSISTS (filed 07-09) opens
-  tests/coverage.rs and names the fix in its file description — verify the
-  exit clause fired at its ship audit, then delete this bullet.
-
-- **Pre-corpus-reorg spec-path citations in the SDK — `sdk/src/kind.ts`
-  (8 hits) and `sdk/src/contract.ts` (12 hits).** Doc comments cite
-  `10-contracts.md`, `15-kinds.md`, `20-surface.md`, `40-composition.md` —
-  numbered, aspect-oriented files from before 0002's reorg
-  (`specs/decisions/0002-corpus-form.md`, "the prior form... aspect-oriented
-  files scattered each noun across five homes"; `specs/model/*.md` replaced
-  them). None of the four names exist in the corpus today — vocabulary the
-  corpus no longer sanctions (`specs/process/engineering.md` residue class).
-  Compounding: `.claude/rules/sdk.md`/`rust.md` ("Style & structure") retire
-  spec-path citations from comments as a class regardless of validity — cut
-  on contact, never annotate (rust.md, "the exit clause") — so this rides
-  the next entry that opens either file rather than a standalone one.
-  Prediction falsified at ship audit HEAD 6d6ae89: EMBEDDED-LEAF-TEXT
-  (18d3406) did open `kind.ts` (import line, both `EmbeddedMemberValue`/
-  `EmbeddedMemberCollectionEntry.leaves` doc comments) but its cited scope
-  never reached the 8 citation lines (7,57,86,98,125,164,187,204 — hit-count
-  and lines re-verified against disk this tick), so the exit clause did not
-  fire; the debt still rides whichever entry opens `kind.ts` next.
-  `contract.ts`'s prediction also falsified, same shape, at ship audit HEAD
-  a641e03: a620938 (REQUIREMENT-KIND-SDK-TYPE, the sole src/tests/sdk commit
-  since 6d6ae89) opened `contract.ts`, but its one-line edit (the
-  `Requirement.kind` field's type annotation, line 154) never reached any of
-  the 12 citation lines (5,7,17,34,38,48,57,89,124,142,149,160 — re-verified
-  against disk this tick), so the exit clause did not fire there either; the
-  debt still rides whichever entry opens `contract.ts` next. Original
-  hit-counts were transposed between the two files in the prior note;
-  corrected here against both current disk and `git show 3c6f50b`. Found at
-  residue sweep HEAD 3c6f50b (introduced pre-52b3dcd; 3c6f50b's own diff
-  edited two of kind.ts's other doc comments without reaching these).
-  `kind.ts`'s prediction falsified a third time at residue sweep HEAD
-  5f88258: cb17438 (RENDER-HOOK-LEAF-RESOLUTION) also opened `kind.ts`
-  (retyped the `render` hook, added `ResolvedEmbeddedMemberValue`/
-  `ResolvedEmbeddedMemberCollectionEntry`), but again never touched any of
-  the 8 citation lines (now at 7,57,86,98,125,166,189,206 — the last three
-  shifted only because cb17438 inserted lines above them, not because it
-  edited them; re-verified against disk this tick) — exit clause still did
-  not fire. `contract.ts` untouched by any commit since 3c6f50b (neither
-  cb17438 nor 5f88258 opened it) — debt there unchanged.
-  REQUIREMENT-PROSE-PERSISTS (filed 07-09) opens `contract.ts` (the
-  `means`→`prose` rename) and names the 12-line cut in its file
-  description; KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens
-  `kind.ts` (the content fact) and names the 8-line cut in its file
-  description — verify each at its ship audit, then delete this bullet.
+- **Pre-corpus-reorg spec-path citations in `sdk/src/kind.ts` — 8 hits**
+  (lines 7,57,86,98,125,166,189,206; re-verified against disk at ship audit
+  HEAD b8f0746). Doc comments cite `10-contracts.md`, `15-kinds.md`,
+  `20-surface.md`, `40-composition.md` — aspect-oriented files 0002's reorg
+  retired; none exist in the corpus today
+  (`specs/process/engineering.md` residue class). Compounding:
+  `.claude/rules/sdk.md` retires spec-path citations from comments as a
+  class regardless of validity — cut on contact, never annotate — so this
+  rides the next entry that opens the file, never a standalone one. Three
+  riding predictions falsified already (18d3406, 3c6f50b, cb17438 each
+  opened `kind.ts` without their scope reaching the citation lines).
+  `contract.ts`'s twin 12-hit debt cleared at ship audit HEAD b8f0746
+  (36e0556's exit clause fired; evidence in that plan commit body).
+  KIND-CONTENT-FACT (filed 07-09, 0019 derivation) opens `kind.ts` and
+  names the 8-line cut in its file description — verify the exit clause
+  fired at its ship audit, then delete this bullet.
 
 - **Two `src/kind.rs` doc comments are factually false**, both claiming
   inertness a consumer disproves: `unit_shape`'s "Inert alongside
