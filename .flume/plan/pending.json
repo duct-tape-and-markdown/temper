@@ -7,8 +7,7 @@
       "section": "The placements and their enforcement modes"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-WRITE-SEAM"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Guard coverage of represented manifests — the PreToolUse guard checks a represented manifest's members against their contract, following the author's declared enforcement mode (block/warn/note). Today the guard greps only for .claude/ projection paths (GUARD_MESSAGE plus the projection-path regex, install.rs ~117-126)."
+          "description": "Guard coverage of represented manifests — the PreToolUse guard checks a represented manifest's members against their contract, following the author's declared enforcement mode (block/warn/note). Today the guard greps only for .claude/ projection paths (GUARD_MESSAGE at install.rs:121, GUARD_PATH_MATCH regex at install.rs:128)."
         }
       ],
       "retire": []
@@ -29,7 +28,7 @@
       }
     ],
     "acceptance": "The PreToolUse guard checks a represented manifest's members against contract, following the author's declared enforcement mode (block/warn/note) — not only .claude/ projection drift.",
-    "notes": "Entry 4. install.rs's guard today greps for .claude/ projection paths (GUARD_MESSAGE + the projection regex, ~117-126); this adds represented-manifest member coverage. The three enforcement values (block/warn/note) split by where the finding goes, per distribution.md. blockedBy MANIFEST-WRITE-SEAM: a manifest must be a represented projection with governable members before the guard can check them. scoped at 5f27db2"
+    "notes": "Entry 4. install.rs's guard today greps only .claude/ projection paths (GUARD_MESSAGE:121 + GUARD_PATH_MATCH:128); this adds represented-manifest member coverage. Enforcement's three values (block/warn/note) split by where the finding goes, per distribution.md. Blocker MANIFEST-WRITE-SEAM shipped 6d90c43 — a manifest is now a represented projection (drift emit_manifest writes it whole, registrations on the lock), so its members are governable. scoped 5f27db2, unblocked 6d90c43."
   },
   {
     "tag": "MANIFEST-WRITE-COVERAGE-RETIRE",
@@ -39,8 +38,7 @@
       "section": "Reach"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-WRITE-SEAM"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -61,7 +59,7 @@
       }
     ],
     "acceptance": "Once settings.json is fully represented (hooks + permissions/env all modeled), its coverage.unmodeled-surface finding fully retires — no residue left to name.",
-    "notes": "Entry 5. Builds on COVERAGE-PARTIAL-GOVERNANCE (shipped 3dd6b52 — narrowed the finding to the residue). blockedBy MANIFEST-WRITE-SEAM: settings.json must become a represented container member — its permissions/env residue carried as named opaque fields — for the unmodeled-surface finding to have nothing to fire on. scoped at 5f27db2"
+    "notes": "Entry 5. Builds on COVERAGE-PARTIAL-GOVERNANCE (3dd6b52 — narrowed the finding to the residue). Blocker MANIFEST-WRITE-SEAM shipped 6d90c43 — a container member's opaque residue is now carried (drift ManifestBuild.residue), so a fully-represented manifest with empty residue is expressible; split coverage_note.rs's None arm (empty-residue = fully governed, not wholly ungoverned). scoped 5f27db2, unblocked 6d90c43."
   },
   {
     "tag": "PACKAGING-CHANNELS",
