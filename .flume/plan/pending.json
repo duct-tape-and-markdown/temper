@@ -1,5 +1,35 @@
 [
   {
+    "tag": "COVERAGE-PARTIAL-GOVERNANCE",
+    "summary": "coverage.unmodeled-surface falsely calls partially-governed settings.json wholly ungoverned while its hook segment is checked; narrow the finding to the ungoverned residue",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "Reach"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage_note.rs",
+          "description": "A manifest with a governed segment and an ungoverned residue is partially governed: settings.json's hooks.<Event> segment is checked (member_counts carries hook (3)) yet its unmodeled-surface message still reads `no kind governs it — temper checks none of its members`, a false claim. `governs` returns false for a segment kind (collection address not spanning the whole manifest) and `check` then emits the wholly-ungoverned message; narrow it so a partially-governed manifest names only the ungoverned residue (permissions, env), never claiming none of its members are checked. The `governs` doc comment's `keeps its finding until every segment is modeled` middle is the current false-claim source."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage_note.rs",
+        "asserts": "a partially-governed settings.json (hooks segment checked, permissions/env residue ungoverned) yields an unmodeled-surface message that names the ungoverned residue and never claims `no kind governs it` or `temper checks none of its members`; a wholly-ungoverned manifest (.mcp.json with no mcp-server kind) still reports the full finding, and a wholly-governed one (.mcp.json under mcp-server) still retires it."
+      }
+    ],
+    "acceptance": "A partially-governed manifest (settings.json with the hooks segment checked) yields a coverage.unmodeled-surface message stating only true things — it names the ungoverned residue and never claims `no kind governs it` or `temper checks none of its members`. `cargo run -- check .temper` no longer contradicts its own `hook (3)` coverage line.",
+    "notes": "Live invariant-6 violation; not deferrable to MANIFEST-WRITE-SIDE (parked), which retires the finding only once settings.json is FULLY represented — this fixes the intermediate partial-governance message NOW. mcp-server ship (1ffab8f) added spans_whole_manifest and retired .mcp.json's finding but left settings.json's segment case lying. Probe: cargo run -- check .temper shows hook (3) and 'checks none of its members' in one run. observed at 15a71ac; scoped at ff84346"
+  },
+  {
     "tag": "MANIFEST-WRITE-SIDE",
     "summary": "Phase 2 of 0021 (manifest write side): SDK member constructors + erasure, canonical whole-manifest emit write, bundle.rs to general-write, guard coverage of represented manifests",
     "per": {
