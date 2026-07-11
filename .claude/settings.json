@@ -1,5 +1,4 @@
 {
-  "autoMemoryEnabled": false,
   "hooks": {
     "PostToolUse": [
       {
@@ -12,16 +11,6 @@
         "matcher": "Edit|Write"
       }
     ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "command": "temper check . --reporter session-start",
-            "type": "command"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "hooks": [
@@ -32,8 +21,19 @@
         ],
         "matcher": "Write|Edit|MultiEdit"
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "temper check . --reporter session-start",
+            "type": "command"
+          }
+        ]
+      }
     ]
   },
+  "autoMemoryEnabled": false,
   "permissions": {
     "allow": [
       "Bash(cargo build:*)",

@@ -6,6 +6,7 @@ import { rule_pendingEntry } from "./rules/pending-entry.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
+import { hook_fmtOnWrite, hook_guard, hook_sessionStart } from "./hooks.ts";
 
 // The two requirements below are load-bearing, not documentation: emit
 // refuses if either loses its satisfier (sdk/test/refusals.test.ts, "an
@@ -39,7 +40,26 @@ const program = harness({
     rule_rust,
     rule_sdk,
     skill_captureFriction,
+    hook_sessionStart,
+    hook_guard,
+    hook_fmtOnWrite,
   ],
+  // Residual settings with no member home yet. The permission allowlist is
+  // authored residue until members declare capability needs and the derived
+  // union takes over (specs/model/pipeline.md, "Emit" — derived facts are
+  // computed, never authored twice; today nothing declares a need).
+  settings: {
+    autoMemoryEnabled: false,
+    permissions: {
+      allow: [
+        "Bash(cargo build:*)",
+        "Bash(cargo test:*)",
+        "Bash(cargo clippy:*)",
+        "Bash(cargo fmt:*)",
+      ],
+    },
+    worktree: { bgIsolation: "none" },
+  },
 });
 
 process.stdout.write(emit(program).seam);

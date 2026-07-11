@@ -35,6 +35,15 @@ source_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
 emit_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
 
 [[declaration.kind]]
+name = "hook"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["event(event)"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+
+[[declaration.kind]]
 name = "memory"
 governs_root = "."
 governs_glob = "**/CLAUDE.md"
@@ -79,3 +88,21 @@ requirement = "friction-capture-procedure"
 [[declaration.satisfies]]
 member = "pending-entry"
 requirement = "pending-entry-discipline"
+
+[[declaration.registration]]
+kind = "hook"
+key = "PostToolUse"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "PreToolUse"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "SessionStart"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
