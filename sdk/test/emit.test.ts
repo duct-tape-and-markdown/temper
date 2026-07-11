@@ -34,7 +34,7 @@ import {
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
-import { memory, rule, skill } from "../src/claude-code.js";
+import { hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
   return harness({
@@ -908,6 +908,52 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
           { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
         ],
       },
+    },
+  ]);
+});
+
+// ---------------------------------------------------------------------------
+// Registration members — a fields-only hook/mcp-server erases into a manifest
+// write fact, never a standalone projection.
+// ---------------------------------------------------------------------------
+
+test("a hook and an mcp-server member each erase into a registration write fact — name-keyed at their collection address, fields folded", () => {
+  const h = harness({
+    members: [
+      hook({ name: "SessionStart", type: "command", command: "temper reporter", timeout: 5 }),
+      mcpServer({ name: "gmail", type: "stdio", command: "npx", args: ["gmail-mcp"] }),
+    ],
+  });
+
+  const result = emit(h);
+
+  // Neither surfaces as a standalone projection — a fields-only registration member
+  // owns no artifact of its own, so it never rides the projected-member payload.
+  assert.deepEqual(result.members, []);
+
+  // Each erases into a write fact carrying its name (key), collection address, and
+  // folded fields — the shape a manifest write face reads back. Kind-then-key sorted,
+  // so `hook` precedes `mcp-server`.
+  assert.deepEqual(result.registrations, [
+    {
+      kind: "hook",
+      key: "SessionStart",
+      collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+      fields: [
+        ["type", "command"],
+        ["command", "temper reporter"],
+        ["timeout", 5],
+      ],
+    },
+    {
+      kind: "mcp-server",
+      key: "gmail",
+      collectionAddress: { manifest: ".mcp.json", keyPath: "mcpServers.*" },
+      fields: [
+        ["type", "stdio"],
+        ["command", "npx"],
+        ["args", ["gmail-mcp"]],
+      ],
     },
   ]);
 });

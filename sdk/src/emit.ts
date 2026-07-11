@@ -226,9 +226,22 @@ function refuseBrokenSource(harness: Harness): void {
   }
 }
 
-/** A member is projected iff its kind lives at a path locus (an embedded member is not). */
+/**
+ * A fields-only registration member (a hook, an MCP server) surfaces embedded in a
+ * host manifest, so it owns no standalone artifact — its facts erase into a
+ * {@link RegistrationFact} for the manifest write face, never a projected member.
+ */
+function isRegistration(member: Member): boolean {
+  return member.facts.shape === "fields";
+}
+
+/**
+ * A member is projected iff its kind lives at a path locus and is not a fields-only
+ * registration member — an embedded member and a registration member each carry no
+ * standalone projection.
+ */
 function isProjected(member: Member): boolean {
-  return member.facts.locus.kind === "at";
+  return member.facts.locus.kind === "at" && !isRegistration(member);
 }
 
 /**
@@ -245,6 +258,54 @@ function fileSourcePath(member: Member): string | undefined {
   const prose = member.prose;
   if (prose?.kind !== "file") return undefined;
   return fileURLToPath(new URL(prose.path, prose.moduleUrl));
+}
+
+/**
+ * One fields-only registration member erased for the manifest write face: its key
+ * (a hook's lifecycle event, an MCP server's name), the collection address it keys
+ * at, and its folded typed fields — the same declaration-row shape the engine write
+ * face reads back off a manifest (`json_manifest.rs`'s `RegistrationMember`). Carried
+ * from the composing program, never mined from a projection.
+ */
+export interface RegistrationFact {
+  /** The erased registration kind — `hook`, `mcp-server` — joining `declarations.kinds`. */
+  readonly kind: string;
+  /** The member's key among its collection's entries — a hook's event, a server's name. */
+  readonly key: string;
+  /** The manifest collection address the registration surfaces at. */
+  readonly collectionAddress: { readonly manifest: string; readonly keyPath: string };
+  /** The member's folded typed fields, in the author's declared order. */
+  readonly fields: ReadonlyArray<readonly [string, unknown]>;
+}
+
+/**
+ * The harness's fields-only registration members erased into manifest write facts,
+ * kind-then-key ordered so double emit is byte-stable.
+ *
+ * # Throws
+ * If a fields-only member declares no collection address — it surfaces in no manifest.
+ */
+function registrationFacts(harness: Harness): RegistrationFact[] {
+  return harness.members
+    .filter(isRegistration)
+    .map((member): RegistrationFact => {
+      const address = member.facts.collectionAddress;
+      if (address === undefined) {
+        throw new Error(
+          `member \`${member.name}\`: a fields-only registration kind declares no ` +
+            `collection address — it surfaces in no host manifest (specs/model/pipeline.md, "The SDK").`,
+        );
+      }
+      return {
+        kind: member.kind,
+        key: member.name,
+        collectionAddress: { manifest: address.manifest, keyPath: address.keyPath },
+        // The member's field list is read-only; copy each pair into a fresh tuple —
+        // the same values, the mutable shape the fact carries.
+        fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
+      };
+    })
+    .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
 }
 
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
@@ -285,6 +346,13 @@ export interface EmitResult {
    * data until then.
    */
   readonly permissions: readonly string[];
+  /**
+   * The fields-only registration members erased for the manifest write face — each
+   * a name, its collection address, and its folded fields. Folds into the manifest
+   * artifacts once the engine write face lands; carried here as data until then, the
+   * way `permissions` is.
+   */
+  readonly registrations: readonly RegistrationFact[];
 }
 
 /**
@@ -307,6 +375,7 @@ export function emit(harness: Harness): EmitResult {
       members,
       seam: encodeSeam({ declarations, members }),
       permissions: permissionUnion(harness.members.flatMap((member) => [...member.needs])),
+      registrations: registrationFacts(harness),
     };
   };
   const first = compile();

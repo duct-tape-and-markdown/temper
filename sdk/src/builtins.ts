@@ -157,9 +157,9 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
  * A Claude Code hook — a fields-only registration member surfacing inside
  * `settings.json`, keyed under its lifecycle event. It owns no artifact of its own; a
  * handler names how it fires (`command`/`http`/`mcp_tool`/`prompt`/`agent`) plus the
- * documented common fields (code.claude.com/docs/en/hooks, retrieved 2026-07-10). The
- * authoring constructor lands with the manifest write face; phase 1 carries the read-side
- * facts and the default contract.
+ * documented common fields (code.claude.com/docs/en/hooks, retrieved 2026-07-10).
+ * Authoring `hook(...)` builds a member whose typed fields fold into its manifest entry;
+ * emit erases it into a registration write fact (`emit.ts`).
  */
 export interface Hook {
   /** The handler kind — how the hook fires when its event matches. */
@@ -194,9 +194,9 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
  * `type` names the transport (`stdio` default, or `http`/`streamable-http`/`sse`/`ws`),
  * and each transport reads a different field set — `command`/`args`/`env` for a local
  * stdio process, `url`/`headers` for a remote connection
- * (code.claude.com/docs/en/mcp, retrieved 2026-07-10). The authoring constructor lands
- * with the manifest write face; phase 1 carries the read-side facts and the default
- * contract.
+ * (code.claude.com/docs/en/mcp, retrieved 2026-07-10). Authoring `mcpServer(...)` builds a
+ * member whose typed fields fold into its `mcpServers.*` entry; emit erases it into a
+ * registration write fact (`emit.ts`).
  */
 export interface McpServer {
   /**

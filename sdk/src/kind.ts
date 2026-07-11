@@ -191,13 +191,15 @@ export interface KindDefinition<T> {
 }
 
 /**
- * Build the ordered projected-frontmatter fields for a member: nothing for a
- * frontmatterless kind (memory declares no `format`), else the identity field
- * (when the kind writes its name into frontmatter) followed by the typed fields
- * in the author's declared order.
+ * Build the ordered projected fields for a member: nothing for a frontmatterless
+ * body-bearing kind (memory declares no `format` and is not fields-only), else the
+ * identity field (when the kind writes its name into frontmatter) followed by the
+ * typed fields in the author's declared order. A fields-only registration kind (a
+ * hook, an MCP server) carries its typed fields though it declares no `format` —
+ * the fields are the whole member, folded into a manifest entry, never a header.
  */
 function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readonly [string, unknown]> {
-  if (facts.format === undefined) return [];
+  if (facts.format === undefined && facts.shape !== "fields") return [];
   const typed: Array<readonly [string, unknown]> = [];
   for (const [key, value] of Object.entries(init)) {
     if (!FRAMEWORK_KEYS.has(key)) typed.push([key, value]);
