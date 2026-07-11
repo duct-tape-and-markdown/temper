@@ -7,8 +7,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-WRITE-HOOK-SHAPE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -20,7 +19,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "`ManifestBuild.residue` (~826) is filled only from a path-matched container member's fields (~693); no member projects to `settings.json`, so its residue stays empty and the whole authored-settings segment is shed. Fill the settings.json build's residue from the carried seam family (the manifest's collection segments then its opaque residue, per the write face's declared-order-then-residue contract). Refuse loud rather than shed if a residue key cannot be carried (invariant 6). Shares src/drift.rs with HOOK-SHAPE, hence blockedBy."
+          "description": "`ManifestBuild.residue` (struct field drift.rs:841) is filled only from a path-matched container member's fields (drift.rs:708); no member projects to `settings.json`, so its residue stays empty and the whole authored-settings segment is shed. Fill the settings.json build's residue from the carried seam family (the manifest's collection segments then its opaque residue, per the write face's declared-order-then-residue contract). Refuse loud rather than shed if a residue key cannot be carried (invariant 6). HOOK-SHAPE (224b880) already nests hooks into settings.json's matcher-group array via the sibling registration loop (drift.rs:672-693) — leave that path intact."
         }
       ],
       "retire": []
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "emit carries the assembly's authored settings into settings.json as opaque residue (or refuses loud), never silently sheds them; the dogfood emit reproduces the authored residue keys beside the hooks segment.",
-    "notes": "assembly.settings (assembly.ts:41) has no seam family: EmitResult carries declarations/members/permissions/registrations, not settings residue, so it never reaches the engine; build.residue fills only from a path-matched container member and no member projects to settings.json. Dogfood probe stashed on main (\"dogfood: hooks authored as .temper members\"). Ships after HOOK-SHAPE (shared src/drift.rs routing). scoped at d927edf"
+    "notes": "assembly.settings (assembly.ts:41) has no seam family: EmitResult carries declarations/members/permissions/registrations, not settings residue; build.residue (drift.rs:708) fills only from a path-matched container member, none projects to settings.json (struct drift.rs:841). HOOK-SHAPE shipped (224b880), unblocking this — its hook-nesting left the residue-fill path untouched. Dogfood probe stashed on main. scoped at d927edf, re-verified at 224b880."
   },
   {
     "tag": "PACKAGING-CHANNELS",

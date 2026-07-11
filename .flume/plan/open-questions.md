@@ -135,10 +135,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   is correct; only the comment names a replacement that will never come.
   Rides whichever entry next opens `src/extract.rs` (0020's own exit
   clause), never standalone. Found routing 0020 at HEAD a0fccaf. 3611335,
-  then MCP-SERVER-KIND (1ffab8f, hunks at 913/938/1148/1167), each opened
-  extract.rs but left 196-198 as unchanged context, so —
+  then MCP-SERVER-KIND (1ffab8f, hunks at 913/938/1148/1167), then HOOK-SHAPE
+  (5fc3e9f, +135 lines: the `hook_matcher_group` write/read pair at 928-1015),
+  each opened extract.rs but left 196-198 as unchanged context, so —
   reconciliation-not-opening — undischarged; re-verified on disk
-  (extract.rs:196-198) at reconcile HEAD 5f27db2.
+  (extract.rs:196-198) at reconcile HEAD 224b880.
 
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
@@ -153,8 +154,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   entry opens any), never standalone. (Fixture body text inside tests —
   not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
   strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
-  which 3611335 shifted 1153/1188→1227/1262 then MCP-SERVER-KIND (1ffab8f)
-  shifted 1227/1262→1223/1258 — reclassified out of the doc-comment list
+  which 3611335 shifted 1153/1188→1227/1262, MCP-SERVER-KIND (1ffab8f)
+  shifted 1227/1262→1223/1258, then HOOK-SHAPE (5fc3e9f) shifted
+  1223/1258→1340/1375 — reclassified out of the doc-comment list
   above on finding them `.to_string()` test data.)
   Found at
   residue sweep HEAD c2a8cae. MANIFEST-WRITE-SDK-ERASURE (8cc0561) opened
