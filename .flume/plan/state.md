@@ -1,26 +1,33 @@
 # Plan state
 
 - Spec derived through: a9f7b9e
-- Audited through: f075f8d
-- Residue swept through: f075f8d
-- This tick: Post-ship reconciliation, window 5f27db2..HEAD (COVERAGE-PARTIAL-
-  GOVERNANCE 3dd6b52, MANIFEST-WRITE-SDK-ERASURE 8cc0561). AUDIT: both verified
-  on disk. 3dd6b52 narrowed coverage.unmodeled-surface — a partially-governed
-  manifest now names only its ungoverned residue (coverage_note.rs
-  unmodeled_residue split). 8cc0561 is SDK-side only: fields-only hook/mcp-server
-  members now carry typed fields (shape:"fields") and emit erases each into a
-  RegistrationFact on EmitResult (name/collectionAddress/fields) — no seam/engine
-  change, one-sided until the write face consumes it. GATE RE-TEST: MANIFEST-
-  WRITE-EMIT-FACE was blockedBy SDK-ERASURE → SDK-ERASURE shipped → flipped
-  EMIT-FACE to open. BUNDLE/GUARD/COVERAGE-RETIRE stay blockedBy EMIT-FACE
-  (unshipped); PACKAGING-CHANNELS stays parked. SWEEP: no new residue — shipped
-  code is well-cited. Three doc-comment riders on files 8cc0561 opened
-  (builtins.ts 392/432/469 PACKAGE.md cites; kind.ts fact-3 "layout" narration
-  4/16/106/108; kind.ts "posture 3" shifted 252→254) each opened-and-left per
-  reconciliation-not-opening — re-verified on disk at f075f8d, undischarged.
-  Both cursors → f075f8d.
-- Queue: EMIT-FACE (open) → BUNDLE/GUARD/COVERAGE-RETIRE (blockedBy EMIT-FACE) →
-  PACKAGING-CHANNELS (parked). One open head; all blockedBy tags resolve.
+- Audited through: 7fd76de
+- Residue swept through: 7fd76de
+- This tick: Post-ship reconciliation, window f075f8d..HEAD (MANIFEST-WRITE-
+  EMIT-FACE, fd16625). AUDIT: EMIT-FACE landed only its write-face half —
+  json_manifest::write_manifest + CollectionSegment verified on disk
+  (json_manifest.rs:221/241). Its second clause (emit routes represented
+  manifests through the write face) was DEFERRED: the seam carries no
+  registrations (encodeSeam { declarations, members }, emit.ts:376;
+  EmitResult.registrations is an engine-unconsumed sibling), so drift::emit has
+  no represented-manifest instances to route — confirmed at Payload/Declarations
+  (drift.rs:446/1714, no registration family). GATE RE-TEST: BUNDLE's blocker (a
+  canonical encoder exists) is now satisfied → flipped open; it consolidates
+  bundle.rs's serde_json onto write_manifest/pretty_at, disjoint from every other
+  open entry (bundle.rs only). GUARD + COVERAGE-RETIRE need a manifest genuinely
+  REPRESENTED (members in the lock, container an opaque-field-carrying member) —
+  that is the deferred emit-routing, not the write face — so re-pointed blockedBy
+  EMIT-FACE → new MANIFEST-WRITE-SEAM. FILED MANIFEST-WRITE-SEAM (open): carries
+  the RegistrationFact family across the seam into Payload/Declarations, surfaces
+  the rows in read.rs, routes drift::emit through write_manifest — the deferred
+  half, per .flume/friction/build-manifest-emit-routing-seam-blocked.md (left for
+  the human session sweep to drain; the queue now reflects its suggested fix).
+  SWEEP: window touched only json_manifest.rs + tests/manifest_adapter.rs; no
+  rider in open-questions names either, no new second-encoder residue (bundle.rs's
+  is BUNDLE's own scope). Both cursors → 7fd76de.
+- Queue: SEAM (open) + BUNDLE (open, disjoint) pickable → GUARD/COVERAGE-RETIRE
+  (blockedBy SEAM) → PACKAGING-CHANNELS (parked). Two open heads, both files-
+  disjoint; blockers resolve.
 
-Plan continues: no — window reconciled to f075f8d, inbox/spec-delta empty; one
-open pickable entry (EMIT-FACE), build takes over.
+Plan continues: no — window reconciled to 7fd76de, inbox/spec-delta empty; two
+open files-disjoint entries (SEAM, BUNDLE) pickable, build takes over.
