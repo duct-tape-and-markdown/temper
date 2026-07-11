@@ -9,15 +9,12 @@ something already discussed.
 
 `temper` is largely **agent-built under human-authored specs**. The intent lives
 in [`specs/`](../specs/); a build pipeline ships it to the trunk one gated,
-validated commit at a time. Provenance is recorded in each commit's trailer, and
-the full history is the audit trail. This is stated plainly because it is the
-project's own thesis: the gate exists precisely because agents author harnesses,
-and a project that discloses its own authorship has standing to ask the same of
-contributors (see the AI-assisted contributions section below).
+validated commit at a time, and each commit's trailer records its provenance.
+The same disclosure is asked of contributors below.
 
 ## Filing a good issue
 
-- **Search first.** Check open and closed issues before opening a new one — the
+- **Search first.** Check open and closed issues before opening a new one; the
   answer or the tracking issue may already exist.
 - **Use the forms.** Bug reports and feature requests go through the issue forms,
   which ask for the version, OS, and reproduction we need to act. Blank issues
@@ -29,22 +26,21 @@ contributors (see the AI-assisted contributions section below).
 
 - **Discussion precedes code.** Open or find an issue first and get agreement on
   the approach before writing a PR. Unsolicited large PRs are hard to accept and
-  usually will not be — not because the work is unwelcome, but because a change
+  usually will not be, not because the work is unwelcome, but because a change
   nobody agreed to the shape of costs more to review than to write.
 - **Keep it scoped.** One change per PR, matching the surrounding code's style,
   with the gates green (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`).
 
 ## AI-assisted contributions
 
-AI assistance is **welcome, with disclosure** — not banned. A ban would be
-hypocrisy in an agent-built repo. But disclosure is required, and one rule
-follows from it:
+AI assistance is **welcome, with disclosure**; a ban would be hypocrisy in an
+agent-built repo. Two rules:
 
 - **Note in the PR that you used an assistant**, and which parts.
 - **You must understand and be able to defend the change without it.** If a
   reviewer's question sends you back to the assistant to answer, the change is
   not ready. Put another way: if the human effort is less than the review effort
-  it imposes, please don't submit it — that asymmetry lands entirely on the
+  it imposes, please don't submit it. That asymmetry lands entirely on the
   maintainer.
 
 This is the same bar the project holds itself to. Unverified, assistant-generated

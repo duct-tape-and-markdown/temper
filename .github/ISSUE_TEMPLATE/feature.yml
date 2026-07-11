@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **Search first** — the idea may already be proposed or intentionally
+        **Search first**: the idea may already be proposed or intentionally
         deferred. Opening this is how a change gets agreed before any PR is
         written; unsolicited large PRs without a prior discussion are hard to
         accept.

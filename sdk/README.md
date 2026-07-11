@@ -1,55 +1,86 @@
-# temper-sdk — the authoring face
+# @dtmd/temper
 
-The typed module library the ratified corpus names as temper's authoring
-medium (`specs/intent.md`; `specs/model/pipeline.md`, "The SDK"). A harness
-author composes members as typed
-values in the **six-noun model**; `emit` compiles the whole into the declaration
-rows the engine reads, a byte-faithful `.claude/**` projection, and the lock. The
-SDK implements **no semantics** — every type erases at the seam, and the engine
+_A type system for the documents that program agents._
+
+One package, two faces: the `temper` CLI (a prebuilt binary that needs no
+runtime once it is on disk) and the typed SDK for authoring a Claude Code
+harness as a program. The full story, the CLI reference, and the spec corpus
+live in the [repository](https://github.com/duct-tape-and-markdown/temper).
+
+## Check a harness
+
+Point it at any repo with a `.claude/`. No config, no project file, nothing
+installed:
+
+```sh
+npx @dtmd/temper check --harness .
+```
+
+It validates every skill, rule, and agent against the documented Anthropic
+schemas and best practices, then reports what is malformed, what Claude Code
+silently ignores, and what a requirement you declared would strand. Every
+finding arrives with its guidance attached.
+
+## Wire the gate into a project
+
+```sh
+npx @dtmd/temper install
+```
+
+`install` opens with a report of what it finds in your harness, then asks one
+question: represent it as a temper program? Answering no wires the advisory
+session-start report alone, one settings entry. Answering yes converts each
+discovered artifact into a typed member module, your prose byte-for-byte
+intact, and runs the first emit.
+
+## Author the harness as a program
+
+A harness is a small typed program: members are typed values, composition is
+ordinary imports, and requirements are declared next to the members that fill
+them:
+
+```ts
+import { emit, harness } from "@dtmd/temper";
+import { memory_CLAUDE } from "./memory/CLAUDE.ts";
+import { rule_collaboration } from "./rules/collaboration.ts";
+import { skill_captureFriction } from "./skills/capture-friction.ts";
+
+const program = harness({
+  require: {
+    "friction-capture-procedure": {
+      prose: "an agent that hits harness friction needs a procedure for filing the capture",
+      required: true,
+    },
+  },
+  members: [memory_CLAUDE, rule_collaboration, skill_captureFriction],
+});
+
+process.stdout.write(emit(program).seam);
+```
+
+`temper emit` compiles the program into the projected `.claude/**` files and
+a lock, byte-for-byte reproducible; it verifies itself by emitting twice.
+`temper check` gates against the lock, so it can answer what fills each
+requirement and what would strand it. A hand edit to a generated file
+surfaces as drift routed to its authored source, never merged around. The SDK
+implements no semantics: every type erases at the seam, and the engine
 consumes only declared data, offline, no Node.
 
-## The six-noun face
+## Documentation
 
-- **`harness()`** — the assembly as one typed value: `members · expect ·
-  require · settings` (`specs/model/pipeline.md`, "The SDK").
-- **`kind<T>()`** — the engine room: a kind is a typed
-  constructor plus five facts of runtime residue (label, locus, layout,
-  registration, edge fields — `specs/model/representation.md`). The built-in
-  Claude Code kinds `rule` / `skill` / `memory` are ordinary `kind<T>()` values;
-  an embedded child kind is the same constructor at the `embedded` locus.
-- **Clause values** — `clause(predicate, { severity, guidance, cite })` over the
-  closed predicate algebra (`required`, `maxLines`, …); a floor is an exported
-  clause array, adopted by spread in `expect` (`specs/model/contract.md`).
-- **`needs`** — the capabilities a member uses (`bash("git diff")`); emit derives
-  the permission union, so a permission is never authored twice.
-- **`file()` / `` text`…` `` / `blocks()`** — the three prose constructors, one
-  field type; the author's words land byte-identical to their authored text.
+- [CLI reference](https://github.com/duct-tape-and-markdown/temper/blob/main/docs/cli.md),
+  the seven verbs
+- [How it works](https://github.com/duct-tape-and-markdown/temper/blob/main/docs/how-it-works.md),
+  the model in plain words
+- [Why it exists](https://github.com/duct-tape-and-markdown/temper/blob/main/specs/intent.md)
 
-## What `emit` produces
+## Platforms
 
-One deterministic pass over the harness, double-emit verified
-(`specs/model/pipeline.md`, "Emit"):
+Prebuilt binaries ship for Linux and Windows (x64), macOS next. On other
+platforms, build from source with a Rust 1.96+ toolchain (`cargo install
+--path .` from a clone of the repository).
 
-- **Declaration rows** — the erased program (kind facts, clauses, requirements,
-  assembly facts) on the internal versioned JSON pipe and in the lock's
-  `[declaration]` families, byte-matching the Rust lock shape (`src/drift.rs`) —
-  the byte-parity lockstep two writers keep until single-writer lands.
-- **A byte-faithful projection** — each `rule` / `skill` / `memory` member
-  compiled whole to its `.claude/**` locus; install's placement lines round-trip.
-- **The lock** — rollup provenance/emit fingerprints plus the declaration rows.
+## License
 
-Emit is **total** (members are the only source), **refuses** before it writes on
-a broken source (a dangling `satisfies`, an unfilled `required`, an unresolved
-mention), and is **byte-reproducible**. `writeEmit` lands the lock and the
-projection on disk; the JSON pipe is in-flight, not a committed artifact.
-
-## Stated bounds — each a named follow-on, never silently faked
-
-- **The permission union is carried as data** — the fold into the settings
-  artifact lands with the hook/MCP kinds it folds many-to-one.
-
-## Tests
-
-`pnpm --dir sdk test` — `tsc` (the keystroke wall) then `node --test`, including
-projection byte-parity and lock fingerprints against real Rust output, and the
-declaration-row byte shape against the Rust `[declaration]` families.
+Dual-licensed under **MIT OR Apache-2.0**. You may use `temper` under the
+terms of either.
