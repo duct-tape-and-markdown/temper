@@ -12,6 +12,7 @@
 //! - **CLI** — the real `temper bundle` binary composes the plugin across the process
 //!   boundary (where `main`'s dispatch and the default `--out` are observable).
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -147,6 +148,39 @@ fn bundle_report_names_shipped_artifacts_over_an_empty_surface() {
         !rendered.contains("0 skill") && !rendered.contains("0 rule"),
         "the report must never read as a member tally, got:\n{rendered}"
     );
+}
+
+#[test]
+fn bundle_manifests_ride_the_canonical_manifest_write() {
+    // Consolidation: the three structured manifests route through the canonical
+    // whole-manifest write face, not a bespoke serde_json path. Their top-level keys
+    // carry no declared collection, so re-rendering the on-disk bytes through that face
+    // as pure residue must reproduce them exactly — proving one write surface produced
+    // them and no second encoder survives to drift.
+    let surface = imported_surface("canonical-write");
+    let out = common::tmpdir("canonical-write-out");
+
+    bundle::run(&surface, &out).unwrap();
+
+    for relative in [
+        ".claude-plugin/plugin.json",
+        ".claude-plugin/marketplace.json",
+        "hooks/hooks.json",
+    ] {
+        let written = fs::read_to_string(out.join(relative)).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&written).unwrap();
+        let residue: BTreeMap<String, serde_json::Value> = value
+            .as_object()
+            .expect("a manifest top level is an object")
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let canonical = temper::json_manifest::write_manifest(&[], &residue);
+        assert_eq!(
+            written, canonical,
+            "{relative} must be byte-identical to the canonical manifest write"
+        );
+    }
 }
 
 #[test]

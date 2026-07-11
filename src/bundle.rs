@@ -20,9 +20,9 @@
 //! `temper` projects, so it is **byte-faithful where it carries prose**:
 //! the skill body is copied verbatim from its
 //! embedded source, never re-rendered. The structured manifests (`plugin.json`,
-//! `marketplace.json`, `hooks.json`) are built through `serde_json`, so they are well-formed by
-//! construction — the binary owns the output contract, no hand-escaping (mirroring
-//! [`crate::reporter`]).
+//! `marketplace.json`, `hooks.json`) are `serde_json` values written through the canonical
+//! whole-manifest write face ([`crate::json_manifest::write_manifest`]) — one encoder,
+//! well-formed by construction, no hand-escaping (mirroring [`crate::reporter`]).
 //!
 //! `bundle` ships channel 3's assets — the operate-the-gate skill and the
 //! `SessionStart` hook — unconditionally: it never reads the surface it composes
@@ -34,6 +34,7 @@
 //! crate version, so re-running `bundle` reproduces an identical tree — the vendored
 //! plugin is reviewable and diff-stable.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -161,8 +162,8 @@ pub struct BundleReport {
 pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     let mut files = Vec::new();
 
-    // The plugin manifest and the marketplace listing it — structured, built through
-    // `serde_json` so they are well-formed by construction.
+    // The plugin manifest and the marketplace listing it — structured values written
+    // through the canonical whole-manifest write face, well-formed by construction.
     write_json(
         out,
         Path::new(".claude-plugin/plugin.json"),
@@ -203,67 +204,69 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
 /// The `plugin.json` manifest (`.claude-plugin/plugin.json`): the plugin's identity
 /// Claude Code reads to install it. Version tracks the crate so the plugin and the
 /// binary it delivers move together.
-fn plugin_manifest() -> JsonValue {
-    json!({
-    "name": PLUGIN_NAME,
-        "version": crate::VERSION,
-    "description": PLUGIN_DESCRIPTION,
-        "keywords": ["claude", "claude-code", "harness", "linter", "gate"],
-    })
+fn plugin_manifest() -> BTreeMap<String, JsonValue> {
+    BTreeMap::from([
+        ("name".to_string(), json!(PLUGIN_NAME)),
+        ("version".to_string(), json!(crate::VERSION)),
+        ("description".to_string(), json!(PLUGIN_DESCRIPTION)),
+        (
+            "keywords".to_string(),
+            json!(["claude", "claude-code", "harness", "linter", "gate"]),
+        ),
+    ])
 }
 
 /// The `marketplace.json` manifest listing this one plugin — the channel `temper` is
 /// distributed through. The plugin's `source` is `.`: the marketplace root *is* the plugin
 /// root, so the generated tree is a self-contained, installable bundle.
-fn marketplace_manifest() -> JsonValue {
-    json!({
-    "name": PLUGIN_NAME,
-        "owner": { "name": PLUGIN_NAME },
-        "plugins": [
-    {
-    "name": PLUGIN_NAME,
-                "source": ".",
-    "description": PLUGIN_DESCRIPTION,
-    }
-        ],
-    })
+fn marketplace_manifest() -> BTreeMap<String, JsonValue> {
+    BTreeMap::from([
+        ("name".to_string(), json!(PLUGIN_NAME)),
+        ("owner".to_string(), json!({ "name": PLUGIN_NAME })),
+        (
+            "plugins".to_string(),
+            json!([
+                {
+                    "name": PLUGIN_NAME,
+                    "source": ".",
+                    "description": PLUGIN_DESCRIPTION,
+                }
+            ]),
+        ),
+    ])
 }
 
 /// The `hooks.json` manifest carrying the advisory `SessionStart` hook — the
 /// exec-form `temper check . --reporter session-start` command Claude Code spawns at
 /// session start. Same shape `temper install` merges into `.claude/settings.json`, so the
 /// plugin and `install` deliver the identical gate.
-fn hooks_manifest() -> JsonValue {
-    json!({
-        "hooks": {
+fn hooks_manifest() -> BTreeMap<String, JsonValue> {
+    BTreeMap::from([(
+        "hooks".to_string(),
+        json!({
             "SessionStart": [
-    {
+                {
                     "hooks": [
                         { "type": "command", "command": SESSION_START_COMMAND }
-    ]
-    }
-    ]
-    }
-    })
+                    ]
+                }
+            ]
+        }),
+    )])
 }
 
-/// Write a structured manifest as pretty JSON under `<out>/<relative>`, recording the
-/// relative path in `files`. A trailing newline keeps the file POSIX-clean; pretty
-/// JSON over a deterministic value is reproducible, so the whole emit is deterministic.
+/// Write a structured manifest as canonical pretty JSON under `<out>/<relative>`,
+/// recording the relative path in `files`. Its top-level keys carry no declared
+/// collection, so they route through the canonical whole-manifest write as pure residue —
+/// the one encoder (trailing LF and all), never a second serde_json pretty-printer.
 fn write_json(
     out: &Path,
     relative: &Path,
-    value: &JsonValue,
+    residue: &BTreeMap<String, JsonValue>,
     files: &mut Vec<PathBuf>,
 ) -> Result<(), BundleError> {
-    // `serde_json::to_string_pretty` over a `Value` never fails (no custom
-    // `Serialize` in play), but map the error rather than unwrap to keep the module
-    // panic-free on every path.
-    let json = serde_json::to_string_pretty(value).map_err(|source| BundleError::Write {
-        path: out.join(relative),
-        source: std::io::Error::other(source),
-    })?;
-    write_text(out, relative, &format!("{json}\n"), files)
+    let json = crate::json_manifest::write_manifest(&[], residue);
+    write_text(out, relative, &json, files)
 }
 
 /// Write text bytes verbatim to `<out>/<relative>`, creating parent directories and
