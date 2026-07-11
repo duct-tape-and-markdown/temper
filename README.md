@@ -69,19 +69,26 @@ finding arrives with the reason attached.
 
 ## Install
 
-`temper` is pre-1.0. The first tagged release with prebuilt binaries and the
-Claude Code plugin is still ahead. Until then, build the binary from source
-with a Rust 1.96+ toolchain:
+The engine ships on npm with prebuilt binaries for Linux and Windows (x64),
+with macOS next. On a machine with Node, one command wires the gate into a
+project:
 
 ```sh
-cargo install --path .
-temper check --harness .
+npx @dtmd/temper install
 ```
 
-The authoring SDK is on npm as
-[`@dtmd/temper`](https://www.npmjs.com/package/@dtmd/temper); `temper
-install` wires it into a project for you. Binary distribution will be through
-npm and the Claude Code plugin; a crates.io publish is not currently planned.
+Or take it for a spin first, nothing installed at all:
+
+```sh
+npx @dtmd/temper check --harness .
+```
+
+The same package is the authoring SDK
+([`@dtmd/temper`](https://www.npmjs.com/package/@dtmd/temper)): one install
+delivers both faces, and the binary needs no runtime of any kind once it is
+on disk. On other platforms, build from source with a Rust 1.96+ toolchain
+(`cargo install --path .` from a clone); a crates.io publish is not
+currently planned. The Claude Code plugin channel is still ahead.
 
 ## Status
 
