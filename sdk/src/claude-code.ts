@@ -8,12 +8,14 @@
  * too: adoption is `import { skill, skillDefaultContract } from "@dtmd/temper/claude-code"`.
  */
 
-export type { Agent, Memory, Rule, Skill } from "./builtins.js";
+export type { Agent, Hook, Memory, Rule, Skill } from "./builtins.js";
 export {
   agent,
   agentDefaultContract,
   command,
   commandDefaultContract,
+  hook,
+  hookDefaultContract,
   memory,
   memoryAgentsMdDefaultContract,
   memoryAnthropicDefaultContract,

@@ -258,7 +258,16 @@ fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir
 /// are normalized (`./` prefix and trailing `/` stripped, a bare `.` treated as the
 /// harness root) so `governs.root = "."` compares against a top-level file's empty
 /// parent.
+///
+/// A **manifest kind** (one carrying a collection address) is the exception: it represents
+/// only its own segment of the host manifest (`hooks.<Event>` of `settings.json`), never
+/// the whole file — the container's other segments stay unmodeled until the manifest is a
+/// represented member. So it governs no whole-path surface here, and a manifest present on
+/// disk keeps its unmodeled-surface finding until every segment is modeled.
 fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
+    if kind.collection_address.is_some() {
+        return false;
+    }
     let root = normalize_root(&kind.governs.root);
     if is_dir {
         root == path || root.starts_with(&format!("{path}/"))

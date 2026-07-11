@@ -54,6 +54,10 @@ fn write_mcp_json(root: &Path) {
 /// only by reading the lock (`COVERAGE-KIND-AWARE`). `widget` stands in for the
 /// not-yet-shipped custom kind here: `agent` no longer fits (AGENT-KIND graduated it
 /// to a real built-in), mirroring `command`'s own earlier graduation off this fixture.
+///
+/// The member's body is a valid-JSON `{}` so the projection it writes over the governed
+/// `.claude/settings.json` stays a well-formed manifest — the `hook` built-in reads that
+/// same file as JSON, so a markdown body would abort the gate on a parse error.
 fn lock_widget_kind(root: &Path) {
     let payload = Payload {
         version: drift::SEAM_VERSION,
@@ -68,7 +72,7 @@ fn lock_widget_kind(root: &Path) {
             kind: "widget".to_string(),
             name: "settings".to_string(),
             fields: Vec::new(),
-            body: "# Settings\n\nProject settings.\n".to_string(),
+            body: "{}\n".to_string(),
             source_path: None,
         }],
     };

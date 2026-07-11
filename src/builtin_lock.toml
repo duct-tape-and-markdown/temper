@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the five built-in kinds' facts and their default contract clauses, plus the
+# the six built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,18 +10,18 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`agent`, `command`, `skill`, `rule`, `memory`) and its six default
-# contracts (`agentDefaultContract`, `commandDefaultContract`, `skillDefaultContract`,
-# `ruleDefaultContract`, `memoryAnthropicDefaultContract`,
-# `memoryAgentsMdDefaultContract`) — the identical rows an
-# adopted harness's own emit produces, just with no members to project. Regenerate by
-# re-running that memberless emit and re-embedding the resulting lock's declaration
-# rows verbatim; never hand-edit a row here.
+# built-in kinds (`agent`, `command`, `hook`, `skill`, `rule`, `memory`) and its seven
+# default contracts (`agentDefaultContract`, `commandDefaultContract`,
+# `hookDefaultContract`, `skillDefaultContract`, `ruleDefaultContract`,
+# `memoryAnthropicDefaultContract`, `memoryAgentsMdDefaultContract`) — the identical
+# rows an adopted harness's own emit produces, just with no members to project.
+# Regenerate by re-running that memberless emit and re-embedding the resulting lock's
+# declaration rows verbatim; never hand-edit a row here.
 #
 # `memoryAgentsMdDefaultContract` is guidance-only (zero clauses,
 # `sdk/src/builtins.ts`), so it contributes no clause row; the SDK module exports one
 # `memory` kind (the `CLAUDE.md` locus) and no `provider`-qualified kind values yet,
-# so this lock's five kind facts carry no `provider` column and there is no distinct
+# so this lock's six kind facts carry no `provider` column and there is no distinct
 # `agents-md.memory` kind row.
 
 [[declaration.kind]]
@@ -39,6 +39,15 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["user-invoked", "description-trigger(description)"]
+
+[[declaration.kind]]
+name = "hook"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["event(event)"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
 
 [[declaration.kind]]
 name = "memory"
@@ -189,6 +198,15 @@ severity = "required"
 guidance = "Cursor `.mdc` keys. Nothing in the Agent Skills spec or Claude Code's documented frontmatter accepts them — a skill authored with them is carrying dead configuration that another tool's semantics silently fail to apply."
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-09)"
 keys = ["globs", "alwaysApply"]
+
+[[declaration.clause]]
+kind = "hook"
+predicate = "enum"
+field = "event"
+severity = "required"
+guidance = "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding."
+cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-07-10)"
+values = ["SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay", "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded", "ConfigChange", "CwdChanged", "FileChanged", "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact", "Elicitation", "ElicitationResult", "SessionEnd"]
 
 [[declaration.clause]]
 kind = "memory"

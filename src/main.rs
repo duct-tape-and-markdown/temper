@@ -29,7 +29,8 @@ use temper::frontmatter;
 use temper::graph;
 use temper::import;
 use temper::install;
-use temper::kind::{self, CustomKind, Unit};
+use temper::json_manifest;
+use temper::kind::{self, CollectionAddress, CustomKind, Unit};
 use temper::read;
 use temper::reporter;
 use temper::roster;
@@ -907,7 +908,8 @@ fn resolve_kind_units(
     harness_root: &Path,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
-    let governs = overlay_builtin_kind(kind, declarations)?.governs;
+    let overlaid = overlay_builtin_kind(kind, declarations)?;
+    let governs = overlaid.governs.clone();
     let base = harness_root.join(&governs.root);
     // The kind's edge-field slots: a layout field section on one of these reads as
     // addresses, not a verbatim span, so it never lands as a frontmatter field. A custom
@@ -920,29 +922,49 @@ fn resolve_kind_units(
         &declarations.assembly,
         &kind.name,
     )?);
-    let mut units = Vec::new();
-    for file in import::discover_kind_files(harness_root, kind, &governs)? {
-        // Dispatch on the kind's content: a layout kind's document is read under its
-        // declared layout — its field sections fill the unit's fields, a non-fitting
-        // document refusing loud — where a file-content kind reads through the generic
-        // frontmatter adapter.
-        let mut unit = match &kind.content {
-            kind::Content::Layout(layout) => layout_unit(layout, &file, &base, &edge_fields)?,
-            // A fields-only kind carries no body slot, but its fields still read off
-            // frontmatter exactly as a file-content member's do — the shape differs only
-            // in projection (no prose body), never in this read-side field extraction.
-            kind::Content::File | kind::Content::Fields => {
-                let source = frontmatter::Member::from_source_rooted(kind, &file, &base)?;
-                Unit {
-                    id: source.id.clone(),
-                    frontmatter: source.fields.iter().cloned().collect(),
-                    body: source.body.clone(),
-                    source_path: source.provenance.source_path.clone(),
-                    satisfies: Vec::new(),
-                    satisfies_clauses: Vec::new(),
-                }
+
+    // A **manifest kind** — a fields-only kind carrying a collection address — reads its
+    // members out of a host JSON manifest, never a file tree: the runtime gate-path
+    // dispatch the manifest adapter delivered a library face for (MANIFEST-ADAPTER-READ)
+    // lands here at its first manifest kind. Every other kind walks its `governs` locus
+    // and reads each file through the layout or frontmatter adapter.
+    let mut units = match (&overlaid.content, &overlaid.collection_address) {
+        (kind::Content::Fields, Some(address)) => manifest_units(harness_root, &overlaid, address)?,
+        _ => {
+            let mut file_units = Vec::new();
+            for file in import::discover_kind_files(harness_root, kind, &governs)? {
+                // Dispatch on the kind's content: a layout kind's document is read under
+                // its declared layout — its field sections fill the unit's fields, a
+                // non-fitting document refusing loud — where a file-content kind reads
+                // through the generic frontmatter adapter. A fields-only kind with no
+                // collection address (not a manifest kind) reads its frontmatter the same
+                // way, differing only in projection.
+                let unit = match &kind.content {
+                    kind::Content::Layout(layout) => {
+                        layout_unit(layout, &file, &base, &edge_fields)?
+                    }
+                    kind::Content::File | kind::Content::Fields => {
+                        let source = frontmatter::Member::from_source_rooted(kind, &file, &base)?;
+                        Unit {
+                            id: source.id.clone(),
+                            frontmatter: source.fields.iter().cloned().collect(),
+                            body: source.body.clone(),
+                            source_path: source.provenance.source_path.clone(),
+                            satisfies: Vec::new(),
+                            satisfies_clauses: Vec::new(),
+                        }
+                    }
+                };
+                file_units.push(unit);
             }
-        };
+            file_units
+        }
+    };
+
+    // `satisfies` fill edges reach every member — file or manifest — off the lock's own
+    // family, keyed by member id, so a registration member joins the requirement corpus
+    // exactly as a file member does.
+    for unit in &mut units {
         for row in &declarations.satisfies {
             if row.member == unit.id && !unit.satisfies.contains(&row.requirement) {
                 unit.satisfies.push(row.requirement.clone());
@@ -957,10 +979,54 @@ fn resolve_kind_units(
                     .push(document::Satisfies::new(row.requirement.clone()));
             }
         }
-        units.push(unit);
     }
 
     units.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(units)
+}
+
+/// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or
+/// `mcpServers.*`) entry the host manifest carries at the kind's declared collection
+/// `address`, read through the JSON manifest adapter ([`json_manifest::Manifest::read_kind`]).
+/// A member's id is its collection key, and that key surfaces under the address's key
+/// field when it names one (`hooks.<Event>` → `event`), so a clause can range over the
+/// lifecycle event a hook keys at. `satisfies` is left empty here — the caller folds it in
+/// off the lock, exactly as for a file member.
+///
+/// A hook's `hooks.<Event>` value is an array of matcher groups, so a hook member carries
+/// no object fields of its own — its event is its whole checkable datum. A manifest kind
+/// whose entries *are* objects (an mcp-server's `mcpServers.*`) folds those fields into
+/// the unit with that kind, the read side the object-bearing manifest kind adds.
+///
+/// # Errors
+///
+/// Returns an error if the manifest cannot be discovered or read.
+fn manifest_units(
+    harness_root: &Path,
+    kind: &CustomKind,
+    address: &CollectionAddress,
+) -> miette::Result<Vec<Unit>> {
+    let mut units = Vec::new();
+    for manifest in json_manifest::Manifest::read_kind(harness_root, kind)? {
+        let source_path = manifest.provenance.source_path.clone();
+        for member in manifest.members {
+            let mut frontmatter: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+            if let Some(field) = address.key_path.key_field() {
+                frontmatter.insert(
+                    field.to_string(),
+                    serde_json::Value::String(member.key.clone()),
+                );
+            }
+            units.push(Unit {
+                id: member.key,
+                frontmatter,
+                body: String::new(),
+                source_path: source_path.clone(),
+                satisfies: Vec::new(),
+                satisfies_clauses: Vec::new(),
+            });
+        }
+    }
     Ok(units)
 }
 

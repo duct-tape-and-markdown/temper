@@ -17,6 +17,7 @@ import {
   allowedChars,
   clause,
   deny,
+  enumOf,
   forbiddenKeys,
   maxLen,
   maxLines,
@@ -150,6 +151,41 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
   locus: { kind: "at", root: ".", glob: "**/CLAUDE.md" },
   unitShape: "file",
   registration: [{ via: "always" }],
+});
+
+/**
+ * A Claude Code hook — a fields-only registration member surfacing inside
+ * `settings.json`, keyed under its lifecycle event. It owns no artifact of its own; a
+ * handler names how it fires (`command`/`http`/`mcp_tool`/`prompt`/`agent`) plus the
+ * documented common fields (code.claude.com/docs/en/hooks, retrieved 2026-07-10). The
+ * authoring constructor lands with the manifest write face; phase 1 carries the read-side
+ * facts and the default contract.
+ */
+export interface Hook {
+  /** The handler kind — how the hook fires when its event matches. */
+  readonly type?: "command" | "http" | "mcp_tool" | "prompt" | "agent";
+  /** The shell command or executable a `command` handler runs. */
+  readonly command?: string;
+  /** Seconds before the handler is canceled. */
+  readonly timeout?: number;
+  /** The tool-name filter a tool-scoped event fires on (`"*"`/`""`/absent = all). */
+  readonly matcher?: string;
+}
+
+/**
+ * `hook` — a `settings.json` `hooks.<Event>` registration member: a fields-only kind (no
+ * body slot), its members discovered off the `.claude/settings.json` manifest at the
+ * `hooks.<Event>` collection address, keyed by lifecycle event; registers on the `event`
+ * channel (code.claude.com/docs/en/hooks, retrieved 2026-07-10). The first manifest kind
+ * temper ships — the read side of 0021's manifest-authoring surface.
+ */
+export const hook: KindDefinition<Hook> = kind<Hook>({
+  name: "hook",
+  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  unitShape: "file",
+  registration: [{ via: "event", field: "event" }],
+  shape: "fields",
+  collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
 });
 
 /**
@@ -402,3 +438,70 @@ export const memoryAnthropicDefaultContract: readonly Clause[] = [
  * (code.claude.com/docs/en/memory, retrieved 2026-07-09).
  */
 export const memoryAgentsMdDefaultContract: readonly Clause[] = [];
+
+/**
+ * Every documented Claude Code hook lifecycle event — the closed set a `hooks.<Event>`
+ * key is drawn from (code.claude.com/docs/en/hooks, "Hook events", retrieved 2026-07-10).
+ * The allowlist the `hook` default contract's one decidable clause ranges over; the
+ * update ritual when the docs add an event is to re-fetch and extend this set, never to
+ * re-derive from memory.
+ */
+const DOCUMENTED_HOOK_EVENTS = [
+  "SessionStart",
+  "Setup",
+  "UserPromptSubmit",
+  "UserPromptExpansion",
+  "PreToolUse",
+  "PermissionRequest",
+  "PermissionDenied",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "PostToolBatch",
+  "Notification",
+  "MessageDisplay",
+  "SubagentStart",
+  "SubagentStop",
+  "TaskCreated",
+  "TaskCompleted",
+  "Stop",
+  "StopFailure",
+  "TeammateIdle",
+  "InstructionsLoaded",
+  "ConfigChange",
+  "CwdChanged",
+  "FileChanged",
+  "WorktreeCreate",
+  "WorktreeRemove",
+  "PreCompact",
+  "PostCompact",
+  "Elicitation",
+  "ElicitationResult",
+  "SessionEnd",
+] as const;
+
+/**
+ * The default contract for `hook` — Anthropic's documented hooks contract
+ * (code.claude.com/docs/en/hooks, retrieved 2026-07-10). A hook surfaces at
+ * `hooks.<Event>`, so the member the gate reads is the lifecycle event itself, its name
+ * carried as the `event` field off the collection key. The one decidable, cited property
+ * of that member is its event: a key outside the documented set is dead configuration —
+ * Claude Code silently never fires a hook under an unrecognized event, so the strictest
+ * documented profile is that the event is one temper's cited docs name.
+ *
+ * Deliberately absent — the handler's own schema (`type`/`command`/`url`/`timeout`, the
+ * matcher grammar) lives one array level deeper than `hooks.<Event>`, inside each event's
+ * matcher-group list, which the collection address does not walk into; a clause over it
+ * would range over a field the read never surfaces, so it is no clause at all. What the
+ * clauses cannot carry, as guidance: keep a handler's `type` among
+ * `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an
+ * `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events
+ * that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).
+ */
+export const hookDefaultContract: readonly Clause[] = [
+  clause(enumOf("event", DOCUMENTED_HOOK_EVENTS), {
+    severity: "required",
+    guidance:
+      "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
+    cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-07-10)",
+  }),
+];

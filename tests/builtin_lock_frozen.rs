@@ -27,6 +27,8 @@ import {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  hook,
+  hookDefaultContract,
   memory,
   memoryAgentsMdDefaultContract,
   memoryAnthropicDefaultContract,
@@ -41,6 +43,7 @@ const program = harness({
   expect: [
     { kind: agent, clauses: agentDefaultContract },
     { kind: command, clauses: commandDefaultContract },
+    { kind: hook, clauses: hookDefaultContract },
     { kind: memory, clauses: memoryAnthropicDefaultContract },
     { kind: memory, clauses: memoryAgentsMdDefaultContract },
     { kind: rule, clauses: ruleDefaultContract },

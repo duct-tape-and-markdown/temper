@@ -160,6 +160,20 @@ impl CollectionKeyPath {
             CollectionKeyPath::McpServers => "mcpServers",
         }
     }
+
+    /// The field a member's own **collection key** surfaces under, when the key path names
+    /// one — the `<Event>` in `hooks.<Event>` is the member's lifecycle-event *field*
+    /// (`event`), so a member read at that address carries its event as a checkable field a
+    /// clause can range over. `mcpServers.*` names no such field: a server's key is its
+    /// identity, read off its entry's own object fields, not a synthesized one. `None`
+    /// leaves the read surfacing only the entry's own fields.
+    #[must_use]
+    pub fn key_field(self) -> Option<&'static str> {
+        match self {
+            CollectionKeyPath::HooksEvent => Some("event"),
+            CollectionKeyPath::McpServers => None,
+        }
+    }
 }
 
 /// A declared **layout** — the ordered regions a `layout`-content kind's body is read as,

@@ -15,7 +15,8 @@ use std::collections::BTreeMap;
 use crate::drift::NestedMemberRow;
 use crate::extract::{self, Features};
 use crate::kind::{
-    CustomKind, Extraction, Format, Governs, KindError, Primitive, Registration, Unit,
+    CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Format, Governs,
+    KindError, Primitive, Registration, Unit,
 };
 
 /// The skill surface's field schema — the documented frontmatter fields plus the
@@ -190,12 +191,41 @@ fn claude_code_memory() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `settings.json` `hooks.<Event>` kind: a hook is a fields-only
+/// registration member surfacing inside the project settings manifest, keyed under its
+/// lifecycle event (`code.claude.com/docs/en/hooks`, retrieved 2026-07-10). It owns no
+/// file of its own — the manifest is discovered off the `.claude/settings.json` locus and
+/// each `hooks.<Event>` entry read as a member — carries no body (`Content::Fields`), and
+/// registers on the `event` channel, its event surfaced as a field off the collection key.
+fn claude_code_hook() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(crate::kind::UnitShape::File),
+        registration: vec![Registration::Event {
+            field: "event".to_string(),
+        }],
+        content: Content::Fields,
+        collection_address: Some(CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: CollectionKeyPath::HooksEvent,
+        }),
+        ..CustomKind::new(
+            "hook",
+            Governs {
+                root: ".claude".to_string(),
+                glob: "settings.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
     vec![
         claude_code_agent(),
         claude_code_command(),
+        claude_code_hook(),
         claude_code_skill(),
         claude_code_rule(),
         claude_code_memory(),
@@ -396,7 +426,7 @@ mod tests {
         let all = definitions().unwrap();
         assert_eq!(
             all.keys().map(String::as_str).collect::<Vec<_>>(),
-            vec!["agent", "command", "memory", "rule", "skill"]
+            vec!["agent", "command", "hook", "memory", "rule", "skill"]
         );
     }
 
@@ -404,7 +434,7 @@ mod tests {
     fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
         // No provider axis left to resolve through — a bare name's qualified identity
         // is always itself.
-        for bare in ["agent", "command", "skill", "rule", "memory"] {
+        for bare in ["agent", "command", "hook", "skill", "rule", "memory"] {
             assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
         }
         assert!(qualified("spec").unwrap().is_none());
@@ -492,6 +522,45 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn hook_definition_is_a_fields_only_manifest_kind_at_the_hooks_collection_address() {
+        use crate::kind::{CollectionAddress, CollectionKeyPath, Content};
+
+        let hook = definition("hook").unwrap().expect("hook is embedded");
+
+        assert_eq!(hook.name, "hook");
+        // Discovered off the `.claude/settings.json` manifest locus, never a file tree of
+        // its own.
+        assert_eq!(
+            hook.governs,
+            Governs {
+                root: ".claude".to_string(),
+                glob: "settings.json".to_string(),
+            }
+        );
+        // Fields-only: no body slot, distinct from every file-content built-in.
+        assert_eq!(hook.content, Content::Fields);
+        // The manifest fence: which manifest, which key path its registration keys at.
+        assert_eq!(
+            hook.collection_address,
+            Some(CollectionAddress {
+                manifest: "settings.json".to_string(),
+                key_path: CollectionKeyPath::HooksEvent,
+            })
+        );
+        // Registers on the `event` channel — the lifecycle event it fires at, surfaced
+        // as a field off the collection key.
+        assert_eq!(
+            hook.registration,
+            vec![Registration::Event {
+                field: "event".to_string()
+            }]
+        );
+        // A registration member is fields-and-edges only — no declared frontmatter fields
+        // (its event reads off the manifest key, folded in at read time).
+        assert_eq!(hook.extraction.primitives(), &[]);
     }
 
     /// Lift an imported [`crate::frontmatter::Member`] straight into the raw [`Unit`]

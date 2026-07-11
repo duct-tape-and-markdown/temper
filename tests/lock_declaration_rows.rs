@@ -1580,11 +1580,32 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         vec!["description-trigger(description)".to_string()]
     );
 
-    // The SDK module sets no `provider` on any of its five exported kinds yet, so
+    // The `hook` kind is the first fields-only manifest kind: no `format` (it reads a
+    // JSON manifest, not frontmatter), a `fields` shape, and the `hooks.<Event>`
+    // collection address inside `settings.json`.
+    let hook = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "hook")
+        .expect("the hook kind fact is embedded");
+    assert_eq!(hook.governs_root, ".claude");
+    assert_eq!(hook.governs_glob, "settings.json");
+    assert_eq!(hook.format, None);
+    assert_eq!(hook.unit_shape.as_deref(), Some("file"));
+    assert_eq!(hook.registration, vec!["event(event)".to_string()]);
+    assert_eq!(hook.shape.as_deref(), Some("fields"));
+    let address = hook
+        .collection_address
+        .as_ref()
+        .expect("the hook kind carries its collection address");
+    assert_eq!(address.manifest, "settings.json");
+    assert_eq!(address.key_path, "hooks.<Event>");
+
+    // The SDK module sets no `provider` on any of its six exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 5);
+    assert_eq!(declarations.kinds.len(), 6);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());
@@ -1619,6 +1640,13 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         lock_triples("agent"),
         floor_triples("agent"),
         "agent's floor clauses round-trip through the derived lock unchanged"
+    );
+    // The hook floor is a single `enum` clause over the lifecycle event — the strictest
+    // documented profile of a fields-only registration member.
+    assert_eq!(
+        lock_triples("hook"),
+        floor_triples("hook"),
+        "hook's floor clauses round-trip through the derived lock unchanged"
     );
 }
 
