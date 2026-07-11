@@ -1,40 +1,5 @@
 [
   {
-    "tag": "MANIFEST-WRITE-EMIT-FACE",
-    "summary": "Manifest write side 2/5: canonical whole-manifest write face (json_manifest.rs) + engine.rs routing represented manifests through it; json_splice stays the unrepresented path",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "Write face extending the phase-1 read face: canonical whole-manifest regeneration — declared collection-address order then the opaque residue, LF — under the container member's provenance row. Registration members carry no lock rows of their own (0012)."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Emit wires the represented-manifest projection: a container member whose segment is a represented manifest regenerates through the general write face, not json_splice (which stays the unrepresented-manifest path)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/manifest_adapter.rs",
-        "asserts": "a represented manifest (a hooks segment plus an opaque residue) regenerates whole via the write face — declared collection-address order then the residue, LF — and a double-emit is byte-identical; an unrepresented manifest still routes through json_splice unchanged."
-      }
-    ],
-    "acceptance": "A represented JSON manifest regenerates whole via json_manifest.rs's write face (declared order then residue, LF, under the container's provenance row); emit routes represented manifests there and leaves unrepresented ones on json_splice.",
-    "notes": "Entry 2. Consumes entry 1's payload facts. json_splice is today the sole manifest edit path (install.rs); this adds the represented-manifest write face beside it, not replacing it. Double-emit byte-check per pipeline.md 'Emit'. scoped at 5f27db2"
-  },
-  {
     "tag": "MANIFEST-WRITE-BUNDLE",
     "summary": "Manifest write side 3/5: route bundle.rs's bespoke serde_json manifest writes through the canonical write face — consolidation, not a second encoder",
     "per": {
