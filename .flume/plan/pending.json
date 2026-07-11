@@ -27,54 +27,169 @@
       }
     ],
     "acceptance": "A partially-governed manifest (settings.json with the hooks segment checked) yields a coverage.unmodeled-surface message stating only true things — it names the ungoverned residue and never claims `no kind governs it` or `temper checks none of its members`. `cargo run -- check .temper` no longer contradicts its own `hook (3)` coverage line.",
-    "notes": "Live invariant-6 violation; not deferrable to MANIFEST-WRITE-SIDE (parked), which retires the finding only once settings.json is FULLY represented — this fixes the intermediate partial-governance message NOW. mcp-server ship (1ffab8f) added spans_whole_manifest and retired .mcp.json's finding but left settings.json's segment case lying. Probe: cargo run -- check .temper shows hook (3) and 'checks none of its members' in one run. observed at 15a71ac; scoped at ff84346"
+    "notes": "Live invariant-6 violation; not deferrable to MANIFEST-WRITE-COVERAGE-RETIRE, which retires the finding only once settings.json is FULLY represented — this fixes the intermediate partial-governance message NOW. mcp-server ship (1ffab8f) added spans_whole_manifest and retired .mcp.json's finding but left settings.json's segment case lying. Probe: cargo run -- check .temper shows hook (3) and 'checks none of its members' in one run. observed at 15a71ac; scoped at ff84346"
   },
   {
-    "tag": "MANIFEST-WRITE-SIDE",
-    "summary": "Phase 2 of 0021 (manifest write side): SDK member constructors + erasure, canonical whole-manifest emit write, bundle.rs to general-write, guard coverage of represented manifests",
+    "tag": "MANIFEST-WRITE-SDK-ERASURE",
+    "summary": "Manifest write side 1/5: SDK member constructors for hook/mcp-server registration members, erased into the emit payload as embedded-member facts",
     "per": {
       "path": "specs/model/pipeline.md",
-      "section": "Emit"
+      "section": "The SDK"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "Phase 2 write side of 0021, still a placeholder — NOT one gate-sized entry. MANIFEST-ADAPTER-READ shipped (3611335): src/json_manifest.rs is on disk with its read face, so the original entry-refs blocker (write-face file absent) has cleared. HOOK-KIND shipped (76aaa83); phase 1's remaining kind (MCP-SERVER-KIND) has not, and this entry needs decomposing into a real chain before it can be blockedBy. Re-scope into a blockedBy chain (SDK erasure, emit write face, bundle conversion, guard) behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
+      "kind": "open"
     },
-    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
         {
-          "path": "src/json_manifest.rs",
-          "description": "Write face of the JSON manifest adapter (extends the phase-1 read face): canonical whole-manifest regeneration — declared collection-address order then the opaque residue, LF — under the container member's provenance row. Registration members carry no lock rows of their own (0012). Phase-1 MANIFEST-ADAPTER-READ creates this file with the read face; this entry adds the write face."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "Emit wires the represented-manifest projection: a container member whose segment is a represented manifest regenerates through the general write face, not json_splice (which stays the unrepresented-manifest path)."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "Convert bundle.rs's bespoke serde_json manifest writes (plugin.json, marketplace.json, hooks.json) to general-write instances of the canonical manifest write (0015's named consequence)."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Guard coverage of represented manifests — the PreToolUse guard checks a represented manifest's members against their contract."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "settings.json's full coverage.unmodeled-surface retirement: once represented, its permissions/opaque residue is covered, completing the retirement HOOK-KIND began for the hooks segment."
-        },
-        {
           "path": "sdk/src/builtins.ts",
-          "description": "SDK member-authoring constructors for hook/mcp-server registration members and their erasure into the emit payload (the embedded-member facts the write face renders)."
+          "description": "Member-authoring constructors for hook and mcp-server registration members (instances, not the KindDefinitions already at 182/230): a hook keyed under hooks.<Event>, an mcp-server keyed by name under mcpServers.* — each carrying the transport/command/matcher fields the read face already surfaces."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Erase authored registration members into the emit payload's embedded-member facts (name, collection address, folded fields) — the same declaration-row shape the engine write face will consume. A projection is never mined for these (pipeline.md 'Emit'); they are carried from the composing program."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "Deferred until re-scoped. When it opens (behind phase 1): a represented JSON manifest regenerates whole via the canonical write face (declared order then residue, LF), bundle.rs's bespoke writes route through it, the guard covers represented manifests, and settings.json's unmodeled-surface finding fully retires.",
-    "notes": "Phase 2 of 0021, write side. Placeholder, NOT one gate-sized entry — re-scope into a blockedBy chain (SDK erasure, emit write face, bundle conversion, guard) once phase 1 ships. Parked not blockedBy: entry-refs gate needs edit paths on disk, and src/json_manifest.rs's write face is created by phase-1 MANIFEST-ADAPTER-READ. chain.ts sanctions re-scoping parked entries before they open; reconciliation re-derives it. scoped at 3830cd9"
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "an authored hook and an authored mcp-server member each erase into the payload as embedded-member collection facts — name-keyed at their collection address, transport/command fields folded — matching the fact shape a manifest write face reads back."
+      }
+    ],
+    "acceptance": "The SDK can author a hook and an mcp-server registration member and emit erases each into the payload's embedded-member facts (name, collection address, fields), ready for the engine write face to render.",
+    "notes": "Entry 1 of the MANIFEST-WRITE chain, re-scoped from the parked MANIFEST-WRITE-SIDE placeholder now phase 1 (MANIFEST-ADAPTER-READ/HOOK-KIND/MCP-SERVER-KIND) fully shipped. No upstream: the SDK produces the facts before the engine consumes them. builtins.ts already exports the hook/mcpServer KindDefinitions (182/230). scoped at 5f27db2"
+  },
+  {
+    "tag": "MANIFEST-WRITE-EMIT-FACE",
+    "summary": "Manifest write side 2/5: canonical whole-manifest write face (json_manifest.rs) + engine.rs routing represented manifests through it; json_splice stays the unrepresented path",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-WRITE-SDK-ERASURE"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "Write face extending the phase-1 read face: canonical whole-manifest regeneration — declared collection-address order then the opaque residue, LF — under the container member's provenance row. Registration members carry no lock rows of their own (0012)."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Emit wires the represented-manifest projection: a container member whose segment is a represented manifest regenerates through the general write face, not json_splice (which stays the unrepresented-manifest path)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/manifest_adapter.rs",
+        "asserts": "a represented manifest (a hooks segment plus an opaque residue) regenerates whole via the write face — declared collection-address order then the residue, LF — and a double-emit is byte-identical; an unrepresented manifest still routes through json_splice unchanged."
+      }
+    ],
+    "acceptance": "A represented JSON manifest regenerates whole via json_manifest.rs's write face (declared order then residue, LF, under the container's provenance row); emit routes represented manifests there and leaves unrepresented ones on json_splice.",
+    "notes": "Entry 2. Consumes entry 1's payload facts. json_splice is today the sole manifest edit path (install.rs); this adds the represented-manifest write face beside it, not replacing it. Double-emit byte-check per pipeline.md 'Emit'. scoped at 5f27db2"
+  },
+  {
+    "tag": "MANIFEST-WRITE-BUNDLE",
+    "summary": "Manifest write side 3/5: route bundle.rs's bespoke serde_json manifest writes through the canonical write face — consolidation, not a second encoder",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-WRITE-EMIT-FACE"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "Convert the three bespoke serde_json manifest builders — plugin_manifest/marketplace_manifest/hooks_manifest and write_json (bundle.rs:206/218/236/253) — to general-write instances of the canonical manifest write (0015's named consequence). One encoder, no second serde_json path."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "the plugin.json/marketplace.json/hooks.json bundle.rs emits are byte-identical before and after routing through the canonical write, and are produced by the one write surface — no second serde_json encoder remains."
+      }
+    ],
+    "acceptance": "bundle.rs's plugin.json/marketplace.json/hooks.json are written through the canonical manifest write face, not a bespoke serde_json path; one encoder, byte-identical output.",
+    "notes": "Entry 3, consolidation per one-job-one-home. bundle.rs today builds three manifests via serde_json::to_string_pretty (bundle.rs:206/218/236/253). The canonical write face (entry 2) is the single home; this removes the duplicate encoder. scoped at 5f27db2"
+  },
+  {
+    "tag": "MANIFEST-WRITE-GUARD",
+    "summary": "Manifest write side 4/5: the PreToolUse guard checks a represented manifest's members against their contract, extending today's .claude/-projection-drift-only binding",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-WRITE-EMIT-FACE"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Guard coverage of represented manifests — the PreToolUse guard checks a represented manifest's members against their contract, following the author's declared enforcement mode (block/warn/note). Today the guard greps only for .claude/ projection paths (GUARD_MESSAGE plus the projection-path regex, install.rs ~117-126)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the PreToolUse guard flags a represented manifest whose member violates its contract, at the author's declared enforcement mode, and passes a conforming one; the existing .claude/ projection-drift binding is unaffected."
+      }
+    ],
+    "acceptance": "The PreToolUse guard checks a represented manifest's members against contract, following the author's declared enforcement mode (block/warn/note) — not only .claude/ projection drift.",
+    "notes": "Entry 4. install.rs's guard today greps for .claude/ projection paths (GUARD_MESSAGE + the projection regex, ~117-126); this adds represented-manifest member coverage. The three enforcement values (block/warn/note) split by where the finding goes, per distribution.md. scoped at 5f27db2"
+  },
+  {
+    "tag": "MANIFEST-WRITE-COVERAGE-RETIRE",
+    "summary": "Manifest write side 5/5: fully retire settings.json's coverage.unmodeled-surface once represented — its permissions/env residue then covered",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "Reach"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MANIFEST-WRITE-EMIT-FACE"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage_note.rs",
+          "description": "A fully-represented manifest — every segment modeled, no ungoverned residue — no longer reports coverage.unmodeled-surface: settings.json's permissions/env residue is covered once represented, retiring the finding COVERAGE-PARTIAL-GOVERNANCE narrowed to that residue and HOOK-KIND began for the hooks segment."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage_note.rs",
+        "asserts": "a fully-represented settings.json (hooks plus permissions/env all modeled) reports no coverage.unmodeled-surface finding; a partially-governed one still names its residue (COVERAGE-PARTIAL-GOVERNANCE's case) and a wholly-ungoverned one still reports the full finding."
+      }
+    ],
+    "acceptance": "Once settings.json is fully represented (hooks + permissions/env all modeled), its coverage.unmodeled-surface finding fully retires — no residue left to name.",
+    "notes": "Entry 5. Builds on COVERAGE-PARTIAL-GOVERNANCE (ships first as head — narrows the finding to the residue) and needs representation possible (entries 1-2). blockedBy names the deep blocker MANIFEST-WRITE-EMIT-FACE; COVERAGE-PARTIAL-GOVERNANCE will have shipped by the time this opens. scoped at 5f27db2"
   },
   {
     "tag": "PACKAGING-CHANNELS",

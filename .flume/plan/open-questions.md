@@ -90,17 +90,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   `.temper/packages/spec/PACKAGE.md` fixtures — live test code asserting stray
   old-format files are ignored — `664a522` touched the file (retargeting two
   unrelated satisfies-fixture tests) without reconciling this one; (2)
-  `sdk/src/builtins.ts:344,384,421` still doc-comment-cites three deleted
+  `sdk/src/builtins.ts:392,432,469` still doc-comment-cites three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
   `706139a` (2026-07-07). NB the exit clause fires on *reconciliation*, not
-  on the file being opened: f36c192 (then HOOK-KIND, 76aaa83, adding +103
-  lines that shifted the cites 308/348/385→344/384/421) opened builtins.ts
-  and left all three cites as unchanged context. Both re-verified on disk at
-  residue sweep HEAD c5df845 (session_start.rs `+++` fixtures at lines
-  128/133/146, untouched by this window; the three builtins.ts cites at
-  344/384/421). Verify both at the next residue sweep — MCP-SERVER-KIND next
-  opens builtins.ts and, unless it reconciles the cites, carries them again.
+  on the file being opened: f36c192, HOOK-KIND (76aaa83), then MCP-SERVER-KIND
+  (1ffab8f, +83 lines shifting the cites 344/384/421→392/432/469) each opened
+  builtins.ts and left all three cites as unchanged context — the predicted
+  "MCP-SERVER-KIND next opens builtins.ts and carries them again" came true.
+  Both re-verified on disk at reconcile HEAD 5f27db2 (session_start.rs `+++`
+  fixtures at lines 128/133/146, untouched by this window; the three
+  builtins.ts cites now at 392/432/469). Now rides the next entry opening
+  builtins.ts — MANIFEST-WRITE-SDK-ERASURE — unless it reconciles the cites.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"
@@ -129,11 +130,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   and the plain `String` leaf is the permanent shape, not a middle. Behavior
   is correct; only the comment names a replacement that will never come.
   Rides whichever entry next opens `src/extract.rs` (0020's own exit
-  clause), never standalone. Found routing 0020 at HEAD a0fccaf. 3611335
-  opened extract.rs (hunks at 25/912/1108) but left 196-198 as unchanged
-  context, so — reconciliation-not-opening — undischarged; re-verified on
-  disk (extract.rs:196) at reconcile HEAD c5df845 (this window did not open
-  extract.rs).
+  clause), never standalone. Found routing 0020 at HEAD a0fccaf. 3611335,
+  then MCP-SERVER-KIND (1ffab8f, hunks at 913/938/1148/1167), each opened
+  extract.rs but left 196-198 as unchanged context, so —
+  reconciliation-not-opening — undischarged; re-verified on disk
+  (extract.rs:196-198) at reconcile HEAD 5f27db2.
 
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
@@ -148,15 +149,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   entry opens any), never standalone. (Fixture body text inside tests —
   not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
   strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
-  which 3611335 shifted 1153/1188→1227/1262 and this sweep reclassified out
-  of the doc-comment list above on finding them `.to_string()` test data.)
+  which 3611335 shifted 1153/1188→1227/1262 then MCP-SERVER-KIND (1ffab8f)
+  shifted 1227/1262→1223/1258 — reclassified out of the doc-comment list
+  above on finding them `.to_string()` test data.)
   Found at
   residue sweep HEAD c2a8cae. MANIFEST-KIND-MODEL (cd1ca29) opened
   `sdk/src/kind.ts` and shifted its "posture 3" line 225→252 while leaving
-  the narration; `prose.ts`/`kind.ts` untouched in this window (3611335 hit
-  only `src/extract.rs`, whose remaining hits are the excluded fixtures).
-  Re-verified on disk at reconcile HEAD c5df845 (this window touched neither
-  `sdk/src/prose.ts` nor `sdk/src/kind.ts`). PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
+  the narration; `prose.ts`/`kind.ts` untouched in this window (MCP-SERVER-KIND
+  hit `src/extract.rs` + `src/kind.rs`, whose remaining hits are the excluded
+  fixtures). Re-verified on disk at reconcile HEAD 5f27db2 (this window touched
+  neither `sdk/src/prose.ts` nor `sdk/src/kind.ts`). PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
   unicode escape sequences (050ef2b), so prose.ts is now NUL-free — grep
   reads it as text without `-a`, and the sweep-mechanics NB retired with
   it. That entry opened prose.ts (lines 56/64) yet left these doc comments
