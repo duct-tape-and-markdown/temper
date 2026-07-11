@@ -1,40 +1,5 @@
 [
   {
-    "tag": "MANIFEST-WRITE-SETTINGS-RESIDUE",
-    "summary": "Emit sheds the assembly's residual settings: hooks + `harness({settings})` emits a settings.json with only the hooks segment — every residue key gone, no refusal (invariant 6)",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`EmitResult` carries `declarations/members/permissions/registrations` but no settings-residue family, so `assembly.settings` (assembly.ts:41 — the harness-level residual keys) never crosses the seam. Add the settings-residue seam family the way `registrations`/`permissions` are carried, so the engine can fill the settings.json manifest's opaque residue from the authored settings. Reconcile with the existing seam families rather than a second projector."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`ManifestBuild.residue` (struct field drift.rs:841) is filled only from a path-matched container member's fields (drift.rs:708); no member projects to `settings.json`, so its residue stays empty and the whole authored-settings segment is shed. Fill the settings.json build's residue from the carried seam family (the manifest's collection segments then its opaque residue, per the write face's declared-order-then-residue contract). Refuse loud rather than shed if a residue key cannot be carried (invariant 6). HOOK-SHAPE (224b880) already nests hooks into settings.json's matcher-group array via the sibling registration loop (drift.rs:672-693) — leave that path intact."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "the emit payload gains a settings-residue seam family (harness-level opaque settings keys), carried the way `registrations`/`permissions` are; wire types regenerate.",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "an authored `harness({ settings: { autoMemoryEnabled, worktree } })` plus hook members emits a settings.json carrying those residue keys alongside the hooks segment (declared order then residue) — nothing shed; and an unrepresentable residue key refuses loud rather than dropping."
-      }
-    ],
-    "acceptance": "emit carries the assembly's authored settings into settings.json as opaque residue (or refuses loud), never silently sheds them; the dogfood emit reproduces the authored residue keys beside the hooks segment.",
-    "notes": "assembly.settings (assembly.ts:41) has no seam family: EmitResult carries declarations/members/permissions/registrations, not settings residue; build.residue (drift.rs:708) fills only from a path-matched container member, none projects to settings.json (struct drift.rs:841). HOOK-SHAPE shipped (224b880), unblocking this — its hook-nesting left the residue-fill path untouched. Dogfood probe stashed on main. scoped at d927edf, re-verified at 224b880."
-  },
-  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
