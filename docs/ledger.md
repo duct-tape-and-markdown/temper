@@ -50,9 +50,6 @@ hard.
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
 - Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
-- Dogfood the write side (next session focus candidate): author this repo's
-  three hooks as `.temper/` members — the 0021 machinery is live end to end;
-  representing them retires the last settings.json advisory here.
 - Docs-language candidate (post-freeze): the determinism ladder — "push every
   check to the most deterministic layer that can express it" (field
   feedback, 07-10).
