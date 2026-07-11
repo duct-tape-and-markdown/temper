@@ -7,8 +7,7 @@
       "section": "The coverage bar"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "HOOK-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -54,7 +53,7 @@
       }
     ],
     "acceptance": "temper models an .mcp.json server as an mcp-server member with its cited default contract; the built-in lock stays byte-equal both sides; .mcp.json no longer fires coverage.unmodeled-surface.",
-    "notes": "Phase 1 of 0021, after HOOK-KIND (shares builtin_kind.rs / builtin_lock.rs / builtins.ts / the frozen lock — serialized, not parallel). Collection address mcpServers.*. Build fetches + cites the current Claude Code MCP-server config doc (0014) for the field schema and strictest-profile default contract. .mcp.json is wholly this manifest, so its coverage finding retires cleanly. scoped at 8998b73"
+    "notes": "Phase 1 of 0021, now open — HOOK-KIND shipped (76aaa83), which wired the main.rs manifest read dispatch and the src/kind.rs helpers this second manifest kind inherits (no main.rs edit needed). Collection address mcpServers.*. Build fetches + cites the current Claude Code MCP-server config doc (0014) for the field schema and strictest-profile default contract. .mcp.json is wholly this manifest, so its coverage.unmodeled-surface retires cleanly. scoped at 8998b73"
   },
   {
     "tag": "MANIFEST-WRITE-SIDE",
@@ -65,7 +64,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "Phase 2 write side of 0021, still a placeholder — NOT one gate-sized entry. MANIFEST-ADAPTER-READ shipped (3611335): src/json_manifest.rs is on disk with its read face, so the original entry-refs blocker (write-face file absent) has cleared — but the rest of phase 1 (HOOK-KIND → MCP-SERVER-KIND) has not shipped, and this entry needs decomposing into a real chain before it can be blockedBy. Re-scope into a blockedBy chain (SDK erasure, emit write face, bundle conversion, guard) behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
+      "reason": "Phase 2 write side of 0021, still a placeholder — NOT one gate-sized entry. MANIFEST-ADAPTER-READ shipped (3611335): src/json_manifest.rs is on disk with its read face, so the original entry-refs blocker (write-face file absent) has cleared. HOOK-KIND shipped (76aaa83); phase 1's remaining kind (MCP-SERVER-KIND) has not, and this entry needs decomposing into a real chain before it can be blockedBy. Re-scope into a blockedBy chain (SDK erasure, emit write face, bundle conversion, guard) behind MCP-SERVER-KIND once phase 1 ships; the post-ship reconciliation audit re-tests this condition."
     },
     "dependsOnForks": [],
     "files": {
