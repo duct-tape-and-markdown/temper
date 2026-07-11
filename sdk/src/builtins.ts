@@ -189,6 +189,54 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
 });
 
 /**
+ * A Claude Code MCP server — a fields-only registration member surfacing inside
+ * `.mcp.json`, keyed by name under `mcpServers`. It owns no artifact of its own; its
+ * `type` names the transport (`stdio` default, or `http`/`streamable-http`/`sse`/`ws`),
+ * and each transport reads a different field set — `command`/`args`/`env` for a local
+ * stdio process, `url`/`headers` for a remote connection
+ * (code.claude.com/docs/en/mcp, retrieved 2026-07-10). The authoring constructor lands
+ * with the manifest write face; phase 1 carries the read-side facts and the default
+ * contract.
+ */
+export interface McpServer {
+  /**
+   * The transport. Absent reads as `stdio`, so an entry that carries a `url` but no
+   * `type` is a configuration error — Claude Code treats it as a stdio server and skips
+   * it. `streamable-http` is an alias for `http`.
+   */
+  readonly type?: "stdio" | "http" | "streamable-http" | "sse" | "ws";
+  /** The executable a stdio server runs. */
+  readonly command?: string;
+  /** The arguments passed to a stdio server's `command`. */
+  readonly args?: readonly string[];
+  /** Environment variables set in a stdio server's process. */
+  readonly env?: Readonly<Record<string, string>>;
+  /** The endpoint a remote (`http`/`sse`/`ws`) server connects to. */
+  readonly url?: string;
+  /** Static headers sent to a remote server. */
+  readonly headers?: Readonly<Record<string, string>>;
+  /** Milliseconds before a tool call to this server aborts. */
+  readonly timeout?: number;
+}
+
+/**
+ * `mcpServer` — a `.mcp.json` `mcpServers.*` registration member: a fields-only kind (no
+ * body slot), its members discovered off the `.mcp.json` manifest at the `mcpServers.*`
+ * collection address, keyed by server name; registers on the `connection` channel
+ * (code.claude.com/docs/en/mcp, retrieved 2026-07-10). The second manifest kind temper
+ * ships, and the first whose entries are objects — each server's fields fold into the
+ * member the read surfaces.
+ */
+export const mcpServer: KindDefinition<McpServer> = kind<McpServer>({
+  name: "mcp-server",
+  locus: { kind: "at", root: ".", glob: ".mcp.json" },
+  unitShape: "file",
+  registration: [{ via: "connection" }],
+  shape: "fields",
+  collectionAddress: { manifest: ".mcp.json", keyPath: "mcpServers.*" },
+});
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.
@@ -503,5 +551,40 @@ export const hookDefaultContract: readonly Clause[] = [
     guidance:
       "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding.",
     cite: "https://code.claude.com/docs/en/hooks (retrieved 2026-07-10)",
+  }),
+];
+
+/**
+ * Every documented `.mcp.json` server transport — the closed set a server entry's `type`
+ * is drawn from (code.claude.com/docs/en/mcp, retrieved 2026-07-10). `stdio` is the
+ * default when `type` is absent; `streamable-http` is the MCP spec's own name for `http`,
+ * accepted as an alias so configurations copied from server docs work unchanged; `sse` is
+ * documented but deprecated; `ws` is the WebSocket transport. The update ritual when the
+ * docs add a transport is to re-fetch and extend this set, never to re-derive from memory.
+ */
+const DOCUMENTED_MCP_TRANSPORTS = ["stdio", "http", "streamable-http", "sse", "ws"] as const;
+
+/**
+ * The default contract for `mcpServer` — Anthropic's documented `.mcp.json` contract
+ * (code.claude.com/docs/en/mcp, retrieved 2026-07-10). A server surfaces at `mcpServers.*`,
+ * keyed by name, its transport-specific fields folded into the member. The one decidable,
+ * cited property that holds across every transport is `type`: a value outside the
+ * documented set is a transport Claude Code cannot honor, so the strictest documented
+ * profile is that a present `type` names one temper's cited docs carry. An absent `type`
+ * passes — Claude Code reads it as `stdio`, the documented default.
+ *
+ * Deliberately absent — the per-transport requirements are conditional on `type`, which no
+ * single-field clause can decide: a `url` with no `type` is a configuration error (Claude
+ * Code reads it as a stdio server and skips it), a stdio server needs a `command`, and a
+ * remote server needs a `url` — each a two-field implication the closed predicate
+ * vocabulary cannot express, so it rides guidance rather than a clause that would range
+ * over a field the shape of the check cannot see.
+ */
+export const mcpServerDefaultContract: readonly Clause[] = [
+  clause(enumOf("type", DOCUMENTED_MCP_TRANSPORTS), {
+    severity: "required",
+    guidance:
+      "A server's `type` names its transport; a value outside the documented set is one Claude Code cannot honor. Absent reads as `stdio` — but an entry that carries a `url` with no `type` is then a configuration error, because Claude Code treats it as a stdio server and skips it: add `type: \"http\"` (or `sse`/`ws`). A stdio server needs a `command`; a remote server needs a `url`. If this is a newly-documented transport, re-fetch code.claude.com/docs/en/mcp and extend temper's cited set rather than working around the finding.",
+    cite: "https://code.claude.com/docs/en/mcp (retrieved 2026-07-10)",
   }),
 ];

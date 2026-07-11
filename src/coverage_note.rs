@@ -259,14 +259,22 @@ fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir
 /// harness root) so `governs.root = "."` compares against a top-level file's empty
 /// parent.
 ///
-/// A **manifest kind** (one carrying a collection address) is the exception: it represents
-/// only its own segment of the host manifest (`hooks.<Event>` of `settings.json`), never
-/// the whole file — the container's other segments stay unmodeled until the manifest is a
-/// represented member. So it governs no whole-path surface here, and a manifest present on
-/// disk keeps its unmodeled-surface finding until every segment is modeled.
+/// A **manifest kind** (one carrying a collection address) governs its host file only when
+/// its collection spans the whole manifest: `.mcp.json` is wholly its `mcpServers` map, so
+/// the `mcp-server` kind covers the file outright and retires its finding; a segment kind
+/// (`hooks.<Event>` of `settings.json`) represents only its own slice — the container's
+/// permissions/env segments stay unmodeled — so it governs no whole-path surface, and the
+/// manifest keeps its unmodeled-surface finding until every segment is modeled. A manifest
+/// kind never governs a directory surface (its members live in a file, not a tree).
 fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
-    if kind.collection_address.is_some() {
-        return false;
+    if let Some(address) = &kind.collection_address {
+        if is_dir || !address.key_path.spans_whole_manifest() {
+            return false;
+        }
+        let (parent, leaf) = split_file(path);
+        return normalize_root(&kind.governs.root) == parent
+            && compile_glob(kind.governs.glob_leaf())
+                .is_some_and(|matcher| matcher.is_match(leaf));
     }
     let root = normalize_root(&kind.governs.root);
     if is_dir {

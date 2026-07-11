@@ -174,6 +174,22 @@ impl CollectionKeyPath {
             CollectionKeyPath::McpServers => None,
         }
     }
+
+    /// Whether the manifest this collection canonically owns carries **nothing but** this
+    /// collection — so modelling it covers the whole file. `.mcp.json` is wholly its
+    /// `mcpServers` map (code.claude.com/docs/en/mcp, retrieved 2026-07-10), so an
+    /// `mcp-server` kind governs the file outright; `settings.json` carries permissions,
+    /// env, and more alongside its `hooks`, so a `hook` kind covers only that one segment
+    /// and the container stays unmodeled until every segment is (code.claude.com/docs/en/settings,
+    /// retrieved 2026-07-10). The coverage note reads this to decide whether a manifest
+    /// kind retires its host file's `coverage.unmodeled-surface` finding.
+    #[must_use]
+    pub fn spans_whole_manifest(self) -> bool {
+        match self {
+            CollectionKeyPath::McpServers => true,
+            CollectionKeyPath::HooksEvent => false,
+        }
+    }
 }
 
 /// A declared **layout** — the ordered regions a `layout`-content kind's body is read as,
@@ -555,6 +571,11 @@ pub enum Registration {
         /// The declared frontmatter field naming the lifecycle event.
         field: String,
     },
+    /// `connection` — the member reaches the world by the harness connecting to it (an MCP
+    /// server temper models off `.mcp.json`). Carries no field: whether a connection
+    /// succeeds is a runtime fact temper cannot decide, so like [`Always`](Registration::Always)
+    /// the channel is never provably dead.
+    Connection,
 }
 
 /// A **template** a kind declares for one inner layer of nested members it hosts at
@@ -935,6 +956,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
     match label {
         "always" => return Some(Registration::Always),
         "user-invoked" => return Some(Registration::UserInvoked),
+        "connection" => return Some(Registration::Connection),
         _ => {}
     }
     let (name, field) = label.strip_suffix(')')?.split_once('(')?;

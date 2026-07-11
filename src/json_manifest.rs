@@ -56,10 +56,14 @@ pub struct RegistrationMember {
     /// The member's key among its collection's entries — the entry name (an MCP server's
     /// name, a hook's lifecycle event).
     pub key: String,
-    /// The member's typed fields, key → kind-preserving [`FeatureValue`], in sorted key
-    /// order. Declared and opaque keys alike surface here: a fields-only member keeps
-    /// every entry key, the same permissive read the frontmatter face gives unknown keys.
-    pub fields: BTreeMap<String, FeatureValue>,
+    /// The member's own fields, key → **raw** [`JsonValue`], in sorted key order — kept
+    /// unprojected so the one shared read-time fold ([`crate::builtin_kind::features`])
+    /// types them exactly as a frontmatter member's fields, never a second projector.
+    /// Declared and opaque keys alike surface here: a fields-only member keeps every entry
+    /// key, the same permissive read the frontmatter face gives unknown keys. A hook's
+    /// event value is an array, so its member carries no fields; an MCP server's entry is
+    /// an object, so its fields fold in.
+    pub fields: BTreeMap<String, JsonValue>,
 }
 
 /// Errors raised while reading a [`Manifest`]. Hard failures (missing file, non-UTF-8,
@@ -252,20 +256,16 @@ mod tests {
             vec![("mcpServers", "drive"), ("mcpServers", "gmail")]
         );
 
-        // The entry's fields read back kind-preserving through the shared extractor: a
-        // string stays `string`, an integer keeps `integer`, a list stays a list.
+        // The entry's fields read back as raw JSON, unprojected — the shared fold types
+        // them at read time, exactly as it does a frontmatter member's fields.
         let gmail = &manifest.members[1];
-        assert_eq!(
-            gmail.fields.get("command"),
-            Some(&FeatureValue::scalar(ValueType::String, "npx"))
-        );
-        assert_eq!(
-            gmail.fields.get("timeout").map(FeatureValue::kind),
-            Some(ValueType::Integer)
-        );
-        assert_eq!(
-            gmail.fields.get("args").map(FeatureValue::kind),
-            Some(ValueType::List)
+        assert_eq!(gmail.fields.get("command"), Some(&JsonValue::from("npx")));
+        assert_eq!(gmail.fields.get("timeout"), Some(&JsonValue::from(30)));
+        assert!(
+            gmail
+                .fields
+                .get("args")
+                .is_some_and(serde_json::Value::is_array)
         );
     }
 

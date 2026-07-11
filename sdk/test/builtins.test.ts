@@ -13,6 +13,9 @@ import {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  hookDefaultContract,
+  mcpServer,
+  mcpServerDefaultContract,
   memory,
   memoryAgentsMdDefaultContract,
   memoryAnthropicDefaultContract,
@@ -26,6 +29,8 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   agentDefaultContract,
   skillDefaultContract,
   commandDefaultContract,
+  hookDefaultContract,
+  mcpServerDefaultContract,
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
   memoryAgentsMdDefaultContract,
@@ -106,6 +111,34 @@ test("memoryAnthropicDefaultContract is a single advisory size budget", () => {
 
 test("memoryAgentsMdDefaultContract is guidance-only — zero clauses", () => {
   assert.deepEqual(memoryAgentsMdDefaultContract, []);
+});
+
+test("mcpServer is a fields-only manifest kind at the mcpServers.* collection address", () => {
+  assert.equal(mcpServer.facts.shape, "fields");
+  assert.equal(mcpServer.facts.unitShape, "file");
+  assert.equal(mcpServer.facts.format, undefined);
+  assert.deepEqual(mcpServer.facts.locus, { kind: "at", root: ".", glob: ".mcp.json" });
+  assert.deepEqual(mcpServer.facts.registration, [{ via: "connection" }]);
+  assert.deepEqual(mcpServer.facts.collectionAddress, {
+    manifest: ".mcp.json",
+    keyPath: "mcpServers.*",
+  });
+});
+
+test("mcpServerDefaultContract gates the transport type against the documented set", () => {
+  assert.deepEqual(
+    mcpServerDefaultContract.map((c) => c.predicate.key),
+    ["enum"],
+  );
+  assert.equal(mcpServerDefaultContract[0].predicate.field, "type");
+  assert.deepEqual(mcpServerDefaultContract[0].predicate.values, [
+    "stdio",
+    "http",
+    "streamable-http",
+    "sse",
+    "ws",
+  ]);
+  assert.equal(mcpServerDefaultContract[0].severity, "required");
 });
 
 test("the default contracts ride alongside their kinds through the claude-code subpath", () => {

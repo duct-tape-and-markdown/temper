@@ -562,15 +562,18 @@ fn dead_channel_set(
 /// Only two channels the spec makes decidable can die here: a blank
 /// `description-trigger` field and a `paths-match` field whose *present* globs match no
 /// file (an absent/blank `paths` field is unconditional loading, never dead).
-/// `always`/`user-invoked` (unconditionally live) and `event` (no repo-decidable
-/// criterion) never do.
+/// `always`/`user-invoked` (unconditionally live), `event`, and `connection` (no
+/// repo-decidable criterion) never do.
 fn dead_registration(
     registration: &Registration,
     member: &Features,
     repo_files: &[String],
 ) -> Option<String> {
     match registration {
-        Registration::Always | Registration::UserInvoked | Registration::Event { .. } => None,
+        Registration::Always
+        | Registration::UserInvoked
+        | Registration::Event { .. }
+        | Registration::Connection => None,
         Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
  }),

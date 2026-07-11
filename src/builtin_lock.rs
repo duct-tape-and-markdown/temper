@@ -52,7 +52,15 @@ mod tests {
         names.sort_unstable();
         assert_eq!(
             names,
-            vec!["agent", "command", "hook", "memory", "rule", "skill"]
+            vec![
+                "agent",
+                "command",
+                "hook",
+                "mcp-server",
+                "memory",
+                "rule",
+                "skill"
+            ]
         );
         assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
 
@@ -63,7 +71,7 @@ mod tests {
         for clause in &declarations.clauses {
             assert!(matches!(
                 clause.kind.as_deref(),
-                Some("agent" | "command" | "hook" | "skill" | "rule" | "memory")
+                Some("agent" | "command" | "hook" | "mcp-server" | "skill" | "rule" | "memory")
             ));
             assert!(matches!(clause.severity.as_str(), "required" | "advisory"));
         }

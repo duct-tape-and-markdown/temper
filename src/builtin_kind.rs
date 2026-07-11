@@ -1,14 +1,12 @@
 //! The embedded built-in kind std-lib.
 //!
-//! `temper` ships the read-side definitions of the known-harness kinds (`agent`,
-//! `command`, `skill`, `rule`, `memory`) as plain Rust data below — the compiled
-//! default program the engine carries for SDK-less checking.
+//! `temper` ships the read-side definitions of the known-harness kinds as plain Rust
+//! data below — the compiled default program the engine carries for SDK-less checking.
 //!
 //! A built-in kind's definition is a [`CustomKind`] like any other — assembled with
-//! [`CustomKind::new`] — and validated as any kind is; this module only sources the
-//! five facts from Rust literals instead of a parsed header. Identity is flat: a
-//! kind's bare name is its whole identity, so the five kinds below never
-//! collide.
+//! [`CustomKind::new`] — and validated as any kind is; this module only sources its
+//! facts from Rust literals instead of a parsed header. Identity is flat: a kind's bare
+//! name is its whole identity, so the kinds below never collide.
 
 use std::collections::BTreeMap;
 
@@ -219,6 +217,33 @@ fn claude_code_hook() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `.mcp.json` `mcpServers.*` kind: an MCP server is a fields-only
+/// registration member surfacing inside the project MCP manifest, keyed by name
+/// (`code.claude.com/docs/en/mcp`, retrieved 2026-07-10). It owns no file of its own — the
+/// manifest is discovered off the `.mcp.json` locus and each `mcpServers.*` entry read as a
+/// member — carries no body (`Content::Fields`), and registers on the `connection` channel.
+/// Unlike a hook (whose event value is an array), a server entry is an object, so its
+/// fields fold into the member the read surfaces.
+fn claude_code_mcp_server() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(crate::kind::UnitShape::File),
+        registration: vec![Registration::Connection],
+        content: Content::Fields,
+        collection_address: Some(CollectionAddress {
+            manifest: ".mcp.json".to_string(),
+            key_path: CollectionKeyPath::McpServers,
+        }),
+        ..CustomKind::new(
+            "mcp-server",
+            Governs {
+                root: ".".to_string(),
+                glob: ".mcp.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
@@ -226,6 +251,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_agent(),
         claude_code_command(),
         claude_code_hook(),
+        claude_code_mcp_server(),
         claude_code_skill(),
         claude_code_rule(),
         claude_code_memory(),
@@ -426,7 +452,15 @@ mod tests {
         let all = definitions().unwrap();
         assert_eq!(
             all.keys().map(String::as_str).collect::<Vec<_>>(),
-            vec!["agent", "command", "hook", "memory", "rule", "skill"]
+            vec![
+                "agent",
+                "command",
+                "hook",
+                "mcp-server",
+                "memory",
+                "rule",
+                "skill"
+            ]
         );
     }
 
@@ -434,7 +468,15 @@ mod tests {
     fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
         // No provider axis left to resolve through — a bare name's qualified identity
         // is always itself.
-        for bare in ["agent", "command", "hook", "skill", "rule", "memory"] {
+        for bare in [
+            "agent",
+            "command",
+            "hook",
+            "mcp-server",
+            "skill",
+            "rule",
+            "memory",
+        ] {
             assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
         }
         assert!(qualified("spec").unwrap().is_none());
@@ -561,6 +603,40 @@ mod tests {
         // A registration member is fields-and-edges only — no declared frontmatter fields
         // (its event reads off the manifest key, folded in at read time).
         assert_eq!(hook.extraction.primitives(), &[]);
+    }
+
+    #[test]
+    fn mcp_server_definition_is_a_fields_only_manifest_kind_at_the_mcp_servers_collection_address()
+    {
+        use crate::kind::{CollectionAddress, CollectionKeyPath, Content};
+
+        let mcp = definition("mcp-server")
+            .unwrap()
+            .expect("mcp-server is embedded");
+
+        assert_eq!(mcp.name, "mcp-server");
+        // Discovered off the root `.mcp.json` manifest locus, never a file tree of its own.
+        assert_eq!(
+            mcp.governs,
+            Governs {
+                root: ".".to_string(),
+                glob: ".mcp.json".to_string(),
+            }
+        );
+        assert_eq!(mcp.content, Content::Fields);
+        assert_eq!(
+            mcp.collection_address,
+            Some(CollectionAddress {
+                manifest: ".mcp.json".to_string(),
+                key_path: CollectionKeyPath::McpServers,
+            })
+        );
+        // Registers on the `connection` channel — the harness connects to it, a runtime
+        // fact no repo criterion decides dead.
+        assert_eq!(mcp.registration, vec![Registration::Connection]);
+        // `mcpServers.*` names no key field, so a server carries only its own object
+        // fields, folded in at read time — no declared frontmatter primitives.
+        assert_eq!(mcp.extraction.primitives(), &[]);
     }
 
     /// Lift an imported [`crate::frontmatter::Member`] straight into the raw [`Unit`]

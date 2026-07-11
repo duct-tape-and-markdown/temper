@@ -5,11 +5,12 @@
 //!
 //! Driven across the real process boundary through the one-shot `check --harness` verb
 //! (the route session-start takes), over harness-dir fixtures mirroring the real Claude
-//! Code layout — `.claude/skills/*` plus, for the gap arm, a bare `.mcp.json` no kind
-//! governs, and for the locked-kind arm, a `.claude/settings.json` a committed
-//! `widget` kind row governs (`.claude/agents` no longer fits either arm: the `agent`
-//! built-in now governs it unconditionally, so it is never an available gap —
-//! mirroring `.claude/commands`'s own graduation off this fixture).
+//! Code layout — `.claude/skills/*` plus, for the gap arm, a bare `.claude/settings.json`
+//! whose permissions/env segments no kind governs (the `hook` built-in covers only its
+//! `hooks` segment, so the whole file stays a gap), and for the locked-kind arm, a
+//! `.claude/settings.json` a committed `widget` kind row governs (`.claude/agents` and
+//! `.mcp.json` no longer fit the gap arm: the `agent` and `mcp-server` built-ins now
+//! govern them, so neither is an available whole-file gap).
 //! The GitHub reporter gives a machine-parseable finding
 //! set: each finding is one `::warning title=<rule>::<artifact>: …` line, so the
 //! coverage note's advisories are asserted exactly. Every coverage-note finding is
@@ -42,10 +43,22 @@ Drive the team through the playbook.\n"
     common::write_skill(root, name, &skill_md);
 }
 
-/// Write a bare `.mcp.json` — a real Claude Code surface (code.claude.com/docs/en/settings)
-/// that **no built-in kind governs**, so the coverage note must flag it.
+/// Write a bare `.mcp.json` — a real Claude Code surface (code.claude.com/docs/en/settings).
+/// Governed whole by the `mcp-server` built-in (`.mcp.json` is wholly its `mcpServers`
+/// map), so it is used only where the kinds handed in carry no `mcp-server` row.
 fn write_mcp_json(root: &Path) {
     fs::write(root.join(".mcp.json"), "{}").unwrap();
+}
+
+/// Write a bare `.claude/settings.json` — a real Claude Code surface
+/// (code.claude.com/docs/en/settings) whose permissions/env segments no built-in kind
+/// governs: the `hook` kind covers only its `hooks` segment, so the whole file stays a gap
+/// the coverage note must flag. Valid JSON `{}` so the `hook` kind reads it as a manifest
+/// without aborting on a parse error.
+fn write_settings_json(root: &Path) {
+    let claude = root.join(".claude");
+    fs::create_dir_all(&claude).unwrap();
+    fs::write(claude.join("settings.json"), "{}").unwrap();
 }
 
 /// Commit a lock at `<root>/.temper/lock.toml` declaring a `widget` kind rooted at
@@ -97,12 +110,13 @@ fn check_harness(harness: &Path) -> (Vec<String>, bool) {
 }
 
 #[test]
-fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
-    let harness = common::tmpdir("with-mcp-json");
-    // Two clean skills the gate checks, plus an ungoverned `.mcp.json`.
+fn an_ungoverned_settings_json_is_flagged_beside_the_checked_summary() {
+    let harness = common::tmpdir("with-settings-json");
+    // Two clean skills the gate checks, plus a `.claude/settings.json` whose whole file no
+    // kind governs (the `hook` kind covers only its `hooks` segment).
     write_skill(&harness, "coordinate");
     write_skill(&harness, "review");
-    write_mcp_json(&harness);
+    write_settings_json(&harness);
 
     let (findings, success) = check_harness(&harness);
 
@@ -124,19 +138,20 @@ fn an_ungoverned_mcp_json_is_flagged_beside_the_checked_summary() {
         "the summary reports the two checked skills, got: {summary}"
     );
 
-    // (2) The ungoverned `.mcp.json` surface is flagged — exactly once, `warning`,
-    // naming the surface and carrying its Claude Code docs citation at the point of claim.
+    // (2) The ungoverned `.claude/settings.json` surface is flagged — exactly once,
+    // `warning`, naming the surface and carrying its Claude Code docs citation at the
+    // point of claim.
     let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
-    let mcp: Vec<&&String> = unmodeled
+    let settings: Vec<&&String> = unmodeled
         .iter()
-        .filter(|line| line.contains("::.mcp.json:"))
+        .filter(|line| line.contains("::.claude/settings.json:"))
         .collect();
     assert_eq!(
-        mcp.len(),
+        settings.len(),
         1,
-        "expected exactly one flag on .mcp.json, got: {unmodeled:#?}"
+        "expected exactly one flag on .claude/settings.json, got: {unmodeled:#?}"
     );
-    let finding = mcp[0];
+    let finding = settings[0];
     assert!(
         finding.starts_with("::warning "),
         "the unmodeled-surface flag is advisory (warn), got: {finding}"

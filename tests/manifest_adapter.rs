@@ -55,20 +55,22 @@ fn a_declared_collection_address_infers_one_member_per_entry_with_the_declared_f
         vec![("mcpServers", "drive"), ("mcpServers", "gmail")]
     );
 
-    // The declared fields read back kind-preserving through the shared surface extractor:
-    // a string stays `string`, an integer keeps `integer`, a list stays a list.
+    // A member's fields read back as raw JSON — unprojected, so the shared read-time fold
+    // types them exactly as a frontmatter member's fields, never a second projector.
     let gmail = &manifest.members[1];
     assert_eq!(
         gmail.fields.get("command"),
-        Some(&FeatureValue::scalar(ValueType::String, "npx"))
+        Some(&serde_json::Value::from("npx"))
     );
     assert_eq!(
-        gmail.fields.get("timeout").map(FeatureValue::kind),
-        Some(ValueType::Integer)
+        gmail.fields.get("timeout"),
+        Some(&serde_json::Value::from(30))
     );
-    assert_eq!(
-        gmail.fields.get("args").map(FeatureValue::kind),
-        Some(ValueType::List)
+    assert!(
+        gmail
+            .fields
+            .get("args")
+            .is_some_and(serde_json::Value::is_array)
     );
 }
 

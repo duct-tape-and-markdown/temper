@@ -1601,11 +1601,30 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(address.manifest, "settings.json");
     assert_eq!(address.key_path, "hooks.<Event>");
 
-    // The SDK module sets no `provider` on any of its six exported kinds yet, so
+    // The `mcp-server` kind is the second manifest kind: no `format`, a `fields` shape, the
+    // `connection` channel, and the `mcpServers.*` collection address inside `.mcp.json`.
+    let mcp = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "mcp-server")
+        .expect("the mcp-server kind fact is embedded");
+    assert_eq!(mcp.governs_root, ".");
+    assert_eq!(mcp.governs_glob, ".mcp.json");
+    assert_eq!(mcp.format, None);
+    assert_eq!(mcp.registration, vec!["connection".to_string()]);
+    assert_eq!(mcp.shape.as_deref(), Some("fields"));
+    let mcp_address = mcp
+        .collection_address
+        .as_ref()
+        .expect("the mcp-server kind carries its collection address");
+    assert_eq!(mcp_address.manifest, ".mcp.json");
+    assert_eq!(mcp_address.key_path, "mcpServers.*");
+
+    // The SDK module sets no `provider` on any of its seven exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 6);
+    assert_eq!(declarations.kinds.len(), 7);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

@@ -993,10 +993,12 @@ fn resolve_kind_units(
 /// lifecycle event a hook keys at. `satisfies` is left empty here — the caller folds it in
 /// off the lock, exactly as for a file member.
 ///
-/// A hook's `hooks.<Event>` value is an array of matcher groups, so a hook member carries
-/// no object fields of its own — its event is its whole checkable datum. A manifest kind
-/// whose entries *are* objects (an mcp-server's `mcpServers.*`) folds those fields into
-/// the unit with that kind, the read side the object-bearing manifest kind adds.
+/// The member's own object fields fold into the unit's frontmatter — an mcp-server's
+/// `command`/`type`/`url` become checkable fields the same way a frontmatter member's do,
+/// projected at the shared read-time fold. A hook's `hooks.<Event>` value is an array, so
+/// its member carries no object fields and only the event key surfaces; an mcp-server's
+/// entry is an object, so its fields fold in and `mcpServers.*` names no key field (a
+/// server's key is its identity, read off its own fields).
 ///
 /// # Errors
 ///
@@ -1010,12 +1012,14 @@ fn manifest_units(
     for manifest in json_manifest::Manifest::read_kind(harness_root, kind)? {
         let source_path = manifest.provenance.source_path.clone();
         for member in manifest.members {
-            let mut frontmatter: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+            // The entry's own object fields (empty for an array-valued hook entry); the
+            // collection key surfaces as an extra field only where the address names one
+            // (`hooks.<Event>` → `event`), never overwriting a same-named object field.
+            let mut frontmatter = member.fields;
             if let Some(field) = address.key_path.key_field() {
-                frontmatter.insert(
-                    field.to_string(),
-                    serde_json::Value::String(member.key.clone()),
-                );
+                frontmatter
+                    .entry(field.to_string())
+                    .or_insert_with(|| serde_json::Value::String(member.key.clone()));
             }
             units.push(Unit {
                 id: member.key,

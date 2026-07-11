@@ -913,22 +913,23 @@ pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
 }
 
 /// Walk a parsed JSON manifest to a collection address's **registration members**:
-/// resolve the top-level object named by `collection_key` and read each of its entries
-/// as a fields-only member — the entry key paired with the entry object's fields, each
-/// projected kind-preserving through [`json_to_feature`], the same soundness boundary a
-/// frontmatter `field` rides. Entries come back in the collection's own sorted key order
-/// (`serde_json::Map` is a `BTreeMap`), so a re-read is byte-identical. An entry whose
-/// value is not a JSON object carries no fields — a non-object holds no key/value pairs a
-/// fields-only member reads. Absent — never errored — when the manifest carries no such
-/// collection object: an unrepresented manifest infers no member at that address.
+/// resolve the top-level object named by `collection_key` and read each of its entries as
+/// a fields-only member — the entry key paired with the entry object's own **raw** JSON
+/// fields, kept unprojected so the one shared fold ([`crate::builtin_kind::features`])
+/// projects them kind-preserving at read time, the same soundness boundary and the same
+/// projection point a frontmatter member's fields ride. Entries come back in the
+/// collection's own sorted key order (`serde_json::Map` is a `BTreeMap`), so a re-read is
+/// byte-identical. An entry whose value is not a JSON object carries no fields — a
+/// non-object holds no key/value pairs a fields-only member reads. Absent — never errored
+/// — when the manifest carries no such collection object: an unrepresented manifest infers
+/// no member at that address.
 ///
 /// `pub(crate)` so the JSON manifest adapter (`crate::json_manifest`) reads a collection
-/// address's members through the one surface extractor, never a second projector that
-/// could drift from the frontmatter path's field typing.
+/// address's members off the one grammar the frontmatter path also parses to.
 pub(crate) fn manifest_members(
     manifest: &JsonMap<String, JsonValue>,
     collection_key: &str,
-) -> Vec<(String, BTreeMap<String, FeatureValue>)> {
+) -> Vec<(String, BTreeMap<String, JsonValue>)> {
     let Some(JsonValue::Object(collection)) = manifest.get(collection_key) else {
         return Vec::new();
     };
@@ -938,14 +939,15 @@ pub(crate) fn manifest_members(
         .collect()
 }
 
-/// Project one registration entry's value into its fields: an object's members each
-/// projected kind-preserving through [`json_to_feature`]; a non-object value yields no
-/// fields, since it holds no key/value pairs a fields-only member reads.
-fn entry_fields(value: &JsonValue) -> BTreeMap<String, FeatureValue> {
+/// One registration entry's raw fields: an object's members carried verbatim as JSON; a
+/// non-object value yields no fields, since it holds no key/value pairs a fields-only
+/// member reads. Projection to [`FeatureValue`] is deferred to the shared read-time fold,
+/// so a manifest member and a frontmatter member type their fields through the one path.
+fn entry_fields(value: &JsonValue) -> BTreeMap<String, JsonValue> {
     match value {
         JsonValue::Object(fields) => fields
             .iter()
-            .map(|(key, value)| (key.clone(), json_to_feature(value)))
+            .map(|(key, value)| (key.clone(), value.clone()))
             .collect(),
         _ => BTreeMap::new(),
     }
@@ -1148,11 +1150,11 @@ prose below\n";
     }
 
     #[test]
-    fn manifest_members_walk_each_entry_kind_preserving_and_skip_a_non_object() {
-        // The collection object's entries each become a member's fields, in the map's own
-        // sorted key order, projected through the same `json_to_feature` a `field`
-        // primitive rides. A non-object entry contributes no fields (it holds no
-        // key/value pairs a fields-only member reads).
+    fn manifest_members_walk_each_entry_raw_and_skip_a_non_object() {
+        // The collection object's entries each become a member's raw JSON fields, in the
+        // map's own sorted key order — unprojected, so the one shared fold types them at
+        // read time. A non-object entry contributes no fields (it holds no key/value pairs
+        // a fields-only member reads).
         let manifest = serde_json::json!({
             "mcpServers": {
                 "gmail": { "command": "npx", "timeout": 30 },
@@ -1167,14 +1169,8 @@ prose below\n";
         assert_eq!(keys, vec!["gmail", "opaque"]);
 
         let gmail = &members[0].1;
-        assert_eq!(
-            gmail.get("command"),
-            Some(&FeatureValue::scalar(ValueType::String, "npx"))
-        );
-        assert_eq!(
-            gmail.get("timeout").map(FeatureValue::kind),
-            Some(ValueType::Integer)
-        );
+        assert_eq!(gmail.get("command"), Some(&JsonValue::from("npx")));
+        assert_eq!(gmail.get("timeout"), Some(&JsonValue::from(30)));
         // The string-valued entry has no object fields to read.
         assert!(members[1].1.is_empty());
 
