@@ -190,6 +190,37 @@ fn a_partially_governed_settings_json_names_only_the_ungoverned_residue() {
 }
 
 #[test]
+fn a_fully_represented_settings_json_retires_its_unmodeled_surface_finding() {
+    // The write side's terminal state: settings.json fully represented — its `hooks` a
+    // modeled collection and its permissions/env residue carried as named opaque fields of
+    // a container member. With every segment covered no residue remains to name, so the
+    // partial-governance finding retires entirely — the manifest is no longer a gap the
+    // note must flag. The `widget` container stands in for that fully-representing kind.
+    let harness = common::tmpdir("fully-represented-settings");
+    write_skill(&harness, "coordinate");
+    fs::create_dir_all(harness.join(".claude")).unwrap();
+    fs::write(harness.join(".claude/settings.json"), "{}").unwrap();
+    lock_widget_kind(&harness);
+
+    let (findings, success) = check_harness(&harness);
+
+    // Neither the partial-governance flag nor the full wholly-ungoverned finding survives:
+    // a fully-represented manifest reports no coverage.unmodeled-surface at all.
+    let settings: Vec<&String> = common::findings_for(&findings, "coverage.unmodeled-surface")
+        .into_iter()
+        .filter(|line| line.contains("::.claude/settings.json:"))
+        .collect();
+    assert!(
+        settings.is_empty(),
+        "a fully-represented settings.json flags no unmodeled surface, got: {settings:#?}"
+    );
+    assert!(
+        success,
+        "the advisory coverage note must not fail the run, got: {findings:#?}"
+    );
+}
+
+#[test]
 fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
     let harness = common::tmpdir("all-modeled");
     // Only a `.claude/skills/` surface — modeled by the `skill` kind. No

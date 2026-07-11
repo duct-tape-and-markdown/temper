@@ -171,20 +171,24 @@ pub fn check(
     // `settings.json`) suppresses the surface it governs exactly as a built-in does.
     let governing_kinds = with_locked_kinds(root, kinds)?;
     for surface in KNOWN_SURFACES {
-        if !present(root, surface) || governed_by_any(&governing_kinds, surface) {
+        if !present(root, surface) {
             continue;
         }
-        // A manifest whose whole file no kind governs may still have a governed *segment*
-        // (settings.json's `hooks` is checked while permissions/env stay opaque). Naming
-        // such a partially-governed manifest as wholly ungoverned contradicts its own
-        // checked-member count, so split the finding: a partial manifest names only the
-        // ungoverned residue; a wholly-ungoverned one keeps the full finding.
+        // Two governance signals fold into the per-segment verdict: a container kind
+        // governing the whole file carries every segment — its schematized collections and
+        // its opaque permissions/env residue alike — and a segment kind checks its own
+        // collection slice (settings.json's `hooks`). A manifest every segment of which is
+        // governed leaves no residue to name, so its finding retires entirely; one with a
+        // checked slice and an ungoverned residue names only that residue; one nothing
+        // governs at all keeps the full wholly-ungoverned finding.
+        let whole = governed_by_any(&governing_kinds, surface);
         let governed_segments: BTreeSet<&str> = governing_kinds
             .values()
             .filter_map(|kind| governs_segment(kind, surface.path, surface.is_dir))
             .collect();
-        diagnostics.push(match unmodeled_residue(surface, &governed_segments) {
-            Some((checked, residue)) => Diagnostic::warn(
+        match segment_coverage(surface, whole, &governed_segments) {
+            SegmentCoverage::Full => {}
+            SegmentCoverage::Partial { checked, residue } => diagnostics.push(Diagnostic::warn(
                 UNMODELED_RULE,
                 surface.path,
                 format!(
@@ -198,16 +202,16 @@ pub fn check(
                     verb(residue.len()),
                     surface.source,
                 ),
-            ),
-            None => Diagnostic::warn(
+            )),
+            SegmentCoverage::Wholly => diagnostics.push(Diagnostic::warn(
                 UNMODELED_RULE,
                 surface.path,
                 format!(
                     "`{}` ({}) is present but no kind governs it — temper checks none of its members [source: {}]",
                     surface.path, surface.holds, surface.source
                 ),
-            ),
-        });
+            )),
+        }
     }
 
     // (3) Name the strays: an entry directly under `.claude/` that no in-scope kind
@@ -360,30 +364,60 @@ fn governs_segment(kind: &CustomKind, path: &str, is_dir: bool) -> Option<&'stat
     .then(|| address.key_path.collection_key())
 }
 
-/// Split a partially-governed manifest into its checked and unmodeled segment names, or
-/// `None` when no segment of it is governed at all — the wholly-ungoverned case the caller
-/// reports with the full finding. `governed_keys` are the collection keys a segment kind
-/// covers ([`governs_segment`]); a segment is checked when its key is among them, residue
-/// otherwise (a keyless segment — permissions, env — is always residue). Returns the
-/// checked names and residue names, both guaranteed non-empty: a partial manifest has at
-/// least one of each. `None` when no segment is governed (the wholly-ungoverned case the
-/// caller reports with the full finding).
-fn unmodeled_residue<'a>(
+/// A manifest's segment-level coverage — the three-way verdict the finding branches on.
+enum SegmentCoverage<'a> {
+    /// Every segment is governed, leaving no residue to name: the finding retires. A
+    /// fully-represented manifest whose opaque residue is carried by a container reaches
+    /// here, so silence about it is truthful, never a swallowed gap.
+    Full,
+    /// Some segments are checked, some are unmodeled residue — name only the residue.
+    /// Both name lists are non-empty.
+    Partial {
+        checked: Vec<&'a str>,
+        residue: Vec<&'a str>,
+    },
+    /// No segment is governed at all — the whole file is a gap, kept as the full finding.
+    Wholly,
+}
+
+/// Classify `surface`'s segments into the [`SegmentCoverage`] verdict. `whole` is whether a
+/// container kind governs the entire file — carrying every segment, its schematized
+/// collections and its opaque residue (permissions, env) alike; `governed_keys` are the
+/// collection keys the segment kinds check ([`governs_segment`]). A segment is checked when
+/// the whole file is governed or its own collection key is checked; a keyless residue
+/// segment is checked only by the whole-file container that carries it. A surface with no
+/// segment model (`.mcp.json`) has binary governance: the container covers it or nothing
+/// does.
+fn segment_coverage<'a>(
     surface: &'a KnownSurface,
+    whole: bool,
     governed_keys: &BTreeSet<&str>,
-) -> Option<(Vec<&'a str>, Vec<&'a str>)> {
+) -> SegmentCoverage<'a> {
+    if surface.segments.is_empty() {
+        return if whole {
+            SegmentCoverage::Full
+        } else {
+            SegmentCoverage::Wholly
+        };
+    }
     let mut checked = Vec::new();
     let mut residue = Vec::new();
     for segment in surface.segments {
-        match segment.collection_key {
-            Some(key) if governed_keys.contains(key) => checked.push(segment.name),
-            _ => residue.push(segment.name),
+        let covered = whole
+            || segment
+                .collection_key
+                .is_some_and(|key| governed_keys.contains(key));
+        if covered {
+            checked.push(segment.name);
+        } else {
+            residue.push(segment.name);
         }
     }
-    if checked.is_empty() || residue.is_empty() {
-        return None;
+    match (checked.is_empty(), residue.is_empty()) {
+        (_, true) => SegmentCoverage::Full,
+        (true, false) => SegmentCoverage::Wholly,
+        (false, false) => SegmentCoverage::Partial { checked, residue },
     }
-    Some((checked, residue))
 }
 
 /// The `is`/`are` copula for a count — `"is"` for one segment, `"are"` otherwise — so the
@@ -665,6 +699,81 @@ mod tests {
             "a partial manifest never claims it is wholly ungoverned, got: {}",
             finding.message
         );
+    }
+
+    #[test]
+    fn segment_coverage_retires_a_fully_governed_manifest_and_keeps_a_wholly_ungoverned_one() {
+        // A settings.json-shaped surface: a schematized `hooks` collection plus a keyless
+        // residue segment (permissions, env are carried opaquely, never as a collection).
+        let surface = KnownSurface {
+            path: ".claude/settings.json",
+            is_dir: false,
+            holds: "settings",
+            source: "x",
+            segments: &[
+                Segment {
+                    name: "hooks",
+                    collection_key: Some("hooks"),
+                },
+                Segment {
+                    name: "permissions",
+                    collection_key: None,
+                },
+            ],
+        };
+        let hooks: BTreeSet<&str> = BTreeSet::from(["hooks"]);
+        let none: BTreeSet<&str> = BTreeSet::new();
+
+        // A container governing the whole file carries every segment — its schematized
+        // collection and its opaque residue alike — so no residue remains to name and the
+        // finding retires. The empty-residue case the split now separates from wholly-
+        // ungoverned.
+        assert!(matches!(
+            segment_coverage(&surface, true, &none),
+            SegmentCoverage::Full
+        ));
+
+        // A segment kind checks `hooks` while the keyless residue stays unmodeled: partial,
+        // naming only that residue.
+        match segment_coverage(&surface, false, &hooks) {
+            SegmentCoverage::Partial { checked, residue } => {
+                assert_eq!(checked, vec!["hooks"]);
+                assert_eq!(residue, vec!["permissions"]);
+            }
+            _ => panic!("a checked slice beside an unmodeled residue is Partial"),
+        }
+
+        // Nothing governs any segment: the whole file stays a gap, the full finding.
+        assert!(matches!(
+            segment_coverage(&surface, false, &none),
+            SegmentCoverage::Wholly
+        ));
+
+        // A manifest every segment of which is a schematized collection its own segment kind
+        // checks leaves an empty residue with no whole-file container — the split's `Full`
+        // arm reached purely through per-segment governance, the wrong `Wholly` finding the
+        // old None arm fired here.
+        let all_collections = KnownSurface {
+            path: ".claude/settings.json",
+            is_dir: false,
+            holds: "settings",
+            source: "x",
+            segments: &[
+                Segment {
+                    name: "hooks",
+                    collection_key: Some("hooks"),
+                },
+                Segment {
+                    name: "mcpServers",
+                    collection_key: Some("mcpServers"),
+                },
+            ],
+        };
+        let both: BTreeSet<&str> = BTreeSet::from(["hooks", "mcpServers"]);
+        assert!(matches!(
+            segment_coverage(&all_collections, false, &both),
+            SegmentCoverage::Full
+        ));
     }
 
     #[test]
