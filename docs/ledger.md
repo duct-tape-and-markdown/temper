@@ -26,8 +26,10 @@ hard.
   investment this side of v0.1. Launch wedge is the standing session focus;
   the release workflow is the one unblocked pure-engineering item. Amended
   07-10 (0021): the manifest campaign is admitted — tag and campaign gate
-  neither direction; all else stays frozen. SDK 0.0.6 published; 0.1.0 is
-  the tag's to stake.
+  neither direction; all else stays frozen. Channel 2 first cut live 07-11:
+  npx @dtmd/temper delivers prebuilt linux/win32 engines (SDK 0.0.7,
+  release.yml, NPM_TOKEN repo secret); darwin + plugin channel remain with
+  the entry; 0.1.0 is the tag's to stake.
 - **KERNEL CORPUS LIVE** (PR #7; `metaphor-era` tag): eight nouns in
   `specs/model/`, decisions outside every read path. Flume dispatch model:
   one tick = one job, cursors in state.md, planHonestyGate. Loop economics
