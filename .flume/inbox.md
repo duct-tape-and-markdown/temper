@@ -19,8 +19,12 @@ routing.
   SDK package per the spec's own text ("pinned by the SDK",
   specs/distribution.md, "What ships") — the root package.json stays the
   private flume manifest untouched; the entry's edit-file claim is stale.
-  Remaining in the entry: darwin binaries (Apple notarizing, on John),
-  channel 3 (plugin + marketplace.json), standalone tag assets (workflow
-  path exists, unexercised until a tag), and the binary self-reporting
-  its crate version (0.1.0) while npm carries 0.0.x — lockstep lands at
-  the v0.1 tag. Re-scope the entry to the remainder. observed at 4f55036
+  The entry as filed is SUPERSEDED, not re-scopable (John, 07-11): both
+  its file claims are dead — `.github/workflows/release.yml` now exists on
+  disk (so the `new` claim fails the refs gate the moment the entry
+  opens), and the root-package.json launcher was ruled out by the spec
+  text. Retire it and file the remainder fresh: darwin binaries (Apple
+  notarizing, on John), channel 3 (plugin + marketplace.json), standalone
+  tag assets (workflow path exists, unexercised until a tag), and the
+  binary self-reporting its crate version (0.1.0) while npm carries
+  0.0.x — lockstep lands at the v0.1 tag. observed at 56012d0
