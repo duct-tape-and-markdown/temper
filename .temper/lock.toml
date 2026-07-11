@@ -17,6 +17,12 @@ source_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
 emit_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
 
 [[rule]]
+name = "public-prose"
+source_path = "./.claude/rules/public-prose.md"
+source_hash = "ebd691190c45f62563b3f9b68995f4efea67146d4172d407d97f87fc98d172d7"
+emit_hash = "ebd691190c45f62563b3f9b68995f4efea67146d4172d407d97f87fc98d172d7"
+
+[[rule]]
 name = "rust"
 source_path = "./.claude/rules/rust.md"
 source_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"

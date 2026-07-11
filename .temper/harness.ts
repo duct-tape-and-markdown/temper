@@ -3,6 +3,7 @@ import { rule } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
 import { rule_pendingEntry } from "./rules/pending-entry.ts";
+import { rule_publicProse } from "./rules/public-prose.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
@@ -37,6 +38,7 @@ const program = harness({
     memory_CLAUDE,
     rule_collaboration,
     rule_pendingEntry,
+    rule_publicProse,
     rule_rust,
     rule_sdk,
     skill_captureFriction,
