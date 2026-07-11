@@ -1,69 +1,5 @@
 [
   {
-    "tag": "COVERAGE-PARTIAL-GOVERNANCE",
-    "summary": "coverage.unmodeled-surface falsely calls partially-governed settings.json wholly ungoverned while its hook segment is checked; narrow the finding to the ungoverned residue",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "Reach"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "A manifest with a governed segment and an ungoverned residue is partially governed: settings.json's hooks.<Event> segment is checked (member_counts carries hook (3)) yet its unmodeled-surface message still reads `no kind governs it — temper checks none of its members`, a false claim. `governs` returns false for a segment kind (collection address not spanning the whole manifest) and `check` then emits the wholly-ungoverned message; narrow it so a partially-governed manifest names only the ungoverned residue (permissions, env), never claiming none of its members are checked. The `governs` doc comment's `keeps its finding until every segment is modeled` middle is the current false-claim source."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "a partially-governed settings.json (hooks segment checked, permissions/env residue ungoverned) yields an unmodeled-surface message that names the ungoverned residue and never claims `no kind governs it` or `temper checks none of its members`; a wholly-ungoverned manifest (.mcp.json with no mcp-server kind) still reports the full finding, and a wholly-governed one (.mcp.json under mcp-server) still retires it."
-      }
-    ],
-    "acceptance": "A partially-governed manifest (settings.json with the hooks segment checked) yields a coverage.unmodeled-surface message stating only true things — it names the ungoverned residue and never claims `no kind governs it` or `temper checks none of its members`. `cargo run -- check .temper` no longer contradicts its own `hook (3)` coverage line.",
-    "notes": "Live invariant-6 violation; not deferrable to MANIFEST-WRITE-COVERAGE-RETIRE, which retires the finding only once settings.json is FULLY represented — this fixes the intermediate partial-governance message NOW. mcp-server ship (1ffab8f) added spans_whole_manifest and retired .mcp.json's finding but left settings.json's segment case lying. Probe: cargo run -- check .temper shows hook (3) and 'checks none of its members' in one run. observed at 15a71ac; scoped at ff84346"
-  },
-  {
-    "tag": "MANIFEST-WRITE-SDK-ERASURE",
-    "summary": "Manifest write side 1/5: SDK member constructors for hook/mcp-server registration members, erased into the emit payload as embedded-member facts",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The SDK"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Member-authoring constructors for hook and mcp-server registration members (instances, not the KindDefinitions already at 182/230): a hook keyed under hooks.<Event>, an mcp-server keyed by name under mcpServers.* — each carrying the transport/command/matcher fields the read face already surfaces."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Erase authored registration members into the emit payload's embedded-member facts (name, collection address, folded fields) — the same declaration-row shape the engine write face will consume. A projection is never mined for these (pipeline.md 'Emit'); they are carried from the composing program."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "an authored hook and an authored mcp-server member each erase into the payload as embedded-member collection facts — name-keyed at their collection address, transport/command fields folded — matching the fact shape a manifest write face reads back."
-      }
-    ],
-    "acceptance": "The SDK can author a hook and an mcp-server registration member and emit erases each into the payload's embedded-member facts (name, collection address, fields), ready for the engine write face to render.",
-    "notes": "Entry 1 of the MANIFEST-WRITE chain, re-scoped from the parked MANIFEST-WRITE-SIDE placeholder now phase 1 (MANIFEST-ADAPTER-READ/HOOK-KIND/MCP-SERVER-KIND) fully shipped. No upstream: the SDK produces the facts before the engine consumes them. builtins.ts already exports the hook/mcpServer KindDefinitions (182/230). scoped at 5f27db2"
-  },
-  {
     "tag": "MANIFEST-WRITE-EMIT-FACE",
     "summary": "Manifest write side 2/5: canonical whole-manifest write face (json_manifest.rs) + engine.rs routing represented manifests through it; json_splice stays the unrepresented path",
     "per": {
@@ -74,6 +10,7 @@
       "kind": "blockedBy",
       "tag": "MANIFEST-WRITE-SDK-ERASURE"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -109,6 +46,7 @@
       "kind": "blockedBy",
       "tag": "MANIFEST-WRITE-EMIT-FACE"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -140,6 +78,7 @@
       "kind": "blockedBy",
       "tag": "MANIFEST-WRITE-EMIT-FACE"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -171,6 +110,7 @@
       "kind": "blockedBy",
       "tag": "MANIFEST-WRITE-EMIT-FACE"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
