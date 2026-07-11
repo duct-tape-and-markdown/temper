@@ -101,7 +101,9 @@ jobs:
               fs.writeFileSync('$DIR/README.md',
                 'Prebuilt temper engine binary for $PLATFORM. Install [@dtmd/temper](https://www.npmjs.com/package/@dtmd/temper) instead of this package.\n');
             "
-            npm publish "$DIR" --access public
+            # The leading ./ is load-bearing: a bare path with one slash is
+            # parsed by npm as a GitHub owner/repo spec, not a directory.
+            npm publish "./$DIR" --access public
           done
       - name: Publish the SDK
         env:
