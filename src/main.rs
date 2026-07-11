@@ -348,8 +348,33 @@ fn main() -> miette::Result<ExitCode> {
             let mode = mode_from_lock(&workspace_dir)?;
             let lock_present = workspace_dir.join("lock.toml").is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
+            let manifests = guarded_manifests(&workspace_dir)?;
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
+
+            // A represented manifest is co-owned — a write touching only opaque residue is
+            // legitimate — so its binding is a contract check of the pending members, not the
+            // blanket projection-drift the `.claude/` binding runs. It is consulted first:
+            // when the write targets a manifest, its verdict is authoritative; otherwise the
+            // projection binding decides. Both act at the one enforcement mode the lock declares.
+            if let Some(findings) = install::manifest_write_findings(&payload, &manifests) {
+                if findings.is_empty() {
+                    return Ok(ExitCode::SUCCESS);
+                }
+                let report = install::render_manifest_findings(&findings);
+                return Ok(match mode {
+                    compose::EnforcementMode::Note => ExitCode::SUCCESS,
+                    compose::EnforcementMode::Warn => {
+                        eprintln!("{report}");
+                        ExitCode::SUCCESS
+                    }
+                    compose::EnforcementMode::Block => {
+                        eprintln!("{report}");
+                        ExitCode::from(2)
+                    }
+                });
+            }
+
             Ok(
                 match install::guard(&payload, mode, lock_present.then_some(targets.as_slice())) {
                     install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
@@ -525,6 +550,63 @@ fn mode_from_lock(workspace_dir: &Path) -> miette::Result<compose::EnforcementMo
             value: other.to_string(),
         }
         .into()),
+    }
+}
+
+/// Every represented manifest the `PreToolUse` guard checks a pending write against — one
+/// [`install::GuardedManifest`] per manifest kind, whether an embedded built-in
+/// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
+/// carrying a `collection_address`; its contract is resolved exactly as [`gate`] resolves it
+/// (lock clauses, else the embedded default), so the guard and the gate judge a member's
+/// contract identically.
+///
+/// # Errors
+///
+/// Propagates the lock read/clause-lift errors [`gate`]'s own contract resolution raises.
+fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::GuardedManifest>> {
+    let declarations = drift::read_declarations(workspace_dir)?;
+    let builtin_defs = builtin_kind::definitions()?;
+
+    let mut manifests = Vec::new();
+    for kind in builtin_defs.values() {
+        let kind = overlay_builtin_kind(kind, &declarations)?;
+        let Some(address) = kind.collection_address.clone() else {
+            continue;
+        };
+        let contract = builtin_contract(&declarations.clauses, &kind.name)?;
+        manifests.push(install::GuardedManifest {
+            path: manifest_path(&kind),
+            kind,
+            contract,
+            address,
+        });
+    }
+
+    let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
+    for row in custom_rows {
+        let kind = CustomKind::from_kind_fact_row(row)?;
+        let Some(address) = kind.collection_address.clone() else {
+            continue;
+        };
+        let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
+        manifests.push(install::GuardedManifest {
+            path: manifest_path(&kind),
+            kind,
+            contract,
+            address,
+        });
+    }
+    Ok(manifests)
+}
+
+/// The harness-relative path a manifest `kind` governs — its `governs` locus, the suffix the
+/// guard matches a pending write's `file_path` against (tolerant of the file_path arriving
+/// absolute, the same suffix compare the projection binding runs).
+fn manifest_path(kind: &CustomKind) -> PathBuf {
+    if kind.governs.root == "." {
+        PathBuf::from(&kind.governs.glob)
+    } else {
+        Path::new(&kind.governs.root).join(&kind.governs.glob)
     }
 }
 
@@ -1011,24 +1093,8 @@ fn manifest_units(
     let mut units = Vec::new();
     for manifest in json_manifest::Manifest::read_kind(harness_root, kind)? {
         let source_path = manifest.provenance.source_path.clone();
-        for member in manifest.members {
-            // The entry's own object fields (empty for an array-valued hook entry); the
-            // collection key surfaces as an extra field only where the address names one
-            // (`hooks.<Event>` → `event`), never overwriting a same-named object field.
-            let mut frontmatter = member.fields;
-            if let Some(field) = address.key_path.key_field() {
-                frontmatter
-                    .entry(field.to_string())
-                    .or_insert_with(|| serde_json::Value::String(member.key.clone()));
-            }
-            units.push(Unit {
-                id: member.key,
-                frontmatter,
-                body: String::new(),
-                source_path: source_path.clone(),
-                satisfies: Vec::new(),
-                satisfies_clauses: Vec::new(),
-            });
+        for member in &manifest.members {
+            units.push(member.to_unit(address, &source_path));
         }
     }
     Ok(units)

@@ -24,7 +24,7 @@ use serde_json::Value as JsonValue;
 
 use crate::extract::{self, FeatureValue};
 use crate::frontmatter::Provenance;
-use crate::kind::{CollectionAddress, CustomKind};
+use crate::kind::{CollectionAddress, CustomKind, Unit};
 
 /// A JSON manifest read through the adapter's read face: the registration members
 /// inferred at its declared collection addresses, the opaque field residue no address
@@ -65,6 +65,33 @@ pub struct RegistrationMember {
     /// event value is an array, so its member carries no fields; an MCP server's entry is
     /// an object, so its fields fold in.
     pub fields: BTreeMap<String, JsonValue>,
+}
+
+impl RegistrationMember {
+    /// This registration member as a raw [`Unit`] for the shared extraction: its own object
+    /// fields become the unit's frontmatter, and the collection key surfaces under the
+    /// address's key field where it names one (`hooks.<Event>` → `event`), never
+    /// overwriting a same-named object field. The one member→unit mapping the gate's
+    /// manifest read and the write guard both run, so neither can disagree about the fields
+    /// a clause ranges over. `body`/`satisfies` are empty — a fields-only member carries
+    /// neither, and the caller folds any `satisfies` off the lock.
+    #[must_use]
+    pub fn to_unit(&self, address: &CollectionAddress, source_path: &Path) -> Unit {
+        let mut frontmatter = self.fields.clone();
+        if let Some(field) = address.key_path.key_field() {
+            frontmatter
+                .entry(field.to_string())
+                .or_insert_with(|| JsonValue::String(self.key.clone()));
+        }
+        Unit {
+            id: self.key.clone(),
+            frontmatter,
+            body: String::new(),
+            source_path: source_path.to_path_buf(),
+            satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
+        }
+    }
 }
 
 /// Errors raised while reading a [`Manifest`]. Hard failures (missing file, non-UTF-8,
@@ -138,14 +165,31 @@ impl Manifest {
             path: source_file.to_path_buf(),
             source,
         })?;
-        let source_hash = crate::hash::sha256_hex(&bytes);
         let raw = String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 {
             path: source_file.to_path_buf(),
             source,
         })?;
+        Self::parse(source_file, &raw, addresses)
+    }
+
+    /// Read a manifest straight from its `raw` bytes rather than off disk — the read
+    /// [`read`](Self::read) runs once it has decoded the file, split out so an in-flight
+    /// write's pending content is inferred through the one soundness boundary the disk
+    /// read rides (the `PreToolUse` guard checks a manifest before it lands). `source_file`
+    /// labels the provenance and any diagnostic; nothing is read from it.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`JsonManifestError::Malformed`] if `raw` is not a top-level JSON object.
+    pub fn parse(
+        source_file: &Path,
+        raw: &str,
+        addresses: &[&CollectionAddress],
+    ) -> Result<Self, JsonManifestError> {
+        let source_hash = crate::hash::sha256_hex(raw.as_bytes());
 
         let value: JsonValue =
-            serde_json::from_str(&raw).map_err(|err| JsonManifestError::Malformed {
+            serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
                 path: source_file.to_path_buf(),
                 detail: err.to_string(),
             })?;

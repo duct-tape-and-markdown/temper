@@ -40,13 +40,16 @@ use regex::Regex;
 use serde_json::{Value as JsonValue, json};
 
 use crate::builtin_kind;
-use crate::check::Diagnostic;
+use crate::check::{Diagnostic, Severity};
 use crate::compose::EnforcementMode;
+use crate::contract::Contract;
 use crate::drift::{self, ApplyOutcome, EmitReport};
+use crate::engine;
 use crate::frontmatter;
 use crate::import;
+use crate::json_manifest;
 use crate::json_splice::{self, Edit};
-use crate::kind;
+use crate::kind::{self, CollectionAddress, CustomKind};
 
 /// The workspace directory a represented project's SDK program lives under, beside
 /// the harness it governs.
@@ -119,6 +122,13 @@ const GUARD_MARKER: &str = "temper guard";
 /// not bound by it. Public so the `guard` subcommand ([`main`]) prints it whether it
 /// warns or blocks, under the `warn` or `block` enforcement mode.
 pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
+
+/// The header `temper guard` prints when a pending write to a represented manifest carries a
+/// member that violates its contract — the per-member contract findings ([`GuardedManifest`])
+/// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest is
+/// co-owned: a write touching only opaque residue conforms and passes, so the finding names the
+/// contract broken, not the file edited. States the same binding limit verbatim.
+pub const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code writes; other tools writes are not bound by it.";
 
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path`
 /// value under a `.claude/` locus, captured so the guard can test it for lock-declared
@@ -680,6 +690,93 @@ fn matches_projection(file_path: &str, targets: &[drift::EmitOwnedEntry]) -> boo
         let source = target.path.to_string_lossy().replace('\\', "/");
         file_path.ends_with(source.as_str())
     })
+}
+
+/// One represented manifest the `PreToolUse` guard checks a pending write against — its
+/// harness-relative path, the manifest kind whose members surface inside it, that kind's effective
+/// contract, and the collection address the members key at. Assembled by the caller off the
+/// lock's kinds/clauses exactly as the gate resolves them, so the guard and the gate cannot
+/// disagree about a member's contract.
+pub struct GuardedManifest {
+    /// The manifest's harness-relative path — the kind's `governs` locus, the suffix a
+    /// pending write's `file_path` is matched against.
+    pub path: PathBuf,
+    /// The manifest kind whose registration members surface inside `path`.
+    pub kind: CustomKind,
+    /// The kind's effective contract — its lock-declared clauses, else the embedded default.
+    pub contract: Contract,
+    /// The collection address the members key at (`mcpServers.*`, `hooks.<Event>`).
+    pub address: CollectionAddress,
+}
+
+/// Check a pending `PreToolUse` write against every represented manifest's contract —
+/// entry 4 of the manifest write side, extending the `.claude/`-projection binding
+/// ([`guard`]) to the manifest members the write face now governs.
+///
+/// Returns `None` when the write targets no represented manifest (a non-manifest path, a
+/// payload with no whole-file `content`, or content that will not parse as this manifest) —
+/// the caller falls back to the projection-drift binding. Returns `Some(findings)` when the
+/// write does target one: `findings` is empty for a conforming manifest (a co-owned manifest
+/// write touching only opaque residue, or members that all pass), or the error-severity
+/// contract violations its members trip, to be surfaced at the author's declared enforcement
+/// mode. Only a whole-file `content` (a `Write`) is validated — a partial `Edit`/`MultiEdit`
+/// payload carries no full manifest to check, so it reads as no-manifest and CI backstops it.
+#[must_use]
+pub fn manifest_write_findings(
+    payload: &str,
+    manifests: &[GuardedManifest],
+) -> Option<Vec<Diagnostic>> {
+    let value: JsonValue = serde_json::from_str(payload).ok()?;
+    let input = value.get("tool_input")?;
+    let file_path = input.get("file_path").and_then(JsonValue::as_str)?;
+    let content = input.get("content").and_then(JsonValue::as_str)?;
+    let file_path = file_path.replace('\\', "/");
+
+    let mut matched = false;
+    let mut findings = Vec::new();
+    for manifest in manifests {
+        let target = manifest.path.to_string_lossy().replace('\\', "/");
+        if !file_path.ends_with(target.as_str()) {
+            continue;
+        }
+        matched = true;
+        // A pending write that will not even parse as a manifest is left to CI (the write
+        // would trip `check`'s own loud malformed read); the guard is conservative and only
+        // ever fails to forge a finding, never suppresses honest work over a parse hiccup.
+        let Ok(parsed) =
+            json_manifest::Manifest::parse(&manifest.path, content, &[&manifest.address])
+        else {
+            continue;
+        };
+        let features: Vec<_> = parsed
+            .members
+            .iter()
+            .map(|member| {
+                builtin_kind::features(
+                    &manifest.kind,
+                    &member.to_unit(&manifest.address, &parsed.provenance.source_path),
+                    &[],
+                )
+            })
+            .collect();
+        findings.extend(
+            engine::validate(&manifest.contract, &features)
+                .into_iter()
+                .filter(|finding| finding.severity == Severity::Error),
+        );
+    }
+    matched.then_some(findings)
+}
+
+/// Render a represented manifest's contract violations for the guard's in-band surface: the
+/// [`GUARD_MANIFEST_MESSAGE`] header, then one `<rule>: <finding>` line per violation.
+#[must_use]
+pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
+    let mut out = String::from(GUARD_MANIFEST_MESSAGE);
+    for finding in findings {
+        out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
+    }
+    out
 }
 
 /// Map "was this placement already in its desired state" onto the settings outcomes.

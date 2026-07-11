@@ -965,6 +965,120 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
 }
 
 // ---------------------------------------------------------------------------
+// guard — represented-manifest member contract (entry 4/5), beside the
+// `.claude/`-projection-drift binding it extends
+// ---------------------------------------------------------------------------
+
+/// A `PreToolUse` `Write` payload landing whole-file `content` at `file_path` — the shape
+/// the manifest guard reads a pending manifest's members off (a partial `Edit` carries no
+/// full manifest, so the guard checks only a whole-file write).
+fn write_payload(file_path: &str, content: &str) -> String {
+    serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": { "file_path": file_path, "content": content },
+    })
+    .to_string()
+}
+
+/// A `block` harness whose lock also declares the [`CLAUDE_WRITE_PAYLOAD`] target an
+/// emit-owned projection — so one lock exercises both bindings the guard now runs.
+fn manifest_guard_harness(slug: &str) -> PathBuf {
+    let root = common::tmpdir(slug);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n{CLAUDE_WRITE_LOCK_ROW}"),
+    )
+    .unwrap();
+    root
+}
+
+#[test]
+fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
+    let root = manifest_guard_harness("guard-manifest-block");
+
+    // An `.mcp.json` write whose `gmail` server declares an undocumented transport violates
+    // the `mcp-server` contract's `type` enum — flagged, and under `block` the write is denied.
+    let (code, stderr) = run_guard(
+        &root,
+        &write_payload(
+            ".mcp.json",
+            r#"{"mcpServers":{"gmail":{"type":"carrier-pigeon","command":"npx"}}}"#,
+        ),
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "a `block` harness denies a contract-violating manifest write"
+    );
+    assert!(
+        stderr.contains("temper-governed manifest"),
+        "the finding names the broken contract, not the file edited: {stderr}"
+    );
+    assert!(
+        stderr.contains("type") && stderr.contains("carrier-pigeon"),
+        "the finding surfaces the offending field and value: {stderr}"
+    );
+
+    // The same file with a documented transport conforms — the guard passes it silently,
+    // never blanket-blocking a manifest the way it does a `.claude/` projection.
+    let (ok_code, ok_stderr) = run_guard(
+        &root,
+        &write_payload(
+            ".mcp.json",
+            r#"{"mcpServers":{"gmail":{"type":"stdio","command":"npx"}}}"#,
+        ),
+    );
+    assert_eq!(ok_code, Some(0), "a conforming manifest write is allowed");
+    assert!(
+        ok_stderr.is_empty(),
+        "a conforming write surfaces nothing: {ok_stderr}"
+    );
+
+    // The existing `.claude/` projection-drift binding is unaffected: a direct edit to a
+    // projected path still blocks under the same lock, at the same enforcement mode.
+    let (proj_code, proj_stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    assert_eq!(
+        proj_code,
+        Some(2),
+        "the projection binding still denies a projection write"
+    );
+    assert!(proj_stderr.contains("temper-managed projection"));
+}
+
+#[test]
+fn guard_follows_the_declared_mode_for_a_manifest_violation() {
+    // The manifest binding acts at the same three-valued enforcement mode the projection
+    // binding does: `warn` surfaces the finding in-band but allows the write (exit 0), and
+    // `note` allows it with no in-band message at all — the finding rides the next report.
+    for (mode, expect_stderr) in [("warn", true), ("note", false)] {
+        let root = common::tmpdir(&format!("guard-manifest-{mode}"));
+        let temper_dir = root.join(".temper");
+        fs::create_dir_all(&temper_dir).unwrap();
+        fs::write(
+            temper_dir.join("lock.toml"),
+            format!("[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n"),
+        )
+        .unwrap();
+
+        let (code, stderr) = run_guard(
+            &root,
+            &write_payload(
+                ".mcp.json",
+                r#"{"mcpServers":{"gmail":{"type":"carrier-pigeon","command":"npx"}}}"#,
+            ),
+        );
+        assert_eq!(code, Some(0), "`{mode}` allows the write, never blocks");
+        assert_eq!(
+            !stderr.is_empty(),
+            expect_stderr,
+            "`{mode}` in-band surfacing mismatch: {stderr}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
 // directly over a hand-built payload.
 // ---------------------------------------------------------------------------
