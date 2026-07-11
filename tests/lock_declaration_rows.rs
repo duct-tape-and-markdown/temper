@@ -24,7 +24,7 @@ use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow,
     CollectionEntryRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
     KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
-    RangeBoundRow, RequirementRow, SatisfiesRow, SectionContainsRow,
+    RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow, SectionContainsRow,
 };
 use temper::engine;
 use temper::extract::Features;
@@ -206,6 +206,7 @@ fn rich_declarations() -> Declarations {
         }],
         includes: Vec::new(),
         nested_members: Vec::new(),
+        registrations: Vec::new(),
     }
 }
 
@@ -979,6 +980,88 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
     let rule = CustomKind::from_kind_fact_row(rule_row).unwrap();
     assert_eq!(rule.content, Content::File);
     assert_eq!(rule.collection_address, None);
+}
+
+/// An `mcp-server` registration kind fact: fields-only, keyed at `.mcp.json`'s
+/// `mcpServers.*`, its file locus the `.mcp.json` at the harness root.
+fn mcp_server_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: ".mcp.json".to_string(),
+            key_path: "mcpServers.*".to_string(),
+        }),
+        ..common::kind_facts("mcp-server", ".", ".mcp.json")
+    }
+}
+
+/// A represented manifest's registration members cross the seam into the lock's
+/// declaration rows AND reach the graph the read family builds — a hook/mcp-server member
+/// is governable end to end, not only SDK-erased (MANIFEST-WRITE-SEAM). `emit` writes the
+/// `.mcp.json` whole through the write face; the lock records the member as a declaration
+/// row (identity + address, its fields the projected artifact); and `explain` resolves the
+/// bare server name to the member, narrating it as a node — the read side no longer sees
+/// only the kind that addresses the collection.
+#[test]
+fn a_registration_member_surfaces_in_the_lock_and_reaches_the_read_graph() {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+                common::skill_kind_facts(
+                    Some("claude-code"),
+                    &["user-invoked", "description-trigger(description)"],
+                ),
+                mcp_server_kind_facts(),
+            ],
+            clauses: rich_declarations().clauses,
+            registrations: vec![RegistrationRow {
+                kind: "mcp-server".to_string(),
+                key: "gmail".to_string(),
+                manifest: ".mcp.json".to_string(),
+                key_path: "mcpServers.*".to_string(),
+                fields: vec![
+                    ("type".to_string(), serde_json::json!("stdio")),
+                    ("command".to_string(), serde_json::json!("npx")),
+                ],
+            }],
+            ..Declarations::default()
+        },
+        members: skill_and_rule_members(),
+    };
+    let (harness, into) = emitted("registration-governable", &payload);
+
+    // The lock records the registration member as a declaration row; `read_declarations`
+    // reads it back with its identity and address, the fields left to the projected
+    // manifest artifact (0018).
+    let declarations = drift::read_declarations(&into).unwrap();
+    let server = declarations
+        .registrations
+        .iter()
+        .find(|row| row.key == "gmail")
+        .expect("the registration member is recorded as a declaration row");
+    assert_eq!(server.kind, "mcp-server");
+    assert_eq!(server.manifest, ".mcp.json");
+    assert_eq!(server.key_path, "mcpServers.*");
+    assert!(
+        server.fields.is_empty(),
+        "the lock row records identity + address; the fields are the projected artifact"
+    );
+
+    // `emit` wrote the represented manifest whole at the harness root.
+    assert!(
+        harness.join(".mcp.json").is_file(),
+        "emit wrote the represented manifest through the write face"
+    );
+
+    // Governable end to end: the read family resolves the bare `gmail` to the member and
+    // narrates it as a node — not only the `mcp-server` kind that addresses the collection.
+    let out = explain_in(&harness, "gmail");
+    assert!(
+        out.contains("Member `gmail` (mcp-server)"),
+        "the represented manifest's member is a governable read-graph node, got:\n{out}"
+    );
 }
 
 /// An out-of-vocabulary collection-address `key_path` label survives the TOML-typed read

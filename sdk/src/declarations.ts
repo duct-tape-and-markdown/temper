@@ -29,6 +29,7 @@ import type {
   MentionRow,
   NestedMemberRow,
   Payload,
+  RegistrationRow,
   RequirementRow,
   SatisfiesRow,
 } from "./generated/index.js";
@@ -476,6 +477,42 @@ function nestedMemberRows(harness: Harness, mentionable: ReadonlySet<string>): N
  );
 }
 
+/**
+ * The `registration` rows — every fields-only registration member (a hook, an MCP server)
+ * erased for the manifest write face, kind-then-key sorted so double emit is byte-stable.
+ * Each carries its identity (`kind`/`key`), its collection address (`manifest`/`keyPath`,
+ * the wire's snake_case `key_path`), and its folded typed fields — the entry value the
+ * engine's write face places under `key`. The one source `emit.ts`'s public
+ * {@link RegistrationFact} view also maps from, so the seam and the `EmitResult` sibling
+ * cannot disagree on what a manifest carries.
+ *
+ * # Throws
+ * If a fields-only member declares no collection address — it surfaces in no host manifest.
+ */
+export function registrationRows(harness: Harness): RegistrationRow[] {
+  return harness.members
+    .filter((member) => member.facts.shape === "fields")
+    .map((member): RegistrationRow => {
+      const address = member.facts.collectionAddress;
+      if (address === undefined) {
+        throw new Error(
+          `member \`${member.name}\`: a fields-only registration kind declares no ` +
+            `collection address — it surfaces in no host manifest (specs/model/pipeline.md, "The SDK").`,
+        );
+      }
+      return {
+        kind: member.kind,
+        key: member.name,
+        manifest: address.manifest,
+        key_path: address.keyPath,
+        // The generated row carries a mutable field list; the member's is read-only, so
+        // copy each pair into a fresh tuple — the same values, a shape the row accepts.
+        fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
+      };
+    })
+    .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
+}
+
 /** Every requirement name a `satisfies` claim may fill — assembly `require` ∪ member `requires`. */
 export function declaredRequirements(harness: Harness): Set<string> {
   const set = new Set<string>();
@@ -517,6 +554,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     mentions: mentionRows(harness),
     includes: includeRows(harness),
     nested_members: nestedMemberRows(harness, declaredAddresses(harness)),
+    registrations: registrationRows(harness),
   };
 }
 

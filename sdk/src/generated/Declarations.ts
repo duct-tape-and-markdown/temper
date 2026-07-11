@@ -5,6 +5,7 @@ import type { IncludeRow } from "./IncludeRow.js";
 import type { KindFactRow } from "./KindFactRow.js";
 import type { MentionRow } from "./MentionRow.js";
 import type { NestedMemberRow } from "./NestedMemberRow.js";
+import type { RegistrationRow } from "./RegistrationRow.js";
 import type { RequirementRow } from "./RequirementRow.js";
 import type { SatisfiesRow } from "./SatisfiesRow.js";
 
@@ -70,4 +71,13 @@ includes: Array<IncludeRow>,
  * rows rather than a second copy the engine reads back off the rendered fence
  * (0018, "the projection is not the database").
  */
-nested_members: Array<NestedMemberRow>, };
+nested_members: Array<NestedMemberRow>, 
+/**
+ * The fields-only registration members the SDK erased for the manifest write face —
+ * seam-inbound carrying their folded fields, so `emit` routes each host manifest whole
+ * through the canonical write face. The lock's `registration` family records only each
+ * member's identity and collection address; the fields live in the projected manifest
+ * artifact, never a second copy read back (0018), so a lock round-trip reads them
+ * fieldless.
+ */
+registrations: Array<RegistrationRow>, };

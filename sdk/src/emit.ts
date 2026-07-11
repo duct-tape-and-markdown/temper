@@ -23,6 +23,7 @@ import {
   declaredAddresses,
   declaredRequirements,
   encodeSeam,
+  registrationRows,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
 
@@ -279,33 +280,21 @@ export interface RegistrationFact {
 }
 
 /**
- * The harness's fields-only registration members erased into manifest write facts,
- * kind-then-key ordered so double emit is byte-stable.
+ * The harness's fields-only registration members as the public {@link RegistrationFact}
+ * view — the seam's own `registration` rows ({@link registrationRows}) mapped to the
+ * nested `collectionAddress` shape the `EmitResult` sibling exposes, so the two cannot
+ * disagree on what a manifest carries. Kind-then-key ordered so double emit is byte-stable.
  *
  * # Throws
  * If a fields-only member declares no collection address — it surfaces in no manifest.
  */
 function registrationFacts(harness: Harness): RegistrationFact[] {
-  return harness.members
-    .filter(isRegistration)
-    .map((member): RegistrationFact => {
-      const address = member.facts.collectionAddress;
-      if (address === undefined) {
-        throw new Error(
-          `member \`${member.name}\`: a fields-only registration kind declares no ` +
-            `collection address — it surfaces in no host manifest (specs/model/pipeline.md, "The SDK").`,
-        );
-      }
-      return {
-        kind: member.kind,
-        key: member.name,
-        collectionAddress: { manifest: address.manifest, keyPath: address.keyPath },
-        // The member's field list is read-only; copy each pair into a fresh tuple —
-        // the same values, the mutable shape the fact carries.
-        fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
-      };
-    })
-    .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
+  return registrationRows(harness).map((row) => ({
+    kind: row.kind,
+    key: row.key,
+    collectionAddress: { manifest: row.manifest, keyPath: row.key_path },
+    fields: row.fields,
+  }));
 }
 
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */

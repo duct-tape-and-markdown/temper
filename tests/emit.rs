@@ -23,7 +23,11 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use sha2::{Digest, Sha256};
-use temper::drift::{self, Declarations, EmitOptions, EmitOutcome, Payload, PayloadMember};
+use temper::drift::{
+    self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload,
+    PayloadMember, RegistrationRow,
+};
+use temper::json_manifest;
 
 mod common;
 
@@ -403,6 +407,103 @@ fn an_unsupported_seam_version_is_a_clear_refusal() {
 
     let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
     assert!(format!("{err}").contains("999"), "{err}");
+}
+
+// ---------------------------------------------------------------------------
+// Represented manifests — a container member's residue plus its registration
+// members are regenerated whole through the canonical write face, never
+// json_splice's in-place edit.
+// ---------------------------------------------------------------------------
+
+/// A `hook` registration kind fact: fields-only, keyed at `settings.json`'s `hooks.<Event>`.
+fn hook_kind_facts() -> KindFactRow {
+    KindFactRow {
+        shape: Some("fields".to_string()),
+        collection_address: Some(CollectionAddressRow {
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+        }),
+        ..common::kind_facts("hook", ".claude", "settings.json")
+    }
+}
+
+#[test]
+fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
+    let (harness, into) = workspace("manifest-write-face");
+
+    // A `settings.json` container member carrying the opaque residue (permissions), plus a
+    // hook registration member keyed at `hooks.SessionStart` — the represented manifest
+    // emit must regenerate the whole file.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::rule_kind_facts(None, &[]),
+                hook_kind_facts(),
+                // The container kind owns the same `.claude/settings.json` file locus, so
+                // its member projects to the manifest path the hook surfaces inside.
+                common::kind_facts("settings", ".claude", "settings.json"),
+            ],
+            registrations: vec![RegistrationRow {
+                kind: "hook".to_string(),
+                key: "SessionStart".to_string(),
+                manifest: "settings.json".to_string(),
+                key_path: "hooks.<Event>".to_string(),
+                fields: vec![
+                    ("type".to_string(), serde_json::json!("command")),
+                    ("command".to_string(), serde_json::json!("temper reporter")),
+                ],
+            }],
+            ..Default::default()
+        },
+        members: vec![PayloadMember {
+            kind: "settings".to_string(),
+            name: "settings".to_string(),
+            fields: vec![(
+                "permissions".to_string(),
+                serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+            )],
+            body: String::new(),
+            source_path: None,
+        }],
+    };
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "settings"), EmitOutcome::Emitted);
+
+    // The emitted bytes are exactly what the canonical write face produces — the `hooks`
+    // segment then the opaque residue — never json_splice's in-place edit (which preserves
+    // a prior document's own formatting rather than regenerating canonically).
+    let mut entries = std::collections::BTreeMap::new();
+    entries.insert(
+        "SessionStart".to_string(),
+        serde_json::json!({ "type": "command", "command": "temper reporter" }),
+    );
+    let segment = json_manifest::CollectionSegment {
+        collection_key: "hooks".to_string(),
+        entries,
+    };
+    let mut residue = std::collections::BTreeMap::new();
+    residue.insert(
+        "permissions".to_string(),
+        serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+    );
+    let expected = json_manifest::write_manifest(&[segment], &residue);
+
+    let manifest_path = harness.join(".claude").join("settings.json");
+    assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+
+    // Double emit reproduces the manifest byte-for-byte and reports the idempotent no-op.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "settings"), EmitOutcome::Unchanged);
+    assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+
+    // The registration member crosses the seam into the lock's declaration rows.
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains("[[declaration.registration]]"),
+        "the registration member is recorded as a declaration row: {lock}"
+    );
 }
 
 // ---------------------------------------------------------------------------
