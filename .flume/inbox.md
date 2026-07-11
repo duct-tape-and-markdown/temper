@@ -23,4 +23,4 @@ routing.
   channel 3 (plugin + marketplace.json), standalone tag assets (workflow
   path exists, unexercised until a tag), and the binary self-reporting
   its crate version (0.1.0) while npm carries 0.0.x — lockstep lands at
-  the v0.1 tag. Re-scope the entry to the remainder. observed at 63cbde8
+  the v0.1 tag. Re-scope the entry to the remainder. observed at 4f55036
