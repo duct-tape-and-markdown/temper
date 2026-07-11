@@ -7,8 +7,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MANIFEST-WRITE-SDK-ERASURE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {

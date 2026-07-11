@@ -95,13 +95,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
   `706139a` (2026-07-07). NB the exit clause fires on *reconciliation*, not
   on the file being opened: f36c192, HOOK-KIND (76aaa83), then MCP-SERVER-KIND
-  (1ffab8f, +83 lines shifting the cites 344/384/421→392/432/469) each opened
-  builtins.ts and left all three cites as unchanged context — the predicted
-  "MCP-SERVER-KIND next opens builtins.ts and carries them again" came true.
-  Both re-verified on disk at reconcile HEAD 5f27db2 (session_start.rs `+++`
-  fixtures at lines 128/133/146, untouched by this window; the three
-  builtins.ts cites now at 392/432/469). Now rides the next entry opening
-  builtins.ts — MANIFEST-WRITE-SDK-ERASURE — unless it reconciles the cites.
+  (1ffab8f, +83 lines shifting the cites 344/384/421→392/432/469), then
+  MANIFEST-WRITE-SDK-ERASURE (8cc0561) each opened builtins.ts and left all
+  three cites as unchanged context — the predicted "SDK-ERASURE next opens
+  builtins.ts and carries them again" came true (its hunks carried the
+  fields-only typed fields, not the doc comments; cites unshifted at
+  392/432/469). Both re-verified on disk at reconcile HEAD f075f8d
+  (session_start.rs `+++` fixtures at lines 128/133/146, untouched by this
+  window; the three builtins.ts cites still at 392/432/469). Now rides the
+  next entry opening builtins.ts — no queued entry does — unless it
+  reconciles the cites.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"
@@ -118,9 +121,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   the `Fields`/`registration` content shape — writing module-doc line 4
   *fresh* in the retired "layout" vocabulary (self-propagation, again) —
   yet left the fact-3 narration, so per the reconciliation-not-opening
-  precedent the rider is undischarged; re-verified on disk (lines
-  4/16/106/108) at reconcile HEAD c5df845 (HOOK-KIND, 76aaa83, touched engine
-  `src/kind.rs`, not `sdk/src/kind.ts`).
+  precedent the rider is undischarged. MANIFEST-WRITE-SDK-ERASURE (8cc0561)
+  then opened `sdk/src/kind.ts` again (carrying fields-only typed fields)
+  and once more left the fact-3 narration; re-verified on disk (lines
+  4/16/106/108) at reconcile HEAD f075f8d.
 
 - **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
   The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
@@ -153,12 +157,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   shifted 1227/1262→1223/1258 — reclassified out of the doc-comment list
   above on finding them `.to_string()` test data.)
   Found at
-  residue sweep HEAD c2a8cae. MANIFEST-KIND-MODEL (cd1ca29) opened
-  `sdk/src/kind.ts` and shifted its "posture 3" line 225→252 while leaving
-  the narration; `prose.ts`/`kind.ts` untouched in this window (MCP-SERVER-KIND
-  hit `src/extract.rs` + `src/kind.rs`, whose remaining hits are the excluded
-  fixtures). Re-verified on disk at reconcile HEAD 5f27db2 (this window touched
-  neither `sdk/src/prose.ts` nor `sdk/src/kind.ts`). PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
+  residue sweep HEAD c2a8cae. MANIFEST-WRITE-SDK-ERASURE (8cc0561) opened
+  `sdk/src/kind.ts` and shifted its "posture 3" line 252→254 (+2) while
+  leaving the narration; `prose.ts` untouched in this window. Re-verified on
+  disk at reconcile HEAD f075f8d (`sdk/src/kind.ts:254` "posture 3";
+  `sdk/src/prose.ts` unchanged). PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
   unicode escape sequences (050ef2b), so prose.ts is now NUL-free — grep
   reads it as text without `-a`, and the sweep-mechanics NB retired with
   it. That entry opened prose.ts (lines 56/64) yet left these doc comments

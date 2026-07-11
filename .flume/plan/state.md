@@ -1,27 +1,26 @@
 # Plan state
 
 - Spec derived through: a9f7b9e
-- Audited through: 5f27db2
-- Residue swept through: 5f27db2
-- This tick: Post-ship reconciliation, window c5df845..HEAD (MCP-SERVER-KIND,
-  1ffab8f/ff84346). AUDIT: verified on disk mcp-server shipped — `check .temper`
-  shows `mcp-server (0)` checked and `.mcp.json`'s finding retired (governs now
-  spans_whole_manifest). COVERAGE-PARTIAL-GOVERNANCE re-verified live (probe at
-  5f27db2 still emits `hook (3)` AND `checks none of its members` in one run) —
-  left `open`, accurate. Re-tested MANIFEST-WRITE-SIDE's parked reason: STALE —
-  it claimed MCP-SERVER-KIND "has not" shipped, but phase 1 (MANIFEST-ADAPTER-
-  READ/HOOK-KIND/MCP-SERVER-KIND) is now fully shipped, so its own designated
-  re-derivation fires. Re-scoped the placeholder into a blockedBy chain: SDK-
-  ERASURE (open) → EMIT-FACE → {BUNDLE, GUARD, COVERAGE-RETIRE}. SWEEP: MCP
-  opened builtins.ts (packages/ cites 344/384/421→392/432/469) + extract.rs
-  (floor-mention 196-198 left; law-5 fixtures 1227/1262→1223/1258) — riders
-  updated with new lines, undischarged per reconciliation-not-opening; no new
-  residue from the well-cited MCP kind. Layout-fact/prose/Cargo.toml/compose
-  riders untouched this window (verified). Both cursors → 5f27db2.
-- Queue: COVERAGE-PARTIAL-GOVERNANCE (open) + MANIFEST-WRITE-SDK-ERASURE (open,
-  file-disjoint) → EMIT-FACE (blockedBy SDK-ERASURE) → BUNDLE/GUARD/COVERAGE-
-  RETIRE (blockedBy EMIT-FACE) → PACKAGING-CHANNELS (parked). Two open heads,
-  disjoint files; all blockedBy tags resolve.
+- Audited through: f075f8d
+- Residue swept through: f075f8d
+- This tick: Post-ship reconciliation, window 5f27db2..HEAD (COVERAGE-PARTIAL-
+  GOVERNANCE 3dd6b52, MANIFEST-WRITE-SDK-ERASURE 8cc0561). AUDIT: both verified
+  on disk. 3dd6b52 narrowed coverage.unmodeled-surface — a partially-governed
+  manifest now names only its ungoverned residue (coverage_note.rs
+  unmodeled_residue split). 8cc0561 is SDK-side only: fields-only hook/mcp-server
+  members now carry typed fields (shape:"fields") and emit erases each into a
+  RegistrationFact on EmitResult (name/collectionAddress/fields) — no seam/engine
+  change, one-sided until the write face consumes it. GATE RE-TEST: MANIFEST-
+  WRITE-EMIT-FACE was blockedBy SDK-ERASURE → SDK-ERASURE shipped → flipped
+  EMIT-FACE to open. BUNDLE/GUARD/COVERAGE-RETIRE stay blockedBy EMIT-FACE
+  (unshipped); PACKAGING-CHANNELS stays parked. SWEEP: no new residue — shipped
+  code is well-cited. Three doc-comment riders on files 8cc0561 opened
+  (builtins.ts 392/432/469 PACKAGE.md cites; kind.ts fact-3 "layout" narration
+  4/16/106/108; kind.ts "posture 3" shifted 252→254) each opened-and-left per
+  reconciliation-not-opening — re-verified on disk at f075f8d, undischarged.
+  Both cursors → f075f8d.
+- Queue: EMIT-FACE (open) → BUNDLE/GUARD/COVERAGE-RETIRE (blockedBy EMIT-FACE) →
+  PACKAGING-CHANNELS (parked). One open head; all blockedBy tags resolve.
 
-Plan continues: no — window reconciled to 5f27db2, inbox/spec-delta empty; two
-open pickable entries, build takes over.
+Plan continues: no — window reconciled to f075f8d, inbox/spec-delta empty; one
+open pickable entry (EMIT-FACE), build takes over.
