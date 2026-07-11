@@ -207,6 +207,7 @@ fn rich_declarations() -> Declarations {
         includes: Vec::new(),
         nested_members: Vec::new(),
         registrations: Vec::new(),
+        settings: Vec::new(),
     }
 }
 

@@ -958,6 +958,43 @@ test("a hook and an mcp-server member each erase into a registration write fact 
   ]);
 });
 
+test("the assembly's residual settings erase into settings.json residue rows, key-sorted, carried beside the hooks segment", () => {
+  const h = harness({
+    members: [hook({ name: "SessionStart", type: "command", command: "temper reporter" })],
+    settings: { worktree: true, autoMemoryEnabled: false },
+  });
+
+  const result = emit(h);
+
+  // Each authored settings key erases into a `settings.json` residue row — key-sorted, so
+  // `autoMemoryEnabled` precedes `worktree` regardless of authoring order.
+  assert.deepEqual(result.settings, [
+    { manifest: "settings.json", key: "autoMemoryEnabled", value: false },
+    { manifest: "settings.json", key: "worktree", value: true },
+  ]);
+
+  // The same rows ride the seam's `settings` declaration family — the one source the
+  // `EmitResult` sibling also maps from, so they cannot disagree.
+  const seam = JSON.parse(result.seam);
+  assert.deepEqual(seam.declarations.settings, [
+    { manifest: "settings.json", key: "autoMemoryEnabled", value: false },
+    { manifest: "settings.json", key: "worktree", value: true },
+  ]);
+
+  // The hook still erases into its own registration write fact — the two families are
+  // carried side by side, never one at the other's expense.
+  assert.deepEqual(
+    result.registrations.map((r) => r.key),
+    ["SessionStart"],
+  );
+});
+
+test("a harness with no residual settings carries an empty settings family", () => {
+  const result = emit(projectedHarness());
+  assert.deepEqual(result.settings, []);
+  assert.deepEqual(JSON.parse(result.seam).declarations.settings, []);
+});
+
 // ---------------------------------------------------------------------------
 // Memory — a frontmatterless kind carries an empty fields list.
 // ---------------------------------------------------------------------------

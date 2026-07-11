@@ -8,6 +8,7 @@ import type { NestedMemberRow } from "./NestedMemberRow.js";
 import type { RegistrationRow } from "./RegistrationRow.js";
 import type { RequirementRow } from "./RequirementRow.js";
 import type { SatisfiesRow } from "./SatisfiesRow.js";
+import type { SettingsRow } from "./SettingsRow.js";
 
 /**
  * The lock's **declaration-row family** — the composed program's erased declarations,
@@ -80,4 +81,10 @@ nested_members: Array<NestedMemberRow>,
  * artifact, never a second copy read back (0018), so a lock round-trip reads them
  * fieldless.
  */
-registrations: Array<RegistrationRow>, };
+registrations: Array<RegistrationRow>, 
+/**
+ * The harness-level settings residue — seam-inbound opaque `settings.json` keys with
+ * no member home, folded into their manifest's residue at emit. Like `includes`, never
+ * written into this declaration table, so a lock round-trip reads none.
+ */
+settings: Array<SettingsRow>, };

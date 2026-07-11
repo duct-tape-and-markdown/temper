@@ -227,6 +227,34 @@ pub enum DriftError {
         slots: usize,
     },
 
+    /// A harness-level settings-residue key names a manifest no in-play kind declares — so
+    /// there is no manifest to fold it into. Refused loud before a byte is written rather
+    /// than shedding the authored key (invariant 6).
+    #[error(
+        "settings residue key `{key}` names manifest `{manifest}`, which no in-play kind declares — it has nowhere to land"
+    )]
+    #[diagnostic(code(temper::drift::unplaceable_settings))]
+    UnplaceableSettings {
+        /// The manifest the residue key named.
+        manifest: String,
+        /// The residue key that could not be placed.
+        key: String,
+    },
+
+    /// A harness-level settings-residue key collides with a differing residue value already
+    /// present in its manifest (a container member's field, or a duplicate settings row).
+    /// Refused loud rather than silently shedding one of the two values (invariant 6).
+    #[error(
+        "settings residue key `{key}` collides with a differing value already in manifest `{manifest}`"
+    )]
+    #[diagnostic(code(temper::drift::settings_residue_collision))]
+    SettingsResidueCollision {
+        /// The manifest carrying the colliding key.
+        manifest: String,
+        /// The colliding residue key.
+        key: String,
+    },
+
     /// A committed lock carries a present-but-malformed declaration row — a required
     /// column absent, a column the wrong type, a malformed nested element, or a label
     /// outside its closed vocabulary. Surfaced at load rather than silently dropped: a
@@ -751,6 +779,34 @@ pub fn emit(
         });
     }
 
+    // The harness-level settings residue this pass folds into its manifest: each key is an
+    // opaque top-level entry of the manifest it names (Claude Code's settings.json), the same
+    // residue slot a container member's fields fill. A key whose manifest names no in-play
+    // kind cannot be placed, and one colliding with a differing value already present would
+    // shed a value — each refused loud, never dropped (invariant 6).
+    for row in &payload.declarations.settings {
+        let path =
+            manifest_path_for(&row.manifest, &kind_facts, harness_root).ok_or_else(|| {
+                DriftError::UnplaceableSettings {
+                    manifest: row.manifest.clone(),
+                    key: row.key.clone(),
+                }
+            })?;
+        let residue = &mut manifests.entry(path).or_default().residue;
+        match residue.get(&row.key) {
+            Some(existing) if existing != &row.value => {
+                return Err(DriftError::SettingsResidueCollision {
+                    manifest: row.manifest.clone(),
+                    key: row.key.clone(),
+                }
+                .into());
+            }
+            _ => {
+                residue.insert(row.key.clone(), row.value.clone());
+            }
+        }
+    }
+
     let mut entries = Vec::with_capacity(projections.len());
     let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     for projection in &projections {
@@ -854,6 +910,26 @@ fn manifest_target_path(harness_root: &Path, facts: &KindFactRow) -> PathBuf {
         Path::new(&facts.governs_root).join(&facts.governs_glob)
     };
     harness_root.join(relative)
+}
+
+/// The on-disk path the manifest named `manifest` lives at, resolved through any in-play
+/// kind that declares it as its collection address's host — the same `governs`-joined path
+/// [`manifest_target_path`] gives a registration kind. `None` when no in-play kind declares
+/// the manifest, so its residue has nowhere to land.
+fn manifest_path_for(
+    manifest: &str,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+    harness_root: &Path,
+) -> Option<PathBuf> {
+    kind_facts
+        .values()
+        .find(|facts| {
+            facts
+                .collection_address
+                .as_ref()
+                .is_some_and(|address| address.manifest == manifest)
+        })
+        .map(|facts| manifest_target_path(harness_root, facts))
 }
 
 /// The top-level manifest collection key a registration's key-path label names — the
@@ -1923,6 +1999,11 @@ pub struct Declarations {
     /// fieldless.
     #[serde(default)]
     pub registrations: Vec<RegistrationRow>,
+    /// The harness-level settings residue — seam-inbound opaque `settings.json` keys with
+    /// no member home, folded into their manifest's residue at emit. Like `includes`, never
+    /// written into this declaration table, so a lock round-trip reads none.
+    #[serde(default)]
+    pub settings: Vec<SettingsRow>,
 }
 
 /// One kind's declaration row — its identity and declared runtime facts.
@@ -2279,6 +2360,26 @@ pub struct RegistrationRow {
     pub fields: Vec<(String, JsonValue)>,
 }
 
+/// One harness-level settings-residue key the SDK erased for the manifest write face — an
+/// opaque top-level key of the manifest it names (Claude Code's `settings.json`) with no
+/// typed member kind of its own yet. Carried across the seam so `emit` folds it into that
+/// manifest's opaque residue beside the collection segments its registration members build.
+///
+/// **Seam-inbound with `value`.** Like a composed-prose include, this row is consumed at
+/// emit and never written into the lock's declaration table: the value lives in the
+/// projected manifest artifact, never a second copy the engine reads back (0018), so a lock
+/// round-trip carries none.
+#[derive(Debug, Clone, Deserialize, PartialEq, ts_rs::TS)]
+pub struct SettingsRow {
+    /// The host manifest the residue key surfaces in (`settings.json`).
+    pub manifest: String,
+    /// The residue key — an opaque top-level manifest key with no member home.
+    pub key: String,
+    /// The key's opaque JSON value, placed verbatim into the manifest's residue.
+    #[ts(type = "unknown")]
+    pub value: JsonValue,
+}
+
 /// One host member's declared embedded-member value's declaration row — its
 /// identity (the host's own `kind:name` address, the embedded child kind, and its
 /// key) plus its leaves and sibling collections: the same composed value
@@ -2526,6 +2627,9 @@ fn declarations_from_doc(doc: &DocumentMut) -> Result<Declarations, LockRowError
         includes: Vec::new(),
         nested_members: family(table, "nested_member", NestedMemberRow::from_table)?,
         registrations: family(table, "registration", RegistrationRow::from_table)?,
+        // Settings residue is seam-inbound only — folded into its manifest's opaque residue
+        // at emit, never written into this declaration table, so a lock round-trip reads none.
+        settings: Vec::new(),
     })
 }
 

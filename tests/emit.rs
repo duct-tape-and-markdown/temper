@@ -25,7 +25,7 @@ use std::process::Command;
 use sha2::{Digest, Sha256};
 use temper::drift::{
     self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload,
-    PayloadMember, RegistrationRow,
+    PayloadMember, RegistrationRow, SettingsRow,
 };
 use temper::json_manifest;
 
@@ -505,6 +505,107 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
     assert!(
         lock.contains("[[declaration.registration]]"),
         "the registration member is recorded as a declaration row: {lock}"
+    );
+}
+
+#[test]
+fn harness_settings_residue_folds_into_settings_json_beside_the_hooks_segment() {
+    let (harness, into) = workspace("settings-residue");
+
+    // No member projects to `settings.json` — the residue rides the seam's own `settings`
+    // family (`harness({ settings: { autoMemoryEnabled, worktree } })`), and a hook
+    // registration builds the `hooks` segment of the same manifest.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![hook_kind_facts()],
+            registrations: vec![RegistrationRow {
+                kind: "hook".to_string(),
+                key: "SessionStart".to_string(),
+                manifest: "settings.json".to_string(),
+                key_path: "hooks.<Event>".to_string(),
+                fields: vec![
+                    ("type".to_string(), serde_json::json!("command")),
+                    ("command".to_string(), serde_json::json!("temper reporter")),
+                ],
+            }],
+            settings: vec![
+                SettingsRow {
+                    manifest: "settings.json".to_string(),
+                    key: "worktree".to_string(),
+                    value: serde_json::json!(true),
+                },
+                SettingsRow {
+                    manifest: "settings.json".to_string(),
+                    key: "autoMemoryEnabled".to_string(),
+                    value: serde_json::json!(false),
+                },
+            ],
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    // With no container member, the manifest is labelled by its filename under a `manifest`
+    // kind — it is emitted, not shed.
+    assert_eq!(outcome(&report, "settings.json"), EmitOutcome::Emitted);
+
+    // The bytes are the canonical write face's: the `hooks` collection segment, then every
+    // authored residue key in sorted order — nothing shed.
+    let mut entries = std::collections::BTreeMap::new();
+    entries.insert(
+        "SessionStart".to_string(),
+        serde_json::json!([ { "hooks": [ { "type": "command", "command": "temper reporter" } ] } ]),
+    );
+    let segment = json_manifest::CollectionSegment {
+        collection_key: "hooks".to_string(),
+        entries,
+    };
+    let mut residue = std::collections::BTreeMap::new();
+    residue.insert("autoMemoryEnabled".to_string(), serde_json::json!(false));
+    residue.insert("worktree".to_string(), serde_json::json!(true));
+    let expected = json_manifest::write_manifest(&[segment], &residue);
+
+    let manifest_path = harness.join(".claude").join("settings.json");
+    assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+    // The residue keys survive verbatim beside the hooks segment.
+    let written = fs::read_to_string(&manifest_path).unwrap();
+    assert!(written.contains("\"autoMemoryEnabled\": false"));
+    assert!(written.contains("\"worktree\": true"));
+    assert!(written.contains("\"hooks\""));
+
+    // Double emit reproduces the manifest byte-for-byte — the residue fold is deterministic.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "settings.json"), EmitOutcome::Unchanged);
+    assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+}
+
+#[test]
+fn a_settings_residue_key_with_no_manifest_to_land_in_refuses_loud() {
+    let (_harness, into) = workspace("settings-residue-unplaceable");
+
+    // A settings row naming `settings.json`, but no in-play kind declares that manifest —
+    // the residue has nowhere to land, so emit refuses rather than shedding the key.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::rule_kind_facts(None, &[])],
+            settings: vec![SettingsRow {
+                manifest: "settings.json".to_string(),
+                key: "autoMemoryEnabled".to_string(),
+                value: serde_json::json!(false),
+            }],
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("autoMemoryEnabled") && rendered.contains("nowhere to land"),
+        "an unplaceable settings key refuses loud: {rendered}"
     );
 }
 

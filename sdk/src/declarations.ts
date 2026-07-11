@@ -32,6 +32,7 @@ import type {
   RegistrationRow,
   RequirementRow,
   SatisfiesRow,
+  SettingsRow,
 } from "./generated/index.js";
 
 // The row shapes the authoring API surfaces re-export from here, so `index.ts`'s
@@ -513,6 +514,24 @@ export function registrationRows(harness: Harness): RegistrationRow[] {
     .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
 }
 
+/**
+ * The manifest Claude Code's harness-level settings reside in — the file the assembly's
+ * residual settings keys fold into as opaque residue, the same manifest the `hook` kind's
+ * registrations surface inside (code.claude.com/docs/en/settings, retrieved 2026-07-10).
+ */
+const SETTINGS_MANIFEST = "settings.json";
+
+/**
+ * The `settings` rows — the assembly's harness-level residual settings keys, each folded
+ * into the settings.json manifest's opaque residue at emit. Key-sorted so double emit is
+ * byte-stable. Seam-inbound: the value lives in the projected manifest, never the lock.
+ */
+export function settingsRows(harness: Harness): SettingsRow[] {
+  return Object.entries(harness.settings)
+    .map(([key, value]): SettingsRow => ({ manifest: SETTINGS_MANIFEST, key, value }))
+    .sort((a, b) => compareStrings(a.key, b.key));
+}
+
 /** Every requirement name a `satisfies` claim may fill — assembly `require` ∪ member `requires`. */
 export function declaredRequirements(harness: Harness): Set<string> {
   const set = new Set<string>();
@@ -555,6 +574,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     includes: includeRows(harness),
     nested_members: nestedMemberRows(harness, declaredAddresses(harness)),
     registrations: registrationRows(harness),
+    settings: settingsRows(harness),
   };
 }
 

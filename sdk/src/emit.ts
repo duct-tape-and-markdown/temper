@@ -24,6 +24,7 @@ import {
   declaredRequirements,
   encodeSeam,
   registrationRows,
+  settingsRows,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
 
@@ -297,6 +298,31 @@ function registrationFacts(harness: Harness): RegistrationFact[] {
   }));
 }
 
+/**
+ * One harness-level settings-residue key erased for the manifest write face: the manifest
+ * it surfaces in, its opaque key, and its value — the entry `emit` folds into the manifest's
+ * residue beside its registration members' collection segments. Carried from the composing
+ * program, never mined from a projection.
+ */
+export interface SettingsResidue {
+  /** The host manifest the residue key surfaces in (`settings.json`). */
+  readonly manifest: string;
+  /** The opaque top-level manifest key with no member home. */
+  readonly key: string;
+  /** The key's opaque value, placed verbatim into the manifest's residue. */
+  readonly value: unknown;
+}
+
+/**
+ * The harness's residual settings keys as the public {@link SettingsResidue} view — the
+ * seam's own `settings` rows ({@link settingsRows}) surfaced under the `EmitResult` sibling,
+ * so the two cannot disagree on what a manifest's residue carries. Key-sorted, the same
+ * byte-stable order the seam family takes.
+ */
+function settingsResidue(harness: Harness): SettingsResidue[] {
+  return settingsRows(harness).map((row) => ({ manifest: row.manifest, key: row.key, value: row.value }));
+}
+
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
 function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
@@ -342,6 +368,12 @@ export interface EmitResult {
    * way `permissions` is.
    */
   readonly registrations: readonly RegistrationFact[];
+  /**
+   * The harness-level settings residue erased for the manifest write face — each an opaque
+   * settings.json key and its value. Folds into the settings.json manifest's residue at
+   * emit, the way `registrations` builds its collection segments; carried here as data too.
+   */
+  readonly settings: readonly SettingsResidue[];
 }
 
 /**
@@ -365,6 +397,7 @@ export function emit(harness: Harness): EmitResult {
       seam: encodeSeam({ declarations, members }),
       permissions: permissionUnion(harness.members.flatMap((member) => [...member.needs])),
       registrations: registrationFacts(harness),
+      settings: settingsResidue(harness),
     };
   };
   const first = compile();
