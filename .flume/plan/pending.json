@@ -1,5 +1,69 @@
 [
   {
+    "tag": "MANIFEST-WRITE-HOOK-SHAPE",
+    "summary": "Emit writes settings.json `hooks.<Event>` as a flat object, not the documented array-of-matcher-groups shape the read face parses — round-trip broken, Claude Code silently ignores it",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "Reach"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "The manifest write routing builds each registration's `entry_value` as a flat object off `registration.fields` (~665) and inserts it at `segments[<collection>][<key>]`. For the `hooks` collection this yields `hooks.<Event> = {command, matcher, type}` — the flat shape Claude Code ignores. A hook registration must instead render into the documented matcher-group array `hooks.<Event> = [{matcher, hooks:[{type, command}]}]`, grouping members that share an event. Keep MCP/other collections' object shape unchanged; the shape divergence is per-collection."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "Read-face peer: `manifest_members(_, \"hooks\")` treats each `hooks.<Event>` value, and a hook event's value is the matcher-group array, so its member currently carries no fields (json_manifest.rs RegistrationMember doc). For read(file)->members->write to round-trip byte-identical, the read side must decompose the matcher-group array into the same {matcher,type,command} fields the write side re-nests. Extend here or wherever the hook read mapping lives — search before adding."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/hook_kind.rs",
+        "asserts": "emit renders authored hook members as settings.json `hooks.<Event> = [{matcher, hooks:[{type,command}]}]` (array of matcher groups), reproducing this repo's live settings.json shape; and read(settings.json)->members->write is byte-identical (the round-trip the json_manifest idempotence claim rests on)."
+      }
+    ],
+    "acceptance": "emit writes settings.json `hooks.<Event>` in the documented array-of-matcher-groups shape, read->write round-trips byte-identical, and the emitted file is a shape Claude Code loads (not the ignored flat object).",
+    "notes": "External fact: hook shape is `hooks.<Event>=[{matcher,hooks:[{type,command}]}]` (code.claude.com/docs/en/hooks; this repo's own settings.json uses it, the read face parses it). Dogfood probe stashed on main (\"dogfood: hooks authored as .temper members\"). If the fields-only hook kind cannot express multiple matcher groups per event, surface it as an open question — do not invent a model. scoped at d927edf"
+  },
+  {
+    "tag": "MANIFEST-WRITE-SETTINGS-RESIDUE",
+    "summary": "Emit sheds the assembly's residual settings: hooks + `harness({settings})` emits a settings.json with only the hooks segment — every residue key gone, no refusal (invariant 6)",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MANIFEST-WRITE-HOOK-SHAPE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`EmitResult` carries `declarations/members/permissions/registrations` but no settings-residue family, so `assembly.settings` (assembly.ts:41 — the harness-level residual keys) never crosses the seam. Add the settings-residue seam family the way `registrations`/`permissions` are carried, so the engine can fill the settings.json manifest's opaque residue from the authored settings. Reconcile with the existing seam families rather than a second projector."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ManifestBuild.residue` (~826) is filled only from a path-matched container member's fields (~693); no member projects to `settings.json`, so its residue stays empty and the whole authored-settings segment is shed. Fill the settings.json build's residue from the carried seam family (the manifest's collection segments then its opaque residue, per the write face's declared-order-then-residue contract). Refuse loud rather than shed if a residue key cannot be carried (invariant 6). Shares src/drift.rs with HOOK-SHAPE, hence blockedBy."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "the emit payload gains a settings-residue seam family (harness-level opaque settings keys), carried the way `registrations`/`permissions` are; wire types regenerate.",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "an authored `harness({ settings: { autoMemoryEnabled, worktree } })` plus hook members emits a settings.json carrying those residue keys alongside the hooks segment (declared order then residue) — nothing shed; and an unrepresentable residue key refuses loud rather than dropping."
+      }
+    ],
+    "acceptance": "emit carries the assembly's authored settings into settings.json as opaque residue (or refuses loud), never silently sheds them; the dogfood emit reproduces the authored residue keys beside the hooks segment.",
+    "notes": "assembly.settings (assembly.ts:41) has no seam family: EmitResult carries declarations/members/permissions/registrations, not settings residue, so it never reaches the engine; build.residue fills only from a path-matched container member and no member projects to settings.json. Dogfood probe stashed on main (\"dogfood: hooks authored as .temper members\"). Ships after HOOK-SHAPE (shared src/drift.rs routing). scoped at d927edf"
+  },
+  {
     "tag": "PACKAGING-CHANNELS",
     "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
     "per": {
