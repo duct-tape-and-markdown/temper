@@ -1,15 +1,19 @@
-//! The JSON manifest adapter's read face — a JSON-parser peer to the frontmatter loader.
+//! The JSON manifest adapter's two faces — a JSON-parser peer to the frontmatter loader.
 //!
-//! A kind's declared collection address selects which key paths of a structured manifest
-//! walk into the generic surface extractor: each entry reads as a fields-only
+//! Read: a kind's declared collection address selects which key paths of a structured
+//! manifest walk into the generic surface extractor — each entry reads as a fields-only
 //! registration member, every undeclared top-level key survives as an opaque field, and
-//! an unrepresented manifest still infers its members off the address handed in — the
-//! read a pure function of the bytes, so a re-read is byte-identical.
+//! an unrepresented manifest still infers its members off the address handed in.
+//!
+//! Write: a represented manifest regenerates whole — its declared collection segments in
+//! address order, then the opaque residue, canonical LF. Both faces are pure functions of
+//! their inputs, so a re-read and a double-emit are each byte-identical.
 
+use std::collections::BTreeMap;
 use std::fs;
 
 use temper::extract::{FeatureValue, ValueType};
-use temper::json_manifest::Manifest;
+use temper::json_manifest::{CollectionSegment, Manifest, write_manifest};
 use temper::kind::{CollectionAddress, CollectionKeyPath, CustomKind, Extraction, Governs};
 
 mod common;
@@ -138,4 +142,35 @@ fn read_kind_routes_a_manifest_kind_through_its_governs_locus() {
     let reads = Manifest::read_kind(&harness, &kind).unwrap();
     assert_eq!(reads.len(), 1);
     assert_eq!(reads[0].members.len(), 2);
+}
+
+#[test]
+fn a_represented_manifest_regenerates_whole_declared_order_then_residue() {
+    // A represented manifest's write face over a `hooks` collection (one lifecycle event,
+    // its member an array) plus an opaque residue: the collection leads in declared
+    // address order, the residue follows sorted, LF throughout.
+    let mut entries = BTreeMap::new();
+    entries.insert(
+        "SessionStart".to_string(),
+        serde_json::json!([{ "hooks": [{ "type": "command", "command": "temper explain" }] }]),
+    );
+    let segment = CollectionSegment {
+        collection_key: "hooks".to_string(),
+        entries,
+    };
+    let mut residue = BTreeMap::new();
+    residue.insert(
+        "autoMemoryEnabled".to_string(),
+        serde_json::Value::Bool(true),
+    );
+
+    let segments = [segment];
+    let expected = "{\n  \"hooks\": {\n    \"SessionStart\": [\n      {\n        \"hooks\": [\n          {\n            \"command\": \"temper explain\",\n            \"type\": \"command\"\n          }\n        ]\n      }\n    ]\n  },\n  \"autoMemoryEnabled\": true\n}\n";
+    assert_eq!(write_manifest(&segments, &residue), expected);
+
+    // The pipeline's "Emit" double-emit byte-check: a pure function of its inputs.
+    assert_eq!(
+        write_manifest(&segments, &residue),
+        write_manifest(&segments, &residue)
+    );
 }

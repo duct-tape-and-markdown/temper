@@ -1,5 +1,4 @@
-//! The generic JSON-manifest adapter, read face — `frontmatter.rs`'s peer for
-//! structured config.
+//! The generic JSON-manifest adapter — `frontmatter.rs`'s peer for structured config.
 //!
 //! Where the frontmatter adapter reads a markdown artifact's YAML header, this one reads
 //! a structured manifest (`settings.json`, `.mcp.json`): a real JSON parser owns the
@@ -10,9 +9,11 @@
 //! unrepresented manifest still infers its registration members off the addresses handed
 //! in — the file need not be modelled as a member for its members to surface.
 //!
-//! Read face only: the canonical whole-manifest write face is a later slice, and the
-//! unrepresented-manifest write stays `src/json_splice.rs`. The read is a pure function
-//! of the manifest bytes — sorted-key entries, kind-preserving fields — so a re-read is
+//! Two faces share the module: the read above and the canonical whole-manifest write
+//! face ([`write_manifest`]) below — a represented manifest's declared collection
+//! segments in address order, then the opaque residue, serialized LF. The
+//! unrepresented-manifest write stays `src/json_splice.rs`, splicing in place. Both faces
+//! are pure functions of their inputs, so a re-read and a double-emit are each
 //! byte-identical, the idempotence keystone the frontmatter face also holds.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -211,6 +212,75 @@ impl Manifest {
     }
 }
 
+/// One collection segment of a manifest's write face: a declared collection address's
+/// top-level key and the entries that surface there, each an entry key paired with the
+/// whole JSON value it holds — an MCP server's object, a hook event's array. Entries ride
+/// a `BTreeMap`, so a re-emit lands them in the collection's own sorted key order, the
+/// order the read face surfaces them in.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CollectionSegment {
+    /// The collection's top-level manifest key (`hooks`, `mcpServers`).
+    pub collection_key: String,
+    /// The collection's entries: entry key → the whole JSON value it holds.
+    pub entries: BTreeMap<String, JsonValue>,
+}
+
+/// Regenerate a represented manifest whole: its `segments` in the order given (declared
+/// collection-address order), then the opaque `residue` in sorted key order, serialized
+/// as canonical 2-space-pretty JSON with a trailing LF. The byte shape
+/// [`serde_json::to_string_pretty`] produces — the one encoder `bundle`'s manifests also
+/// ride — but with the top-level key order the manifest declares (collections then
+/// residue), which serde_json's own sorted-map serialization cannot express. A pure
+/// function of its inputs, so a double-emit is byte-identical.
+///
+/// This is the represented-manifest path; an unrepresented manifest stays on the
+/// `json_splice` text splicer, which edits a human's document in place rather than
+/// regenerating it. Each value is rendered through the one shared pretty printer
+/// ([`crate::json_splice::pretty_at`]), never a second encoder.
+#[must_use]
+pub fn write_manifest(
+    segments: &[CollectionSegment],
+    residue: &BTreeMap<String, JsonValue>,
+) -> String {
+    let mut members: Vec<(&str, JsonValue)> = Vec::with_capacity(segments.len() + residue.len());
+    for segment in segments {
+        let object: serde_json::Map<String, JsonValue> =
+            segment.entries.clone().into_iter().collect();
+        members.push((segment.collection_key.as_str(), JsonValue::Object(object)));
+    }
+    for (key, value) in residue {
+        members.push((key.as_str(), value.clone()));
+    }
+    render_object(&members)
+}
+
+/// Serialize an ordered list of top-level `(key, value)` members as canonical
+/// 2-space-pretty JSON with a trailing LF — the outer object framing built here so the
+/// keys land in the given order (serde_json's own map serialization would sort them),
+/// each value rendered by the shared pretty printer at one indent level. An empty
+/// manifest is `{}\n`.
+fn render_object(members: &[(&str, JsonValue)]) -> String {
+    if members.is_empty() {
+        return "{}\n".to_string();
+    }
+    let mut out = String::from("{\n");
+    for (index, (key, value)) in members.iter().enumerate() {
+        // A plain string key serializes infallibly; fall back to an empty-string literal
+        // rather than panic on the unreachable error path.
+        let key_text = serde_json::to_string(key).unwrap_or_else(|_| "\"\"".to_string());
+        out.push_str("  ");
+        out.push_str(&key_text);
+        out.push_str(": ");
+        out.push_str(&crate::json_splice::pretty_at(value, "  "));
+        if index + 1 < members.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+    out.push_str("}\n");
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,5 +438,97 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    /// A `.mcp.json`-shaped represented manifest for the write face: one `mcpServers`
+    /// collection (two entries, `serde_json`'s sorted order) and two opaque residue keys.
+    fn represented() -> (Vec<CollectionSegment>, BTreeMap<String, JsonValue>) {
+        let mut entries = BTreeMap::new();
+        entries.insert(
+            "gmail".to_string(),
+            serde_json::json!({ "command": "npx", "timeout": 30 }),
+        );
+        entries.insert("drive".to_string(), serde_json::json!({ "command": "npx" }));
+        let segment = CollectionSegment {
+            collection_key: "mcpServers".to_string(),
+            entries,
+        };
+        let mut residue = BTreeMap::new();
+        residue.insert("autoMemoryEnabled".to_string(), JsonValue::Bool(false));
+        residue.insert(
+            "permissions".to_string(),
+            serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+        );
+        (vec![segment], residue)
+    }
+
+    #[test]
+    fn write_manifest_regenerates_whole_declared_order_then_residue() {
+        let (segments, residue) = represented();
+        // The collection segment leads (its declared address order), the opaque residue
+        // follows in sorted key order — the write face imposes that top-level order, which
+        // serde_json's own sorted-map serialization could not (it would interleave
+        // `autoMemoryEnabled` before `mcpServers`).
+        let expected = "{\n  \"mcpServers\": {\n    \"drive\": {\n      \"command\": \"npx\"\n    },\n    \"gmail\": {\n      \"command\": \"npx\",\n      \"timeout\": 30\n    }\n  },\n  \"autoMemoryEnabled\": false,\n  \"permissions\": {\n    \"allow\": [\n      \"Bash(cargo build:*)\"\n    ]\n  }\n}\n";
+        assert_eq!(write_manifest(&segments, &residue), expected);
+    }
+
+    #[test]
+    fn write_manifest_is_byte_identical_across_a_double_emit() {
+        // A pure function of its inputs — the double-emit determinism the pipeline's
+        // "Emit" byte-check rests on.
+        let (segments, residue) = represented();
+        assert_eq!(
+            write_manifest(&segments, &residue),
+            write_manifest(&segments, &residue)
+        );
+    }
+
+    #[test]
+    fn write_manifest_matches_serde_pretty_when_the_top_level_is_already_sorted() {
+        // With one collection and no residue the top-level order is trivially sorted, so
+        // the write face lands byte-for-byte on `serde_json::to_string_pretty` + LF — the
+        // canonical encoder `bundle`'s manifests ride, the target entry 3/5 consolidates
+        // onto (no second encoder that could drift).
+        let mut entries = BTreeMap::new();
+        entries.insert("drive".to_string(), serde_json::json!({ "command": "npx" }));
+        let segment = CollectionSegment {
+            collection_key: "mcpServers".to_string(),
+            entries: entries.clone(),
+        };
+        let equivalent = serde_json::json!({ "mcpServers": { "drive": { "command": "npx" } } });
+        let expected = format!("{}\n", serde_json::to_string_pretty(&equivalent).unwrap());
+        assert_eq!(write_manifest(&[segment], &BTreeMap::new()), expected);
+    }
+
+    #[test]
+    fn an_empty_manifest_writes_a_bare_object() {
+        assert_eq!(write_manifest(&[], &BTreeMap::new()), "{}\n");
+    }
+
+    #[test]
+    fn an_unrepresented_manifest_stays_on_json_splice_in_place() {
+        // The write face regenerates a represented manifest whole; an unrepresented one
+        // stays on `json_splice`, which edits a human's document in place. Splicing a new
+        // member leaves every other byte — key order, spacing — untouched, the guarantee
+        // that keeps `json_splice` the unrepresented path this write face does not replace.
+        let text = "{\n  \"mcpServers\": {\n    \"gmail\": { \"command\": \"npx\" }\n  }\n}";
+        let root = crate::json_splice::object_shape(text, 0);
+        let servers = root
+            .members
+            .iter()
+            .find(|member| member.key == "mcpServers")
+            .expect("the mcpServers member is present");
+        let servers_shape = crate::json_splice::object_shape(text, servers.value_span.0);
+        let edit = crate::json_splice::insert_member(
+            &servers_shape,
+            "drive",
+            &serde_json::json!({ "command": "npx" }),
+            2,
+        );
+        let spliced = crate::json_splice::apply_edits(text, vec![edit]);
+        // The human's `gmail` entry survives byte-for-byte; only `drive` is grafted in.
+        assert!(spliced.contains("\"gmail\": { \"command\": \"npx\" }"));
+        assert!(spliced.contains("\"drive\""));
     }
 }
