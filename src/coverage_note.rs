@@ -16,7 +16,7 @@
 //! "External facts are cited"): each entry carries its Claude Code docs citation at
 //! the point of claim.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use ignore::WalkBuilder;
@@ -53,6 +53,22 @@ struct KnownSurface {
     holds: &'static str,
     /// The Claude Code docs the surface's existence and locus are claimed from.
     source: &'static str,
+    /// The manifest's named top-level segments, when it is a manifest a segment kind can
+    /// govern a slice of. Each names its display word and the manifest collection key a
+    /// kind governs it under (`None` for a segment no kind ever models — the perpetual
+    /// opaque residue). Empty for a surface with no segment model: `.mcp.json` is wholly
+    /// one collection, so its governance is binary (whole-manifest kind or nothing).
+    segments: &'static [Segment],
+}
+
+/// One named top-level segment of a manifest — the unit a partial-governance finding
+/// reasons over.
+struct Segment {
+    /// The segment's display word, named in the advisory message.
+    name: &'static str,
+    /// The manifest collection key a kind governs this segment under, or `None` when no
+    /// kind ever models it (permissions, env — genuinely unschematized residue).
+    collection_key: Option<&'static str>,
 }
 
 /// The Claude Code settings docs, retrieved 2026-07-02 — the shared citation for the
@@ -78,12 +94,27 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
         is_dir: false,
         holds: "Claude Code project settings — permissions, env, and hooks",
         source: SETTINGS_DOC,
+        segments: &[
+            Segment {
+                name: "permissions",
+                collection_key: None,
+            },
+            Segment {
+                name: "env",
+                collection_key: None,
+            },
+            Segment {
+                name: "hooks",
+                collection_key: Some("hooks"),
+            },
+        ],
     },
     KnownSurface {
         path: ".mcp.json",
         is_dir: false,
         holds: "Claude Code project MCP server configuration",
         source: SETTINGS_DOC,
+        segments: &[],
     },
 ];
 
@@ -140,16 +171,43 @@ pub fn check(
     // `settings.json`) suppresses the surface it governs exactly as a built-in does.
     let governing_kinds = with_locked_kinds(root, kinds)?;
     for surface in KNOWN_SURFACES {
-        if present(root, surface) && !governed_by_any(&governing_kinds, surface) {
-            diagnostics.push(Diagnostic::warn(
+        if !present(root, surface) || governed_by_any(&governing_kinds, surface) {
+            continue;
+        }
+        // A manifest whose whole file no kind governs may still have a governed *segment*
+        // (settings.json's `hooks` is checked while permissions/env stay opaque). Naming
+        // such a partially-governed manifest as wholly ungoverned contradicts its own
+        // checked-member count, so split the finding: a partial manifest names only the
+        // ungoverned residue; a wholly-ungoverned one keeps the full finding.
+        let governed_segments: BTreeSet<&str> = governing_kinds
+            .values()
+            .filter_map(|kind| governs_segment(kind, surface.path, surface.is_dir))
+            .collect();
+        diagnostics.push(match unmodeled_residue(surface, &governed_segments) {
+            Some((checked, residue)) => Diagnostic::warn(
+                UNMODELED_RULE,
+                surface.path,
+                format!(
+                    "`{}` is partially governed — its {} segment{} {} checked, but its {} segment{} {} unmodeled and no kind checks them [source: {}]",
+                    surface.path,
+                    checked.join(", "),
+                    crate::display::plural(checked.len()),
+                    verb(checked.len()),
+                    residue.join(", "),
+                    crate::display::plural(residue.len()),
+                    verb(residue.len()),
+                    surface.source,
+                ),
+            ),
+            None => Diagnostic::warn(
                 UNMODELED_RULE,
                 surface.path,
                 format!(
                     "`{}` ({}) is present but no kind governs it — temper checks none of its members [source: {}]",
                     surface.path, surface.holds, surface.source
                 ),
-            ));
-        }
+            ),
+        });
     }
 
     // (3) Name the strays: an entry directly under `.claude/` that no in-scope kind
@@ -261,11 +319,11 @@ fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir
 ///
 /// A **manifest kind** (one carrying a collection address) governs its host file only when
 /// its collection spans the whole manifest: `.mcp.json` is wholly its `mcpServers` map, so
-/// the `mcp-server` kind covers the file outright and retires its finding; a segment kind
-/// (`hooks.<Event>` of `settings.json`) represents only its own slice — the container's
-/// permissions/env segments stay unmodeled — so it governs no whole-path surface, and the
-/// manifest keeps its unmodeled-surface finding until every segment is modeled. A manifest
-/// kind never governs a directory surface (its members live in a file, not a tree).
+/// the `mcp-server` kind covers the file outright and retires its finding. A segment kind
+/// (`hooks.<Event>` of `settings.json`) represents only its own slice, so it governs no
+/// whole-path surface — [`governs_segment`] reports which slice it does cover, and the
+/// coverage note narrows the manifest's finding to the ungoverned residue. A manifest kind
+/// never governs a directory surface (its members live in a file, not a tree).
 fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
     if let Some(address) = &kind.collection_address {
         if is_dir || !address.key_path.spans_whole_manifest() {
@@ -286,6 +344,54 @@ fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
     }
 }
 
+/// The manifest collection key `kind` governs *within* `path` when it addresses a segment
+/// of it rather than the whole file — `Some("hooks")` for the `hook` kind against
+/// `settings.json`. Returns `None` for a whole-manifest kind (its coverage is [`governs`]'s
+/// binary yes), a non-manifest kind, a directory surface, or a kind whose `governs` locus
+/// selects a different file.
+fn governs_segment(kind: &CustomKind, path: &str, is_dir: bool) -> Option<&'static str> {
+    let address = kind.collection_address.as_ref()?;
+    if is_dir || address.key_path.spans_whole_manifest() {
+        return None;
+    }
+    let (parent, leaf) = split_file(path);
+    (normalize_root(&kind.governs.root) == parent
+        && compile_glob(kind.governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf)))
+    .then(|| address.key_path.collection_key())
+}
+
+/// Split a partially-governed manifest into its checked and unmodeled segment names, or
+/// `None` when no segment of it is governed at all — the wholly-ungoverned case the caller
+/// reports with the full finding. `governed_keys` are the collection keys a segment kind
+/// covers ([`governs_segment`]); a segment is checked when its key is among them, residue
+/// otherwise (a keyless segment — permissions, env — is always residue). Returns the
+/// checked names and residue names, both guaranteed non-empty: a partial manifest has at
+/// least one of each. `None` when no segment is governed (the wholly-ungoverned case the
+/// caller reports with the full finding).
+fn unmodeled_residue<'a>(
+    surface: &'a KnownSurface,
+    governed_keys: &BTreeSet<&str>,
+) -> Option<(Vec<&'a str>, Vec<&'a str>)> {
+    let mut checked = Vec::new();
+    let mut residue = Vec::new();
+    for segment in surface.segments {
+        match segment.collection_key {
+            Some(key) if governed_keys.contains(key) => checked.push(segment.name),
+            _ => residue.push(segment.name),
+        }
+    }
+    if checked.is_empty() || residue.is_empty() {
+        return None;
+    }
+    Some((checked, residue))
+}
+
+/// The `is`/`are` copula for a count — `"is"` for one segment, `"are"` otherwise — so the
+/// partial-governance message agrees with its comma-joined segment list.
+fn verb(n: usize) -> &'static str {
+    if n == 1 { "is" } else { "are" }
+}
+
 /// A `governs.root` reduced to a comparable relative path: leading `./` and any
 /// trailing `/` stripped, and a bare `.` (the harness root itself, the `memory`
 /// kind's locus) folded to the empty string so it matches a top-level file's parent.
@@ -304,7 +410,7 @@ fn split_file(path: &str) -> (&str, &str) {
 mod tests {
     use super::*;
     use crate::check::Severity;
-    use crate::kind::{CustomKind, Extraction, Governs};
+    use crate::kind::{CollectionAddress, CollectionKeyPath, CustomKind, Extraction, Governs};
     use crate::test_support::tmpdir;
 
     /// A minimal [`CustomKind`] with the given `governs` locus — enough for the
@@ -318,6 +424,18 @@ mod tests {
             },
             Extraction::new(Vec::new()),
         )
+    }
+
+    /// A `hook`-shaped **segment** kind: rooted at `.claude/settings.json`, addressing the
+    /// `hooks.<Event>` collection — a slice of the manifest, not the whole file. Stands in
+    /// for the built-in in the partial-governance test.
+    fn hook_kind() -> CustomKind {
+        let mut kind = kind_governing("hook", ".claude", "settings.json");
+        kind.collection_address = Some(CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: CollectionKeyPath::HooksEvent,
+        });
+        kind
     }
 
     fn skill_kind() -> CustomKind {
@@ -396,6 +514,7 @@ mod tests {
             is_dir: true,
             holds: "agents",
             source: "x",
+            segments: &[],
         };
         // No built-in kind roots under `.claude/agents`, so it is ungoverned.
         assert!(!governed_by_any(&builtin_set(), &agents));
@@ -414,6 +533,7 @@ mod tests {
             is_dir: false,
             holds: "settings",
             source: "x",
+            segments: &[],
         };
         assert!(!governed_by_any(&builtin_set(), &settings));
         // A kind rooted at `.claude` selecting `settings.json` governs the file surface.
@@ -434,6 +554,7 @@ mod tests {
             is_dir: false,
             holds: "memory",
             source: "x",
+            segments: &[],
         };
         let memory = BTreeMap::from([(
             "memory".to_string(),
@@ -508,6 +629,41 @@ mod tests {
                 .iter()
                 .any(|d| d.rule == UNMODELED_RULE && d.artifact == ".mcp.json"),
             "an ungoverned present surface must still be flagged, got: {diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn a_partially_governed_manifest_names_the_residue_not_the_whole_file() {
+        // A segment kind (`hook`) governs settings.json's `hooks` segment; permissions and
+        // env stay ungoverned. The finding must name that residue and never claim the whole
+        // file is ungoverned — the invariant-6 violation this closes.
+        let root = tmpdir("partial-settings");
+        std::fs::create_dir_all(root.join(".claude")).unwrap();
+        std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
+
+        let kinds = BTreeMap::from([("hook".to_string(), hook_kind())]);
+        let diagnostics = check(&root, &kinds, &BTreeMap::new()).unwrap();
+
+        let finding = diagnostics
+            .iter()
+            .find(|d| d.rule == UNMODELED_RULE && d.artifact == ".claude/settings.json")
+            .expect("a partially-governed manifest still notes its ungoverned residue");
+        assert_eq!(finding.severity, Severity::Warn);
+        assert!(
+            finding.message.contains("partially governed")
+                && finding.message.contains("permissions")
+                && finding.message.contains("env")
+                && finding.message.contains("hooks"),
+            "the message names the checked hooks segment and the ungoverned residue, got: {}",
+            finding.message
+        );
+        assert!(
+            !finding.message.contains("no kind governs it")
+                && !finding
+                    .message
+                    .contains("temper checks none of its members"),
+            "a partial manifest never claims it is wholly ungoverned, got: {}",
+            finding.message
         );
     }
 

@@ -5,12 +5,13 @@
 //!
 //! Driven across the real process boundary through the one-shot `check --harness` verb
 //! (the route session-start takes), over harness-dir fixtures mirroring the real Claude
-//! Code layout — `.claude/skills/*` plus, for the gap arm, a bare `.claude/settings.json`
-//! whose permissions/env segments no kind governs (the `hook` built-in covers only its
-//! `hooks` segment, so the whole file stays a gap), and for the locked-kind arm, a
-//! `.claude/settings.json` a committed `widget` kind row governs (`.claude/agents` and
-//! `.mcp.json` no longer fit the gap arm: the `agent` and `mcp-server` built-ins now
-//! govern them, so neither is an available whole-file gap).
+//! Code layout — `.claude/skills/*` plus, for the partial-governance arm, a bare
+//! `.claude/settings.json` whose `hooks` segment the `hook` built-in governs while its
+//! permissions/env residue stays unmodeled (the finding names only that residue, never
+//! the whole file), and for the locked-kind arm, a `.claude/settings.json` a committed
+//! `widget` kind row governs whole. `.mcp.json` is the wholly-ungoverned probe only when
+//! the kinds handed in carry no `mcp-server` row; under the built-in set it is governed
+//! whole and retires its finding.
 //! The GitHub reporter gives a machine-parseable finding
 //! set: each finding is one `::warning title=<rule>::<artifact>: …` line, so the
 //! coverage note's advisories are asserted exactly. Every coverage-note finding is
@@ -51,10 +52,10 @@ fn write_mcp_json(root: &Path) {
 }
 
 /// Write a bare `.claude/settings.json` — a real Claude Code surface
-/// (code.claude.com/docs/en/settings) whose permissions/env segments no built-in kind
-/// governs: the `hook` kind covers only its `hooks` segment, so the whole file stays a gap
-/// the coverage note must flag. Valid JSON `{}` so the `hook` kind reads it as a manifest
-/// without aborting on a parse error.
+/// (code.claude.com/docs/en/settings). The `hook` built-in governs its `hooks` segment,
+/// so the file is *partially* governed: the note names only the ungoverned permissions/env
+/// residue. Valid JSON `{}` so the `hook` kind reads it as a manifest without aborting on a
+/// parse error.
 fn write_settings_json(root: &Path) {
     let claude = root.join(".claude");
     fs::create_dir_all(&claude).unwrap();
@@ -110,10 +111,10 @@ fn check_harness(harness: &Path) -> (Vec<String>, bool) {
 }
 
 #[test]
-fn an_ungoverned_settings_json_is_flagged_beside_the_checked_summary() {
+fn a_partially_governed_settings_json_names_only_the_ungoverned_residue() {
     let harness = common::tmpdir("with-settings-json");
-    // Two clean skills the gate checks, plus a `.claude/settings.json` whose whole file no
-    // kind governs (the `hook` kind covers only its `hooks` segment).
+    // Two clean skills the gate checks, plus a `.claude/settings.json` whose `hooks`
+    // segment the `hook` built-in governs while its permissions/env residue does not.
     write_skill(&harness, "coordinate");
     write_skill(&harness, "review");
     write_settings_json(&harness);
@@ -138,9 +139,10 @@ fn an_ungoverned_settings_json_is_flagged_beside_the_checked_summary() {
         "the summary reports the two checked skills, got: {summary}"
     );
 
-    // (2) The ungoverned `.claude/settings.json` surface is flagged — exactly once,
-    // `warning`, naming the surface and carrying its Claude Code docs citation at the
-    // point of claim.
+    // (2) The partially-governed `.claude/settings.json` surface is flagged — exactly once,
+    // `warning` — and the finding states only true things: it names the ungoverned
+    // permissions/env residue, never claiming the whole file is ungoverned. Contradicting
+    // its own `hooks` coverage is the invariant-6 violation this entry closes.
     let unmodeled = common::findings_for(&findings, "coverage.unmodeled-surface");
     let settings: Vec<&&String> = unmodeled
         .iter()
@@ -157,8 +159,15 @@ fn an_ungoverned_settings_json_is_flagged_beside_the_checked_summary() {
         "the unmodeled-surface flag is advisory (warn), got: {finding}"
     );
     assert!(
-        finding.contains("no kind governs it"),
-        "the flag says no kind governs the surface, got: {finding}"
+        finding.contains("partially governed")
+            && finding.contains("permissions")
+            && finding.contains("env"),
+        "the flag names the ungoverned residue, got: {finding}"
+    );
+    assert!(
+        !finding.contains("no kind governs it")
+            && !finding.contains("temper checks none of its members"),
+        "a partially-governed manifest must not claim it is wholly ungoverned, got: {finding}"
     );
     assert!(
         finding.contains("code.claude.com/docs/en/settings"),
@@ -237,6 +246,42 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
             .iter()
             .any(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json"),
         "a missing lock still flags the ungoverned surface, got: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it() {
+    // The partial-governance narrowing must not soften the two ends it brackets: a
+    // manifest no kind governs at all still reads the full wholly-ungoverned finding, and
+    // one a whole-manifest kind governs still retires it entirely. `.mcp.json` is the
+    // probe — wholly its `mcpServers` map, so the `mcp-server` built-in covers it outright.
+
+    // (1) No `mcp-server` kind in scope: the full finding fires, naming the whole file.
+    let ungoverned = common::tmpdir("mcp-wholly-ungoverned");
+    write_mcp_json(&ungoverned);
+    let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
+    let bare = coverage_note::check(&ungoverned, &empty_kinds, &BTreeMap::new()).unwrap();
+    let mcp = bare
+        .iter()
+        .find(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")
+        .expect("a wholly-ungoverned .mcp.json is still flagged");
+    assert!(
+        mcp.message.contains("no kind governs it")
+            && mcp.message.contains("temper checks none of its members"),
+        "a wholly-ungoverned manifest keeps the full finding, got: {}",
+        mcp.message
+    );
+
+    // (2) The `mcp-server` built-in governs `.mcp.json` whole (its collection spans the
+    // manifest), so no finding survives — partial narrowing never reaches a governed file.
+    let governed = common::tmpdir("mcp-wholly-governed");
+    write_mcp_json(&governed);
+    let builtins = temper::builtin_kind::definitions().unwrap();
+    let full = coverage_note::check(&governed, &builtins, &BTreeMap::new()).unwrap();
+    assert!(
+        full.iter()
+            .all(|d| !(d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")),
+        "the mcp-server built-in governs .mcp.json whole and retires its finding, got: {full:#?}"
     );
 }
 
