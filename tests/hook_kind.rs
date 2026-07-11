@@ -118,9 +118,20 @@ fn a_settings_json_hooks_event_entry_reads_as_a_hook_member() {
         members,
         vec![("hooks", "NotARealEvent"), ("hooks", "PreToolUse")]
     );
-    // A `hooks.<Event>` value is an array of matcher groups, not an object, so a hook
-    // member carries no object fields of its own — its event is its whole checkable datum.
-    assert!(reads[0].members.iter().all(|m| m.fields.is_empty()));
+    // A `hooks.<Event>` value is Claude Code's array of matcher groups: the read decomposes
+    // each handler into the flat {matcher?, type, command} fields the write face re-nests,
+    // so a hook member carries its handler's own fields plus the group's `matcher` when one
+    // is present. The tool-scoped `PreToolUse` lifts its `matcher`; the matcher-less
+    // `NotARealEvent` carries only the handler's own.
+    let pre = &reads[0].members[1];
+    assert_eq!(pre.key, "PreToolUse");
+    assert_eq!(pre.fields.get("matcher"), Some(&serde_json::json!("Bash")));
+    assert_eq!(
+        pre.fields.get("command"),
+        Some(&serde_json::json!("echo guard"))
+    );
+    assert_eq!(pre.fields.get("type"), Some(&serde_json::json!("command")));
+    assert!(!reads[0].members[0].fields.contains_key("matcher"));
 }
 
 #[test]

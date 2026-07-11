@@ -914,15 +914,19 @@ pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
 
 /// Walk a parsed JSON manifest to a collection address's **registration members**:
 /// resolve the top-level object named by `collection_key` and read each of its entries as
-/// a fields-only member — the entry key paired with the entry object's own **raw** JSON
-/// fields, kept unprojected so the one shared fold ([`crate::builtin_kind::features`])
-/// projects them kind-preserving at read time, the same soundness boundary and the same
-/// projection point a frontmatter member's fields ride. Entries come back in the
-/// collection's own sorted key order (`serde_json::Map` is a `BTreeMap`), so a re-read is
-/// byte-identical. An entry whose value is not a JSON object carries no fields — a
-/// non-object holds no key/value pairs a fields-only member reads. Absent — never errored
-/// — when the manifest carries no such collection object: an unrepresented manifest infers
-/// no member at that address.
+/// a fields-only member — the entry key paired with its own **raw** JSON fields, kept
+/// unprojected so the one shared fold ([`crate::builtin_kind::features`]) projects them
+/// kind-preserving at read time, the same soundness boundary and the same projection point
+/// a frontmatter member's fields ride. Entries come back in the collection's own sorted key
+/// order (`serde_json::Map` is a `BTreeMap`), so a re-read is byte-identical. Absent — never
+/// errored — when the manifest carries no such collection object: an unrepresented manifest
+/// infers no member at that address.
+///
+/// The `hooks` collection nests one level deeper than every other: an event's value is an
+/// array of matcher groups, not a lone entry object, so it decomposes into one member per
+/// handler ([`hook_member_fields`]) rather than one per top-level entry — the per-collection
+/// divergence the write face ([`crate::extract::hook_matcher_group`]) mirrors. Every other
+/// collection reads each entry object's members verbatim ([`entry_fields`]).
 ///
 /// `pub(crate)` so the JSON manifest adapter (`crate::json_manifest`) reads a collection
 /// address's members off the one grammar the frontmatter path also parses to.
@@ -933,6 +937,16 @@ pub(crate) fn manifest_members(
     let Some(JsonValue::Object(collection)) = manifest.get(collection_key) else {
         return Vec::new();
     };
+    if collection_key == crate::kind::CollectionKeyPath::HooksEvent.collection_key() {
+        return collection
+            .iter()
+            .flat_map(|(event, value)| {
+                hook_member_fields(value)
+                    .into_iter()
+                    .map(move |fields| (event.clone(), fields))
+            })
+            .collect();
+    }
     collection
         .iter()
         .map(|(key, value)| (key.clone(), entry_fields(value)))
@@ -951,6 +965,72 @@ fn entry_fields(value: &JsonValue) -> BTreeMap<String, JsonValue> {
             .collect(),
         _ => BTreeMap::new(),
     }
+}
+
+/// Decompose one `hooks.<Event>` value — Claude Code's array of matcher groups
+/// (`[{matcher?, hooks:[{type, command}]}]`, code.claude.com/docs/en/hooks) — into the
+/// flat fields a fields-only hook member carries, one per handler: the group's `matcher`
+/// (when present) lifted alongside each handler object's own keys (`type`, `command`, …).
+/// The inverse of [`hook_matcher_group`], so a hook read back off `settings.json` re-nests
+/// to the identical bytes on write. A value that is not an array, a group that is not an
+/// object, or an entry with no `hooks` handler array yields no member — a shape Claude Code
+/// would itself ignore infers nothing.
+pub(crate) fn hook_member_fields(event_value: &JsonValue) -> Vec<BTreeMap<String, JsonValue>> {
+    let JsonValue::Array(groups) = event_value else {
+        return Vec::new();
+    };
+    let mut members = Vec::new();
+    for group in groups {
+        let JsonValue::Object(group) = group else {
+            continue;
+        };
+        let matcher = group.get("matcher");
+        let Some(JsonValue::Array(handlers)) = group.get("hooks") else {
+            continue;
+        };
+        for handler in handlers {
+            let JsonValue::Object(handler) = handler else {
+                continue;
+            };
+            let mut fields = BTreeMap::new();
+            if let Some(matcher) = matcher {
+                fields.insert("matcher".to_string(), matcher.clone());
+            }
+            for (key, value) in handler {
+                fields.insert(key.clone(), value.clone());
+            }
+            members.push(fields);
+        }
+    }
+    members
+}
+
+/// Nest one hook member's flat fields back into a `hooks.<Event>` matcher group —
+/// `{matcher?, hooks:[{...handler}]}`: the `matcher` field lifts to the group level (when
+/// present), every other field becomes the single handler's own. The inverse of
+/// [`hook_member_fields`], and the reason emit writes the array-of-matcher-groups shape
+/// Claude Code loads rather than the flat `hooks.<Event> = {…}` object it silently ignores.
+/// `pub(crate)` so the write face (`crate::drift`) nests through the one shape this module's
+/// read face decomposes.
+pub(crate) fn hook_matcher_group(fields: &[(String, JsonValue)]) -> JsonValue {
+    let mut matcher = None;
+    let mut handler = JsonMap::new();
+    for (key, value) in fields {
+        if key == "matcher" {
+            matcher = Some(value.clone());
+        } else {
+            handler.insert(key.clone(), value.clone());
+        }
+    }
+    let mut group = JsonMap::new();
+    if let Some(matcher) = matcher {
+        group.insert("matcher".to_string(), matcher);
+    }
+    group.insert(
+        "hooks".to_string(),
+        JsonValue::Array(vec![JsonValue::Object(handler)]),
+    );
+    JsonValue::Object(group)
 }
 
 /// The source kind of a JSON number: `integer` when it parsed as a whole number
@@ -1176,6 +1256,43 @@ prose below\n";
 
         // An absent collection key yields no members — absent, never errored.
         assert!(manifest_members(manifest, "hooks").is_empty());
+    }
+
+    #[test]
+    fn hook_members_decompose_the_matcher_group_array_and_re_nest_identically() {
+        // A `hooks.<Event>` value is the array of matcher groups Claude Code loads, not a
+        // lone entry object: each handler decomposes into flat {matcher?, type, command}
+        // fields, and re-nesting one such member reproduces the group byte-for-byte.
+        let manifest = serde_json::json!({
+            "hooks": {
+                "PreToolUse": [
+                    { "matcher": "Bash", "hooks": [ { "type": "command", "command": "echo guard" } ] }
+                ],
+                "SessionStart": [
+                    { "hooks": [ { "type": "command", "command": "echo hi" } ] }
+                ]
+            }
+        });
+        let manifest = manifest.as_object().unwrap();
+
+        let members = manifest_members(manifest, "hooks");
+        let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
+        assert_eq!(keys, vec!["PreToolUse", "SessionStart"]);
+
+        // The tool-scoped event lifts its group `matcher` alongside the handler fields; the
+        // event with no matcher carries only the handler's own.
+        let pre = &members[0].1;
+        assert_eq!(pre.get("matcher"), Some(&JsonValue::from("Bash")));
+        assert_eq!(pre.get("command"), Some(&JsonValue::from("echo guard")));
+        assert_eq!(pre.get("type"), Some(&JsonValue::from("command")));
+        assert!(!members[1].1.contains_key("matcher"));
+
+        // Re-nesting a decomposed member is the inverse of the read — byte-for-byte the
+        // group it came from.
+        let fields: Vec<(String, JsonValue)> = pre.clone().into_iter().collect();
+        let regrouped = hook_matcher_group(&fields);
+        let source_group = manifest["hooks"]["PreToolUse"].as_array().unwrap()[0].clone();
+        assert_eq!(regrouped, source_group);
     }
 
     #[test]

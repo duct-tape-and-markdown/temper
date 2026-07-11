@@ -473,11 +473,13 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
 
     // The emitted bytes are exactly what the canonical write face produces — the `hooks`
     // segment then the opaque residue — never json_splice's in-place edit (which preserves
-    // a prior document's own formatting rather than regenerating canonically).
+    // a prior document's own formatting rather than regenerating canonically). A hook nests
+    // into Claude Code's array-of-matcher-groups shape (`hooks.<Event> = [{hooks:[{…}]}]`);
+    // `SessionStart` carries no `matcher`, so its one group is the lone handler list.
     let mut entries = std::collections::BTreeMap::new();
     entries.insert(
         "SessionStart".to_string(),
-        serde_json::json!({ "type": "command", "command": "temper reporter" }),
+        serde_json::json!([ { "hooks": [ { "type": "command", "command": "temper reporter" } ] } ]),
     );
     let segment = json_manifest::CollectionSegment {
         collection_key: "hooks".to_string(),
@@ -504,6 +506,77 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
         lock.contains("[[declaration.registration]]"),
         "the registration member is recorded as a declaration row: {lock}"
     );
+}
+
+#[test]
+fn a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical() {
+    use std::collections::BTreeMap;
+    use temper::kind::{CollectionAddress, CollectionKeyPath};
+
+    let (harness, into) = workspace("hook-round-trip");
+
+    // A canonical `settings.json` in Claude Code's documented shape — the array of matcher
+    // groups this repo's own live file carries (code.claude.com/docs/en/hooks): one
+    // tool-scoped event (a `matcher`) and one without. Built through the write face itself
+    // so the fixture is exactly the bytes emit produces, then proven to survive a read.
+    let mut entries = BTreeMap::new();
+    entries.insert(
+        "PostToolUse".to_string(),
+        serde_json::json!([ { "hooks": [ { "command": "cargo fmt", "type": "command" } ], "matcher": "Edit|Write" } ]),
+    );
+    entries.insert(
+        "SessionStart".to_string(),
+        serde_json::json!([ { "hooks": [ { "command": "temper reporter", "type": "command" } ] } ]),
+    );
+    let source = json_manifest::write_manifest(
+        &[json_manifest::CollectionSegment {
+            collection_key: "hooks".to_string(),
+            entries,
+        }],
+        &BTreeMap::new(),
+    );
+    // The fixture reproduces the live array-of-matcher-groups shape, never the flat object.
+    assert!(source.contains("\"PostToolUse\": [\n"));
+    assert!(source.contains("\"matcher\": \"Edit|Write\""));
+
+    let settings_path = harness.join(".claude").join("settings.json");
+    fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
+    fs::write(&settings_path, &source).unwrap();
+
+    // Read each hook off the source through the adapter's read face, decomposing the matcher
+    // groups back into flat {matcher?, type, command} fields.
+    let address = CollectionAddress {
+        manifest: "settings.json".to_string(),
+        key_path: CollectionKeyPath::HooksEvent,
+    };
+    let manifest = json_manifest::Manifest::read(&settings_path, &[&address]).unwrap();
+    assert_eq!(manifest.members.len(), 2);
+
+    // Feed the read members back through emit's write face — the nesting the read inverts.
+    let registrations = manifest
+        .members
+        .iter()
+        .map(|member| RegistrationRow {
+            kind: "hook".to_string(),
+            key: member.key.clone(),
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            fields: member.fields.clone().into_iter().collect(),
+        })
+        .collect();
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![hook_kind_facts()],
+            registrations,
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // read -> members -> write reproduces the source byte-for-byte: the idempotence keystone.
+    assert_eq!(fs::read_to_string(&settings_path).unwrap(), source);
 }
 
 // ---------------------------------------------------------------------------

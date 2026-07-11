@@ -662,19 +662,34 @@ pub fn emit(
                     member: registration.key.clone(),
                 })?;
         let path = manifest_target_path(harness_root, facts);
-        let entry_value: JsonValue = registration
-            .fields
-            .iter()
-            .cloned()
-            .collect::<serde_json::Map<String, JsonValue>>()
-            .into();
-        manifests
+        let collection = collection_key_of(&registration.key_path);
+        let segment = manifests
             .entry(path)
             .or_default()
             .segments
-            .entry(collection_key_of(&registration.key_path))
-            .or_default()
-            .insert(registration.key.clone(), entry_value);
+            .entry(collection.clone())
+            .or_default();
+        if collection == crate::kind::CollectionKeyPath::HooksEvent.collection_key() {
+            // A hook's event value is Claude Code's array of matcher groups, not a lone
+            // entry object: nest this member's fields into one group and append it under
+            // the event, so members sharing an event accumulate into the one array (the
+            // flat object a naive insert would write is silently ignored).
+            let group = crate::extract::hook_matcher_group(&registration.fields);
+            if let JsonValue::Array(groups) = segment
+                .entry(registration.key.clone())
+                .or_insert_with(|| JsonValue::Array(Vec::new()))
+            {
+                groups.push(group);
+            }
+        } else {
+            let entry_value: JsonValue = registration
+                .fields
+                .iter()
+                .cloned()
+                .collect::<serde_json::Map<String, JsonValue>>()
+                .into();
+            segment.insert(registration.key.clone(), entry_value);
+        }
     }
 
     for member in &payload.members {
