@@ -18,6 +18,8 @@ register.
   this repo beats one invented for the page.
 - Plain sentences, no em dashes. Use a comma, colon, semicolon, parenthesis,
   or a sentence break instead.
+- Natural register, never pitchy: no marketing adjectives and no assistant
+  tics (simply, seamlessly, powerful, dive in).
 - Tables for enumerable facts (commands, flags, formats); prose for
   everything else.
 
@@ -33,6 +35,8 @@ register.
 
 ## Verification
 
+- Docs defer to specs. A public page summarizes; when a page and a spec
+  disagree, the spec is right and the page has a bug.
 - Every stated flag, version, path, and link is checked against the built
   binary or the file on disk before it lands. This is the `collaboration`
   rule's external-facts bar applied to the project's own claims.
