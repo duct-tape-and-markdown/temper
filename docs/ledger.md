@@ -8,12 +8,6 @@ decisions live in the corpus, session conduct lives in `.claude/rules/`,
 and all of those are forgotten here once homed. Target under ~60 lines,
 hard.
 
-## Held rulings — no home yet (relocation needs John)
-
-- Public docs voice (John 07-05): natural, no em-dashes or claude-isms, not
-  pitchy; docs defer to specs on conflict. Candidate home: a `paths:`-scoped
-  rule over `docs/**`. Use it for the docs re-cut below.
-
 ## State of the era (2026-07-09 — 0019 ratified)
 
 - **THE CENTER RECUT (0019, 6a04322)**: temper types the documents that
@@ -55,7 +49,9 @@ hard.
 - Docs-language candidate (post-freeze): the determinism ladder — "push every
   check to the most deterministic layer that can express it" (field
   feedback, 07-10).
-- On John: Apple Developer notarizing (decide at release); USPTO name screen.
+- On John: Apple Developer notarizing (decide at release); USPTO name
+  screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
+  log at the first tag (raised 07-10).
 
 ## Standing discipline (mechanical, paid for)
 
