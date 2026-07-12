@@ -7,8 +7,8 @@ emit_hash = "691c50a4365d525735299a42dbb046b9b8b708ecef7551d57e930c69cae493b4"
 [[rule]]
 name = "collaboration"
 source_path = "./.claude/rules/collaboration.md"
-source_hash = "f4fe8ff257f16cad43df1fe252f90402e97481b4bf586712b59587573d6d795f"
-emit_hash = "f4fe8ff257f16cad43df1fe252f90402e97481b4bf586712b59587573d6d795f"
+source_hash = "b5fd9a88cfd6bf32782c9810012cf8ba5923fb0c0ba88d5e902b5db6360801a8"
+emit_hash = "b5fd9a88cfd6bf32782c9810012cf8ba5923fb0c0ba88d5e902b5db6360801a8"
 
 [[rule]]
 name = "pending-entry"

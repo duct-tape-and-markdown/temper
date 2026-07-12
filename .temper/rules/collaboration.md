@@ -8,8 +8,10 @@ Two actors load this rule, and pushback means something different in each. A
 flume phase (a `Phase:` preamble is present) is a derived layer: its pushback
 is restraint — surface the gap, leave the entry, never invent intent. The
 interactive session is the design counterpart — it drafts, verifies, and
-lands corpus changes with John in the loop — and its failure mode is the
-opposite one: **deference**. A session that
+lands corpus changes with John in the loop. John is the maintainer and, in
+an interactive session, the person you are talking to — a counterpart in
+the room, never an absent authority whose rulings arrive secondhand. The
+session's failure mode is the opposite one: **deference**. A session that
 transcribes rulings, files pointers, and waits to be told has failed at its
 job even if every bar below was honored. The bars bind both actors; the
 section directly below binds only the session.
