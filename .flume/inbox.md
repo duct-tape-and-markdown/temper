@@ -28,3 +28,22 @@ routing.
   tag assets (workflow path exists, unexercised until a tag), and the
   binary self-reporting its crate version (0.1.0) while npm carries
   0.0.x — lockstep lands at the v0.1 tag. observed at 56012d0
+
+- BASE-HARNESS DOGFOOD, three product findings (observed at 4e111af; all
+  reproduced in examples/base-harness):
+  1. The SDK-phase fill check cannot see layout-derived `satisfies`: a
+     `required: true` requirement whose fills live in layout documents'
+     edge sections refuses at `emit(program)` (sdk/src/emit.ts) before the
+     engine ever reads the documents. Worked around with `required: false`
+     + a set-scope `count` clause; the declared posture is weakened. The
+     two-phase fill check needs to defer (or delegate) to the engine when
+     the requirement's kind is layout-content.
+  2. `temper install --yes --dry-run` on an already-represented harness
+     previews `reaped` for every live projection while the same report
+     lists them `unchanged` — contradictory, and if the real run reaps,
+     destructive. Not run for real; needs a fixture.
+  3. Root-harness discovery does not fence nested governed roots: the
+     repo's own gate now counts examples/base-harness/CLAUDE.md as a
+     second `memory` member (any-depth `**/CLAUDE.md` glob; no finding,
+     but cross-contamination). Should discovery stop at a directory
+     carrying its own `.temper/lock.toml`?

@@ -12,8 +12,10 @@
 /.flume/prior-attempts/
 
 # The dogfood authoring workspace (`.temper/`) IS committed — member modules,
-# harness.ts, lock.toml — its node dependencies are not.
+# harness.ts, lock.toml — its node dependencies are not. Same split for the
+# example harnesses' workspaces.
 /.temper/node_modules/
+/examples/*/.temper/node_modules/
 
 # SDK build output
 sdk/dist/

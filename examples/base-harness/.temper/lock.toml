@@ -1,0 +1,210 @@
+[[memory]]
+name = "CLAUDE"
+source_path = "CLAUDE.md"
+source_hash = "09b600e0906197e49ef463f87ada2f32b0ea0e867d32333b76be8cfcfc2796c8"
+emit_hash = "09b600e0906197e49ef463f87ada2f32b0ea0e867d32333b76be8cfcfc2796c8"
+
+[[rule]]
+name = "docs-discipline"
+source_path = ".claude/rules/docs-discipline.md"
+source_hash = "d7463f9de9627ea789abab425fc352d48bae9dc38be41839b02f6ced6b5b0c93"
+emit_hash = "d7463f9de9627ea789abab425fc352d48bae9dc38be41839b02f6ced6b5b0c93"
+
+[[declaration.kind]]
+name = "decision"
+governs_root = "docs/decisions"
+governs_glob = "*.md"
+unit_shape = "file"
+registration = ["always"]
+content = { regions = [{ region = "prose" }, { region = "field", slot = "ruling" }, { region = "field", slot = "consequences" }, { region = "collection", member_kind = "alternative" }] }
+
+[[declaration.kind]]
+name = "flow"
+governs_root = "docs/flows"
+governs_glob = "*.md"
+unit_shape = "file"
+registration = ["always"]
+content = { regions = [{ region = "prose" }, { region = "field", slot = "trigger" }, { region = "field", slot = "participants" }, { region = "field", slot = "steps" }] }
+
+[[declaration.kind]]
+name = "glossary"
+governs_root = "docs"
+governs_glob = "glossary.md"
+unit_shape = "file"
+registration = ["always"]
+content = { regions = [{ region = "prose" }, { region = "collection", member_kind = "term" }] }
+
+[[declaration.kind]]
+name = "hook"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["event(event)"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+
+[[declaration.kind]]
+name = "memory"
+governs_root = "."
+governs_glob = "**/CLAUDE.md"
+unit_shape = "file"
+registration = ["always"]
+
+[[declaration.kind]]
+name = "rule"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+registration = ["paths-match(paths)"]
+
+[[declaration.kind]]
+name = "superseded-decision"
+governs_root = "docs/decisions/superseded"
+governs_glob = "*.md"
+unit_shape = "file"
+registration = ["always"]
+content = { regions = [{ region = "prose" }, { region = "field", slot = "ruling" }, { region = "field", slot = "superseded-by" }] }
+
+[[declaration.kind]]
+name = "system"
+governs_root = "docs/systems"
+governs_glob = "*.md"
+unit_shape = "file"
+registration = ["always"]
+content = { regions = [{ region = "prose" }, { region = "field", slot = "purpose" }, { region = "collection", member_kind = "invariant" }, { region = "field", slot = "satisfies" }] }
+
+[[declaration.clause]]
+kind = "decision"
+predicate = "unique-name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "flow"
+predicate = "unique-name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "system"
+predicate = "unique-name"
+severity = "required"
+
+[[declaration.clause]]
+kind = "system"
+predicate = "max_lines"
+severity = "advisory"
+guidance = "a system doc is navigational, not exhaustive — past ~120 lines, promote a section to a flow or split the system"
+bound = { max = 120 }
+
+[[declaration.requirement]]
+name = "documented-spine"
+kind = "system"
+required = false
+prose = "every load-bearing area of this repository's behavior is documented as a system whose document claims spine membership"
+
+[[declaration.requirement.clauses]]
+predicate = "count"
+severity = "required"
+guidance = "the spine is plural by definition — a one-system corpus is an undocumented repository with one essay"
+count = { min = 2, max = 9007199254740991 }
+
+[[declaration.assembly]]
+fact = "mode"
+value = "warn"
+
+[[declaration.assembly]]
+fact = "edge"
+from = "flow"
+field = "participants"
+to = "system"
+
+[[declaration.assembly]]
+fact = "edge"
+from = "superseded-decision"
+field = "superseded-by"
+to = "decision"
+
+[[declaration.satisfies]]
+member = "corpus"
+requirement = "documented-spine"
+
+[[declaration.satisfies]]
+member = "gate"
+requirement = "documented-spine"
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "alternative"
+key = "code-authoritative"
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "alternative"
+key = "per-change-documentation-duty"
+
+[[declaration.nested_member]]
+host = "glossary:glossary"
+kind = "term"
+key = "corpus"
+
+[[declaration.nested_member]]
+host = "glossary:glossary"
+kind = "term"
+key = "source"
+
+[[declaration.nested_member]]
+host = "glossary:glossary"
+kind = "term"
+key = "projection"
+
+[[declaration.nested_member]]
+host = "glossary:glossary"
+kind = "term"
+key = "layout"
+
+[[declaration.nested_member]]
+host = "glossary:glossary"
+kind = "term"
+key = "reconciliation"
+
+[[declaration.nested_member]]
+host = "system:corpus"
+kind = "invariant"
+key = "spec-authoritative"
+
+[[declaration.nested_member]]
+host = "system:corpus"
+kind = "invariant"
+key = "declared-never-mined"
+
+[[declaration.nested_member]]
+host = "system:corpus"
+kind = "invariant"
+key = "return-paths-are-declarations"
+
+[[declaration.nested_member]]
+host = "system:gate"
+kind = "invariant"
+key = "read-or-written-never-both"
+
+[[declaration.nested_member]]
+host = "system:gate"
+kind = "invariant"
+key = "structure-never-intent"
+
+[[declaration.nested_member]]
+host = "system:gate"
+kind = "invariant"
+key = "loud-or-nothing"
+
+[[declaration.registration]]
+kind = "hook"
+key = "PreToolUse"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "SessionStart"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
