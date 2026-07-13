@@ -110,12 +110,20 @@ Three worked examples, each a would-be "gap" under the lint reading:
 ## The kinds
 
 All declared through the SDK — user kinds are the same construct as
-built-ins (`specs/model/representation.md`, "kind"). Doc-shaped kinds are
-**layout-content sources**: the document is the authored home, read under
-its declared layout, never regenerated (`specs/model/pipeline.md`, "Emit").
-The three layout primitives — prose region, field section, member
-collection — are the whole syntax budget; what does not fit is two kinds,
-or it is prose.
+built-ins (`specs/model/representation.md`, "kind"). The default posture
+(ruled 2026-07-13, deepening the first cut): doc kinds are **composed,
+projected members** — the docs tree is a projected collection. Each member
+is a typed value in the program, its narrative a module-adjacent markdown
+file, its relationships typed fields projected to frontmatter; an edge is
+authored from a member value, so a dangling reference fails in the program
+before the gate runs, and the discipline that would otherwise live in a
+rule is construction. The **layout-content source** posture (document as
+authored home, read under its declared layout, never regenerated) is
+reserved for prose-first hosts whose body sections are themselves model
+structure — the glossary, a spec corpus. The three layout primitives —
+prose region, field section, member collection — are that posture's whole
+syntax budget; what does not fit is two kinds, or it is prose. A
+reference harness demonstrates both faces and says when each is right.
 
 - **`system`** — one area of declared behavior. Field sections for purpose
   and scope; an **invariants member collection** — each invariant an

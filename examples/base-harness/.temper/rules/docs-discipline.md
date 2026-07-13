@@ -1,20 +1,21 @@
-# Docs discipline — the corpus moves first
+# Docs discipline — the corpus is the program
 
-Path-scoped to `docs/`. These files are declared intent, not description.
+Path-scoped to `docs/`. Everything here except `glossary.md` is a
+projection: the authored home is the owning module under `.temper/docs/`,
+and a direct edit is drift.
 
-- Change enters here first; implementation reconciles toward it. Never edit
-  a document to match code that drifted — surface the disagreement and rule
-  on it.
-- Every document is read under its kind's declared layout. Headings are
-  positional structure: add a section only if the kind's layout admits it,
-  otherwise the gate refuses the document whole.
-- Addresses are edges. A `participants` or `superseded by` entry must
-  resolve; a `satisfies` entry names a requirement this document fills.
-  Entries are bare member names, resolved within the edge's declared
-  target kind.
-- Superseding a decision is a move, not an edit: the old document relocates
-  to `docs/decisions/superseded/` and gains its successor entry; the new
-  decision records the old ruling as a rejected alternative.
+- To change a document, edit its module (the narrative lives in the
+  module-adjacent markdown file; relationships are typed fields), then run
+  `temper emit`. The structural discipline — participants resolve, a
+  superseded ruling names its successor, spine coverage holds — is
+  enforced by the program and the gate, not by this rule.
+- Superseding a decision is the `supersede()` operation in
+  `.temper/kinds.ts`: it takes the successor as an import, moves the old
+  ruling's record to `docs/decisions/superseded/`, and never edits the
+  accepted text into something new.
+- `docs/glossary.md` is the one source: edit it in place. Its terms are
+  addressable members, so renaming one is a model change, not a
+  find-and-replace.
 - Evidence against a standing ruling enters as a proposed amendment, never
   as a quiet rewrite. Accepted decisions receive corrections, not new
   meanings.

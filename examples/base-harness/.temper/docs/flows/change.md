@@ -1,6 +1,3 @@
----
-participants: ["corpus","gate"]
----
 The change flow is how anything in this repository moves: intent enters the
 corpus, work derives from the delta, and the gate holds the result. It is
 the spec-to-code direction of the authority arrow; the reverse direction

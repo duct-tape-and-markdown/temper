@@ -1,6 +1,3 @@
----
-superseded-by: "authority-arrow"
----
 The original documentation ruling for this repository: every change that
 affects behavior updates the affected documents in the same change, and
 review verifies the docs before approving. Replaced when the corpus went

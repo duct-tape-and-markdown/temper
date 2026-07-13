@@ -183,12 +183,14 @@ that evidence, not preference, is the bite condition.
   natural successor to the spec-corpus demo. *Bite condition:* v0.1 shipped,
   then a human ruling on second-corpus scope; the primer keys the remaining
   forks. *Field evidence (2026-07-13, human-approved):* a first cut is live
-  at `examples/base-harness/` — five user-declared doc kinds, layout
-  sources, edge resolution, layout-derived `satisfies`, kind-partition
-  lifecycle, all green under `emit`/`check`; three product findings routed
-  to `.flume/inbox.md` (SDK-phase fill check vs layout fills, `install
-  --yes` re-run preview, nested-root discovery fencing). The
-  `(lifecycle-encoding)` fork's leaning is validated in practice.
+  at `examples/base-harness/` — five user-declared doc kinds, all green
+  under `emit`/`check`; three product findings routed to `.flume/inbox.md`
+  (SDK-phase fill check vs layout fills, `install --yes` re-run preview,
+  nested-root discovery fencing). Deepened same day on the human's ruling:
+  the docs tree is a **projected collection** — doc members composed, edges
+  authored from member values, lifecycle as a typed `supersede()` — with
+  the glossary kept as the one layout source; the `(lifecycle-encoding)`
+  fork is settled twice over (kind partition + the field's own type).
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`

@@ -16,11 +16,13 @@ tells you where to look and how to work; `docs/` holds the intent.
 - The corpus is authoritative. Read the relevant system and flow documents
   before changing anything they govern; when docs and code disagree, the
   code has the bug or the corpus needs an authored amendment.
-- Documents under `docs/` are sources: edit them in place, then run
-  `temper check` — each is read under its kind's declared layout, so a
-  section is structure, not formatting.
-- `CLAUDE.md` and `.claude/` are projections: edit the owning module under
-  `.temper/` and re-run `temper emit`. A direct edit is drift.
+- The documents under `docs/` are projections of the harness program —
+  glossary.md excepted, which is a layout source edited in place. To change
+  one, edit its owning module under `.temper/docs/` (narrative in the
+  module-adjacent markdown, relationships as typed fields) and re-run
+  `temper emit`. A direct edit is drift.
+- `CLAUDE.md` and `.claude/` are projections the same way: edit the owning
+  `.temper/` module, never these files.
 - Structural verdicts come from `temper check`; do not re-derive them by
   reading files. `temper explain <member>` narrates any member's edges,
   coverage, and blast radius.

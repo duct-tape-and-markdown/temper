@@ -1,14 +1,50 @@
+[[decision]]
+name = "authority-arrow"
+source_path = "docs/decisions/authority-arrow.md"
+source_hash = "98702b5ed1f538730e041bc88f787ce7dcc89492203618a194b70f7a15248b98"
+emit_hash = "98702b5ed1f538730e041bc88f787ce7dcc89492203618a194b70f7a15248b98"
+
+[[flow]]
+name = "change"
+source_path = "docs/flows/change.md"
+source_hash = "86f6c4627b1c01a000994e82fffcce7d2d28b4d3ef4ad3e6d562a53e18526699"
+emit_hash = "86f6c4627b1c01a000994e82fffcce7d2d28b4d3ef4ad3e6d562a53e18526699"
+
+[[flow]]
+name = "drift-repair"
+source_path = "docs/flows/drift-repair.md"
+source_hash = "1a456b4723b54384fc55050e53e077fc79e82c34498ed2de3129ef4a729715d7"
+emit_hash = "1a456b4723b54384fc55050e53e077fc79e82c34498ed2de3129ef4a729715d7"
+
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "09b600e0906197e49ef463f87ada2f32b0ea0e867d32333b76be8cfcfc2796c8"
-emit_hash = "09b600e0906197e49ef463f87ada2f32b0ea0e867d32333b76be8cfcfc2796c8"
+source_hash = "20f673a43260072c739cec603d22bbd8cfee6bed1534ab91ebf5d9f869655687"
+emit_hash = "20f673a43260072c739cec603d22bbd8cfee6bed1534ab91ebf5d9f869655687"
 
 [[rule]]
 name = "docs-discipline"
 source_path = ".claude/rules/docs-discipline.md"
-source_hash = "d7463f9de9627ea789abab425fc352d48bae9dc38be41839b02f6ced6b5b0c93"
-emit_hash = "d7463f9de9627ea789abab425fc352d48bae9dc38be41839b02f6ced6b5b0c93"
+source_hash = "b65d555cfcdf10de6c27122fee12ba420c25ce3faca64a00a63bb225d966f306"
+emit_hash = "b65d555cfcdf10de6c27122fee12ba420c25ce3faca64a00a63bb225d966f306"
+
+[[superseded-decision]]
+name = "per-change-doc-duty"
+source_path = "docs/decisions/superseded/per-change-doc-duty.md"
+source_hash = "abbdc91bd251256d56493e84683611a84f18eff1e3b6610c86f0440eba06c7f2"
+emit_hash = "abbdc91bd251256d56493e84683611a84f18eff1e3b6610c86f0440eba06c7f2"
+
+[[system]]
+name = "corpus"
+source_path = "docs/systems/corpus.md"
+source_hash = "a2b8aa406baa01c32d61f55d13ecc70441908060c27c3a798ae73152c2ff9f27"
+emit_hash = "a2b8aa406baa01c32d61f55d13ecc70441908060c27c3a798ae73152c2ff9f27"
+
+[[system]]
+name = "gate"
+source_path = "docs/systems/gate.md"
+source_hash = "93136c154a6bd197f6871d51d1c790cdb9a04df843cdb592fe10b2f5f843886f"
+emit_hash = "93136c154a6bd197f6871d51d1c790cdb9a04df843cdb592fe10b2f5f843886f"
 
 [[declaration.kind]]
 name = "decision"
@@ -16,15 +52,14 @@ governs_root = "docs/decisions"
 governs_glob = "*.md"
 unit_shape = "file"
 registration = ["always"]
-content = { regions = [{ region = "prose" }, { region = "field", slot = "ruling" }, { region = "field", slot = "consequences" }, { region = "collection", member_kind = "alternative" }] }
 
 [[declaration.kind]]
 name = "flow"
 governs_root = "docs/flows"
 governs_glob = "*.md"
+format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
-content = { regions = [{ region = "prose" }, { region = "field", slot = "trigger" }, { region = "field", slot = "participants" }, { region = "field", slot = "steps" }] }
 
 [[declaration.kind]]
 name = "glossary"
@@ -62,9 +97,9 @@ registration = ["paths-match(paths)"]
 name = "superseded-decision"
 governs_root = "docs/decisions/superseded"
 governs_glob = "*.md"
+format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
-content = { regions = [{ region = "prose" }, { region = "field", slot = "ruling" }, { region = "field", slot = "superseded-by" }] }
 
 [[declaration.kind]]
 name = "system"
@@ -72,7 +107,6 @@ governs_root = "docs/systems"
 governs_glob = "*.md"
 unit_shape = "file"
 registration = ["always"]
-content = { regions = [{ region = "prose" }, { region = "field", slot = "purpose" }, { region = "collection", member_kind = "invariant" }, { region = "field", slot = "satisfies" }] }
 
 [[declaration.clause]]
 kind = "decision"
@@ -99,8 +133,8 @@ bound = { max = 120 }
 [[declaration.requirement]]
 name = "documented-spine"
 kind = "system"
-required = false
-prose = "every load-bearing area of this repository's behavior is documented as a system whose document claims spine membership"
+required = true
+prose = "every load-bearing area of this repository's behavior is documented as a system that declares spine membership"
 
 [[declaration.requirement.clauses]]
 predicate = "count"
@@ -133,16 +167,6 @@ member = "gate"
 requirement = "documented-spine"
 
 [[declaration.nested_member]]
-host = "decision:authority-arrow"
-kind = "alternative"
-key = "code-authoritative"
-
-[[declaration.nested_member]]
-host = "decision:authority-arrow"
-kind = "alternative"
-key = "per-change-documentation-duty"
-
-[[declaration.nested_member]]
 host = "glossary:glossary"
 kind = "term"
 key = "corpus"
@@ -166,36 +190,6 @@ key = "layout"
 host = "glossary:glossary"
 kind = "term"
 key = "reconciliation"
-
-[[declaration.nested_member]]
-host = "system:corpus"
-kind = "invariant"
-key = "spec-authoritative"
-
-[[declaration.nested_member]]
-host = "system:corpus"
-kind = "invariant"
-key = "declared-never-mined"
-
-[[declaration.nested_member]]
-host = "system:corpus"
-kind = "invariant"
-key = "return-paths-are-declarations"
-
-[[declaration.nested_member]]
-host = "system:gate"
-kind = "invariant"
-key = "read-or-written-never-both"
-
-[[declaration.nested_member]]
-host = "system:gate"
-kind = "invariant"
-key = "structure-never-intent"
-
-[[declaration.nested_member]]
-host = "system:gate"
-kind = "invariant"
-key = "loud-or-nothing"
 
 [[declaration.registration]]
 kind = "hook"

@@ -1,6 +1,3 @@
----
-participants: ["gate","corpus"]
----
 Drift repair is the flow that runs when disk and lock disagree: a governed
 source moved, or a committed projection was hand-touched. Either way the
 finding names the owning member, the side that moved, and the remedy — the

@@ -34,10 +34,12 @@ routing.
   1. The SDK-phase fill check cannot see layout-derived `satisfies`: a
      `required: true` requirement whose fills live in layout documents'
      edge sections refuses at `emit(program)` (sdk/src/emit.ts) before the
-     engine ever reads the documents. Worked around with `required: false`
-     + a set-scope `count` clause; the declared posture is weakened. The
-     two-phase fill check needs to defer (or delegate) to the engine when
-     the requirement's kind is layout-content.
+     engine ever reads the documents. The two-phase fill check needs to
+     defer (or delegate) to the engine when the requirement's kind is
+     layout-content. (The example no longer carries the workaround — its
+     doc kinds went composed, fills program-side — but the gap stands for
+     any layout-fill corpus; repro: give a layout kind a `satisfies`
+     region and require the requirement.)
   2. `temper install --yes --dry-run` on an already-represented harness
      previews `reaped` for every live projection while the same report
      lists them `unchanged` — contradictory, and if the real run reaps,

@@ -2,21 +2,21 @@ import { clause, count, emit, harness, maxLines, uniqueName } from "@dtmd/temper
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
 import { hook_guard, hook_sessionStart } from "./hooks.ts";
-import { decision, flow, glossary, supersededDecision, system } from "./kinds.ts";
+import { decision, flow, glossary, system } from "./kinds.ts";
+import { system_corpus } from "./docs/systems/corpus.ts";
+import { system_gate } from "./docs/systems/gate.ts";
+import { flow_change } from "./docs/flows/change.ts";
+import { flow_driftRepair } from "./docs/flows/drift-repair.ts";
+import { decision_authorityArrow } from "./docs/decisions/authority-arrow.ts";
+import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.ts";
 
-// Layout members carry no prose here: each document is the authored home,
-// read under its kind's declared layout — emit derives rows from it and
-// writes nothing at its path.
 const program = harness({
   require: {
-    // `required: false` is deliberate: the fills live in the documents'
-    // own `Satisfies` sections, which the engine derives at emit — the SDK's
-    // fill check cannot see them and would refuse a `required` posture.
     "documented-spine": {
       prose:
-        "every load-bearing area of this repository's behavior is documented as a system whose document claims spine membership",
+        "every load-bearing area of this repository's behavior is documented as a system that declares spine membership",
       kind: system,
-      required: false,
+      required: true,
       clauses: [
         clause(count({ min: 2 }), {
           severity: "required",
@@ -29,12 +29,12 @@ const program = harness({
   members: [
     memory_CLAUDE,
     rule_docsDiscipline,
-    system({ name: "corpus" }),
-    system({ name: "gate" }),
-    flow({ name: "change" }),
-    flow({ name: "drift-repair" }),
-    decision({ name: "authority-arrow" }),
-    supersededDecision({ name: "per-change-doc-duty" }),
+    system_corpus,
+    system_gate,
+    flow_change,
+    flow_driftRepair,
+    decision_authorityArrow,
+    decision_perChangeDocDuty,
     glossary({ name: "glossary" }),
     hook_sessionStart,
     hook_guard,
