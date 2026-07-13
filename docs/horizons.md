@@ -168,6 +168,22 @@ that evidence, not preference, is the bite condition.
   it. *Bite condition:* corpus migration shipped; then a design session for
   the tag grammar + the code kind's extraction shape.
 
+- `(base-harness)` — **A standalone starter harness whose docs corpus is a
+  temper program.** The external dogfood: a reference repo carrying doc/spec
+  kinds (`system`, `flow`, `decision`, `term`), the shipped Claude Code
+  kinds, and the spec → plan → build loop — components and processes tested
+  together, graduating into the public starter plus its documentation. Full
+  design material: `docs/base-harness-primer.md` (pre-intent, same standing
+  as this file). *Rents:* layout content (0019), `install`'s conversion,
+  `bundle`, the requirement machinery, the demo posture
+  (`specs/distribution.md`). *Tensions:* the second-corpus clause
+  (`specs/model/representation.md`, "Reach" — a second corpus is a feature,
+  never a founding assumption); the meta-freeze; the public-prose register
+  for its eventual public face. *Leaning:* do it, post-launch — it is the
+  natural successor to the spec-corpus demo. *Bite condition:* v0.1 shipped,
+  then a human ruling on second-corpus scope; the primer keys the remaining
+  forks.
+
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`
   invariant 5 and `specs/model/pipeline.md`, "Drift". The **drift re-cut**
