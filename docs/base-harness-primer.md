@@ -193,7 +193,7 @@ requirement; delivery tier = registration channel (push = `always` /
 freely — a Conduct requirement satisfied by a rule is an authored choice
 the graph shows, never a mislabeled member.
 
-**Calibration** (proposed, not yet ratified): all five requirements
+**Calibration** (ratified 2026-07-15): all five requirements
 declared from day one — the skeleton is complete at the first commit —
 with Conduct, Orientation, and Governance `required: true` and Standards /
 Operations carrying one exemplary satisfier each, replaced by the

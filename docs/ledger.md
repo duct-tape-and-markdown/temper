@@ -59,10 +59,11 @@ hard.
   ownership; prescription example-side only (ruled). Built-in-kind doc audit
   at `docs/market-formats.md` (07-15 section); reconciliation SHIPPED same
   day (variance fix, paths gate, cite re-stamp, grown field schemas — five
-  build commits; `(builtins-coverage-predicates)` fork open, on John with
-  session lean recorded). Third-cut design in primer §"domain architecture",
-  calibration awaiting ratification. Sequencing ruled: wrap this, then
-  stranger dry run, then channel 3.
+  build commits; `(builtins-coverage-predicates)` ruled 07-15: valid-glob
+  accepted pending spec amendment, tools-must-resolve rejected on invariant
+  2). Third-cut design + calibration ratified in primer §"domain
+  architecture"; build underway. Sequencing ruled: wrap this, then stranger
+  dry run, then channel 3.
 - On John: Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).
