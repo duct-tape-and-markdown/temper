@@ -189,17 +189,21 @@ function resolveBody(member: Member, options: ResolveOptions): string {
 }
 
 /**
- * The two declare-side refusals emit runs before it produces a byte:
- * a `satisfies` claim naming
- * no declared requirement (a dangling join), and a `required` requirement no
- * member fills (an unfilled required requirement).
+ * The one declare-side refusal emit runs before it produces a byte: a
+ * `satisfies` claim naming no declared requirement (a dangling join).
+ *
+ * Fill enforcement — every `required` requirement has ≥1 satisfier — is the
+ * engine's, not the SDK's: it lands over the composed members' `satisfies`
+ * *plus* the fill rows emit derives from a layout document's `satisfies` edge
+ * slot, which the SDK never reads. A pre-flight over composed `satisfies`
+ * alone would spuriously refuse a requirement a layout host fills, so the SDK
+ * implements no semantics here and defers to the engine's requirement clause.
  *
  * # Throws
- * On a dangling `satisfies` join or an unfilled `required` requirement.
+ * On a dangling `satisfies` join.
  */
 function refuseBrokenSource(harness: Harness): void {
   const requirements = declaredRequirements(harness);
-  const filled = new Set<string>();
   for (const member of harness.members) {
     for (const name of member.satisfies) {
       if (!requirements.has(name)) {
@@ -209,26 +213,6 @@ function refuseBrokenSource(harness: Harness): void {
             `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
         );
       }
-      filled.add(name);
-    }
-  }
-
-  const requiredSources: [string, string][] = [];
-  for (const [name, requirement] of Object.entries(harness.require)) {
-    if (requirement.required) requiredSources.push([name, "the assembly"]);
-  }
-  for (const member of harness.members) {
-    for (const [name, requirement] of Object.entries(member.requires)) {
-      if (requirement.required) requiredSources.push([name, `member \`${member.name}\``]);
-    }
-  }
-  for (const [name, source] of requiredSources) {
-    if (!filled.has(name)) {
-      throw new Error(
-        `required requirement \`${name}\` (declared by ${source}) is filled by no member's ` +
-          `\`satisfies\` — an unfilled required requirement ` +
-          `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
-      );
     }
   }
 }
