@@ -1,88 +1,16 @@
 [
   {
-    "tag": "CHECK-ARG-HALF-GATE",
-    "summary": "`temper check <harness-root>` silently half-gates: an explicit path arg finds no lock, so declared requirements/satisfies/edges vanish while built-ins still resolve — exit 0, looks green",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Fix the `check`/`guard` argument-to-workspace resolution (main.rs:39-41 DEFAULT_WORKSPACE): an explicit `<arg>` at a harness root must resolve `<arg>/.temper` the way the bare-verb default (`./.temper`) does, or fail loud — never resolve to a lockless workspace that silently drops the declared model (`drift::read_declarations` finds no lock)."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "`SESSION_START_COMMAND` (install.rs:88) hardcodes `temper check .` into every adopted harness's SessionStart hook — the half-gate reporter ships on every install. Retarget it to the corrected arg semantics (or `.temper`)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/session_start.rs",
-        "asserts": "the install-wired SessionStart command gates the full declared model (a required, unfilled requirement fails) rather than exiting 0 on built-ins alone"
-      },
-      {
-        "path": "tests/cli.rs",
-        "asserts": "`check <harness-root>` resolves the nested `.temper` (or fails loud), never silently half-gates on a lockless workspace"
-      }
-    ],
-    "acceptance": "`temper check <harness-root>` and the install-wired SessionStart command gate the full declared model (requirements, satisfies fills, custom kinds, edges) or fail loud; no argument spelling produces a silent green on a half-resolved workspace.",
-    "notes": "Verified at HEAD: install.rs:88 hardcodes `temper check . --reporter session-start`; main.rs:41 DEFAULT_WORKSPACE=`./.temper`, so bare `check` resolves but explicit `.` doesn't. Field-confirmed: `check .` stayed green with a `required:true` requirement unfilled; `check .temper` exits 1. Repo + example hooks hand-fixed (aba7e47, 549969f); the fix is install wiring + arg semantics; guard shares the arg shape. scoped at 01625fb."
-  },
-  {
-    "tag": "GLOB-VALIDITY-PREDICATE",
-    "summary": "Admit the glob-validity predicate family (globs parse under globset, brace-aware); first consumers the rule and skill default contracts over their `paths` fields",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "Add the glob-validity `Predicate` enum variant plus its schema surface — the globs a selected field carries must parse under `globset` (brace-expansion aware, the one glob engine already inside `ignore`). Ordinary clause mechanics: dialable severity, guidance, cite."
-        },
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Add the glob-validity clause to the `rule` and `skill` default contracts over their `paths` fields, with a fresh raw cite (code.claude.com/docs/en/memory, retrieved 2026-07-15) — the strictest-documented-profile stance: an unparseable `[` makes the pattern invalid and it silently matches nothing, so the rule never fires / the skill never registers."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Re-derive the frozen built-in lock — the two new default-contract clauses become declaration rows. tests/builtin_lock_frozen.rs re-derives from the SDK module and byte-compares, so this file must match that emit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/rule_contract.rs",
-        "asserts": "a rule whose `paths` carries an unparseable glob (`[`) fires the glob-validity finding at the clause's severity; a valid brace-expansion glob passes"
-      },
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the embedded built-in lock byte-equals the SDK module's memberless emit after the rule/skill default contracts gain the glob-validity clause"
-      }
-    ],
-    "acceptance": "A rule or skill whose `paths` carries a glob invalid under globset produces a finding at the clause's declared severity; a valid glob (brace-expansion included) passes; the frozen built-in lock re-derives and byte-matches the SDK module's emit.",
-    "notes": "From decision 0022 (spec delta f67303c, human-ruled 07-15; its work order routes through the inbox). The predicate vocabulary is closed — adding one is a deliberate language change (contract.md clause). The two deferred skill-shape predicates (name hyphen-position, no-XML-in-description) are NOT in scope; `tools-must-resolve` was rejected permanently on invariant 2 (0022) — do not re-file. scoped at 01625fb."
-  },
-  {
     "tag": "LAYOUT-OVERLAY-CHECK-GAP",
     "summary": "A relocated built-in kind with a lock-declared layout is silently read as frontmatter at check time — the built-in-kind overlay lifts governs+templates but never the row's `content`",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "The lock"
     },
-    "gate": { "kind": "blockedBy", "tag": "CHECK-ARG-HALF-GATE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CHECK-ARG-HALF-GATE"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -114,8 +42,12 @@
       "path": "specs/model/pipeline.md",
       "section": "The lock"
     },
-    "gate": { "kind": "open" },
-    "dependsOnForks": ["lock-upgrade-migration-posture"],
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [
+      "lock-upgrade-migration-posture"
+    ],
     "files": {
       "new": [],
       "edit": [
@@ -155,8 +87,13 @@
       "path": "specs/model/pipeline.md",
       "section": "Emit"
     },
-    "gate": { "kind": "blockedBy", "tag": "SATISFIES-LABEL-QUALIFY" },
-    "dependsOnForks": ["lock-upgrade-migration-posture"],
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SATISFIES-LABEL-QUALIFY"
+    },
+    "dependsOnForks": [
+      "lock-upgrade-migration-posture"
+    ],
     "files": {
       "new": [],
       "edit": [
@@ -184,8 +121,13 @@
       "path": "specs/model/pipeline.md",
       "section": "Emit"
     },
-    "gate": { "kind": "blockedBy", "tag": "CHECK-ARG-HALF-GATE" },
-    "dependsOnForks": ["lock-upgrade-migration-posture"],
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CHECK-ARG-HALF-GATE"
+    },
+    "dependsOnForks": [
+      "lock-upgrade-migration-posture"
+    ],
     "files": {
       "new": [],
       "edit": [
