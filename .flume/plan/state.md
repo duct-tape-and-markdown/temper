@@ -1,34 +1,28 @@
 # Plan state
 
-- Spec derived through: dff2db2
+- Spec derived through: 0aa9e62
 - Audited through: d2496b6
 - Residue swept through: d2496b6
-- This tick: INBOX drain (two notes). (1) Requirement.kind variance →
-  filed REQUIREMENT-KIND-VARIANCE (open): sdk/src/contract.ts:179 typed
-  KindDefinition<never> blocks skill/hook-keyed requirements; widen to
-  `string | KindDefinition<any>` mirroring the collection child-kind slot
-  (kind.ts:315, embeddedMemberValue), declarations.ts:285 gains the string
-  arm. SDK-only, no Rust ripple (RequirementRow.kind already a string).
-  Human-ruled 07-15, live demand. (2) 2026-07-15 Claude Code drift register
-  → NOT re-derived as inbox entries: the recut 0aa9e62 (John, same day,
-  AFTER the note at e8edffa) absorbed its spec-encodable half (five→seven
-  kinds, command legacy posture, skill path-scope channel gating, domain
-  partition) and its commit body RESOLVED the one modeling question the
-  register raised — rejected encoding the `paths` gate as a channel
-  construct/algebra; it is the field's documented semantics, carried with
-  the field. So no open fork survives. The remaining code reconciliation
-  (skill new fields + forbiddenKeys, DOCUMENTED_HOOK_EVENTS re-verify,
-  agent tools-loud clause, rules glob-validity, cite refreshes) is a
-  DERIVATION of the ratified recut — tracked by the spec cursor (still
-  dff2db2, behind 0aa9e62), reference `docs/market-formats.md` "Claude Code
-  deep audit", carrying the summarizer-mediated re-fetch-raw-page-before-
-  cite obligation. Item 4's AGENTS.md detail (not read; `@AGENTS.md`
-  bridge) feeds the standing `(agents-md-builtin-kind)` open fork,
-  unchanged. Both notes drained from inbox.
-- Queue: REQUIREMENT-KIND-VARIANCE (open, pickable) +
-  PACKAGING-CHANNELS-REMAINDER (parked, human release actions). Disjoint —
-  no shared file (sdk/** vs .github/**).
+- This tick: SPEC DELTA drain — routed the builtins recut (0aa9e62). Three
+  amendments, all checked: (1) five→seven kinds — MOOT, sdk/src/builtins.ts
+  already ships `hook`/`mcp-server` kinds (lines 161/231, since 0021); (2)
+  channel gating (a skill path scope gates all channels) — filed
+  SKILL-PATHS-CHANNEL-GATE (open): the `Skill` interface has no `paths`
+  field, so the freshly-ratified gating fact (cite 07-15, verified 2.1.210)
+  is unmodeled; add it as a guidance-only field, NOT a registration entry
+  ("carried with the field, never a channel entry") and no clause (mirrors
+  rule's paths); (3) domain partition — MOOT for code, descriptive model
+  prose, no decidable check, reinforces the spine rule code already honors
+  (no baked baseline). All three routed → cursor to 0aa9e62. NB the code
+  reconciliation the prior tick anticipated (skill forbiddenKeys,
+  DOCUMENTED_HOOK_EVENTS re-verify, agent tools clause, rules glob-validity)
+  lives in `docs/market-formats.md` (candidate intent, fence-excluded), NOT
+  in the recut spec text — not derived; it enters the queue only if ratified
+  into specs.
+- Queue: REQUIREMENT-KIND-VARIANCE (open) + SKILL-PATHS-CHANNEL-GATE (open) +
+  PACKAGING-CHANNELS-REMAINDER (parked). Disjoint — contract.ts/declarations.ts
+  vs builtins.ts/builtins.test.ts vs .github/**, no shared file.
 
-Plan continues: yes — spec delta 0aa9e62 (builtins recut) unrouted; the spec
-cursor is at dff2db2 and job 2 derives the recut's code reconciliation into
-entries next tick (docs/market-formats.md the reference).
+Plan continues: no — inbox empty, spec delta drained to 0aa9e62, reconciliation
+window (d2496b6..HEAD) has no src/sdk/tests touches; two pickable open entries
+remain, so build takes over.
