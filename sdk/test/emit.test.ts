@@ -34,7 +34,7 @@ import {
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
-import { hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
+import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
   return harness({
@@ -101,6 +101,57 @@ test("emit is byte-stable across a double pass", () => {
   const a = emit(projectedHarness());
   const b = emit(projectedHarness());
   assert.equal(a.seam, b.seam);
+});
+
+test("a skill and an agent project the grown frontmatter fields, identity first then authored order", () => {
+  // The generic fold already carries any typed field; this pins the newly-typed
+  // Skill/Agent surface — a sample of the documented optional keys projects in the
+  // author's declared order, byte-faithfully, behind the identity field.
+  const h = harness({
+    members: [
+      skill({
+        name: "deploy",
+        description: "Deploy the service.",
+        when_to_use: "when shipping a release",
+        "allowed-tools": ["Bash(git *)"],
+        model: "inherit",
+        effort: "high",
+        context: "fork",
+        prose: text`# Deploy`,
+      }),
+      agent({
+        name: "reviewer",
+        description: "Review a diff.",
+        tools: ["Read", "Grep"],
+        model: "haiku",
+        permissionMode: "plan",
+        maxTurns: 12,
+        color: "blue",
+        prose: text`# Reviewer`,
+      }),
+    ],
+  });
+
+  const result = emit(h);
+
+  assert.deepEqual(result.members.find((m) => m.name === "deploy")!.fields, [
+    ["name", "deploy"],
+    ["description", "Deploy the service."],
+    ["when_to_use", "when shipping a release"],
+    ["allowed-tools", ["Bash(git *)"]],
+    ["model", "inherit"],
+    ["effort", "high"],
+    ["context", "fork"],
+  ]);
+  assert.deepEqual(result.members.find((m) => m.name === "reviewer")!.fields, [
+    ["name", "reviewer"],
+    ["description", "Review a diff."],
+    ["tools", ["Read", "Grep"]],
+    ["model", "haiku"],
+    ["permissionMode", "plan"],
+    ["maxTurns", 12],
+    ["color", "blue"],
+  ]);
 });
 
 // ---------------------------------------------------------------------------

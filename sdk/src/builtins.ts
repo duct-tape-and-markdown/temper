@@ -35,6 +35,72 @@ export interface Skill {
    * (code.claude.com/docs/en/skills, retrieved 2026-07-15).
  */
   readonly description: string;
+  /**
+   * Extra trigger context — phrases and example requests appended to
+   * `description` in the skill listing, sharing its 1,536-character cap
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved
+   * 2026-07-15).
+   */
+  readonly when_to_use?: string;
+  /**
+   * Autocomplete hint for the arguments the skill expects, e.g. `[issue-number]`
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly "argument-hint"?: string;
+  /**
+   * Named positional arguments for `$name` substitution in the body — a
+   * space-separated string or a YAML list, mapped to positions in order
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly arguments?: readonly string[] | string;
+  /**
+   * Tools Claude may use without a permission prompt while the skill is active —
+   * a space/comma-separated string or a YAML list; it grants, never restricts
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly "allowed-tools"?: readonly string[] | string;
+  /**
+   * Tools removed from the pool while the skill is active, cleared on your next
+   * message — a space/comma-separated string or a YAML list
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly "disallowed-tools"?: readonly string[] | string;
+  /**
+   * Model for the rest of the turn while the skill is active — a `/model` value
+   * or `inherit`; not saved to settings
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly model?: string;
+  /**
+   * Effort level while the skill is active, overriding the session's; the
+   * available levels depend on the model
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Set `fork` to run the skill in a forked subagent context, its body the
+   * subagent's prompt
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly context?: "fork";
+  /**
+   * The subagent type a `context: fork` skill runs as — a built-in
+   * (`Explore`/`Plan`/`general-purpose`) or a custom agent; defaults to
+   * `general-purpose`
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly agent?: string;
+  /**
+   * Hooks scoped to this skill's lifecycle, in the hooks configuration format
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly hooks?: Readonly<Record<string, unknown>>;
+  /**
+   * Shell for the skill's `` !`command` `` injections — `bash` (default) or
+   * `powershell`
+   * (code.claude.com/docs/en/skills, "Frontmatter reference", retrieved 2026-07-15).
+   */
+  readonly shell?: "bash" | "powershell";
   /** The optional license field the skill spec carries (agentskills.io/specification). */
   readonly license?: string;
   /**
@@ -103,6 +169,92 @@ export interface Agent {
    * channel (code.claude.com/docs/en/sub-agents, retrieved 2026-07-15).
  */
   readonly description: string;
+  /**
+   * Tools the subagent may use; inherits all when omitted — a space/comma-separated
+   * string or a YAML list
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly tools?: readonly string[] | string;
+  /**
+   * Tools denied — removed from the inherited or specified pool
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly disallowedTools?: readonly string[] | string;
+  /**
+   * Model to run as: `sonnet`/`opus`/`haiku`/`fable`, a full model id, or `inherit`
+   * (the default)
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly model?: string;
+  /**
+   * Permission mode the subagent runs under, overriding the inherited one where the
+   * parent mode does not take precedence (`manual` aliases `default`)
+   * (code.claude.com/docs/en/sub-agents, "Permission modes", retrieved 2026-07-15).
+   */
+  readonly permissionMode?:
+    | "default"
+    | "acceptEdits"
+    | "auto"
+    | "dontAsk"
+    | "bypassPermissions"
+    | "plan"
+    | "manual";
+  /**
+   * Maximum agentic turns before the subagent stops
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly maxTurns?: number;
+  /**
+   * Skills preloaded into the subagent's context at startup — full content, not just
+   * descriptions
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly skills?: readonly string[] | string;
+  /**
+   * MCP servers available to the subagent — each entry a configured server's name or
+   * an inline `name → config` definition
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly mcpServers?: readonly string[] | Readonly<Record<string, unknown>>;
+  /**
+   * Lifecycle hooks scoped to this subagent
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly hooks?: Readonly<Record<string, unknown>>;
+  /**
+   * Persistent memory scope enabling cross-session learning: `user`, `project`, or
+   * `local`
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly memory?: "user" | "project" | "local";
+  /**
+   * Set `true` to always run this subagent as a background task
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly background?: boolean;
+  /**
+   * Effort level while the subagent is active, overriding the session's; the
+   * available levels depend on the model
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Set `worktree` to run the subagent in a temporary git worktree — an isolated repo
+   * copy, auto-cleaned when it makes no changes
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly isolation?: "worktree";
+  /**
+   * Display color in the task list and transcript
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly color?: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan";
+  /**
+   * Auto-submitted first user turn when the agent runs as the main session agent (via
+   * `--agent`/the `agent` setting); prepended to any user prompt
+   * (code.claude.com/docs/en/sub-agents, "Supported frontmatter fields", retrieved 2026-07-15).
+   */
+  readonly initialPrompt?: string;
   readonly prose?: Prose;
 }
 
