@@ -132,10 +132,32 @@ condition arrives, it is the next break. If work touches one, surface it.
   the cites (builtins.ts:63) — and once more left all three as unchanged
   context, so per the reconciliation-not-opening precedent the rider is
   undischarged; the cites shifted +12, 392/432/469 → 404/444/481.
-  Re-verified on disk at reconcile HEAD 8ccd01d (builtins.ts cites at
-  404/444/481; session_start.rs `+++` fixtures untouched this window, still
+  BUILTINS-CITE-REFRESH (c4b060d) then opened builtins.ts a sixth time
+  (108 lines: bumping every clause `cite` and doc-comment retrieval date to
+  2026-07-15) and once more left all three `packages/…PACKAGE.md` cites as
+  unchanged context — undischarged; they shifted +2, 404/444/481 → 406/446/483.
+  Re-verified on disk at reconcile HEAD 794ca2b (builtins.ts cites at
+  406/446/483; session_start.rs `+++` fixtures untouched this window, still
   128/133/146). Now rides the next entry opening builtins.ts — no queued
   entry does — unless it reconciles the cites.
+
+- **Rust engine narration cites lag the SDK clause re-fetch.**
+  BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live
+  2026-07-15 and bumped the SDK clause cites plus doc-comment dates to match;
+  the engine's own reader-side narration cites mirror the same facts at their
+  older retrieval dates — `src/builtin_kind.rs` (85 @07-07; 194/222 @07-10;
+  63/106 undated skills/sub-agents mentions), `src/coverage_note.rs:76`
+  (`SETTINGS_DOC`, @07-02), `src/extract.rs:774` (@07-02), `src/graph.rs`
+  (61/689 @07-02). The build entry's `per` targeted the SDK
+  clause-enforcement point (`specs/builtins.md`, "The clauses live in code"),
+  not this parallel surface, so it flagged them for routing rather than
+  silently bumping. Every fact still holds — the two that moved (memory's
+  `./.claude/CLAUDE.md` equal-project location, the Codex AGENTS.md URL
+  redirect) are SDK-only cites, absent from these Rust files, and
+  builtin_kind.rs's `**/CLAUDE.md` glob already covers the new location — so
+  this is date-staleness on correct facts: citation staleness, riding
+  whichever entry next opens each file, never standalone, never the queue's
+  only new work. Found at reconcile HEAD 794ca2b.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"

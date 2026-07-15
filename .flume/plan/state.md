@@ -1,24 +1,23 @@
 # Plan state
 
 - Spec derived through: 0aa9e62
-- Audited through: 8ccd01d
-- Residue swept through: 8ccd01d
-- This tick: INBOX DRAIN. Routed the one note (builtins update ritual, re-filed
-  under its own spec per at cda03a6) into two dispositions. (1) BUILTINS-CITE-REFRESH
-  entry (open, pickable) — the decidable, no-new-predicate remainder: re-check every
-  builtins.ts cite dated 07-07..07-10 against a re-fetch, re-verify
-  DOCUMENTED_HOOK_EVENTS/MCP_TRANSPORTS, and the skill forbiddenKeys review; per
-  builtins.md "The clauses live in code". Verified on disk: clause `cite`/`guidance`
-  are ClauseRow columns (34 rows in src/builtin_lock.toml), so the entry moves the
-  frozen lock; doc-comment retrieval dates are TS-only. (2) open fork
-  (builtins-coverage-predicates) — the two candidates that reach the closed predicate
-  vocabulary (rule glob-validity, agent tools-must-resolve); verified src/contract.rs's
-  Predicate enum carries neither. Inbox drained. Grown-frontmatter modeling (audit
-  #2/#6) left untouched — out of the note's per; deriving it from the audit doc would
-  read a horizon doc as intent. Cursors unmoved: no spec delta past 0aa9e62; post-ship
-  window 8ccd01d..HEAD = cda03a6 (inbox) + 1d251f6 (docs), neither touches src/tests/sdk.
-- Queue: BUILTINS-CITE-REFRESH (open, pickable) → next; PACKAGING-CHANNELS-REMAINDER
-  (parked — John's Apple notarizing + v0.1 tag).
+- Audited through: 794ca2b
+- Residue swept through: 794ca2b
+- This tick: POST-SHIP RECONCILIATION of 8ccd01d..HEAD. src/sdk touched only by
+  c4b060d (BUILTINS-CITE-REFRESH): SDK clause cites + doc-comment dates bumped to
+  2026-07-15, builtin_lock.toml re-derived (ClauseRow `cite` columns), builtin_lock_frozen
+  green. AUDIT: entry already dropped from pending (shipped); PACKAGING-CHANNELS-REMAINDER
+  parked reason still true (John's Apple notarizing + v0.1 tag — nothing shipped against it).
+  SWEEP: (1) c4b060d opened builtins.ts a sixth time and left all three `packages/…PACKAGE.md`
+  doc-comment cites unchanged — undischarged, shifted +2 → 406/446/483; rider updated,
+  session_start.rs `+++` fixtures untouched (128/133/146). (2) The build entry flagged the
+  Rust engine's reader-side narration cites (builtin_kind.rs/coverage_note.rs/extract.rs/graph.rs)
+  as lagging at 07-02/07-07/07-10 — verified on disk every fact still holds (the two moved facts
+  are SDK-only cites absent from Rust); date-staleness on correct facts = citation staleness,
+  recorded as a new "Kept on purpose" rider riding the next entry opening each file, never
+  standalone. Both cursors → 794ca2b. Spec cursor unmoved: spec delta empty past 0aa9e62.
+- Queue: PACKAGING-CHANNELS-REMAINDER (parked — John's Apple notarizing + v0.1 tag). No
+  pickable entry.
 
-Plan continues: no — inbox drained, no spec delta, post-ship window carries no
-src/tests/sdk change; BUILTINS-CITE-REFRESH is pickable so build takes over.
+Plan continues: no — inbox empty, no spec delta, 8ccd01d..HEAD reconciled to HEAD; the one
+pending entry is parked on human release actions, so nothing is pickable and the loop hibernates.
