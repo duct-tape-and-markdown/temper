@@ -14,7 +14,8 @@ import { fileURLToPath } from "node:url";
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
 import type { Clause, Predicate, Requirement } from "./contract.js";
-import { resolveLeaf } from "./prose.js";
+import type { Include } from "./prose.js";
+import { isTextSpan, resolveLeaf } from "./prose.js";
 
 import type {
   AssemblyFactRow,
@@ -319,25 +320,32 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
 /**
  * The `mention` rows — every member's authored `n` targets, member-then-target
  * sorted. `text`-kind prose contributes one row per mention, keyed to the
- * member's own `kind:name` address; `blocks()`-kind prose additionally
- * contributes one row per mention inside a `Text`-authored leaf, keyed to that
- * leaf's own `<member>/<kind>/<key>/<child-path>` address
- * ([`embeddedLeafMentionRows`]) — a `file()` body names none. Recorded off the
- * raw authored address, unconditionally — resolution is `emit`'s own refusal
+ * member's own `kind:name` address. A `blocks()` composed body keys each child
+ * to what it is: a prose span's mentions are host-level, keyed to the member's
+ * own `kind:name` address like a `text` body; an embedded value's `Text`-leaf
+ * mentions are keyed to that leaf's own `<member>/<kind>/<key>/<child-path>`
+ * address ([`embeddedLeafMentionRows`]). A `file()` body names none. Recorded off
+ * the raw authored address, unconditionally — resolution is `emit`'s own refusal
  * (`emit.ts`), not this row's concern.
  */
 function mentionRows(harness: Harness): MentionRow[] {
   const rows: MentionRow[] = [];
   for (const member of harness.members) {
+    const address = `${member.kind}:${member.name}`;
     if (member.prose?.kind === "text") {
-      const address = `${member.kind}:${member.name}`;
       for (const mention of member.prose.mentions) {
         rows.push({ member: address, target: mention.target.address });
  }
  }
     if (member.prose?.kind === "blocks") {
       for (const value of member.prose.values) {
-        rows.push(...embeddedLeafMentionRows(member.name, value));
+        if (isTextSpan(value)) {
+          for (const mention of value.mentions) {
+            rows.push({ member: address, target: mention.target.address });
+ }
+        } else {
+          rows.push(...embeddedLeafMentionRows(member.name, value));
+ }
  }
  }
  }
@@ -381,17 +389,24 @@ function embeddedLeafMentionRows(hostName: string, value: EmbeddedMemberValue): 
  * path resolved against the stating module ({@link fileURLToPath} over the include's own
  * `moduleUrl`), never the workspace — the engine reads, splices, and fingerprints it.
  * Member order stays authored (never target-sorted): the body's include slots ride the
- * same order, so the engine pairs the k-th slot with the k-th row. Only member-level
- * `text` prose carries includes (a `file()`/`blocks()` body names none; an embedded leaf
- * is refused at {@link resolveLeaf}).
+ * same order, so the engine pairs the k-th slot with the k-th row. Includes ride a `text`
+ * body and a composed body's prose spans alike, in authored order across the interleave; an
+ * embedded leaf carries none (refused at {@link resolveLeaf}) and a `file()` body names none.
  */
 function includeRows(harness: Harness): IncludeRow[] {
   const rows: IncludeRow[] = [];
+  const push = (address: string, include: Include): void => {
+    rows.push({ member: address, source_path: fileURLToPath(new URL(include.path, include.moduleUrl)) });
+  };
   for (const member of harness.members) {
-    if (member.prose?.kind !== "text") continue;
     const address = `${member.kind}:${member.name}`;
-    for (const include of member.prose.includes) {
-      rows.push({ member: address, source_path: fileURLToPath(new URL(include.path, include.moduleUrl)) });
+    if (member.prose?.kind === "text") {
+      for (const include of member.prose.includes) push(address, include);
+    } else if (member.prose?.kind === "blocks") {
+      for (const value of member.prose.values) {
+        if (!isTextSpan(value)) continue;
+        for (const include of value.includes) push(address, include);
+      }
     }
   }
   return rows;
@@ -442,8 +457,9 @@ function embeddedHostsByKind(harness: Harness): Map<string, ReadonlySet<string>>
 
 /**
  * The `nested_member` rows — every host member's `blocks()`-declared embedded-member
- * values, host-then-kind-then-key sorted. Only `blocks`-kind prose carries them (a
- * `file()`/`text` body names none); the fence rendering itself is unchanged
+ * values, host-then-kind-then-key sorted. Only a composed body's embedded values carry
+ * them (a `file()`/`text` body — and a composed body's prose spans — name none); the
+ * fence rendering itself is unchanged
  * (`emit.ts`'s `resolveBody`) — this row is a second *read* of the same authored
  * value, never a second copy the engine reads back (0018).
  *
@@ -461,6 +477,7 @@ function nestedMemberRows(harness: Harness, mentionable: ReadonlySet<string>): N
     if (member.prose?.kind !== "blocks") continue;
     const host = `${member.kind}:${member.name}`;
     for (const value of member.prose.values) {
+      if (isTextSpan(value)) continue;
       const hosts = hostsByKind.get(value.kind);
       if (hosts === undefined || !hosts.has(member.kind)) {
         throw new Error(
@@ -544,13 +561,24 @@ export function declaredRequirements(harness: Harness): Set<string> {
 
 /**
  * Every address a mention may name — declared requirement names ∪ each member's
- * `kind:name`. Shared by `emit.ts` (a member-level `Text` body's mentions) and
- * this module (an embedded member's `Text` leaves) — the one resolution-check
- * set, so a leaf mention and a member mention are held to the identical bar.
+ * `kind:name` ∪ each `blocks()`-declared embedded member's host-scoped
+ * `<host-kind>:<host-name>/<kind>/<key>` address. Shared by `emit.ts` (a
+ * member-level `Text` body's mentions) and this module (an embedded member's
+ * `Text` leaves) — the one resolution-check set, so a leaf mention and a member
+ * mention are held to the identical bar. The embedded address is host-scoped,
+ * never a flat `<kind>:<key>` — flat would force corpus-wide key uniqueness on
+ * embedded kinds.
  */
 export function declaredAddresses(harness: Harness): Set<string> {
   const set = declaredRequirements(harness);
-  for (const member of harness.members) set.add(`${member.kind}:${member.name}`);
+  for (const member of harness.members) {
+    set.add(`${member.kind}:${member.name}`);
+    if (member.prose?.kind !== "blocks") continue;
+    for (const value of member.prose.values) {
+      if (isTextSpan(value)) continue;
+      set.add(`${member.kind}:${member.name}/${value.kind}/${value.key}`);
+    }
+  }
   return set;
 }
 

@@ -195,6 +195,25 @@ fn discovery_skips_claude_md_under_the_surface_workspace() {
     assert!(!memory.iter().any(|p| p.starts_with(root.join(".temper"))));
 }
 
+/// A vendored sub-harness carrying its own `.temper/lock.toml` is a nested governed
+/// root — its members are its own corpus, so its `CLAUDE.md` adds no `memory` member
+/// to the enclosing walk. The parent's own root `CLAUDE.md` is still discovered.
+#[test]
+fn discovery_fences_a_nested_governed_root() {
+    let root = write_harness("discover-nested-root-fence", false);
+    fs::write(root.join("CLAUDE.md"), "# Root\n").unwrap();
+
+    let vendored = root.join("vendor").join("sub-harness");
+    fs::create_dir_all(vendored.join(".temper")).unwrap();
+    fs::write(vendored.join(".temper").join("lock.toml"), "").unwrap();
+    fs::write(vendored.join("CLAUDE.md"), "# Vendored\n").unwrap();
+
+    let report = install::discover(&root).unwrap();
+    assert_eq!(report.members.get("memory").map(Vec::len), Some(1));
+    let memory = report.members.get("memory").unwrap();
+    assert!(!memory.iter().any(|p| p.starts_with(root.join("vendor"))));
+}
+
 // ---------------------------------------------------------------------------
 // the no-path — the session-start reporter alone, Node-free
 // ---------------------------------------------------------------------------

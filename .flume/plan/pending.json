@@ -1,34 +1,29 @@
 [
   {
-    "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
+    "tag": "PACKAGING-CHANNELS-REMAINDER",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
       "path": "specs/distribution.md",
       "section": "What ships — three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, public on npm — SDK-VERSION-LOCKSTEP, 543f2fd); channel 1's SDK foundation shipped. Interim SDK releases ride 0.0.x — sdk/package.json is 0.0.6 (the unpublished 0.1.0 re-cut down at 55d7ee4; 0.1.0 waits for the v0.1 launch tag it gates). Re-verified live at 747f8cc: still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
-      "new": [
-        {
-          "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (distribution.md)."
-        }
-      ],
+      "new": [],
       "edit": [
         {
-          "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, distribution.md). Reconcile with the flume manifest rather than clobbering it. NB distinct from sdk/package.json (`@dtmd/temper`, already published — the engine pin is declared there, once)."
+          "path": ".github/workflows/release.yml",
+          "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (distribution.md 'Fail-loud invariant').",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm `@dtmd/temper`; ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs range-correctness shipped in SCAFFOLD-OUTPUT-VALID (^0.0.4); release owns only future re-pins."
+    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. scoped at b676656."
   }
 ]

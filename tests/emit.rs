@@ -815,6 +815,56 @@ fn the_emit_report_distinguishes_reaped_from_drifted_orphan() {
     );
 }
 
+/// Serializes any chdir'ing test — cwd is process-global, so a relative-path
+/// emit run must not overlap another test that reads or writes cwd.
+static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+#[test]
+fn emitting_into_a_dot_slash_workspace_never_reaps_a_projection_a_bare_lock_owns() {
+    // The prior lock spells owned paths off `.temper` (harness_root `""`); a re-emit
+    // into `./.temper` (harness_root `"."` before normalization) spells them
+    // `./.claude/…` — a mismatch that would strand every live projection as an
+    // ownerless orphan and reap the freshly written bytes. Both spellings name one
+    // surface, so nothing is reaped and every member stays Unchanged.
+    let harness = common::tmpdir("dot-slash-workspace");
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+
+    let guard = CWD_MUTEX.lock().unwrap();
+    let original_cwd = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&harness).unwrap();
+
+    let payload = with_both_members();
+    let bare = PathBuf::from(".temper");
+    drift::emit(&payload, &bare, EmitOptions::default()).unwrap();
+
+    let rule_path = PathBuf::from(".claude/rules/rust.md");
+    assert!(rule_path.is_file(), "the first emit writes the projection");
+
+    let dot_slash = PathBuf::from("./.temper");
+    let report = drift::emit(&payload, &dot_slash, EmitOptions::default()).unwrap();
+
+    std::env::set_current_dir(&original_cwd).unwrap();
+    drop(guard);
+
+    assert_eq!(
+        outcome(&report, "rust"),
+        EmitOutcome::Unchanged,
+        "a live projection a bare-spelled lock owns is reported unchanged, never reaped"
+    );
+    assert!(
+        !report
+            .entries
+            .iter()
+            .any(|e| e.name == "rust" && e.outcome == EmitOutcome::Reaped),
+        "the live projection is never both reaped and unchanged: {:?}",
+        report.entries
+    );
+    assert!(
+        harness.join(".claude/rules/rust.md").is_file(),
+        "the byte-faithful projection survives the differently-spelled re-emit"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The seam — `drift::emit_program` over a real `node` subprocess running the
 // built SDK against a fixture `harness.ts`.

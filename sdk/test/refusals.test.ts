@@ -1,14 +1,16 @@
 /**
  * Declare-side emit refusals — a broken source yields no output, never silent
  * bytes.
- * Two cases the compile must catch before it writes a byte: a `satisfies` claim
- * that names no declared requirement (a dangling join), and a `required`
- * requirement no member fills (an unfilled required requirement). A requirement
- * may be published by the assembly's `require` or a member's own `requires` — one
- * namespace, one fill. A clean harness emits without throwing.
+ * The compile catches a `satisfies` claim that names no declared requirement (a
+ * dangling join) before it writes a byte. It does **not** gate fill: whether
+ * every `required` requirement has a satisfier is the engine's requirement
+ * clause, which sees a layout host's edge-slot fills the SDK never reads — a
+ * required requirement with no composed satisfier must not refuse SDK-side, or a
+ * layout-fill corpus would refuse spuriously. A clean harness emits without
+ * throwing.
  *
  * Mention refusals live in emit.test.ts ("an unresolved mention is a loud emit
- * error"); this file owns only the two declare-side cases.
+ * error"); this file owns only the declare-side cases.
  */
 
 import assert from "node:assert/strict";
@@ -99,10 +101,14 @@ test("an expect binding keyed to a required-field kind emits without throwing", 
 });
 
 // ---------------------------------------------------------------------------
-// (2) Unfilled required requirement — a `required` demand no member satisfies.
+// (2) Unfilled required requirement — deferred to the engine, never SDK-side.
+//     The SDK sees only composed `satisfies`, never a layout host's edge-slot
+//     fills, so a fill pre-flight here would refuse a layout-fill corpus that
+//     the engine (reading both) accepts. Emit must produce output; the engine's
+//     requirement clause is the fill gate.
 // ---------------------------------------------------------------------------
 
-test("emit refuses an assembly requirement marked required that no member fills", () => {
+test("emit does not refuse an assembly requirement marked required with no composed satisfier", () => {
   const h = harness({
     require: {
       "engineering-standards": {
@@ -111,12 +117,14 @@ test("emit refuses an assembly requirement marked required that no member fills"
         required: true,
       },
     },
+    // No member's composed `satisfies` fills the requirement — a layout-content
+    // kind's edge slot could, and the SDK cannot see it, so it defers the gate.
     members: [rule({ name: "rust", prose: text`# Rust` })],
   });
-  assert.throws(() => emit(h), /an unfilled required requirement/);
+  assert.doesNotThrow(() => emit(h));
 });
 
-test("emit refuses a member-published requirement marked required that no member fills", () => {
+test("emit does not refuse a member-published requirement marked required with no composed satisfier", () => {
   const h = harness({
     members: [
       skill({
@@ -127,7 +135,7 @@ test("emit refuses a member-published requirement marked required that no member
       }),
     ],
   });
-  assert.throws(() => emit(h), /an unfilled required requirement/);
+  assert.doesNotThrow(() => emit(h));
 });
 
 // ---------------------------------------------------------------------------

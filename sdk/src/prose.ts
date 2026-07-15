@@ -1,7 +1,8 @@
 /**
  * Prose — three constructors, one field type. A member's words are data the
  * member declares: `file()` for a document that keeps its medium, `` text`…` ``
- * for short inline prose, `blocks()` for fully composed embedded-member values. Whatever
+ * for short inline prose, `blocks()` for a composed body that interleaves verbatim
+ * prose spans with embedded-member values in authored order. Whatever
  * the constructor, the words land byte-identical to their authored text (law 5).
  * Interpolations in `` text`…` `` are references, two intents apart: a **mention**
  * (a {@link Mentionable}) is a declared one-way edge that moves no content, and an
@@ -10,7 +11,7 @@
  * (law 8).
  */
 
-import type { EmbeddedMemberValue } from "./kind.js";
+import type { EmbeddedMemberValue, Member } from "./kind.js";
 
 /** A declared value a mention may name — the target of the one-way citation edge. */
 export interface Mentionable {
@@ -18,6 +19,15 @@ export interface Mentionable {
   readonly address: string;
   /** The display text the one corpus-wide rule renders in place. */
   readonly display: string;
+}
+
+/**
+ * Spell a top-level member as the {@link Mentionable} a mention carries: its
+ * `kind:name` address, its bare name the display text — the convention every
+ * corpus repeats to cite a member from prose, captured once here.
+ */
+export function mentionOf(member: Member): Mentionable {
+  return { address: `${member.kind}:${member.name}`, display: member.name };
 }
 
 /** One authored interpolation: position in the template plus its target. */
@@ -95,14 +105,17 @@ export interface Text {
 }
 
 /**
- * `blocks(…)` — fully composed embedded-member values (posture 3): typed
- * collections rendered to `member.<kind> <key>` TOML fences, byte-identical to
- * the same values authored as fences directly (posture 2) and read back by the
+ * `blocks(…)` — a composed body of ordered children (posture 3): verbatim prose
+ * spans ({@link Text}) and embedded-member values interleaved in authored order,
+ * the write-side mirror of a layout's ordered regions. A {@link Text} span stays
+ * prose — it carries its own mentions and includes and mints no wrapper member;
+ * an embedded value renders to its `member.<kind> <key>` TOML fence, byte-identical
+ * to the same value authored as a fence directly (posture 2) and read back by the
  * engine's fold (`src/extract.rs` `parse_embedded_info`/`parse_embedded_member`).
  */
 export interface Blocks {
   readonly kind: "blocks";
-  readonly values: readonly EmbeddedMemberValue[];
+  readonly values: readonly (Text | EmbeddedMemberValue)[];
 }
 
 /** A member's prose — one of the three constructors, one field type. */
@@ -173,9 +186,22 @@ export function include(moduleUrl: string, path: string): Include {
   return { kind: "include", path, moduleUrl };
 }
 
-/** Compose fully-typed embedded-member values into a member's body (posture 3). */
-export function blocks(...values: EmbeddedMemberValue[]): Blocks {
+/**
+ * Compose a member's body from ordered children (posture 3): verbatim prose spans
+ * ({@link text}) and embedded-member values interleaved in authored order. A prose
+ * span rides as prose — no wrapper member is minted to carry a narrative.
+ */
+export function blocks(...values: (Text | EmbeddedMemberValue)[]): Blocks {
   return { kind: "blocks", values };
+}
+
+/**
+ * Whether a composed-body child is a verbatim prose span rather than an embedded
+ * member value — the discriminant emit and the row builders branch on to render a
+ * span as prose and count its refs at host level, never as a nested member.
+ */
+export function isTextSpan(value: Text | EmbeddedMemberValue): value is Text {
+  return (value as Text).kind === "text";
 }
 
 /**

@@ -49,6 +49,16 @@ hard.
 - Docs-language candidate (post-freeze): the determinism ladder — "push every
   check to the most deterministic layer that can express it" (field
   feedback, 07-10).
+- Base harness (external docs-corpus dogfood): primer at
+  `docs/base-harness-primer.md`; horizon `(base-harness)`; second cut
+  (member-composed kinds, governed toy `src/`, outward `implemented-by`
+  edges) at `examples/base-harness/` (human-ruled 07-15, PR #19). All six
+  findings loop-closed same day, both forks ruled and shipped (dff2db2 +
+  six build commits). Third cut in design (07-15): whole-starter expansion —
+  skills/hooks governance, DRY via one-value-many-projections, domain
+  ownership; prescription example-side only (ruled). Built-in-kind doc audit
+  at `docs/market-formats.md` (07-15 section); reconciliation notes filed to
+  inbox. Sequencing ruled: wrap this, then stranger dry run, then channel 3.
 - On John: Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).

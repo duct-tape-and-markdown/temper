@@ -560,7 +560,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
   );
 });
 
-test("a kind()'s render hook replaces the default TOML view inside the member fence; a kind() without one stays byte-identical", () => {
+test("a kind()'s render hook projects fence-free in place of the default TOML view; a kind() without one keeps its member fence byte-identical", () => {
   const embeddedFacts = {
     locus: { kind: "embedded" as const, withinHosts: ["memory"] },
     unitShape: "file" as const,
@@ -595,11 +595,11 @@ test("a kind()'s render hook replaces the default TOML view inside the member fe
 
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
+  // The render-hook value projects its hook markdown bare — no `member.decision`
+  // fence around it — while the hook-less value keeps its fenced TOML view.
   assert.equal(
     member.body,
-    "```member.decision surface-authority\n" +
-      "surface-authority chose: the composition surface is canonical\n" +
-      "```\n" +
+    "surface-authority chose: the composition surface is canonical\n" +
       "\n" +
       '```member.decision second\nchosen = "unchanged"\n```\n',
   );
@@ -664,12 +664,7 @@ test("a kind()'s render hook receives a resolvable leaf mention already rendered
 
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
-  assert.equal(
-    member.body,
-    "```member.decision surface-authority\n" +
-      "surface-authority chose: See rust for the standard.\n" +
-      "```\n",
-  );
+  assert.equal(member.body, "surface-authority chose: See rust for the standard.\n");
 });
 
 test("a blocks() body renders a keyed collection entry as its own [collection.entry] table", () => {
@@ -910,6 +905,78 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
       },
     },
   ]);
+});
+
+test("a composed body interleaves prose spans and embedded values in authored order, byte-identical to a wrapper-kind narrative", () => {
+  // A passage-style wrapper: an embedded kind whose render hook projects a leaf
+  // verbatim, fence-free — the exhibit the native interleave retires.
+  const passage = kind<object>(
+    { name: "passage", locus: { kind: "embedded", withinHosts: ["memory"] }, unitShape: "file", registration: [] },
+    { render: (value) => value.leaves.body },
+  );
+  const decisionValue = embeddedMemberValue({
+    kind: "decision",
+    key: "surface-authority",
+    leaves: { chosen: "the composition surface is canonical" },
+  });
+
+  // The narrative rides natively — text spans interleaved with the embedded value.
+  const native = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          text`Intro narrative before the record.`,
+          decisionValue,
+          text`Closing narrative after the record.`,
+        ),
+      }),
+    ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
+  });
+
+  // The same narrative carried by wrapper passages minted to hold it.
+  const wrapped = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: passage, key: "intro", leaves: { body: "Intro narrative before the record." } }),
+          decisionValue,
+          embeddedMemberValue({ kind: passage, key: "outro", leaves: { body: "Closing narrative after the record." } }),
+        ),
+      }),
+    ],
+    expect: [
+      { kind: memoryDecision, clauses: [] },
+      { kind: passage, clauses: [] },
+    ],
+  });
+
+  const nativeBody = emit(native).members.find((m) => m.name === "CLAUDE")!.body;
+  const wrappedBody = emit(wrapped).members.find((m) => m.name === "CLAUDE")!.body;
+
+  assert.equal(
+    nativeBody,
+    "Intro narrative before the record.\n" +
+      "\n" +
+      '```member.decision surface-authority\nchosen = "the composition surface is canonical"\n```\n' +
+      "\n" +
+      "Closing narrative after the record.\n",
+  );
+  // The narrative needs no wrapper kind to ride in a composed body.
+  assert.equal(nativeBody, wrappedBody);
+
+  // A prose span mints no nested member — only the embedded value does. The wrapper
+  // variant, by contrast, mints one nested member per passage plus the decision.
+  assert.deepEqual(
+    emit(native).declarations.nested_members.map((row) => `${row.kind}:${row.key}`),
+    ["decision:surface-authority"],
+  );
+  assert.deepEqual(
+    emit(wrapped).declarations.nested_members.map((row) => `${row.kind}:${row.key}`),
+    ["decision:surface-authority", "passage:intro", "passage:outro"],
+  );
 });
 
 // ---------------------------------------------------------------------------

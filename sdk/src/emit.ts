@@ -14,7 +14,8 @@ import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, Member, ResolvedEmbeddedMemberCollectionEntry, ResolvedEmbeddedMemberValue } from "./kind.js";
-import { renderText, resolveLeaf } from "./prose.js";
+import type { Text } from "./prose.js";
+import { isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
 import {
@@ -129,25 +130,54 @@ function renderMemberToml(value: ResolvedEmbeddedMemberValue): string {
 }
 
 /**
- * Render one embedded member's value to its `member.<kind> <key>` fenced block:
- * the originating kind's own `render` hook, when declared, in place of the
- * default `[collection.entry]` TOML view — the fence wrapper itself never
- * changes, so a `render`-less kind's projection is byte-unchanged. Leaves
- * resolve once (`resolveMemberLeaves`) before either path sees them, so a
+ * Render one embedded member's value to its projected block. A `render`-less
+ * kind projects the default `[collection.entry]` TOML view wrapped in a
+ * `member.<kind> <key>` fence, byte-unchanged. A kind that declares a `render`
+ * hook projects the hook's output directly, with no fence: an embedded format
+ * is writer-only and unconstrained when its host is composed (`representation.md`,
+ * "kind") — the engine never reads the block back (nested-member facts ride the
+ * lock, `pipeline.md`, "The lock"), so the fence is cosmetic and a hook that
+ * already renders readable markdown should not be re-buried in a code fence.
+ * Leaves resolve once (`resolveMemberLeaves`) before either path sees them, so a
  * hook receives plain strings, never a raw `Text` leaf.
  */
-function renderMemberFence(value: EmbeddedMemberValue, options: ResolveOptions): string {
+function renderMemberBlock(value: EmbeddedMemberValue, options: ResolveOptions): string {
   const mentionable = options.mentionable ?? new Set<string>();
   const resolved = resolveMemberLeaves(value, mentionable);
-  const body = value.render !== undefined ? value.render(resolved) : renderMemberToml(resolved);
-  return `\`\`\`member.${value.kind} ${value.key}\n${body}\n\`\`\``;
+  if (value.render !== undefined) return value.render(resolved);
+  return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(resolved)}\n\`\`\``;
+}
+
+/**
+ * Render a member-level `Text` body to its final bytes: its mentions are
+ * resolution-checked against `mentionable` (loud on a dangling address, `context`
+ * naming the host) and the display rule applied, each include slot left standing
+ * for the engine to splice. Shared by a `text` body and a composed body's prose
+ * spans, so a narrative span resolves the identical way a member-level `text`
+ * body does.
+ *
+ * # Throws
+ * If a mention names no declared value.
+ */
+function renderTextBody(prose: Text, mentionable: ReadonlySet<string>, context: string): string {
+  for (const mention of prose.mentions) {
+    if (!mentionable.has(mention.target.address)) {
+      throw new Error(
+        `${context}: mention of \`${mention.target.address}\` resolves to no ` +
+          `declared value — a mention cannot dangle (specs/model/contract.md).`,
+      );
+    }
+  }
+  return renderText(prose);
 }
 
 /**
  * Resolve a member's prose to its final body bytes: a `file()` asset is read in
  * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
- * dangling address) and rendered by the one display rule; a `blocks()` body
- * renders each embedded member as a `member.<kind> <key>` TOML fence. The words
+ * dangling address) and rendered by the one display rule; a `blocks()` composed
+ * body renders each child in authored order — a prose span as its resolved words
+ * (`renderTextBody`), an embedded member as a `member.<kind> <key>` TOML fence
+ * (or, for a kind with a `render` hook, the hook's fence-free markdown). The words
  * are never reworded.
  *
  * # Throws
@@ -168,33 +198,34 @@ function resolveBody(member: Member, options: ResolveOptions): string {
       );
     }
   }
-  if (prose.kind === "blocks") {
-    return prose.values.map((value) => renderMemberFence(value, options)).join("\n\n") + "\n";
-  }
   const mentionable = options.mentionable ?? new Set<string>();
-  for (const mention of prose.mentions) {
-    if (!mentionable.has(mention.target.address)) {
-      throw new Error(
-        `member \`${member.name}\`: mention of \`${mention.target.address}\` resolves to no ` +
-          `declared value — a mention cannot dangle (specs/model/contract.md).`,
-      );
-    }
+  if (prose.kind === "blocks") {
+    const context = `member \`${member.name}\``;
+    return (
+      prose.values
+        .map((value) => (isTextSpan(value) ? renderTextBody(value, mentionable, context) : renderMemberBlock(value, options)))
+        .join("\n\n") + "\n"
+    );
   }
-  return renderText(prose);
+  return renderTextBody(prose, mentionable, `member \`${member.name}\``);
 }
 
 /**
- * The two declare-side refusals emit runs before it produces a byte:
- * a `satisfies` claim naming
- * no declared requirement (a dangling join), and a `required` requirement no
- * member fills (an unfilled required requirement).
+ * The one declare-side refusal emit runs before it produces a byte: a
+ * `satisfies` claim naming no declared requirement (a dangling join).
+ *
+ * Fill enforcement — every `required` requirement has ≥1 satisfier — is the
+ * engine's, not the SDK's: it lands over the composed members' `satisfies`
+ * *plus* the fill rows emit derives from a layout document's `satisfies` edge
+ * slot, which the SDK never reads. A pre-flight over composed `satisfies`
+ * alone would spuriously refuse a requirement a layout host fills, so the SDK
+ * implements no semantics here and defers to the engine's requirement clause.
  *
  * # Throws
- * On a dangling `satisfies` join or an unfilled `required` requirement.
+ * On a dangling `satisfies` join.
  */
 function refuseBrokenSource(harness: Harness): void {
   const requirements = declaredRequirements(harness);
-  const filled = new Set<string>();
   for (const member of harness.members) {
     for (const name of member.satisfies) {
       if (!requirements.has(name)) {
@@ -204,26 +235,6 @@ function refuseBrokenSource(harness: Harness): void {
             `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
         );
       }
-      filled.add(name);
-    }
-  }
-
-  const requiredSources: [string, string][] = [];
-  for (const [name, requirement] of Object.entries(harness.require)) {
-    if (requirement.required) requiredSources.push([name, "the assembly"]);
-  }
-  for (const member of harness.members) {
-    for (const [name, requirement] of Object.entries(member.requires)) {
-      if (requirement.required) requiredSources.push([name, `member \`${member.name}\``]);
-    }
-  }
-  for (const [name, source] of requiredSources) {
-    if (!filled.has(name)) {
-      throw new Error(
-        `required requirement \`${name}\` (declared by ${source}) is filled by no member's ` +
-          `\`satisfies\` — an unfilled required requirement ` +
-          `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
-      );
     }
   }
 }

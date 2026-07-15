@@ -11,7 +11,7 @@ collision is impossible and no name-qualification scheme exists.
 
 ## The shipped kinds
 
-Five kinds ship, each a file member:
+Seven kinds ship. Five are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. Its
@@ -28,13 +28,53 @@ Five kinds ship, each a file member:
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
   frontmatter: the entire file is prose.
 
+Two are registration members — fields-only entries a manifest carries at a
+collection address, never files of their own (`model/representation.md`,
+"Reach"):
+
+- **hook** — one handler registration under `settings.json`'s
+  `hooks.<Event>`; its channel is the documented event.
+- **mcp-server** — one connection under `.mcp.json`'s `mcpServers`; its
+  channel is the connection.
+
 A kind's registration names the set of documented channels a member reaches
 the world over — user invocation and description trigger are channels, not
 rivals — and the documented fields that modulate them per member are
-ordinary declared fields.
+ordinary declared fields. A declared field may also gate the member's
+channels outright: a skill's path scope removes it from every channel — the
+listing, model invocation, user invocation — until a matching file is in
+play (code.claude.com/docs/en/skills, retrieved 2026-07-15; verified against
+2.1.210). The gate is the field's documented semantics, carried with the
+field, never a channel entry.
 
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.
+
+## The domain partition
+
+Each shipped kind owns a semantic domain and an output posture, and the
+partition is the harness's own documented guidance, not temper's invention
+(code.claude.com/docs/en/features-overview, retrieved 2026-07-15):
+
+- **memory** owns always-true facts; its output is ambient context, loaded
+  at launch.
+- **rule** owns scoped conventions; its output is context injected when a
+  matching file is read.
+- **skill** owns procedures; its output is an invoked procedure, loaded
+  into the turn on activation. (**command** is the same domain at its
+  legacy placement.)
+- **agent** owns delegated work; its output is an isolated subagent run.
+- **hook** owns zero-exception enforcement; its output is a deterministic
+  action at its event — the harness's own docs draw the line: an
+  instruction is advisory, a hook is a guarantee.
+- **mcp-server** owns external capability; its output is a connection's
+  tools.
+
+One fact, one owner: the partition is what makes "which kind carries this"
+decidable for an author, and content straddling two domains is two members.
+The harness documents no mandatory baseline — adoption is trigger-driven,
+per surface (same source) — so any prescribed composition is an authored
+contract, never a vendor fact.
 
 ## The coverage bar
 
@@ -42,10 +82,10 @@ The vocabulary covers documented surface capability: every capability a
 built-in surface documents as real — a user-invoked command, an event hook,
 a connection — gets its registration value and, where it is an artifact,
 its kind, cited to the documentation that settles it. The vocabulary grows
-by documented capability, never by invention. Hooks, MCP servers, and
-installed plugins are registration members surfacing in the harness's
-manifests (`model/representation.md`); the permission list is a derived
-aggregate (`model/pipeline.md`).
+by documented capability, never by invention. Installed plugins are
+registration members surfacing in the harness's manifests
+(`model/representation.md`); the permission list is a derived aggregate
+(`model/pipeline.md`).
 
 ## Default contracts
 

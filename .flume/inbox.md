@@ -8,26 +8,31 @@ made — so plan can diff forward (`git log <sha>..HEAD`) instead of
 re-deriving the whole premise; the queue keeps moving between filing and
 routing.
 -->
-
-- PACKAGING-CHANNELS partially shipped in-session (John's ruling, 07-11):
-  channel 2's linux-x64 + win32-x64 first cut is live — release.yml builds
-  and idempotently publishes @dtmd/temper-{linux-x64,win32-x64} then the
-  SDK; @dtmd/temper@0.0.7 carries the launcher (sdk/bin/temper.js) and
-  exact-pinned optionalDependencies; verified by a no-cargo scratch-dir
-  `npm install` + `npx temper check --harness`. Deliberate deviation from
-  the entry's filed shape: the launcher + optionalDependencies live on the
-  SDK package per the spec's own text ("pinned by the SDK",
-  specs/distribution.md, "What ships") — the root package.json stays the
-  private flume manifest untouched; the entry's edit-file claim is stale.
-  The entry as filed is SUPERSEDED, not re-scopable (John, 07-11): both
-  its file claims are dead — `.github/workflows/release.yml` now exists on
-  disk (so the `new` claim fails the refs gate the moment the entry
-  opens), and the root-package.json launcher was ruled out by the spec
-  text. Retire it and file the remainder fresh: darwin binaries (Apple
-  notarizing, on John), channel 3 (plugin + marketplace.json), standalone
-  tag assets (workflow path exists, unexercised until a tag), and the
-  binary self-reporting its crate version (0.1.0) while npm carries
-  0.0.x — lockstep lands at the v0.1 tag. observed at 56012d0
+- Built-in contract reconciliation against the 2026-07-15 Claude Code docs —
+  drift register with per-item detail and source URLs in
+  `docs/market-formats.md`, "Claude Code deep audit" section. Load-bearing
+  items: commands merged into skills (`command` kind wants a legacy-posture
+  note + cite refresh); skill frontmatter grew (new fields incl. `when_to_use`,
+  `paths`, `context: fork`, component-scoped `hooks` — review `forbiddenKeys`
+  and coverage against them; `paths` is a hard registration gate conditioning
+  the other channels, verified empirically 2.1.210 — a composed channel the
+  flat registration list can't express today, see the digest); `DOCUMENTED_HOOK_EVENTS` re-verify vs the
+  current ~30-event set; rules `paths` + recursive discovery now first-class
+  documented (cite refresh); agent `tools`-resolution failure now loud
+  (v2.1.208+, candidate clause). Caveat carried in the digest: hooks/settings
+  extracts were summarizer-mediated — any encoded `cite` re-fetches the raw
+  page first, per the external-facts bar. observed at e8edffa
+- `Requirement.kind` (`sdk/src/contract.ts:177-183`) is typed
+  `KindDefinition<never>`, so a requirement cannot be keyed to any kind whose
+  field type carries required members — `KindDefinition<Skill>`,
+  `KindDefinition<Hook>` fail to assign; only all-optional-field kinds (rule,
+  memory) work. The repo's own harness hit this: `.temper/harness.ts`'s
+  `friction-capture-procedure` requirement documents dropping its `kind:` as
+  a workaround. A requirement needs only the kind's identity for coverage
+  resolution, never its field type; the collection child-kind slot already
+  models this as `string | KindDefinition<any>` (`sdk/src/kind.ts:315`).
+  Demand is live (human-ruled 07-15): the base-harness third cut prescribes
+  skill/hook-keyed requirements. observed at 3540ebb
 
 - Ruled, needs its docs line (John, 07-10, in session): a host that
   interleaves prose with typed members **is a layout source document** —
@@ -36,15 +41,12 @@ routing.
   spliced into `text()` bodies — the centercode testbed's own hack, broken
   by two consecutive SDK shape changes) is territory temper won't go. The
   composed side stays what it is: `blocks()` for all-members bodies,
-  `text()`/`file()` for prose. Remainder to route: (a) the consumer
-  guidance nowhere written — "if your host mixes prose and members, declare
-  a layout and author the document" belongs in the docs' custom-kind path;
-  (b) small residue on the composed side: a `render()` hook's output is
-  still wrapped inside the ```` ```member.<kind> <key> ```` fence
-  (`sdk/src/emit.ts:143`) — if deliberate (a visible member seam in a
-  projection), the rationale is unwritten (the nearby comment argues only
-  byte-stability for `render`-less kinds); if residual, unfencing is one
-  line. Observed at 8c00159, re-verified at c2f8a2c.
+  `text()`/`file()` for prose. Remainder to route: the consumer guidance
+  nowhere written — "if your host mixes prose and members, declare a
+  layout and author the document" belongs in the docs' custom-kind path.
+  (The note's other half — `render()` output fence-wrapped — resolved
+  upstream at f2d73da, EMBED-RENDER-FENCE-FREE.) Observed at 8c00159,
+  re-verified at c2f8a2c; trimmed at 0aa9e62.
 
 - A 0019-loud instance the shipped refusals don't cover yet:
   UNTEMPLATED-NESTED-MEMBER-LOUD (4752b06) rejects the blocks-side orphan
@@ -97,4 +99,31 @@ routing.
   ambiguity the first supersession will trip over. One of them renumbers
   to the next free slot — mechanical, but it touches whichever
   cross-references exist, so it's a plan-routed entry, not a hand-fix.
-  Observed at 8c00159, still live at c2f8a2c.
+  Observed at 8c00159, still live at c2f8a2c; 0021 has since taken the
+  next number, boxing the pair in.
+
+- **Field incident, high-severity class**: the first emit under a
+  post-e7b859a engine against a lock written by a pre-e7b859a engine
+  **mass-reaps every live projection, silently green**. Live repro
+  (centercode testbed, 07-15): lock rows spelled `./CLAUDE.md`-style by
+  the c2f8a2c-era engine; one `emit` under 0aa9e62 reported
+  `0 emitted, 21 unchanged, 21 reaped, 0 orphan-drift`, exit 0 — and
+  deleted all 21 projections (CLAUDE.md, every rule, every SKILL.md)
+  while rewriting the lock with unprefixed rows claiming them live and
+  unchanged. Mechanism: e7b859a normalizes the workspace path before
+  deriving `harness_root`, so the fingerprint pass keys files at the new
+  spelling ("unchanged", fresh rows) while the orphan sweep joins the
+  *old* rows' raw strings against the new owned-paths set, finds none,
+  and deletes their files — the same files. The fix stops future spelling
+  forks but never migrates a pre-fix lock, so every existing consumer
+  workspace hits this exactly once, on upgrade. Damage is transient
+  (sources regenerate; the very next emit re-emits all 21) but the
+  window is real — a Claude Code session launched between the two emits
+  finds no CLAUDE.md and no rules — and the run *lied* ("unchanged",
+  exit 0) while deleting the harness. Two proposals, severable: (a) the
+  migration — normalize path spellings when *reading* lock rows too, so
+  a pre-fix lock reconciles instead of orphaning (the join key, not just
+  the derivation, is what needed normalizing); (b) the 0019-loud guard —
+  a reap sweep about to delete **every row the lock carries** while
+  emitting nothing is near-certainly a bug or a spelling fork, and is a
+  refusal, not a green exit line. Observed at 0aa9e62.

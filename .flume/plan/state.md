@@ -1,32 +1,33 @@
 # Plan state
 
-- Spec derived through: a9f7b9e
-- Audited through: 2aed996
-- Residue swept through: 2aed996
-- This tick: Post-ship reconcile 224b880..HEAD (2aed996) — audit + sweep over
-  the one src/sdk window (SETTINGS-RESIDUE, e63e251). AUDIT: SETTINGS-RESIDUE
-  shipped — SDK `settings` declaration family (declarations.ts `settingsRows`,
-  emit.ts `SettingsResidue`/`settingsResidue`, `EmitResult.settings` at 400,
-  generated `SettingsRow` + Declarations seam), engine folds each row into its
-  manifest's opaque residue at drift.rs:787 beside the container-member residue
-  slot (736), both refuse-loud paths present — `UnplaceableSettings` (230,
-  manifest no in-play kind declares) and `SettingsResidueCollision` (248,
-  differing value already present). Build removed it from pending (-36).
-  PACKAGING-CHANNELS re-tested: window touched no .github/ or root
-  package.json (only `temper.yml` in workflows; root still `temper-flume-harness`,
-  `private`), so its condition (human release creds + engine-binary workflow)
-  is provably unchanged — copied forward. SWEEP: window opened
-  sdk/src/{declarations,emit}.ts + generated, src/drift.rs, tests/{emit,
-  lock_declaration_rows,seam_bindings_current}.rs; the new `settings` family
-  parallels `registrations`/`includes` via one builder + one fold (not a
-  duplicate surface). `git diff --name-only 224b880..HEAD` confirms NONE of the
-  standing rider files (session_start.rs, builtins.ts, kind.ts, extract.rs,
-  prose.ts, Cargo.toml, compose.rs, contract.rs) were touched — every
-  kept-on-purpose rider undischarged, position unchanged, open-questions
-  untouched. No new standalone residue.
-- Queue: PACKAGING-CHANNELS (parked, human release creds + engine-binary
-  workflow). No pickable entry — RESIDUE shipped this window. Spec cursor
-  unmoved — no specs commit past a9f7b9e.
+- Spec derived through: dff2db2
+- Audited through: d2496b6
+- Residue swept through: d2496b6
+- This tick: Post-ship reconciliation of the abec284..d2496b6 window (two
+  build commits: a83c573 discovery fence in src/import.rs; 6450ba6 prose
+  interleave in sdk/src/{prose,emit,declarations}.ts + test). AUDIT: both
+  shipped entries verified on disk — `temper check .temper` now reports
+  memory (1) (examples/base-harness fenced by its own `.temper/lock.toml`,
+  DISCOVERY-NESTED-ROOT-FENCE works); the interleave test pair
+  (emit.test.ts:907+, mention.test.ts) is present and gates green. Both
+  entries were already dropped from pending last tick — nothing to drop.
+  PACKAGING-CHANNELS-REMAINDER park re-verified live: no v0.1 tag (only
+  decision-era tags), crate still 0.1.0 — park holds. SWEEP: no
+  behavior/second-implementation residue (both commits implement dff2db2
+  faithfully; import.rs rides the existing `ignore` filter_entry, no
+  hand-roll; emit.ts/declarations.ts/mention.test.ts carry no retired vocab).
+  Only comment-staleness riders moved: PROSE-INTERLEAVE-SDK opened prose.ts
+  and *rewrote* the two "posture 3" doc comments fresh (self-propagation)
+  while leaving law/decision-cite narration, and opened emit.test.ts leaving
+  the renderMemberFence cite at 853. Both are the rides-next-entry exception
+  (never standalone); records re-derived on disk (prose.ts law5 6/93/210,
+  law8 11, posture 78/108/113/140/190, cites 78/152; emit.test.ts:853) at
+  reconcile HEAD d2496b6. kind.ts/extract.rs/builtins.ts/session_start.rs
+  riders untouched this window — copied forward.
+- Queue: PACKAGING-CHANNELS-REMAINDER (parked, human release actions) — the
+  only entry; no open pickable work.
 
-Plan continues: no — reconciliation was the last live input; queue holds only
-the parked PACKAGING-CHANNELS, so the loop hibernates.
+Plan continues: no — inbox empty, spec cursor at HEAD-specs (dff2db2), the
+src/sdk window is reconciled to HEAD (d2496b6). Sole entry is parked on human
+release actions; loop hibernates until an inbox note or a spec/code change.
+</content>

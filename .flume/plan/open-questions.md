@@ -144,9 +144,9 @@ condition arrives, it is the next break. If work touches one, surface it.
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
   renamed `NNNN-*.md`) still narrates `sdk/src/prose.ts` ("law 5" at
-  5/83/184, "law 8" at 10, "posture N" at 68/98/100/127/176, pre-recut
-  decision cites `` `15-kinds.md` ``:68 and `` `20-surface.md` ``:139 —
-  neither file exists) and `sdk/src/kind.ts:252` ("posture 3"). Doc-comment
+  6/93/210, "law 8" at 11, "posture N" at 78/108/113/140/190, pre-recut
+  decision cites `` `15-kinds.md` ``:78 and `` `20-surface.md` ``:152 —
+  neither file exists) and `sdk/src/kind.ts:254` ("posture 3"). Doc-comment
   staleness only —
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
   in the retired vocabulary, so the narration self-propagates by imitation
@@ -169,7 +169,25 @@ condition arrives, it is the next break. If work touches one, surface it.
   it. That entry opened prose.ts (lines 56/64) yet left these doc comments
   as unchanged context, so — per the reconciliation-not-opening precedent
   above — the rider is undischarged, still riding whichever entry next
-  reconciles the comment lines.
+  reconciles the comment lines. PROSE-INTERLEAVE-SDK (6450ba6) then opened
+  prose.ts to widen `blocks()`, and *rewrote* the two "posture 3" doc
+  comments fresh (self-propagation again, this time the very lines the
+  rider names) while leaving the rest as unchanged context — undischarged;
+  prose.ts line numbers above re-derived on disk at reconcile HEAD d2496b6
+  (`kind.ts:254` unchanged, that file untouched this window).
+
+- **`sdk/test/emit.test.ts:853` cites the retired `renderMemberFence`.**
+  EMBED-RENDER-FENCE-FREE (f2d73da) renamed `renderMemberFence` →
+  `renderMemberBlock` (an embedded format is writer-only, the fence cosmetic
+  — `specs/model/representation.md`, "kind") and opened this test file, but
+  left the test comment at 851-854 ("untouched — `renderMemberFence`")
+  naming the gone symbol. Behavior correct; comment staleness only — the
+  symbol is now `renderMemberBlock`. Rides whichever entry next reconciles
+  the comment (not merely opens the file), never standalone. Found at
+  reconcile HEAD 99a79ec. PROSE-INTERLEAVE-SDK (6450ba6) then opened
+  `sdk/test/emit.test.ts` to add a composed-body test below (line 907+) and
+  left 853 as unchanged context — undischarged; re-verified on disk at 853,
+  reconcile HEAD d2496b6.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

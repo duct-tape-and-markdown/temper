@@ -22,7 +22,10 @@ engine. Turing-completeness is quarantined at authoring time — running the
 program is the author's act; checking never needs Node. A member's prose
 keeps its authored medium — a document stays in its own file, a three-line
 rule may live inline — and either way the words land byte-identical in the
-projection. Prose may declare references, two intents apart: a mention names
+projection. A composed body may interleave verbatim prose spans with
+embedded member values in authored order — the write-side mirror of a
+layout's ordered regions (`representation.md`, "kind"); a narrative span is
+prose, never a wrapper member minted to carry it. Prose may declare references, two intents apart: a mention names
 a member and moves no content; an include pulls the target's content into
 the host's emitted bytes, a dependency the lock fingerprints. Both are
 declared edges (`contract.md`), and a path reference resolves relative to
@@ -111,7 +114,11 @@ the lock names as projections, so with no lock nothing is a projection.
 The single adoption verb. It opens with the discovery report — findings
 first, ceremony after: what the walk finds, members by kind, and what the
 built-in default contract says about them. Discovery honors the repository's
-ignore rules — an ignored file is by declaration not authored here. Then one
+ignore rules — an ignored file is by declaration not authored here — and
+stops at a nested governed root: a directory carrying its own
+`.temper/lock.toml` is its own corpus, and its members are never the
+parent's. Reaching into one is a verb aimed at it on purpose, never the
+ambient walk. Then one
 question: represent this harness as a typed program? A harness is represented
 or it is not — one genuine fork, so exactly one question.
 
