@@ -153,12 +153,76 @@ reference harness demonstrates both faces and says when each is right.
   real fork — see below.
 - Alongside all of it, the shipped Claude Code kinds (skills, rules,
   memory, hooks) — the base harness is a *whole* starter, not a docs-only
-  corpus.
+  corpus, organized by the domain architecture below (third cut).
 
 What the encoding deletes from the gist: the `templates/` directory (the
 kind's layout is the template, and the check that fails beats the example
 that pleads), the per-PR docs duty (the reconciler owns it), and every
 convention that would require reading prose for structure.
+
+## The domain architecture (third cut, ruled in session 2026-07-15)
+
+The whole-starter expansion is organized by **domain first, mechanism
+second**. Provenance: the decomposition of a mature production harness
+(John's, 2026-07-15) into five domains whose require block was already
+domain-shaped — the base harness is that shape's seed. Standing rulings:
+the prescription is example-authored, never shipped (`specs/builtins.md`,
+"The domain partition": no vendor baseline exists, so any prescribed
+composition is an authored contract); the DRY demonstration is the
+centerpiece; the base stays simpler than the mature harness but must point
+at it and grow into it organically.
+
+**The five domains, each a requirement in the example's require block:**
+
+- **Conduct** — how any agent behaves: epistemics, verification,
+  escalation. Zero project facts; the portable domain.
+- **Orientation** — what this project is and where truth lives: the map,
+  the routing pointers.
+- **Standards** — what correct code and change look like: the invariants
+  of development.
+- **Operations** — doing work to the project: build, run, verify,
+  diagnose.
+- **Governance** — the harness maintaining itself: the gate hooks, drift
+  discipline, the growth protocol.
+
+**The filing rule** (decidable, stated in the example's memory): pick the
+domain, then the delivery tier, and the kind falls out. Domain =
+requirement; delivery tier = registration channel (push = `always` /
+`paths-match`, pull = `description-trigger` / `user-invoked`, enforcement
+= `event`); the kind is the shelf. A `satisfies` edge crosses kinds
+freely — a Conduct requirement satisfied by a rule is an authored choice
+the graph shows, never a mislabeled member.
+
+**Calibration** (proposed, not yet ratified): all five requirements
+declared from day one — the skeleton is complete at the first commit —
+with Conduct, Orientation, and Governance `required: true` and Standards /
+Operations carrying one exemplary satisfier each, replaced by the
+adopter's own. Growth is **additive, never reorganizational**: maturing
+is adding satisfiers to slots that already exist, and the vendor's
+trigger-driven adoption table (code.claude.com/docs/en/features-overview,
+retrieved 2026-07-15) is the growth protocol, stated in the Governance
+surface so the harness teaches its operator when to feed it.
+
+**Documentation is not a harness domain.** Orientation routes to truth;
+it does not restate it — a pointer can dangle (gate-checkable) but cannot
+semantically rot. The docs corpus (the kinds above) is *governed content*
+Orientation routes into, admitted per kind by rot exposure: **records**
+(decisions) always — claims about the past cannot go stale; **definitions**
+(terms) with mention-liveness; **current-state descriptions** (systems,
+flows) only with outward falsifiable claims — the second cut's design
+mark. Stated limit: edges catch referential rot, never semantic rot —
+wiring, not meaning; descriptive prose that cannot be coupled lives
+outside the gate without shame.
+
+**The demonstrations the third cut owes:** the DRY centerpiece (one
+authored program value — the toy's verify command — projected into both
+the memory's map and the skill's procedure, so cross-surface contradiction
+is unrepresentable, not linted); a `paths`-scoped skill exercising the
+channel gate (`specs/builtins.md`, registration); a skill whose supporting
+script is a governed member, the reference an edge the gate refuses when
+the script goes; and the hook→script edge via a ground kind over
+`scripts/` (the example wraps; the first-party `hook` kind stays neutral —
+ruled with the prescription).
 
 ## What the dogfood must exercise
 
