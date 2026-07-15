@@ -246,6 +246,10 @@ fn collect_glob(
 /// (`.temper/`) always excluded — the surface holds temper's own authored
 /// modules and lock, never a harness member, and being committed (not
 /// gitignored) it would otherwise enter the discoverable set on its own.
+/// Discovery also stops at a **nested governed root**: a subdirectory below the
+/// harness root that carries its own `.temper/lock.toml` is its own corpus, so the
+/// walk skips descending it — its members are never the parent's. The harness root's
+/// own lock must not self-fence, so the skip keys off walk depth, not the name.
 /// Built with
 /// ripgrep's `ignore` engine so nested `.gitignore` files, negation, and precedence are
 /// honored rather than hand-rolled. Only git's own declaration counts: the machine-global
@@ -265,7 +269,20 @@ fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
         .git_exclude(true)
         .require_git(false)
         .filter_entry(|entry| {
-            entry.file_name() != OsStr::new(".git") && entry.file_name() != OsStr::new(TEMPER_DIR)
+            if entry.file_name() == OsStr::new(".git")
+                || entry.file_name() == OsStr::new(TEMPER_DIR)
+            {
+                return false;
+            }
+            // Depth 0 is the harness root itself: its own `.temper/lock.toml` governs
+            // this walk and must never fence it. Any deeper directory carrying one is a
+            // nested governed root — its members belong to its own corpus, so the walk
+            // stops here rather than collecting them for the parent.
+            !(entry.depth() > 0
+                && entry
+                    .file_type()
+                    .is_some_and(|file_type| file_type.is_dir())
+                && is_governed_root(entry.path()))
         })
         .build();
     // A walk error (an unreadable entry) drops that entry rather than aborting
@@ -274,6 +291,12 @@ fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
         allowed.insert(crate::graph::normalize_path(entry.path()));
     }
     allowed
+}
+
+/// Whether `dir` carries its own `.temper/lock.toml` — the mark of an independently
+/// governed harness whose members are its own corpus, not the enclosing walk's.
+fn is_governed_root(dir: &Path) -> bool {
+    dir.join(TEMPER_DIR).join(LOCK_FILENAME).is_file()
 }
 
 /// Read `dir`'s entries into a vector, mapping any failure to an
@@ -533,6 +556,40 @@ Last line, no newline.";
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
         let found = discover_builtin(&harness, &skill_kind).unwrap();
         assert_eq!(found, vec![harness.join("SKILL.md")]);
+    }
+
+    #[test]
+    fn discover_fences_a_nested_governed_root_but_not_the_harness_root() {
+        // The memory kind's `**/CLAUDE.md` root=`.` walk collects the harness root's own
+        // memory file but stops at a vendored sub-harness carrying its own
+        // `.temper/lock.toml`: that subdir is its own corpus, never the parent's. The
+        // harness root's own lock must not self-fence — its member is still discovered.
+        let harness = tmpdir("nested-governed-root");
+
+        // The parent harness: its own `.temper/lock.toml` (must not self-fence) plus a
+        // root memory file.
+        fs::create_dir_all(harness.join(TEMPER_DIR)).unwrap();
+        fs::write(harness.join(TEMPER_DIR).join(LOCK_FILENAME), "").unwrap();
+        fs::write(harness.join("CLAUDE.md"), "# root memory\n").unwrap();
+
+        // A vendored sub-harness with its own governed root and its own memory file —
+        // fenced from the parent's walk.
+        let vendored = harness.join("examples").join("sub-harness");
+        fs::create_dir_all(vendored.join(TEMPER_DIR)).unwrap();
+        fs::write(vendored.join(TEMPER_DIR).join(LOCK_FILENAME), "").unwrap();
+        fs::write(vendored.join("CLAUDE.md"), "# vendored memory\n").unwrap();
+
+        let memory = CustomKind::new(
+            "memory",
+            Governs {
+                root: ".".to_string(),
+                glob: "**/CLAUDE.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        );
+
+        let found = discover_builtin(&harness, &memory).unwrap();
+        assert_eq!(found, vec![harness.join("CLAUDE.md")]);
     }
 
     #[test]
