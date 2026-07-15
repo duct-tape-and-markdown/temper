@@ -55,7 +55,7 @@ From this directory, with the `temper` binary installed and the SDK built
 
 ```sh
 npm -C .temper install
-temper emit --into .temper
+temper emit
 temper check
 temper explain scanner
 ```

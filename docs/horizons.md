@@ -204,9 +204,11 @@ that evidence, not preference, is the bite condition.
   vs the model's unconstrained embedded rendering; no prose/blocks
   interleave; no mention adapter; embedded members unmentionable). Held
   back on purpose: a roll-up rendering helper (wait for recurrence) and
-  edge fields on embedded kinds (mentions may simply be right). The
-  projected docs read as fenced blocks until the fence finding lands —
-  the cost is the exhibit.
+  edge fields on embedded kinds (mentions may simply be right). Findings
+  closed same day by the loop (four build commits, 07-15): the projected
+  docs now render fence-free markdown, the reap bug is dead, embedded
+  members are mentionable. Two forks remain open:
+  `(prose-interleaving)`, `(discovery-nested-root-fence)`.
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`

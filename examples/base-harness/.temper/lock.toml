@@ -1,14 +1,14 @@
 [[decision]]
 name = "authority-arrow"
 source_path = "docs/decisions/authority-arrow.md"
-source_hash = "2860847a6e08985418447b638d6ef79d88a01a74ada3fc860b336a9765e1033a"
-emit_hash = "2860847a6e08985418447b638d6ef79d88a01a74ada3fc860b336a9765e1033a"
+source_hash = "ca2adf8129a5bff9472e58b3fdc2a6ddd9761add6f5f6343336beccbb8c9a16d"
+emit_hash = "ca2adf8129a5bff9472e58b3fdc2a6ddd9761add6f5f6343336beccbb8c9a16d"
 
 [[flow]]
 name = "summarize"
 source_path = "docs/flows/summarize.md"
-source_hash = "6731831cee01a436e864035bccfd4a3eb622e4aec50b7bb70e0fc466b4580422"
-emit_hash = "6731831cee01a436e864035bccfd4a3eb622e4aec50b7bb70e0fc466b4580422"
+source_hash = "8c1344296318e108ea8b1281e91d2e381a99c7881c3ffac065213ee82d893f33"
+emit_hash = "8c1344296318e108ea8b1281e91d2e381a99c7881c3ffac065213ee82d893f33"
 
 [[memory]]
 name = "CLAUDE"
@@ -31,14 +31,14 @@ emit_hash = "abbdc91bd251256d56493e84683611a84f18eff1e3b6610c86f0440eba06c7f2"
 [[system]]
 name = "renderer"
 source_path = "docs/systems/renderer.md"
-source_hash = "44e4fed689ce89b41dd9516e6f70a640b7c1a2b681b295a12c280fe94c70b946"
-emit_hash = "44e4fed689ce89b41dd9516e6f70a640b7c1a2b681b295a12c280fe94c70b946"
+source_hash = "eb7a630cd2ef4e2f2e47fc51e95f86d714cb5164dea75a95ab9bb6b5edbf5a01"
+emit_hash = "eb7a630cd2ef4e2f2e47fc51e95f86d714cb5164dea75a95ab9bb6b5edbf5a01"
 
 [[system]]
 name = "scanner"
 source_path = "docs/systems/scanner.md"
-source_hash = "63d7e29987f5f6d505fde829b809f6445ccf1373badf2d61e5882358357d1c59"
-emit_hash = "63d7e29987f5f6d505fde829b809f6445ccf1373badf2d61e5882358357d1c59"
+source_hash = "dc845615829ff4d6c9b61a5f7069c0a4218eac5ea12d0ac49fd224d2ad0ae563"
+emit_hash = "dc845615829ff4d6c9b61a5f7069c0a4218eac5ea12d0ac49fd224d2ad0ae563"
 
 [[declaration.kind]]
 name = "decision"
