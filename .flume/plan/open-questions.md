@@ -65,6 +65,33 @@ tax.
   back through the inbox: amend the model, or rule `impact` ships as a
   distinct verb (then a pending entry, `per` contract.md "Read verbs").
 
+- `(builtins-coverage-predicates)` — OPEN (registered 2026-07-15). The 07-15
+  Claude Code audit (`docs/market-formats.md`) surfaces two decidable coverage
+  candidates that each need design before building, because both reach the
+  **closed predicate vocabulary** (`specs/model/contract.md`, "clause": adding
+  a predicate is a deliberate language change — NOT what `specs/builtins.md`
+  "The coverage bar" sanctions, which grows kinds/registration, never
+  predicates). Verified on disk 2026-07-15: `src/contract.rs`'s `Predicate`
+  enum carries neither.
+  (1) **rule glob-validity** — an unparseable `[` in a `paths` glob is invalid
+  and matches nothing (v2.1.207+; code.claude.com/docs/en/memory, retrieved
+  2026-07-15). Decidable via `globset` (the sanctioned engine, brace-expansion
+  aware). Needs a new `valid-glob`-family predicate over `rule`/`skill` `paths`
+  entries. Decision: add it, or defer.
+  (2) **agent tools-must-resolve** — a `tools` entry naming no real tool fails
+  the launch loudly (v2.1.208+; code.claude.com/docs/en/sub-agents, retrieved
+  2026-07-15). Decidability is the open question (`specs/intent.md`, invariant
+  2): the "real tool" set is the running registry — built-ins ∪ MCP tools ∪
+  skills — not a closed documented enum, so an `enumOf`-style clause
+  false-positives on every MCP/skill-named entry. Open: admissible at all, and
+  if so how modeled (a cited built-in-tool enum plus edge resolution for
+  `mcp__*`/skill-named entries)?
+  Kin already deferred in code: the skill contract defers two decidable shape
+  predicates (name hyphen-shape, no-XML-in-description; `sdk/src/builtins.ts`
+  skill-contract doc comment) "pending a vocabulary addition" — same class,
+  batchable by one predicate-vocabulary session. Resolution routes back
+  through the inbox.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
