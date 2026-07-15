@@ -282,7 +282,7 @@ function requirementRows(harness: Harness): RequirementRow[] {
     .sort(([a], [b]) => compareStrings(a, b))
     .map(([name, requirement]) => ({
       name,
-      kind: requirement.kind?.key,
+      kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
       required: requirement.required ?? false,
       clauses: (requirement.clauses ?? []).map((clause) => clauseRow(clause)),
       verified_by: requirement.verifiedBy,

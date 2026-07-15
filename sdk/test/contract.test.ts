@@ -22,7 +22,7 @@ import {
   text,
   unique,
 } from "../src/index.js";
-import type { ClauseRow, Predicate } from "../src/index.js";
+import type { ClauseRow, Predicate, Requirement, RequirementRow } from "../src/index.js";
 import { skill } from "../src/claude-code.js";
 
 test("count composes a satisfier-set-size bound as an ordinary predicate", () => {
@@ -125,4 +125,26 @@ test("sectionContains composes a heading/marker predicate landing its section co
     heading: "Decision",
     marker: "Rejected",
   });
+});
+
+// `Requirement.kind` carries only the kind's identity for coverage resolution,
+// never its field type — so a kind whose fields carry required members (skill,
+// hook) assigns, where the former `KindDefinition<never>` rejected it. A bare
+// kind-name string resolves to itself.
+function requirementRow(kind: Requirement["kind"]): RequirementRow {
+  const h = harness({
+    members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
+    require: { "front-door": { prose: "the harness ships a front-door skill", kind } },
+  });
+  const rows = compileDeclarations(h).requirements.filter((row) => row.name === "front-door");
+  assert.equal(rows.length, 1, "exactly one front-door requirement row");
+  return rows[0]!;
+}
+
+test("a requirement keyed to a required-member kind type-checks and emits its identity", () => {
+  assert.equal(requirementRow(skill).kind, "skill");
+});
+
+test("a requirement keyed to a bare kind-name string emits it verbatim", () => {
+  assert.equal(requirementRow("skill").kind, "skill");
 });
