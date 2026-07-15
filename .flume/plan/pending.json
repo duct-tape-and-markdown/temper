@@ -1,55 +1,5 @@
 [
   {
-    "tag": "SATISFIES-LABEL-QUALIFY",
-    "summary": "The satisfies/graph joins key on the bare member name, not the compiled `kind:name` label, so a cross-kind name collision cross-attributes edges into wrong findings, not silence",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`SatisfiesRow.member` (drift.rs:2313) carries a bare id where `MentionRow` already carries the `kind:name` address (identity is a compiled label — pipeline.md, 'The lock'). Qualify the wire to `kind:name`; `derive_layout_rows` (drift.rs:1082, has `host_address()` in hand) writes the qualified label for layout-sourced satisfies. Read robustly (0024): a pre-fix lock's bare rows qualify against the corpus where unambiguous, the next emit rewrites the file canonical; a true cross-kind collision stays the malformed lock the spec names (0021) — refused loud."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`satisfiesRows` (declarations.ts:314) pushes `{ member: member.name }` — the bare name; write the `${member.kind}:${member.name}` address the way `mentionRows` already does (declarations.ts:334)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1019/1022) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "`author_satisfies` (tests/common/mod.rs:175, plus its rule-kind wrapper at 427) round-trips satisfies fixtures through the wire — the shared-helper fan-out; update it and its callers to the qualified label so the source→row→read cycle stays consistent."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Satisfies-fixture assertions that read back the bare member id move to the `kind:name` label."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "two kinds sharing a member name, each with a qualified satisfies row binding only its own kind's member, produce no cross-attributed requirement.kind refusals or false zero-degree findings"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "satisfies rows carry the `kind:name` label, not the bare member name; a pre-fix bare row qualifies where unambiguous and a cross-kind bare collision is refused as a malformed lock"
-      }
-    ],
-    "acceptance": "A member name shared across two kinds no longer cross-attributes satisfies/graph edges; each qualified row binds only its own kind's member; a pre-fix lock's bare rows qualify where unambiguous and a cross-kind collision is refused as a malformed lock.",
-    "notes": "Live repro (centercode 07-15): a dev-pack `csharp` beside a rule `csharp` cross-attributed satisfies+mention edges — false requirement.kind refusals both ways, false zero-degree, clean bisect on rename. Posture ruled by 0024 (read robustly; cross-kind collision malformed-loud) — dependsOnForks dropped. Fan-out: tests/common/mod.rs author_satisfies, tests/emit.rs. observed 0aa9e62; scoped 06e0c2c (re-verified vs 06c44b1)."
-  },
-  {
     "tag": "LOCK-SPELLING-REAP",
     "summary": "A post-e7b859a engine's first emit against an older `./`-spelled lock silently mass-reaps every live projection — the orphan sweep matches no row and reaps all",
     "per": {
@@ -60,6 +10,7 @@
       "kind": "blockedBy",
       "tag": "SATISFIES-LABEL-QUALIFY"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -91,6 +42,7 @@
       "kind": "blockedBy",
       "tag": "LOCK-SPELLING-REAP"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -126,6 +78,7 @@
       "kind": "blockedBy",
       "tag": "EMIT-INTO-REROOT-REAP"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -157,6 +110,7 @@
       "kind": "blockedBy",
       "tag": "SATISFIES-LABEL-QUALIFY"
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -188,66 +142,6 @@
     ],
     "acceptance": "A composed mention naming a declared kind with no composed member emits (defers to check, which resolves it over discovered members) instead of failing emit; a mention naming no declared kind still refuses at emit; the example's skill→script mention demo builds.",
     "notes": "pipeline.md 'Emit'/'Refusing' amendment (human-ruled 07-15, 06e0c2c) resolves `(composed-mention-discovery-locus)`. Live: `source:main` is a real corpus member the engine resolves `implemented-by`/`graph.route` on, but `renderTextBody` rejects it as dangling. Unblocks the example's (examples/base-harness) skill→script mention demo. Serialized after SATISFIES (shared sdk/src/declarations.ts). observed d26b3ce; scoped 06e0c2c."
-  },
-  {
-    "tag": "INSTALL-FRONTMATTERLESS-BANNER",
-    "summary": "install's managed-by note is a frontmatter `#` comment, so a frontmatterless projection (memory, any frontmatterless kind) carries no in-band banner — grow a block-level HTML-comment form",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "The managed-by note (`NOTE_COMMENT` at install.rs:159, placed/idempotence-keyed by `project_note` at install.rs:1549 via `NOTE_MARKER`) is a `#`-prefixed YAML frontmatter comment. Add a second form — a block-level HTML comment — for a markdown-bodied frontmatterless kind (memory and any frontmatterless custom kind); a frontmatter kind keeps the `#` form. Placement stays content-keyed and idempotent (re-run converges)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a frontmatterless memory projection carries the block-level HTML-comment managed-by banner and a re-run converges (no duplicate); a frontmatter kind keeps the `#` frontmatter-comment form"
-      }
-    ],
-    "acceptance": "A frontmatterless projection carries an in-band managed-by banner (a block-level HTML comment); frontmatter kinds keep the `#` form; both forms stay content-keyed and idempotent.",
-    "notes": "Ruled 07-15 (06e0c2c) resolving `(frontmatterless-managed-by-banner)`. External fact: Claude Code strips block-level HTML comments before injection (code.claude.com/docs/en/memory, retrieved 2026-07-15) — human-visible, model-invisible. Courtesy, not a guarantee gap: a hand-edit is still hash-caught as drift (pipeline.md 'Drift'). Live: pack-kind field trial, centercode 07-15 — ten `file()` members adopted byte-faithful, no banner. observed d26b3ce; scoped 06e0c2c."
-  },
-  {
-    "tag": "CUSTOM-KIND-DOCS",
-    "summary": "Layout/custom-kind authoring guidance has no written home — add it to the bundled teaching skill (`OPERATE_SKILL`), which teaches mechanics",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "What ships — three channels"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/bundle.rs",
-          "description": "`OPERATE_SKILL` (bundle.rs:68) teaches operate-the-gate mechanics; add concise layout / custom-kind authoring guidance — 'if your host mixes prose and members, declare a layout and author the document' — mechanics, never taste (distribution.md 'What ships': the skill teaches mechanics, opinions live in default contracts). The skill body is byte-faithful-copied by bundle from this constant."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/bundle.rs",
-        "asserts": "the bundled operate-the-gate skill body carries the layout / custom-kind authoring guidance"
-      }
-    ],
-    "acceptance": "The operate-the-gate skill teaches layout/custom-kind authoring as mechanics; blocks nothing.",
-    "notes": "Ruled 07-15 (06e0c2c) resolving `(custom-kind-consumer-docs)`: layout authoring is mechanics, so it lives in the plugin's teaching skill, never a README/`docs/` horizon page. Verified the skill source exists now — `OPERATE_SKILL` (src/bundle.rs:68), shipped by `bundle` (tests/bundle.rs) — so bundle work is live and the entry is open. observed d26b3ce; scoped 06e0c2c."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
