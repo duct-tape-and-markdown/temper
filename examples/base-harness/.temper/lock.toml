@@ -251,6 +251,14 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
+kind = "skill"
+predicate = "glob-valid"
+field = "paths"
+severity = "required"
+guidance = "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field."
+cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
+
+[[declaration.clause]]
 kind = "system"
 predicate = "unique-name"
 severity = "required"
