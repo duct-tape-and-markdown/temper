@@ -1,33 +1,5 @@
 [
   {
-    "tag": "GROWN-FIELD-SCHEMAS",
-    "summary": "Grow the Skill and Agent typed field schemas to the current documented frontmatter — the optional keys the skills/sub-agents pages document (fields only, no new clauses)",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The shipped kinds"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Add the current documented optional frontmatter fields as typed properties. On the `Skill` interface (kebab-case keys): `when_to_use`, `argument-hint`, `arguments`, `allowed-tools`, `disallowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `shell` — the ones not already present (disable-model-invocation/user-invocable/paths/license already ship). On the `Agent` interface (camelCase keys): `tools`, `disallowedTools`, `model`, `permissionMode`, `maxTurns`, `skills`, `mcpServers`, `hooks`, `memory`, `background`, `effort`, `isolation`, `color`, `initialPrompt`. Each optional, each with a per-field doc-comment `cite` re-fetched raw against code.claude.com/docs/en/{skills,sub-agents}. `command` inherits Skill's schema by import. No clauses — fields only."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "A skill and an agent authored with a sample of the new fields project them to YAML frontmatter in declared order, byte-faithfully (the generic fold already carries them; the assertion pins the typed surface)."
-      }
-    ],
-    "acceptance": "An author can type every documented Skill/Agent frontmatter field with hover guidance and a cite, and a member carrying them projects them byte-faithfully to frontmatter; `pnpm --dir sdk test` and `cargo test` (builtin_lock_frozen) stay green (builtins.md: the documented fields that modulate them per member are ordinary declared fields).",
-    "notes": "Verified on disk at abd9a58 (window 4c428b5..HEAD is flume-only): the reported Skill keys are absent, Agent has only description/prose. Field folding is generic (kind.ts Object.entries minus FRAMEWORK_KEYS) + generic frontmatter adapter → SDK-typing-only, no Rust/lock ripple (builtin members set none). Skill keys kebab-case, agent camelCase; build re-fetches raw per field per cite (market-formats.md deep-audit 2/6). Clauses excluded — (builtins-coverage-predicates) fork. scoped at abd9a58."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
