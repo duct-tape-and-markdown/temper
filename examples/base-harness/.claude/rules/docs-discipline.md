@@ -7,11 +7,12 @@ Path-scoped to `docs/`. Everything here except `glossary.md` is a
 projection: the authored home is the owning module under `.temper/docs/`,
 and a direct edit is drift.
 
-- To change a document, edit its module (the narrative lives in the
-  module-adjacent markdown file; relationships are typed fields), then run
-  `temper emit`. The structural discipline — participants resolve, a
-  superseded ruling names its successor, spine coverage holds — is
-  enforced by the program and the gate, not by this rule.
+- To change a document, edit its module (narrative passages, invariants,
+  steps, and alternatives are typed values composed in the module), then
+  run `temper emit`. The structural discipline — a step's system resolves,
+  an `implemented-by` file exists, a superseded ruling names its
+  successor, spine coverage holds — is enforced by the program and the
+  gate, not by this rule.
 - Superseding a decision is the `supersede()` operation in
   `.temper/kinds.ts`: it takes the successor as an import, moves the old
   ruling's record to `docs/decisions/superseded/`, and never edits the

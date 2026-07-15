@@ -191,6 +191,22 @@ that evidence, not preference, is the bite condition.
   authored from member values, lifecycle as a typed `supersede()` — with
   the glossary kept as the one layout source; the `(lifecycle-encoding)`
   fork is settled twice over (kind partition + the field's own type).
+  *Second cut (2026-07-15, human-ruled in session):* the kinds recomposed
+  against the mark "a docs kind earns its type when a typed field can go
+  false about the world, and its body composes from declared members" —
+  systems contain `invariant` members, flows contain `step` members (each
+  step's system an import, its edge a mention row; `participants` deleted
+  as a field, rendered from the steps), decisions contain `alternative`
+  members, and a `source` kind over a deliberately tiny governed `src/`
+  makes `implemented-by` an edge the gate refuses when the file goes
+  (verified firing: `graph.route`). Five product findings routed to the
+  inbox (destructive emit reap on workspace spelling; the fence wrapper
+  vs the model's unconstrained embedded rendering; no prose/blocks
+  interleave; no mention adapter; embedded members unmentionable). Held
+  back on purpose: a roll-up rendering helper (wait for recurrence) and
+  edge fields on embedded kinds (mentions may simply be right). The
+  projected docs read as fenced blocks until the fence finding lands —
+  the cost is the exhibit.
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`

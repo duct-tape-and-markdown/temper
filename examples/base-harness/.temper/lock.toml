@@ -1,32 +1,26 @@
 [[decision]]
 name = "authority-arrow"
 source_path = "docs/decisions/authority-arrow.md"
-source_hash = "98702b5ed1f538730e041bc88f787ce7dcc89492203618a194b70f7a15248b98"
-emit_hash = "98702b5ed1f538730e041bc88f787ce7dcc89492203618a194b70f7a15248b98"
+source_hash = "2860847a6e08985418447b638d6ef79d88a01a74ada3fc860b336a9765e1033a"
+emit_hash = "2860847a6e08985418447b638d6ef79d88a01a74ada3fc860b336a9765e1033a"
 
 [[flow]]
-name = "change"
-source_path = "docs/flows/change.md"
-source_hash = "86f6c4627b1c01a000994e82fffcce7d2d28b4d3ef4ad3e6d562a53e18526699"
-emit_hash = "86f6c4627b1c01a000994e82fffcce7d2d28b4d3ef4ad3e6d562a53e18526699"
-
-[[flow]]
-name = "drift-repair"
-source_path = "docs/flows/drift-repair.md"
-source_hash = "1a456b4723b54384fc55050e53e077fc79e82c34498ed2de3129ef4a729715d7"
-emit_hash = "1a456b4723b54384fc55050e53e077fc79e82c34498ed2de3129ef4a729715d7"
+name = "summarize"
+source_path = "docs/flows/summarize.md"
+source_hash = "6731831cee01a436e864035bccfd4a3eb622e4aec50b7bb70e0fc466b4580422"
+emit_hash = "6731831cee01a436e864035bccfd4a3eb622e4aec50b7bb70e0fc466b4580422"
 
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "20f673a43260072c739cec603d22bbd8cfee6bed1534ab91ebf5d9f869655687"
-emit_hash = "20f673a43260072c739cec603d22bbd8cfee6bed1534ab91ebf5d9f869655687"
+source_hash = "f909dc3ffafd71881367391736c03d0204d2b2634ee217e5d7901765bf55de27"
+emit_hash = "f909dc3ffafd71881367391736c03d0204d2b2634ee217e5d7901765bf55de27"
 
 [[rule]]
 name = "docs-discipline"
 source_path = ".claude/rules/docs-discipline.md"
-source_hash = "b65d555cfcdf10de6c27122fee12ba420c25ce3faca64a00a63bb225d966f306"
-emit_hash = "b65d555cfcdf10de6c27122fee12ba420c25ce3faca64a00a63bb225d966f306"
+source_hash = "a2be8e8092a3b4f9e3467a336092d14cc932ebb3ad340b65f8411b3ae884c350"
+emit_hash = "a2be8e8092a3b4f9e3467a336092d14cc932ebb3ad340b65f8411b3ae884c350"
 
 [[superseded-decision]]
 name = "per-change-doc-duty"
@@ -35,16 +29,16 @@ source_hash = "abbdc91bd251256d56493e84683611a84f18eff1e3b6610c86f0440eba06c7f2"
 emit_hash = "abbdc91bd251256d56493e84683611a84f18eff1e3b6610c86f0440eba06c7f2"
 
 [[system]]
-name = "corpus"
-source_path = "docs/systems/corpus.md"
-source_hash = "a2b8aa406baa01c32d61f55d13ecc70441908060c27c3a798ae73152c2ff9f27"
-emit_hash = "a2b8aa406baa01c32d61f55d13ecc70441908060c27c3a798ae73152c2ff9f27"
+name = "renderer"
+source_path = "docs/systems/renderer.md"
+source_hash = "44e4fed689ce89b41dd9516e6f70a640b7c1a2b681b295a12c280fe94c70b946"
+emit_hash = "44e4fed689ce89b41dd9516e6f70a640b7c1a2b681b295a12c280fe94c70b946"
 
 [[system]]
-name = "gate"
-source_path = "docs/systems/gate.md"
-source_hash = "93136c154a6bd197f6871d51d1c790cdb9a04df843cdb592fe10b2f5f843886f"
-emit_hash = "93136c154a6bd197f6871d51d1c790cdb9a04df843cdb592fe10b2f5f843886f"
+name = "scanner"
+source_path = "docs/systems/scanner.md"
+source_hash = "63d7e29987f5f6d505fde829b809f6445ccf1373badf2d61e5882358357d1c59"
+emit_hash = "63d7e29987f5f6d505fde829b809f6445ccf1373badf2d61e5882358357d1c59"
 
 [[declaration.kind]]
 name = "decision"
@@ -52,14 +46,15 @@ governs_root = "docs/decisions"
 governs_glob = "*.md"
 unit_shape = "file"
 registration = ["always"]
+templates = ["alternative", "passage"]
 
 [[declaration.kind]]
 name = "flow"
 governs_root = "docs/flows"
 governs_glob = "*.md"
-format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
+templates = ["passage", "step"]
 
 [[declaration.kind]]
 name = "glossary"
@@ -94,6 +89,13 @@ unit_shape = "file"
 registration = ["paths-match(paths)"]
 
 [[declaration.kind]]
+name = "source"
+governs_root = "src"
+governs_glob = "*.js"
+unit_shape = "file"
+registration = ["always"]
+
+[[declaration.kind]]
 name = "superseded-decision"
 governs_root = "docs/decisions/superseded"
 governs_glob = "*.md"
@@ -105,8 +107,10 @@ registration = ["always"]
 name = "system"
 governs_root = "docs/systems"
 governs_glob = "*.md"
+format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
+templates = ["invariant", "passage"]
 
 [[declaration.clause]]
 kind = "decision"
@@ -148,23 +152,134 @@ value = "warn"
 
 [[declaration.assembly]]
 fact = "edge"
-from = "flow"
-field = "participants"
-to = "system"
-
-[[declaration.assembly]]
-fact = "edge"
 from = "superseded-decision"
 field = "superseded-by"
 to = "decision"
 
+[[declaration.assembly]]
+fact = "edge"
+from = "system"
+field = "implemented-by"
+to = "source"
+
 [[declaration.satisfies]]
-member = "corpus"
+member = "renderer"
 requirement = "documented-spine"
 
 [[declaration.satisfies]]
-member = "gate"
+member = "scanner"
 requirement = "documented-spine"
+
+[[declaration.mention]]
+member = "summarize/step/scan/in"
+target = "system:scanner"
+
+[[declaration.mention]]
+member = "summarize/step/summarize/in"
+target = "system:renderer"
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "alternative"
+key = "code-authoritative"
+leaves = { body = "Rejected. Rational when humans author the code and decisions live nowhere else, but agent-authored code is output, and deriving intent from output is mining. It also defeats the docs' own purpose for agents: a doc that trails code cannot be trusted at planning time.", title = "Code authoritative" }
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "alternative"
+key = "per-change-doc-duty"
+leaves = { body = "Rejected as the primary mechanism. A convention held by reviewer vigilance fails silently, one forgotten change at a time. It survives here only as a courtesy, downstream of the arrow — see the superseded ruling this decision replaces.", title = "Per change documentation duty" }
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "passage"
+key = "consequences"
+leaves = { text = """
+## Consequences
+
+Documentation duties invert: there is no "remember to update the docs" step, because the docs move first and the delta drives the work. The cost is honesty about the return path — evidence against the corpus must enter through an authored surface (an amendment, an open question), which is slower than hot-patching code and letting docs decay. That cost is the point.
+
+## Alternatives""" }
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "passage"
+key = "context"
+leaves = { text = 'Repositories that document themselves must choose which side is authoritative when docs and code disagree. The conventional answer makes code the source of truth and docs a trailing description, held close by a per-change duty ("update the affected docs") that reviewers enforce. In a repository whose code is substantially agent-authored, that answer reads intent out of an artifact — the one direction this corpus forbids.' }
+
+[[declaration.nested_member]]
+host = "decision:authority-arrow"
+kind = "passage"
+key = "ruling"
+leaves = { text = """
+## Ruling
+
+The corpus is authoritative. The documents under `docs/` render declared intent; code and configuration reconcile toward them. When docs and code disagree, the code has the bug or the corpus needs an authored amendment — never a silent doc edit to match the drift.""" }
+
+[[declaration.nested_member]]
+host = "flow:summarize"
+kind = "passage"
+key = "overview"
+leaves = { text = """
+Summarize is the toy's one behavior: read a checklist, report how much of it is done (`node src/main.js TODO.md`).
+
+Participants: scanner, renderer.
+
+## Steps""" }
+
+[[declaration.nested_member]]
+host = "flow:summarize"
+kind = "step"
+key = "scan"
+leaves = { body = "Every line of the document is classified. Lines carrying a box become items; everything else drops out here and is never seen again downstream.", in = "scanner", title = "Scan the lines" }
+
+[[declaration.nested_member]]
+host = "flow:summarize"
+kind = "step"
+key = "summarize"
+leaves = { body = "The surviving items tally into the summary line: done over total. The document itself is out of reach by design.", in = "renderer", title = "Render the summary" }
+
+[[declaration.nested_member]]
+host = "system:renderer"
+kind = "invariant"
+key = "derives-never-rereads"
+leaves = { body = "The renderer takes the scanned items alone. If a count looks wrong, the scan is wrong; the renderer holds no second opinion about the document.", title = "The summary derives from scan results, never the document" }
+
+[[declaration.nested_member]]
+host = "system:renderer"
+kind = "invariant"
+key = "one-line"
+leaves = { body = "The summary is a single line with no trailing detail. Anything richer is a new declared behavior, not a bigger string.", title = "One line out" }
+
+[[declaration.nested_member]]
+host = "system:renderer"
+kind = "passage"
+key = "overview"
+leaves = { text = """
+The renderer turns scan results into the one-line summary (`2/3 done`): items done over items total.
+
+## Invariants""" }
+
+[[declaration.nested_member]]
+host = "system:scanner"
+kind = "invariant"
+key = "done-is-exact"
+leaves = { body = "Lowercase `x`, nothing else. `[X]` and `[~]` are unrecognized lines under the invariant above.", title = "A done box is exactly `[x]`" }
+
+[[declaration.nested_member]]
+host = "system:scanner"
+kind = "invariant"
+key = "ignored-never-guessed"
+leaves = { body = "A line without a box is not an item: the scanner drops it and does not repair near-misses. Loosening the pattern is a corpus amendment first, code second.", title = "Unrecognized lines are ignored, never guessed" }
+
+[[declaration.nested_member]]
+host = "system:scanner"
+kind = "passage"
+key = "overview"
+leaves = { text = """
+The scanner classifies the lines of a checklist document. A line is an item only when it carries a box: `- [ ]` open, `- [x]` done. The scan yields the items in document order and nothing else.
+
+## Invariants""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"
@@ -190,6 +305,11 @@ key = "layout"
 host = "glossary:glossary"
 kind = "term"
 key = "reconciliation"
+
+[[declaration.nested_member]]
+host = "glossary:glossary"
+kind = "term"
+key = "checklist-item"
 
 [[declaration.registration]]
 kind = "hook"

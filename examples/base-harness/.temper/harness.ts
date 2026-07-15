@@ -2,11 +2,10 @@ import { clause, count, emit, harness, maxLines, uniqueName } from "@dtmd/temper
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
 import { hook_guard, hook_sessionStart } from "./hooks.ts";
-import { decision, flow, glossary, system } from "./kinds.ts";
-import { system_corpus } from "./docs/systems/corpus.ts";
-import { system_gate } from "./docs/systems/gate.ts";
-import { flow_change } from "./docs/flows/change.ts";
-import { flow_driftRepair } from "./docs/flows/drift-repair.ts";
+import { alternative, decision, flow, glossary, invariant, passage, source, stepKind, system } from "./kinds.ts";
+import { system_scanner } from "./docs/systems/scanner.ts";
+import { system_renderer } from "./docs/systems/renderer.ts";
+import { flow_summarize } from "./docs/flows/summarize.ts";
 import { decision_authorityArrow } from "./docs/decisions/authority-arrow.ts";
 import { decision_perChangeDocDuty } from "./docs/decisions/per-change-doc-duty.ts";
 
@@ -29,10 +28,9 @@ const program = harness({
   members: [
     memory_CLAUDE,
     rule_docsDiscipline,
-    system_corpus,
-    system_gate,
-    flow_change,
-    flow_driftRepair,
+    system_scanner,
+    system_renderer,
+    flow_summarize,
     decision_authorityArrow,
     decision_perChangeDocDuty,
     glossary({ name: "glossary" }),
@@ -53,6 +51,14 @@ const program = harness({
     },
     { kind: flow, clauses: [clause(uniqueName(), { severity: "required" })] },
     { kind: decision, clauses: [clause(uniqueName(), { severity: "required" })] },
+    // In-play bindings, no clauses of their own: the embedded kinds so their
+    // values are admitted nesting, and `source` so `implemented-by` has a
+    // target kind to resolve within.
+    { kind: passage, clauses: [] },
+    { kind: invariant, clauses: [] },
+    { kind: stepKind, clauses: [] },
+    { kind: alternative, clauses: [] },
+    { kind: source, clauses: [] },
   ],
 });
 

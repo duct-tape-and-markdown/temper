@@ -49,3 +49,48 @@ routing.
      second `memory` member (any-depth `**/CLAUDE.md` glob; no finding,
      but cross-contamination). Should discovery stop at a directory
      carrying its own `.temper/lock.toml`?
+
+- BASE-HARNESS DOGFOOD, second cut (observed at c2f8a2c; all reproduced in
+  examples/base-harness on the PR #19 branch):
+  1. **`emit` reaps live, byte-faithful projections when the workspace
+     spelling differs from the lock's.** `emit` (default `--into
+     ./.temper`) derives `harness_root` as `Path::parent` of the workspace
+     — `"./.temper"` parents to `"."`, so owned paths spell
+     `./docs/...` while a lock written under `--into .temper` (parent
+     `""`) spells `docs/...`. The same projection then reports
+     `unchanged` AND `reaped` in one run, and the reap deletes the file
+     (the emit-hash safety line passes because the file is faithful).
+     Destructive, reproduced twice. Likely the root cause of finding 2
+     above (`install --yes` contradictory preview). Fix direction:
+     normalize the workspace path before deriving `harness_root`
+     (src/drift.rs, `to_lock_path` / the `owned_paths` set).
+  2. **The SDK forces a fence around the model's unconstrained embedded
+     rendering.** `renderMemberFence` (sdk/src/emit.ts) wraps every
+     `blocks()` value in a ` ```member.<kind> <key> ` fence even when the
+     kind declares a `render` hook — but the model says an embedded kind's
+     format is "writer-only and unconstrained — no admissibility bar" for
+     composed hosts (specs/model/representation.md, "kind"), and the
+     engine never reads the fence back (the fence fold is retired; nested
+     members build from lock rows — src/extract.rs
+     `nested_members_from_rows`, 0018). The projected docs of a composed
+     corpus read as stacked code fences instead of markdown. Direction:
+     let a `render`-hook kind emit fence-free markdown; facts already ride
+     the lock.
+  3. **`Prose` admits no interleaving.** A member's body is exactly one of
+     `file() | text`` | blocks()`, so a host with typed children carries
+     every narrative span as a wrapper embedded member (the example's
+     `passage` kind). Direction: `blocks()` (or a sibling) accepting
+     `Text | EmbeddedMemberValue` children in order.
+  4. **No `Member → Mentionable` adapter.** The SDK defines the
+     `kind:name` address grammar but exports no helper to spell it; the
+     example hand-rolls `mentionOf` (examples/base-harness/.temper/
+     kinds.ts). Two lines, pure convention capture.
+  5. **Embedded members are not mentionable.** The contract says a
+     mention's target "may be a member or a leaf"
+     (specs/model/contract.md, "mention") but the SDK's mentionable set is
+     requirements + top-level `kind:name` only
+     (sdk/src/declarations.ts `declaredAddresses`), so a decision cannot
+     cite a system's invariant as a graph edge. Proposal: host-scoped
+     addresses (`system:scanner/invariant/done-is-exact` — the lock's
+     leaf-address shape), never flat `invariant:<key>`, which would force
+     corpus-wide key uniqueness on embedded kinds.

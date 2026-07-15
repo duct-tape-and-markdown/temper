@@ -33,3 +33,9 @@ model structure rather than formatting.
 The standing process that closes the corpus-versus-implementation delta in
 the corpus's favor. The replacement for per-change documentation duties.
 
+### Checklist item
+
+A line carrying a box (`- [ ]` or `- [x]`) — the unit the scanner yields
+and the renderer counts. A line without a box is not an item and is never
+guessed at.
+
