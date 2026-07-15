@@ -560,7 +560,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
   );
 });
 
-test("a kind()'s render hook replaces the default TOML view inside the member fence; a kind() without one stays byte-identical", () => {
+test("a kind()'s render hook projects fence-free in place of the default TOML view; a kind() without one keeps its member fence byte-identical", () => {
   const embeddedFacts = {
     locus: { kind: "embedded" as const, withinHosts: ["memory"] },
     unitShape: "file" as const,
@@ -595,11 +595,11 @@ test("a kind()'s render hook replaces the default TOML view inside the member fe
 
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
+  // The render-hook value projects its hook markdown bare — no `member.decision`
+  // fence around it — while the hook-less value keeps its fenced TOML view.
   assert.equal(
     member.body,
-    "```member.decision surface-authority\n" +
-      "surface-authority chose: the composition surface is canonical\n" +
-      "```\n" +
+    "surface-authority chose: the composition surface is canonical\n" +
       "\n" +
       '```member.decision second\nchosen = "unchanged"\n```\n',
   );
@@ -664,12 +664,7 @@ test("a kind()'s render hook receives a resolvable leaf mention already rendered
 
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
-  assert.equal(
-    member.body,
-    "```member.decision surface-authority\n" +
-      "surface-authority chose: See rust for the standard.\n" +
-      "```\n",
-  );
+  assert.equal(member.body, "surface-authority chose: See rust for the standard.\n");
 });
 
 test("a blocks() body renders a keyed collection entry as its own [collection.entry] table", () => {

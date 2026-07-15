@@ -129,25 +129,30 @@ function renderMemberToml(value: ResolvedEmbeddedMemberValue): string {
 }
 
 /**
- * Render one embedded member's value to its `member.<kind> <key>` fenced block:
- * the originating kind's own `render` hook, when declared, in place of the
- * default `[collection.entry]` TOML view — the fence wrapper itself never
- * changes, so a `render`-less kind's projection is byte-unchanged. Leaves
- * resolve once (`resolveMemberLeaves`) before either path sees them, so a
+ * Render one embedded member's value to its projected block. A `render`-less
+ * kind projects the default `[collection.entry]` TOML view wrapped in a
+ * `member.<kind> <key>` fence, byte-unchanged. A kind that declares a `render`
+ * hook projects the hook's output directly, with no fence: an embedded format
+ * is writer-only and unconstrained when its host is composed (`representation.md`,
+ * "kind") — the engine never reads the block back (nested-member facts ride the
+ * lock, `pipeline.md`, "The lock"), so the fence is cosmetic and a hook that
+ * already renders readable markdown should not be re-buried in a code fence.
+ * Leaves resolve once (`resolveMemberLeaves`) before either path sees them, so a
  * hook receives plain strings, never a raw `Text` leaf.
  */
-function renderMemberFence(value: EmbeddedMemberValue, options: ResolveOptions): string {
+function renderMemberBlock(value: EmbeddedMemberValue, options: ResolveOptions): string {
   const mentionable = options.mentionable ?? new Set<string>();
   const resolved = resolveMemberLeaves(value, mentionable);
-  const body = value.render !== undefined ? value.render(resolved) : renderMemberToml(resolved);
-  return `\`\`\`member.${value.kind} ${value.key}\n${body}\n\`\`\``;
+  if (value.render !== undefined) return value.render(resolved);
+  return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(resolved)}\n\`\`\``;
 }
 
 /**
  * Resolve a member's prose to its final body bytes: a `file()` asset is read in
  * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
  * dangling address) and rendered by the one display rule; a `blocks()` body
- * renders each embedded member as a `member.<kind> <key>` TOML fence. The words
+ * renders each embedded member as a `member.<kind> <key>` TOML fence, or, for a
+ * kind with a `render` hook, as the hook's fence-free markdown. The words
  * are never reworded.
  *
  * # Throws
@@ -169,7 +174,7 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     }
   }
   if (prose.kind === "blocks") {
-    return prose.values.map((value) => renderMemberFence(value, options)).join("\n\n") + "\n";
+    return prose.values.map((value) => renderMemberBlock(value, options)).join("\n\n") + "\n";
   }
   const mentionable = options.mentionable ?? new Set<string>();
   for (const mention of prose.mentions) {
