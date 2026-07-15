@@ -201,17 +201,25 @@ test("an agent member's identity field writes name first, then the typed descrip
   ]);
 });
 
-test("disable-model-invocation/user-invocable are ordinary declared fields on a skill member", () => {
+test("disable-model-invocation/user-invocable/paths are ordinary declared fields on a skill member", () => {
   const member = skill({
     name: "demo",
     description: "Use when demonstrating a skill's modulating fields.",
     "disable-model-invocation": true,
     "user-invocable": false,
+    paths: ["src/**"],
   });
   assert.deepEqual(member.fields, [
     ["name", "demo"],
     ["description", "Use when demonstrating a skill's modulating fields."],
     ["disable-model-invocation", true],
     ["user-invocable", false],
+    ["paths", ["src/**"]],
   ]);
+  // paths gates the existing invocation channels, so it adds no registration
+  // channel of its own — unlike a rule's paths-match.
+  assert.deepEqual(
+    skill.facts.registration,
+    [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
+  );
 });

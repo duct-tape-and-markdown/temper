@@ -49,6 +49,18 @@ export interface Skill {
    * "Control who invokes a skill", retrieved 2026-07-07). Default: `true`.
    */
   readonly "user-invocable"?: boolean;
+  /**
+   * The optional path scope — a channel gate, not a channel of its own. A
+   * present list removes the skill from *every* invocation channel — the `/`
+   * listing, model invocation, and description-trigger invocation — until
+   * Claude reads a file the globs match; an absent one leaves all channels
+   * live. Distinct from a rule's `paths`, which registers the path-match as
+   * the rule's channel: here the field gates the skill's existing channels
+   * rather than being one, so it adds no `paths-match` registration entry
+   * (code.claude.com/docs/en/skills, retrieved 2026-07-15; verified against
+   * 2.1.210).
+   */
+  readonly paths?: readonly string[];
   readonly prose?: Prose;
 }
 
