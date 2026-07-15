@@ -1,4 +1,4 @@
-# 0019 — loud or nothing
+# 0023 — loud or nothing
 
 - **Date:** 2026-07-09 · **Status:** accepted
 
