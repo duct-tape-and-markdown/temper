@@ -3,31 +3,32 @@
 - Spec derived through: dff2db2
 - Audited through: d2496b6
 - Residue swept through: d2496b6
-- This tick: Post-ship reconciliation of the abec284..d2496b6 window (two
-  build commits: a83c573 discovery fence in src/import.rs; 6450ba6 prose
-  interleave in sdk/src/{prose,emit,declarations}.ts + test). AUDIT: both
-  shipped entries verified on disk — `temper check .temper` now reports
-  memory (1) (examples/base-harness fenced by its own `.temper/lock.toml`,
-  DISCOVERY-NESTED-ROOT-FENCE works); the interleave test pair
-  (emit.test.ts:907+, mention.test.ts) is present and gates green. Both
-  entries were already dropped from pending last tick — nothing to drop.
-  PACKAGING-CHANNELS-REMAINDER park re-verified live: no v0.1 tag (only
-  decision-era tags), crate still 0.1.0 — park holds. SWEEP: no
-  behavior/second-implementation residue (both commits implement dff2db2
-  faithfully; import.rs rides the existing `ignore` filter_entry, no
-  hand-roll; emit.ts/declarations.ts/mention.test.ts carry no retired vocab).
-  Only comment-staleness riders moved: PROSE-INTERLEAVE-SDK opened prose.ts
-  and *rewrote* the two "posture 3" doc comments fresh (self-propagation)
-  while leaving law/decision-cite narration, and opened emit.test.ts leaving
-  the renderMemberFence cite at 853. Both are the rides-next-entry exception
-  (never standalone); records re-derived on disk (prose.ts law5 6/93/210,
-  law8 11, posture 78/108/113/140/190, cites 78/152; emit.test.ts:853) at
-  reconcile HEAD d2496b6. kind.ts/extract.rs/builtins.ts/session_start.rs
-  riders untouched this window — copied forward.
-- Queue: PACKAGING-CHANNELS-REMAINDER (parked, human release actions) — the
-  only entry; no open pickable work.
+- This tick: INBOX drain (two notes). (1) Requirement.kind variance →
+  filed REQUIREMENT-KIND-VARIANCE (open): sdk/src/contract.ts:179 typed
+  KindDefinition<never> blocks skill/hook-keyed requirements; widen to
+  `string | KindDefinition<any>` mirroring the collection child-kind slot
+  (kind.ts:315, embeddedMemberValue), declarations.ts:285 gains the string
+  arm. SDK-only, no Rust ripple (RequirementRow.kind already a string).
+  Human-ruled 07-15, live demand. (2) 2026-07-15 Claude Code drift register
+  → NOT re-derived as inbox entries: the recut 0aa9e62 (John, same day,
+  AFTER the note at e8edffa) absorbed its spec-encodable half (five→seven
+  kinds, command legacy posture, skill path-scope channel gating, domain
+  partition) and its commit body RESOLVED the one modeling question the
+  register raised — rejected encoding the `paths` gate as a channel
+  construct/algebra; it is the field's documented semantics, carried with
+  the field. So no open fork survives. The remaining code reconciliation
+  (skill new fields + forbiddenKeys, DOCUMENTED_HOOK_EVENTS re-verify,
+  agent tools-loud clause, rules glob-validity, cite refreshes) is a
+  DERIVATION of the ratified recut — tracked by the spec cursor (still
+  dff2db2, behind 0aa9e62), reference `docs/market-formats.md` "Claude Code
+  deep audit", carrying the summarizer-mediated re-fetch-raw-page-before-
+  cite obligation. Item 4's AGENTS.md detail (not read; `@AGENTS.md`
+  bridge) feeds the standing `(agents-md-builtin-kind)` open fork,
+  unchanged. Both notes drained from inbox.
+- Queue: REQUIREMENT-KIND-VARIANCE (open, pickable) +
+  PACKAGING-CHANNELS-REMAINDER (parked, human release actions). Disjoint —
+  no shared file (sdk/** vs .github/**).
 
-Plan continues: no — inbox empty, spec cursor at HEAD-specs (dff2db2), the
-src/sdk window is reconciled to HEAD (d2496b6). Sole entry is parked on human
-release actions; loop hibernates until an inbox note or a spec/code change.
-</content>
+Plan continues: yes — spec delta 0aa9e62 (builtins recut) unrouted; the spec
+cursor is at dff2db2 and job 2 derives the recut's code reconciliation into
+entries next tick (docs/market-formats.md the reference).

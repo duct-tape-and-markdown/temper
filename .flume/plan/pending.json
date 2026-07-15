@@ -1,5 +1,38 @@
 [
   {
+    "tag": "REQUIREMENT-KIND-VARIANCE",
+    "summary": "Requirement.kind is KindDefinition<never>, so skill/hook-keyed requirements don't type-check; widen to string | KindDefinition<any> — coverage resolution needs the kind's identity, not its field type",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "requirement — a shipped kind, not a primitive"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "Widen `Requirement.kind` (line 179) from `KindDefinition<never>` to `string | KindDefinition<any>` and update the interface doc: the slot carries only the kind's identity for coverage resolution, never its field type — so a kind whose fields carry required members (skill, hook) assigns."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "requirementRows (line 285) reads `requirement.kind?.key`; handle the new `string` arm — a bare string resolves to itself, a definition to its `.key`, mirroring embeddedMemberValue (kind.ts:320-321). RequirementRow.kind stays a string, so no wire/Rust change."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "a requirement keyed to `skill` (a kind with required-member fields) type-checks and emits `kind: \"skill\"`; a bare-string `kind` is also accepted and emitted verbatim."
+      }
+    ],
+    "acceptance": "A requirement can be keyed to skill/hook (or a bare kind-name string) at the keystroke and its RequirementRow emits that identity; `.temper/harness.ts`'s friction-capture requirement can restore its dropped `kind:`; `pnpm --dir sdk test` green.",
+    "notes": "Consolidation: mirror the collection child-kind slot `string | KindDefinition<any>` (sdk/src/kind.ts:315, embeddedMemberValue); name it in the commit body. SDK-only, no Rust ripple — RequirementRow.kind already emits a string (declarations.ts:285 reads .key, must handle the string arm). Restoring .temper/harness.ts's dropped friction-capture kind is a follow-on chore(harness), outside build's fence. observed at 3540ebb; scoped at 0aa9e62."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
