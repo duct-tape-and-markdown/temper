@@ -100,11 +100,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   three cites as unchanged context — the predicted "SDK-ERASURE next opens
   builtins.ts and carries them again" came true (its hunks carried the
   fields-only typed fields, not the doc comments; cites unshifted at
-  392/432/469). Both re-verified on disk at reconcile HEAD f075f8d
-  (session_start.rs `+++` fixtures at lines 128/133/146, untouched by this
-  window; the three builtins.ts cites still at 392/432/469). Now rides the
-  next entry opening builtins.ts — no queued entry does — unless it
-  reconciles the cites.
+  392/432/469). SKILL-PATHS-CHANNEL-GATE (2c26759) then opened builtins.ts
+  a fifth time — adding the skill `paths` field's 12-line doc comment above
+  the cites (builtins.ts:63) — and once more left all three as unchanged
+  context, so per the reconciliation-not-opening precedent the rider is
+  undischarged; the cites shifted +12, 392/432/469 → 404/444/481.
+  Re-verified on disk at reconcile HEAD 8ccd01d (builtins.ts cites at
+  404/444/481; session_start.rs `+++` fixtures untouched this window, still
+  128/133/146). Now rides the next entry opening builtins.ts — no queued
+  entry does — unless it reconciles the cites.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"

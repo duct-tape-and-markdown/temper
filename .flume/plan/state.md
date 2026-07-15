@@ -1,28 +1,27 @@
 # Plan state
 
 - Spec derived through: 0aa9e62
-- Audited through: d2496b6
-- Residue swept through: d2496b6
-- This tick: SPEC DELTA drain — routed the builtins recut (0aa9e62). Three
-  amendments, all checked: (1) five→seven kinds — MOOT, sdk/src/builtins.ts
-  already ships `hook`/`mcp-server` kinds (lines 161/231, since 0021); (2)
-  channel gating (a skill path scope gates all channels) — filed
-  SKILL-PATHS-CHANNEL-GATE (open): the `Skill` interface has no `paths`
-  field, so the freshly-ratified gating fact (cite 07-15, verified 2.1.210)
-  is unmodeled; add it as a guidance-only field, NOT a registration entry
-  ("carried with the field, never a channel entry") and no clause (mirrors
-  rule's paths); (3) domain partition — MOOT for code, descriptive model
-  prose, no decidable check, reinforces the spine rule code already honors
-  (no baked baseline). All three routed → cursor to 0aa9e62. NB the code
-  reconciliation the prior tick anticipated (skill forbiddenKeys,
-  DOCUMENTED_HOOK_EVENTS re-verify, agent tools clause, rules glob-validity)
-  lives in `docs/market-formats.md` (candidate intent, fence-excluded), NOT
-  in the recut spec text — not derived; it enters the queue only if ratified
-  into specs.
-- Queue: REQUIREMENT-KIND-VARIANCE (open) + SKILL-PATHS-CHANNEL-GATE (open) +
-  PACKAGING-CHANNELS-REMAINDER (parked). Disjoint — contract.ts/declarations.ts
-  vs builtins.ts/builtins.test.ts vs .github/**, no shared file.
+- Audited through: 8ccd01d
+- Residue swept through: 8ccd01d
+- This tick: POST-SHIP RECONCILIATION of d2496b6..HEAD. Two build commits in
+  window, both audited on disk against their diffs: (1) SKILL-PATHS-CHANNEL-GATE
+  (2c26759) — skill `paths` added as a guidance-only field (builtins.ts:63), no
+  clause, no registration entry; test asserts `skill.facts.registration`
+  unchanged (still user-invoked + description-trigger). Matches builtins.md
+  ("a declared field may also gate the member's channels outright … carried
+  with the field, never a channel entry"). (2) REQUIREMENT-KIND-VARIANCE
+  (0ee0c25) — `Requirement.kind` widened `KindDefinition<never>` →
+  `string | KindDefinition<any>`; `requirementRows` handles the string arm;
+  `RequirementRow.kind` stays a string so the frozen-lock seam is unmoved
+  (contract.md, "requirement" — kind carries identity for coverage). Both
+  already dropped from pending by build. SWEEP: no new residue — the one
+  file this window opened that carries a rider (builtins.ts, opened by
+  2c26759) left the three retired-`packages/` doc-comment cites unreconciled;
+  staleness exception, so it rides (not filed), cites bumped +12
+  (392/432/469→404/444/481) in the kept-on-purpose record. Both cursors → HEAD.
+- Queue: PACKAGING-CHANNELS-REMAINDER (parked — John's Apple notarizing +
+  v0.1 launch tag). Sole entry; not pickable.
 
-Plan continues: no — inbox empty, spec delta drained to 0aa9e62, reconciliation
-window (d2496b6..HEAD) has no src/sdk/tests touches; two pickable open entries
-remain, so build takes over.
+Plan continues: no — inbox empty, spec delta drained to 0aa9e62, reconcile
+window closed to HEAD; the one remaining entry is parked, nothing pickable, so
+the loop hibernates.
