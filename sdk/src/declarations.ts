@@ -544,13 +544,23 @@ export function declaredRequirements(harness: Harness): Set<string> {
 
 /**
  * Every address a mention may name — declared requirement names ∪ each member's
- * `kind:name`. Shared by `emit.ts` (a member-level `Text` body's mentions) and
- * this module (an embedded member's `Text` leaves) — the one resolution-check
- * set, so a leaf mention and a member mention are held to the identical bar.
+ * `kind:name` ∪ each `blocks()`-declared embedded member's host-scoped
+ * `<host-kind>:<host-name>/<kind>/<key>` address. Shared by `emit.ts` (a
+ * member-level `Text` body's mentions) and this module (an embedded member's
+ * `Text` leaves) — the one resolution-check set, so a leaf mention and a member
+ * mention are held to the identical bar. The embedded address is host-scoped,
+ * never a flat `<kind>:<key>` — flat would force corpus-wide key uniqueness on
+ * embedded kinds.
  */
 export function declaredAddresses(harness: Harness): Set<string> {
   const set = declaredRequirements(harness);
-  for (const member of harness.members) set.add(`${member.kind}:${member.name}`);
+  for (const member of harness.members) {
+    set.add(`${member.kind}:${member.name}`);
+    if (member.prose?.kind !== "blocks") continue;
+    for (const value of member.prose.values) {
+      set.add(`${member.kind}:${member.name}/${value.kind}/${value.key}`);
+    }
+  }
   return set;
 }
 

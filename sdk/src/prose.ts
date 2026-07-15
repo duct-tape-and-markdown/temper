@@ -10,7 +10,7 @@
  * (law 8).
  */
 
-import type { EmbeddedMemberValue } from "./kind.js";
+import type { EmbeddedMemberValue, Member } from "./kind.js";
 
 /** A declared value a mention may name — the target of the one-way citation edge. */
 export interface Mentionable {
@@ -18,6 +18,15 @@ export interface Mentionable {
   readonly address: string;
   /** The display text the one corpus-wide rule renders in place. */
   readonly display: string;
+}
+
+/**
+ * Spell a top-level member as the {@link Mentionable} a mention carries: its
+ * `kind:name` address, its bare name the display text — the convention every
+ * corpus repeats to cite a member from prose, captured once here.
+ */
+export function mentionOf(member: Member): Mentionable {
+  return { address: `${member.kind}:${member.name}`, display: member.name };
 }
 
 /** One authored interpolation: position in the template plus its target. */

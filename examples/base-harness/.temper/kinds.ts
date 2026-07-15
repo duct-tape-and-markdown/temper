@@ -15,14 +15,8 @@
  *   the gate resolves — and a claim naming a moved or deleted file fails.
  */
 
-import { embeddedMemberValue, kind, text } from "@dtmd/temper";
-import type { EmbeddedMemberValue, KindDefinition, Member, Mentionable, Prose, Text } from "@dtmd/temper";
-
-/** Spell a member reference as the address a mention carries. */
-export const mentionOf = (member: Member): Mentionable => ({
-  address: `${member.kind}:${member.name}`,
-  display: member.name,
-});
+import { embeddedMemberValue, kind, mentionOf, text } from "@dtmd/temper";
+import type { EmbeddedMemberValue, KindDefinition, Member, Prose, Text } from "@dtmd/temper";
 
 /**
  * `passage` — a narrative span of a composed document, rendered verbatim.

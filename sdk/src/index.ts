@@ -15,7 +15,7 @@
 
 // Prose — three constructors, one field type; references (mention · include) ride `text`.
 export type { Blocks, File, Include, Mention, Mentionable, Prose, Reference, Text } from "./prose.js";
-export { blocks, file, include, renderText, text } from "./prose.js";
+export { blocks, file, include, mentionOf, renderText, text } from "./prose.js";
 
 // Needs — the derived permission union's source.
 export type { Capability } from "./needs.js";
