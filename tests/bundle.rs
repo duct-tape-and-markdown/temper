@@ -90,6 +90,28 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
 }
 
 #[test]
+fn the_skill_teaches_custom_kind_layout_authoring_as_mechanics() {
+    // Layout / custom-kind authoring had no written home; it is mechanics, so it
+    // lives in the operate-the-gate skill (never a README/docs horizon page). The
+    // bundled skill body must carry the authoring guidance — declare a layout when a
+    // host mixes prose and members — spoken in the kernel nouns.
+    let surface = imported_surface("custom-kind");
+    let out = common::tmpdir("custom-kind-out");
+
+    bundle::run(&surface, &out).unwrap();
+
+    let skill_md = fs::read_to_string(out.join("skills").join("temper").join("SKILL.md")).unwrap();
+    assert!(
+        skill_md.contains("declare a **layout**"),
+        "the skill must teach declaring a layout when a host mixes prose and members, got:\n{skill_md}"
+    );
+    assert!(
+        skill_md.contains("member collection") && skill_md.contains("field section"),
+        "the skill must name the layout primitives, got:\n{skill_md}"
+    );
+}
+
+#[test]
 fn shipped_strings_teach_install_not_the_retired_import_verb() {
     // The CLI has no Import subcommand (Install/Check/Emit/Schema/Guard/Bundle/
     // Explain) — `install` is the single on-ramp. No shipped bundle string may

@@ -6,7 +6,8 @@
 //! `temper` ships as a plugin bundling two things:
 //!
 //! 1. the **skill** — how to *operate the gate* (`install` / `check`, read a
-//!    diagnostic, and when to challenge the contract versus fix the artifact). It is
+//!    diagnostic, author a custom kind's layout, and when to challenge the
+//!    contract versus fix the artifact). It is
 //!    mechanics, never taste (the Decision "the skill is mechanics, never taste"):
 //!    the opinions live in the SDK's floors, never in skill prose;
 //! 2. the **`SessionStart` hook**, in its own `hooks.json` — the advisory
@@ -91,6 +92,21 @@ opinion about what a good harness is — that lives in the SDK module
   to also fail on advisory ones.
 - `temper schema --kind <kind>` — emit the active contract as an editor JSON Schema,
   the same gate shifted to the keystroke.
+
+## Author a custom kind's layout
+
+When a host document interleaves prose and typed members — a spec with its
+invariants, a rule with its clauses — declare a **layout** on the kind and author
+the document in place. A layout types the body's heading tree in three
+primitives: **prose** (verbatim words), a **field section** (a heading whose span
+fills a named field, intent among them), and a **member collection** (a heading
+whose child headings are each one member of a named kind). A field section the
+kind marks as an edge field declares the member's edges, `satisfies` among them.
+
+A layout has one face — the reader: the document is the authored home, so `check`
+reads its members off the file and `emit` never regenerates it. Author the prose
+and the members directly; declaring the layout is what puts that content under
+the gate.
 
 ## Read a diagnostic
 
