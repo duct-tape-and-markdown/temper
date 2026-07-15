@@ -1,29 +1,33 @@
 # Plan state
 
 - Spec derived through: dff2db2
-- Audited through: abec284
-- Residue swept through: abec284
-- This tick: Drain the inbox — route John's two ruled forks (07-15) into
-  pending. Both resolutions arrived through the inbox AND their spec homes in
-  dff2db2 (pipeline.md "The SDK" + "Install"); routing the inbox routes that
-  delta, so Spec-derived advances to dff2db2. Filed DISCOVERY-NESTED-ROOT-FENCE
-  ((discovery-nested-root-fence) → pipeline.md "Install"): live symptom
-  confirmed on disk — `temper check .temper` reports memory (2), examples/base-
-  harness/CLAUDE.md wrongly collected by memory's `**/CLAUDE.md` root=`.` glob
-  because `discoverable_paths` fences only `.git`/`.temper`, not a nested
-  `.temper/lock.toml`-bearing dir. Filed PROSE-INTERLEAVE-SDK
-  ((prose-interleaving) → pipeline.md "The SDK"): `blocks()` today takes
-  `EmbeddedMemberValue[]` only (prose.ts:186); SDK-only widen to interleave
-  Text spans (emit.ts renderBody, declarations.ts row derivation) — no Rust
-  ripple (payload body is pre-rendered, row families unchanged). Neither fork
-  sat in open-questions (records deleted by John per the anti-accumulation
-  rule); no open-questions change. Audit/residue cursors copied forward: no
-  commit past abec284 touched src/tests/sdk (dff2db2 specs-only, 52631eb
-  examples+docs+lock, f008120 plan) — no reconciliation due.
-- Queue: DISCOVERY-NESTED-ROOT-FENCE (open), PROSE-INTERLEAVE-SDK (open) —
-  disjoint files (src/import.rs vs sdk/src/{prose,emit,declarations}.ts);
-  PACKAGING-CHANNELS-REMAINDER (parked, human release actions).
+- Audited through: d2496b6
+- Residue swept through: d2496b6
+- This tick: Post-ship reconciliation of the abec284..d2496b6 window (two
+  build commits: a83c573 discovery fence in src/import.rs; 6450ba6 prose
+  interleave in sdk/src/{prose,emit,declarations}.ts + test). AUDIT: both
+  shipped entries verified on disk — `temper check .temper` now reports
+  memory (1) (examples/base-harness fenced by its own `.temper/lock.toml`,
+  DISCOVERY-NESTED-ROOT-FENCE works); the interleave test pair
+  (emit.test.ts:907+, mention.test.ts) is present and gates green. Both
+  entries were already dropped from pending last tick — nothing to drop.
+  PACKAGING-CHANNELS-REMAINDER park re-verified live: no v0.1 tag (only
+  decision-era tags), crate still 0.1.0 — park holds. SWEEP: no
+  behavior/second-implementation residue (both commits implement dff2db2
+  faithfully; import.rs rides the existing `ignore` filter_entry, no
+  hand-roll; emit.ts/declarations.ts/mention.test.ts carry no retired vocab).
+  Only comment-staleness riders moved: PROSE-INTERLEAVE-SDK opened prose.ts
+  and *rewrote* the two "posture 3" doc comments fresh (self-propagation)
+  while leaving law/decision-cite narration, and opened emit.test.ts leaving
+  the renderMemberFence cite at 853. Both are the rides-next-entry exception
+  (never standalone); records re-derived on disk (prose.ts law5 6/93/210,
+  law8 11, posture 78/108/113/140/190, cites 78/152; emit.test.ts:853) at
+  reconcile HEAD d2496b6. kind.ts/extract.rs/builtins.ts/session_start.rs
+  riders untouched this window — copied forward.
+- Queue: PACKAGING-CHANNELS-REMAINDER (parked, human release actions) — the
+  only entry; no open pickable work.
 
-Plan continues: no — inbox drained, spec cursor at HEAD-specs (dff2db2), no
-src/tests/sdk window past abec284. Two pickable open entries queued; build
-takes over.
+Plan continues: no — inbox empty, spec cursor at HEAD-specs (dff2db2), the
+src/sdk window is reconciled to HEAD (d2496b6). Sole entry is parked on human
+release actions; loop hibernates until an inbox note or a spec/code change.
+</content>
