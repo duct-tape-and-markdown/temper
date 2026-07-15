@@ -1,4 +1,5 @@
 ---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 implemented-by: ["render"]
 ---
 The renderer turns scan results into the one-line summary (`2/3 done`): items done over items total.

@@ -1,4 +1,5 @@
 ---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 implemented-by: ["scan"]
 ---
 The scanner classifies the lines of a checklist document. A line is an item only when it carries a box: `- [ ]` open, `- [x]` done. The scan yields the items in document order and nothing else.

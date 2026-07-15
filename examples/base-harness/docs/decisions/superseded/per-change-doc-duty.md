@@ -1,4 +1,5 @@
 ---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 superseded-by: "authority-arrow"
 ---
 The original documentation ruling for this repository: every change that

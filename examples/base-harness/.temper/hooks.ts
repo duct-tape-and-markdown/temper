@@ -7,7 +7,8 @@ import { hook } from "@dtmd/temper/claude-code";
 export const hook_sessionStart = hook({
   name: "SessionStart",
   type: "command",
-  command: "temper check . --reporter session-start",
+  command: "temper check .temper --reporter session-start",
+  satisfies: ["governance"],
 });
 
 /** The write-boundary guard; mode is read live from the lock (default warn). */
@@ -16,4 +17,5 @@ export const hook_guard = hook({
   matcher: "Write|Edit|MultiEdit",
   type: "command",
   command: "temper guard .",
+  satisfies: ["governance"],
 });

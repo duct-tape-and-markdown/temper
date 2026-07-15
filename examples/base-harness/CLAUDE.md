@@ -28,8 +28,20 @@ tells you where to look and how to work; `docs/` holds the intent, and
   one, edit its owning module under `.temper/docs/` (narrative passages,
   invariants, steps, and alternatives are typed values in the module) and
   re-run `temper emit`. A direct edit is drift.
-- `CLAUDE.md` and `.claude/` are projections the same way: edit the owning
-  `.temper/` module, never these files.
-- Structural verdicts come from `temper check`; do not re-derive them by
-  reading files. `temper explain <member>` narrates any member's edges,
-  coverage, and blast radius.
+- `CLAUDE.md` and `.claude/` are projections the same way: edit the
+  owning `.temper/` module, never these files.
+- After changing `src/` or `TODO.md`, verify end to end: run
+  `node src/main.js TODO.md` (the committed input prints `2/3 done`);
+  the `verify-summary` skill walks the full procedure.
+- Structural verdicts come from `temper check .temper`; do not re-derive them
+  by reading files. `temper explain <member>` narrates any member's
+  edges, coverage, and blast radius.
+
+## The harness
+
+This harness is organized domain first, mechanism second: five domains —
+conduct, orientation, standards, operations, governance — declared as
+requirements in `.temper/harness.ts`, every member naming its domain with
+a `satisfies` entry. Growth is additive: to add a convention, procedure,
+or enforcement, invoke the `grow-harness` skill and file the new member
+under the domain it serves.
