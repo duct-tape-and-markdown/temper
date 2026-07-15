@@ -1,34 +1,149 @@
 [
   {
-    "tag": "PACKAGING-CHANNELS",
-    "summary": "Ship the three acquisition channels — SDK npm package, engine binary pinned via per-platform optionalDependencies + standalone assets, the plugin/bundle — fail-loud on a missing platform binary",
+    "tag": "DRIFT-REAP-PATH-NORMALIZE",
+    "summary": "Normalize the emit workspace path before deriving harness_root so `.temper` and `./.temper` spell owned paths identically — a live byte-faithful projection is never reaped as ownerless",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "emit() derives `harness_root = workspace_dir.parent()` (drift.rs:634); `./.temper` parents to `.` while `.temper` parents to `` — so `owned_paths` spell `./docs/...` while the prior lock's rows spell `docs/...`, and read_prior_provenance's rows miss the owned set → a live byte-faithful projection is reaped and deleted (drift.rs:847-863, reap_or_report_orphan:1314). Normalize workspace_dir (strip the leading `./` component) before deriving harness_root."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "emitting into `./.temper` after a lock written under `.temper` reaps no live projection and reports it unchanged — never both reaped and unchanged"
+      }
+    ],
+    "acceptance": "emit into `./.temper` and `.temper` derive identical owned paths; a live projection a differently-spelled lock owns is reported unchanged, never reaped (pipeline.md Emit: reap only a byte-faithful ownerless file).",
+    "notes": "Dogfood second-cut finding 1 (observed c2f8a2c), reproduced twice in examples/base-harness; root cause of first-cut finding 2 (install --yes --dry-run previews reaped+unchanged for one live projection). Destructive: the emit-hash safety line passes because the file is byte-faithful, so the reap deletes it (drift.rs:1314). scoped at b676656."
+  },
+  {
+    "tag": "EMBED-RENDER-FENCE-FREE",
+    "summary": "Let a composed embedded kind's `render` hook project fence-free — renderMemberFence wraps every blocks() value in a `member.<kind> <key>` fence, against the writer-only, unconstrained embedded format",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "renderMemberFence (emit.ts:139) always wraps a member's body in a ```member.<kind> <key>``` fence even when the kind declares a `render` hook (the comment asserts 'the fence wrapper itself never changes'); the model makes a composed host's embedded format writer-only and unconstrained (no admissibility bar) and the engine never reads the fence back. Let a render-hook kind's output project without the fence; resolveBody (172) joins the blocks."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a blocks() body of a render-hook kind projects as the hook's markdown with no member.<kind> fence; a render-less kind's projection is byte-unchanged"
+      }
+    ],
+    "acceptance": "A composed corpus with render-hook embedded kinds projects readable markdown, not stacked code fences; the lock's nested-member facts are unchanged (representation.md kind: an embedded format is writer-only and unconstrained).",
+    "notes": "Dogfood second-cut finding 2 (observed c2f8a2c), reproduced in examples/base-harness. The fence fold is retired — nested members build from lock rows (src/extract.rs nested_members_from_rows) — so the fence is cosmetic and safe to drop for render-hook kinds; facts ride the lock. scoped at b676656."
+  },
+  {
+    "tag": "MENTION-EMBEDDED-TARGETS",
+    "summary": "Admit embedded members into the SDK mentionable set + export a Member→Mentionable adapter — declaredAddresses is requirements + top-level kind:name only, so an embedded-member mention falsely dangles",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "declaredAddresses (declarations.ts:551) = declaredRequirements + top-level `kind:name`; add each embedded member's host-scoped address (the lock's `<member>/<kind>/<key>` leaf grammar src/read.rs parse_leaf_address already resolves) so a mention to an embedded member's leaf resolves rather than dangles. contract.md 'edge': a mention's target may be a member or a leaf."
+        },
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "export a Member→Mentionable adapter — the example hand-rolls `mentionOf` (examples/base-harness/.temper/kinds.ts) to spell a member's `kind:name` mention target; capture the two-line convention once beside the Mentionable interface (prose.ts:16)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/mention.test.ts",
+        "asserts": "a mention targeting an embedded member's host-scoped leaf address resolves without a dangling-mention refusal; the Member→Mentionable adapter spells kind:name"
+      }
+    ],
+    "acceptance": "A decision can cite an embedded member's invariant as a graph edge without a false dangling-mention refusal; the address is host-scoped (system:scanner/invariant/done-is-exact), never a flat invariant:<key> (contract.md edge: a mention's target may be a member or a leaf).",
+    "notes": "Dogfood second-cut findings 4+5 (observed c2f8a2c). Position: host-scoped addresses (the lock's existing leaf grammar), never flat `invariant:<key>` — flat would force corpus-wide key uniqueness on embedded kinds. A different grammar is a fork; surfaced. The adapter is finding 4's convention capture. Verify the builtin_lock_frozen seam if mention rows shift. scoped at b676656."
+  },
+  {
+    "tag": "EMBED-FILL-DEFER",
+    "summary": "Defer the SDK's required-requirement fill check to the engine — checkFills refuses at emit(program) on a required requirement filled only by a layout document's satisfies slot it cannot see",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The SDK"
+    },
+    "gate": { "kind": "blockedBy", "tag": "EMBED-RENDER-FENCE-FREE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "checkFills (emit.ts:196) builds `filled` from composed members' satisfies only; a `required` requirement whose fills live in a layout document's edge slot refuses ('unfilled required requirement', emit.ts:221) before the engine reads the document and derives its satisfies rows (src/drift.rs merges layout satisfies at emit, 672). The SDK implements no semantics — defer this fill enforcement to the engine's emit-time requirement clause, which sees composed + layout-derived satisfies. The dangling-satisfies check (200) stays. Serialized behind EMBED-RENDER-FENCE-FREE (shared file)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "a required requirement with no composed satisfier does not refuse at the SDK emit phase when a layout-content kind could fill it; a genuinely-dangling satisfies still refuses"
+      }
+    ],
+    "acceptance": "A layout-fill corpus emits without a spurious SDK-phase unfilled-required refusal; the engine's requirement clause remains the fill gate over composed + layout satisfies (pipeline.md: the SDK implements no semantics).",
+    "notes": "Dogfood first-cut finding 1 (observed 4e111af); gap stands for any layout-fill corpus (the example moved fills program-side to dodge it). Position: fill enforcement is the engine's requirement-cardinality clause, not an SDK pre-flight; the alternative (the SDK reads the layout too) re-implements engine semantics — rejected. scoped at b676656."
+  },
+  {
+    "tag": "PACKAGING-CHANNELS-REMAINDER",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
       "path": "specs/distribution.md",
       "section": "What ships — three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "needs the per-platform engine-binary release workflow build-out + John's decide-at-release calls (optional Apple notarization for the standalone mac binary, USPTO name screen) before the mechanical wrappers validate end-to-end. No marketplace/signing creds exist — a marketplace is a git repo + marketplace.json, community submission a free web form gated by `claude plugin validate` (verified 2026-07-06, code.claude.com/docs); npm creds done 07-05. SDK scope resolved (`@dtmd/temper`, single package, `(sdk-package-layout)`, public on npm — SDK-VERSION-LOCKSTEP, 543f2fd); channel 1's SDK foundation shipped. Interim SDK releases ride 0.0.x — sdk/package.json is 0.0.6 (the unpublished 0.1.0 re-cut down at 55d7ee4; 0.1.0 waits for the v0.1 launch tag it gates). Re-verified live at 747f8cc: still no `.github/workflows/release.yml` (only `temper.yml`, a check job); root package.json is still the private flume manifest (`temper-flume-harness`)."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
-      "new": [
-        {
-          "path": ".github/workflows/release.yml",
-          "description": "Build the per-target release binaries and publish them to the npm platform packages (channel 2: the engine binary pinned by the SDK via per-platform `optionalDependencies`, plus standalone GitHub release assets), and produce/publish the plugin bundle with its `marketplace.json` (channel 3). Channel auto-detected. Distinct from any CI *check* job, which is a documented two-line user-authored job (`temper check` + `emit --frozen` byte-compare), not a generated file (distribution.md)."
-        }
-      ],
+      "new": [],
       "edit": [
         {
-          "path": "package.json",
-          "description": "The root `package.json` today is the *private* flume control-plane manifest (`temper-flume-harness`, `private: true`). The npm distribution entry needs platform-specific `optionalDependencies` pointing at per-target prebuilt-binary packages plus a launcher that resolves and execs the platform binary, erroring loudly if none is installed (fail-loud, distribution.md). Reconcile with the flume manifest rather than clobbering it. NB distinct from sdk/package.json (`@dtmd/temper`, already published — the engine pin is declared there, once)."
+          "path": ".github/workflows/release.yml",
+          "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A stranger acquires temper via the SDK's pinned engine binary (per-platform optionalDependencies), standalone release assets, or the plugin/bundle (marketplace.json); a missing platform binary is an install error, never a silent skip (distribution.md 'Fail-loud invariant').",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish; needs human creds. ch1 = SDK npm `@dtmd/temper`; ch2 = engine binary via per-platform optionalDependencies + standalone; ch3 = plugin/bundle via `temper bundle` + marketplace.json. Parked on human release creds + the engine-binary workflow. install.rs range-correctness shipped in SCAFFOLD-OUTPUT-VALID (^0.0.4); release owns only future re-pins."
+    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. scoped at b676656."
   }
 ]

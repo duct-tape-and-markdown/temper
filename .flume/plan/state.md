@@ -3,30 +3,31 @@
 - Spec derived through: a9f7b9e
 - Audited through: 2aed996
 - Residue swept through: 2aed996
-- This tick: Post-ship reconcile 224b880..HEAD (2aed996) — audit + sweep over
-  the one src/sdk window (SETTINGS-RESIDUE, e63e251). AUDIT: SETTINGS-RESIDUE
-  shipped — SDK `settings` declaration family (declarations.ts `settingsRows`,
-  emit.ts `SettingsResidue`/`settingsResidue`, `EmitResult.settings` at 400,
-  generated `SettingsRow` + Declarations seam), engine folds each row into its
-  manifest's opaque residue at drift.rs:787 beside the container-member residue
-  slot (736), both refuse-loud paths present — `UnplaceableSettings` (230,
-  manifest no in-play kind declares) and `SettingsResidueCollision` (248,
-  differing value already present). Build removed it from pending (-36).
-  PACKAGING-CHANNELS re-tested: window touched no .github/ or root
-  package.json (only `temper.yml` in workflows; root still `temper-flume-harness`,
-  `private`), so its condition (human release creds + engine-binary workflow)
-  is provably unchanged — copied forward. SWEEP: window opened
-  sdk/src/{declarations,emit}.ts + generated, src/drift.rs, tests/{emit,
-  lock_declaration_rows,seam_bindings_current}.rs; the new `settings` family
-  parallels `registrations`/`includes` via one builder + one fold (not a
-  duplicate surface). `git diff --name-only 224b880..HEAD` confirms NONE of the
-  standing rider files (session_start.rs, builtins.ts, kind.ts, extract.rs,
-  prose.ts, Cargo.toml, compose.rs, contract.rs) were touched — every
-  kept-on-purpose rider undischarged, position unchanged, open-questions
-  untouched. No new standalone residue.
-- Queue: PACKAGING-CHANNELS (parked, human release creds + engine-binary
-  workflow). No pickable entry — RESIDUE shipped this window. Spec cursor
-  unmoved — no specs commit past a9f7b9e.
+- This tick: Inbox drain (3 notes). (1) PACKAGING-CHANNELS supersession
+  (John, 07-11) — verified on disk: `.github/workflows/release.yml` exists
+  (linux-x64 + win32-x64 matrix + standalone tag-asset step), root
+  package.json still the private `temper-flume-harness`, launcher +
+  exact-pinned optionalDependencies live on sdk (`@dtmd/temper@0.0.7`). Both
+  the retired entry's file claims dead → retired PACKAGING-CHANNELS, filed
+  PACKAGING-CHANNELS-REMAINDER (parked: darwin notarize + channel-3
+  bundle/marketplace.json + v0.1 version lockstep). (2) Dogfood findings
+  routed against HEAD (PR #19 recompose is docs/example only — src/sdk code
+  paths unchanged, all reproduce): DRIFT-REAP-PATH-NORMALIZE (drift.rs:634
+  harness_root = workspace_dir.parent(); `./.temper`→`.` vs `.temper`→``
+  mis-spells owned_paths → live byte-faithful projection reaped+deleted at
+  1314 — 2nd-cut#1, folds 1st-cut#2 install dry-run contradiction),
+  EMBED-RENDER-FENCE-FREE (renderMemberFence:139 fences every blocks() value
+  despite a render hook — 2nd-cut#2), EMBED-FILL-DEFER (checkFills:196 can't
+  see layout satisfies, refuses; blockedBy EMBED-RENDER — shared emit.ts —
+  1st-cut#1), MENTION-EMBEDDED-TARGETS (declaredAddresses:551 omits embedded
+  members + no Member→Mentionable adapter — 2nd-cut#4+5). Two forks
+  registered: (discovery-nested-root-fence) 1st-cut#3, (prose-interleaving)
+  2nd-cut#3. Inbox emptied.
+- Queue: DRIFT-REAP-PATH-NORMALIZE, EMBED-RENDER-FENCE-FREE,
+  MENTION-EMBEDDED-TARGETS (open, disjoint files); EMBED-FILL-DEFER
+  (blockedBy EMBED-RENDER-FENCE-FREE — shared sdk/src/emit.ts);
+  PACKAGING-CHANNELS-REMAINDER (parked, human release actions).
 
-Plan continues: no — reconciliation was the last live input; queue holds only
-the parked PACKAGING-CHANNELS, so the loop hibernates.
+Plan continues: yes — post-ship reconciliation over the sdk launcher window
+(2aed996..HEAD touched sdk/bin/temper.js + sdk/package.json — release first
+cut); Audited/Residue cursors unmoved this tick.
