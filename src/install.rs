@@ -148,6 +148,12 @@ const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*\.c
 /// prefix (`project_note`, content-drift-aware).
 const NOTE_MARKER: &str = "# temper: managed projection";
 
+/// The banner form's stable marker — the block-level HTML comment prefix that *locates*
+/// an already placed banner on a frontmatterless projection, the [`NOTE_MARKER`]
+/// counterpart for a body that carries no frontmatter to hold the `#` note
+/// (`project_banner`, content-drift-aware).
+const BANNER_MARKER: &str = "<!-- temper: managed projection";
+
 /// The schema modeline's stable marker — the frontmatter comment prefix `install` keys
 /// its idempotence on and `emit` keys its preservation on, so both projectors agree on
 /// which line is the modeline.
@@ -157,6 +163,14 @@ const MODELINE_MARKER: &str = "# yaml-language-server:";
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
 /// stamped by `emit`.
 const NOTE_COMMENT: &str = "# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.";
+
+/// The managed-by note's block-level HTML-comment form, for a frontmatterless
+/// markdown projection (a memory `CLAUDE.md`, any frontmatterless kind) with no
+/// frontmatter to carry the `#` [`NOTE_COMMENT`]. Claude Code strips a block-level
+/// HTML comment before injection, so the banner is human-visible and model-invisible —
+/// a courtesy marker, the drift hash still catching a hand-edit either way. States the
+/// same message as [`NOTE_COMMENT`], verbatim.
+const NOTE_BANNER: &str = "<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->";
 
 /// The one question `install` asks, exactly once, after the discovery report:
 /// there is one
@@ -576,14 +590,23 @@ fn evaluate_placements(
 
     // The note is applied first so the modeline stays the leading frontmatter line.
     for target in targets {
-        let is_memory = target.kind == "memory";
         let source = fs::read_to_string(&target.path).map_err(|source| InstallError::Read {
             path: target.path.clone(),
             source,
         })?;
         let mut current = source;
 
-        if !is_memory && let Some(desired) = project_note(&current) {
+        // The managed-by note in whichever form the projection can carry: a frontmatter
+        // `#` comment when there is frontmatter, else a block-level HTML-comment banner
+        // for a frontmatterless markdown body (a memory `CLAUDE.md`, any frontmatterless
+        // kind). Content drives the choice — `project_note` declines a frontmatterless
+        // source, and the banner is confined to markdown, where an HTML comment is inert.
+        let noted = project_note(&current).or_else(|| {
+            is_markdown_path(&target.path)
+                .then(|| project_banner(&current))
+                .flatten()
+        });
+        if let Some(desired) = noted {
             let outcome = drift::place(&target.path, &desired, None, dry_run)?;
             entries.push(InstallEntry {
                 placement: NOTE,
@@ -1531,9 +1554,10 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 }
 
 /// Project an artifact source with the managed-by note inserted as a frontmatter
-/// comment, or `None` when it has no frontmatter to carry it (a memory `CLAUDE.md`
-/// has none, and the caller already skips memory besides). Applied *before* the
-/// modeline so the modeline stays the leading line.
+/// comment, or `None` when it has no frontmatter to carry it — a memory `CLAUDE.md`
+/// and every frontmatterless kind, which [`project_banner`] serves with the
+/// block-level HTML-comment form instead. Applied *before* the modeline so the
+/// modeline stays the leading line.
 ///
 /// **Content-drift-aware**: idempotence keys on the note's *bytes*, not the bare [`NOTE_MARKER`]
 /// prefix. A marked line whose body still matches [`NOTE_COMMENT`] is returned
@@ -1564,24 +1588,66 @@ fn project_note(source: &str) -> Option<String> {
     Some(format!("---\n{NOTE_COMMENT}\n{rest}"))
 }
 
-/// The install-placed frontmatter comment lines present in `source`, in on-disk order —
-/// the schema modeline and the managed-by note. `emit` round-trips these through its
-/// whole-file re-emit so its content-faithful projection carries install's
-/// metadata instead of dropping it: install
-/// owns *placing and auditing* them, emit only *preserves* what is already
-/// there. Empty when `source` has no frontmatter or carries neither line.
+/// Project a frontmatterless markdown `source` with the managed-by banner prepended as
+/// a block-level HTML comment at the head of the body, or `None` when `source` carries
+/// frontmatter (the `#` [`project_note`] form owns that case). One blank line separates
+/// the banner from the body, so it renders as its own block.
+///
+/// **Content-drift-aware**, exactly as [`project_note`]: idempotence keys on the
+/// banner's *bytes*, not the bare [`BANNER_MARKER`] prefix. A leading banner whose line
+/// matches [`NOTE_BANNER`] is returned verbatim (no churn); one carrying a retired
+/// wording is *re-placed*; an absent one is prepended. Byte-faithful — the banner line
+/// (and its separating newline) are the only inserted bytes.
+fn project_banner(source: &str) -> Option<String> {
+    // A frontmatter source is the note's, not the banner's — never shove a comment
+    // ahead of a leading `---`, which would break the frontmatter block.
+    if source.starts_with("---\n") {
+        return None;
+    }
+    let first = source.lines().next().unwrap_or_default();
+    if first.trim_start().starts_with(BANNER_MARKER) {
+        if first == NOTE_BANNER {
+            return Some(source.to_string());
+        }
+        return Some(source.replacen(first, NOTE_BANNER, 1));
+    }
+    Some(format!("{NOTE_BANNER}\n\n{source}"))
+}
+
+/// Whether `path` names a markdown file — the one body shape the block-level
+/// HTML-comment banner is safe in (an HTML comment is inert markdown, malformed inside
+/// a JSON manifest). Gates [`project_banner`] so only a markdown-bodied frontmatterless
+/// projection grows one.
+fn is_markdown_path(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
+}
+
+/// The install-placed managed-metadata lines present in `source`, in on-disk order —
+/// the schema modeline and the managed-by note (as a frontmatter `#` comment), or the
+/// block-level HTML-comment banner heading a frontmatterless markdown body. `emit`
+/// round-trips these through its whole-file re-emit so its content-faithful projection
+/// carries install's metadata instead of dropping it: install owns *placing and
+/// auditing* them, emit only *preserves* what is already there. Empty when `source`
+/// carries none.
 pub(crate) fn placement_lines(source: &str) -> Vec<String> {
-    let Some(rest) = source.strip_prefix("---\n") else {
-        return Vec::new();
-    };
-    let Some((inner, _)) = frontmatter::closing_delimiter(rest) else {
-        return Vec::new();
-    };
-    inner
+    if let Some(rest) = source.strip_prefix("---\n")
+        && let Some((inner, _)) = frontmatter::closing_delimiter(rest)
+    {
+        return inner
+            .lines()
+            .filter(|line| is_placement_comment(line))
+            .map(str::to_string)
+            .collect();
+    }
+    // Frontmatterless: install's banner rides the head of the body, not a frontmatter
+    // block. Return it so emit re-places it exactly as it re-places the `#` note.
+    source
         .lines()
-        .filter(|line| is_placement_comment(line))
-        .map(str::to_string)
-        .collect()
+        .next()
+        .filter(|line| line.trim_start().starts_with(BANNER_MARKER))
+        .map(|line| vec![line.to_string()])
+        .unwrap_or_default()
 }
 
 /// Whether `line` is one of install's managed metadata comments — the schema modeline
@@ -1754,5 +1820,48 @@ mod tests {
         let written: JsonValue =
             serde_json::from_str(&fs::read_to_string(dir.join("package.json")).unwrap()).unwrap();
         assert_eq!(written["dependencies"][SDK_PACKAGE], sdk_version_range());
+    }
+
+    #[test]
+    fn project_banner_prepends_the_html_comment_and_a_re_run_converges() {
+        let body = "# Project\n\nProject-wide memory for the agents.\n";
+        let placed = project_banner(body).expect("a frontmatterless markdown body takes a banner");
+        assert!(placed.starts_with(&format!("{NOTE_BANNER}\n\n")));
+        assert!(placed.ends_with(body));
+        // Content-keyed idempotence: a second pass is byte-identical, never a duplicate.
+        assert_eq!(project_banner(&placed).as_deref(), Some(placed.as_str()));
+        assert_eq!(placed.matches(BANNER_MARKER).count(), 1);
+    }
+
+    #[test]
+    fn project_banner_declines_a_frontmatter_source() {
+        // A frontmatter body is the `#` note's; the banner never fronts a `---` block.
+        assert_eq!(project_banner("---\nname: x\n---\n# Body\n"), None);
+    }
+
+    #[test]
+    fn project_banner_re_places_a_stale_wording() {
+        let stale = "<!-- temper: managed projection — old wording. -->\n\n# Project\n";
+        let placed = project_banner(stale).expect("a marked-but-stale banner re-places");
+        assert!(placed.starts_with(NOTE_BANNER));
+        assert!(placed.ends_with("\n\n# Project\n"));
+        assert_eq!(placed.matches(BANNER_MARKER).count(), 1);
+    }
+
+    #[test]
+    fn is_markdown_path_gates_the_banner_to_markdown() {
+        assert!(is_markdown_path(Path::new("CLAUDE.md")));
+        assert!(is_markdown_path(Path::new(
+            ".claude/rules/collaboration.md"
+        )));
+        assert!(!is_markdown_path(Path::new(".mcp.json")));
+    }
+
+    #[test]
+    fn placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source() {
+        let source = format!("{NOTE_BANNER}\n\n# Project\n\nMemory body.\n");
+        assert_eq!(placement_lines(&source), vec![NOTE_BANNER.to_string()]);
+        // A bare frontmatterless body carries no placement.
+        assert!(placement_lines("# Project\n\nMemory body.\n").is_empty());
     }
 }

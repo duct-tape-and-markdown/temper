@@ -454,9 +454,15 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     );
     let rust_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
     assert!(rust_md.contains("# temper: managed projection"));
-    // `collaboration` has no frontmatter to carry a note in.
+    // `collaboration` has no frontmatter to carry the `#` note, so it takes the
+    // block-level HTML-comment banner heading its body instead — a frontmatterless
+    // markdown projection is note-claimed, never left bannerless.
     let collaboration_md =
         fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap();
+    assert!(
+        collaboration_md.starts_with("<!-- temper: managed projection"),
+        "got:\n{collaboration_md}"
+    );
     assert!(!collaboration_md.contains("# temper: managed projection"));
 }
 
@@ -544,6 +550,61 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
         common::tree_bytes(&root),
         "a re-representation with no authored change is a byte-for-byte no-op once settled on the first run"
     );
+}
+
+#[test]
+fn a_frontmatterless_memory_projection_carries_the_html_banner_and_a_re_run_converges() {
+    // A memory `CLAUDE.md` has no frontmatter to hold the `#` note, so install grows
+    // the block-level HTML-comment banner heading its body — while the frontmatter
+    // skill beside it keeps the `#` form. Both stay content-keyed and idempotent.
+    let root = common::tmpdir("memory-banner");
+    fs::write(
+        root.join("CLAUDE.md"),
+        "# Project\n\nMemory for the agents.\n",
+    )
+    .unwrap();
+    let skill = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    let claude_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
+    assert!(
+        claude_md.starts_with("<!-- temper: managed projection"),
+        "the frontmatterless memory projection heads its body with the HTML-comment banner, got:\n{claude_md}"
+    );
+    // The banner form only — never the `#` frontmatter note (there is no frontmatter).
+    assert!(!claude_md.contains("# temper: managed projection"));
+    assert!(claude_md.contains("Memory for the agents."));
+
+    let skill_md = fs::read_to_string(skill.join("SKILL.md")).unwrap();
+    assert!(
+        skill_md.contains("# temper: managed projection"),
+        "a frontmatter kind keeps the `#` note, got:\n{skill_md}"
+    );
+    assert!(!skill_md.contains("<!-- temper: managed projection"));
+
+    // Content-keyed idempotence across a full re-run: exactly one banner, no duplicate,
+    // and the lock already matches its own placement-inclusive output (no drift).
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    let claude_md_again = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
+    assert_eq!(
+        claude_md_again, claude_md,
+        "a re-run is a byte-for-byte no-op"
+    );
+    assert_eq!(
+        claude_md_again
+            .matches("<!-- temper: managed projection")
+            .count(),
+        1
+    );
+    assert!(temper::drift::config_stale(&temper_dir).is_empty());
 }
 
 /// Serializes the one test below that shadows the process-wide `PATH` — no other

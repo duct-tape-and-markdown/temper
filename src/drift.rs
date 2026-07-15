@@ -1451,11 +1451,20 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
 /// metadata comments are the one exception the caller feeds in: they ride `install`,
 /// never `emit`, so emit round-trips the ones
 /// already on disk rather than dropping them. An artifact with no fields (a rule that
-/// carries no `paths`/unknown keys) projects to its body alone — no frontmatter block,
-/// and so no place a modeline/note could have been installed.
+/// carries no `paths`/unknown keys, a memory `CLAUDE.md`) projects to its body alone —
+/// no frontmatter block, so install's metadata there is a block-level HTML-comment
+/// banner heading the body, round-tripped the same way.
 fn project_bytes(fields: &[(String, JsonValue)], body: &str, placements: &[String]) -> String {
     if fields.is_empty() {
-        return body.to_string();
+        // A frontmatterless projection: install's banner, if any, heads the body with
+        // one blank line between; otherwise the body alone.
+        let mut out = String::new();
+        for line in placements {
+            out.push_str(line);
+            out.push_str("\n\n");
+        }
+        out.push_str(body);
+        return out;
     }
     let mut frontmatter = String::new();
     for line in placements {
@@ -3375,6 +3384,22 @@ mod tests {
         // reproduce it here) and assert the lock row still comes out `/`-separated.
         let path = PathBuf::from("harness\\dir\\file.md");
         assert_eq!(to_lock_path(&path), "harness/dir/file.md");
+    }
+
+    #[test]
+    fn project_bytes_heads_a_frontmatterless_body_with_its_preserved_banner() {
+        let banner =
+            "<!-- temper: managed projection — edit the owning .temper/ module. -->".to_string();
+        let body = "# Project\n\nMemory body.\n";
+
+        // With no placements a frontmatterless projection is its body alone; with
+        // install's banner it heads the body, one blank line between — the bytes
+        // install placed, so a re-emit reports Unchanged instead of stripping it.
+        assert_eq!(project_bytes(&[], body, &[]), body);
+        assert_eq!(
+            project_bytes(&[], body, std::slice::from_ref(&banner)),
+            format!("{banner}\n\n{body}")
+        );
     }
 
     #[test]
