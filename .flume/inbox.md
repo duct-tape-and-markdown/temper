@@ -27,3 +27,14 @@ routing.
   (v2.1.208+, candidate clause). Caveat carried in the digest: hooks/settings
   extracts were summarizer-mediated — any encoded `cite` re-fetches the raw
   page first, per the external-facts bar. observed at e8edffa
+- `Requirement.kind` (`sdk/src/contract.ts:177-183`) is typed
+  `KindDefinition<never>`, so a requirement cannot be keyed to any kind whose
+  field type carries required members — `KindDefinition<Skill>`,
+  `KindDefinition<Hook>` fail to assign; only all-optional-field kinds (rule,
+  memory) work. The repo's own harness hit this: `.temper/harness.ts`'s
+  `friction-capture-procedure` requirement documents dropping its `kind:` as
+  a workaround. A requirement needs only the kind's identity for coverage
+  resolution, never its field type; the collection child-kind slot already
+  models this as `string | KindDefinition<any>` (`sdk/src/kind.ts:315`).
+  Demand is live (human-ruled 07-15): the base-harness third cut prescribes
+  skill/hook-keyed requirements. observed at 3540ebb
