@@ -1,0 +1,5 @@
+{
+  "name": "base-harness",
+  "private": true,
+  "type": "module"
+}

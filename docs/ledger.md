@@ -49,6 +49,11 @@ hard.
 - Docs-language candidate (post-freeze): the determinism ladder — "push every
   check to the most deterministic layer that can express it" (field
   feedback, 07-10).
+- Base harness (external docs-corpus dogfood): primer at
+  `docs/base-harness-primer.md`; horizon `(base-harness)`; second cut
+  (member-composed kinds, governed toy `src/`, outward `implemented-by`
+  edges) at `examples/base-harness/` (human-ruled 07-15, PR #19), eight
+  product findings total in the inbox.
 - On John: Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).

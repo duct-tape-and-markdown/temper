@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@dtmd/temper": "file:../../../sdk"
+  },
+  "name": "base-harness",
+  "private": true,
+  "type": "module"
+}

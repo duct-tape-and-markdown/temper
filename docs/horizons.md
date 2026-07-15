@@ -168,6 +168,46 @@ that evidence, not preference, is the bite condition.
   it. *Bite condition:* corpus migration shipped; then a design session for
   the tag grammar + the code kind's extraction shape.
 
+- `(base-harness)` — **A standalone starter harness whose docs corpus is a
+  temper program.** The external dogfood: a reference repo carrying doc/spec
+  kinds (`system`, `flow`, `decision`, `term`), the shipped Claude Code
+  kinds, and the spec → plan → build loop — components and processes tested
+  together, graduating into the public starter plus its documentation. Full
+  design material: `docs/base-harness-primer.md` (pre-intent, same standing
+  as this file). *Rents:* layout content (0019), `install`'s conversion,
+  `bundle`, the requirement machinery, the demo posture
+  (`specs/distribution.md`). *Tensions:* the second-corpus clause
+  (`specs/model/representation.md`, "Reach" — a second corpus is a feature,
+  never a founding assumption); the meta-freeze; the public-prose register
+  for its eventual public face. *Leaning:* do it, post-launch — it is the
+  natural successor to the spec-corpus demo. *Bite condition:* v0.1 shipped,
+  then a human ruling on second-corpus scope; the primer keys the remaining
+  forks. *Field evidence (2026-07-13, human-approved):* a first cut is live
+  at `examples/base-harness/` — five user-declared doc kinds, all green
+  under `emit`/`check`; three product findings routed to `.flume/inbox.md`
+  (SDK-phase fill check vs layout fills, `install --yes` re-run preview,
+  nested-root discovery fencing). Deepened same day on the human's ruling:
+  the docs tree is a **projected collection** — doc members composed, edges
+  authored from member values, lifecycle as a typed `supersede()` — with
+  the glossary kept as the one layout source; the `(lifecycle-encoding)`
+  fork is settled twice over (kind partition + the field's own type).
+  *Second cut (2026-07-15, human-ruled in session):* the kinds recomposed
+  against the mark "a docs kind earns its type when a typed field can go
+  false about the world, and its body composes from declared members" —
+  systems contain `invariant` members, flows contain `step` members (each
+  step's system an import, its edge a mention row; `participants` deleted
+  as a field, rendered from the steps), decisions contain `alternative`
+  members, and a `source` kind over a deliberately tiny governed `src/`
+  makes `implemented-by` an edge the gate refuses when the file goes
+  (verified firing: `graph.route`). Five product findings routed to the
+  inbox (destructive emit reap on workspace spelling; the fence wrapper
+  vs the model's unconstrained embedded rendering; no prose/blocks
+  interleave; no mention adapter; embedded members unmentionable). Held
+  back on purpose: a roll-up rendering helper (wait for recurrence) and
+  edge fields on embedded kinds (mentions may simply be right). The
+  projected docs read as fenced blocks until the fence finding lands —
+  the cost is the exhibit.
+
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`
   invariant 5 and `specs/model/pipeline.md`, "Drift". The **drift re-cut**
