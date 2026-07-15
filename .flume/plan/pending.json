@@ -6,10 +6,7 @@
       "path": "specs/model/pipeline.md",
       "section": "The lock"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "SATISFIES-LABEL-QUALIFY"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -29,7 +26,7 @@
       }
     ],
     "acceptance": "An emit under a normalized-path engine against an older `./`-spelled lock matches each byte-identical projection to its row and reaps nothing — no silent mass-reap; the loud-or-nothing invariant holds.",
-    "notes": "Field incident (centercode 07-15): one emit reported '21 reaped', exit 0 — deleted every projection while writing a lock claiming them live and unchanged. e7b859a normalizes the workspace path pre-`harness_root`; to_lock_path (drift.rs:501) strips backslashes, never `./`. 0024 rules read-robustly (normalize the join key) — dependsOnForks dropped; serialized after SATISFIES (shared drift.rs). observed 0aa9e62; scoped 06e0c2c (re-verified vs 06c44b1)."
+    "notes": "Field incident (centercode 07-15): one emit reported '21 reaped', exit 0 — deleted every projection while writing a lock claiming them live and unchanged. e7b859a normalizes the workspace path pre-`harness_root`; to_lock_path (drift.rs:501) strips backslashes, never `./`. 0024 rules read-robustly (normalize the join key) — dependsOnForks dropped; SATISFIES shipped 3d08a4a, unblocked. observed 0aa9e62; scoped 06e0c2c (re-verified vs c0bbf3b)."
   },
   {
     "tag": "EMIT-INTO-REROOT-REAP",
@@ -106,10 +103,7 @@
       "path": "specs/model/pipeline.md",
       "section": "Emit"
     },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "SATISFIES-LABEL-QUALIFY"
-    },
+    "gate": { "kind": "open" },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -120,7 +114,7 @@
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Carry the deferred mention as a `MentionRow` riding the lock so check resolves it at the same table `implemented-by` resolves on; `mentionRows` already builds `${member.kind}:${member.name}` addresses (declarations.ts:334). Serialized after SATISFIES (shared file)."
+          "description": "Carry the deferred mention as a `MentionRow` riding the lock so check resolves it at the same table `implemented-by` resolves on; `mentionRows` already builds `${member.kind}:${member.name}` addresses (declarations.ts:340, kind-qualified since SATISFIES). SATISFIES shipped 3d08a4a (shared file)."
         },
         {
           "path": "src/graph.rs",
@@ -141,7 +135,7 @@
       }
     ],
     "acceptance": "A composed mention naming a declared kind with no composed member emits (defers to check, which resolves it over discovered members) instead of failing emit; a mention naming no declared kind still refuses at emit; the example's skill→script mention demo builds.",
-    "notes": "pipeline.md 'Emit'/'Refusing' amendment (human-ruled 07-15, 06e0c2c) resolves `(composed-mention-discovery-locus)`. Live: `source:main` is a real corpus member the engine resolves `implemented-by`/`graph.route` on, but `renderTextBody` rejects it as dangling. Unblocks the example's (examples/base-harness) skill→script mention demo. Serialized after SATISFIES (shared sdk/src/declarations.ts). observed d26b3ce; scoped 06e0c2c."
+    "notes": "pipeline.md 'Emit'/'Refusing' amendment (human-ruled 07-15, 06e0c2c) resolves `(composed-mention-discovery-locus)`. Live: `source:main` is a real corpus member the engine resolves `implemented-by`/`graph.route` on, but `renderTextBody` rejects it as dangling. Unblocks the example's (examples/base-harness) skill→script mention demo. SATISFIES shipped 3d08a4a (shared sdk/src/declarations.ts). observed d26b3ce; scoped 06e0c2c."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

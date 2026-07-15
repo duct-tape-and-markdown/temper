@@ -203,9 +203,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   clause), never standalone. Found routing 0020 at HEAD a0fccaf. 3611335,
   then MCP-SERVER-KIND (1ffab8f, hunks at 913/938/1148/1167), then HOOK-SHAPE
   (5fc3e9f, +135 lines: the `hook_matcher_group` write/read pair at 928-1015),
-  each opened extract.rs but left 196-198 as unchanged context, so —
-  reconciliation-not-opening — undischarged; re-verified on disk
-  (extract.rs:196-198) at reconcile HEAD 224b880.
+  then SATISFIES-LABEL-QUALIFY (3d08a4a, the `host_address`
+  `pub(crate)`→`pub` widen at line 640, net-zero), each opened extract.rs
+  but left 196-198 as unchanged context, so — reconciliation-not-opening —
+  undischarged; re-verified on disk (extract.rs:196-198, unshifted) at
+  reconcile HEAD fd0ba24.
 
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
@@ -256,7 +258,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   reconcile HEAD d2496b6. GROWN-FIELD-SCHEMAS (e76934e) then opened the file
   again (+53 lines: a typed-surface emit test) and once more left the comment
   as unchanged context — undischarged; it shifted 853 → 904, re-verified on
-  disk at reconcile HEAD 9223917.
+  disk at reconcile HEAD 9223917. SATISFIES-LABEL-QUALIFY (3d08a4a) then
+  opened `sdk/test/emit.test.ts` a fifth time (the `rule:`-qualified
+  satisfies-row assertions at 257-393, all net-zero, above the comment) and
+  once more left 904 as unchanged context — undischarged, unshifted;
+  re-verified on disk at 904, reconcile HEAD fd0ba24.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

@@ -1,30 +1,31 @@
 # Plan state
 
 - Spec derived through: 06e0c2c
-- Audited through: 226199b
-- Residue swept through: 226199b
-- This tick: routed the f67303c..06e0c2c spec delta; cursor → 06e0c2c. 90fe3c1
-  (decision renumber 0019→0023-loud-or-nothing) is a `specs/decisions/`
-  filename change, no model/intent shift — routed moot; the repo-wide
-  `loud-or-nothing` hits are tests/layout_kind.rs fixture/invariant-name keys,
-  not decision paths (re-verified on disk). 06e0c2c's 0024 Consequences each
-  resolve to a filed entry: orphan-sweep normalized join → LOCK-SPELLING-REAP;
-  satisfies-label qualify + malformed-collision refusal → SATISFIES-LABEL-QUALIFY;
-  emit cliff refusals + teardown flag → EMIT-INTO-REROOT-REAP + LOCK-LAYER-DROP-REFUSE;
-  three dependsOnForks unblock → done 495ea80. Its separate pipeline.md
-  "Emit"/"Refusing" amendment (mention deferral by declared kind) →
-  MENTION-DISCOVERY-DEFER. No new entries — the queue already carries 0024's
-  consequences (filed 495ea80 from the mirroring inbox notes); pending.json +
-  open-questions.md unchanged (0024 forks already deleted in 06e0c2c).
-- Queue: SATISFIES (open) → LOCK-SPELLING → EMIT-INTO → LOCK-LAYER-DROP (a
-  serial drift.rs chain); MENTION-DISCOVERY blockedBy SATISFIES (shared
-  sdk/src/declarations.ts); INSTALL-BANNER + CUSTOM-KIND-DOCS open; PACKAGING
-  parked. Pickable now: SATISFIES, INSTALL-BANNER, CUSTOM-KIND-DOCS — disjoint
-  (drift.rs+declarations.ts+main.rs / install.rs / bundle.rs).
+- Audited through: fd0ba24
+- Residue swept through: fd0ba24
+- This tick: reconciled the 226199b..fd0ba24 ship window (three builds:
+  SATISFIES-LABEL-QUALIFY 3d08a4a, INSTALL-FRONTMATTERLESS-BANNER aa24e62,
+  CUSTOM-KIND-DOCS bd8f31f — all dropped from pending by build). AUDIT: verified
+  SATISFIES on disk (qualified the satisfies wire to `kind:name`; `mentionRows`
+  builds `${kind}:${name}` at declarations.ts:340); its two blocked dependents
+  unblock to `open` — LOCK-SPELLING-REAP and MENTION-DISCOVERY-DEFER. Re-verified
+  premises: `to_lock_path` (drift.rs:501) strips backslashes never `./`; the
+  orphan sweep still compares raw row `source_path` at drift.rs:866;
+  `renderTextBody` still rejects on `mentionable` at emit.ts:164. SWEEP: no
+  fileable residue — BANNER folded the memory kind special-case into
+  content-keyed routing (consolidation, not a duplicate); two comment-staleness
+  riders maintained (extract.rs:196-198 floor-mention, emit.test.ts:904
+  renderMemberFence — both opened by SATISFIES, neither reconciled, both
+  unshifted).
+- Queue: LOCK-SPELLING-REAP (open, drift.rs) → EMIT-INTO (blockedBy LOCK-SPELLING)
+  → LOCK-LAYER-DROP (blockedBy EMIT-INTO) — serial drift.rs chain;
+  MENTION-DISCOVERY-DEFER (open, emit.ts+declarations.ts+graph.rs); PACKAGING
+  parked. Pickable now: LOCK-SPELLING-REAP + MENTION-DISCOVERY-DEFER — disjoint
+  (drift.rs / sdk+graph.rs).
 
-Plan continues: no — inbox empty, spec delta routed to HEAD's last specs
-commit (06e0c2c), and the 226199b..HEAD window touched no src/tests/sdk (only
-examples/.temper/lock.toml + .flume + specs), so no reconciliation is live.
-Pickable entries remain — build takes over. NB the SessionStart reporter shows
-the `.temper` dogfood gate red (two unfilled requirements); harness territory,
-a `chore(harness)` fix outside plan's writable paths.
+Plan continues: no — inbox empty, spec delta routed to HEAD's last specs commit
+(06e0c2c), and the 226199b..fd0ba24 ship window is fully reconciled (audit +
+sweep). Two `open` entries remain, disjoint — build takes over. NB the
+SessionStart reporter shows the `.temper` dogfood gate red (two unfilled
+requirements: friction-capture-procedure, pending-entry-discipline); harness
+territory, a `chore(harness)` fix outside plan's writable paths.
