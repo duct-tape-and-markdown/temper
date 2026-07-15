@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::drift::{KindFactRow, LockRowError};
+use crate::drift::{KindFactRow, LayoutRow, LockRowError};
 use crate::extract::{self, Features};
 
 /// The file locus a custom kind reads: the root
@@ -702,6 +702,23 @@ impl CustomKind {
         self
     }
 
+    /// Overlay a lock row's declared `content` onto this kind: when the row declares a
+    /// layout, the kind's body shape becomes that [`Layout`] — the same LayoutRow→[`Content`]
+    /// lift emit reads by ([`content_from_row`]). A row with no `content` column defers to
+    /// the kind's own shape, never blanking a built-in's default, mirroring
+    /// [`overlay_templates`](CustomKind::overlay_templates).
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`LockRowError`] when a declared region names a primitive outside the
+    /// closed vocabulary or omits the column that primitive requires.
+    pub fn overlay_content(mut self, content: Option<&LayoutRow>) -> Result<Self, LockRowError> {
+        if let Some(layout) = content {
+            self.content = Content::Layout(layout_from_row(layout)?);
+        }
+        Ok(self)
+    }
+
     /// The kind's **edge-field slot** names — its declared [`relationships`](
     /// CustomKind::relationships) fields plus the framework
     /// [`satisfies`](SATISFIES_EDGE_FIELD) key every kind carries. A layout field
@@ -846,14 +863,26 @@ pub(crate) fn content_from_row(row: &KindFactRow) -> Result<Content, LockRowErro
     }
     match &row.content {
         None => Ok(Content::File),
-        Some(layout) => Ok(Content::Layout(Layout {
-            regions: layout
-                .regions
-                .iter()
-                .map(layout_region_from_row)
-                .collect::<Result<Vec<_>, _>>()?,
-        })),
+        Some(layout) => Ok(Content::Layout(layout_from_row(layout)?)),
     }
+}
+
+/// Lift a [`LayoutRow`]'s region rows into a typed [`Layout`] — the LayoutRow→[`Layout`]
+/// step shared by [`content_from_row`]'s layout branch and the relocation overlay
+/// ([`CustomKind::overlay_content`]), so both read a declared layout by the one lift.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when a region names a primitive outside the closed
+/// vocabulary or omits the column that primitive requires.
+fn layout_from_row(layout: &LayoutRow) -> Result<Layout, LockRowError> {
+    Ok(Layout {
+        regions: layout
+            .regions
+            .iter()
+            .map(layout_region_from_row)
+            .collect::<Result<Vec<_>, _>>()?,
+    })
 }
 
 /// Parse a [`KindFactRow::shape`] marker label into its typed [`Content`] — `None` for any

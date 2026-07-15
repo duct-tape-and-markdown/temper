@@ -157,35 +157,42 @@ fn an_unadmitted_top_level_heading_refuses_loud() {
     assert!(err.to_string().contains("Stray"));
 }
 
+/// The `intent_layout` regions in wire form — a leading prose region, an `intent` field
+/// section, and an `invariant` member collection — shared by the layout row a `spec`-kind
+/// declares and the one a relocated built-in declares.
+fn intent_layout_row() -> LayoutRow {
+    LayoutRow {
+        regions: vec![
+            LayoutRegionRow {
+                region: "prose".to_string(),
+                import: None,
+                slot: None,
+                member_kind: None,
+                key: None,
+            },
+            LayoutRegionRow {
+                region: "field".to_string(),
+                import: None,
+                slot: Some("intent".to_string()),
+                member_kind: None,
+                key: None,
+            },
+            LayoutRegionRow {
+                region: "collection".to_string(),
+                import: None,
+                slot: None,
+                member_kind: Some("invariant".to_string()),
+                key: None,
+            },
+        ],
+    }
+}
+
 /// The `intent` kind's fact row — a layout kind governing the single `specs/intent.md`
 /// document, carrying the `intent_layout` regions in wire form.
 fn intent_kind_facts() -> KindFactRow {
     KindFactRow {
-        content: Some(LayoutRow {
-            regions: vec![
-                LayoutRegionRow {
-                    region: "prose".to_string(),
-                    import: None,
-                    slot: None,
-                    member_kind: None,
-                    key: None,
-                },
-                LayoutRegionRow {
-                    region: "field".to_string(),
-                    import: None,
-                    slot: Some("intent".to_string()),
-                    member_kind: None,
-                    key: None,
-                },
-                LayoutRegionRow {
-                    region: "collection".to_string(),
-                    import: None,
-                    slot: None,
-                    member_kind: Some("invariant".to_string()),
-                    key: None,
-                },
-            ],
-        }),
+        content: Some(intent_layout_row()),
         ..common::kind_facts("intent", "specs", "intent.md")
     }
 }
@@ -272,4 +279,86 @@ fn emit_refuses_a_non_fitting_layout_document() {
     let err = drift::emit(&intent_payload(), &into, EmitOptions::default()).unwrap_err();
     let rendered = format!("{err:?}");
     assert!(rendered.contains("intent.md"), "names file: {rendered}");
+}
+
+/// A lock row that **relocates the built-in `rule`** to a `decisions/*.md` locus and
+/// declares the `intent_layout` as its body — every fact besides `governs`/`content`
+/// deferring to the built-in, so `row_relocates_builtin` admits it. The overlay must carry
+/// the row's `content` (not only `governs`/`templates`) for check to read the document
+/// under this layout rather than as frontmatter.
+fn relocated_rule_with_layout() -> KindFactRow {
+    KindFactRow {
+        content: Some(intent_layout_row()),
+        ..common::kind_facts("rule", "decisions", "*.md")
+    }
+}
+
+/// A document that fits `intent_layout` — a prose preamble, an `# Intent` field section,
+/// and an `# Invariants` collection — yet is **invalid as frontmatter**: the leading
+/// `---` fence wraps unparseable YAML. Read under the layout the fence is ordinary
+/// preamble prose; read as frontmatter (the pre-overlay path) it errors — so check
+/// staying clean is proof it dispatched to the layout.
+const FITS_LAYOUT_INVALID_FRONTMATTER: &str = "---\nnot: valid: yaml: [\n---\n\n\
+The product intent, authored in prose.\n\
+\n\
+# Intent\n\
+temper makes a harness good.\n\
+\n\
+# Invariants\n\
+\n\
+## Loud or nothing\n\
+A gate never fabricates absence.\n";
+
+#[test]
+fn check_reads_a_relocated_builtin_document_under_its_declared_layout() {
+    let root = common::tmpdir("relocated-rule-fit");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![relocated_rule_with_layout()],
+            ..Default::default()
+        },
+    );
+    let decisions = root.join("decisions");
+    fs::create_dir_all(&decisions).unwrap();
+    fs::write(decisions.join("0001.md"), FITS_LAYOUT_INVALID_FRONTMATTER).unwrap();
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a fitting document must read clean under the relocated built-in's layout — \
+         never through the frontmatter adapter, which its invalid `---` fence would trip:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn check_refuses_a_non_fitting_relocated_builtin_layout_document() {
+    let root = common::tmpdir("relocated-rule-nonfit");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![relocated_rule_with_layout()],
+            ..Default::default()
+        },
+    );
+    let decisions = root.join("decisions");
+    fs::create_dir_all(&decisions).unwrap();
+    // Valid frontmatter (no fence ⇒ empty frontmatter, whole body) but NOT the layout: the
+    // declared `invariant` collection has no heading. Pre-overlay this was read as
+    // frontmatter and passed silently; under the layout it must refuse loud.
+    fs::write(decisions.join("0001.md"), "lead\n\n# Intent\nthe intent\n").unwrap();
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a non-fitting layout document must make check exit non-zero — never a silent \
+         frontmatter fallback, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("invariant"),
+        "the refusal must name the missing collection, got:\n{}",
+        run.output
+    );
 }

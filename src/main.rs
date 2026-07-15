@@ -854,11 +854,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 /// lock declares one that [`row_relocates_builtin`] — matched by bare name, the kind's
 /// whole identity — overlaid onto `kind`'s embedded declaration, or `kind` unchanged
 /// when it doesn't: the **built-in lock**, the same declaration shape the engine
-/// carries compiled-in for an unadopted harness. Two facts overlay from the one
+/// carries compiled-in for an unadopted harness. Three facts overlay from the one
 /// matched row: the `governs` locus always (a relocation may declare no other diverging
-/// fact at all), and `templates` only when the row declares at least one — an empty
-/// row column defers to `kind`'s own (always empty for a built-in), never blanking a
-/// nonexistent override.
+/// fact at all), `templates` only when the row declares at least one, and `content` only
+/// when the row declares a layout — an empty row column defers to `kind`'s own (always
+/// empty templates and a `File` body for a built-in), never blanking a nonexistent
+/// override.
 fn overlay_builtin_kind(
     kind: &CustomKind,
     declarations: &drift::Declarations,
@@ -881,6 +882,7 @@ fn overlay_builtin_kind(
     if !row.templates.is_empty() {
         overlaid = overlaid.overlay_templates(&row.templates);
     }
+    overlaid = overlaid.overlay_content(row.content.as_ref())?;
     Ok(overlaid)
 }
 
@@ -987,7 +989,7 @@ fn resolve_kind_units(
                 // through the generic frontmatter adapter. A fields-only kind with no
                 // collection address (not a manifest kind) reads its frontmatter the same
                 // way, differing only in projection.
-                let unit = match &kind.content {
+                let unit = match &overlaid.content {
                     kind::Content::Layout(layout) => {
                         layout_unit(layout, &file, &base, &edge_fields)?
                     }
