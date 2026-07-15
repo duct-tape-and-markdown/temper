@@ -46,7 +46,7 @@ governs_root = "docs/decisions"
 governs_glob = "*.md"
 unit_shape = "file"
 registration = ["always"]
-templates = ["alternative", "passage"]
+templates = ["alternative"]
 
 [[declaration.kind]]
 name = "flow"
@@ -54,7 +54,7 @@ governs_root = "docs/flows"
 governs_glob = "*.md"
 unit_shape = "file"
 registration = ["always"]
-templates = ["passage", "step"]
+templates = ["step"]
 
 [[declaration.kind]]
 name = "glossary"
@@ -110,7 +110,7 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["always"]
-templates = ["invariant", "passage"]
+templates = ["invariant"]
 
 [[declaration.clause]]
 kind = "decision"
@@ -191,43 +191,6 @@ key = "per-change-doc-duty"
 leaves = { body = "Rejected as the primary mechanism. A convention held by reviewer vigilance fails silently, one forgotten change at a time. It survives here only as a courtesy, downstream of the arrow — see the superseded ruling this decision replaces.", title = "Per change documentation duty" }
 
 [[declaration.nested_member]]
-host = "decision:authority-arrow"
-kind = "passage"
-key = "consequences"
-leaves = { text = """
-## Consequences
-
-Documentation duties invert: there is no "remember to update the docs" step, because the docs move first and the delta drives the work. The cost is honesty about the return path — evidence against the corpus must enter through an authored surface (an amendment, an open question), which is slower than hot-patching code and letting docs decay. That cost is the point.
-
-## Alternatives""" }
-
-[[declaration.nested_member]]
-host = "decision:authority-arrow"
-kind = "passage"
-key = "context"
-leaves = { text = 'Repositories that document themselves must choose which side is authoritative when docs and code disagree. The conventional answer makes code the source of truth and docs a trailing description, held close by a per-change duty ("update the affected docs") that reviewers enforce. In a repository whose code is substantially agent-authored, that answer reads intent out of an artifact — the one direction this corpus forbids.' }
-
-[[declaration.nested_member]]
-host = "decision:authority-arrow"
-kind = "passage"
-key = "ruling"
-leaves = { text = """
-## Ruling
-
-The corpus is authoritative. The documents under `docs/` render declared intent; code and configuration reconcile toward them. When docs and code disagree, the code has the bug or the corpus needs an authored amendment — never a silent doc edit to match the drift.""" }
-
-[[declaration.nested_member]]
-host = "flow:summarize"
-kind = "passage"
-key = "overview"
-leaves = { text = """
-Summarize is the toy's one behavior: read a checklist, report how much of it is done (`node src/main.js TODO.md`).
-
-Participants: scanner, renderer.
-
-## Steps""" }
-
-[[declaration.nested_member]]
 host = "flow:summarize"
 kind = "step"
 key = "scan"
@@ -252,15 +215,6 @@ key = "one-line"
 leaves = { body = "The summary is a single line with no trailing detail. Anything richer is a new declared behavior, not a bigger string.", title = "One line out" }
 
 [[declaration.nested_member]]
-host = "system:renderer"
-kind = "passage"
-key = "overview"
-leaves = { text = """
-The renderer turns scan results into the one-line summary (`2/3 done`): items done over items total.
-
-## Invariants""" }
-
-[[declaration.nested_member]]
 host = "system:scanner"
 kind = "invariant"
 key = "done-is-exact"
@@ -271,15 +225,6 @@ host = "system:scanner"
 kind = "invariant"
 key = "ignored-never-guessed"
 leaves = { body = "A line without a box is not an item: the scanner drops it and does not repair near-misses. Loosening the pattern is a corpus amendment first, code second.", title = "Unrecognized lines are ignored, never guessed" }
-
-[[declaration.nested_member]]
-host = "system:scanner"
-kind = "passage"
-key = "overview"
-leaves = { text = """
-The scanner classifies the lines of a checklist document. A line is an item only when it carries a box: `- [ ]` open, `- [x]` done. The scan yields the items in document order and nothing else.
-
-## Invariants""" }
 
 [[declaration.nested_member]]
 host = "glossary:glossary"

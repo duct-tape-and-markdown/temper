@@ -1,5 +1,5 @@
 import { blocks } from "@dtmd/temper";
-import { flow, participantsLine, passageOf, step } from "../../kinds.ts";
+import { flow, participantsLine, span, step } from "../../kinds.ts";
 import { system_scanner } from "../systems/scanner.ts";
 import { system_renderer } from "../systems/renderer.ts";
 
@@ -28,8 +28,7 @@ const steps = [
 export const flow_summarize = flow({
   name: "summarize",
   prose: blocks(
-    passageOf(
-      "overview",
+    span(
       "Summarize is the toy's one behavior: read a checklist, report how " +
         "much of it is done (`node src/main.js TODO.md`).\n\n" +
         `${participantsLine(steps)}\n\n` +

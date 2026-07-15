@@ -2,7 +2,7 @@ import { clause, count, emit, harness, maxLines, uniqueName } from "@dtmd/temper
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_docsDiscipline } from "./rules/docs-discipline.ts";
 import { hook_guard, hook_sessionStart } from "./hooks.ts";
-import { alternative, decision, flow, glossary, invariant, passage, source, stepKind, system } from "./kinds.ts";
+import { alternative, decision, flow, glossary, invariant, source, stepKind, system } from "./kinds.ts";
 import { system_scanner } from "./docs/systems/scanner.ts";
 import { system_renderer } from "./docs/systems/renderer.ts";
 import { flow_summarize } from "./docs/flows/summarize.ts";
@@ -54,7 +54,6 @@ const program = harness({
     // In-play bindings, no clauses of their own: the embedded kinds so their
     // values are admitted nesting, and `source` so `implemented-by` has a
     // target kind to resolve within.
-    { kind: passage, clauses: [] },
     { kind: invariant, clauses: [] },
     { kind: stepKind, clauses: [] },
     { kind: alternative, clauses: [] },

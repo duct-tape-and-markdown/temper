@@ -1,13 +1,12 @@
 import { blocks } from "@dtmd/temper";
-import { invariantOf, passageOf, system } from "../../kinds.ts";
+import { invariantOf, span, system } from "../../kinds.ts";
 
 export const system_scanner = system({
   name: "scanner",
   "implemented-by": ["scan"],
   satisfies: ["documented-spine"],
   prose: blocks(
-    passageOf(
-      "overview",
+    span(
       "The scanner classifies the lines of a checklist document. A line is " +
         "an item only when it carries a box: `- [ ]` open, `- [x]` done. " +
         "The scan yields the items in document order and nothing else.\n\n" +

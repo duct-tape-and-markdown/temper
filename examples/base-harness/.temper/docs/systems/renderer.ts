@@ -1,13 +1,12 @@
 import { blocks } from "@dtmd/temper";
-import { invariantOf, passageOf, system } from "../../kinds.ts";
+import { invariantOf, span, system } from "../../kinds.ts";
 
 export const system_renderer = system({
   name: "renderer",
   "implemented-by": ["render"],
   satisfies: ["documented-spine"],
   prose: blocks(
-    passageOf(
-      "overview",
+    span(
       "The renderer turns scan results into the one-line summary " +
         "(`2/3 done`): items done over items total.\n\n" +
         "## Invariants",

@@ -2,11 +2,12 @@
  * The base harness's own doc kinds. Three postures, each first-class:
  *
  * - `system`/`flow`/`decision`/`superseded-decision` are **composed**: each
- *   member is a typed value in the program, its body composed from declared
- *   embedded members (`passage`, `invariant`, `step`, `alternative`) whose
- *   markdown rendering is each kind's own writer-only `render` hook — and
- *   the document under `docs/` is a projection. An edge is an import: a
- *   dangling reference is a compile or emit error before the gate ever runs.
+ *   member is a typed value in the program, its body prose spans and
+ *   declared embedded members (`invariant`, `step`, `alternative`)
+ *   interleaved in authored order, the members' markdown rendering each
+ *   kind's own writer-only `render` hook — and the document under `docs/`
+ *   is a projection. An edge is an import: a dangling reference is a
+ *   compile or emit error before the gate ever runs.
  * - `glossary` is a **layout source**: the document is the authored home,
  *   read under its declared layout, never regenerated — the posture for
  *   prose-first content whose sections are model structure.
@@ -19,25 +20,18 @@ import { embeddedMemberValue, kind, mentionOf, text } from "@dtmd/temper";
 import type { EmbeddedMemberValue, KindDefinition, Member, Prose, Text } from "@dtmd/temper";
 
 /**
- * `passage` — a narrative span of a composed document, rendered verbatim.
- * A member's body is one prose constructor, so a host with typed children
- * carries its narrative as passages; a passage may hold its own markdown
- * headings, which stay prose (the model's own line: what does not fit the
- * three primitives is prose).
+ * A narrative span of a composed body — plain words a `blocks()` child
+ * carries as prose, interleaved with embedded members in authored order.
+ * Built from a computed string (a derived participants line among them),
+ * which the `` text`…` `` tag cannot take: its interpolations are
+ * references, never words.
  */
-export const passage: KindDefinition<Record<never, never>> = kind(
-  {
-    name: "passage",
-    locus: { kind: "embedded", withinHosts: ["system", "flow", "decision"] },
-    unitShape: "file",
-    registration: [{ via: "always" }],
-  },
-  { render: (value) => value.leaves.text },
-);
-
-/** Compose one passage value. */
-export const passageOf = (key: string, body: string | Text): EmbeddedMemberValue =>
-  embeddedMemberValue({ kind: passage, key, leaves: { text: body } });
+export const span = (words: string): Text => ({
+  kind: "text",
+  template: words,
+  mentions: [],
+  includes: [],
+});
 
 /**
  * `invariant` — one declared property of a system, addressable structure
