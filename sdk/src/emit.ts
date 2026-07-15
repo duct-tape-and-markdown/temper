@@ -14,7 +14,8 @@ import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, Member, ResolvedEmbeddedMemberCollectionEntry, ResolvedEmbeddedMemberValue } from "./kind.js";
-import { renderText, resolveLeaf } from "./prose.js";
+import type { Text } from "./prose.js";
+import { isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
 import {
@@ -148,11 +149,35 @@ function renderMemberBlock(value: EmbeddedMemberValue, options: ResolveOptions):
 }
 
 /**
+ * Render a member-level `Text` body to its final bytes: its mentions are
+ * resolution-checked against `mentionable` (loud on a dangling address, `context`
+ * naming the host) and the display rule applied, each include slot left standing
+ * for the engine to splice. Shared by a `text` body and a composed body's prose
+ * spans, so a narrative span resolves the identical way a member-level `text`
+ * body does.
+ *
+ * # Throws
+ * If a mention names no declared value.
+ */
+function renderTextBody(prose: Text, mentionable: ReadonlySet<string>, context: string): string {
+  for (const mention of prose.mentions) {
+    if (!mentionable.has(mention.target.address)) {
+      throw new Error(
+        `${context}: mention of \`${mention.target.address}\` resolves to no ` +
+          `declared value — a mention cannot dangle (specs/model/contract.md).`,
+      );
+    }
+  }
+  return renderText(prose);
+}
+
+/**
  * Resolve a member's prose to its final body bytes: a `file()` asset is read in
  * byte-for-byte; a `text` body's mentions are resolution-checked (loud on a
- * dangling address) and rendered by the one display rule; a `blocks()` body
- * renders each embedded member as a `member.<kind> <key>` TOML fence, or, for a
- * kind with a `render` hook, as the hook's fence-free markdown. The words
+ * dangling address) and rendered by the one display rule; a `blocks()` composed
+ * body renders each child in authored order — a prose span as its resolved words
+ * (`renderTextBody`), an embedded member as a `member.<kind> <key>` TOML fence
+ * (or, for a kind with a `render` hook, the hook's fence-free markdown). The words
  * are never reworded.
  *
  * # Throws
@@ -173,19 +198,16 @@ function resolveBody(member: Member, options: ResolveOptions): string {
       );
     }
   }
-  if (prose.kind === "blocks") {
-    return prose.values.map((value) => renderMemberBlock(value, options)).join("\n\n") + "\n";
-  }
   const mentionable = options.mentionable ?? new Set<string>();
-  for (const mention of prose.mentions) {
-    if (!mentionable.has(mention.target.address)) {
-      throw new Error(
-        `member \`${member.name}\`: mention of \`${mention.target.address}\` resolves to no ` +
-          `declared value — a mention cannot dangle (specs/model/contract.md).`,
-      );
-    }
+  if (prose.kind === "blocks") {
+    const context = `member \`${member.name}\``;
+    return (
+      prose.values
+        .map((value) => (isTextSpan(value) ? renderTextBody(value, mentionable, context) : renderMemberBlock(value, options)))
+        .join("\n\n") + "\n"
+    );
   }
-  return renderText(prose);
+  return renderTextBody(prose, mentionable, `member \`${member.name}\``);
 }
 
 /**

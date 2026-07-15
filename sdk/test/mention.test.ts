@@ -66,3 +66,46 @@ test("the embedded address is host-scoped, never a flat kind:key — a flat ment
 
   assert.throws(() => emit(h), /a mention cannot dangle/);
 });
+
+test("a dangling mention in a composed-body prose span refuses at emit, like a member-level text body", () => {
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(text`It rests on ${{ address: "rule:ghost", display: "ghost" }}.`),
+      }),
+    ],
+  });
+
+  assert.throws(() => emit(h), /a mention cannot dangle/);
+});
+
+test("a composed-body prose span's mention keys to the host kind:name and mints no nested member", () => {
+  const h = harness({
+    members: [
+      rule({ name: "rust", prose: text`# Rust` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          text`Follow ${{ address: "rule:rust", display: "rust" }} for the standard.`,
+          embeddedMemberValue({
+            kind: memoryDecision,
+            key: "done-is-exact",
+            leaves: { chosen: "the scanner reports every finding" },
+          }),
+        ),
+      }),
+    ],
+    expect: [{ kind: memoryDecision, clauses: [] }],
+  });
+
+  const result = emit(h);
+  // The span's mention keys to the host member's own kind:name — the same row a
+  // member-level text body yields — never a leaf-scoped `<host>/<kind>/<key>` address.
+  assert.deepEqual(result.declarations.mentions, [{ member: "memory:CLAUDE", target: "rule:rust" }]);
+  // The span mints no nested-member row; only the interleaved embedded value does.
+  assert.deepEqual(
+    result.declarations.nested_members.map((row) => `${row.kind}:${row.key}`),
+    ["decision:done-is-exact"],
+  );
+});
