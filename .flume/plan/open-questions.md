@@ -136,8 +136,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   (108 lines: bumping every clause `cite` and doc-comment retrieval date to
   2026-07-15) and once more left all three `packages/…PACKAGE.md` cites as
   unchanged context — undischarged; they shifted +2, 404/444/481 → 406/446/483.
-  Re-verified on disk at reconcile HEAD 794ca2b (builtins.ts cites at
-  406/446/483; session_start.rs `+++` fixtures untouched this window, still
+  GROWN-FIELD-SCHEMAS (e76934e) then opened builtins.ts a seventh time
+  (+152 lines: the grown Skill/Agent typed-field doc comments, all above the
+  cites) and once more left all three as unchanged context — undischarged;
+  they shifted +152, 406/446/483 → 558/598/635.
+  Re-verified on disk at reconcile HEAD 9223917 (builtins.ts cites at
+  558/598/635; session_start.rs `+++` fixtures untouched this window, still
   128/133/146). Now rides the next entry opening builtins.ts — no queued
   entry does — unless it reconciles the cites.
 
@@ -240,7 +244,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   reconcile HEAD 99a79ec. PROSE-INTERLEAVE-SDK (6450ba6) then opened
   `sdk/test/emit.test.ts` to add a composed-body test below (line 907+) and
   left 853 as unchanged context — undischarged; re-verified on disk at 853,
-  reconcile HEAD d2496b6.
+  reconcile HEAD d2496b6. GROWN-FIELD-SCHEMAS (e76934e) then opened the file
+  again (+53 lines: a typed-surface emit test) and once more left the comment
+  as unchanged context — undischarged; it shifted 853 → 904, re-verified on
+  disk at reconcile HEAD 9223917.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
