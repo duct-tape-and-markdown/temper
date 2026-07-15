@@ -14,51 +14,12 @@ routing.
 re-verified against f67303c before refiling. The lock-migration cluster was
 drained at 06c44b1 → fork `(lock-upgrade-migration-posture)` plus its three
 instance entries (SATISFIES-LABEL-QUALIFY, LOCK-SPELLING-REAP,
-EMIT-INTO-REROOT-REAP). The five remaining notes — the 0019-content layout
-cluster (docs remainder, member-fence fork, layout-probe triple), the 0019
+EMIT-INTO-REROOT-REAP). The 0019-content layout cluster drained at c535331 →
+three open forks (custom-kind-consumer-docs, member-fence-dead-text,
+layout-kind-heterogeneous-corpus) + LAYOUT-OVERLAY-CHECK-GAP (probe finding 2;
+finding 1 verified working, no entry). The two remaining notes — the 0019
 decision-record renumber, and the pack-kind field trial — drain in later
 ticks. -->
-
-- Ruled and encoded (0019-content): a prose-interleaved host is a layout
-  source document. Unrouted remainder, docs only: the consumer guidance —
-  "if your host mixes prose and members, declare a layout and author the
-  document" — has no written home; no custom-kind consumer docs path
-  exists yet, so the entry names the home too. observed at 0aa9e62,
-  re-verified at f67303c
-
-- Fork to register, not a fix: a `member.<kind> <key>` fence in a
-  `text()`/`file()` body is dead text with no finding on any path. Live
-  repro: the centercode harness was green pre-0018 with ~57 embedded
-  members resolving at leaf grain; it re-emits and re-checks green with
-  that whole layer silently gone (`explain`: "carries no nested member").
-  PR #20 proposed a "cheap refusal" (fence info string parses as
-  `member.` + a declared kind, no `nested_member` row matches the host →
-  finding); the standing objection, on the record: the check scans prose
-  for temper's own retired syntax — invariant 1's "matching is mining",
-  and the `@import` precedent doesn't cover it (Claude Code executes
-  `@import`; nothing executes a member fence) — 0019-content's rejected
-  alternatives retired per-entity fences by name, and any document
-  *quoting* a fence (docs about temper, this corpus) false-positives. If
-  it enters at all it is a decision-gated advisory clause, with the
-  migration-loss repro as its context — never a shipped refusal. observed
-  at 8c00159, re-verified at f67303c
-
-- Layout probe results (centercode testbed): (1) emit honors a relocated
-  built-in's declared `content` — `temper::layout::unadmitted` refused
-  loud and located before writing a byte; the 0019-loud posture works
-  end-to-end on that path. (2) Untested divergence to close: the gate
-  resolves a built-in kind via `overlay_builtin_kind`
-  (`src/main.rs:896-919`), which lifts exactly `governs` + `templates`,
-  never `content` — a document that *fits* its layout would emit rows
-  fine while `check`'s reconstruction may silently fall back to the plain
-  frontmatter read; same class as T18 (templates overlay), one fact
-  later; unverified past emit. (3) Fork to register: a layout binds the
-  whole kind, but a real corpus is heterogeneous, and 0019-content's own
-  answer ("two kinds, or it is prose") collides with governance — what
-  two kinds sharing a governs glob means is unspecified
-  (`representation.md`'s "per-kind precedence" is the runtime artifact
-  levels, not this). First question any consumer hits adopting layout for
-  a built-in kind. observed at 8c00159, re-verified at f67303c
 
 - Corpus hygiene: two decision records wear 0019 —
   `0019-loud-or-nothing.md` and `0019-content-is-a-declared-kind-fact.md`

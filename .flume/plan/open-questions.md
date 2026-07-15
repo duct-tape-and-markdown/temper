@@ -13,6 +13,49 @@ tax.
 
 ## Open forks
 
+- `(custom-kind-consumer-docs)` — OPEN (registered 2026-07-15). 0019-content
+  ruled a prose-interleaved host is a layout source document (encoded). The
+  unrouted remainder is docs-only: the consumer guidance — "if your host mixes
+  prose and members, declare a layout and author the document" — has no written
+  home. `specs/distribution.md` ("The offering") names README, CONTRIBUTING,
+  and the quickstart, but no custom-kind / layout **authoring** surface exists.
+  Open: where does that guidance live — a `docs/` horizon page (human
+  territory, fence-excluded; plan never writes it), the plugin's teaching
+  **skill** (it "teaches mechanics… never taste" — `distribution.md`, "What
+  ships"; layout-authoring is mechanics, so a candidate home), or the README?
+  Docs-only, blocks nothing. Resolution routes back through the inbox.
+
+- `(member-fence-dead-text)` — OPEN (registered 2026-07-15). A
+  `member.<kind> <key>` fence inside a `text()`/`file()` (non-layout) body is
+  dead text — no finding on any path; it renders as prose. Live repro
+  (centercode): a harness green pre-0018 with ~57 embedded members resolving at
+  leaf grain re-emits and re-checks green with that whole layer silently gone
+  (`explain`: "carries no nested member"). PR #20 proposed a "cheap refusal"
+  (fence info string parses as `member.` + a declared kind, no `nested_member`
+  row matches the host → finding). Standing objection on record: the check
+  would scan prose for temper's own retired syntax — invariant 1's "matching is
+  mining"; the `@import` precedent doesn't cover it (Claude Code executes
+  `@import`; nothing executes a member fence); 0019-content's rejected
+  alternatives retired per-entity fences by name; and any document *quoting* a
+  fence (temper's own docs, this corpus) false-positives. Open: does it enter
+  at all, and if so only as a **decision-gated advisory clause** (never a
+  shipped refusal), with the migration-loss repro as its context? Resolution
+  routes back through the inbox.
+
+- `(layout-kind-heterogeneous-corpus)` — OPEN (registered 2026-07-15). A
+  layout binds the whole kind (`specs/model/representation.md`, "kind": a
+  layout is the kind's content), but a real corpus is heterogeneous — some
+  documents in a governed tree mix prose and members, others don't.
+  0019-content's own answer ("what does not fit the three primitives is two
+  kinds, or it is prose") collides with governance: what **two kinds sharing a
+  `governs` glob** means is unspecified (representation.md's "per-kind
+  precedence" is the runtime artifact-level merge, not this). First question a
+  consumer hits adopting a layout for a built-in kind, or governing any
+  heterogeneous tree. Open: can two kinds share a governs glob (and how is a
+  document routed to one), or is heterogeneity always "declare N kinds over N
+  sub-globs"? (Related but distinct from the pack-kind directory-slice gap
+  still inbox-queued.) Resolution routes back through the inbox.
+
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
   hand-written std-lib ships an `agents-md.memory` built-in kind (glob
   `**/AGENTS.md`), but the SDK module and the derived built-in lock export only
