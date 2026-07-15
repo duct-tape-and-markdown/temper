@@ -8,11 +8,6 @@ made — so plan can diff forward (`git log <sha>..HEAD`) instead of
 re-deriving the whole premise; the queue keeps moving between filing and
 routing.
 -->
-
-- `specs/builtins.md` says "Five kinds ship" (line ~14) but seven authorable
-  kinds ship in `sdk/src/builtins.ts` (`hook`, `mcp-server` added under 0021);
-  the prose at the coverage-bar section already acknowledges them. Spec drift:
-  the headline enumeration needs the correction. observed at e8edffa
 - Built-in contract reconciliation against the 2026-07-15 Claude Code docs —
   drift register with per-item detail and source URLs in
   `docs/market-formats.md`, "Claude Code deep audit" section. Load-bearing
