@@ -1,37 +1,5 @@
 [
   {
-    "tag": "BUILTINS-CITE-REFRESH",
-    "summary": "Builtins update ritual: re-fetch the Claude Code docs; reconcile every sdk/src/builtins.ts cite (07-07..07-10), the hook-event/mcp-transport sets, and skill forbiddenKeys against them",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The clauses live in code"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "A single reconciliation pass over builtins.ts against a re-fetch of the raw code.claude.com/docs pages (skills, memory, hooks, sub-agents, mcp): re-check every cite dated 07-07..07-10 — clause `cite:` fields and doc-comment retrieval dates alike — bumping wording/date where docs moved (command's legacy-form note; memory's `./.claude/CLAUDE.md` now an equal alternative and `CLAUDE.local.md` not deprecated); re-verify `DOCUMENTED_HOOK_EVENTS` (30, cited 07-10) and `DOCUMENTED_MCP_TRANSPORTS` (5) against the current documented sets, extending each if the docs grew; and review the skill `forbiddenKeys` Cursor-key list (`globs`/`alwaysApply`) against the now-documented Claude Code frontmatter — confirm nothing legitimate is forbidden and no new cross-tool key must be added."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Re-derive the embedded lock. Clause `cite`/`guidance` are `ClauseRow` columns, so any clause `cite:` change moves the lock (doc-comment retrieval dates are TS-only and do not). Regenerate via `pnpm --dir sdk build` and byte-compare; the SDK is emit's sole producer of these rows (rules/sdk.md, 'The engine seam')."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "The re-derived built-in lock byte-matches the embedded src/builtin_lock.toml after `pnpm --dir sdk build` — the real cross-language seam, green after any clause-cite change."
-      }
-    ],
-    "acceptance": "Every builtins.ts cite reflects a 2026-07-15 re-fetch and stamps its date; DOCUMENTED_HOOK_EVENTS/DOCUMENTED_MCP_TRANSPORTS match the current docs; skill forbiddenKeys reviewed against the grown frontmatter; the frozen-lock test is green (specs/builtins.md: cited and dated — the update ritual walks the clauses and re-checks their citations).",
-    "notes": "Scoped to the ritual remainder the note carries (cite re-check, hook-event re-verify, forbiddenKeys review) — NOT the grown-frontmatter modeling (audit #2/#6), out of this note's per. Reference docs/market-formats.md §'Claude Code deep audit'; re-fetch each raw page before encoding a cite. No new predicate; the two predicate-needing candidates are forked (builtins-coverage-predicates). observed at 3b8d162; scoped at 1d251f6."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
