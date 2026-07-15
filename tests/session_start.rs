@@ -331,6 +331,57 @@ fn a_custom_kinds_required_floor_clause_blocks_a_violating_member() {
 }
 
 #[test]
+fn the_install_wired_session_start_command_gates_the_full_declared_model() {
+    // The install-wired SessionStart command must gate the *full* declared model — the
+    // adopted lock's requirements, not built-ins alone. A `required` requirement with
+    // no satisfier yields a blocking verdict, proof the wired command resolves
+    // `<root>/.temper` rather than half-gating a lockless workspace and exiting green.
+    let harness = common::tmpdir("install-wired-src");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+
+    let temper_dir = harness.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.requirement]]\n\
+         name = \"engineering-standards\"\n\
+         kind = \"skill\"\n\
+         required = true\n",
+    )
+    .unwrap();
+
+    // Drive the exact command `install` wires into the SessionStart hook, from the
+    // harness root Claude Code runs it in — the built binary stands in for the `temper`
+    // the hook names.
+    let args: Vec<&str> = temper::install::SESSION_START_COMMAND
+        .split_whitespace()
+        .skip(1)
+        .collect();
+    let output = Command::new(BIN)
+        .current_dir(&harness)
+        .args(&args)
+        .output()
+        .unwrap();
+
+    // Advisory: session-start never blocks, always exits zero.
+    assert!(
+        output.status.success(),
+        "the session-start command is advisory and must exit zero"
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let payload: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("session-start stdout must be valid JSON ({e}):\n{stdout}"));
+    let context = payload["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .expect("the unfilled required requirement must carry a blocking verdict");
+    assert!(
+        context.contains("engineering-standards"),
+        "the verdict must name the unfilled requirement — the full model gated, not \
+         built-ins alone; got:\n{context}"
+    );
+}
+
+#[test]
 fn the_reporter_caps_additional_context_at_10k() {
     // A synthetic flood far larger than the cap — easier to construct directly
     // than to provoke through a harness, and the cap is the reporter's own

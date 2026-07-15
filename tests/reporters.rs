@@ -164,19 +164,15 @@ Drive the team through the playbook.\n";
 fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surface() {
     let harness = common::tmpdir("sarif-src");
     common::write_skill(&harness, "coordinate", ERROR_SKILL);
-    // An empty workspace: `check` reads built-in kind members live off harness disk,
-    // no scratch import
-    // needed to populate it first.
-    let into = common::tmpdir("sarif-into");
 
-    // CWD is the harness,
-    // carrying no adopted lock either, so an ambient project assembly at the process
-    // CWD — e.g. temper's own — can't leak in and abort the load. Mirrors the
-    // `schema`/`cli` tests' isolation.
+    // CWD is the harness root, carrying no adopted lock, so `check .` reads built-in
+    // kind members live off harness disk and no ambient project assembly at the
+    // process CWD — e.g. temper's own — can leak in. Mirrors the `schema`/`cli` tests'
+    // isolation.
     let output = Command::new(BIN)
         .current_dir(&harness)
         .arg("check")
-        .arg(&into)
+        .arg(".")
         .arg("--reporter")
         .arg("sarif")
         .output()

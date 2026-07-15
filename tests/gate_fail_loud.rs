@@ -1,17 +1,10 @@
-//! The fail-loud coherence guard: a placement that cannot run the engine must error, never
-//! silently skip. `temper check .` at a harness root reads no `./lock.toml`/`./skills`
-//! (they live under `.temper/`), so a committed assembly that declares
-//! members/requirements resolves nothing and used to exit 0 — the wave-end confirmation
-//! caught exactly this ("checked 0 members … exit 0"). This drives the real binary so
-//! the mis-rooting is reproduced exactly as the confirmation hit it, not just the pure
-//! predicate.
-//!
-//! Cases mirror the entry's acceptance:
-//! (a) declared-but-nothing-resolved ⇒ an `error` `coverage.empty-assembly` and a
-//!     non-zero exit;
-//! (b) a correctly-rooted check that resolves ≥1 member never fires, even though the same lock declares a requirement;
-//! (c) a genuinely empty harness (no declared requirements) never fires — zero members
-//!     is legitimate there.
+//! Fail-loud on a mis-rooted or malformed harness. `temper check <root>` resolves
+//! the harness root's own `<root>/.temper` lock and walks members off `<root>`, so an
+//! adopted assembly can no longer resolve to a lockless workspace and exit a silent
+//! green — the half-gate the arg-resolution fix closed. What remains fail-loud here:
+//! a required requirement with no filler still fails via the coverage tier, and a
+//! malformed member aborts loud naming the file. This drives the real binary so the
+//! resolution is exercised exactly as a session hits it, not just the pure predicate.
 
 use std::fs;
 use std::path::Path;
@@ -45,29 +38,51 @@ fn check_in(root: &Path, args: &[&str]) -> (Vec<String>, bool) {
 }
 
 #[test]
-fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
-    // The harness-root `temper check .` case the wave-end confirmation caught: a
-    // committed lock declares a requirement, but nothing was ever imported — no
-    // surface tree at the workspace `check` reads.
+fn an_adopted_root_resolves_its_own_lock_rather_than_half_gating() {
+    // The mis-rooting the arg fix closed: an adopted `<root>/.temper` lock declaring a
+    // `required` requirement, with no member filling it. `check .` at the harness root
+    // must resolve that lock and fail loud on the unfilled requirement — never read the
+    // lock from `<root>` itself (finding none) and exit a silent green.
     let root = common::tmpdir("declared-empty");
+    common::write_requirements(&root, vec![common::requirement("docs", true, None)]);
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    let unfilled = common::findings_for(&findings, "requirement.unfilled");
+    assert_eq!(
+        unfilled.len(),
+        1,
+        "the adopted lock's unfilled required requirement must fire, got: {findings:#?}"
+    );
+    assert!(
+        unfilled[0].starts_with("::error "),
+        "an unfilled required requirement is error-severity (fails the run), got: {}",
+        unfilled[0]
+    );
+    assert!(
+        !success,
+        "a declared-but-unfilled required requirement must exit non-zero, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_non_required_requirement_with_no_members_is_legitimately_clean() {
+    // Not every zero-member harness is a mis-rooting: an adopted lock whose only
+    // requirement is *not* `required` resolves cleanly. The lock was read (declarations
+    // are non-empty), so this is a fully-resolved workspace that happens to carry no
+    // members — a legitimate green, not a half-gate.
+    let root = common::tmpdir("declared-non-required");
     common::write_requirements(&root, vec![common::requirement("docs", false, None)]);
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let fired = common::findings_for(&findings, "coverage.empty-assembly");
-    assert_eq!(
-        fired.len(),
-        1,
-        "expected exactly one empty-assembly error, got: {findings:#?}"
-    );
-    let finding = fired[0];
     assert!(
-        finding.starts_with("::error "),
-        "the empty-assembly guard is error-severity (fails the run), got: {finding}"
+        common::findings_for(&findings, "requirement.unfilled").is_empty(),
+        "a non-required requirement must not fire an unfilled error, got: {findings:#?}"
     );
     assert!(
-        !success,
-        "a declared-but-unresolved assembly must exit non-zero, got: {findings:#?}"
+        success,
+        "an adopted lock with only a non-required requirement must exit zero, got: {findings:#?}"
     );
 }
 
@@ -75,9 +90,9 @@ fn declared_but_nothing_resolved_fails_loud_with_the_coherence_error() {
 fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
     // The same requirement-declaring lock, but this time the harness carries a real
     // skill at its committed locus (`.claude/skills/coordinate/SKILL.md`) — `check`
-    // reads built-in kind members live off harness disk, no scratch import required, and the correctly-rooted path
-    // resolves ≥1 member, so the guard must not fire even though the assembly still
-    // declares a requirement.
+    // reads built-in kind members live off harness disk, no scratch import required, and
+    // the correctly-rooted path resolves ≥1 member, so a bare `check` from the root
+    // stays clean even though the assembly still declares a (non-required) requirement.
     let root = common::tmpdir("declared-resolved");
     let harness = root.join(".claude").join("skills").join("coordinate");
     fs::create_dir_all(&harness).unwrap();
@@ -86,10 +101,6 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
 
     let (findings, success) = check_in(&root, &[]);
 
-    assert!(
-        common::findings_for(&findings, "coverage.empty-assembly").is_empty(),
-        "a resolving workspace must not trip the empty-assembly guard, got: {findings:#?}"
-    );
     assert!(
         success,
         "the correctly-rooted, resolving check must exit zero, got: {findings:#?}"
@@ -144,15 +155,11 @@ fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
 #[test]
 fn a_genuinely_empty_harness_stays_silent() {
     // No declared requirements at all: the assembly declares nothing, so zero resolved
-    // members is legitimate and the guard must never fire.
+    // members is legitimate and the check exits clean.
     let root = common::tmpdir("genuinely-empty");
 
     let (findings, success) = check_in(&root, &[]);
 
-    assert!(
-        common::findings_for(&findings, "coverage.empty-assembly").is_empty(),
-        "a genuinely empty harness must not trip the empty-assembly guard, got: {findings:#?}"
-    );
     assert!(
         success,
         "a genuinely empty harness's check must exit zero, got: {findings:#?}"

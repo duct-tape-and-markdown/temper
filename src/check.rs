@@ -10,7 +10,6 @@
 //! [`render`] presents the set with `miette`.
 
 use std::fmt;
-use std::path::Path;
 
 use miette::GraphicalReportHandler;
 
@@ -148,44 +147,6 @@ pub fn any_error(diagnostics: &[Diagnostic]) -> bool {
         .any(|diagnostic| diagnostic.severity == Severity::Error)
 }
 
-/// The rule id for [`empty_assembly_incoherence`]'s fail-loud tripwire.
-pub const EMPTY_ASSEMBLY_RULE: &str = "coverage.empty-assembly";
-
-/// Fail loud when the committed assembly declares requirements but the gate
-/// resolved none of them and the lock carries no declaration rows either — the
-/// silent "checked 0 members … exit 0" class the wave-end confirmation caught.
-/// Takes
-/// primitives rather than `Declarations` so the predicate stays a pure, unit-testable
-/// tripwire: `declared` is whether the lock declares ≥1 `[requirement.*]`;
-/// `resolved_members` is the sum of every built-in kind's checked-member count;
-/// `declarations_empty` is whether the lock's declaration-row family carries nothing.
-///
-/// A workspace that resolves ≥1 member never fires, and neither does a genuinely empty harness
-/// (`declared` false) — zero members is legitimate there.
-#[must_use]
-pub fn empty_assembly_incoherence(
-    root: &Path,
-    declared: bool,
-    resolved_members: usize,
-    declarations_empty: bool,
-) -> Option<Diagnostic> {
-    if declared && resolved_members == 0 && declarations_empty {
-        let root = root.display();
-        Some(Diagnostic::error(
-            EMPTY_ASSEMBLY_RULE,
-            root.to_string(),
-            format!(
-                "{root} declares members/requirements but the gate resolved none of them, \
-                 and the lock carries no declaration rows — likely a stale or absent \
-                 lock.toml, or a mis-rooted workspace (the harness root vs `./.temper`, or \
-                 `emit` not run)"
-            ),
-        ))
-    } else {
-        None
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,40 +171,5 @@ mod tests {
         assert!(rendered.contains("name has uppercase"));
         // The artifact rides along on the help line.
         assert!(rendered.contains("demo"));
-    }
-
-    #[test]
-    fn empty_assembly_incoherence_fires_when_declared_but_nothing_resolved() {
-        let root = Path::new("/harness/root");
-        let diagnostic = empty_assembly_incoherence(root, true, 0, true).unwrap();
-
-        assert_eq!(diagnostic.severity, Severity::Error);
-        assert_eq!(diagnostic.rule, EMPTY_ASSEMBLY_RULE);
-        assert!(diagnostic.message.contains("/harness/root"));
-    }
-
-    #[test]
-    fn empty_assembly_incoherence_stays_silent_when_members_resolved() {
-        // A correctly-rooted workspace that resolves at least one member never fires,
-        // even though the lock carries no declaration rows (e.g. the lock predates the
-        // declaration recut): no false block on a clean gate.
-        let root = Path::new("/harness/root");
-        assert!(empty_assembly_incoherence(root, true, 1, true).is_none());
-    }
-
-    #[test]
-    fn empty_assembly_incoherence_stays_silent_when_lock_carries_declarations() {
-        // Declared and zero resolved, but the lock's declaration rows are non-empty:
-        // not the silent-skip class this guards against.
-        let root = Path::new("/harness/root");
-        assert!(empty_assembly_incoherence(root, true, 0, false).is_none());
-    }
-
-    #[test]
-    fn empty_assembly_incoherence_stays_silent_on_a_genuinely_empty_harness() {
-        // The lock declares nothing: `declared` is false, so zero resolved
-        // members is legitimate and the guard never fires.
-        let root = Path::new("/harness/root");
-        assert!(empty_assembly_incoherence(root, false, 0, true).is_none());
     }
 }

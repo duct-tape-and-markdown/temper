@@ -315,13 +315,15 @@ fn over_length_body() -> String {
     body
 }
 
-/// Run the built binary `temper check <workspace> [extra…]` from `cwd` and return
-/// whether it exited zero, plus the rendered diagnostic set on stdout.
-fn check_from(cwd: &Path, workspace: &Path, extra: &[&str]) -> (bool, String) {
+/// Run the built binary `temper check <root> [extra…]` from `cwd` and return
+/// whether it exited zero, plus the rendered diagnostic set on stdout. `root` is a
+/// harness root: `check` resolves `<root>/.temper`'s committed lock and walks its
+/// members off `<root>`.
+fn check_from(cwd: &Path, root: &Path, extra: &[&str]) -> (bool, String) {
     let output = Command::new(BIN)
         .current_dir(cwd)
         .arg("check")
-        .arg(workspace)
+        .arg(root)
         .args(extra)
         .output()
         .unwrap();
@@ -347,9 +349,7 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
     fs::write(specs.join("15-kinds.md"), over_length_body()).unwrap();
 
-    let into = corpus.join(".temper");
-
-    let (ok, output) = check_from(&corpus, &into, &[]);
+    let (ok, output) = check_from(&corpus, &corpus, &[]);
     assert!(
         ok,
         "an advisory-only spec violation must exit zero without --deny-advisories"
@@ -364,7 +364,7 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
         "the clean spec must trip no max_lines finding, got:\n{output}"
     );
 
-    let (ok, output) = check_from(&corpus, &into, &["--deny-advisories"]);
+    let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
     assert!(
         !ok,
         "the over-length spec must exit non-zero under --deny-advisories"
@@ -386,9 +386,7 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
     fs::write(adrs.join("0001-short.md"), "# ADR 1\n\nDecided.\n").unwrap();
     fs::write(adrs.join("0002-long.md"), over_length_body()).unwrap();
 
-    let into = corpus.join(".temper");
-
-    let (ok, output) = check_from(&corpus, &into, &[]);
+    let (ok, output) = check_from(&corpus, &corpus, &[]);
     assert!(
         ok,
         "an advisory-only ADR violation must exit zero without --deny-advisories"
@@ -403,7 +401,7 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
         "the clean ADR must trip no max_lines finding, got:\n{output}"
     );
 
-    let (ok, output) = check_from(&corpus, &into, &["--deny-advisories"]);
+    let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
     assert!(
         !ok,
         "the over-length ADR must exit non-zero under --deny-advisories"

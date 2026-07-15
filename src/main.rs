@@ -36,13 +36,13 @@ use temper::reporter;
 use temper::roster;
 use temper::schema;
 
-/// The surface workspace default for `--into` / the `check` argument:
-/// a `.temper` directory under the cwd.
+/// The SDK surface workspace under the cwd — the emit `--into` default and the
+/// path `schema` / `explain` / `bundle` read the committed lock from.
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
-/// The surface workspace directory beside a harness root.
-/// Session-start's surface-present branch gates this directly; its surfaceless
-/// branch gates the harness root directly instead.
+/// The surface workspace directory beside a harness root. [`harness_diagnostics`]
+/// resolves `<root>/.temper` and gates it on its committed lock when present (the
+/// adopted case), else gates the raw harness root directly.
 const TEMPER_DIR: &str = ".temper";
 
 /// Resolve a built-in kind's bare row label into its default [`Contract`], failing
@@ -88,19 +88,21 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Lint the config surface against the active contract. Session-start is a
-    /// **reporter** of this gate, never a verb: `--reporter session-start` reads the path as a harness root and is
-    /// advisory (always exits zero), so a Claude Code `SessionStart` hook runs
-    /// `temper check . --reporter session-start`.
+    /// Lint a harness against the active contract. The path argument is a **harness
+    /// root** for every reporter: `<root>/.temper` gates on its committed lock when
+    /// present, else the raw root gates off disk — so a terminal `check <root>`
+    /// resolves the lock exactly where the session-start reporter does, never a
+    /// silent half-gate over a lockless workspace. Session-start is a **reporter** of
+    /// this gate, never a verb: it is advisory (always exits zero), so a Claude Code
+    /// `SessionStart` hook runs `temper check . --reporter session-start`.
     Check {
-        /// The surface workspace to lint (defaults to `./.temper`); with `--reporter
-        /// session-start` it is read as a *harness root* instead (defaults to `.`).
-        workspace: Option<PathBuf>,
-        /// One-shot mode: lint a raw harness directly — its own `.temper/` surface
-        /// gates on its lock when one is already present, else the harness root is
-        /// imported internally into a throwaway surface; either way the identical
-        /// by-kind gate runs and no workspace is written. Conflicts with `workspace`.
-        #[arg(long, conflicts_with = "workspace")]
+        /// The harness root to lint (defaults to the cwd). Its `.temper/` surface
+        /// gates on the committed lock when present, else the raw root gates off disk.
+        root: Option<PathBuf>,
+        /// An explicit spelling of the same harness root, kept as a usage-conflict
+        /// guard: passing it together with the positional root is a usage error, not a
+        /// silent precedence pick.
+        #[arg(long, conflicts_with = "root")]
         harness: Option<PathBuf>,
         /// Also fail the run on `advisory` (warn-severity) violations, not just
         /// `required` ones — the strict CI policy.
@@ -228,33 +230,20 @@ enum Reporter {
 fn main() -> miette::Result<ExitCode> {
     match Cli::parse().command {
         Command::Check {
-            workspace,
+            root,
             harness,
             deny_advisories,
             reporter,
         } => {
-            // Session-start is a reporter, not a verb: it reads the path as a *harness root* (surface-present or
-            // gated directly off disk), emits the payload, and is advisory — always exits
-            // zero, so a failing contract routes through the human, never blocks the
-            // session.
-            let diagnostics = if reporter == Reporter::SessionStart {
-                let harness_path = harness.or(workspace).unwrap_or_else(|| PathBuf::from("."));
-                harness_diagnostics(&harness_path)?
-            } else {
-                // Two ways into the same gate. `--harness` is the one-shot wedge: gate the
-                // harness root directly. Without it, the two-step path gates an
-                // already-imported surface over its harness root (the cwd). Same
-                // diagnostic shape ⇒ shared render.
-                match harness {
-                    Some(harness) => harness_diagnostics(&harness)?,
-                    None => {
-                        let workspace =
-                            workspace.unwrap_or_else(|| PathBuf::from(DEFAULT_WORKSPACE));
-                        // Two-step: the surface *is* the imported members, rooted at the cwd.
-                        gate(&workspace, Path::new("."))?
-                    }
-                }
-            };
+            // The one resolution for every reporter: the path argument (the positional
+            // root or its `--harness` synonym) is a harness root, and
+            // `harness_diagnostics` gates `<root>/.temper` on its committed lock when
+            // present, else the raw root. A terminal `check <root>` can never read the
+            // lock from a different place than the session-start reporter does — the
+            // silent half-gate an explicit `.` used to hit, resolving a lockless
+            // workspace while built-ins still matched off disk and the run exited green.
+            let harness_path = harness.or(root).unwrap_or_else(|| PathBuf::from("."));
+            let diagnostics = harness_diagnostics(&harness_path)?;
 
             match reporter {
                 Reporter::Terminal => print!("{}", check::render(&diagnostics)),
@@ -843,29 +832,6 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         &builtin_kind::definitions()?,
         &member_counts,
     )?);
-
-    // The fail-loud coherence tripwire: the harness was adopted (its own `.temper/lock.toml`
-    // declares requirements) but the gate resolved none of them and the workspace it
-    // was actually pointed at carries no declaration rows either — the harness-root
-    // `temper check .` case the wave-end confirmation caught (checked 0 members, exit
-    // 0). Read independently off `harness_root` — never `workspace`, which is the very
-    // thing that can be mis-rooted — so a correctly-rooted check (≥1 resolved member)
-    // and a genuinely empty (never-adopted) harness both stay silent.
-    let declared = !drift::read_declarations(&harness_root.join(TEMPER_DIR))?
-        .requirements
-        .is_empty();
-    let resolved_members: usize = member_counts.values().sum();
-    let declarations_empty = declarations.kinds.is_empty()
-        && declarations.clauses.is_empty()
-        && declarations.requirements.is_empty()
-        && declarations.assembly.is_empty()
-        && declarations.satisfies.is_empty();
-    diagnostics.extend(check::empty_assembly_incoherence(
-        harness_root,
-        declared,
-        resolved_members,
-        declarations_empty,
-    ));
 
     // The freshness fact: a committed projection
     // whose bytes no longer match the lock's emit fingerprint is `config.stale`. Read

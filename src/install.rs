@@ -83,9 +83,13 @@ fn sdk_version_range() -> &'static str {
 }
 
 /// The exec-form command Claude Code runs at session start: the `temper` binary
-/// itself, checking the project root under the advisory session-start reporter.
-/// The `.` is the harness under the running project.
-const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
+/// checking the project root under the advisory session-start reporter. The `.` is
+/// the **harness root** the hook runs in, so the reporter resolves `./.temper`'s
+/// committed lock and gates the full declared model — never `.temper` itself, the
+/// surface spelling that would walk members off the workspace dir and read every
+/// requirement unfilled. Public so the session-start acceptance can drive the exact
+/// wired command.
+pub const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
 /// The placement label carried in the report and the self-verify diagnostics.
 const SESSION_START: &str = "session-start hook";

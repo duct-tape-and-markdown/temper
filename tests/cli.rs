@@ -225,6 +225,61 @@ fn check_rejects_a_harness_and_workspace_together() {
 }
 
 #[test]
+fn check_resolves_the_nested_temper_for_an_explicit_harness_root() {
+    // The half-gate this fix closes: an explicit harness-root argument must resolve
+    // `<root>/.temper` — the adopted lock's declared requirements — the same way the
+    // bare-verb default does, never read the lock from `<root>` itself (finding none)
+    // while built-ins still match off disk and the run exits a silent green.
+    let harness = common::tmpdir("arg-half-gate");
+    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
+
+    // An adopted lock beside the harness root declaring a `required` requirement no
+    // member satisfies: the full model must fail loud, a half-gate that drops the lock
+    // stays (wrongly) green.
+    let temper_dir = harness.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.requirement]]\n\
+         name = \"engineering-standards\"\n\
+         kind = \"skill\"\n\
+         required = true\n",
+    )
+    .unwrap();
+
+    // The explicit harness-root argument (terminal reporter): resolves `<root>/.temper`,
+    // so the unfilled required requirement fires and the run exits non-zero.
+    let output = Command::new(BIN)
+        .arg("check")
+        .arg(&harness)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        !output.status.success(),
+        "check <harness-root> must resolve the nested .temper and fail on the unfilled \
+         required requirement, never silently half-gate; got exit {:?}:\n{stdout}",
+        output.status.code()
+    );
+    assert!(
+        stdout.contains("engineering-standards"),
+        "the finding must name the unfilled requirement, got:\n{stdout}"
+    );
+
+    // The bare-verb spelling from inside the harness resolves the same lock — no arg
+    // spelling produces a silent green on the half-resolved workspace.
+    let bare = Command::new(BIN)
+        .current_dir(&harness)
+        .arg("check")
+        .output()
+        .unwrap();
+    assert!(
+        !bare.status.success(),
+        "a bare `check` from the harness root must fail on the same unfilled requirement"
+    );
+}
+
+#[test]
 fn self_host_check_is_clean_over_tempers_own_surface() {
     // The bootstrap proof: `temper check` over temper's
     // OWN committed surface — its `.temper/` document-carried rules plus its lock-declared

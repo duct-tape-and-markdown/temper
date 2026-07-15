@@ -86,16 +86,15 @@ fn write_sibling(root: &Path, rel: &str, body: &str) {
     fs::write(path, body).unwrap();
 }
 
-/// Gate the harness's live surface with cwd = harness root — the TWO-STEP path (a bare
-/// `.temper` workspace argument, no `--harness`): `check` reads built-in kind members
-/// live off harness disk, so
-/// no scratch import is needed to populate `.temper` first — the exact route the
-/// `--harness` cases never take. Returns the emitted finding lines.
+/// Gate the harness from its own root with cwd = harness root (`check .`, no
+/// `--harness`): the path argument resolves as a harness root, so `check` reads
+/// built-in kind members live off harness disk and enumerates the whole repo for
+/// directive backing — no scratch import needed. Returns the emitted finding lines.
 fn check_two_step(harness: &Path) -> Vec<String> {
     let output = Command::new(BIN)
         .current_dir(harness)
         .arg("check")
-        .arg(".temper")
+        .arg(".")
         .arg("--reporter")
         .arg("github")
         .output()
