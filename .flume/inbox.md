@@ -155,7 +155,23 @@ routing.
   red on these five findings (4 requirement.kind + 1 degree, original
   filenames restored) as the live repro; the fix flips it green with no
   testbed change. Worse than a 0019-loud gap: this path *lies
-  specifically*. Observed at 0aa9e62.
+  specifically*. Route map from an abandoned in-session fix attempt
+  (verified against 0aa9e62 source, then reverted — flume's to ship):
+  the wire defect is `SatisfiesRow.member` carrying a bare id where
+  `MentionRow`/`IncludeRow` already carry a `kind:name` address; exactly
+  two writers (`sdk/src/declarations.ts` `satisfiesRows`;
+  `src/drift.rs` `derive_layout_rows`, which has `host_address()` in
+  hand) and exactly one fold (`src/main.rs` `resolve_kind_units`, the
+  `row.member == unit.id` loop — it runs per kind, which is the leak).
+  Migration matters (the mass-reap lesson): a pre-fix lock's bare rows
+  must stay accepted by id at the fold — old behavior, collision and
+  all — until the next emit rewrites them qualified, else an upgraded
+  binary reads standing harnesses as unfilled. Test surface that
+  assumes bare rows and moves with the change:
+  `tests/common/mod.rs` `author_satisfies`, `tests/requirement_roster.rs`
+  (4 rows), `tests/lock_declaration_rows.rs` (2), `tests/emit.rs` (1);
+  the regression case is two kinds sharing a member name with a
+  qualified row binding only its own kind's member. Observed at 0aa9e62.
 
 - Pack-kind field trial (centercode, 07-15) — the pass's convention layer
   brought under the gate, and it works: three frontmatterless custom
