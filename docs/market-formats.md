@@ -103,3 +103,91 @@ before any encoding: Codex subagent TOML exact layout; Cursor memories +
 custom modes; Cline agent/hook file formats; Windsurf workflow frontmatter;
 Junie hook event list; Gemini SKILL.md full schema; everything Amazon-Q-CLI
 (migrated to Kiro).
+
+## Claude Code deep audit — retrieved 2026-07-15
+
+A single-tool refresh of the Claude Code column, fetched ahead of the
+base-harness whole-starter expansion. Purpose: reconcile the shipped built-in
+representation (`sdk/src/builtins.ts`, cites 2026-07-07..10; `specs/builtins.md`)
+against the current docs. Sources: `code.claude.com/docs/en/{skills, memory,
+hooks, sub-agents, settings, permissions, best-practices, features-overview}`,
+`platform.claude.com` agent-skills best-practices, the agent-skills
+engineering blog post — all retrieved 2026-07-15.
+
+**Method caveat, load-bearing:** the hooks and settings extracts came through
+a fetch summarizer. Structure is trustworthy; exact field wording is not.
+**Re-fetch the raw page before encoding any individual `cite` clause.**
+
+Drift register against our shipped representation:
+
+1. **Commands merged into skills.** `.claude/commands/*.md` still works and
+   takes the same frontmatter, but skills are the documented superset and
+   recommended form (`/deploy` from either locus). Our `command` kind needs a
+   legacy posture note and a cite refresh; new examples should not
+   demonstrate it.
+2. **Skill frontmatter grew far past our contract's horizon.** All fields
+   optional now; `name` is display-only (command name comes from the
+   directory, plugin-root exception). New since our cites: `when_to_use`,
+   `arguments`/`argument-hint`, `paths` (glob auto-activation, rule-style),
+   `context: fork` + `agent`, `hooks` (component-scoped, `once:` valid only
+   here), `user-invocable`, `disable-model-invocation`, `disallowed-tools`,
+   `model`, `effort`, `shell`. Constraints per the open standard: name ≤64
+   lowercase+hyphens, no "anthropic"/"claude"; description ≤1024, no XML;
+   listing truncates description+when_to_use at 1,536 chars; body guidance
+   <500 lines. **Malformed frontmatter YAML degrades silently** (body loads
+   with empty metadata, no auto-trigger, error only under `--debug`) — a
+   prime mechanical-lint target.
+3. **Rules are first-class documented** and match this repo's practice:
+   `.claude/rules/**/*.md` discovered recursively, user-level
+   `~/.claude/rules/` loads before project (project wins), `paths` the only
+   documented field, symlinks supported. An unparseable `[` in a glob is
+   invalid and **matches nothing** (before v2.1.207 it broke Read for files
+   the rule was evaluated against) — mechanically checkable validity.
+4. **Memory:** `./.claude/CLAUDE.md` is now an equal alternative to
+   `./CLAUDE.md`; `CLAUDE.local.md` is NOT deprecated; `@import` max depth 4,
+   skipped inside code spans/fences; block-level HTML comments are stripped
+   before injection; `AGENTS.md` is not read (documented bridge:
+   `@AGENTS.md`); `claudeMdExcludes` setting; 200-line guidance per file.
+   New **auto memory** (Claude-written `MEMORY.md`, on by default) is a
+   distinct, non-authored surface.
+5. **Hooks expanded massively:** ~30 events (session/setup, per-turn, tool
+   loop incl. `PostToolUseFailure`/`PostToolBatch`/`PermissionRequest`,
+   subagent, tasks, context/config incl. `InstructionsLoaded`/`FileChanged`/
+   `PreCompact`/`PostCompact`, MCP elicitation, display, worktrees). Four
+   handler types beyond `command`: `http`, `mcp_tool`, `prompt`, `agent`,
+   each with its own required fields; common fields `if` (permission-rule
+   filter, unparseable patterns fail **open**), `timeout` (defaults 600/30/60
+   by type), `async`, `statusMessage`. Matcher meaning is **per-event**
+   (tool name, session source, end reason, agent type, filenames…) and some
+   events take no matcher — the event×matcher validity matrix is
+   mechanically checkable. Exit 2 blocks only on blockable events. Hooks
+   also live in skill/agent frontmatter, scoped to component lifetime.
+   `DOCUMENTED_HOOK_EVENTS` (30 entries, cited 07-10) must be re-verified
+   against this set.
+6. **Agents:** only `name` + `description` required; the optional set now
+   spans `tools` (entries resolving to no real tool fail the launch loudly,
+   v2.1.208+), `disallowedTools`, `model` (incl. `fable`), `permissionMode`,
+   `maxTurns`, `skills` (preloaded in full), `mcpServers`, `hooks`, `memory`
+   (user/project/local), `background`, `effort`, `isolation: worktree`,
+   `color`, `initialPrompt`. Duplicate `name` in one tree loads one by
+   filesystem read order; `/doctor` flags it. The `/agents` wizard is gone —
+   files are the only authoring path.
+7. **Settings ship a published JSON Schema** —
+   `https://json.schemastore.org/claude-code-settings.json` — the strongest
+   machine-checkable source available; worth a product read on consuming it
+   directly. Permission evaluation is deny → ask → allow, first match,
+   **specificity irrelevant** (a broad deny defeats a narrow allow).
+   Param-matching on canonicalized fields (`command`, `file_path`, …) is
+   ignored with a startup warning. Scope-validity of keys (managed-only keys
+   silently inert elsewhere) is itself a lintable dimension.
+   Unknown-key behavior: UNVERIFIED/undocumented.
+8. **No official baseline harness exists.** The documented stance is
+   trigger-driven incremental adoption (wrong twice → CLAUDE.md; third
+   paste → skill; every time → hook), plus an environment-setup checklist
+   (memory → permissions → hooks → skills → agents → plugins) under the
+   principle "give Claude a way to verify its work." A prescription is
+   therefore an *authored* opinion — example territory, not vendor fact.
+
+Remaining UNVERIFIED: enterprise/managed skills directory exact path;
+unknown-settings-key behavior; two linked blog posts (steering guide,
+large-codebases guide) noted but not fetched.
