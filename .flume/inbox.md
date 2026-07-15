@@ -127,3 +127,43 @@ routing.
   a reap sweep about to delete **every row the lock carries** while
   emitting nothing is near-certainly a bug or a spelling fork, and is a
   refusal, not a green exit line. Observed at 0aa9e62.
+
+- **The gate's joins key on bare member name, not (kind, name)** — a
+  cross-kind name collision produces *wrong findings*, not silence. Live
+  repro (centercode testbed, 07-15, custom pack kinds): declaring a
+  `dev-pack` member named `csharp` beside the existing `rule` named
+  `csharp` made check attribute each member's `satisfies` claim and
+  mention edges to the wrong same-named member — false `requirement.kind`
+  refusals in both directions ("`area-directives` … satisfier `csharp` is
+  kind `dev-pack`" and the mirror), false zero-degree findings on the
+  colliding members, and collateral damage on an uninvolved clause (the
+  `deploy` command's outgoing-degree broke against a `deploy` pack), exit
+  1 on a harness emit had just accepted. The SDK side is already
+  kind-qualified (mention addresses are `kind:name`; emit resolved
+  `dev-pack:csharp` correctly), so the fix is gate-side: key the
+  satisfies/graph joins by (kind, name) — the rows carry both — or refuse
+  colliding names loud at emit. Renaming the four colliding members
+  cleared every finding (clean bisect). Worse than a 0019-loud gap: this
+  path *lies specifically*. Observed at 0aa9e62.
+
+- Pack-kind field trial (centercode, 07-15) — the pass's convention layer
+  brought under the gate, and it works: three frontmatterless custom
+  kinds (`dev-pack`/`operational-pack`/`product-pack`, slice as a kind
+  fact, roots nested inside the standards skill's directory), ten members
+  with `file()` prose adopted byte-faithful from the pre-existing on-disk
+  packs, every pointer site lifted from inline-code text to a
+  `packMention` with identical display bytes (first emit: 21 unchanged),
+  and the harness's own "duality invariant" now machine-checked — every
+  pack reached by ≥1 pointer (per-slice `degree incoming ≥ 1` advisory
+  clauses), every pointer resolves (emit's dangling-mention refusal).
+  `registration: []` (a kind reachable only via edges) was accepted.
+  Findings for the model: (a) a single kind can't govern a
+  directory-sliced corpus — `member_projection_path` substitutes the
+  glob's first `*` only, so glob `*/*.md` derives a broken path;
+  kind-per-directory is the workaround and it proliferates kinds — a
+  consumer wants either nested-glob path derivation or a declared path
+  template; (b) frontmatterless projections carry no managed-by note
+  (`install`'s note is frontmatter-borne), so a hand-edit to a pack is
+  hash-caught as drift but the file itself never warns — the banner wants
+  a frontmatterless form (HTML comment) or the gap documented. Observed
+  at 0aa9e62.
