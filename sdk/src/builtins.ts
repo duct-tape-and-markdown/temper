@@ -19,6 +19,7 @@ import {
   deny,
   enumOf,
   forbiddenKeys,
+  globValid,
   maxLen,
   maxLines,
   minLen,
@@ -499,6 +500,12 @@ export const skillDefaultContract: readonly Clause[] = [
       "Cursor `.mdc` keys. Nothing in the Agent Skills spec or Claude Code's documented frontmatter accepts them — a skill authored with them is carrying dead configuration that another tool's semantics silently fail to apply.",
     cite: "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)",
   }),
+  clause(globValid("paths"), {
+    severity: "required",
+    guidance:
+      "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field.",
+    cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
+  }),
 ];
 
 /**
@@ -583,6 +590,12 @@ export const ruleDefaultContract: readonly Clause[] = [
     severity: "required",
     guidance:
       "Cursor `.mdc` keys. Claude Code's documented rules schema is `paths`-only; a rule authored with Cursor frontmatter is configuration another tool's semantics silently fail to honor — the rule loads, the scoping you meant does not. (That Claude Code ignores unknown keys is observed behavior, not documented contract — the documented schema is the citation.)",
+    cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
+  }),
+  clause(globValid("paths"), {
+    severity: "required",
+    guidance:
+      "`paths` is the one documented rules key: globs (brace expansion supported) that scope the rule to matching files. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it.",
     cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
   }),
   clause(maxLines(200), {

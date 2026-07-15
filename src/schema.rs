@@ -100,9 +100,12 @@ pub fn emit(contract: &Contract) -> Value {
             // `must_define`/`section_contains` are body/structural, the
             // cross-artifact predicates range over the whole corpus, and
             // `count`/`unique`/`membership`/`degree`/`kind` range over a node-set or
-            // the edge graph, never a single artifact's frontmatter. None is a
-            // per-artifact frontmatter squiggle, so none rides the validation
-            // channel here.
+            // the edge graph, never a single artifact's frontmatter. `glob-valid`
+            // does name a field, but "parses under globset" is no JSON-Schema
+            // keyword — the engine owns that check — so it emits none here; its
+            // guidance still rides the field's `description` via `documented_field`.
+            // None is a per-artifact frontmatter squiggle, so none rides the
+            // validation channel here.
             Predicate::Optional { .. }
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
@@ -115,7 +118,8 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
-            | Predicate::Kind { .. } => {}
+            | Predicate::Kind { .. }
+            | Predicate::GlobValid { .. } => {}
         }
     }
 

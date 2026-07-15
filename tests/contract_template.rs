@@ -119,6 +119,12 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
                 keys: vec!["globs".to_string(), "alwaysApply".to_string()],
             },
         ),
+        (
+            Severity::Required,
+            Predicate::GlobValid {
+                field: "paths".to_string(),
+            },
+        ),
     ]
 }
 
@@ -174,6 +180,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
             "max_lines",
             "name-matches-dir",
             "forbidden_keys",
+            "glob-valid",
         ]),
         "the built-in must carry only its declared decidable predicates",
     );

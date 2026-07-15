@@ -362,6 +362,31 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             }
         },
 
+        // `glob-valid` checks every glob the field carries parses under the one
+        // shared `globset` surface (`crate::kind::compile_glob`, brace-aware). An
+        // unparseable pattern matches nothing silently, so a dead scope becomes a
+        // finding — one per offending glob, each naming itself. Silent on absence
+        // (the `required` clause's concern).
+        Predicate::GlobValid { field } => match features.field(field) {
+            None => Outcome::Holds,
+            Some(value) => {
+                let bad: Vec<String> = field_globs(value)
+                    .into_iter()
+                    .filter(|glob| crate::kind::compile_glob(glob).is_none())
+                    .map(|glob| {
+                        format!(
+                            "field `{field}` glob `{glob}` does not parse under globset, so it silently matches nothing"
+                        )
+                    })
+                    .collect();
+                if bad.is_empty() {
+                    Outcome::Holds
+                } else {
+                    Outcome::Violated(bad)
+                }
+            }
+        },
+
         Predicate::MaxLines { max } => Outcome::check(features.body_lines <= *max, || {
             format!("body is {} lines (max {max})", features.body_lines)
         }),
@@ -479,6 +504,17 @@ pub(crate) fn kind_violation(kind: &str, actual: &str) -> Option<String> {
 /// generic accessor every value predicate (`min_len`, `enum`, …) reads through.
 fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
     features.field(field).and_then(FeatureValue::as_scalar)
+}
+
+/// The glob strings a field value carries — each element of a list, or a lone
+/// scalar read as a single glob (a `paths` authored as one string). A map carries
+/// none; a type mismatch there is the `type` clause's concern, not this one's.
+fn field_globs(value: &FeatureValue) -> Vec<&str> {
+    match value {
+        FeatureValue::List(items) => items.iter().map(String::as_str).collect(),
+        FeatureValue::Scalar { text, .. } => vec![text.as_str()],
+        FeatureValue::Map => Vec::new(),
+    }
 }
 
 /// Map a clause's *declared* severity onto the engine's diagnostic severity:
@@ -995,6 +1031,55 @@ mod tests {
 
         let slug = features("demo-1", &[("name", scalar("demo-1"))], 1, None);
         assert!(run(predicate(), slug).is_empty());
+    }
+
+    #[test]
+    fn glob_valid_fires_once_per_unparseable_glob_and_passes_valid_brace_globs() {
+        let predicate = || Predicate::GlobValid {
+            field: "paths".to_string(),
+        };
+
+        // A list whose entries are two unparseable globs (each an unclosed `[`) and
+        // one valid one: one finding per broken entry, none for the valid one.
+        let broken = features(
+            "demo",
+            &[(
+                "paths",
+                FeatureValue::List(vec![
+                    "src/**/*.rs".to_string(),
+                    "[".to_string(),
+                    "a[b".to_string(),
+                ]),
+            )],
+            1,
+            None,
+        );
+        let diags = run(predicate(), broken);
+        assert_eq!(diags.len(), 2, "one finding per unparseable glob");
+        assert!(diags.iter().all(|d| d.rule == "glob-valid"));
+
+        // Brace expansion is in scope — a valid `{a,b}` alternation passes.
+        let valid = features(
+            "demo",
+            &[(
+                "paths",
+                FeatureValue::List(vec![
+                    "src/**/*.{rs,toml}".to_string(),
+                    "docs/*.md".to_string(),
+                ]),
+            )],
+            1,
+            None,
+        );
+        assert!(run(predicate(), valid).is_empty());
+
+        // A lone scalar is read as a single glob — a broken one fires.
+        let scalar_bad = features("demo", &[("paths", scalar("["))], 1, None);
+        assert_eq!(run(predicate(), scalar_bad).len(), 1);
+
+        // An absent field is the `required` clause's concern, not this one's.
+        let absent = features("demo", &[], 1, None);
+        assert!(run(predicate(), absent).is_empty());
     }
 
     #[test]

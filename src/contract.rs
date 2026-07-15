@@ -237,6 +237,16 @@ pub enum Predicate {
         /// The kind every satisfier in the selection must be.
         kind: String,
     },
+    /// `glob-valid`: every glob the named field carries parses under `globset`
+    /// (brace-expansion aware — the one glob engine already inside `ignore`). An
+    /// unparseable pattern (an unclosed `[`) is invalid and silently matches
+    /// nothing, so the scope it declares is dead: the rule never loads there, the
+    /// skill never registers, with no error surfaced. This turns that silent dead
+    /// scope into a finding.
+    GlobValid {
+        /// The field whose every glob must parse.
+        field: String,
+    },
 }
 
 /// Lift one clause row's `charset` column into the typed [`Charset`] — `None`
@@ -326,6 +336,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "unique" => Predicate::Unique {
             field: row.field.clone()?,
         },
+        "glob-valid" => Predicate::GlobValid {
+            field: row.field.clone()?,
+        },
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
             target: row.target.clone()?,
@@ -398,6 +411,7 @@ impl Predicate {
             Predicate::Membership { .. } => "membership",
             Predicate::Degree { .. } => "degree",
             Predicate::Kind { .. } => "kind",
+            Predicate::GlobValid { .. } => "glob-valid",
         }
     }
 
@@ -416,7 +430,8 @@ impl Predicate {
             | Predicate::Range { field, .. }
             | Predicate::Enum { field, .. }
             | Predicate::Deny { field, .. }
-            | Predicate::AllowedChars { field, .. } => Some(field),
+            | Predicate::AllowedChars { field, .. }
+            | Predicate::GlobValid { field } => Some(field),
             Predicate::MustDefine { marker } => Some(marker),
             // A `section_contains` constrains the content under one heading, so the
             // heading is the field it names.
@@ -453,7 +468,8 @@ impl Predicate {
             | Predicate::Range { field, .. }
             | Predicate::Enum { field, .. }
             | Predicate::Deny { field, .. }
-            | Predicate::AllowedChars { field, .. } => Some(field),
+            | Predicate::AllowedChars { field, .. }
+            | Predicate::GlobValid { field } => Some(field),
             // The node-set/edge-scope predicates range over a satisfier set, not a
             // single kind's frontmatter — they document no schema property here even
             // when `target` (above) names a field for layering purposes.

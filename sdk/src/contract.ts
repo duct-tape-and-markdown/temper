@@ -112,6 +112,8 @@ export const sectionContains = (heading: string, marker: string): Predicate => (
   key: "section_contains",
   section: { heading, marker },
 });
+/** Every glob the field carries parses under globset (brace-expansion aware). */
+export const globValid = (field: string): Predicate => ({ key: "glob-valid", field });
 
 // Node-set/edge-scope predicates — a requirement's set-scope demands ride
 // these as ordinary clause values, the same four-channel `clause()` shape as

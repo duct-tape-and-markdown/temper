@@ -24,11 +24,12 @@ fn rule_builtin() -> Contract {
 }
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
-/// declaration order — the Cursor-key `forbidden_keys` (required), the lean-rule
-/// `max_lines` (advisory). Guidance and `source` ride each clause but are product
-/// prose, so they are excluded from this structural pin. No `optional` clause over
-/// `paths`: the SDK floor asserts nothing decidable for an optional field, so the
-/// lock carries no such row and this projection carries none either.
+/// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
+/// `glob-valid` (required), the lean-rule `max_lines` (advisory). Guidance and
+/// `source` ride each clause but are product prose, so they are excluded from this
+/// structural pin. No `optional` clause over `paths`: the SDK floor asserts nothing
+/// decidable for an optional field's *presence*, so the lock carries no such row —
+/// but `glob-valid` over `paths` is decidable content, so it does.
 fn expected_clauses() -> Vec<(Severity, Predicate)> {
     vec![
         (
@@ -39,6 +40,12 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
                     "globs".to_string(),
                     "alwaysApply".to_string(),
                 ],
+            },
+        ),
+        (
+            Severity::Required,
+            Predicate::GlobValid {
+                field: "paths".to_string(),
             },
         ),
         (Severity::Advisory, Predicate::MaxLines { max: 200 }),
@@ -98,9 +105,71 @@ fn rule_builtin_encodes_only_decidable_clauses() {
 
     assert_eq!(
         kinds,
-        BTreeSet::from(["forbidden_keys", "max_lines"]),
+        BTreeSet::from(["forbidden_keys", "glob-valid", "max_lines"]),
         "the rule built-in must carry only its declared decidable predicates",
     );
+}
+
+/// The shipped rule floor's `glob-valid` clause fires over a `paths` carrying an
+/// unparseable glob and stays silent over a valid brace-expansion glob — the
+/// decision-0022 acceptance, exercised end to end against the real embedded floor
+/// (not a synthetic one-clause contract).
+#[test]
+fn the_rule_floor_glob_valid_clause_fires_on_an_unparseable_paths_glob() {
+    use temper::check::Severity as FindingSeverity;
+    use temper::engine;
+
+    // A rule whose `paths` carries an unparseable glob (`[` opens a character class
+    // that never closes) alongside a well-formed one — only the broken entry is a
+    // finding.
+    let broken = rule_features(&["src/**/*.rs", "["]);
+    let diagnostics = engine::validate(&rule_builtin(), std::slice::from_ref(&broken));
+    let glob_findings: Vec<&temper::check::Diagnostic> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.rule == "glob-valid")
+        .collect();
+    assert_eq!(
+        glob_findings.len(),
+        1,
+        "exactly the one unparseable glob fires, got: {diagnostics:?}",
+    );
+    // The clause ships at `required`, so the finding blocks the gate.
+    assert_eq!(glob_findings[0].severity, FindingSeverity::Error);
+
+    // A valid glob (brace expansion included) passes — no `glob-valid` finding.
+    let valid = rule_features(&["src/**/*.{rs,toml}", "docs/*.md"]);
+    let clean = engine::validate(&rule_builtin(), std::slice::from_ref(&valid));
+    assert!(
+        clean
+            .iter()
+            .all(|diagnostic| diagnostic.rule != "glob-valid"),
+        "a valid brace-expansion glob must not fire glob-valid, got: {clean:?}",
+    );
+}
+
+/// A `Features` carrying only a `paths` list — the one field the rule floor's
+/// `glob-valid` clause reads.
+fn rule_features(paths: &[&str]) -> temper::extract::Features {
+    use std::collections::BTreeMap;
+    use temper::extract::{FeatureValue, Features};
+
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "paths".to_string(),
+        FeatureValue::List(paths.iter().map(|glob| (*glob).to_string()).collect()),
+    );
+    Features {
+        id: "demo".to_string(),
+        fields,
+        body_lines: 1,
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+    }
 }
 
 /// The rule built-in is itself admissible — it passes the second green.
