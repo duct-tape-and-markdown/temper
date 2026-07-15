@@ -76,6 +76,76 @@
     "notes": "From decision 0022 (spec delta f67303c, human-ruled 07-15; its work order routes through the inbox). The predicate vocabulary is closed — adding one is a deliberate language change (contract.md clause). The two deferred skill-shape predicates (name hyphen-position, no-XML-in-description) are NOT in scope; `tools-must-resolve` was rejected permanently on invariant 2 (0022) — do not re-file. scoped at 01625fb."
   },
   {
+    "tag": "SATISFIES-LABEL-QUALIFY",
+    "summary": "The satisfies/graph joins key on the bare member name, not the compiled `kind:name` label, so a cross-kind name collision cross-attributes edges into wrong findings, not silence",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": ["lock-upgrade-migration-posture"],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`SatisfiesRow.member` (drift.rs:2311) carries a bare id where `MentionRow` already carries the `kind:name` address (identity is a compiled label — pipeline.md, 'The lock'). Qualify the wire to `kind:name`; `derive_layout_rows` (has `host_address()` in hand) writes the qualified label for layout-sourced satisfies. A pre-fix lock's bare rows stay accepted where unambiguous; a cross-kind collision is the malformed lock the spec already names — refused loud, one re-emit heals (posture per the fork)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`satisfiesRows` (declarations.ts:314) pushes `{ member: member.name }` — the bare name; write the `${member.kind}:${member.name}` address the way `mentionRows` already does (337/344)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1051/1054) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "two kinds sharing a member name, each with a qualified satisfies row binding only its own kind's member, produce no cross-attributed requirement.kind refusals or false zero-degree findings"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "satisfies rows carry the `kind:name` label, not the bare member name"
+      }
+    ],
+    "acceptance": "A member name shared across two kinds no longer cross-attributes satisfies/graph edges; each qualified row binds only its own kind's member; a pre-fix lock's bare rows are accepted where unambiguous and a cross-kind collision is refused as a malformed lock.",
+    "notes": "Live repro (centercode 07-15): a dev-pack `csharp` beside a rule `csharp` cross-attributed both satisfies + mention edges — false requirement.kind refusals both ways, false zero-degree, clean bisect on rename. Migration (spec-faithful, contra PR #20's keep-the-collision) is the posture the fork rules — hence dependsOnForks. Also moves tests/common/mod.rs author_satisfies, tests/emit.rs. observed 0aa9e62, wire re-verified f67303c; scoped at 06c44b1."
+  },
+  {
+    "tag": "LOCK-SPELLING-REAP",
+    "summary": "A post-e7b859a engine's first emit against an older `./`-spelled lock silently mass-reaps every live projection — the orphan sweep matches no row and reaps all",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "blockedBy", "tag": "SATISFIES-LABEL-QUALIFY" },
+    "dependsOnForks": ["lock-upgrade-migration-posture"],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "The orphan sweep (drift.rs:865-872) builds `owned_paths` via `to_lock_path` (drift.rs:501, backslash-only normalization) but compares against `read_prior_provenance` rows' raw `source_path`; an older lock spells them `./CLAUDE.md` while the post-e7b859a fingerprint pass keys the normalized `CLAUDE.md`, so every live projection reads ownerless and is reaped. Canonicalize the row side of the join too (strip `./`, the backslash handling as precedent) so a byte-identical projection matches its row — OR, per the fork, refuse the all-rows reap wave. Direction is the fork's to rule."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "an emit against a lock whose provenance rows carry `./`-prefixed source paths matches them to the live projections and reaps nothing (0 reaped), rather than mass-reaping every projection"
+      }
+    ],
+    "acceptance": "An emit under a normalized-path engine against an older `./`-spelled lock matches each byte-identical projection to its row and reaps nothing — no silent mass-reap; the loud-or-nothing invariant holds.",
+    "notes": "Field incident (centercode 07-15): one emit reported '21 reaped', exit 0 — deleted every projection while writing a lock claiming them live and unchanged. e7b859a normalizes the workspace path pre-`harness_root`; to_lock_path (drift.rs:501) strips backslashes, never `./`. Direction (canonicalize the join key vs refuse the wave) is the fork's — hence dependsOnForks; serialized after SATISFIES (shared drift.rs). observed 0aa9e62, re-verified f67303c; scoped at 06c44b1."
+  },
+  {
     "tag": "EMIT-INTO-REROOT-REAP",
     "summary": "`emit --into <dir>` inside an adopted harness re-roots the projection tree, orphaning live projections the byte-faithful reap then deletes — emit must refuse the reap wave",
     "per": {
@@ -83,6 +153,7 @@
       "section": "Emit"
     },
     "gate": { "kind": "blockedBy", "tag": "CHECK-ARG-HALF-GATE" },
+    "dependsOnForks": ["lock-upgrade-migration-posture"],
     "files": {
       "new": [],
       "edit": [
@@ -105,7 +176,7 @@
       }
     ],
     "acceptance": "An `--into` that re-roots an already-adopted harness no longer silently deletes live projections — emit refuses or dry-run-reports the reap wave — while a genuine single-orphan reap still works.",
-    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git, plain `emit` then clean 0/8/0. The prior reap fix (e7b859a) covered path spelling, not re-rooting. Loud-or-nothing (intent 6/7): emit never silently deletes. Shares main.rs's arg/workspace resolution (line 39) with CHECK-ARG — hence blockedBy it. scoped at 01625fb."
+    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git, plain `emit` then clean 0/8/0. The prior reap fix (e7b859a) covered path spelling, not re-rooting. Loud-or-nothing (intent 6/7): emit never silently deletes. Shares main.rs arg resolution (line 39) with CHECK-ARG — hence blockedBy; the reap-wave posture is the lock-upgrade fork's — hence dependsOnForks. scoped at 01625fb."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

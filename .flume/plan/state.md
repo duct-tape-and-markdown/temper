@@ -3,31 +3,29 @@
 - Spec derived through: f67303c
 - Audited through: 9223917
 - Residue swept through: 9223917
-- This tick: INBOX drain of the four fresh notes (the batch above the PR #20
-  provenance banner; the reverted 5e353c4 attempted the same four and was
-  reverted only for a notes-length overflow, not scope). All four re-verified
-  live on disk at HEAD (no src/sdk/tests commit since aba7e47): install.rs:88
-  hardcodes `temper check . --reporter session-start`; emit.ts:162-167
-  `renderTextBody` rejects any address outside the program-scoped set;
-  drift.rs's `reap_or_report_orphan` reaps ownerless projections; main.rs:39
-  shares DEFAULT_WORKSPACE between `--into` and the check arg. Routed: check
-  half-gate → CHECK-ARG-HALF-GATE (open); `--into` reap wave →
-  EMIT-INTO-REROOT-REAP (blockedBy CHECK-ARG — both edit main.rs, disjointness
-  rule); composed-mention-can't-target-discovered → fork
-  `(composed-mention-discovery-locus)` (SDK/engine boundary gap, no spec-faithful
-  fill); 0022 glob-validity → GLOB-VALIDITY-PREDICATE (open, disjoint). Spec
-  cursor advanced to f67303c: 0022's own commit routes its work order through
-  the inbox, so this note IS the derivation of the spec delta. 0022 Consequences
-  checklist: (1) Predicate enum + schema surface → GLOB-VALIDITY-PREDICATE
-  (contract.rs); (2) rule & skill default contracts gain the clause, fresh cite
-  → same entry (builtins.ts); (3) frozen lock re-derives → same entry
-  (builtin_lock.toml); constraint "no author-facing pattern clause" carried in
-  the entry description; rejected `tools-must-resolve` recorded do-not-refile.
+- This tick: INBOX drain of the lock-migration cluster (PR #20 notes 5/6/7),
+  the coherent batch note 5 explicitly generates ("the generator for the two
+  notes below, plus the standing `--into` reap note above"). All three code
+  claims re-verified live on disk at HEAD (no src/sdk/tests commit touches the
+  sites since 0aa9e62): drift.rs:501 `to_lock_path` strips backslashes never
+  `./`; drift.rs:866 orphan sweep joins raw `row.source_path`; drift.rs:2311
+  `SatisfiesRow.member` is a bare id where MentionRow carries `kind:name`;
+  declarations.ts:314 `satisfiesRows` pushes `member.name` bare while
+  mentionRows keys `${kind}:${name}`; main.rs:1051 `resolve_kind_units` folds
+  per kind. Routed: note 5 → open fork `(lock-upgrade-migration-posture)`
+  (the one posture its three instances hang off); note 7 → SATISFIES-LABEL-
+  QUALIFY (open, dependsOnForks the posture); note 6 → LOCK-SPELLING-REAP
+  (blockedBy SATISFIES — shared drift.rs — + dependsOnForks); existing
+  EMIT-INTO-REROOT-REAP gained dependsOnForks on the same slug (note 5 names
+  it the third instance). The two new entries are fork-gated (non-pickable),
+  so pickable stays {CHECK-ARG, GLOB-VALIDITY} — disjoint. Cursors unmoved
+  (inbox job, no spec/src window this tick).
 - Queue: CHECK-ARG-HALF-GATE (open) + GLOB-VALIDITY-PREDICATE (open, disjoint)
-  pickable; EMIT-INTO-REROOT-REAP (blockedBy CHECK-ARG); PACKAGING-CHANNELS-
-  REMAINDER (parked — John's Apple notarizing + v0.1 tag).
+  pickable; SATISFIES-LABEL-QUALIFY + LOCK-SPELLING-REAP + EMIT-INTO-REROOT-
+  REAP all dependsOnForks `(lock-upgrade-migration-posture)` (+ their gates);
+  PACKAGING-CHANNELS-REMAINDER parked.
 
-Plan continues: yes — inbox still holds the PR #20 carried block (seven notes,
-lines 59+): each a substantial fork/entry with standing-objection framing,
-drained in later ticks. Draining all eleven in one commit would corner-cut the
-fork records; the four fresh notes are this tick's coherent batch.
+Plan continues: yes — inbox still holds five PR #20 notes: the 0019-content
+layout cluster (docs-remainder, member-fence fork, layout-probe triple), the
+0019 decision-record renumber, and the pack-kind field trial — each a
+substantial fork/entry, drained in later ticks as coherent batches.

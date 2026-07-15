@@ -86,6 +86,27 @@ tax.
   deferral that guesses is worse than the current honest refusal. Blocks the
   primer's skill→script edge demo. Resolution routes back through the inbox.
 
+- `(lock-upgrade-migration-posture)` — OPEN (registered 2026-07-15). What does
+  an upgraded engine owe a committed lock an older engine wrote? The corpus says
+  only "tool-written whole, never patched" (`pipeline.md`, "The lock"). Three
+  live incidents each need a per-row answer, and the ruling wants to be ONE
+  posture the instances hang off, never per-incident ad-hoc migrations:
+  (1) **spelling drift** (LOCK-SPELLING-REAP) — a post-e7b859a engine normalizes
+  the workspace path before deriving `harness_root`, so the fingerprint pass keys
+  files at the new spelling while the orphan sweep (`drift.rs:866`) joins the old
+  rows' raw `./CLAUDE.md`-style `source_path` against the new owned-paths set,
+  matches none, and mass-reaps every live projection — silently green;
+  (2) **bare satisfies labels** (SATISFIES-LABEL-QUALIFY) — how a pre-fix lock's
+  bare-id satisfies rows migrate once the wire carries `kind:name`;
+  (3) **`--into` re-rooting** (EMIT-INTO-REROOT-REAP) — the reap wave an `--into`
+  re-root of an adopted harness triggers. The design question: is the posture
+  per-row canonicalization (heal the join key in place), loud refusal (a
+  spelling-diverged or collided lock is malformed — re-emit heals), or a
+  versioned lock migration — and PR #20's "refuse a reap sweep about to delete
+  every row while emitting nothing" (which also trips a legitimate full teardown,
+  no spelled escape) belongs to this ruling, not to any one fix. The three
+  entries `dependsOnForks` this slug; resolution routes back through the inbox.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
