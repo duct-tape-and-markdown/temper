@@ -631,7 +631,16 @@ pub fn emit(
         .into());
     }
 
-    let harness_root = workspace_dir.parent().unwrap_or_else(|| Path::new("."));
+    // `./.temper` and `.temper` name one surface, but their `parent()` differ (`.`
+    // vs the empty path) — which forks every owned path's lock spelling (`./docs/…`
+    // vs `docs/…`) between two emits of the same workspace, so a live byte-faithful
+    // projection the prior lock owns reads as ownerless and is reaped. Lexically
+    // normalizing first drops the leading `./`, so harness_root derives identically
+    // either way.
+    let normalized_workspace = crate::graph::normalize_path(workspace_dir);
+    let harness_root = normalized_workspace
+        .parent()
+        .unwrap_or_else(|| Path::new("."));
     let kind_facts: BTreeMap<&str, &KindFactRow> = payload
         .declarations
         .kinds
