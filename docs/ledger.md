@@ -59,11 +59,15 @@ hard.
   ownership; prescription example-side only (ruled). Built-in-kind doc audit
   at `docs/market-formats.md` (07-15 section); reconciliation SHIPPED same
   day (variance fix, paths gate, cite re-stamp, grown field schemas — five
-  build commits; `(builtins-coverage-predicates)` ruled 07-15: valid-glob
-  accepted pending spec amendment, tools-must-resolve rejected on invariant
-  2). Third-cut design + calibration ratified in primer §"domain
-  architecture"; build underway. Sequencing ruled: wrap this, then stranger
-  dry run, then channel 3.
+  build commits; `(builtins-coverage-predicates)` ruled 07-15 → 0022,
+  valid-glob queued, tools-must-resolve rejected). **Third cut SHIPPED**
+  (549969f): five domain requirements (3 floored, falsifiability
+  verified), DRY via facts.ts (one edit → three projections, live), paths-
+  gated skill, conduct/grow-harness members. Three new findings inboxed
+  same day (check-workspace half-gate + install.rs:88 hardcode; mention
+  cannot target discovered member — blocks the script-edge demo; emit
+  --into re-root reap). Sequencing: wrap remaining findings via flume,
+  then stranger dry run, then channel 3.
 - On John: Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).

@@ -210,6 +210,18 @@ that evidence, not preference, is the bite condition.
   interleave (dff2db2's ruling; the example's `passage` wrapper deleted,
   projections byte-identical), and the nested-root discovery fence (the
   repo gate no longer counts the example's CLAUDE.md).
+  *Third cut (2026-07-15, shipped 549969f):* the whole starter, organized
+  by the five-domain architecture (primer §"domain architecture", ruled and
+  calibrated in session) — five domain requirements (conduct/orientation/
+  governance floored, falsifiability verified red/green), `operations`
+  keyed `kind: skill` (the variance fix in the field), the DRY centerpiece
+  live (facts.ts constants; one edit moved CLAUDE.md + SKILL.md +
+  settings.json in one emit), a `paths`-gated verify skill, and the
+  grow-harness governance procedure. Three product findings routed to the
+  inbox: the `check .` half-gate (install.rs:88 hardcodes it into every
+  adopted harness's reporter), composed mentions unable to target
+  discovered members (blocks the script-edge demo), and `emit --into`
+  re-root reaping live projections.
 
 - `(surface-authority-lock)` — RATIFIED 2026-07-03 ("surface authority is a
   declared posture, never a baked stance"); current home `specs/intent.md`

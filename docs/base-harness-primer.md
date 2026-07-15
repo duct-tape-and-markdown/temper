@@ -214,15 +214,19 @@ mark. Stated limit: edges catch referential rot, never semantic rot —
 wiring, not meaning; descriptive prose that cannot be coupled lives
 outside the gate without shame.
 
-**The demonstrations the third cut owes:** the DRY centerpiece (one
-authored program value — the toy's verify command — projected into both
-the memory's map and the skill's procedure, so cross-surface contradiction
-is unrepresentable, not linted); a `paths`-scoped skill exercising the
-channel gate (`specs/builtins.md`, registration); a skill whose supporting
-script is a governed member, the reference an edge the gate refuses when
-the script goes; and the hook→script edge via a ground kind over
-`scripts/` (the example wraps; the first-party `hook` kind stays neutral —
-ruled with the prescription).
+**The demonstrations** (third cut shipped 549969f): the DRY centerpiece
+(one authored program value — the toy's verify command — projected into
+the memory's map, the skill's procedure, and the settings manifest, so
+cross-surface contradiction is unrepresentable, not linted; verified live,
+one constant edit moving three projections in one emit); a `paths`-scoped
+skill exercising the channel gate (`specs/builtins.md`, registration); and
+the required-domain floor verified falsifiable (removing the conduct
+member fails `check` with `requirement.unfilled`). **Blocked, finding
+filed:** the skill→script reference edge — a composed mention cannot
+target a discovered member (the SDK resolves mentions against program
+values, not the corpus; inbox 07-15). The hook→script edge stays future
+work with it (the example's hooks target the `temper` binary, so no
+dangling risk exists today).
 
 ## What the dogfood must exercise
 
