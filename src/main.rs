@@ -756,6 +756,10 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let embedded_features = embedded_features_by_kind(&declarations);
     let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
+    // A bare `satisfies` label an older engine wrote qualifies against this corpus, but a
+    // name two kinds share is a malformed lock refused loud rather than cross-attributed.
+    diagnostics.extend(satisfies_label_admissibility(&declarations, &by_kind));
+
     // Every opt-in-capable member's features (every built-in kind *and* each custom
     // kind's members) — the stream coverage ranges over below.
     let all_features: Vec<extract::Features> = builtin_features
@@ -1012,18 +1016,24 @@ fn resolve_kind_units(
     };
 
     // `satisfies` fill edges reach every member — file or manifest — off the lock's own
-    // family, keyed by member id, so a registration member joins the requirement corpus
-    // exactly as a file member does.
+    // family, joined on the member's `kind:name` address so a registration member joins
+    // the requirement corpus exactly as a file member does. A canonical row carries that
+    // qualified label; a bare label an older engine wrote still binds against this kind's
+    // own id (a bare label two kinds share is refused at admissibility, never
+    // cross-attributed here).
     for unit in &mut units {
+        let address = extract::host_address(&kind.name, &unit.id);
         for row in &declarations.satisfies {
-            if row.member == unit.id && !unit.satisfies.contains(&row.requirement) {
+            if row.member != address && row.member != unit.id {
+                continue;
+            }
+            if !unit.satisfies.contains(&row.requirement) {
                 unit.satisfies.push(row.requirement.clone());
             }
-            if row.member == unit.id
-                && !unit
-                    .satisfies_clauses
-                    .iter()
-                    .any(|clause| clause.requirement == row.requirement)
+            if !unit
+                .satisfies_clauses
+                .iter()
+                .any(|clause| clause.requirement == row.requirement)
             {
                 unit.satisfies_clauses
                     .push(document::Satisfies::new(row.requirement.clone()));
@@ -1225,6 +1235,48 @@ fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<Strin
 /// lock's cross-family incoherence, decided before the by-kind corpus is trusted to model
 /// the harness.
 const NESTED_MEMBER_ADMISSIBILITY_RULE: &str = "nested-member.admissibility";
+
+/// The diagnostic `rule` id a bare `satisfies` label two kinds both claim reports under.
+const SATISFIES_LABEL_ADMISSIBILITY_RULE: &str = "satisfies.admissibility";
+
+/// Reject a bare `satisfies` label a same-named member of two kinds both carry. A
+/// canonical row addresses its filler by `kind:name`, so a bare label is one an older
+/// engine wrote; it qualifies against the live corpus where exactly one kind bears the
+/// name, but a name two kinds share is the ambiguous lock the closed identity forbids —
+/// refused loud here rather than cross-attributed to both members' fill sets. A
+/// qualified label already names its kind and can never be ambiguous.
+fn satisfies_label_admissibility(
+    declarations: &drift::Declarations,
+    by_kind: &BTreeMap<&str, &[extract::Features]>,
+) -> Vec<check::Diagnostic> {
+    let bare: BTreeSet<&str> = declarations
+        .satisfies
+        .iter()
+        .map(|row| row.member.as_str())
+        .filter(|member| !member.contains(':'))
+        .collect();
+    bare.into_iter()
+        .filter_map(|member| {
+            let kinds: Vec<&str> = by_kind
+                .iter()
+                .filter(|(_, members)| members.iter().any(|features| features.id == member))
+                .map(|(kind, _)| *kind)
+                .collect();
+            (kinds.len() > 1).then(|| {
+                check::Diagnostic::error(
+                    SATISFIES_LABEL_ADMISSIBILITY_RULE,
+                    member,
+                    format!(
+                        "satisfies row `{}` is a bare member label the `{}` kinds each carry — an \
+                         ambiguous lock row no single member can own",
+                        member,
+                        kinds.join("`, `"),
+                    ),
+                )
+            })
+        })
+        .collect()
+}
 
 /// Validate the lock's `nested_member` rows against the declared nesting: every row's kind
 /// must be an embedded kind some host declares — a `templates` column entry or a layout

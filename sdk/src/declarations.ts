@@ -306,12 +306,18 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
   return facts;
 }
 
-/** The `satisfies` rows — every member's fill claims, member-then-requirement sorted. */
+/**
+ * The `satisfies` rows — every member's fill claims, member-then-requirement sorted.
+ * The `member` is the filler's own `kind:name` address, the same identity
+ * `mentionRows` writes, so the read side joins on a kind-qualified label a same-named
+ * member of another kind can never collide with.
+ */
 function satisfiesRows(harness: Harness): SatisfiesRow[] {
   const rows: SatisfiesRow[] = [];
   for (const member of harness.members) {
+    const address = `${member.kind}:${member.name}`;
     for (const requirement of member.satisfies) {
-      rows.push({ member: member.name, requirement });
+      rows.push({ member: address, requirement });
  }
  }
   return rows.sort((a, b) => compareStrings(a.member, b.member) || compareStrings(a.requirement, b.requirement));

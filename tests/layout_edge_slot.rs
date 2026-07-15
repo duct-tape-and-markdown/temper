@@ -91,7 +91,7 @@ fn guide_fills(into: &std::path::Path) -> Vec<String> {
         .unwrap()
         .satisfies
         .into_iter()
-        .filter(|row| row.member == "guide")
+        .filter(|row| row.member == "guide:guide")
         .map(|row| row.requirement)
         .collect()
 }
@@ -152,7 +152,7 @@ fn a_satisfies_edge_slot_derives_fill_rows_the_gate_and_read_verbs_range_over() 
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
     // The edge slot's entries derived into ordinary `satisfies` fill-edge rows in the
-    // lock, keyed by the host's member name, in document order.
+    // lock, keyed by the host's `kind:name` address, in document order.
     let fills = guide_fills(&into);
     assert_eq!(fills, vec!["dev-standards", "layout-edge-slot"]);
 

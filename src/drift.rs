@@ -1094,15 +1094,16 @@ fn derive_layout_rows(
     let host = host_address(&member.kind, &member.name);
 
     // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its
-    // member name (the id `resolve_kind_units` folds them back onto) — a dangling one is
-    // the gate's existing `requirement.dangling` refusal to catch, never a new one.
+    // own `kind:name` address (the label `resolve_kind_units` folds them back onto) — a
+    // dangling one is the gate's existing `requirement.dangling` refusal to catch, never
+    // a new one.
     let satisfies = reading
         .edges
         .get(crate::kind::SATISFIES_EDGE_FIELD)
         .into_iter()
         .flatten()
         .map(|requirement| SatisfiesRow {
-            member: member.name.clone(),
+            member: host.clone(),
             requirement: requirement.clone(),
         })
         .collect();
@@ -2309,7 +2310,8 @@ pub struct EdgeBoundRow {
 /// roster/coverage tiers need, carried on the lock rather than re-imported.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
 pub struct SatisfiesRow {
-    /// The filling member's id.
+    /// The filling member's own `kind:name` address — the same qualified label a
+    /// [`MentionRow`] carries, so a same-named member of another kind never collides.
     pub member: String,
     /// The requirement key the member opts into filling.
     pub requirement: String,

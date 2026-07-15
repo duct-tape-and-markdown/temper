@@ -257,7 +257,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
  },
   ]);
   assert.deepEqual(declarations.assembly, [{ fact: "mode", value: "warn" }]);
-  assert.deepEqual(declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+  assert.deepEqual(declarations.satisfies, [{ member: "rule:rust", requirement: "dev-standards" }]);
   assert.deepEqual(declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
   // No member declares a composed-prose include in this harness.
   assert.deepEqual(declarations.includes, []);
@@ -322,7 +322,7 @@ test("clauseRow serializes a node-scope predicate's own argument onto the row", 
 test("the JSON pipe carries the declaration rows under `declarations` and the pinned version", () => {
   const seam = JSON.parse(emit(fullHarness()).seam);
   assert.equal(seam.version, 2);
-  assert.deepEqual(seam.declarations.satisfies, [{ member: "rust", requirement: "dev-standards" }]);
+  assert.deepEqual(seam.declarations.satisfies, [{ member: "rule:rust", requirement: "dev-standards" }]);
   assert.deepEqual(seam.declarations.mentions, [{ member: "rule:rust", target: "dev-standards" }]);
 });
 
@@ -387,9 +387,9 @@ test("satisfies rows are member-then-requirement sorted regardless of authoring 
  },
  });
   assert.deepEqual(compileDeclarations(h).satisfies, [
-    { member: "a", requirement: "z" },
-    { member: "b", requirement: "x" },
-    { member: "b", requirement: "y" },
+    { member: "rule:a", requirement: "z" },
+    { member: "rule:b", requirement: "x" },
+    { member: "rule:b", requirement: "y" },
   ]);
 });
 

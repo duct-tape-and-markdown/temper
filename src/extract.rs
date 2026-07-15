@@ -637,7 +637,7 @@ fn fence_info(line: &str, fence_char: char) -> String {
 /// [`crate::drift::NestedMemberRow::host`] carries, the identical `${kind}:${name}`
 /// form `sdk/src/declarations.ts`'s `nestedMemberRows` writes it in.
 #[must_use]
-pub(crate) fn host_address(kind: &str, id: &str) -> String {
+pub fn host_address(kind: &str, id: &str) -> String {
     format!("{kind}:{id}")
 }
 

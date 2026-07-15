@@ -1399,6 +1399,66 @@ fn check_walks_the_locks_declared_governs_locus_not_the_kinds_embedded_default()
     );
 }
 
+/// A bare `satisfies` label (the shape an older engine wrote, before the row carried
+/// the filler's `kind:name` address) qualifies against the live corpus where exactly one
+/// kind bears the name — the robust read decision 0024 owes a committed lock — but a name
+/// two kinds share is the malformed lock the compiled-label identity forbids, refused loud
+/// rather than cross-attributed to both members.
+#[test]
+fn a_bare_satisfies_label_qualifies_where_unambiguous_and_a_cross_kind_collision_is_refused() {
+    // Unambiguous: only a skill bears `solo`, so a bare row binds it and the run is clean.
+    let unambiguous = common::tmpdir("bare-satisfies-unambiguous");
+    common::write_skill(&unambiguous, "solo", &common::clean_skill("solo"));
+    common::write_lock(
+        &unambiguous,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("doc", false, Some("skill"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "solo".to_string(),
+                requirement: "doc".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (ok, output) = check_in(&unambiguous);
+    assert!(
+        ok,
+        "a bare satisfies label of an unambiguous member must qualify and fill ⇒ zero, got:\n{output}"
+    );
+
+    // Collision: a skill and a rule both named `csharp`, so a bare label neither member
+    // can uniquely own is a malformed lock refused loud.
+    let collision = common::tmpdir("bare-satisfies-collision");
+    common::write_skill(&collision, "csharp", &common::clean_skill("csharp"));
+    common::write_rule(&collision, "csharp");
+    common::write_lock(
+        &collision,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("doc", false, None)
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "csharp".to_string(),
+                requirement: "doc".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+    let (ok, output) = check_in(&collision);
+    assert!(
+        !ok,
+        "a bare satisfies label two kinds share must be refused loud ⇒ non-zero, got:\n{output}"
+    );
+    assert!(
+        output.contains("csharp") && output.contains("ambiguous"),
+        "the refusal names the ambiguous label, got:\n{output}"
+    );
+}
+
 /// A `rule` member whose projected body carries one `member.directive` fence keyed
 /// `rendered-key` — inert prose under 0018 (the projection is write-only), kept here
 /// only to prove `explain` never re-reads it for facts: the lock's own

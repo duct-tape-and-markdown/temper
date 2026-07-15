@@ -6,7 +6,8 @@
  */
 export type SatisfiesRow = { 
 /**
- * The filling member's id.
+ * The filling member's own `kind:name` address — the same qualified label a
+ * [`MentionRow`] carries, so a same-named member of another kind never collides.
  */
 member: string, 
 /**

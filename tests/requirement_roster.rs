@@ -724,6 +724,43 @@ fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_f
     );
 }
 
+// ---- SATISFIES-LABEL-QUALIFY: a shared member name binds only its own kind --------
+
+#[test]
+fn a_member_name_shared_across_kinds_binds_each_qualified_satisfies_row_to_its_own_kind() {
+    let root = common::tmpdir("shared-name-qualified");
+    // A `skill` and a `rule` both named `csharp` — the live cross-kind name collision.
+    // Each opts into a requirement narrowed to its own kind via a qualified satisfies
+    // row, so the join must attribute each fill to exactly one member. Before the label
+    // was qualified, a bare row cross-attributed to both, firing a false wrong-kind
+    // refusal each way; the qualified rows keep the two fills disjoint.
+    common::write_skill(&root, "csharp", &common::clean_skill("csharp"));
+    common::write_rule(&root, "csharp");
+    common::author_satisfies(&root, "skills", "csharp", &["skill-doc"]);
+    common::author_rule_satisfies(&root, "csharp", &["rule-doc"]);
+    common::write_requirements(
+        &root,
+        vec![
+            RequirementRow {
+                required: true,
+                ..common::requirement("skill-doc", false, Some("skill"))
+            },
+            RequirementRow {
+                required: true,
+                ..common::requirement("rule-doc", false, Some("rule"))
+            },
+        ],
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "each qualified satisfies row must bind only its own kind's member — no \
+         cross-attributed wrong-kind refusal and no false zero-degree ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
 // ---- MEMORY-ENTERS-REQUIREMENT-CORPUS: every built-in kind, not just skill/rule ----
 
 /// Write a repo-root `CLAUDE.md` — the `memory` built-in kind's sole governed locus

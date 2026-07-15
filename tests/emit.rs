@@ -146,7 +146,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         to: None,
     });
     payload.declarations.satisfies.push(drift::SatisfiesRow {
-        member: "rust".to_string(),
+        member: "rule:rust".to_string(),
         requirement: "dev-standards".to_string(),
     });
 
@@ -978,6 +978,16 @@ fn emit_program_emits_a_requirements_clauses_end_to_end() {
         .find(|c| c.predicate == "count")
         .expect("the requirement's `count` clause round-trips as a clause row, not a facet field");
     assert_eq!(count_clause.severity, "required");
+
+    // The satisfies row addresses its filler by the `kind:name` label the real SDK emits,
+    // never the bare member name — the wire the read side joins on.
+    assert_eq!(
+        declarations.satisfies,
+        vec![drift::SatisfiesRow {
+            member: "skill:coordinate".to_string(),
+            requirement: "agents".to_string(),
+        }],
+    );
     let bound = count_clause.count.expect("the count bound is recorded");
     assert_eq!((bound.min, bound.max), (1, 2));
 

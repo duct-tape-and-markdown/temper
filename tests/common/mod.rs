@@ -170,19 +170,23 @@ fn merge_lock(root: &Path, patch: impl FnOnce(&mut Declarations)) {
 /// carries; the member's real source file itself carries no temper annotation.
 /// `kind_dir` names the member's real Claude Code locus (`skills` or `rules`),
 /// whose source is `SKILL.md` / `<name>.md` respectively — required to exist
-/// there, mirroring the real harness this stands in for, even though the lock
-/// row itself carries no kind.
+/// there, mirroring the real harness this stands in for. The lock row addresses
+/// the filler by its `kind:name` label, the qualified shape the SDK emits.
 pub fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &[&str]) {
-    let source = match kind_dir {
-        "skills" => root
-            .join(".claude")
-            .join("skills")
-            .join(name)
-            .join("SKILL.md"),
-        "rules" => root
-            .join(".claude")
-            .join("rules")
-            .join(format!("{name}.md")),
+    let (source, kind) = match kind_dir {
+        "skills" => (
+            root.join(".claude")
+                .join("skills")
+                .join(name)
+                .join("SKILL.md"),
+            "skill",
+        ),
+        "rules" => (
+            root.join(".claude")
+                .join("rules")
+                .join(format!("{name}.md")),
+            "rule",
+        ),
         other => panic!("unknown kind_dir {other}"),
     };
     assert!(
@@ -190,11 +194,12 @@ pub fn author_satisfies(root: &Path, kind_dir: &str, name: &str, requirements: &
         "author_satisfies: no real harness source at {}",
         source.display()
     );
+    let address = format!("{kind}:{name}");
     merge_lock(root, |declarations| {
         declarations
             .satisfies
             .extend(requirements.iter().map(|r| SatisfiesRow {
-                member: name.to_string(),
+                member: address.clone(),
                 requirement: (*r).to_string(),
             }));
     });
