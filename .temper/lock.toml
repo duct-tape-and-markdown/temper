@@ -1,42 +1,42 @@
 [[memory]]
 name = "CLAUDE"
-source_path = "./CLAUDE.md"
+source_path = "CLAUDE.md"
 source_hash = "691c50a4365d525735299a42dbb046b9b8b708ecef7551d57e930c69cae493b4"
 emit_hash = "691c50a4365d525735299a42dbb046b9b8b708ecef7551d57e930c69cae493b4"
 
 [[rule]]
 name = "collaboration"
-source_path = "./.claude/rules/collaboration.md"
+source_path = ".claude/rules/collaboration.md"
 source_hash = "0dfde9553b775f58d736afeb0c6dcf683ada4153a82525487d0dff03372200c3"
 emit_hash = "0dfde9553b775f58d736afeb0c6dcf683ada4153a82525487d0dff03372200c3"
 
 [[rule]]
 name = "pending-entry"
-source_path = "./.claude/rules/pending-entry.md"
+source_path = ".claude/rules/pending-entry.md"
 source_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
 emit_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
 
 [[rule]]
 name = "public-prose"
-source_path = "./.claude/rules/public-prose.md"
+source_path = ".claude/rules/public-prose.md"
 source_hash = "06d8890e4620871ba6d625b257cdce8d3a3fb576f9a44e725fa6b1fd284429cd"
 emit_hash = "06d8890e4620871ba6d625b257cdce8d3a3fb576f9a44e725fa6b1fd284429cd"
 
 [[rule]]
 name = "rust"
-source_path = "./.claude/rules/rust.md"
+source_path = ".claude/rules/rust.md"
 source_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
 emit_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
 
 [[rule]]
 name = "sdk"
-source_path = "./.claude/rules/sdk.md"
+source_path = ".claude/rules/sdk.md"
 source_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
 emit_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
 
 [[skill]]
 name = "capture-friction"
-source_path = "./.claude/skills/capture-friction/SKILL.md"
+source_path = ".claude/skills/capture-friction/SKILL.md"
 source_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
 emit_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
 
