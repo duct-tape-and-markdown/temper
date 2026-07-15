@@ -65,32 +65,6 @@ tax.
   back through the inbox: amend the model, or rule `impact` ships as a
   distinct verb (then a pending entry, `per` contract.md "Read verbs").
 
-- `(discovery-nested-root-fence)` — OPEN (registered 2026-07-15). Root-harness
-  discovery walks any-depth `**/CLAUDE.md`, so a nested governed root
-  (`examples/base-harness/CLAUDE.md`, carrying its own `.temper/lock.toml`) is
-  counted as a second `memory` member of the outer harness — cross-
-  contamination, no finding yet, but the outer gate governs bytes it does not
-  own. temper governs the project forest, and another level is another target
-  path (`specs/model/representation.md`, "Reach"); discovery honors ignore
-  rules (`specs/model/pipeline.md`, "Install"). Open: should discovery stop at
-  a directory carrying its own `.temper/lock.toml` — a nested governed root is
-  its own corpus, not the parent's members? Dogfood first-cut finding 3
-  (observed 4e111af/c2f8a2c, reproduced in examples/base-harness). A product
-  fork — resolution returns via the inbox.
-
-- `(prose-interleaving)` — OPEN (registered 2026-07-15). A composed member's
-  body is exactly one of `file() | text | blocks()` (`sdk/src/prose.ts`,
-  `Prose`), so a host with typed children carries every narrative span as a
-  wrapper embedded member (the example's `passage` kind). A layout host
-  interleaves prose regions and member collections by heading
-  (`specs/model/representation.md`, "kind"), but the composed/embedded path is
-  homogeneous. Open: should `blocks()` (or a sibling) accept ordered
-  `Text | EmbeddedMemberValue` children, mirroring layout's interleave — and
-  is that a model-shape change (prose is verbatim, byte-for-byte,
-  `representation.md` "member") or pure SDK ergonomics? Dogfood second-cut
-  finding 3 (observed c2f8a2c, reproduced in examples/base-harness). No
-  dependents.
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
