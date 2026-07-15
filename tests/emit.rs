@@ -865,6 +865,66 @@ fn emitting_into_a_dot_slash_workspace_never_reaps_a_projection_a_bare_lock_owns
     );
 }
 
+#[test]
+fn a_lock_whose_rows_are_dot_slash_spelled_matches_its_live_projections_and_reaps_none() {
+    // A pre-normalization engine wrote `./`-prefixed source paths into the lock; the
+    // current pass keys the bare spelling. Reading the older lock robustly (decision
+    // 0024) must normalize both sides of the reap join, or every live projection reads
+    // ownerless and the sweep mass-reaps the very bytes it just wrote.
+    let harness = common::tmpdir("reap-dot-slash-lock");
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+    let payload = with_both_members();
+
+    let guard = CWD_MUTEX.lock().unwrap();
+    let original_cwd = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&harness).unwrap();
+
+    let into = PathBuf::from(".temper");
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // Rewrite the freshly written lock as a pre-normalization engine would have spelled
+    // it: every relative `source_path` carries a redundant `./` the current pass drops.
+    let lock_path = into.join("lock.toml");
+    let older_lock = fs::read_to_string(&lock_path)
+        .unwrap()
+        .replace("source_path = \"", "source_path = \"./");
+    assert!(
+        older_lock.contains("source_path = \"./.claude/rules/rust.md\""),
+        "the simulated older lock spells owned paths with a `./` prefix: {older_lock}"
+    );
+    fs::write(&lock_path, &older_lock).unwrap();
+
+    let rule_path = PathBuf::from(".claude/rules/rust.md");
+    let skill_path = PathBuf::from(".claude/skills/coordinate/SKILL.md");
+    assert!(rule_path.is_file() && skill_path.is_file());
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let rewritten = fs::read_to_string(&lock_path).unwrap();
+
+    std::env::set_current_dir(&original_cwd).unwrap();
+    drop(guard);
+
+    let reaped: Vec<_> = report
+        .entries
+        .iter()
+        .filter(|e| e.outcome == EmitOutcome::Reaped)
+        .collect();
+    assert!(
+        reaped.is_empty(),
+        "a `./`-spelled row joins its byte-identical projection — nothing is reaped: {reaped:?}"
+    );
+    assert!(
+        harness.join(".claude/rules/rust.md").is_file()
+            && harness.join(".claude/skills/coordinate/SKILL.md").is_file(),
+        "every live projection the older lock owned survives the re-emit"
+    );
+    assert!(
+        !rewritten.contains("source_path = \"./"),
+        "the next emit rewrites the lock whole in canonical `./`-free form: {rewritten}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // The seam — `drift::emit_program` over a real `node` subprocess running the
 // built SDK against a fixture `harness.ts`.

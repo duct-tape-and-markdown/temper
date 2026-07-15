@@ -531,7 +531,7 @@ Last line, no newline.";
                 rationale: Some("the home for enforcement".to_string()),
             },
         );
-        add_provenance(&mut header, "./SKILL.md", "abc123");
+        add_provenance(&mut header, "SKILL.md", "abc123");
         let doc = Document::new(header, "# Body\n".to_string());
         let emitted = doc.emit();
 
@@ -540,7 +540,7 @@ Last line, no newline.";
         assert!(emitted.contains("[clause.allowed-tools]\nvalue = [\"Bash\"]"));
         assert!(!emitted.contains("[clause]\n"));
         assert!(emitted.contains("[satisfies.engineering-standards]\nrationale ="));
-        assert!(emitted.contains("[provenance]\nsource_path = \"./SKILL.md\""));
+        assert!(emitted.contains("[provenance]\nsource_path = \"SKILL.md\""));
 
         // The readers recover exactly what was emitted, in order.
         let parsed = Document::parse(&emitted).unwrap();
@@ -551,7 +551,7 @@ Last line, no newline.";
         assert_eq!(read, vec!["name".to_string(), "allowed-tools".to_string()]);
         assert_eq!(
             provenance(parsed.header()),
-            Some(("./SKILL.md".to_string(), "abc123".to_string()))
+            Some(("SKILL.md".to_string(), "abc123".to_string()))
         );
         // Re-emitting a parsed document is byte-identical — deterministic round-trip.
         assert_eq!(parsed.emit(), emitted);

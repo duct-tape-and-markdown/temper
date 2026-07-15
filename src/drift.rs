@@ -494,12 +494,22 @@ struct Projection {
     body: String,
 }
 
-/// Render a path for a lock row's `source_path`: always `/`-separated, regardless
-/// of host. `lock.toml` is committed, and `Path::join` inserts the host separator
-/// at each join boundary (backslash on Windows) — left alone, that forks the
-/// byte-committed lock by host.
+/// Render a path for a lock row's `source_path`: always `/`-separated and with no
+/// redundant `./` prefix, regardless of host. `lock.toml` is committed, and
+/// `Path::join` inserts the host separator at each join boundary (backslash on
+/// Windows) — left alone, that forks the byte-committed lock by host.
 pub(crate) fn to_lock_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    normalize_lock_path(&path.to_string_lossy())
+}
+
+/// Canonicalize a lock `source_path` spelling for a byte-stable, host- and
+/// engine-independent join: `/`-separated, no leading `./`. An engine before the
+/// workspace path was lexically normalized spelled a root-`.` member `./CLAUDE.md`
+/// where the current pass keys the bare `CLAUDE.md`; the reap sweep must normalize
+/// both sides at read time (decision 0024) or the older lock's every live
+/// projection reads ownerless and is mass-reaped.
+fn normalize_lock_path(path: &str) -> String {
+    path.replace('\\', "/").trim_start_matches("./").to_string()
 }
 
 /// The harness-relative locus a member of `facts` named `name` projects onto — the
@@ -863,7 +873,10 @@ pub fn emit(
     // it a rollup row, so a re-emit never reaps the file it just wrote.
     owned_paths.extend(manifests.keys().map(|path| to_lock_path(path)));
     for row in read_prior_provenance(workspace_dir) {
-        if owned_paths.contains(&row.source_path) {
+        // Both sides normalized: `owned_paths` came through `to_lock_path`, and an
+        // older lock's raw row spelling gets the same canonicalization here, so a
+        // `./`-prefixed row still joins its live projection.
+        if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
             continue;
         }
         if let Some(entry) = reap_or_report_orphan(&row, options.dry_run)? {
