@@ -143,8 +143,19 @@ routing.
   `dev-pack:csharp` correctly), so the fix is gate-side: key the
   satisfies/graph joins by (kind, name) — the rows carry both — or refuse
   colliding names loud at emit. Renaming the four colliding members
-  cleared every finding (clean bisect). Worse than a 0019-loud gap: this
-  path *lies specifically*. Observed at 0aa9e62.
+  cleared every finding (clean bisect). Sharpened on a second pass (still
+  0aa9e62, after recutting the packs to the base-harness idiom — zero
+  contract on the pack layer, no satisfies, no clauses): the mere
+  *existence* of a same-named member still poisons the other members'
+  standing requirements — rule `csharp`'s own `area-directives` claim
+  resolves to both members and refuses on the pack it never made. So a
+  consumer cannot dodge by keeping the new kind contract-free; the only
+  workaround is renaming agent-facing files, which is the tool
+  constraining the harness. The centercode testbed is deliberately left
+  red on these five findings (4 requirement.kind + 1 degree, original
+  filenames restored) as the live repro; the fix flips it green with no
+  testbed change. Worse than a 0019-loud gap: this path *lies
+  specifically*. Observed at 0aa9e62.
 
 - Pack-kind field trial (centercode, 07-15) — the pass's convention layer
   brought under the gate, and it works: three frontmatterless custom
