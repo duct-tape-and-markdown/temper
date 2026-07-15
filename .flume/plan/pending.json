@@ -9,23 +9,28 @@
     "gate": {
       "kind": "open"
     },
-    "dependsOnForks": [
-      "lock-upgrade-migration-posture"
-    ],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`SatisfiesRow.member` (drift.rs:2311) carries a bare id where `MentionRow` already carries the `kind:name` address (identity is a compiled label — pipeline.md, 'The lock'). Qualify the wire to `kind:name`; `derive_layout_rows` (has `host_address()` in hand) writes the qualified label for layout-sourced satisfies. A pre-fix lock's bare rows stay accepted where unambiguous; a cross-kind collision is the malformed lock the spec already names — refused loud, one re-emit heals (posture per the fork)."
+          "description": "`SatisfiesRow.member` (drift.rs:2313) carries a bare id where `MentionRow` already carries the `kind:name` address (identity is a compiled label — pipeline.md, 'The lock'). Qualify the wire to `kind:name`; `derive_layout_rows` (drift.rs:1082, has `host_address()` in hand) writes the qualified label for layout-sourced satisfies. Read robustly (0024): a pre-fix lock's bare rows qualify against the corpus where unambiguous, the next emit rewrites the file canonical; a true cross-kind collision stays the malformed lock the spec names (0021) — refused loud."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`satisfiesRows` (declarations.ts:314) pushes `{ member: member.name }` — the bare name; write the `${member.kind}:${member.name}` address the way `mentionRows` already does (337/344)."
+          "description": "`satisfiesRows` (declarations.ts:314) pushes `{ member: member.name }` — the bare name; write the `${member.kind}:${member.name}` address the way `mentionRows` already does (declarations.ts:334)."
         },
         {
           "path": "src/main.rs",
           "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1019/1022) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
+        },
+        {
+          "path": "tests/common/mod.rs",
+          "description": "`author_satisfies` (tests/common/mod.rs:175, plus its rule-kind wrapper at 427) round-trips satisfies fixtures through the wire — the shared-helper fan-out; update it and its callers to the qualified label so the source→row→read cycle stays consistent."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Satisfies-fixture assertions that read back the bare member id move to the `kind:name` label."
         }
       ],
       "retire": []
@@ -38,32 +43,29 @@
       },
       {
         "path": "tests/lock_declaration_rows.rs",
-        "asserts": "satisfies rows carry the `kind:name` label, not the bare member name"
+        "asserts": "satisfies rows carry the `kind:name` label, not the bare member name; a pre-fix bare row qualifies where unambiguous and a cross-kind bare collision is refused as a malformed lock"
       }
     ],
-    "acceptance": "A member name shared across two kinds no longer cross-attributes satisfies/graph edges; each qualified row binds only its own kind's member; a pre-fix lock's bare rows are accepted where unambiguous and a cross-kind collision is refused as a malformed lock.",
-    "notes": "Live repro (centercode 07-15): a dev-pack `csharp` beside a rule `csharp` cross-attributed both satisfies + mention edges — false requirement.kind refusals both ways, false zero-degree, clean bisect on rename. Migration (spec-faithful, contra PR #20's keep-the-collision) is the posture the fork rules — hence dependsOnForks. Also moves tests/common/mod.rs author_satisfies, tests/emit.rs. observed 0aa9e62, wire re-verified f67303c; scoped at 06c44b1."
+    "acceptance": "A member name shared across two kinds no longer cross-attributes satisfies/graph edges; each qualified row binds only its own kind's member; a pre-fix lock's bare rows qualify where unambiguous and a cross-kind collision is refused as a malformed lock.",
+    "notes": "Live repro (centercode 07-15): a dev-pack `csharp` beside a rule `csharp` cross-attributed satisfies+mention edges — false requirement.kind refusals both ways, false zero-degree, clean bisect on rename. Posture ruled by 0024 (read robustly; cross-kind collision malformed-loud) — dependsOnForks dropped. Fan-out: tests/common/mod.rs author_satisfies, tests/emit.rs. observed 0aa9e62; scoped 06e0c2c (re-verified vs 06c44b1)."
   },
   {
     "tag": "LOCK-SPELLING-REAP",
     "summary": "A post-e7b859a engine's first emit against an older `./`-spelled lock silently mass-reaps every live projection — the orphan sweep matches no row and reaps all",
     "per": {
       "path": "specs/model/pipeline.md",
-      "section": "Emit"
+      "section": "The lock"
     },
     "gate": {
       "kind": "blockedBy",
       "tag": "SATISFIES-LABEL-QUALIFY"
     },
-    "dependsOnForks": [
-      "lock-upgrade-migration-posture"
-    ],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "The orphan sweep (drift.rs:865-872) builds `owned_paths` via `to_lock_path` (drift.rs:501, backslash-only normalization) but compares against `read_prior_provenance` rows' raw `source_path`; an older lock spells them `./CLAUDE.md` while the post-e7b859a fingerprint pass keys the normalized `CLAUDE.md`, so every live projection reads ownerless and is reaped. Canonicalize the row side of the join too (strip `./`, the backslash handling as precedent) so a byte-identical projection matches its row — OR, per the fork, refuse the all-rows reap wave. Direction is the fork's to rule."
+          "description": "The orphan sweep (drift.rs:865-872) builds `owned_paths` via `to_lock_path` (drift.rs:501, backslash-only normalization) but compares against `read_prior_provenance` rows' raw `source_path` (drift.rs:866); an older lock spells them `./CLAUDE.md` while the post-e7b859a fingerprint pass keys the normalized `CLAUDE.md`, so every live projection reads ownerless and is reaped. Read robustly (0024): normalize both sides of the join — canonicalize the row `source_path` too (strip `./`, the backslash handling as precedent) so a byte-identical projection matches its row. The genuine total-reap backstop is EMIT-INTO-REROOT-REAP's cliff refusal."
         }
       ],
       "retire": []
@@ -76,31 +78,29 @@
       }
     ],
     "acceptance": "An emit under a normalized-path engine against an older `./`-spelled lock matches each byte-identical projection to its row and reaps nothing — no silent mass-reap; the loud-or-nothing invariant holds.",
-    "notes": "Field incident (centercode 07-15): one emit reported '21 reaped', exit 0 — deleted every projection while writing a lock claiming them live and unchanged. e7b859a normalizes the workspace path pre-`harness_root`; to_lock_path (drift.rs:501) strips backslashes, never `./`. Direction (canonicalize the join key vs refuse the wave) is the fork's — hence dependsOnForks; serialized after SATISFIES (shared drift.rs). observed 0aa9e62, re-verified f67303c; scoped at 06c44b1."
+    "notes": "Field incident (centercode 07-15): one emit reported '21 reaped', exit 0 — deleted every projection while writing a lock claiming them live and unchanged. e7b859a normalizes the workspace path pre-`harness_root`; to_lock_path (drift.rs:501) strips backslashes, never `./`. 0024 rules read-robustly (normalize the join key) — dependsOnForks dropped; serialized after SATISFIES (shared drift.rs). observed 0aa9e62; scoped 06e0c2c (re-verified vs 06c44b1)."
   },
   {
     "tag": "EMIT-INTO-REROOT-REAP",
-    "summary": "`emit --into <dir>` inside an adopted harness re-roots the projection tree, orphaning live projections the byte-faithful reap then deletes — emit must refuse the reap wave",
+    "summary": "`emit --into <dir>` inside an adopted harness re-roots the projection tree, orphaning every live projection — emit refuses the total-reap wave unless the author spells an explicit teardown flag",
     "per": {
       "path": "specs/model/pipeline.md",
-      "section": "Emit"
+      "section": "The lock"
     },
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tag": "LOCK-SPELLING-REAP"
     },
-    "dependsOnForks": [
-      "lock-upgrade-migration-posture"
-    ],
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "In the emit reap path (`reap_or_report_orphan` / `emit_program`), guard the mass-reap an `--into` re-root triggers: when the target re-roots an already-adopted harness, every prior projection reads as ownerless. Refuse (or dry-run-report) the whole wave instead of deleting live projections byte-faithfully."
+          "description": "In the emit reap path (`reap_or_report_orphan` drift.rs:1312, driven by `emit_program` drift.rs:537, over the orphan sweep at 865-872) add the cliff refusal (0024): a reap wave that would delete every live projection while emitting nothing refuses with the finding stated, never deletes byte-faithfully. The `--into` re-root of an adopted harness is the motivating instance (every prior projection reads ownerless). The explicit teardown flag is threaded here as the spelled opt-out. Sits on the LOCK-SPELLING-corrected join so the refusal fires only on a genuine wave, not a spelling-induced false one."
         },
         {
           "path": "src/main.rs",
-          "description": "The `--into` argument (Emit command: `into: PathBuf` main.rs:134, emit handler main.rs:308-316): carry whatever signal the reap guard needs to detect a re-root of an adopted harness (e.g. an existing lock at the ambient root the `--into` diverges from). Shares the arg/workspace resolution CHECK-ARG-HALF-GATE reworked (shipped 4256274)."
+          "description": "Add the teardown flag to Emit and carry it to the reap guard (the `--into` arg already exists: `into: PathBuf` main.rs:134, emit handler main.rs:308-316); with the flag set, a total-reap wave is the author's spelled intent and proceeds. Shares the arg/workspace resolution CHECK-ARG-HALF-GATE reworked (shipped 4256274)."
         }
       ],
       "retire": []
@@ -109,11 +109,145 @@
     "tests": [
       {
         "path": "tests/emit.rs",
-        "asserts": "`emit --into <nested-dir>` inside an adopted harness refuses (or dry-run-reports) rather than reaping the repo-root projections; plain `emit` still reaps a genuinely single ownerless projection"
+        "asserts": "`emit --into <nested-dir>` inside an adopted harness refuses the total-reap wave (finding stated, projections intact); the explicit teardown flag lets the wave through; plain `emit` still reaps a genuinely single ownerless projection"
       }
     ],
-    "acceptance": "An `--into` that re-roots an already-adopted harness no longer silently deletes live projections — emit refuses or dry-run-reports the reap wave — while a genuine single-orphan reap still works.",
-    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git, plain `emit` then clean 0/8/0. The prior reap fix (e7b859a) covered path spelling, not re-rooting. Loud-or-nothing (intent 6/7): emit never silently deletes. CHECK-ARG shipped 4256274 → open; reap-wave posture is the lock-upgrade fork's — still dependsOnForks. scoped at 01625fb."
+    "acceptance": "A reap wave that would delete every live projection while emitting nothing refuses with the finding stated — no silent mass-reap on an `--into` re-root — unless the author spells the explicit teardown flag; a genuine single-orphan reap still works.",
+    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git. 0024's 'refuse at the cliff' — total-reap refusal + explicit teardown flag (PR #20's bare refusal adopted with the spelled escape) — dependsOnForks dropped. Carries the reap-wave half of 0024's 'emit gains the cliff refusals and the teardown flag'; LOCK-LAYER-DROP carries the dropped-layer half. scoped 06e0c2c (re-verified vs 01625fb)."
+  },
+  {
+    "tag": "LOCK-LAYER-DROP-REFUSE",
+    "summary": "A re-read dropping a whole declared layer the committed lock still carries — a pre-0018 harness's ~57 embedded members gone on re-emit — refuses with the finding stated, not silent loss",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMIT-INTO-REROOT-REAP"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "The second cliff refusal (0024): a re-read (`emit_program` drift.rs:537) that produces zero members for a whole layer the committed lock still declares — declaration rows present in the prior lock, derived rows empty — refuses with the finding stated. Compare this emit's derived declaration rows against `read_prior_provenance`/the prior lock's declared collections; a whole declared collection dropping to zero refuses. The disappearance is loud because the lock still declares it, never because prose was mined (invariant 1). Reuses EMIT-INTO's teardown flag as the spelled opt-out for a genuine layer removal."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a lock declaring an embedded-member layer whose source re-reads to zero members refuses with the finding stated; the teardown flag lets the removal through; a layer that legitimately loses one of many members still emits"
+      }
+    ],
+    "acceptance": "A re-read that drops a whole declared layer the committed lock still carries refuses with the finding stated — no silent layer loss on an upgrade — unless the author spells the teardown flag; a partial member change still emits.",
+    "notes": "0024's fourth incident: a harness green pre-0018 re-emitted with its ~57 embedded members silently gone (`explain`: 'carries no nested member'). The `(member-fence-dead-text)` loss repro folded in — the prose-scan alternative is rejected (0024 'Rejected': matching-is-mining; a quoted fence false-positives); the loss is the cliff refusal's job. Serialized after EMIT-INTO (shared drift.rs refusal path + teardown flag). observed d26b3ce; scoped 06e0c2c."
+  },
+  {
+    "tag": "MENTION-DISCOVERY-DEFER",
+    "summary": "A composed mention naming a declared kind with no composed member wrongly fails emit; it should defer to check (the row rides the lock), while a mention naming no declared kind still refuses",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SATISFIES-LABEL-QUALIFY"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`renderTextBody` (emit.ts:162-164) rejects any mention whose address is outside `mentionable` ('resolves to no declared value'). Thread the program's declared kinds; defer (emit the mention as a lock row, no throw) when the address's kind is a declared kind with no composed member, keep refusing when the address names no declared kind (pipeline.md 'Refusing': the deferral's signal is the declared kind, never a guess over the address)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Carry the deferred mention as a `MentionRow` riding the lock so check resolves it at the same table `implemented-by` resolves on; `mentionRows` already builds `${member.kind}:${member.name}` addresses (declarations.ts:334). Serialized after SATISFIES (shared file)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Verify the engine resolves a deferred mention edge over discovered members at check time (note: verify graph already covers it) — check owns the verdict; an undeclared-kind address stays dangling at emit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/mention.test.ts",
+        "asserts": "a mention addressing a declared kind with no composed member emits (defers) rather than throwing; a mention addressing no declared kind still throws at emit"
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "check resolves a deferred discovery-locus mention against a discovered member of the declared kind, and refuses when no such member is discovered"
+      }
+    ],
+    "acceptance": "A composed mention naming a declared kind with no composed member emits (defers to check, which resolves it over discovered members) instead of failing emit; a mention naming no declared kind still refuses at emit; the example's skill→script mention demo builds.",
+    "notes": "pipeline.md 'Emit'/'Refusing' amendment (human-ruled 07-15, 06e0c2c) resolves `(composed-mention-discovery-locus)`. Live: `source:main` is a real corpus member the engine resolves `implemented-by`/`graph.route` on, but `renderTextBody` rejects it as dangling. Unblocks the example's (examples/base-harness) skill→script mention demo. Serialized after SATISFIES (shared sdk/src/declarations.ts). observed d26b3ce; scoped 06e0c2c."
+  },
+  {
+    "tag": "INSTALL-FRONTMATTERLESS-BANNER",
+    "summary": "install's managed-by note is a frontmatter `#` comment, so a frontmatterless projection (memory, any frontmatterless kind) carries no in-band banner — grow a block-level HTML-comment form",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "The managed-by note (`NOTE_COMMENT` at install.rs:159, placed/idempotence-keyed by `project_note` at install.rs:1549 via `NOTE_MARKER`) is a `#`-prefixed YAML frontmatter comment. Add a second form — a block-level HTML comment — for a markdown-bodied frontmatterless kind (memory and any frontmatterless custom kind); a frontmatter kind keeps the `#` form. Placement stays content-keyed and idempotent (re-run converges)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a frontmatterless memory projection carries the block-level HTML-comment managed-by banner and a re-run converges (no duplicate); a frontmatter kind keeps the `#` frontmatter-comment form"
+      }
+    ],
+    "acceptance": "A frontmatterless projection carries an in-band managed-by banner (a block-level HTML comment); frontmatter kinds keep the `#` form; both forms stay content-keyed and idempotent.",
+    "notes": "Ruled 07-15 (06e0c2c) resolving `(frontmatterless-managed-by-banner)`. External fact: Claude Code strips block-level HTML comments before injection (code.claude.com/docs/en/memory, retrieved 2026-07-15) — human-visible, model-invisible. Courtesy, not a guarantee gap: a hand-edit is still hash-caught as drift (pipeline.md 'Drift'). Live: pack-kind field trial, centercode 07-15 — ten `file()` members adopted byte-faithful, no banner. observed d26b3ce; scoped 06e0c2c."
+  },
+  {
+    "tag": "CUSTOM-KIND-DOCS",
+    "summary": "Layout/custom-kind authoring guidance has no written home — add it to the bundled teaching skill (`OPERATE_SKILL`), which teaches mechanics",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "What ships — three channels"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "`OPERATE_SKILL` (bundle.rs:68) teaches operate-the-gate mechanics; add concise layout / custom-kind authoring guidance — 'if your host mixes prose and members, declare a layout and author the document' — mechanics, never taste (distribution.md 'What ships': the skill teaches mechanics, opinions live in default contracts). The skill body is byte-faithful-copied by bundle from this constant."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "the bundled operate-the-gate skill body carries the layout / custom-kind authoring guidance"
+      }
+    ],
+    "acceptance": "The operate-the-gate skill teaches layout/custom-kind authoring as mechanics; blocks nothing.",
+    "notes": "Ruled 07-15 (06e0c2c) resolving `(custom-kind-consumer-docs)`: layout authoring is mechanics, so it lives in the plugin's teaching skill, never a README/`docs/` horizon page. Verified the skill source exists now — `OPERATE_SKILL` (src/bundle.rs:68), shipped by `bundle` (tests/bundle.rs) — so bundle work is live and the entry is open. observed d26b3ce; scoped 06e0c2c."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

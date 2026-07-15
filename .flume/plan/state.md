@@ -3,34 +3,34 @@
 - Spec derived through: f67303c
 - Audited through: 226199b
 - Residue swept through: 226199b
-- This tick: reconciled the c0bbf3b..HEAD ship window — one build commit,
-  LAYOUT-OVERLAY-CHECK-GAP (73c54bf), the only window commit touching
-  src/tests (bf609e6 is the prior plan tick, 226199b the chore ship). AUDIT:
-  LAYOUT-OVERLAY shipped and is already off pending (build removed it) —
-  verified on disk: `CustomKind::overlay_content` + shared `layout_from_row`
-  lift (kind.rs:715/878), the `overlay_content` call + `overlaid.content`
-  dispatch (main.rs:885/981). No queued entry's work is done → no drops.
-  Re-tested the held gates: the fork `(lock-upgrade-migration-posture)` is
-  still OPEN, so SATISFIES-LABEL-QUALIFY + EMIT-INTO-REROOT-REAP (open but
-  dependsOnForks) and LOCK-SPELLING-REAP (blockedBy SATISFIES + same fork) all
-  stay held; PACKAGING parked. LAYOUT-OVERLAY was the one pickable entry — none
-  remains. SWEEP: LAYOUT-OVERLAY unified `content_from_row` and
-  `overlay_content` on one `layout_from_row` lift (commit body names the share)
-  — consolidation, not a second layout reader; no new residue. The window added
-  +2 lines above the satisfies fold in main.rs (hunks at 854/882/989):
-  refreshed SATISFIES's `row.member == unit.id` loop citation 1017/1020→
-  1019/1022 (EMIT-INTO's main.rs:134,308-316 sit above the shift, unmoved;
-  drift.rs + declarations.ts cites untouched). No rider names a file this window
-  opened by pinned line (kind.rs's `15-kinds.md` fixture strings at
-  1301/1310/1406 are body text, not a line-pinned cite).
-- Queue: no pickable entry. SATISFIES-LABEL-QUALIFY + EMIT-INTO-REROOT-REAP
-  (open, dependsOnForks `(lock-upgrade-migration-posture)`), LOCK-SPELLING-REAP
-  (blockedBy SATISFIES + same fork), PACKAGING-CHANNELS-REMAINDER (parked) all
-  held. Disjoint.
+- This tick: drained the inbox — four human routing notes filed in the 0024
+  spec commit (06e0c2c, which ALSO deleted five fork records from
+  open-questions per the anti-accumulation rule, so nothing to delete here).
+  Note 1 (0024 lock posture) unblocked the three safety entries: rewrote
+  SATISFIES-LABEL-QUALIFY (read robustly — qualify to `kind:name`, bare rows
+  qualify where unambiguous, cross-kind collision malformed-loud),
+  LOCK-SPELLING-REAP (canonicalize both sides of the orphan-sweep join), and
+  EMIT-INTO-REROOT-REAP (the reap-wave cliff refusal + explicit teardown
+  flag) — dependsOnForks dropped from all three; filed LOCK-LAYER-DROP-REFUSE
+  (0024's dropped-layer cliff, the member-fence loss folded in — prose scan
+  rejected). Note 2 → MENTION-DISCOVERY-DEFER (SDK defers a mention naming a
+  declared kind, check owns the verdict). Note 3 →
+  INSTALL-FRONTMATTERLESS-BANNER (block-level HTML-comment banner). Note 4 →
+  CUSTOM-KIND-DOCS (layout authoring into `OPERATE_SKILL`; verified the skill
+  source exists at src/bundle.rs:68, so open). DATUM: the three entries
+  carried a dangling `dependsOnForks` for one window — the human deleted the
+  fork record in 06e0c2c before plan rewrote the entries; healed now. All
+  symbol/line cites re-verified on disk at HEAD 06e0c2c.
+- Queue: SATISFIES (open) → LOCK-SPELLING → EMIT-INTO → LOCK-LAYER-DROP (a
+  serial drift.rs chain); MENTION-DISCOVERY blockedBy SATISFIES (shared
+  sdk/src/declarations.ts); INSTALL-BANNER + CUSTOM-KIND-DOCS open; PACKAGING
+  parked. Pickable now: SATISFIES, INSTALL-BANNER, CUSTOM-KIND-DOCS — disjoint
+  (drift.rs+declarations.ts+main.rs / install.rs / bundle.rs).
 
-Plan continues: no — window reconciled, both cursors to HEAD (226199b); inbox
-empty, spec cursor f67303c is specs/ HEAD (no delta). The whole queue is held
-by the lock-upgrade fork or parked — no pickable entry; the loop hibernates
-until the fork resolves through the inbox. (NB the SessionStart reporter shows
-the `.temper` dogfood gate red — two unfilled requirements; harness territory,
-a `chore(harness)` fix outside plan's writable paths.)
+Plan continues: yes — spec delta. 90fe3c1 (decision renumber) + 06e0c2c
+(0024 + the pipeline.md amendments) sit past the spec cursor f67303c,
+unrouted as a spec-delta slice; next tick derives them and advances the
+cursor (the entries this inbox drain filed are 0024's Consequences — the
+spec-delta tick reconciles against them). NB the SessionStart reporter shows
+the `.temper` dogfood gate red — two unfilled requirements; harness
+territory, a `chore(harness)` fix outside plan's writable paths.
