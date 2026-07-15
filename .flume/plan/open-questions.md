@@ -53,8 +53,37 @@ tax.
   consumer hits adopting a layout for a built-in kind, or governing any
   heterogeneous tree. Open: can two kinds share a governs glob (and how is a
   document routed to one), or is heterogeneity always "declare N kinds over N
-  sub-globs"? (Related but distinct from the pack-kind directory-slice gap
-  still inbox-queued.) Resolution routes back through the inbox.
+  sub-globs"? (Related but distinct from `(directory-sliced-governance)`, the
+  single-kind path-derivation gap.) Resolution routes back through the inbox.
+
+- `(directory-sliced-governance)` — OPEN (registered 2026-07-15). A single
+  non-nesting **file**-locus kind cannot govern a directory-sliced corpus:
+  `member_projection_path` (`src/drift.rs:513`) derives a projection path by
+  `governs_glob.replacen('*', name, 1)` — the glob's *first* `*` only — so a
+  glob `*/*.md` yields `<name>/*.md`, a literal `*` left in the path. The
+  workaround (one kind per directory, each with a `*`-terminal glob) works but
+  proliferates kinds. The corpus (`specs/model/representation.md`, "kind")
+  gives a kind one `governs` glob and a per-nested-layer path pattern, but says
+  nothing of deriving a leaf file's path through a multi-segment glob. Open:
+  does temper admit nested-glob path derivation, or a **declared path template**
+  on the kind, or is directory-sliced governance always "declare N kinds over N
+  `*`-terminal sub-globs"? (Live: pack-kind field trial, centercode 07-15;
+  related but distinct from `(layout-kind-heterogeneous-corpus)`, which is about
+  two kinds sharing one glob, not one kind spanning many directories.)
+  Resolution routes back through the inbox.
+
+- `(frontmatterless-managed-by-banner)` — OPEN (registered 2026-07-15). The
+  managed-by note install places (`src/install.rs:152`) is a **frontmatter**
+  comment, so a frontmatterless projection — `memory`, and any frontmatterless
+  custom kind — carries no in-band "generated, do not edit" banner. Safety is
+  unbroken: a hand-edit is still hash-caught as drift (`pipeline.md`, "Drift"),
+  so this is courtesy, not a guarantee gap — and the corpus mandates no banner
+  at all (it is an install placement, absent from every model section). Open:
+  does the managed-by note gain a **frontmatterless form** (an HTML comment for
+  a markdown-bodied frontmatterless kind), or is the hash-drift catch deemed
+  sufficient and the absence simply documented? (Live: pack-kind field trial,
+  centercode 07-15 — ten `file()` members adopted byte-faithful, no banner.)
+  Resolution routes back through the inbox.
 
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
   hand-written std-lib ships an `agents-md.memory` built-in kind (glob

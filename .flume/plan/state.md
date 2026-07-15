@@ -3,35 +3,36 @@
 - Spec derived through: f67303c
 - Audited through: 9223917
 - Residue swept through: 9223917
-- This tick: INBOX drain of the 0019-content layout cluster (PR #20 notes
-  1/2/3 — the batch state.md named). Note 3(2) verified live on disk at HEAD
-  and routed to a pending entry; the other four facets to three open forks +
-  one commit-body note. Verification (no src/sdk commit touches these sites
-  since f67303c): `overlay_builtin_kind` (main.rs:896-919) lifts governs
-  always + templates when non-empty (915-917), never the lock row's `content`
-  (`KindFactRow.content`, drift.rs:2056); `resolve_kind_units` dispatches
-  layout-vs-frontmatter on the embedded `kind.content` (main.rs:1024, always
-  `File` for a built-in), not `overlaid.content`; emit honors the row via
-  `content_from_row` (kind.rs:843, drift.rs:749) — so emit reads a
-  relocated-built-in layout while check silently falls back to frontmatter
-  (confirmed divergence, not merely untested). Routed: note 1 (docs remainder)
-  → open fork `(custom-kind-consumer-docs)`; note 2 (member-fence dead text) →
-  open fork `(member-fence-dead-text)`; note 3(1) (emit honors relocated
-  content — `temper::layout::unadmitted` refuses loud, 0019-loud works
-  end-to-end) → verified working, commit-body note, no entry; note 3(2)
-  (overlay drops content at check) → LAYOUT-OVERLAY-CHECK-GAP (blockedBy
-  CHECK-ARG — shared src/main.rs); note 3(3) (layout binds whole kind vs
-  heterogeneous corpus) → open fork `(layout-kind-heterogeneous-corpus)`.
-  Pickable stays {CHECK-ARG, GLOB-VALIDITY} — disjoint (main.rs+install.rs vs
-  contract.rs+builtins.ts+builtin_lock.toml); the new entry is blockedBy, not
-  pickable. Cursors unmoved (inbox job, no spec/src window this tick).
+- This tick: INBOX drain of the two remaining PR #20 notes — the inbox is now
+  empty. Both re-verified against HEAD before routing. (1) 0019 decision-record
+  renumber: two records wear 0019 (`0019-content-is-a-declared-kind-fact.md`,
+  `0019-loud-or-nothing.md`) — confirmed both present on disk; 0020's only bare
+  "0019" cite (line 7, "typed the heading tree by declaring positions") points
+  to 0019-content, and a full `grep -rn 0019 specs/` finds no other cross-ref.
+  This is a `specs/` renumber = ratification territory OUTSIDE build's fence
+  (`BUILD_WRITABLE_PATHS` has no `specs/**`; build never writes decisions), so
+  it is NOT a build-queueable pending entry and NOT a design fork — a session
+  `docs:` task. Determination (commit body): renumber `0019-loud-or-nothing.md`
+  → `0023` (next free slot after 0022); 0019-content keeps its number so 0020's
+  lone cite stays valid; no other cross-ref moves. Drained to the commit body,
+  no entry. (2) Pack-kind field trial → two registered open forks: gap (a)
+  single-kind directory-slice path derivation (`member_projection_path`
+  drift.rs:513 substitutes first `*` only — confirmed on disk) →
+  `(directory-sliced-governance)`; gap (b) frontmatterless projections carry no
+  managed-by banner (install.rs:152 note is frontmatter-borne; corpus mandates
+  no banner — `grep specs/` for managed-by/banner is empty) →
+  `(frontmatterless-managed-by-banner)`. Neither is a spec violation nor
+  buildable-as-specified — both are undecided model/product questions, hence
+  forks. `(layout-kind-heterogeneous-corpus)`'s stale "still inbox-queued"
+  parenthetical repointed at `(directory-sliced-governance)`. Cursors unmoved
+  (inbox job, no spec/src window). Pending queue untouched — still disjoint.
 - Queue: CHECK-ARG-HALF-GATE (open) + GLOB-VALIDITY-PREDICATE (open, disjoint)
   pickable; LAYOUT-OVERLAY-CHECK-GAP blockedBy CHECK-ARG (shared main.rs);
   SATISFIES-LABEL-QUALIFY + LOCK-SPELLING-REAP + EMIT-INTO-REROOT-REAP all
   dependsOnForks `(lock-upgrade-migration-posture)` (+ their gates);
-  PACKAGING-CHANNELS-REMAINDER parked.
+  PACKAGING-CHANNELS-REMAINDER parked. No queued entry rests on either new fork.
 
-Plan continues: yes — inbox still holds two PR #20 notes: the 0019
-decision-record renumber (two records wear 0019) and the pack-kind field trial
-(two model gaps: directory-sliced governance + frontmatterless managed-by
-banner) — each drained in a later tick as its own coherent batch.
+Plan continues: no — inbox drained empty; spec cursor f67303c is specs/ HEAD
+(no delta); reconcile window 9223917..HEAD touches no src/tests/sdk
+(git diff --stat confirms empty). No live input remains. Pickable entries
+exist (CHECK-ARG-HALF-GATE, GLOB-VALIDITY-PREDICATE) — build takes over.
