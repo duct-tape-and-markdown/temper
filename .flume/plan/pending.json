@@ -1,103 +1,15 @@
 [
   {
-    "tag": "DRIFT-REAP-PATH-NORMALIZE",
-    "summary": "Normalize the emit workspace path before deriving harness_root so `.temper` and `./.temper` spell owned paths identically — a live byte-faithful projection is never reaped as ownerless",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "emit() derives `harness_root = workspace_dir.parent()` (drift.rs:634); `./.temper` parents to `.` while `.temper` parents to `` — so `owned_paths` spell `./docs/...` while the prior lock's rows spell `docs/...`, and read_prior_provenance's rows miss the owned set → a live byte-faithful projection is reaped and deleted (drift.rs:847-863, reap_or_report_orphan:1314). Normalize workspace_dir (strip the leading `./` component) before deriving harness_root."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "emitting into `./.temper` after a lock written under `.temper` reaps no live projection and reports it unchanged — never both reaped and unchanged"
-      }
-    ],
-    "acceptance": "emit into `./.temper` and `.temper` derive identical owned paths; a live projection a differently-spelled lock owns is reported unchanged, never reaped (pipeline.md Emit: reap only a byte-faithful ownerless file).",
-    "notes": "Dogfood second-cut finding 1 (observed c2f8a2c), reproduced twice in examples/base-harness; root cause of first-cut finding 2 (install --yes --dry-run previews reaped+unchanged for one live projection). Destructive: the emit-hash safety line passes because the file is byte-faithful, so the reap deletes it (drift.rs:1314). scoped at b676656."
-  },
-  {
-    "tag": "EMBED-RENDER-FENCE-FREE",
-    "summary": "Let a composed embedded kind's `render` hook project fence-free — renderMemberFence wraps every blocks() value in a `member.<kind> <key>` fence, against the writer-only, unconstrained embedded format",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "renderMemberFence (emit.ts:139) always wraps a member's body in a ```member.<kind> <key>``` fence even when the kind declares a `render` hook (the comment asserts 'the fence wrapper itself never changes'); the model makes a composed host's embedded format writer-only and unconstrained (no admissibility bar) and the engine never reads the fence back. Let a render-hook kind's output project without the fence; resolveBody (172) joins the blocks."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a blocks() body of a render-hook kind projects as the hook's markdown with no member.<kind> fence; a render-less kind's projection is byte-unchanged"
-      }
-    ],
-    "acceptance": "A composed corpus with render-hook embedded kinds projects readable markdown, not stacked code fences; the lock's nested-member facts are unchanged (representation.md kind: an embedded format is writer-only and unconstrained).",
-    "notes": "Dogfood second-cut finding 2 (observed c2f8a2c), reproduced in examples/base-harness. The fence fold is retired — nested members build from lock rows (src/extract.rs nested_members_from_rows) — so the fence is cosmetic and safe to drop for render-hook kinds; facts ride the lock. scoped at b676656."
-  },
-  {
-    "tag": "MENTION-EMBEDDED-TARGETS",
-    "summary": "Admit embedded members into the SDK mentionable set + export a Member→Mentionable adapter — declaredAddresses is requirements + top-level kind:name only, so an embedded-member mention falsely dangles",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "edge"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "declaredAddresses (declarations.ts:551) = declaredRequirements + top-level `kind:name`; add each embedded member's host-scoped address (the lock's `<member>/<kind>/<key>` leaf grammar src/read.rs parse_leaf_address already resolves) so a mention to an embedded member's leaf resolves rather than dangles. contract.md 'edge': a mention's target may be a member or a leaf."
-        },
-        {
-          "path": "sdk/src/prose.ts",
-          "description": "export a Member→Mentionable adapter — the example hand-rolls `mentionOf` (examples/base-harness/.temper/kinds.ts) to spell a member's `kind:name` mention target; capture the two-line convention once beside the Mentionable interface (prose.ts:16)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/mention.test.ts",
-        "asserts": "a mention targeting an embedded member's host-scoped leaf address resolves without a dangling-mention refusal; the Member→Mentionable adapter spells kind:name"
-      }
-    ],
-    "acceptance": "A decision can cite an embedded member's invariant as a graph edge without a false dangling-mention refusal; the address is host-scoped (system:scanner/invariant/done-is-exact), never a flat invariant:<key> (contract.md edge: a mention's target may be a member or a leaf).",
-    "notes": "Dogfood second-cut findings 4+5 (observed c2f8a2c). Position: host-scoped addresses (the lock's existing leaf grammar), never flat `invariant:<key>` — flat would force corpus-wide key uniqueness on embedded kinds. A different grammar is a fork; surfaced. The adapter is finding 4's convention capture. Verify the builtin_lock_frozen seam if mention rows shift. scoped at b676656."
-  },
-  {
     "tag": "EMBED-FILL-DEFER",
     "summary": "Defer the SDK's required-requirement fill check to the engine — checkFills refuses at emit(program) on a required requirement filled only by a layout document's satisfies slot it cannot see",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "The SDK"
     },
-    "gate": { "kind": "blockedBy", "tag": "EMBED-RENDER-FENCE-FREE" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMBED-RENDER-FENCE-FREE"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
