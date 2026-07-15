@@ -65,6 +65,27 @@ tax.
   back through the inbox: amend the model, or rule `impact` ships as a
   distinct verb (then a pending entry, `per` contract.md "Read verbs").
 
+- `(composed-mention-discovery-locus)` — OPEN (registered 2026-07-15). A
+  composed mention targeting a **discovered** member fails emit: authoring
+  `text\`… ${{address:"source:main", …}} …\`` trips
+  `sdk/src/emit.ts` `renderTextBody` — any address outside the
+  program-scoped `mentionable` set is rejected "resolves to no declared
+  value — a mention cannot dangle." But `source:main` is a real corpus
+  member the engine resolves `implemented-by` edges against and `graph.route`
+  fires on. The corpus settles the program-scoped case (`pipeline.md`,
+  "Emit"/"Refusing": an unresolvable mention refuses before a byte is
+  written; `contract.md`, "edge": a mention's target may be a member or a
+  leaf) but is silent on discovery-locus addresses. The reporter's candidate
+  resolution mirrors the fill-check deferral: the SDK keeps failing fast on
+  definitely-dangling program addresses and defers discovery-locus kinds'
+  addresses to the engine's check-time mention edges. Open, and the real
+  design question the fork turns on: at emit the SDK holds only the program
+  universe, not the engine's discovery view — so on what declared signal
+  does it tell a discovery-locus address (defer) from a dangling program
+  address (refuse), without re-opening invariant 1's "matching is mining"? A
+  deferral that guesses is worse than the current honest refusal. Blocks the
+  primer's skill→script edge demo. Resolution routes back through the inbox.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

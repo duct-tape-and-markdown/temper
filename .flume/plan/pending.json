@@ -1,5 +1,113 @@
 [
   {
+    "tag": "CHECK-ARG-HALF-GATE",
+    "summary": "`temper check <harness-root>` silently half-gates: an explicit path arg finds no lock, so declared requirements/satisfies/edges vanish while built-ins still resolve — exit 0, looks green",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Fix the `check`/`guard` argument-to-workspace resolution (main.rs:39-41 DEFAULT_WORKSPACE): an explicit `<arg>` at a harness root must resolve `<arg>/.temper` the way the bare-verb default (`./.temper`) does, or fail loud — never resolve to a lockless workspace that silently drops the declared model (`drift::read_declarations` finds no lock)."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "`SESSION_START_COMMAND` (install.rs:88) hardcodes `temper check .` into every adopted harness's SessionStart hook — the half-gate reporter ships on every install. Retarget it to the corrected arg semantics (or `.temper`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/session_start.rs",
+        "asserts": "the install-wired SessionStart command gates the full declared model (a required, unfilled requirement fails) rather than exiting 0 on built-ins alone"
+      },
+      {
+        "path": "tests/cli.rs",
+        "asserts": "`check <harness-root>` resolves the nested `.temper` (or fails loud), never silently half-gates on a lockless workspace"
+      }
+    ],
+    "acceptance": "`temper check <harness-root>` and the install-wired SessionStart command gate the full declared model (requirements, satisfies fills, custom kinds, edges) or fail loud; no argument spelling produces a silent green on a half-resolved workspace.",
+    "notes": "Verified at HEAD: install.rs:88 hardcodes `temper check . --reporter session-start`; main.rs:41 DEFAULT_WORKSPACE=`./.temper`, so bare `check` resolves but explicit `.` doesn't. Field-confirmed: `check .` stayed green with a `required:true` requirement unfilled; `check .temper` exits 1. Repo + example hooks hand-fixed (aba7e47, 549969f); the fix is install wiring + arg semantics; guard shares the arg shape. scoped at 01625fb."
+  },
+  {
+    "tag": "GLOB-VALIDITY-PREDICATE",
+    "summary": "Admit the glob-validity predicate family (globs parse under globset, brace-aware); first consumers the rule and skill default contracts over their `paths` fields",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Add the glob-validity `Predicate` enum variant plus its schema surface — the globs a selected field carries must parse under `globset` (brace-expansion aware, the one glob engine already inside `ignore`). Ordinary clause mechanics: dialable severity, guidance, cite."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add the glob-validity clause to the `rule` and `skill` default contracts over their `paths` fields, with a fresh raw cite (code.claude.com/docs/en/memory, retrieved 2026-07-15) — the strictest-documented-profile stance: an unparseable `[` makes the pattern invalid and it silently matches nothing, so the rule never fires / the skill never registers."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Re-derive the frozen built-in lock — the two new default-contract clauses become declaration rows. tests/builtin_lock_frozen.rs re-derives from the SDK module and byte-compares, so this file must match that emit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/rule_contract.rs",
+        "asserts": "a rule whose `paths` carries an unparseable glob (`[`) fires the glob-validity finding at the clause's severity; a valid brace-expansion glob passes"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the embedded built-in lock byte-equals the SDK module's memberless emit after the rule/skill default contracts gain the glob-validity clause"
+      }
+    ],
+    "acceptance": "A rule or skill whose `paths` carries a glob invalid under globset produces a finding at the clause's declared severity; a valid glob (brace-expansion included) passes; the frozen built-in lock re-derives and byte-matches the SDK module's emit.",
+    "notes": "From decision 0022 (spec delta f67303c, human-ruled 07-15; its work order routes through the inbox). The predicate vocabulary is closed — adding one is a deliberate language change (contract.md clause). The two deferred skill-shape predicates (name hyphen-position, no-XML-in-description) are NOT in scope; `tools-must-resolve` was rejected permanently on invariant 2 (0022) — do not re-file. scoped at 01625fb."
+  },
+  {
+    "tag": "EMIT-INTO-REROOT-REAP",
+    "summary": "`emit --into <dir>` inside an adopted harness re-roots the projection tree, orphaning live projections the byte-faithful reap then deletes — emit must refuse the reap wave",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": { "kind": "blockedBy", "tag": "CHECK-ARG-HALF-GATE" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "In the emit reap path (`reap_or_report_orphan` / `emit_program`), guard the mass-reap an `--into` re-root triggers: when the target re-roots an already-adopted harness, every prior projection reads as ownerless. Refuse (or dry-run-report) the whole wave instead of deleting live projections byte-faithfully."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The `--into` argument (Emit command, main.rs:39/319): carry whatever signal the reap guard needs to detect a re-root of an adopted harness (e.g. an existing lock at the ambient root the `--into` diverges from). Shares the arg/workspace resolution CHECK-ARG-HALF-GATE corrects — hence blockedBy it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "`emit --into <nested-dir>` inside an adopted harness refuses (or dry-run-reports) rather than reaping the repo-root projections; plain `emit` still reaps a genuinely single ownerless projection"
+      }
+    ],
+    "acceptance": "An `--into` that re-roots an already-adopted harness no longer silently deletes live projections — emit refuses or dry-run-reports the reap wave — while a genuine single-orphan reap still works.",
+    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git, plain `emit` then clean 0/8/0. The prior reap fix (e7b859a) covered path spelling, not re-rooting. Loud-or-nothing (intent 6/7): emit never silently deletes. Shares main.rs's arg/workspace resolution (line 39) with CHECK-ARG — hence blockedBy it. scoped at 01625fb."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
