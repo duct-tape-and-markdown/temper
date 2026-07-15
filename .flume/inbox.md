@@ -19,7 +19,9 @@ routing.
   items: commands merged into skills (`command` kind wants a legacy-posture
   note + cite refresh); skill frontmatter grew (new fields incl. `when_to_use`,
   `paths`, `context: fork`, component-scoped `hooks` — review `forbiddenKeys`
-  and coverage against them); `DOCUMENTED_HOOK_EVENTS` re-verify vs the
+  and coverage against them; `paths` is a hard registration gate conditioning
+  the other channels, verified empirically 2.1.210 — a composed channel the
+  flat registration list can't express today, see the digest); `DOCUMENTED_HOOK_EVENTS` re-verify vs the
   current ~30-event set; rules `paths` + recursive discovery now first-class
   documented (cite refresh); agent `tools`-resolution failure now loud
   (v2.1.208+, candidate clause). Caveat carried in the digest: hooks/settings

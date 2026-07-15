@@ -137,6 +137,17 @@ Drift register against our shipped representation:
    <500 lines. **Malformed frontmatter YAML degrades silently** (body loads
    with empty metadata, no auto-trigger, error only under `--debug`) — a
    prime mechanical-lint target.
+   **`paths` semantics, verified empirically** (local probes, Claude Code
+   2.1.210, 2026-07-15): a `paths`-scoped skill is absent from the session's
+   interface entirely — not in the listing, `Skill` tool returns "Unknown
+   skill", user `/name` returns "Unknown command" — until Claude reads a
+   file matching a glob, at which point its *description* joins the listing
+   (the body still loads only on invocation). So `paths` is a hard
+   registration gate conditioning the other channels, not rule-style body
+   injection and not a mere relevance hint: the endpoint is
+   paths-match ∧ (description-trigger ∨ user-invoked). Our registration
+   representation is a flat channel list; a conditional/composed channel is
+   a modeling question, not just a new enum value.
 3. **Rules are first-class documented** and match this repo's practice:
    `.claude/rules/**/*.md` discovered recursively, user-level
    `~/.claude/rules/` loads before project (project wins), `paths` the only
