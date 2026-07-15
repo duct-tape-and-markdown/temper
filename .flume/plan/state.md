@@ -1,38 +1,33 @@
 # Plan state
 
 - Spec derived through: f67303c
-- Audited through: 9223917
-- Residue swept through: 9223917
-- This tick: INBOX drain of the two remaining PR #20 notes — the inbox is now
-  empty. Both re-verified against HEAD before routing. (1) 0019 decision-record
-  renumber: two records wear 0019 (`0019-content-is-a-declared-kind-fact.md`,
-  `0019-loud-or-nothing.md`) — confirmed both present on disk; 0020's only bare
-  "0019" cite (line 7, "typed the heading tree by declaring positions") points
-  to 0019-content, and a full `grep -rn 0019 specs/` finds no other cross-ref.
-  This is a `specs/` renumber = ratification territory OUTSIDE build's fence
-  (`BUILD_WRITABLE_PATHS` has no `specs/**`; build never writes decisions), so
-  it is NOT a build-queueable pending entry and NOT a design fork — a session
-  `docs:` task. Determination (commit body): renumber `0019-loud-or-nothing.md`
-  → `0023` (next free slot after 0022); 0019-content keeps its number so 0020's
-  lone cite stays valid; no other cross-ref moves. Drained to the commit body,
-  no entry. (2) Pack-kind field trial → two registered open forks: gap (a)
-  single-kind directory-slice path derivation (`member_projection_path`
-  drift.rs:513 substitutes first `*` only — confirmed on disk) →
-  `(directory-sliced-governance)`; gap (b) frontmatterless projections carry no
-  managed-by banner (install.rs:152 note is frontmatter-borne; corpus mandates
-  no banner — `grep specs/` for managed-by/banner is empty) →
-  `(frontmatterless-managed-by-banner)`. Neither is a spec violation nor
-  buildable-as-specified — both are undecided model/product questions, hence
-  forks. `(layout-kind-heterogeneous-corpus)`'s stale "still inbox-queued"
-  parenthetical repointed at `(directory-sliced-governance)`. Cursors unmoved
-  (inbox job, no spec/src window). Pending queue untouched — still disjoint.
-- Queue: CHECK-ARG-HALF-GATE (open) + GLOB-VALIDITY-PREDICATE (open, disjoint)
-  pickable; LAYOUT-OVERLAY-CHECK-GAP blockedBy CHECK-ARG (shared main.rs);
-  SATISFIES-LABEL-QUALIFY + LOCK-SPELLING-REAP + EMIT-INTO-REROOT-REAP all
-  dependsOnForks `(lock-upgrade-migration-posture)` (+ their gates);
-  PACKAGING-CHANNELS-REMAINDER parked. No queued entry rests on either new fork.
+- Audited through: c0bbf3b
+- Residue swept through: c0bbf3b
+- This tick: reconciled the 9223917..HEAD ship window — two build commits,
+  CHECK-ARG-HALF-GATE (4256274) + GLOB-VALIDITY-PREDICATE (46b8cd1); no plan
+  tick had advanced the audit cursor past the GROWN-FIELD ship. Both are the
+  only window commits touching src/sdk/tests (the rest is docs/example/flume).
+  AUDIT: both shipped, already removed from pending by build; no queued
+  entry's work is done → no drops. CHECK-ARG shipped → re-tested the two
+  entries that named it as blocker: LAYOUT-OVERLAY-CHECK-GAP (blockedBy →
+  **open**, no fork — now the one pickable entry) and EMIT-INTO-REROOT-REAP
+  (blockedBy → **open**, still held by `(lock-upgrade-migration-posture)` via
+  dependsOnForks). SWEEP: CHECK-ARG's removal of `empty_assembly_incoherence`
+  + its tests is clean subtraction — `grep` finds zero leftover refs;
+  GLOB-VALIDITY reuses `kind::compile_glob` (engine.rs:375 — no second glob
+  engine, spec-faithful to 0022) — no new residue entry. The window reworked
+  main.rs (CHECK-ARG restructure) and opened builtins.ts / contract.rs /
+  session_start.rs: refreshed the drifted main.rs citations in LAYOUT-OVERLAY
+  (896-919→862, 1024→990), SATISFIES (1051/1054→1017/1020), EMIT-INTO
+  (39/319→134,308-316), and the two open-questions riders those files carry
+  (builtins.ts packages/ cites 558/598/635→565/611/648; contract.rs straggler
+  459→475; session_start `+++` fixtures re-verified unmoved at 128/133/146).
+- Queue: LAYOUT-OVERLAY-CHECK-GAP (open, no fork) is the one pickable entry;
+  SATISFIES-LABEL-QUALIFY + EMIT-INTO-REROOT-REAP (both open but
+  dependsOnForks `(lock-upgrade-migration-posture)`), LOCK-SPELLING-REAP
+  (blockedBy SATISFIES + same fork), PACKAGING-CHANNELS-REMAINDER (parked) all
+  held. Pickable set is the single main.rs edit — disjoint.
 
-Plan continues: no — inbox drained empty; spec cursor f67303c is specs/ HEAD
-(no delta); reconcile window 9223917..HEAD touches no src/tests/sdk
-(git diff --stat confirms empty). No live input remains. Pickable entries
-exist (CHECK-ARG-HALF-GATE, GLOB-VALIDITY-PREDICATE) — build takes over.
+Plan continues: no — window reconciled, both cursors to HEAD (c0bbf3b); inbox
+empty, spec cursor f67303c is specs/ HEAD (no delta). No input below
+reconciliation is live. LAYOUT-OVERLAY-CHECK-GAP is pickable — build takes over.

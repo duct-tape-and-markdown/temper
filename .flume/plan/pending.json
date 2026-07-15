@@ -7,8 +7,7 @@
       "section": "The lock"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CHECK-ARG-HALF-GATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -20,7 +19,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "`overlay_builtin_kind` (main.rs:896-919) lifts governs always + templates when non-empty (915-917) but drops the lock row's `content` (`KindFactRow.content`, drift.rs:2056). Call the new `overlay_content` with `row.content` so a lock-relocated built-in's declared layout reaches the effective kind. And fix `resolve_kind_units`' layout-vs-frontmatter dispatch (main.rs:1024) to read `overlaid.content`, NOT the embedded `kind.content` (always `File` for a built-in), so check reads the relocated built-in under its layout exactly as emit already does."
+          "description": "`overlay_builtin_kind` (main.rs:862) lifts governs always (877) + templates when non-empty (882) but drops the lock row's `content` (`KindFactRow.content`, drift.rs:2056). Call the new `overlay_content` with `row.content` so a lock-relocated built-in's declared layout reaches the effective kind. And fix `resolve_kind_units`' layout-vs-frontmatter dispatch (main.rs:990) to read `overlaid.content`, NOT the embedded `kind.content` (always `File` for a built-in), so check reads the relocated built-in under its layout exactly as emit already does."
         }
       ],
       "retire": []
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "A relocated built-in kind whose lock row declares a layout is read under that layout by check exactly as by emit — a fitting document produces the same declaration rows, a non-fitting one refuses loud — with no silent frontmatter fallback; the overlay carries `content` the way it carries governs and templates.",
-    "notes": "Layout probe finding 2 (centercode, PR #20): `overlay_builtin_kind` (main.rs:911-917) lifts governs+templates, never `content`; `resolve_kind_units` dispatches on embedded `kind.content` (main.rs:1024, always File for a built-in), not `overlaid.content`. Emit honors the row via `content_from_row` (kind.rs:843, drift.rs:749) — check diverges (confirmed on disk). Same class as T18 (templates), one fact later. blockedBy CHECK-ARG — shared main.rs. scoped at c535331."
+    "notes": "Layout probe finding 2 (centercode, PR #20): `overlay_builtin_kind` (main.rs:877-882) lifts governs+templates, never `content`; `resolve_kind_units` dispatches on embedded `kind.content` (main.rs:990, always File for a built-in), not `overlaid.content`. Emit honors the row via `content_from_row` (kind.rs:843, drift.rs:749) — check diverges (confirmed on disk). CHECK-ARG shipped 4256274 → open; main.rs refs re-derived post-rework. scoped at c535331."
   },
   {
     "tag": "SATISFIES-LABEL-QUALIFY",
@@ -61,7 +60,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1051/1054) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
+          "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1017/1020) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
         }
       ],
       "retire": []
@@ -122,8 +121,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CHECK-ARG-HALF-GATE"
+      "kind": "open"
     },
     "dependsOnForks": [
       "lock-upgrade-migration-posture"
@@ -137,7 +135,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "The `--into` argument (Emit command, main.rs:39/319): carry whatever signal the reap guard needs to detect a re-root of an adopted harness (e.g. an existing lock at the ambient root the `--into` diverges from). Shares the arg/workspace resolution CHECK-ARG-HALF-GATE corrects — hence blockedBy it."
+          "description": "The `--into` argument (Emit command: `into: PathBuf` main.rs:134, emit handler main.rs:308-316): carry whatever signal the reap guard needs to detect a re-root of an adopted harness (e.g. an existing lock at the ambient root the `--into` diverges from). Shares the arg/workspace resolution CHECK-ARG-HALF-GATE reworked (shipped 4256274)."
         }
       ],
       "retire": []
@@ -150,7 +148,7 @@
       }
     ],
     "acceptance": "An `--into` that re-roots an already-adopted harness no longer silently deletes live projections — emit refuses or dry-run-reports the reap wave — while a genuine single-orphan reap still works.",
-    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git, plain `emit` then clean 0/8/0. The prior reap fix (e7b859a) covered path spelling, not re-rooting. Loud-or-nothing (intent 6/7): emit never silently deletes. Shares main.rs arg resolution (line 39) with CHECK-ARG — hence blockedBy; the reap-wave posture is the lock-upgrade fork's — hence dependsOnForks. scoped at 01625fb."
+    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git, plain `emit` then clean 0/8/0. The prior reap fix (e7b859a) covered path spelling, not re-rooting. Loud-or-nothing (intent 6/7): emit never silently deletes. CHECK-ARG shipped 4256274 → open; reap-wave posture is the lock-upgrade fork's — still dependsOnForks. scoped at 01625fb."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

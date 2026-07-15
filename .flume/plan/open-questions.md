@@ -227,10 +227,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   (+152 lines: the grown Skill/Agent typed-field doc comments, all above the
   cites) and once more left all three as unchanged context — undischarged;
   they shifted +152, 406/446/483 → 558/598/635.
-  Re-verified on disk at reconcile HEAD 9223917 (builtins.ts cites at
-  558/598/635; session_start.rs `+++` fixtures untouched this window, still
-  128/133/146). Now rides the next entry opening builtins.ts — no queued
-  entry does — unless it reconciles the cites.
+  GLOB-VALIDITY-PREDICATE (46b8cd1) then opened builtins.ts an eighth time
+  (+13 lines: the `paths` glob-validity clause, above the cites) and once
+  more left all three as unchanged context — undischarged; they shifted +7,
+  558/598/635 → 565/611/648. And CHECK-ARG-HALF-GATE (4256274) opened
+  `session_start.rs` (+51: the install-wired-command test) yet left the `+++`
+  fixtures as unchanged context — undischarged, unmoved at 128/133/146.
+  Re-verified on disk at reconcile HEAD c0bbf3b (builtins.ts cites at
+  565/611/648; session_start.rs `+++` fixtures still 128/133/146). Now rides
+  the next entry opening builtins.ts — no queued entry does — unless it
+  reconciles the cites.
 
 - **Rust engine narration cites lag the SDK clause re-fetch.**
   BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live
@@ -349,14 +355,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   comment stragglers in files that commit itself opened.**
   `src/compose.rs:233` ("Unlike `effective`, …") cites the retired symbol
   by name inside `default_contract_from_rows`'s test doc comment;
-  `src/contract.rs:459` ("when `target` (above) names a field for layering
+  `src/contract.rs:475` ("when `target` (above) names a field for layering
   purposes") keeps the retired severity-flip layer's vocabulary one hunk
   from the corrected `Predicate::target` doc — the layer is gone, so
   `target`'s live job is array-surgery identity, never layering. Behavior
   and symbols correct; doc-comment staleness only. Each rides whichever
   entry next opens its file (no queued entry opens either), never
-  standalone. Found at residue sweep HEAD d029d4b; re-verified on disk
-  (compose.rs:233, contract.rs:459) at sweep HEAD c5df845.
+  standalone. Found at residue sweep HEAD d029d4b. GLOB-VALIDITY-PREDICATE
+  (46b8cd1) then opened `src/contract.rs` (+20: the glob-validity predicate)
+  yet left the straggler as unchanged context — undischarged; it shifted +16,
+  459 → 475. compose.rs:233 untouched this window. Re-verified on disk
+  (compose.rs:233, contract.rs:475) at reconcile HEAD c0bbf3b.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
