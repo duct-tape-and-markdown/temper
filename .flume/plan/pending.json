@@ -7,8 +7,7 @@
       "section": "The SDK"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBED-RENDER-FENCE-FREE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "sdk/src/emit.ts",
-          "description": "checkFills (emit.ts:196) builds `filled` from composed members' satisfies only; a `required` requirement whose fills live in a layout document's edge slot refuses ('unfilled required requirement', emit.ts:221) before the engine reads the document and derives its satisfies rows (src/drift.rs merges layout satisfies at emit, 672). The SDK implements no semantics — defer this fill enforcement to the engine's emit-time requirement clause, which sees composed + layout-derived satisfies. The dangling-satisfies check (200) stays. Serialized behind EMBED-RENDER-FENCE-FREE (shared file)."
+          "description": "refuseBrokenSource (emit.ts:200) builds `filled` from composed members' satisfies only (202-213); a `required` requirement whose fills live in a layout document's edge slot refuses ('unfilled required requirement', emit.ts:226-231) before the engine reads the document and derives its satisfies rows (src/drift.rs merges layout-derived satisfies at emit, ~755/881). The SDK implements no semantics — defer this fill enforcement to the engine's emit-time requirement clause, which sees composed + layout-derived satisfies. The dangling-satisfies check (205-210) stays."
         }
       ],
       "retire": []
@@ -29,7 +28,7 @@
       }
     ],
     "acceptance": "A layout-fill corpus emits without a spurious SDK-phase unfilled-required refusal; the engine's requirement clause remains the fill gate over composed + layout satisfies (pipeline.md: the SDK implements no semantics).",
-    "notes": "Dogfood first-cut finding 1 (observed 4e111af); gap stands for any layout-fill corpus (the example moved fills program-side to dodge it). Position: fill enforcement is the engine's requirement-cardinality clause, not an SDK pre-flight; the alternative (the SDK reads the layout too) re-implements engine semantics — rejected. scoped at b676656."
+    "notes": "Dogfood first-cut finding 1 (observed 4e111af); gap stands for any layout-fill corpus (the example moved fills program-side to dodge it). Position: fill enforcement is the engine's requirement-cardinality clause, not an SDK pre-flight; the alternative (the SDK reads the layout too) re-implements engine semantics — rejected. scoped at b676656; unblocked when EMBED-RENDER-FENCE-FREE shipped (f2d73da)."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

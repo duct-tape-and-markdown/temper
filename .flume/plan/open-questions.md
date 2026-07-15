@@ -170,9 +170,9 @@ condition arrives, it is the next break. If work touches one, surface it.
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
   renamed `NNNN-*.md`) still narrates `sdk/src/prose.ts` ("law 5" at
-  5/83/184, "law 8" at 10, "posture N" at 68/98/100/127/176, pre-recut
-  decision cites `` `15-kinds.md` ``:68 and `` `20-surface.md` ``:139 —
-  neither file exists) and `sdk/src/kind.ts:252` ("posture 3"). Doc-comment
+  5/92/193, "law 8" at 10, "posture N" at 77/107/109/136/185, pre-recut
+  decision cites `` `15-kinds.md` ``:77 and `` `20-surface.md` ``:148 —
+  neither file exists) and `sdk/src/kind.ts:254` ("posture 3"). Doc-comment
   staleness only —
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
   in the retired vocabulary, so the narration self-propagates by imitation
@@ -195,7 +195,22 @@ condition arrives, it is the next break. If work touches one, surface it.
   it. That entry opened prose.ts (lines 56/64) yet left these doc comments
   as unchanged context, so — per the reconciliation-not-opening precedent
   above — the rider is undischarged, still riding whichever entry next
-  reconciles the comment lines.
+  reconciles the comment lines. MENTION-EMBEDDED-TARGETS (cf3d2e2) then
+  opened prose.ts to add the `mentionOf` export (+9 lines below line 20,
+  no fresh stale vocab this time) and once more left the narration as
+  unchanged context — undischarged; line numbers above re-derived on disk
+  at reconcile HEAD 99a79ec (`kind.ts:254` unchanged, that file untouched
+  this window).
+
+- **`sdk/test/emit.test.ts:853` cites the retired `renderMemberFence`.**
+  EMBED-RENDER-FENCE-FREE (f2d73da) renamed `renderMemberFence` →
+  `renderMemberBlock` (an embedded format is writer-only, the fence cosmetic
+  — `specs/model/representation.md`, "kind") and opened this test file, but
+  left the test comment at 851-854 ("untouched — `renderMemberFence`")
+  naming the gone symbol. Behavior correct; comment staleness only — the
+  symbol is now `renderMemberBlock`. Rides whichever entry next opens
+  `sdk/test/emit.test.ts` (no queued entry does), never standalone. Found at
+  reconcile HEAD 99a79ec.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
