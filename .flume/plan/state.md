@@ -1,33 +1,28 @@
 # Plan state
 
 - Spec derived through: a9f7b9e
-- Audited through: 2aed996
-- Residue swept through: 2aed996
-- This tick: Inbox drain (3 notes). (1) PACKAGING-CHANNELS supersession
-  (John, 07-11) — verified on disk: `.github/workflows/release.yml` exists
-  (linux-x64 + win32-x64 matrix + standalone tag-asset step), root
-  package.json still the private `temper-flume-harness`, launcher +
-  exact-pinned optionalDependencies live on sdk (`@dtmd/temper@0.0.7`). Both
-  the retired entry's file claims dead → retired PACKAGING-CHANNELS, filed
-  PACKAGING-CHANNELS-REMAINDER (parked: darwin notarize + channel-3
-  bundle/marketplace.json + v0.1 version lockstep). (2) Dogfood findings
-  routed against HEAD (PR #19 recompose is docs/example only — src/sdk code
-  paths unchanged, all reproduce): DRIFT-REAP-PATH-NORMALIZE (drift.rs:634
-  harness_root = workspace_dir.parent(); `./.temper`→`.` vs `.temper`→``
-  mis-spells owned_paths → live byte-faithful projection reaped+deleted at
-  1314 — 2nd-cut#1, folds 1st-cut#2 install dry-run contradiction),
-  EMBED-RENDER-FENCE-FREE (renderMemberFence:139 fences every blocks() value
-  despite a render hook — 2nd-cut#2), EMBED-FILL-DEFER (checkFills:196 can't
-  see layout satisfies, refuses; blockedBy EMBED-RENDER — shared emit.ts —
-  1st-cut#1), MENTION-EMBEDDED-TARGETS (declaredAddresses:551 omits embedded
-  members + no Member→Mentionable adapter — 2nd-cut#4+5). Two forks
-  registered: (discovery-nested-root-fence) 1st-cut#3, (prose-interleaving)
-  2nd-cut#3. Inbox emptied.
+- Audited through: cefe608
+- Residue swept through: cefe608
+- This tick: Post-ship reconcile 2aed996..HEAD — release-infra-only window
+  (touched only `sdk/`: launcher `bin/temper.js`, `package.json` pins,
+  README, lockfile; `src/` and `tests/` clean). Audit: nothing to drop —
+  no pending entry's implementation work lands in this window. Parked
+  PACKAGING-CHANNELS-REMAINDER conditions all verified on disk
+  (`.github/workflows/release.yml` present; launcher present; SDK
+  `optionalDependencies` exact-pinned linux-x64+win32-x64 @ 0.0.7; root
+  package still private `temper-flume-harness`) — stays parked on human
+  release actions. EMBED-FILL-DEFER's blocker unchanged — `sdk/src/emit.ts`
+  untouched, still blockedBy EMBED-RENDER-FENCE-FREE. The four dogfood
+  entries still reproduce — `src/` untouched. Sweep: launcher matches
+  `distribution.md` "What ships" (SDK pins engine per-platform via
+  optionalDependencies; fail-loud on missing binary); darwin's absence is
+  the parked remainder's scope. No corpus residue; no rider file opened.
+  Both cursors advanced to HEAD; queue unchanged.
 - Queue: DRIFT-REAP-PATH-NORMALIZE, EMBED-RENDER-FENCE-FREE,
   MENTION-EMBEDDED-TARGETS (open, disjoint files); EMBED-FILL-DEFER
   (blockedBy EMBED-RENDER-FENCE-FREE — shared sdk/src/emit.ts);
   PACKAGING-CHANNELS-REMAINDER (parked, human release actions).
 
-Plan continues: yes — post-ship reconciliation over the sdk launcher window
-(2aed996..HEAD touched sdk/bin/temper.js + sdk/package.json — release first
-cut); Audited/Residue cursors unmoved this tick.
+Plan continues: no — inbox empty, spec cursor current (no specs commits past
+a9f7b9e), reconciliation window drained. Build has three open disjoint-file
+entries pickable.
