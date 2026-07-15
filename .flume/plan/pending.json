@@ -25,7 +25,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1017/1020) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
+          "description": "`resolve_kind_units`' `row.member == unit.id` loop (main.rs:1019/1022) runs per kind — the collision leak; fold on the qualified label so a same-named member of another kind no longer cross-attributes."
         }
       ],
       "retire": []
