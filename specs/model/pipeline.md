@@ -66,6 +66,12 @@ The deterministic compile of the harness value into artifacts plus the lock.
 - **Refusing.** A dangling edge, an unresolvable mention or include, an
   unfilled requirement whose fill clause errors — each refuses before a byte
   is written; the author cannot produce output from a broken source.
+  Refusal reaches exactly as far as the program's own universe: a mention
+  addressing a kind the program declares whose member is not a composed
+  value defers to the gate — the row rides the lock and `check` owns the
+  verdict at the same table `implemented-by` resolves on — while a mention
+  addressing no declared kind is dangling here and refuses. The deferral's
+  signal is the declared kind, never a guess over the address.
 
 The **emit payload** is the versioned JSON the SDK program prints and the
 engine consumes. Every type erases into it: the engine never sees a
@@ -87,6 +93,17 @@ nested-member facts, the root member's bindings. In declaration rows,
 identity is a compiled label written once at emit; the engine treats labels
 as opaque and never resolves a collision — two rows wearing one label is a
 malformed lock, rejected at admissibility.
+
+An upgraded engine owes a committed lock a robust read and a canonical
+rewrite (decision 0024): joins over its rows normalize spellings on both
+sides at read time, and a bare label an older engine wrote qualifies
+against the corpus where unambiguous — the file itself is never patched,
+and the next emit rewrites it whole in canonical form. A true collision
+stays a malformed lock, refused loud. And no upgrade is silent about
+scale: a reap wave that would delete every live projection while emitting
+nothing, or a re-read that drops a whole declared layer the lock still
+carries, refuses with the finding stated — a full teardown is an explicit
+flag the author spells, never a side effect.
 
 The gate and every read verb consume committed artifacts plus the lock and
 nothing else: offline, no language runtime. A harness with no lock is still

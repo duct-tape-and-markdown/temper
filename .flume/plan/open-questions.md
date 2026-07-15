@@ -13,35 +13,6 @@ tax.
 
 ## Open forks
 
-- `(custom-kind-consumer-docs)` — OPEN (registered 2026-07-15). 0019-content
-  ruled a prose-interleaved host is a layout source document (encoded). The
-  unrouted remainder is docs-only: the consumer guidance — "if your host mixes
-  prose and members, declare a layout and author the document" — has no written
-  home. `specs/distribution.md` ("The offering") names README, CONTRIBUTING,
-  and the quickstart, but no custom-kind / layout **authoring** surface exists.
-  Open: where does that guidance live — a `docs/` horizon page (human
-  territory, fence-excluded; plan never writes it), the plugin's teaching
-  **skill** (it "teaches mechanics… never taste" — `distribution.md`, "What
-  ships"; layout-authoring is mechanics, so a candidate home), or the README?
-  Docs-only, blocks nothing. Resolution routes back through the inbox.
-
-- `(member-fence-dead-text)` — OPEN (registered 2026-07-15). A
-  `member.<kind> <key>` fence inside a `text()`/`file()` (non-layout) body is
-  dead text — no finding on any path; it renders as prose. Live repro
-  (centercode): a harness green pre-0018 with ~57 embedded members resolving at
-  leaf grain re-emits and re-checks green with that whole layer silently gone
-  (`explain`: "carries no nested member"). PR #20 proposed a "cheap refusal"
-  (fence info string parses as `member.` + a declared kind, no `nested_member`
-  row matches the host → finding). Standing objection on record: the check
-  would scan prose for temper's own retired syntax — invariant 1's "matching is
-  mining"; the `@import` precedent doesn't cover it (Claude Code executes
-  `@import`; nothing executes a member fence); 0019-content's rejected
-  alternatives retired per-entity fences by name; and any document *quoting* a
-  fence (temper's own docs, this corpus) false-positives. Open: does it enter
-  at all, and if so only as a **decision-gated advisory clause** (never a
-  shipped refusal), with the migration-loss repro as its context? Resolution
-  routes back through the inbox.
-
 - `(layout-kind-heterogeneous-corpus)` — OPEN (registered 2026-07-15). A
   layout binds the whole kind (`specs/model/representation.md`, "kind": a
   layout is the kind's content), but a real corpus is heterogeneous — some
@@ -70,19 +41,6 @@ tax.
   `*`-terminal sub-globs"? (Live: pack-kind field trial, centercode 07-15;
   related but distinct from `(layout-kind-heterogeneous-corpus)`, which is about
   two kinds sharing one glob, not one kind spanning many directories.)
-  Resolution routes back through the inbox.
-
-- `(frontmatterless-managed-by-banner)` — OPEN (registered 2026-07-15). The
-  managed-by note install places (`src/install.rs:152`) is a **frontmatter**
-  comment, so a frontmatterless projection — `memory`, and any frontmatterless
-  custom kind — carries no in-band "generated, do not edit" banner. Safety is
-  unbroken: a hand-edit is still hash-caught as drift (`pipeline.md`, "Drift"),
-  so this is courtesy, not a guarantee gap — and the corpus mandates no banner
-  at all (it is an install placement, absent from every model section). Open:
-  does the managed-by note gain a **frontmatterless form** (an HTML comment for
-  a markdown-bodied frontmatterless kind), or is the hash-drift catch deemed
-  sufficient and the absence simply documented? (Live: pack-kind field trial,
-  centercode 07-15 — ten `file()` members adopted byte-faithful, no banner.)
   Resolution routes back through the inbox.
 
 - `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
@@ -136,48 +94,6 @@ tax.
   standing corpus text — surfaced, not encoded either way. Resolution routes
   back through the inbox: amend the model, or rule `impact` ships as a
   distinct verb (then a pending entry, `per` contract.md "Read verbs").
-
-- `(composed-mention-discovery-locus)` — OPEN (registered 2026-07-15). A
-  composed mention targeting a **discovered** member fails emit: authoring
-  `text\`… ${{address:"source:main", …}} …\`` trips
-  `sdk/src/emit.ts` `renderTextBody` — any address outside the
-  program-scoped `mentionable` set is rejected "resolves to no declared
-  value — a mention cannot dangle." But `source:main` is a real corpus
-  member the engine resolves `implemented-by` edges against and `graph.route`
-  fires on. The corpus settles the program-scoped case (`pipeline.md`,
-  "Emit"/"Refusing": an unresolvable mention refuses before a byte is
-  written; `contract.md`, "edge": a mention's target may be a member or a
-  leaf) but is silent on discovery-locus addresses. The reporter's candidate
-  resolution mirrors the fill-check deferral: the SDK keeps failing fast on
-  definitely-dangling program addresses and defers discovery-locus kinds'
-  addresses to the engine's check-time mention edges. Open, and the real
-  design question the fork turns on: at emit the SDK holds only the program
-  universe, not the engine's discovery view — so on what declared signal
-  does it tell a discovery-locus address (defer) from a dangling program
-  address (refuse), without re-opening invariant 1's "matching is mining"? A
-  deferral that guesses is worse than the current honest refusal. Blocks the
-  primer's skill→script edge demo. Resolution routes back through the inbox.
-
-- `(lock-upgrade-migration-posture)` — OPEN (registered 2026-07-15). What does
-  an upgraded engine owe a committed lock an older engine wrote? The corpus says
-  only "tool-written whole, never patched" (`pipeline.md`, "The lock"). Three
-  live incidents each need a per-row answer, and the ruling wants to be ONE
-  posture the instances hang off, never per-incident ad-hoc migrations:
-  (1) **spelling drift** (LOCK-SPELLING-REAP) — a post-e7b859a engine normalizes
-  the workspace path before deriving `harness_root`, so the fingerprint pass keys
-  files at the new spelling while the orphan sweep (`drift.rs:866`) joins the old
-  rows' raw `./CLAUDE.md`-style `source_path` against the new owned-paths set,
-  matches none, and mass-reaps every live projection — silently green;
-  (2) **bare satisfies labels** (SATISFIES-LABEL-QUALIFY) — how a pre-fix lock's
-  bare-id satisfies rows migrate once the wire carries `kind:name`;
-  (3) **`--into` re-rooting** (EMIT-INTO-REROOT-REAP) — the reap wave an `--into`
-  re-root of an adopted harness triggers. The design question: is the posture
-  per-row canonicalization (heal the join key in place), loud refusal (a
-  spelling-diverged or collided lock is malformed — re-emit heals), or a
-  versioned lock migration — and PR #20's "refuse a reap sweep about to delete
-  every row while emitting nothing" (which also trips a legitimate full teardown,
-  no spelled escape) belongs to this ruling, not to any one fix. The three
-  entries `dependsOnForks` this slug; resolution routes back through the inbox.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
