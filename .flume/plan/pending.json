@@ -1,40 +1,5 @@
 [
   {
-    "tag": "LAYOUT-OVERLAY-CHECK-GAP",
-    "summary": "A relocated built-in kind with a lock-declared layout is silently read as frontmatter at check time — the built-in-kind overlay lifts governs+templates but never the row's `content`",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add a `pub fn overlay_content` on `CustomKind` mirroring `overlay_templates` (kind.rs:697): given the lock row's `content` (an `Option<LayoutRow>`), when Some set the kind's `content` (kind.rs:97) via `content_from_row` (kind.rs:843, currently `pub(crate)` — reuse it; it already yields the LayoutRow→`Content::Layout` lift emit uses at drift.rs:749) and return its `LockRowError`. main.rs is the binary crate, so the lift must be a `pub` method here, not an inline `pub(crate)` call."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`overlay_builtin_kind` (main.rs:862) lifts governs always (877) + templates when non-empty (882) but drops the lock row's `content` (`KindFactRow.content`, drift.rs:2056). Call the new `overlay_content` with `row.content` so a lock-relocated built-in's declared layout reaches the effective kind. And fix `resolve_kind_units`' layout-vs-frontmatter dispatch (main.rs:990) to read `overlaid.content`, NOT the embedded `kind.content` (always `File` for a built-in), so check reads the relocated built-in under its layout exactly as emit already does."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a built-in kind relocated via the lock with a declared layout is read under that layout at check time — a fitting document yields the same declaration rows as emit, a non-fitting one refuses loud — never silently read as frontmatter"
-      }
-    ],
-    "acceptance": "A relocated built-in kind whose lock row declares a layout is read under that layout by check exactly as by emit — a fitting document produces the same declaration rows, a non-fitting one refuses loud — with no silent frontmatter fallback; the overlay carries `content` the way it carries governs and templates.",
-    "notes": "Layout probe finding 2 (centercode, PR #20): `overlay_builtin_kind` (main.rs:877-882) lifts governs+templates, never `content`; `resolve_kind_units` dispatches on embedded `kind.content` (main.rs:990, always File for a built-in), not `overlaid.content`. Emit honors the row via `content_from_row` (kind.rs:843, drift.rs:749) — check diverges (confirmed on disk). CHECK-ARG shipped 4256274 → open; main.rs refs re-derived post-rework. scoped at c535331."
-  },
-  {
     "tag": "SATISFIES-LABEL-QUALIFY",
     "summary": "The satisfies/graph joins key on the bare member name, not the compiled `kind:name` label, so a cross-kind name collision cross-attributes edges into wrong findings, not silence",
     "per": {
