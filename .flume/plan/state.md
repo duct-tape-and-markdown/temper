@@ -1,36 +1,30 @@
 # Plan state
 
-- Spec derived through: f67303c
+- Spec derived through: 06e0c2c
 - Audited through: 226199b
 - Residue swept through: 226199b
-- This tick: drained the inbox — four human routing notes filed in the 0024
-  spec commit (06e0c2c, which ALSO deleted five fork records from
-  open-questions per the anti-accumulation rule, so nothing to delete here).
-  Note 1 (0024 lock posture) unblocked the three safety entries: rewrote
-  SATISFIES-LABEL-QUALIFY (read robustly — qualify to `kind:name`, bare rows
-  qualify where unambiguous, cross-kind collision malformed-loud),
-  LOCK-SPELLING-REAP (canonicalize both sides of the orphan-sweep join), and
-  EMIT-INTO-REROOT-REAP (the reap-wave cliff refusal + explicit teardown
-  flag) — dependsOnForks dropped from all three; filed LOCK-LAYER-DROP-REFUSE
-  (0024's dropped-layer cliff, the member-fence loss folded in — prose scan
-  rejected). Note 2 → MENTION-DISCOVERY-DEFER (SDK defers a mention naming a
-  declared kind, check owns the verdict). Note 3 →
-  INSTALL-FRONTMATTERLESS-BANNER (block-level HTML-comment banner). Note 4 →
-  CUSTOM-KIND-DOCS (layout authoring into `OPERATE_SKILL`; verified the skill
-  source exists at src/bundle.rs:68, so open). DATUM: the three entries
-  carried a dangling `dependsOnForks` for one window — the human deleted the
-  fork record in 06e0c2c before plan rewrote the entries; healed now. All
-  symbol/line cites re-verified on disk at HEAD 06e0c2c.
+- This tick: routed the f67303c..06e0c2c spec delta; cursor → 06e0c2c. 90fe3c1
+  (decision renumber 0019→0023-loud-or-nothing) is a `specs/decisions/`
+  filename change, no model/intent shift — routed moot; the repo-wide
+  `loud-or-nothing` hits are tests/layout_kind.rs fixture/invariant-name keys,
+  not decision paths (re-verified on disk). 06e0c2c's 0024 Consequences each
+  resolve to a filed entry: orphan-sweep normalized join → LOCK-SPELLING-REAP;
+  satisfies-label qualify + malformed-collision refusal → SATISFIES-LABEL-QUALIFY;
+  emit cliff refusals + teardown flag → EMIT-INTO-REROOT-REAP + LOCK-LAYER-DROP-REFUSE;
+  three dependsOnForks unblock → done 495ea80. Its separate pipeline.md
+  "Emit"/"Refusing" amendment (mention deferral by declared kind) →
+  MENTION-DISCOVERY-DEFER. No new entries — the queue already carries 0024's
+  consequences (filed 495ea80 from the mirroring inbox notes); pending.json +
+  open-questions.md unchanged (0024 forks already deleted in 06e0c2c).
 - Queue: SATISFIES (open) → LOCK-SPELLING → EMIT-INTO → LOCK-LAYER-DROP (a
   serial drift.rs chain); MENTION-DISCOVERY blockedBy SATISFIES (shared
   sdk/src/declarations.ts); INSTALL-BANNER + CUSTOM-KIND-DOCS open; PACKAGING
   parked. Pickable now: SATISFIES, INSTALL-BANNER, CUSTOM-KIND-DOCS — disjoint
   (drift.rs+declarations.ts+main.rs / install.rs / bundle.rs).
 
-Plan continues: yes — spec delta. 90fe3c1 (decision renumber) + 06e0c2c
-(0024 + the pipeline.md amendments) sit past the spec cursor f67303c,
-unrouted as a spec-delta slice; next tick derives them and advances the
-cursor (the entries this inbox drain filed are 0024's Consequences — the
-spec-delta tick reconciles against them). NB the SessionStart reporter shows
-the `.temper` dogfood gate red — two unfilled requirements; harness
-territory, a `chore(harness)` fix outside plan's writable paths.
+Plan continues: no — inbox empty, spec delta routed to HEAD's last specs
+commit (06e0c2c), and the 226199b..HEAD window touched no src/tests/sdk (only
+examples/.temper/lock.toml + .flume + specs), so no reconciliation is live.
+Pickable entries remain — build takes over. NB the SessionStart reporter shows
+the `.temper` dogfood gate red (two unfilled requirements); harness territory,
+a `chore(harness)` fix outside plan's writable paths.
