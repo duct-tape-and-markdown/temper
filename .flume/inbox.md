@@ -9,25 +9,44 @@ re-deriving the whole premise; the queue keeps moving between filing and
 routing.
 -->
 
-- sdk export gap: `ResolvedEmbeddedMemberValue` — the `render` hook's
-  parameter type — is exported from neither the package root nor the
-  claude-code subpath, so a consumer factoring posture kinds through a shared
-  helper (rather than inlining every hook) must recover it as
-  `Parameters<NonNullable<KindDefinition<object>["render"]>>[0]`. Export it
-  beside `EmbeddedMemberValue` (and its `ResolvedEmbeddedMemberCollectionEntry`
-  companion). observed at 1baeedd
+- field (centercode): the 0025 machinery re-migration ran end to end — bare
+  embedded locus, corpus-side `admit`, edge-field citations rendering off
+  `targets.cite` — and the engine's citer-relative `path` reproduced the
+  hand-derived displays byte-identically (0 emitted on the switch). One
+  regression forced a partial revert: **a field-declared embedded edge
+  contributes no incoming degree**. The nested_member row carries
+  `leaves.cite = "skill:data-access"` and `placed_edges = ["cite"]`, but no
+  mention/edge row reaches the graph, so every `degree({incoming})` reach
+  clause reads 0 — eight required findings across the dev-standards tier.
+  0025's "one degree semantics" hasn't landed for the embedded locus; a
+  consumer whose reach clauses are its teeth must stay on leaf mentions (this
+  corpus did, keeping its `citePath()` shim alive). observed at 8b43293
 
-- field (centercode): the posture vocabulary landed end to end on the shipped
-  surface — five consumer embedded kinds with render hooks, every body in the
-  corpus recomposed as posture-typed blocks; emit and check green, the
-  required incoming-degree clauses hold over leaf-lifted cite mentions, and
-  the lock carries per-host `templates` rows plus leaf-addressed mention rows
-  (`connectdb/consult/sql-procedures/cite` → `skill:sql-procedures`). Three
-  hand-rolled shims in the consumer program mark the 0025 reconciliation's
-  demand, in priority order as felt: (1) a `citePath()` helper deriving
-  citation displays from the target's locus facts — format-placed derived
-  target facts would delete it; (2) `withinHosts` lists rebuilt per posture —
-  the host-agnostic admission declaration replaces them; (3) posture budgets
-  (orientation/directive/step line caps, the `count({of: directive})` rule
-  budget) are inexpressible — no clause ranges over embedded members, so the
-  posture kinds sit in `expect` as bare in-play bindings. observed at 1baeedd
+- field (centercode): **a clause bound to an embedded kind is silently
+  unjudged.** Probe: `max_lines` on the corpus's `orientation` posture,
+  `bound = { max = 2 }` confirmed in the lock beside a 15-line
+  nested_member value — `check` reports nothing, no finding and no
+  inadmissibility. Whatever 5c34ced's conformance dispatch judges, it does
+  not reach a consumer corpus's composed nested members; against the
+  INDETERMINATE-NEVER-SILENT bar this should at minimum fence loud the way
+  the five node-set predicates now do. (That fence works, for the record: it
+  caught this corpus's two per-artifact `degree` doc-reach clauses that the
+  previous engine had been silently skipping — the bound moved to a
+  requirement and judges correctly there.) observed at 8b43293
+
+- sdk export gap: `ResolvedEmbeddedMemberValue` (the `render` hook's
+  parameter type) and now `EdgeTargetFacts` are exported from neither the
+  package root nor the claude-code subpath, so a consumer factoring posture
+  kinds through a shared helper must recover the hook shape as
+  `Parameters<NonNullable<KindDefinition<object>["render"]>>[0]`. Export
+  both beside `EmbeddedMemberValue`. observed at 8b43293
+
+- sdk/spec: `EdgeField.to` names exactly one target kind, but a citation
+  posture naturally ranges over heterogeneous targets — centercode's
+  `reference` (path-rendered citation) points at a rule and at two per-skill
+  supporting-doc kinds, so no single `to` is true. The proposal's spelling
+  left the target kind open with corpus-wide resolution, and emit's embedded
+  resolution is already address-based and `to`-blind. Either an optional
+  `to`, or the answer is "wait for `supporting-doc` to unify the doc kinds
+  and split citation postures per target kind" — a spec question either way.
+  observed at 8b43293
