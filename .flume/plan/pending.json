@@ -1,52 +1,5 @@
 [
   {
-    "tag": "INDETERMINATE-NEVER-SILENT",
-    "summary": "Indeterminate is never silent: a predicate this engine has no judge for fails admissibility (the `dependency-exists` precedent), and `evaluate` stops dropping an undecided clause into a green pass",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "well-formedness"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`evaluate` (214-219) collapses `Outcome::Indeterminate` into the empty violation vec — a clause the engine never decided reads as green, the silent degrade `intent.md` invariant 6 forbids. The live instance is the judge-less arm (492-509): `Count`/`Unique`/`Membership`/`Degree`/`Kind` are admissible in a per-artifact `expect` contract today and silently hold there, because this engine judges one kind's population against `all`, never a named requirement's satisfier set. Send them to the admissibility fence exactly as `DependencyExists` already goes (`inadmissibilities` 110-140; its arm's own comment at 125-129 states the rule: \"A hand-authored clause must therefore fail admissibility, not degrade to a working no-op\"). **The fence is facet-split, never a longer shared list** — `inadmissibilities` is `pub(crate)` precisely so `roster::admissibility` reuses its vacuity rules for a *requirement's* clauses (src/roster.rs:173-176, 219), and there all five DO have a live judge (`crate::roster`/`crate::graph`), so rejecting them in that facet would break the half that works. After the fence the only `Indeterminate` a conformance run can reach is `FormatPlacesEdges`'s absent-fact arm (460-466); `contract.md`, \"selection\" settles it — a member outside the narrowing is a finding, never a silent exclusion. The `Outcome` doc (220-232), the two comment blocks naming REQUIREMENT-CLAUSES-RECUT as the future that lifts the floor (492-504, 943-947), and the `dependency-exists` doc at 253 all state the retired floor and move with it."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "The shared-fence reuse point — the doc at 173-176 (\"reusing `crate::engine::inadmissibilities`, the same vacuous-clause rules … so a requirement's demands and a kind's clauses never carry two definitions of `vacuous`\") and the call at 219. The facet split lands here as the side that keeps admitting the five: one definition of vacuity still, plus one declared fact about which facet carries a judge — never a second copy of the rules drifting beside the first (`specs/process/engineering.md`, \"One job, one home\")."
-        },
-        {
-          "path": "tests/gate_fail_loud.rs",
-          "description": "The fail-loud suite drives the real binary (its header: \"neither spelling can half-gate into a silent green\"). A per-artifact contract carrying one of the five now fails loud at admissibility naming the predicate, rather than passing a check it never ran."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "each of count/unique/membership/degree/kind is inadmissible as a per-artifact clause, and no admissible predicate reaches `Outcome::Indeterminate` at conformance except `format-places-edges`'s absent-fact arm"
-      },
-      {
-        "path": "src/roster.rs",
-        "asserts": "a requirement's own clauses still admit all five — the facet that carries a judge is unchanged"
-      },
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "a contract naming a judge-less predicate fails loud at admissibility, never a green check"
-      }
-    ],
-    "acceptance": "No clause the engine cannot decide over its selection reads as a green pass: it is an admissibility error or a finding (contract.md, \"well-formedness\"; intent.md invariant 6 — no path silently degrades over an unresolved input), and a requirement's clauses keep every predicate `roster`/`graph` judges. `cargo test` green.",
-    "notes": "Routes the 07-16 inbox ruling, entry 1 — landed first so the gap cannot recur silently. The rule pre-exists in code as `dependency-exists`'s fence; the five never joined it. Trap named in the entry: `inadmissibilities` is shared with the requirement facet where the five ARE judged, so a naive push onto the list breaks roster. `extract.rs`'s edge_placements doc is not here — UNFILLED-EDGE-FIELD-NO-EDGE owns that construction site. scoped at d572827."
-  },
-  {
     "tag": "UNFILLED-EDGE-FIELD-NO-EDGE",
     "summary": "An unfilled edge field is no edge: emit's refusal retreats to a filled-yet-unresolvable reference, and the engine's placement view ranges over the value's filled edges only",
     "per": {
