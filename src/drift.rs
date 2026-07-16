@@ -83,6 +83,23 @@ pub enum DriftError {
         count: usize,
     },
 
+    /// A re-read produced zero members for a whole layer the committed lock still
+    /// declares — every embedded member of one host gone at once, the signature of a
+    /// pre-0018 harness whose nested members vanish on re-emit. Refused at the cliff
+    /// (decision 0024) rather than dropped silently: the loss is loud because the
+    /// prior lock still carries the layer, never because a projection's prose was
+    /// mined. A genuine layer removal is the `--teardown` flag the author spells.
+    #[error(
+        "refusing to drop the whole `{host}` embedded-member layer: the committed lock declares {count} nested members under it and this re-emit derives none (a re-read mining no member where the lock still carries a layer). Pass `--teardown` to remove the layer on purpose."
+    )]
+    #[diagnostic(code(temper::drift::layer_dropped))]
+    LayerDropped {
+        /// The host member address (`kind:name`) whose embedded-member layer dropped.
+        host: String,
+        /// How many nested members the committed lock still declares under the host.
+        count: usize,
+    },
+
     /// A projection did not reproduce byte-for-byte across a double-emit: the
     /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
     /// into a field). Law 5 makes this a loud failure rather than a silent churn the
@@ -889,6 +906,40 @@ pub fn emit(
         .count();
     if !any_survivor && reaping >= 2 && !options.teardown {
         return Err(DriftError::TotalReapWave { count: reaping }.into());
+    }
+
+    // The second cliff (decision 0024): a re-read that mines zero members for a
+    // whole layer the committed lock still declares — every embedded member of one
+    // host gone at once — refuses, unless the author spells the teardown. The
+    // derived side is the payload's own nested-member declarations plus this pass's
+    // layout derivations; the prior side is the committed lock's declared
+    // collections, grouped by host. A host the lock still carries but this emit
+    // derives nothing for is a dropped layer. The disappearance is loud because the
+    // lock declares it, never because a projection's prose was scanned (invariant 1),
+    // and a partial loss — a host that keeps at least one derived member — never
+    // trips it.
+    if !options.teardown {
+        let mut derived_hosts: BTreeSet<&str> = payload
+            .declarations
+            .nested_members
+            .iter()
+            .map(|row| row.host.as_str())
+            .collect();
+        derived_hosts.extend(layout_rows.iter().map(|row| row.host.as_str()));
+
+        let mut prior_by_host: BTreeMap<String, usize> = BTreeMap::new();
+        for row in read_declarations(workspace_dir)
+            .unwrap_or_default()
+            .nested_members
+        {
+            *prior_by_host.entry(row.host).or_default() += 1;
+        }
+        if let Some((host, count)) = prior_by_host
+            .into_iter()
+            .find(|(host, _)| !derived_hosts.contains(host.as_str()))
+        {
+            return Err(DriftError::LayerDropped { host, count }.into());
+        }
     }
 
     let mut entries = Vec::with_capacity(projections.len() + orphans.len());

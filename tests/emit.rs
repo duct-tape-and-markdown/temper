@@ -24,8 +24,8 @@ use std::process::Command;
 
 use sha2::{Digest, Sha256};
 use temper::drift::{
-    self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload,
-    PayloadMember, RegistrationRow, SettingsRow,
+    self, CollectionAddressRow, Declarations, EmitOptions, EmitOutcome, KindFactRow,
+    NestedMemberRow, Payload, PayloadMember, RegistrationRow, SettingsRow,
 };
 use temper::json_manifest;
 
@@ -880,6 +880,93 @@ fn an_into_reroot_that_strands_every_live_projection_refuses_the_total_reap_wave
         harness.join("inner/.claude/rules/rust.md").is_file(),
         "the re-rooted tree lands under the nested root"
     );
+}
+
+/// A payload of one rule host plus the embedded-member declaration rows the lock
+/// carries under it — the layer a re-read mining nothing would drop.
+fn host_with_layer(rows: Vec<NestedMemberRow>) -> Payload {
+    Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::rule_kind_facts(None, &[])],
+            nested_members: rows,
+            ..Default::default()
+        },
+        members: vec![common::rule_member(
+            "rust",
+            Some(&["src/**/*.rs"]),
+            RUST_BODY,
+        )],
+    }
+}
+
+/// One embedded member declared under `host`, keyed `key` — a bare `NestedMemberRow`
+/// with no leaves or sibling collections, enough to populate the layer.
+fn embedded(host: &str, key: &str) -> NestedMemberRow {
+    NestedMemberRow {
+        host: host.to_string(),
+        kind: "decision".to_string(),
+        key: key.to_string(),
+        leaves: std::collections::BTreeMap::new(),
+        collections: Vec::new(),
+    }
+}
+
+#[test]
+fn a_re_read_dropping_a_whole_declared_layer_refuses_unless_teardown_is_spelled() {
+    // A harness whose committed lock declares an embedded-member layer under a host,
+    // re-emitted from a source that now mines zero members for it: the whole layer
+    // would vanish silently (the pre-0018 harness's ~57 embedded members gone on
+    // re-emit). That drop refuses at the cliff (decision 0024), the finding stated,
+    // unless the author spells the teardown.
+    let (_harness, into) = workspace("layer-drop");
+
+    // First emit: the lock carries two embedded members under `rule:rust`.
+    let full = host_with_layer(vec![
+        embedded("rule:rust", "surface-authority"),
+        embedded("rule:rust", "read-lens"),
+    ]);
+    drift::emit(&full, &into, EmitOptions::default()).unwrap();
+
+    // A re-read mining nothing for the layer the lock still declares: refused before
+    // a byte is written, the host and the standing member count in the finding.
+    let empty = host_with_layer(Vec::new());
+    let err = drift::emit(&empty, &into, EmitOptions::default()).unwrap_err();
+    let rendered = err.to_string();
+    assert!(
+        rendered.contains("rule:rust")
+            && rendered.contains("embedded-member layer")
+            && rendered.contains('2'),
+        "the whole-layer drop refuses with the finding stated: {err}"
+    );
+
+    // Spelled teardown: the author names the layer removal on purpose, and it proceeds.
+    let report = drift::emit(
+        &empty,
+        &into,
+        EmitOptions {
+            teardown: true,
+            ..Default::default()
+        },
+    )
+    .expect("the spelled teardown lets the whole-layer removal through");
+    assert_eq!(outcome(&report, "rust"), EmitOutcome::Unchanged);
+}
+
+#[test]
+fn a_layer_that_loses_one_of_many_members_still_emits() {
+    // A host that keeps at least one derived member is not a dropped layer: a partial
+    // loss is ordinary drift, never the cliff refusal.
+    let (_harness, into) = workspace("layer-partial");
+    let full = host_with_layer(vec![
+        embedded("rule:rust", "surface-authority"),
+        embedded("rule:rust", "read-lens"),
+    ]);
+    drift::emit(&full, &into, EmitOptions::default()).unwrap();
+
+    let partial = host_with_layer(vec![embedded("rule:rust", "surface-authority")]);
+    drift::emit(&partial, &into, EmitOptions::default())
+        .expect("a partial member loss is not a dropped layer — it emits");
 }
 
 /// Serializes any chdir'ing test — cwd is process-global, so a relative-path
