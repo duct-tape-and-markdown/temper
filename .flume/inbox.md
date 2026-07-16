@@ -8,6 +8,49 @@ made — so plan can diff forward (`git log <sha>..HEAD`) instead of
 re-deriving the whole premise; the queue keeps moving between filing and
 routing.
 -->
+- Authoring-model finding from the centercode consumer corpus, human-ruled
+  07-16 in the field ("we don't need to explicitly manage the inline
+  reference; encode the intent of the prose in a manner temper can track" +
+  "prose should be concise and meaningful — file-referencing is a path to
+  prose explosion"). Two connected asks. **(a) A reference is member intent,
+  not a character position**: today the positional mention is the only edge
+  reachable on built-in kinds, so every rule and skill body in the corpus is
+  an inline template literal solely to thread interpolations, and the
+  consumer hand-rolls a `cite()` helper (address spelling + display) to do
+  it. The wanted noun is a declared reference — a framework member key
+  beside `satisfies`, or edge fields on the built-ins (the `EdgeField` fact
+  already exists; base-harness `implemented-by` proves it) — with mention
+  respelled as *a reference that additionally wants a rendered position*.
+  Display is never authored: it derives from the target's kind, and that
+  derivation is functional, not cosmetic — a skill renders as its invocable
+  name, a supporting doc as its readable projection path, because the
+  rendering is the agent's retrieval instruction. **(b) The body's grain for
+  machinery surfaces is the typed block, not the file**: the consumer's
+  hand scaffold for a skill body is a short list of role-typed blocks
+  (orientation / intent / reference), each a sentence or three, attributes
+  attached to the block that speaks them (a `cite` on the reference block).
+  That is posture-3 `blocks()`/layout as the *default* skill/rule body —
+  expressible today only via custom embedded kinds plus a hand-rolled
+  `span()` (which even base-harness hand-rolls). A `file()` blob stays the
+  exception for genuine long-form (supporting docs — the pull tier's
+  stock), because unstructured file prose is unbounded and
+  contract-invisible, where typed blocks give the gate per-block roles and
+  budgets. Consumer evidence for both: every hand-rolled helper in the
+  centercode program (`cite.ts`, inline-template rule bodies) exists to
+  bridge exactly this gap. observed at f08ffca
+- Demand-arrived evidence for native skill-package modeling: the 07-15
+  directory-sliced-governance ruling deferred a nesting kind "until demand
+  arrives." The centercode corpus now runs a hand-rolled
+  `supportingDocs(skillName)` factory minting one nested-root kind per
+  skill directory (`.claude/skills/<name>/docs`, glob `*.md`,
+  registration-free) — two live kinds (`harness-meta-doc`, `platform-doc`),
+  each doc reached by a required incoming-degree clause and a typed mention
+  from its skill body, with the previously unmanaged
+  `platform/reference.md` brought under management by it. Every consumer
+  harness with a skill that carries depth re-derives this factory; the
+  vendor pattern it models (a skill packages its reference docs, loaded on
+  demand) is documented at code.claude.com/docs/en/skills "Add supporting
+  files" (retrieved 2026-07-16). observed at f08ffca
 - Clause candidate from the centercode packs-are-skills re-cut: the **dark
   mention**. A skill's `paths` removes it from every invocation channel until
   a matching file is read (cited at `sdk/src/builtins.ts` `Skill.paths`,
