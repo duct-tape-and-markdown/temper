@@ -53,6 +53,37 @@ tax.
   frontmatter note, `contentDiffersFromDisk: true` — the provenance marker costs
   the agent zero tokens at fire time.)
 
+- `(seam-rows-public-face)` — OPEN. Does the root package export face owe its
+  closure to the **seam** types, or are the seam's root exports themselves the
+  anomaly? `sdk/src/index.ts` exports `Declarations`, `PayloadMember`,
+  `ClauseRow`, `KindFactRow`, `RequirementRow`, `SatisfiesRow`,
+  `AssemblyFactRow`, `compileDeclarations` and `SEAM_VERSION` (78-91) today,
+  and `EmitResult.declarations` hands a caller the rows whether or not they
+  are named. Yet `pipeline.md` ("Emit") rules the payload "internal, versioned
+  in lockstep … not a designed public interchange; one is admitted when a
+  consumer exists, and none does."
+  **Why a fork, not an entry:** the two readings demolish opposite files.
+  (a) The closure rule reaches here, so complete it — but that promotes ~28
+  ts-rs-generated row types (`generated/index.ts`) to public API and makes a
+  Rust-side column rename a consumer-breaking change, which is precisely what
+  "internal, versioned in lockstep" exists to prevent. (b) The seam is
+  spec-internal, so the nine root exports above are the anomaly and retract to
+  a subpath or to no export at all — but `sdk/test/contract.test.ts:25`
+  type-imports `ClauseRow`/`RequirementRow` from the root, so (b) is a real
+  retirement with a real blast radius, and `emit()` returning `EmitResult`
+  leaves the rows inference-reachable regardless.
+  **The position plan holds, for the ruling to accept or reject:** (b). The
+  corpus's word is "designed" — inference-reachable is not a designed surface,
+  and no consumer for the row family exists, which is the exact condition the
+  spec names for admitting one. **The objection that must be answered first:**
+  retracting `ClauseRow` breaks the SDK's own test's import, and a consumer who
+  reads `emit().declarations` has a de-facto dependency already; "no consumer
+  exists" may simply be unmeasured rather than true.
+  SDK-ROOT-EXPORT-CLOSURE ships the authoring half (the `render`-hook and
+  `kind()` types), which neither reading contests, and its test excludes the
+  seam by name — so nothing is blocked on this ruling, and the resolution
+  returns through the inbox.
+
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness

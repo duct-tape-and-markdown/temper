@@ -1,5 +1,49 @@
 [
   {
+    "tag": "SDK-ROOT-EXPORT-CLOSURE",
+    "summary": "The package root export face is holed: `kind()`s own hook and facts types are unreachable from it, and `globValid` — 1 of 24 predicate constructors — never re-exports",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The SDK"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "sdk/test/root_exports.test.ts",
+          "description": "New: the export face gets a home that holds it MECHANICALLY, not a hand-list that re-rots on the next added type — the field report's own argument (an exported signature naming an unexported type just moves the trap one level down). Load `typescript` (already a devDependency) and walk the emitted `dist/src/index.d.ts`, which exists at test time (`pnpm --dir sdk test` runs `tsc -p` before `node --test`): assert every type a root-exported declaration names is itself root-exported. Precedent for asserting over the root's export surface exists at `sdk/test/emit.test.ts:623` (`import * as sdk`, asserting removed child-kind constructors are `undefined`) — that is a negative one-off inside an emit test, not an export-surface home; name the consideration in the commit body per engineering.md. **The seam half is out of scope and excluded by the walk**: `Declarations`/`PayloadMember` and the generated row family they reach are routed to the `(seam-rows-public-face)` fork — the walk excludes `src/generated/**` and says so, never silently. If the mechanical walk proves infeasible in one tick, the honest fallback is an enumerated type-import test PLUS a stated gap in the commit body — never a silent hand-list."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/index.ts",
+          "description": "The root export face (the `./kind.js` type block at 54-71, the `./contract.js` block at 26-50, the `./emit.js` block at 90). Six types are named by root-exported signatures yet never re-export — verified on disk, the closure the field report asked for rather than the pair it reported: `ResolvedEmbeddedMemberValue` (kind.ts:384), named by `KindDefinition.render` (226), `KindOptions.render` (276) and `EmbeddedMemberValue.render` (340); `EdgeTargetFacts` (367) and `ResolvedEmbeddedMemberCollectionEntry` (353), named by that type's `targets` (399) and `collections` (392); `KindOptions` (275), the second parameter of the root-exported `kind()` (286); `Template` (120), named by the root-exported `KindFacts.templates` (163); `SettingsResidue` (emit.ts:601), named by the root-exported `EmitResult.settings`. Plus one VALUE hole in the same face: `globValid` (contract.ts:116) is the only one of the 24 predicate constructors absent from the root block — used solely by `builtins.ts` (503/595), so an author cannot spell `clause(globValid(\"paths\"), …)` over their own kind without deep-importing. The predicate vocabulary is closed and the enum in code is the authority (`contract.md`, \"clause\"); an author-facing vocabulary 23/24 wide silently disagrees with it."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Line 37 deep-imports `ResolvedEmbeddedMemberValue` from `../src/kind.js` while line 36 imports the root — temper's own test suite reproduces the exact consumer trap the field report names, which is the cheapest available proof the hole is real and not theoretical. Flip that import to `../src/index.js` (the render-hook fixture at 1164 is its consumer). Behavior unchanged; the existing tests are the coverage."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/root_exports.test.ts",
+        "asserts": "every type a root-exported declaration names is itself root-exported (walked mechanically over the emitted `index.d.ts`, the seam's generated row family excluded), and `globValid` is reachable from the root beside its 23 sibling predicate constructors"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "the render-hook fixture types its parameter from the package root, no deep import into `src/kind.js`"
+      }
+    ],
+    "acceptance": "A consumer types a `render` hook parameter, a `kind()` options bag, a nesting `Template`, and a `globValid` clause off `@dtmd/temper` alone — no deep import into dist internals (pipeline.md, \"The SDK\": the authoring surface is typed at the keystroke, and a type the author cannot import defeats that). The closure is held by a test, not a hand-list. `pnpm --dir sdk test` green.",
+    "notes": "Routes the 07-16 centercode field report (filed 9adefde). Gap re-verified on disk at 420da04, unmoved since its `observed at 58efe11`. Scoped to the VERIFIED closure, not the reported pair: the report named 2 types, the walk found 6 plus the `globValid` value hole. The seam half — `Declarations`/`PayloadMember` and the generated rows, root-exported yet spec-declared internal — is the `(seam-rows-public-face)` fork, not this entry's to settle. scoped at 420da04."
+  },
+  {
     "tag": "SKILL-NESTED-REFERENCE-DOCS",
     "summary": "The built-in adoption: `skill` templates its bundled reference documents at the directory's markdown, and `supporting-doc` ships as their prose-only kind",
     "per": {
