@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SUPPORTING-DOC-REACH-CLAUSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -24,11 +23,11 @@
         },
         {
           "path": "tests/builtin_lock_frozen.rs",
-          "description": "`wire_memberless_harness` (68-78, shifted +7 by a7a8cc1's supporting-doc rows): a verbatim copy of emit.rs's builder — tmpdir, `.temper`, write `harness.ts`, `vendor_sdk` — whose own doc (65-67) still cites `tests/emit.rs`'s `wire_sdk_harness` as the pattern it follows. Call the common builder with `MEMBERLESS_BUILTIN_PROGRAM`."
+          "description": "`wire_memberless_harness` (68-78): a verbatim copy of emit.rs's builder — tmpdir, `.temper`, write `harness.ts`, `vendor_sdk` — whose own doc (65-67) still cites `tests/emit.rs`'s `wire_sdk_harness` as the pattern it follows. Call the common builder with `MEMBERLESS_BUILTIN_PROGRAM` (27). SUPPORTING-DOC-REACH-CLAUSE (6d18073) rewrote this file's frozen-bytes doc comment at 21-27 only; the builder itself is unmoved."
         },
         {
           "path": "tests/projection_path_seam.rs",
-          "description": "`wire_waypoint_harness` (141), the third copy (e76ec85), carrying the same doc cite back to emit.rs's builder. Call the common builder with `WAYPOINT_PROGRAM`."
+          "description": "`wire_waypoint_harness` (141), the third copy (e76ec85), carrying the same doc cite back to emit.rs's builder. Call the common builder with `WAYPOINT_PROGRAM` (45)."
         }
       ],
       "retire": []
@@ -36,7 +35,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "One builder composes tmpdir → `.temper` → `harness.ts` → `vendor_sdk`, in `tests/common`, and no suite re-derives it (engineering.md, \"One job, one home\": shared fixtures and builders live in one home, never copy-pasted per file). Behavior is unchanged, so the three suites' existing tests are the coverage; `cargo test` green.",
-    "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, citing emit.rs's builder as the pattern it followed rather than the home it should have extended. **Gate re-pointed at f369531**: SKILL-NESTED-REFERENCE-DOCS shipped, but builtin_lock_frozen.rs stays contended — SUPPORTING-DOC-REACH-CLAUSE rewrites its frozen bytes — so that entry now serializes this one, on the one surviving ground. All three copies re-verified live; only builtin_lock_frozen.rs moved (+7). rescoped at b745415."
+    "notes": "**Gate LIFTED at 4a33911**: SUPPORTING-DOC-REACH-CLAUSE shipped, ending the builtin_lock_frozen.rs contention that was its one surviving ground. Now the queue's only open entry, so disjointness is trivial. All three copies re-verified live this tick and none moved — the window's touch to builtin_lock_frozen.rs was the doc comment above its fixture const, not the builder. rescoped at 4a33911."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -55,11 +54,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (62) sits under a doc (58-62) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (484-523) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds, one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 382-383 and 481-483, both 'as the format documents' / 'the `at-import` recursion depth the format documents' — carry the same claim and move with it."
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (62) sits under a doc (58-62) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (486-527) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (513), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 384-385 ('as the format documents') and 483-484 ('the `at-import` recursion depth the format documents') — carry the same claim and move with it, as does the propagation comment at 508-511 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1126) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1129-1130) spells 'the format's five-hop import recursion' and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1238) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1241-1243) spells 'the format's five-hop import recursion' and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -72,7 +71,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Found sweeping b745415..420da04. 28ad61f carried a rider to re-verify graph.rs's two memory cites, bumped the verified one (689 → 677) and declined this rather than flip a live gate inside an unrelated entry — the right call, captured in `.flume/friction/`. NOT citation staleness, so it does not ride: staleness rides because the fact holds; here the constant may be wrong. graph.rs untouched through f369531; every cited line re-verified live. scoped at 420da04."
+    "notes": "Park re-tested at 4a33911 and holds — nothing in the window ruled the hop semantics. EMBEDDED-EDGE-DEGREE-SEAM (c607fad) opened both cited files without naming this rider, so it did not discharge — the law three ticks have now proven. Its edits moved every cite: graph.rs 382-383→384-385, 481-483→483-484, live_members 484-523→486-527; tests/graph.rs 1126→1238, 1129-1130→1241-1243. All corrected above, re-verified live. rescoped at 4a33911."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -99,6 +98,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at f369531: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 4a33911 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
   }
 ]

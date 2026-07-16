@@ -58,7 +58,7 @@ tax.
   anomaly? `sdk/src/index.ts` exports `Declarations`, `PayloadMember`,
   `ClauseRow`, `KindFactRow`, `RequirementRow`, `SatisfiesRow`,
   `AssemblyFactRow`, `EdgePlacements`, `compileDeclarations` and `SEAM_VERSION`
-  (84-94) today, re-verified at f369531,
+  (84-94) today, re-verified at 4a33911,
   and `EmitResult.declarations` hands a caller the rows whether or not they
   are named. Yet `pipeline.md` ("Emit") rules the payload "internal, versioned
   in lockstep … not a designed public interchange; one is admitted when a
@@ -93,14 +93,21 @@ tax.
   target kind (`sdk/src/kind.ts:43-47`, required), but a citation posture
   ranges over heterogeneous targets — centercode's `reference` points at a
   rule and at two per-skill supporting-doc kinds, so no single `to` is true.
-  **Three surfaces disagree today, verified on disk:** the corpus says a field
-  edge is "resolved by identity within the target kind" (`specs/model/contract.md`,
-  "edge") — one kind, bare identity; the engine implements exactly that
-  (`src/graph.rs:792-820` matches bare `features.id` within `edge.to`); and
-  emit does not — `edgeTargetFacts` (`sdk/src/emit.ts:248-274`) resolves the
-  leaf's full `kind:name` address against the program's composed members and
-  never reads `to` at all. So `to` is already load-bearing on one side of the
-  seam and dead on the other.
+  **The seam half of this record is CLOSED — EMBEDDED-EDGE-DEGREE-SEAM
+  (c607fad) shipped it; the arity half is what survives.** What stood here was
+  a three-surface disagreement: the corpus reads a field edge as "resolved by
+  identity within the target kind" (`specs/model/contract.md`, "edge"), the
+  engine matched only the bare `features.id`, and emit derived the leaf's full
+  `kind:name` address — so `to` was load-bearing on one side of the seam and
+  dead on the other. The engine now reads `to` on both compare paths through
+  one normalizer (`src/graph.rs` `target_identity` 1102-1107, applied at 136
+  and 813): it accepts either spelling and resolves by identity within `to` —
+  read-time normalization on decision 0024's precedent, not a second
+  resolution path. `edgeTargetFacts` (`sdk/src/emit.ts:242-275`, re-verified
+  4a33911) still never reads `to`, and no longer needs to — the engine
+  reconciles the spelling emit derives. Corpus and engine agree, and the
+  one-kind reading is now *enforced*: an address naming any other kind is left
+  deliberately dangling under its authored spelling.
   **Why a fork, not an entry:** `to`'s arity is the edge's declared type. The
   model file owns it, so the ruling is a `specs/model/contract.md` change plus
   a decision record — the change ceremony (`process/spec-system.md`), never a
@@ -126,12 +133,13 @@ tax.
   is the common case, the set is ceremony over an optional `to`. Whether the
   heterogeneous-but-bounded case is the real one is unmeasured: centercode is
   n=1.
-  EMBEDDED-EDGE-DEGREE-SEAM — **open** as of f369531, so this reading is about
-  to be built — encodes the standing corpus reading (the address's kind
-  component must equal `to`), which the set proposal strictly generalizes and
-  neither spelling contests: a one-element set is that entry's behavior
-  exactly. So nothing is blocked on this ruling, and the resolution returns
-  through the inbox.
+  EMBEDDED-EDGE-DEGREE-SEAM **shipped** (c607fad): the standing corpus reading
+  — the address's kind component must equal `to` — is now built and enforced,
+  which the set proposal strictly generalizes and neither spelling contests, a
+  one-element set being that entry's behavior exactly. The migration cost the
+  set proposal owes is therefore *measured now, not estimated*: one normalizer
+  at one home, both compare paths already routed through it. Nothing is blocked
+  on this ruling, and the resolution returns through the inbox.
 
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
@@ -210,7 +218,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  f369531: both dead trees still spelled, in a file the window never touched.
+  4a33911: both dead trees still spelled (121/140), in a file the window never
+  touched.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
   `packages/{rule,memory}.anthropic/PACKAGE.md` files; `rg` over the file finds
@@ -235,7 +244,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   route-resolving deferred mentions) yet left every strand doc comment as
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. Re-verified on disk at reconcile HEAD ff7da32.
+  495/633/770/1172. Re-verified on disk at reconcile HEAD 4a33911.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,
@@ -251,7 +260,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. Lines
-  re-verified on disk at reconcile HEAD d97a704 (unmoved; `prose.ts` untouched
+  re-verified on disk at reconcile HEAD 4a33911 (unmoved; `prose.ts` untouched
   in this window). The `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
@@ -266,8 +275,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
-  at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
-  HEAD c5df845.
+  at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45)
+  at reconcile HEAD 4a33911.
 
 - **4144b20's retirement of `compose::effective` left one surviving one-line
   comment straggler.** `src/compose.rs:233` ("Unlike `effective`, …") cites
@@ -275,7 +284,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   comment. Behavior and symbols correct; doc-comment staleness only. It rides
   whichever entry next opens `compose.rs`; **no queued entry does, so it has
   no carrier and waits** — never standalone. Found at residue sweep HEAD
-  d029d4b; re-verified on disk, unmoved, at reconcile HEAD 420da04.
+  d029d4b; re-verified on disk, unmoved, at reconcile HEAD 4a33911.
   **The `src/contract.rs` half is discharged** — 28ad61f rewrote
   `Predicate::target`'s doc (now `documented_field`, contract.rs:494) and the
   retired severity-flip layer's "for layering purposes" vocabulary is gone
