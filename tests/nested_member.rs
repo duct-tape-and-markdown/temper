@@ -259,11 +259,7 @@ fn a_file_childs_projection_composes_from_its_hosts_unit_and_the_templates_patte
     // The engine is the sole compiler of every projection, so the composed path is proven
     // where it is actually written: `emit` reports where each member landed, and the
     // child's own kind declares no glob the path could have come from instead.
-    let harness = common::tmpdir("nested-file-locus");
-    let into = harness.join(".temper");
-    std::fs::create_dir_all(&into).unwrap();
-    std::fs::write(into.join("harness.ts"), NESTED_FILE_PROGRAM).unwrap();
-    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
+    let (harness, into) = common::wire_sdk_harness("nested-file-locus", NESTED_FILE_PROGRAM);
 
     let report = temper::drift::emit_program(&into, temper::drift::EmitOptions::default()).expect(
         "the nested file locus is proven through a real SDK program, never a hand-built row",
