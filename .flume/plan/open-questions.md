@@ -55,10 +55,11 @@ tax.
 
 - `(seam-rows-public-face)` — OPEN. Does the root package export face owe its
   closure to the **seam** types, or are the seam's root exports themselves the
-  anomaly? `sdk/src/index.ts` exports `Declarations`, `PayloadMember`,
-  `ClauseRow`, `KindFactRow`, `RequirementRow`, `SatisfiesRow`,
-  `AssemblyFactRow`, `EdgePlacements`, `compileDeclarations` and `SEAM_VERSION`
-  (84-94) today, re-verified at 4a33911,
+  anomaly? `sdk/src/index.ts` exports `Declarations`, `ClauseRow`,
+  `KindFactRow`, `RequirementRow`, `SatisfiesRow`, `AssemblyFactRow`,
+  `EdgePlacements`, `compileDeclarations` and `SEAM_VERSION` (84-94, off
+  `./declarations.js`), plus `PayloadMember` at 97 off `./emit.js` — ten,
+  re-verified at cc8d823,
   and `EmitResult.declarations` hands a caller the rows whether or not they
   are named. Yet `pipeline.md` ("Emit") rules the payload "internal, versioned
   in lockstep … not a designed public interchange; one is admitted when a
@@ -104,7 +105,7 @@ tax.
   and 813): it accepts either spelling and resolves by identity within `to` —
   read-time normalization on decision 0024's precedent, not a second
   resolution path. `edgeTargetFacts` (`sdk/src/emit.ts:242-275`, re-verified
-  4a33911) still never reads `to`, and no longer needs to — the engine
+  cc8d823) still never reads `to`, and no longer needs to — the engine
   reconciles the spelling emit derives. Corpus and engine agree, and the
   one-kind reading is now *enforced*: an address naming any other kind is left
   deliberately dangling under its authored spelling.
@@ -218,7 +219,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  4a33911: both dead trees still spelled (121/140), in a file the window never
+  cc8d823: both dead trees still spelled (121/140), in a file the window never
   touched.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -244,7 +245,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   route-resolving deferred mentions) yet left every strand doc comment as
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. Re-verified on disk at reconcile HEAD 4a33911.
+  495/633/770/1172. Re-verified on disk at reconcile HEAD cc8d823.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,
@@ -260,7 +261,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. Lines
-  re-verified on disk at reconcile HEAD 4a33911 (unmoved; `prose.ts` untouched
+  re-verified on disk at reconcile HEAD cc8d823 (unmoved; `prose.ts` untouched
   in this window). The `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
@@ -276,7 +277,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45)
-  at reconcile HEAD 4a33911.
+  at reconcile HEAD cc8d823.
 
 - **4144b20's retirement of `compose::effective` left one surviving one-line
   comment straggler.** `src/compose.rs:233` ("Unlike `effective`, …") cites
@@ -284,7 +285,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   comment. Behavior and symbols correct; doc-comment staleness only. It rides
   whichever entry next opens `compose.rs`; **no queued entry does, so it has
   no carrier and waits** — never standalone. Found at residue sweep HEAD
-  d029d4b; re-verified on disk, unmoved, at reconcile HEAD 4a33911.
+  d029d4b; re-verified on disk, unmoved, at reconcile HEAD cc8d823.
   **The `src/contract.rs` half is discharged** — 28ad61f rewrote
   `Predicate::target`'s doc (now `documented_field`, contract.rs:494) and the
   retired severity-flip layer's "for layering purposes" vocabulary is gone
