@@ -28,10 +28,10 @@ tax.
   honest bound"). Do not let it near the launch wedge.
   **Field evidence, 07-16:** behavior is the unverified half — `check` proves
   structure, and the consumer campaign's two highest-value facts (the
-  `skill_listing` herald, `paths`-gate channel semantics — both feeding
-  `(mention-gate-containment)` above) were unknowable from structure and cost
-  hand-built headless probes (transcript-verified, 2.1.210). So the fork's
-  cost side is now measured, not assumed. `Requirement.verifiedBy` is already
+  `skill_listing` herald, `paths`-gate channel semantics — the evidence that
+  ruled 0028) were unknowable from structure and cost hand-built headless
+  probes (transcript-verified, 2.1.210). So the fork's cost side is now
+  measured, not assumed. `Requirement.verifiedBy` is already
   in the model, dormant. Unchanged: this is a quarter-scale bet, parked past
   launch, and `docs/horizons.md` is where a human carries it — plan does not
   write that page.

@@ -47,6 +47,118 @@
     "notes": "Ruled 2026-07-16; scoped at 0c25b2c. Re-verified on disk: zero consumers outside sdk/test — `.temper/harness.ts` imports `emit`/`harness`, both READMEs the same, `docs/proposals/` none, no Rust fixture spells a retracted name; the engine mirrors `SEAM_VERSION` independently (src/drift.rs:512) and is untouched. The inbox undercounted the retarget: three sites, not one."
   },
   {
+    "tag": "MENTION-REACHABLE-PREDICATE",
+    "summary": "`mention-reachable` joins the closed predicate vocabulary: one generic variant taking the source's scope field and the target's gate field as arguments, judged where mentions already resolve",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SEAM-EXPORTS-RETRACT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "The variant and its wire. `Predicate` (81) grows `mention-reachable`; `GlobValid { field }` (246, doc 240-245) is the field-argument model, but this is the FIRST predicate taking TWO field arguments — source scope and target gate — and that is what does not fit the existing shape. Grow every exhaustive match: `predicate_from_row` (296; the `glob-valid` arm 351) decodes the wire key, `key()` (427) returns `\"mention-reachable\"`, `target()` (459-489) and `documented_field()` (498-527) both chain single-`Some(field)` arms (466/505) that two arguments cannot join — the set predicates' `None` arms are the standing precedent for a predicate naming no one schema property. `ranges_over_selection` (441-451, non-exhaustive) is the routing question, not a free choice: 0028 makes the clause each-grain over selected members, yet its judge needs the mention graph, and `Degree` (445) is the standing precedent for exactly that — an each-grain predicate whose judge lives in `graph.rs` and whose `decide` arm returns `Indeterminate`."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The lock column for the second argument. `ClauseRow` (2431-2485) carries one `field` column (2442) plus one per-predicate argument column each (`count` 2456, `target` 2461, `degree` 2464, `bound`, `charset`, `keys`, `values`, `range`, `section`). A two-field predicate needs its own new `Option` column beside them — `field` alone cannot carry both ends — with its TOML write/read in the row's `to_table`/`from_table` neighbours. The row is the wire the SDK and engine share, so the column name is the seam's vocabulary."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Admissibility and the node-scope match. `decide` (590) already takes `all: &[Features]` alongside the member's own — the cross-member context this predicate needs is already threaded, so no new plumbing is owed here. Its exhaustive match (from 595; the `GlobValid` arm 704-722) must grow; the selection-scoped `Indeterminate` fallthrough (823-828) is where the variant lands if the judge lives in `graph.rs` per `Degree`'s precedent. Admissibility's three non-exhaustive gates take the variant as their bar allows: `judgeless` (197-206), `bodyless` (174-191, the body-feature fence at `Locus::Embedded`), `vacuities` (212-290) — whether an empty glob set on either argument is a vacuity is this entry's call to make and state."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The exhaustive match at 110-124 breaks the build on any new variant — this is a compile-time forcing function, not an optional edit. `mention-reachable` constrains no single frontmatter property (it reads the TARGET member's field across the graph), so it emits no JSON-Schema keyword: the no-op arm that `GlobValid` already sits in at 123. Keystroke validation is decidable predicates over one document's properties, and this predicate is neither — the schema channel is honestly silent here, not gapped."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The judge's home — every input is already in scope. `declared_globs(member, field)` (576) is the exact helper that reads a member's glob field; `dead_registration` (553-589) is the standing conservative posture, and its comment at 576-577 states it — a glob `globset` cannot compile is TREATED AS MATCHING so the gate never cries wolf — the same leniency direction 0028's advisory severity encodes, and the precedent to follow rather than reinvent. The `Degree` clause path (245-258) already receives `selections`, `edges`, `mention_edges`, and `by_kind` together, and `resolved_mention_edges` (881-890) resolves a mention to its target member. **The trigger is the target's declared gate FIELD carrying a non-empty value — never a registration lookup.** 0028's phrase 'whose target member registers by `paths-match`' does not select skills on this tree: `Registration::PathsMatch` (kind.rs:544) is carried by the `rule` kind alone (builtin_lock.toml:80), while `skill` registration is `user-invoked` + `description-trigger` (builtin_lock.toml:88, builtins.ts:181) and its `paths` is documented, cited, and probe-verified as a GATE that deliberately adds no paths-match entry (builtins.ts:122-131). Encoding that phrase literally ships a clause that can never fire on the rule-to-skill mention the whole ruling exists for. Implement the field-argument trigger 0028's own design sentence states ('source scope field and target gate field are arguments, like `glob-valid`'s field — and hard-codes no kind'); containment is literal per the declared leniency — every source glob appears verbatim in the target's gate."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The authoring factory. `mentionReachable(scopeField, gateField)` beside `globValid` (116) in the node-scope factory run (59-116). `Predicate` (23-46) is an open bag of optional slots (`key`, `field`, `args`, `target`, `charset`, `keys`, `values`, `range`, `section`), not a discriminated union — the second field argument needs a slot, named to match the lock column `drift.rs` gains."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "The factory joins the root export block (26-51 — alphabetical, `globValid` at 35; `Predicate` itself already type-exports at 25, so the closure walk in `sdk/test/root_exports.test.ts` stays green with no edit). This one file is the whole reason this entry serializes behind SEAM-EXPORTS-RETRACT rather than running beside it: that entry retracts ten names from this same export face."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "The lowering to the row. `clauseRow` (65-110) copies `predicate.key` and `predicate.field` unconditionally (68-69), so the first field argument needs no change; the SECOND needs its own column ternary beside the existing per-predicate ones. `nodeScopeBoundArgs` (115) is the neighbouring shape. This is the SDK half of the seam whose Rust half is `drift.rs`'s new column — the two must spell one name."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "Regenerated from `src/drift.rs`'s `ClauseRow` by ts-rs, never hand-edited — it moves because the row gains a column. `tests/seam_bindings_current.rs` is the gate that catches a stale binding."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "both diagnoses fire and the silent cases stay silent: a scoped source whose globs are not literally contained in the mentioned target's gate is an advisory finding; an unscoped source mentioning a gated target is the second; a contained source, an ungated target, and a target the mention does not reach are each no finding"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a `mention-reachable` clause round-trips through the lock's new argument column with both field ends intact — the seam the SDK writes and the engine reads spell one name"
+      }
+    ],
+    "acceptance": "The vocabulary carries `mention-reachable`: a clause naming it loads and judges, an unknown predicate still rejects at load, both diagnoses fire, and literal containment is the declared leniency (contract.md, \"clause\": the predicate vocabulary is closed, the enum in code is the authority, and adding one is a deliberate language change). No default contract adopts it yet — that is MENTION-REACHABLE-RULE-CLAUSE. `cargo test` green; `pnpm --dir sdk test` green.",
+    "notes": "Derived from 0028 (14a803b). Collision surfaced, NOT encoded — the full statement rides the src/graph.rs description: 0028's \"registers by `paths-match`\" selects rules on disk, never skills, so read literally the ruling's own rule-to-skill case never fires. The trigger is the target's gate field, per 0028's own design sentence. scoped at d19124a."
+  },
+  {
+    "tag": "MENTION-REACHABLE-RULE-CLAUSE",
+    "summary": "The `rule` default contract adopts `mention-reachable` at advisory over `paths` to a skill's `paths`, and the frozen built-in lock re-derives — a bare harness covered with zero opt-in",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The clauses live in code"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MENTION-REACHABLE-PREDICATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`ruleDefaultContract` (647-666) gains the clause. Its three existing entries are the spelling model, each `clause(predicate, { severity, guidance, cite })`: `forbiddenKeys` (648), `globValid(\"paths\")` (654), `maxLines(200)` (660). Severity is **advisory** by the ruling, never taste — 0028 fixes it because literal containment false-fires on a semantically contained narrower glob. Guidance carries what the predicate cannot decide: the leniency, and the two remedies the ruling names (scope the source to the gate, or ungate the target). The `cite` is an external fact and gets the full ritual per builtins.md — re-fetch the live page and re-date it at build time; never copy a neighbour's date forward. The standing gating cite to start from is code.claude.com/docs/en/skills (retrieved 2026-07-15, verified 2.1.210) at the skill `paths` doc (129-130); 0028's hard-error and gating behavior are probe-verified on 2.1.211, 2026-07-16. If the live page no longer carries the gating sentence, that is a finding to surface, not a cite to soften."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Regenerated whole, never hand-patched: the `rule` kind's clause rows (258-284, where `glob-valid` on `paths` sits at 265-270) gain the new row. The file's own header (1-20) declares it derived from the memberless emit. `tests/builtin_lock_frozen.rs` (the byte-compare at 77) re-runs the SDK module's own emit through a real `node` subprocess and fails loud on any hand-edit, so the only honest motion here is to re-derive."
+        },
+        {
+          "path": "tests/rule_contract.rs",
+          "description": "The rule default contract's own suite — it grows the coverage for the adopted clause. Existing tests here pin the three shipped clauses; the fourth joins them, including that its severity is advisory (an escalation would be the corpus's declared act, never the default's — intent.md invariant 5)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/rule_contract.rs",
+        "asserts": "the rule default contract carries `mention-reachable` at advisory with guidance and a cite; a rule whose `paths` do not sit inside a mentioned skill's gate produces an advisory finding and never an error, so the gate does not block on a check that can be wrong"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the embedded built-in lock still byte-equals the SDK module's own memberless emit with the new clause row in it — the lock is derived, never transcribed"
+      }
+    ],
+    "acceptance": "A bare harness is covered with zero opt-in: `rule`'s default contract carries `mention-reachable` at advisory, guided and cited to a re-verified live source, and the embedded lock byte-equals the SDK's own memberless emit (builtins.md, \"The clauses live in code\": every shipped clause is decidable, severity-declared, guided, cited and dated). `cargo test` green; `pnpm --dir sdk test` green.",
+    "notes": "Derived from 0028 (14a803b), whose Rejected list settles the two live objections. Opt-in-only adoption is rejected — the author who makes this mistake is the one who never opts in — so it ships in the default contract; engine-side always-on is rejected because a known false alarm needs an off switch, which is what makes it a clause. A corpus that hits the false alarm retunes or drops one clause in its own contract. scoped at d19124a."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
