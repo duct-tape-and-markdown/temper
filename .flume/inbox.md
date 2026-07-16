@@ -41,3 +41,25 @@ routing.
   strips the managed-by frontmatter note (`contentDiffersFromDisk: true`) —
   the provenance marker costs the agent zero tokens at fire time. observed
   at f08ffca
+- Engine finding, field-hit at session start: `temper check <dir>` where
+  `<dir>` is the workspace itself (`temper check .temper`) half-resolves —
+  the lock loads from `<dir>/lock.toml`, but discovery walks `<dir>` as the
+  harness root, so declarations arrive with no corpus behind them: required
+  requirements false-fire `requirement.unfilled` and coverage collapses to
+  whatever module-adjacent prose happens to match a governs glob
+  (`.temper/memory/CLAUDE.md` as the one "memory"; the example's
+  module-adjacent decision doc as the one "decision"). This is the mirror
+  of the pre-4256274 false-green, and it violates loud-or-nothing (0023):
+  a dir carrying `lock.toml` directly should either resolve whole (harness
+  root = parent — recommended; both live harnesses baked this spelling into
+  their gates for a day, it is the spelling users reach for) or refuse
+  loudly naming the harness root. `src/bundle.rs:89` (and the nearby verb
+  narration) still spells `check .temper` in its doc text — reconcile with
+  the ruling. Related converge gap: `check .` warns `install.gate-installed`
+  over 3 missing managed-by notes, but non-interactive `temper install` on
+  this already-represented harness does not detect `.temper/`, prompts
+  "Represent this project?", and on decline manages the session-start hook
+  alone — the probe demands what the non-interactive path cannot place.
+  Harness-side spelling already flipped to `temper check .` in both
+  authored surfaces and re-emitted (green, 10 and 16 members). observed at
+  4a47b2b
