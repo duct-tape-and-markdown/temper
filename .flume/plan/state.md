@@ -3,33 +3,27 @@
 - Spec derived through: 39a4833
 - Audited through: 525111a
 - Residue swept through: 525111a
-- This tick: reconciled the cb5da8d..525111a ship window (four 39a4833 entries:
-  AGENTS-MD-STDLIB-DROP, LAYOUT-EMPTY-REGION-TOLERATE, FLAT-GLOB-DEPTH-REFUSE,
-  KIND-GLOB-COLLISION-REFUSE). AUDIT: all four verified on disk —
-  builtins.ts dropped `memoryAgentsMdDefaultContract` (export + claude-code
-  re-export + test + lock header; lock `[declaration.*]` rows byte-identical);
-  kind.rs reads an unfilled layout region empty; drift.rs refuses a
-  depth-sliced flat glob; main.rs adds the governs-locus collision refusal
-  (sibling of KIND_COLLISION_RULE). All four already out of pending;
-  PACKAGING gate re-verified (release.yml present since 07-11, parked reason
-  still human release actions — Apple notarizing + v0.1 tag). SWEEP: the three
-  code commits' added comments are cited to current vocabulary (invariant 6,
-  representation.md "kind") — no stale/middle-state residue. One rider
-  DISCHARGE: AGENTS-MD-STDLIB-DROP deleted the block carrying the third
-  `packages/…PACKAGE.md` cite (was 648, `memory.agents-md`); the builtins.ts
-  cite rider shrinks three→two, survivors unshifted at 565/611 (deletion sat
-  below them). No file named by another rider was touched (extract.rs,
-  prose.ts, sdk/src/kind.ts, contract.rs, compose.rs, Cargo.toml,
-  emit.test.ts, session_start.rs all untouched — copied forward); kind.rs's
-  15-kinds fixture strings are `.to_string()` test data, absent from 0561e1b's
-  hunks.
-- Queue: 0 pickable — PACKAGING-CHANNELS-REMAINDER parked (human release
-  actions). Nothing for build.
+- This tick: INBOX. Drained the one note (mention-discovery deferral, observed
+  955dc30) into pending MENTION-ROUTE-RESOLVE-AT-CHECK, cite pipeline.md
+  "Emit". Gap re-verified on disk at HEAD 7a3632f (window 955dc30..HEAD is one
+  docs(example) commit touching no engine code): `resolved_mention_edges`
+  (graph.rs:882) folds every lock mention in as already-resolved; `graph::check`
+  (816) route-resolves only declared `Edge`s; `read.rs:303` extends the resolved
+  set with every mention unconditionally — so a deferred mention (drift.rs:2472
+  MentionRow doc: "rides the lock for check to resolve against the discovered
+  corpus") is route-verified nowhere. Field-verified scenario (base-harness
+  verify-summary mentions source:main, src/main.js moved away → check+explain
+  stay green) reproduced by the docs(example) commit that inboxed it. Clean cite
+  → pending, not open-questions; SDK/lock half already shipped, only the engine
+  check/explain verdict is missing. Entry disjoint from parked PACKAGING.
+- Queue: 1 pickable — MENTION-ROUTE-RESOLVE-AT-CHECK (open, edits
+  graph.rs/main.rs/read.rs). PACKAGING-CHANNELS-REMAINDER parked (human release
+  actions).
 
-Plan continues: no — window fully reconciled (both cursors → 525111a = HEAD);
-inbox empty; spec delta empty (39a4833 is the last spec commit, fully
-derived); no live input below reconciliation. The one queue entry (PACKAGING)
-is parked, so the loop hibernates. NB the SessionStart reporter still shows
-the `.temper` dogfood gate red (friction-capture-procedure,
-pending-entry-discipline unfilled) — harness territory, a `chore(harness)` fix
-outside plan's writable paths.
+Plan continues: no — inbox drained; spec delta empty (39a4833 last spec commit,
+fully derived); no src/tests/sdk commit past 525111a to reconcile (7a3632f
+touched examples/ + docs/ only). No live plan input remains, and
+MENTION-ROUTE-RESOLVE-AT-CHECK is pickable, so build takes over. NB the
+SessionStart reporter still shows the `.temper` dogfood gate red
+(friction-capture-procedure, pending-entry-discipline unfilled) — harness
+territory, a `chore(harness)` fix outside plan's writable paths.
