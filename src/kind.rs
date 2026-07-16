@@ -272,24 +272,11 @@ pub struct LayoutMember {
 }
 
 /// The failures a layout read surfaces loud — each naming the file and the heading at
-/// fault, never a degraded empty reading (invariant 6: loud or nothing). A document
-/// that does not fit its declared layout is an error, not a silent gap.
+/// fault, never a degraded empty reading (invariant 6: loud or nothing). An unfilled
+/// region is not among them: a region states what may appear, never what must, so it
+/// reads empty. What refuses is malformed structure the reader cannot place.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum LayoutError {
-    /// The layout declares a field section or member collection at a position the
-    /// document has no top-level heading for.
-    #[error("{path}: layout declares a {region} but the document has no heading for `{heading}`")]
-    #[diagnostic(code(temper::layout::missing_section))]
-    MissingSection {
-        /// The layout document at fault.
-        path: PathBuf,
-        /// The declared region kind (`field section` / `member collection`).
-        region: &'static str,
-        /// The declared identity the missing heading was to carry (the field slot or
-        /// the collection's member kind).
-        heading: String,
-    },
-
     /// A collection declares an explicit identity `key`, but a member carries no
     /// sub-heading of that name to read the key from.
     #[error(
@@ -329,14 +316,15 @@ impl Layout {
     /// the heading's verbatim span — unless the slot is one of `edge_fields`, when its
     /// entries are parsed as addresses into [`edges`](LayoutReading::edges) instead — a
     /// member collection turns each child heading into a member, and a verbatim prose
-    /// region takes the document preamble. A declared section with no heading, an
-    /// explicit key with no sub-heading, or a top-level heading no region admits, each
-    /// refuses loud ([`LayoutError`]) rather than reading a partial document.
+    /// region takes the document preamble. A region the document has no heading for reads
+    /// empty — a region states what may appear, never what must — so one layout serves a
+    /// tree ranging from prose-only to fully membered. An explicit key with no sub-heading,
+    /// or a top-level heading no region admits, still refuses loud ([`LayoutError`]).
     ///
     /// # Errors
     ///
-    /// Returns a [`LayoutError`] naming the file and heading when the document does not
-    /// fit the declared layout.
+    /// Returns a [`LayoutError`] naming the file and heading when the document carries
+    /// structure the declared layout cannot place.
     pub fn read(
         &self,
         body: &str,
@@ -364,8 +352,10 @@ impl Layout {
                     reading.prose.push(span);
                 }
                 LayoutRegion::Field { slot } => {
-                    let node =
-                        next_heading(&tree, &mut cursor, source_path, "field section", slot)?;
+                    // No heading left for the slot: it reads absent, not loud.
+                    let Some(node) = next_heading(&tree, &mut cursor) else {
+                        continue;
+                    };
                     if edge_fields.contains(slot) {
                         reading
                             .edges
@@ -377,13 +367,10 @@ impl Layout {
                     }
                 }
                 LayoutRegion::Collection { member_kind, key } => {
-                    let node = next_heading(
-                        &tree,
-                        &mut cursor,
-                        source_path,
-                        "member collection",
-                        member_kind,
-                    )?;
+                    // No heading left for the collection: it reads with zero members.
+                    let Some(node) = next_heading(&tree, &mut cursor) else {
+                        continue;
+                    };
                     for child in &node.children {
                         reading.members.push(read_collection_member(
                             child,
@@ -408,24 +395,15 @@ impl Layout {
 }
 
 /// The next unconsumed top-level heading a field/collection region binds to, advancing
-/// the cursor — or a [`LayoutError::MissingSection`] naming the file and the region's
-/// declared identity when the document runs out of headings.
+/// the cursor — or `None` when the document has run out of headings, leaving the region
+/// to read empty.
 fn next_heading<'a>(
     tree: &'a [extract::HeadingNode],
     cursor: &mut usize,
-    source_path: &Path,
-    region: &'static str,
-    heading: &str,
-) -> Result<&'a extract::HeadingNode, LayoutError> {
-    let node = tree
-        .get(*cursor)
-        .ok_or_else(|| LayoutError::MissingSection {
-            path: source_path.to_path_buf(),
-            region,
-            heading: heading.to_string(),
-        })?;
+) -> Option<&'a extract::HeadingNode> {
+    let node = tree.get(*cursor)?;
     *cursor += 1;
-    Ok(node)
+    Some(node)
 }
 
 /// Read one collection member off its child heading `node`: its identity is the

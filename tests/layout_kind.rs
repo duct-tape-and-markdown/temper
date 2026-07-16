@@ -124,20 +124,45 @@ fn an_explicit_key_survives_a_heading_retitle() {
 }
 
 #[test]
-fn a_document_missing_a_declared_section_fails_loud_naming_file_and_heading() {
-    // The layout declares a field section and a collection, but the document carries a
-    // single top-level heading — the collection has none.
-    let doc = "lead prose\n\n# Intent\nthe intent\n";
-    let err = intent_layout()
+fn an_unfilled_region_reads_empty_not_loud() {
+    // A prose-only document under the intent layout: only the leading prose region has
+    // anything to bind — the `intent` field section and the `invariant` collection have
+    // no heading. A region states what may appear, never what must, so both read empty
+    // rather than refusing.
+    let doc = "The product intent, authored in prose.\n";
+    let reading = intent_layout()
         .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
-        .unwrap_err();
-    let rendered = err.to_string();
-    assert!(
-        rendered.contains("specs/intent.md"),
-        "names file: {rendered}"
+        .unwrap();
+
+    assert_eq!(
+        reading.prose,
+        vec!["The product intent, authored in prose.".to_string()]
     );
-    assert!(rendered.contains("invariant"), "names heading: {rendered}");
-    assert!(matches!(err, LayoutError::MissingSection { .. }));
+    assert!(
+        !reading.fields.contains_key("intent"),
+        "unfilled field slot reads absent: {:?}",
+        reading.fields
+    );
+    assert!(
+        reading.members.is_empty(),
+        "unfilled collection reads zero members: {:?}",
+        reading.members
+    );
+
+    // A trailing empty region: the field is filled, the collection has no heading — still
+    // green, the collection empty.
+    let trailing = intent_layout()
+        .read(
+            "lead prose\n\n# Intent\nthe intent\n",
+            std::path::Path::new("specs/intent.md"),
+            &no_edges(),
+        )
+        .unwrap();
+    assert_eq!(
+        trailing.fields.get("intent").map(String::as_str),
+        Some("the intent")
+    );
+    assert!(trailing.members.is_empty());
 }
 
 #[test]
@@ -273,8 +298,13 @@ fn emit_refuses_a_non_fitting_layout_document() {
     fs::create_dir_all(&into).unwrap();
     let doc_path = harness.join("specs").join("intent.md");
     fs::create_dir_all(doc_path.parent().unwrap()).unwrap();
-    // Only the field section's heading — the declared collection has none.
-    fs::write(&doc_path, "lead\n\n# Intent\nthe intent\n").unwrap();
+    // A trailing top-level heading no region admits — structure the layout cannot place.
+    // (An unfilled region reads empty; only unplaceable structure refuses.)
+    fs::write(
+        &doc_path,
+        "lead\n\n# Intent\nthe intent\n\n# Invariants\n\n## Loud or nothing\nbody\n\n# Stray\nunadmitted\n",
+    )
+    .unwrap();
 
     let err = drift::emit(&intent_payload(), &into, EmitOptions::default()).unwrap_err();
     let rendered = format!("{err:?}");
@@ -344,10 +374,14 @@ fn check_refuses_a_non_fitting_relocated_builtin_layout_document() {
     );
     let decisions = root.join("decisions");
     fs::create_dir_all(&decisions).unwrap();
-    // Valid frontmatter (no fence ⇒ empty frontmatter, whole body) but NOT the layout: the
-    // declared `invariant` collection has no heading. Pre-overlay this was read as
+    // Valid frontmatter (no fence ⇒ empty frontmatter, whole body) but NOT the layout: a
+    // trailing `# Stray` heading fits no declared region. Pre-overlay this was read as
     // frontmatter and passed silently; under the layout it must refuse loud.
-    fs::write(decisions.join("0001.md"), "lead\n\n# Intent\nthe intent\n").unwrap();
+    fs::write(
+        decisions.join("0001.md"),
+        "lead\n\n# Intent\nthe intent\n\n# Invariants\n\n## Loud or nothing\nbody\n\n# Stray\nunadmitted\n",
+    )
+    .unwrap();
 
     let run = common::check_in(&root, &[], None);
     assert!(
@@ -357,8 +391,8 @@ fn check_refuses_a_non_fitting_relocated_builtin_layout_document() {
         run.output
     );
     assert!(
-        run.output.contains("invariant"),
-        "the refusal must name the missing collection, got:\n{}",
+        run.output.contains("Stray"),
+        "the refusal must name the unadmitted heading, got:\n{}",
         run.output
     );
 }
