@@ -57,7 +57,8 @@ tax.
   closure to the **seam** types, or are the seam's root exports themselves the
   anomaly? `sdk/src/index.ts` exports `Declarations`, `PayloadMember`,
   `ClauseRow`, `KindFactRow`, `RequirementRow`, `SatisfiesRow`,
-  `AssemblyFactRow`, `compileDeclarations` and `SEAM_VERSION` (78-91) today,
+  `AssemblyFactRow`, `EdgePlacements`, `compileDeclarations` and `SEAM_VERSION`
+  (84-94) today, re-verified at f369531,
   and `EmitResult.declarations` hands a caller the rows whether or not they
   are named. Yet `pipeline.md` ("Emit") rules the payload "internal, versioned
   in lockstep … not a designed public interchange; one is admitted when a
@@ -67,7 +68,7 @@ tax.
   ts-rs-generated row types (`generated/index.ts`) to public API and makes a
   Rust-side column rename a consumer-breaking change, which is precisely what
   "internal, versioned in lockstep" exists to prevent. (b) The seam is
-  spec-internal, so the nine root exports above are the anomaly and retract to
+  spec-internal, so the ten root exports above are the anomaly and retract to
   a subpath or to no export at all — but `sdk/test/contract.test.ts:25`
   type-imports `ClauseRow`/`RequirementRow` from the root, so (b) is a real
   retirement with a real blast radius, and `emit()` returning `EmitResult`
@@ -79,10 +80,14 @@ tax.
   retracting `ClauseRow` breaks the SDK's own test's import, and a consumer who
   reads `emit().declarations` has a de-facto dependency already; "no consumer
   exists" may simply be unmeasured rather than true.
-  SDK-ROOT-EXPORT-CLOSURE ships the authoring half (the `render`-hook and
-  `kind()` types), which neither reading contests, and its test excludes the
-  seam by name — so nothing is blocked on this ruling, and the resolution
-  returns through the inbox.
+  SDK-ROOT-EXPORT-CLOSURE **shipped** (6605bf5) and its walk excludes the
+  generated row family by declaration file, out loud — so the ruling is still
+  owed and nothing is blocked on it. One datum it produced, live evidence for
+  reading (a): the closure pulled `EdgePlacements` onto the root, because it
+  is `compileDeclarations`' own parameter and that function is root-exported.
+  The seam face is ten exports now, not nine, and it grew without anyone
+  deciding it should — which is the fork's whole tension, not a new one. The
+  resolution returns through the inbox.
 
 - `(edge-field-target-openness)` — OPEN. `EdgeField.to` names exactly one
   target kind (`sdk/src/kind.ts:43-47`, required), but a citation posture
@@ -121,10 +126,12 @@ tax.
   is the common case, the set is ceremony over an optional `to`. Whether the
   heterogeneous-but-bounded case is the real one is unmeasured: centercode is
   n=1.
-  EMBEDDED-EDGE-DEGREE-SEAM builds the standing corpus reading (the address's
-  kind component must equal `to`), which the set proposal strictly generalizes
-  and neither spelling contests — so nothing is blocked on this ruling, and
-  the resolution returns through the inbox.
+  EMBEDDED-EDGE-DEGREE-SEAM — **open** as of f369531, so this reading is about
+  to be built — encodes the standing corpus reading (the address's kind
+  component must equal `to`), which the set proposal strictly generalizes and
+  neither spelling contests: a one-element set is that entry's behavior
+  exactly. So nothing is blocked on this ruling, and the resolution returns
+  through the inbox.
 
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
@@ -174,11 +181,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   centercode `supportingDocs()` factory, minting one nested-root kind per
   skill directory — is **routed, not pending**: it was ergonomics standing in
   for a template fact the spec already declares and the SDK lacks.
-  TEMPLATE-FILE-CHILD-FACT shipped that fact (794678f), and 0027 (abe5d5d)
-  resolved `(nested-file-child)` — the locus is ternary, so the built-in
-  adoption is queued as SKILL-NESTED-REFERENCE-DOCS. When it lands, the
-  factory deletes against `skill` + `supporting-doc` and this record's
-  condition is what a future pack argument must clear.
+  TEMPLATE-FILE-CHILD-FACT shipped that fact (794678f), 0027 (abe5d5d)
+  resolved `(nested-file-child)`, and SKILL-NESTED-REFERENCE-DOCS **landed**
+  (a7a8cc1): `skill` templates one file-child layer at its directory's
+  markdown and `supporting-doc` is that layer's kind, verified on disk. So
+  the factory now deletes against `skill` + `supporting-doc`, and this
+  record's condition — a consumer who *cannot* express a pack with the two —
+  is what a future pack argument must clear.
 
 - **Default-contract auto-adoption** (a bare harness gets the built-in kinds
   checked with no assembly declaration) — kept for the zero-config front door;
@@ -193,61 +202,21 @@ condition arrives, it is the next break. If work touches one, surface it.
   deliberate addition.
 
 - **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
-  drained and the physical trees were deleted (`chore(harness)` 68f187d). Two
-  standing debts survive, both accepted, both riding the next entry that
-  **reconciles** their file (never merely opens it — the precedent below),
-  never a standalone entry:
-  (1) `tests/session_start.rs:128/133/146` still writes `+++`-format
+  drained and the physical trees were deleted (`chore(harness)` 68f187d).
+  **One debt survives**, accepted, riding the next entry that **reconciles**
+  its file (never merely opens it — the precedent below), never a standalone
+  entry: `tests/session_start.rs:121/140` still writes `+++`-format
   `.temper/kinds/spec/KIND.md` + `.temper/packages/spec/PACKAGE.md` fixtures —
   live test code asserting stray old-format files are ignored. Two entries
-  (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them.
-  (2) `sdk/src/builtins.ts:565/611` doc-comment-cite two deleted
-  `packages/{rule,memory}.anthropic/PACKAGE.md` files — untouched since
-  706139a (2026-07-07). Nine entries have now opened builtins.ts and left both
-  as unchanged context; two sibling cites discharged along the way, each by
-  deletion of its host rather than by reconciliation (`skill.anthropic` cut by
-  dfba26f, `memory.agents-md` by AGENTS-MD-STDLIB-DROP 955be32 deleting the
-  whole `memoryAgentsMdDefaultContract` block).
-  Both re-verified on disk at reconcile HEAD d97a704, unmoved; neither file was
-  touched in the cac023a..d97a704 window. **Carrier found for (2):**
-  SKILL-NESTED-REFERENCE-DOCS now opens `builtins.ts` (0027 unblocked the
-  built-in adoption `(nested-file-child)` held), so the two dead
-  `packages/{rule,memory}.anthropic/PACKAGE.md` cites discharge there. (1)
-  still rides whichever entry next reconciles `tests/session_start.rs`; no
-  queued entry opens it.
-
-- **Rust engine narration cites lag the SDK clause re-fetch.**
-  BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live
-  2026-07-15 and bumped the SDK clause cites plus doc-comment dates to match;
-  the engine's own reader-side narration cites mirror the same facts at their
-  older retrieval dates — `src/builtin_kind.rs` (85 @07-07; 194/222 @07-10;
-  63/106 undated skills/sub-agents mentions). The build entry's `per` targeted the SDK
-  clause-enforcement point (`specs/builtins.md`, "The clauses live in code"),
-  not this parallel surface, so it flagged them for routing rather than
-  silently bumping. Every fact still holds — the two that moved (memory's
-  `./.claude/CLAUDE.md` equal-project location, the Codex AGENTS.md URL
-  redirect) are SDK-only cites, absent from these Rust files, and
-  builtin_kind.rs's `**/CLAUDE.md` glob already covers the new location — so
-  this is date-staleness on correct facts: citation staleness, riding
-  whichever entry next opens the file, never standalone, never the queue's
-  only new work. Found at reconcile HEAD 794ca2b; the `extract.rs` and
-  `coverage_note.rs` halves discharged (evidence in the 9862b2e and 23c31c4
-  reconcile commit bodies). **The `graph.rs` half is gone from this record,
-  and it is the one that taught the class its boundary:** its carrier
-  PREDICATE-SELECTION-ALGEBRA (28ad61f) re-fetched both cites and found the
-  premise this record rests on — "every fact still holds" — false for one.
-  The absolute-path cite verified and bumped (689 → 677, discharged); the
-  `MAX_IMPORT_HOPS = 5` cite is **contradicted on its face** by the live page
-  and left alone, correctly — a wrong constant is behavior, not narration, so
-  it leaves the rides-along class entirely and is now the parked
-  IMPORT-HOP-CAP-CITE entry. The lesson binds every rider filed here: this
-  class is only ever *date*-staleness on a *verified* fact, and the carrier
-  re-verifies rather than bumps. `builtin_kind.rs` remains, carried by
-  SKILL-NESTED-REFERENCE-DOCS, which names the rider in its own
-  `files[].description` — the only shape that discharges one. Re-verified on
-  disk at reconcile HEAD 420da04 (63/85/106 @07-07, 194/222 @07-10, unmoved;
-  91c288c and 2722ca2 both touched `builtin_kind.rs`-adjacent code and left
-  its cites as unchanged context).
+  (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
+  no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
+  f369531: both dead trees still spelled, in a file the window never touched.
+  **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
+  (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
+  `packages/{rule,memory}.anthropic/PACKAGE.md` files; `rg` over the file finds
+  neither. Nine entries had opened builtins.ts and left them — the same lesson
+  the record below spent two entries learning, proven a third time: the rider
+  discharges when an entry names it, and not when a file is merely opened.
 
 - **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
   one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
