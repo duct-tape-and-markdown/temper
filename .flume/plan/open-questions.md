@@ -131,12 +131,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   `requirements` as internal strands of `read::explain`, and read.rs:192
   already documents the four-spelling→`explain` unification. But the
   individual strand doc comments still spell `temper why <member>`
-  (read.rs:270), `temper impact <member>`/`<leaf-address>` (470/608),
-  `temper context <address>` (745), and `temper requirements [<name>]` (1147)
+  (read.rs:270), `temper impact <member>`/`<leaf-address>` (495/633),
+  `temper context <address>` (770), and `temper requirements [<name>]` (1172)
   as if each were its own CLI command. Vocabulary staleness only — the verb is
   `explain`, the strands are correctly-named internal functions. Rides
   whichever entry next opens read.rs (no queued entry does), never standalone.
-  Found deriving 39a4833 at HEAD be3bd27.
+  Found deriving 39a4833 at HEAD be3bd27. MENTION-ROUTE-RESOLVE-AT-CHECK
+  (8eb39fb) then opened read.rs (+25 in the `why` region, 298-440:
+  route-resolving deferred mentions) yet left every strand doc comment as
+  unchanged context — undischarged; the `why` comment at 270 stayed above the
+  hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
+  495/633/770/1172. Re-verified on disk at reconcile HEAD ff7da32.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"
