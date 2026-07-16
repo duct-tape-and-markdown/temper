@@ -301,6 +301,12 @@ export interface EmbeddedMemberValue {
   readonly collections: Readonly<Record<string, readonly EmbeddedMemberCollectionEntry[]>>;
   /** The originating kind's `render` hook, when declared — resolved once at construction. */
   readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
+  /**
+   * The originating kind's declared edge fields — which of the value's leaves are
+   * addresses, and the target facts emit derives from them. Resolved once at
+   * construction, the way `render` is.
+   */
+  readonly edgeFields?: readonly EdgeField[];
 }
 
 /**
@@ -312,6 +318,24 @@ export interface ResolvedEmbeddedMemberCollectionEntry {
   readonly key: string;
   /** The entry's own leaf fields, already resolved to their final strings. */
   readonly leaves: Readonly<Record<string, string>>;
+}
+
+/**
+ * The closed set of facts an embedded format may place about one edge field's
+ * target — derived at emit off the resolved target member, never authored at the
+ * instance and never fabricated, so a rendered reference is true by construction.
+ * The set is exactly these four; a fifth fact is a spec question, not a
+ * convenience.
+ */
+export interface EdgeTargetFacts {
+  /** The target member's identity within its kind. */
+  readonly name: string;
+  /** The target's `kind:name` address — what the edge field's leaf authored. */
+  readonly address: string;
+  /** The target member's kind. */
+  readonly kind: string;
+  /** The target's projection, relative to the host member's own projection. */
+  readonly path: string;
 }
 
 /**
@@ -329,13 +353,22 @@ export interface ResolvedEmbeddedMemberValue {
   readonly leaves: Readonly<Record<string, string>>;
   /** Sibling collections, each entry's leaves already resolved. */
   readonly collections: Readonly<Record<string, readonly ResolvedEmbeddedMemberCollectionEntry[]>>;
+  /**
+   * Each declared edge field's target facts, keyed by the edge field's own name —
+   * the data a `render` hook selects to spell a reference. A kind declaring no
+   * edge fields (or a value composed off a bare kind name, which carries none)
+   * has an empty map.
+   */
+  readonly targets: Readonly<Record<string, EdgeTargetFacts>>;
 }
 
 /**
  * Compose an embedded member's value for `blocks()` — the shape any project's own
  * child kind uses. `kind` names the child kind: a bare string, or the child kind's
- * own `KindDefinition` — passing the definition carries its `render` hook (when
- * declared) through to emit, with no other change to the composed value's shape.
+ * own `KindDefinition` — passing the definition carries its `render` hook and its
+ * declared edge fields (when declared) through to emit, with no other change to the
+ * composed value's shape. A bare string names a kind whose facts are out of reach, so
+ * such a value renders with no target facts.
  */
 export function embeddedMemberValue(init: {
   kind: string | KindDefinition<any>;
@@ -343,13 +376,15 @@ export function embeddedMemberValue(init: {
   leaves: Readonly<Record<string, string | Text>>;
   collections?: EmbeddedMemberValue["collections"];
 }): EmbeddedMemberValue {
-  const [kindName, render] =
-    typeof init.kind === "string" ? [init.kind, undefined] : [init.kind.key, init.kind.render];
+  const definition = typeof init.kind === "string" ? undefined : init.kind;
+  const render = definition?.render;
+  const edgeFields = definition?.facts.edgeFields;
   return {
-    kind: kindName,
+    kind: definition?.key ?? (init.kind as string),
     key: init.key,
     leaves: init.leaves,
     collections: init.collections ?? {},
     ...(render !== undefined ? { render } : {}),
+    ...(edgeFields !== undefined ? { edgeFields } : {}),
   };
 }

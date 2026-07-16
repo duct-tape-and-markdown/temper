@@ -976,9 +976,8 @@ test("a bare-string leaf is unchanged — no mention row, no resolution check", 
 });
 
 test("a blocks()-declared embedded member surfaces a matching nested_member row alongside its unchanged rendered fence", () => {
-  // NESTED-MEMBER-LOCK-ROW (0018): the composed value feeds both the rendered fence
-  // (untouched — `renderMemberFence`) and, additively, a `nested_member` declaration
-  // row carrying the identical facts.
+  // The composed value feeds both the rendered fence and, additively, a
+  // `nested_member` declaration row carrying the identical facts.
   const h = harness({
     members: [
       memory({
@@ -1030,6 +1029,92 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
           { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
         ],
       },
+    },
+  ]);
+});
+
+/**
+ * An embedded kind whose `source` field is an edge to a `rule`, and whose render hook
+ * spells the reference off the derived target facts alone — the instance authors an
+ * address and never a word of the rendering.
+ */
+function citationKind() {
+  return kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: "rule" }],
+    },
+    {
+      render: (value) => {
+        const target = value.targets.source;
+        return `See [${target.name}](${target.path}) — the ${target.kind} at \`${target.address}\`.`;
+      },
+    },
+  );
+}
+
+test("an embedded format spells an edge target off the derived facts — name, address, kind, and a path relative to each host's own projection", () => {
+  const citation = citationKind();
+  // One authored value, two hosts whose projections land at different depths: the
+  // rendered path differs per host, so it is derived from the host's own locus rather
+  // than baked into the instance.
+  const cite = () =>
+    embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "rule:rust" } });
+
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+      memory({ name: "CLAUDE", prose: blocks(cite()) }),
+      skill({
+        name: "coordinate",
+        description: "Use when driving a complex task across a team of agents.",
+        prose: blocks(cite()),
+      }),
+    ],
+    admit: [
+      { host: memory, admits: [citation] },
+      { host: skill, admits: [citation] },
+    ],
+  });
+
+  const result = emit(h);
+  // `CLAUDE.md` sits at the root, so the target's projection is the path itself.
+  assert.equal(
+    result.members.find((m) => m.name === "CLAUDE")!.body,
+    "See [rust](.claude/rules/rust.md) — the rule at `rule:rust`.\n",
+  );
+  // `.claude/skills/coordinate/SKILL.md` sits two directories down from `.claude/`.
+  assert.equal(
+    result.members.find((m) => m.name === "coordinate")!.body,
+    "See [rust](../../rules/rust.md) — the rule at `rule:rust`.\n",
+  );
+});
+
+test("an edge field's leaf still rides the nested_member row as the authored address, never the rendered reference", () => {
+  const citation = citationKind();
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "rule:rust" } }),
+        ),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  assert.deepEqual(compileDeclarations(h).nested_members, [
+    {
+      host: "memory:CLAUDE",
+      kind: "citation",
+      key: "the-standard",
+      leaves: { source: "rule:rust" },
+      collections: {},
     },
   ]);
 });

@@ -13,7 +13,14 @@ import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
-import type { EmbeddedMemberValue, Member, ResolvedEmbeddedMemberCollectionEntry, ResolvedEmbeddedMemberValue } from "./kind.js";
+import type {
+  EdgeTargetFacts,
+  EmbeddedMemberValue,
+  KindFacts,
+  Member,
+  ResolvedEmbeddedMemberCollectionEntry,
+  ResolvedEmbeddedMemberValue,
+} from "./kind.js";
 import type { MentionScope, Text } from "./prose.js";
 import { checkMentions, isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
@@ -44,6 +51,13 @@ export interface ResolveOptions {
    * these whose member is not composed defers to `check` rather than refusing at emit.
    */
   readonly deferrableKinds?: ReadonlySet<string>;
+  /**
+   * The program's composed members by `kind:name` address — what an embedded value's
+   * edge field resolves against to derive its target facts. An edge target never defers
+   * to the gate the way a bare mention may: the facts are rendered into the projection
+   * now, so an unresolved one has nothing true to place.
+   */
+  readonly members?: ReadonlyMap<string, Member>;
 }
 
 /** The {@link MentionScope} a set of {@link ResolveOptions} names — its two sets, each defaulting to empty. */
@@ -91,9 +105,120 @@ function tomlString(text: string): string {
   return out + '"';
 }
 
+/** Join path parts with `/`, dropping the empties and the `.` root a root-locus kind carries. */
+function joinSlash(...parts: string[]): string {
+  return parts.filter((part) => part !== "" && part !== ".").join("/");
+}
+
+/**
+ * The harness-relative locus a member of `facts` named `name` projects onto: a
+ * directory unit lands its entry file under `<root>/<name>/`; a lone file splices the
+ * name through the glob's single `*` (an any-depth glob — a memory kind's
+ * `**\/CLAUDE.md` — lands the root `<name>.md`, and a `*`-free glob is a fixed path
+ * left verbatim). The engine derives the same locus from the same facts
+ * (`src/drift.rs`'s `member_projection_path`); the two must agree, since a hook's
+ * rendered link is written from this side and reaped from that one.
+ *
+ * # Throws
+ * If the kind is embedded (no standalone projection), or a flat-file glob carries a
+ * `*` yet is neither a single-segment single-`*` pattern nor an any-depth `**` glob —
+ * splicing the name would leave a stray literal `*` or directory segment behind.
+ */
+function projectionPath(facts: KindFacts, name: string): string {
+  if (facts.locus.kind !== "at") {
+    throw new Error(
+      `kind \`${facts.name}\` is embedded — its members live inside a host body and ` +
+        `carry no standalone projection (specs/model/representation.md, "locus").`,
+    );
+  }
+  const { root, glob } = facts.locus;
+  if (facts.unitShape === "directory") {
+    const slash = glob.indexOf("/");
+    return joinSlash(root, name, slash < 0 ? glob : glob.slice(slash + 1));
+  }
+  if (glob.includes("**")) return joinSlash(root, `${name}.md`);
+  const stars = glob.split("*").length - 1;
+  if (stars > 0 && (stars > 1 || glob.includes("/"))) {
+    throw new Error(
+      `kind \`${facts.name}\`: flat-file glob \`${glob}\` is neither a single-segment ` +
+        `single-\`*\` pattern nor an any-depth \`**\` glob — a member name splices through ` +
+        `neither.`,
+    );
+  }
+  return joinSlash(root, glob.replace("*", name));
+}
+
+/**
+ * `to`'s path as read from the document at `from` — the shared leading segments drop
+ * and each of `from`'s remaining directory segments becomes a `..`, so a rendered link
+ * resolves from wherever the host member's own projection lands.
+ */
+function relativeProjection(from: string, to: string): string {
+  const fromDirs = from.split("/").slice(0, -1);
+  const toParts = to.split("/");
+  let shared = 0;
+  while (shared < fromDirs.length && shared < toParts.length - 1 && fromDirs[shared] === toParts[shared]) {
+    shared += 1;
+  }
+  return [...fromDirs.slice(shared).map(() => ".."), ...toParts.slice(shared)].join("/");
+}
+
+/**
+ * The closed, engine-derived facts about one embedded value's edge-field targets,
+ * keyed by edge field: the declaring kind names which leaves are addresses, and each
+ * address resolves against the program's composed members — the same table a mention
+ * resolves against. The facts are read off the resolved target, so a format that
+ * selects them renders a reference true by construction; the four are the whole set.
+ *
+ * # Throws
+ * If an edge field's leaf is absent or empty, names no composed member, or names one
+ * that owns no projection to point at. An edge target cannot defer to the gate the way
+ * a bare mention may: the reference is written now, and there is nothing true to write.
+ */
+function edgeTargetFacts(
+  host: Member,
+  value: EmbeddedMemberValue,
+  leaves: Readonly<Record<string, string>>,
+  options: ResolveOptions,
+): Record<string, EdgeTargetFacts> {
+  const targets: Record<string, EdgeTargetFacts> = {};
+  const context = `member \`${host.name}\`: embedded value \`${value.key}\` of kind \`${value.kind}\``;
+  for (const edge of value.edgeFields ?? []) {
+    const address = leaves[edge.field];
+    if (address === undefined || address === "") {
+      throw new Error(
+        `${context}: edge field \`${edge.field}\` names no target — an edge field's leaf is ` +
+          `the target's address (specs/model/representation.md, "kind").`,
+      );
+    }
+    const target = options.members?.get(address);
+    if (target === undefined) {
+      throw new Error(
+        `${context}: edge field \`${edge.field}\` names \`${address}\`, which resolves to no ` +
+          `composed member — an edge target's facts are derived, never fabricated ` +
+          `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
+      );
+    }
+    if (!isProjected(target)) {
+      throw new Error(
+        `${context}: edge field \`${edge.field}\` names \`${address}\`, which owns no ` +
+          `projection to reference (specs/model/representation.md, "locus").`,
+      );
+    }
+    targets[edge.field] = {
+      name: target.name,
+      address,
+      kind: target.kind,
+      path: relativeProjection(projectionPath(host.facts, host.name), projectionPath(target.facts, target.name)),
+    };
+  }
+  return targets;
+}
+
 /**
  * Resolve one embedded member's value's leaves — top-level and each
- * collection entry's — to their final stored strings: a `Text`-authored leaf
+ * collection entry's — to their final stored strings, and derive its edge fields'
+ * target facts off the resolved leaves: a `Text`-authored leaf
  * resolves the way `resolveBody` resolves a member-level `Text` body (mention
  * resolution-checked against `mentionable`, loud on a dangling address); a
  * bare-string leaf is unchanged. The one resolution point shared by the
@@ -101,7 +226,12 @@ function tomlString(text: string): string {
  * embedded-kind leaf mention never depends on whether the kind declares
  * `render` (`pipeline.md`, "Emit", the "Refusing" bullet).
  */
-function resolveMemberLeaves(value: EmbeddedMemberValue, scope: MentionScope): ResolvedEmbeddedMemberValue {
+function resolveMemberLeaves(
+  host: Member,
+  value: EmbeddedMemberValue,
+  options: ResolveOptions,
+): ResolvedEmbeddedMemberValue {
+  const scope = scopeOf(options);
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const leaves: Record<string, string> = {};
   for (const [key, leaf] of Object.entries(value.leaves)) {
@@ -117,7 +247,13 @@ function resolveMemberLeaves(value: EmbeddedMemberValue, scope: MentionScope): R
       return { key: entry.key, leaves: entryLeaves };
     });
   }
-  return { kind: value.kind, key: value.key, leaves, collections };
+  return {
+    kind: value.kind,
+    key: value.key,
+    leaves,
+    collections,
+    targets: edgeTargetFacts(host, value, leaves, options),
+  };
 }
 
 /**
@@ -155,8 +291,8 @@ function renderMemberToml(value: ResolvedEmbeddedMemberValue): string {
  * Leaves resolve once (`resolveMemberLeaves`) before either path sees them, so a
  * hook receives plain strings, never a raw `Text` leaf.
  */
-function renderMemberBlock(value: EmbeddedMemberValue, options: ResolveOptions): string {
-  const resolved = resolveMemberLeaves(value, scopeOf(options));
+function renderMemberBlock(host: Member, value: EmbeddedMemberValue, options: ResolveOptions): string {
+  const resolved = resolveMemberLeaves(host, value, options);
   if (value.render !== undefined) return value.render(resolved);
   return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(resolved)}\n\`\`\``;
 }
@@ -209,7 +345,9 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     const context = `member \`${member.name}\``;
     return (
       prose.values
-        .map((value) => (isTextSpan(value) ? renderTextBody(value, scope, context) : renderMemberBlock(value, options)))
+        .map((value) =>
+          isTextSpan(value) ? renderTextBody(value, scope, context) : renderMemberBlock(member, value, options),
+        )
         .join("\n\n") + "\n"
     );
   }
@@ -340,6 +478,15 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
   return settingsRows(harness).map((row) => ({ manifest: row.manifest, key: row.key, value: row.value }));
 }
 
+/**
+ * The harness's composed members by `kind:name` address — the table an embedded value's
+ * edge field resolves its target against. Keyed the identical way {@link declaredAddresses}
+ * spells a member address, so an edge field and a mention name a member the same way.
+ */
+function memberTable(harness: Harness): Map<string, Member> {
+  return new Map(harness.members.map((member) => [`${member.kind}:${member.name}`, member]));
+}
+
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
 function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
@@ -405,6 +552,7 @@ export function emit(harness: Harness): EmitResult {
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
     deferrableKinds: declaredAtLocusKinds(harness),
+    members: memberTable(harness),
   };
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);

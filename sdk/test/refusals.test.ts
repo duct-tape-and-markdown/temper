@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { blocks, embeddedMemberValue, emit, harness, kind, text } from "../src/index.js";
-import { memory, rule, skill } from "../src/claude-code.js";
+import { hook, memory, rule, skill } from "../src/claude-code.js";
 
 /** An embedded-locus kind named `decision` — host-free; the corpus's `admit` names its hosts. */
 function decisionKind() {
@@ -199,6 +199,73 @@ test("a host-admitted blocks() value compiles without throwing", () => {
       }),
     ],
     admit: [{ host: memory, admits: [decision] }],
+  });
+  assert.doesNotThrow(() => emit(h));
+});
+
+// ---------------------------------------------------------------------------
+// (4) Dangling edge target — an embedded value's edge field naming a member the
+//     program does not resolve. Unlike a bare mention, an edge target never defers
+//     to the gate: its facts are rendered into the projection now, so an
+//     unresolved one has nothing true to place.
+// ---------------------------------------------------------------------------
+
+/** An embedded kind whose `source` field is a declared edge to a `rule`. */
+function citationKind() {
+  return kind<object>({
+    name: "citation",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [],
+    edgeFields: [{ field: "source", to: "rule" }],
+  });
+}
+
+/** A `memory` host carrying one `citation` value whose `source` leaf reads `address`. */
+function citingHarness(citation: ReturnType<typeof citationKind>, address: string) {
+  return harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: address } })),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+}
+
+test("emit refuses an edge field whose target the program does not resolve", () => {
+  // `rule` is a declared at-locus kind, so a *mention* of `rule:ghost` would defer to
+  // check — an edge target cannot: the reference is written now.
+  assert.throws(() => emit(citingHarness(citationKind(), "rule:ghost")), /resolves to no composed member/);
+});
+
+test("emit refuses an edge field naming a target that owns no projection", () => {
+  const citation = citationKind();
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "hook:PreToolUse" } }),
+        ),
+      }),
+      hook({ name: "PreToolUse", command: "temper guard" }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+  assert.throws(() => emit(h), /owns no projection to reference/);
+});
+
+test("emit refuses an edge field whose leaf names no target at all", () => {
+  assert.throws(() => emit(citingHarness(citationKind(), "")), /names no target/);
+});
+
+test("an edge field resolving to a composed member emits without throwing", () => {
+  const citation = citationKind();
+  const h = harness({
+    members: [rule({ name: "rust", prose: text`# Rust` }), ...citingHarness(citation, "rule:rust").members],
+    admit: [{ host: memory, admits: [citation] }],
   });
   assert.doesNotThrow(() => emit(h));
 });
