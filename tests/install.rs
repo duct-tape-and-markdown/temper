@@ -163,7 +163,7 @@ fn discover_reports_member_counts_by_kind() {
     assert_eq!(report.members.get("rule").map(Vec::len), Some(2));
     assert_eq!(report.total(), 3);
 
-    let rendered = install::render_discovery(&report);
+    let rendered = install::render_discovery(&report, None);
     assert!(rendered.contains("skill"));
     assert!(rendered.contains("rule"));
 }
@@ -173,7 +173,7 @@ fn an_empty_project_reports_no_members_found() {
     let root = common::tmpdir("discover-empty");
     let report = install::discover(&root).unwrap();
     assert_eq!(report.total(), 0);
-    assert!(install::render_discovery(&report).contains("no members found"));
+    assert!(install::render_discovery(&report, None).contains("no members found"));
 }
 
 /// A `CLAUDE.md` under `.temper/` (the surface workspace: temper's own authored
@@ -1322,5 +1322,118 @@ fn the_cli_install_verb_represents_on_yes_and_dry_runs_a_re_represent() {
         before,
         common::tree_bytes(&root),
         "a re-represent dry run writes nothing"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// the lock on disk resolves install's path argument
+// ---------------------------------------------------------------------------
+
+/// A represented root: the lift run for real, so `.temper/lock.toml` is a true emit
+/// product rather than a fixture stand-in.
+fn represent_for_real(label: &str) -> PathBuf {
+    let root = write_harness(label, false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+    let status = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--yes")
+        .status()
+        .unwrap();
+    assert!(status.success());
+    assert!(temper_dir.join("lock.toml").is_file());
+    root
+}
+
+#[test]
+fn a_represented_root_converges_on_its_lock_without_re_asking_the_question() {
+    let root = represent_for_real("cli-settled");
+
+    // No flag, and no tty behind stdin — the exact shape whose conservative `No`
+    // default would place the session-start hook alone against a root whose lock
+    // already justifies the full placement set.
+    let output = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--dry-run")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+
+    assert!(
+        !stdout.contains(install::REPRESENT_QUESTION),
+        "the lock has already answered the question: {stdout}"
+    );
+    assert!(
+        stdout.contains("already represented"),
+        "a skipped question is visible in the report: {stdout}"
+    );
+    assert!(
+        stdout.contains("represented — ") && !stdout.contains("not represented"),
+        "the represented path is taken, not the unattended default: {stdout}"
+    );
+    // The placements the lock justifies — the guard and the per-artifact notes the
+    // `No` default would have left unplaced.
+    assert!(stdout.contains("guard hook"), "{stdout}");
+    assert!(stdout.contains("managed-by note"), "{stdout}");
+}
+
+#[test]
+fn no_represent_against_a_represented_root_refuses_loud() {
+    let root = write_harness("cli-settled-denied", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(temper_dir.join("lock.toml"), "").unwrap();
+
+    let output = Command::new(BIN)
+        .arg("install")
+        .arg(&root)
+        .arg("--no-represent")
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "asserting the false half of a settled fork is a usage error"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("lock.toml") && stderr.contains("--no-represent"),
+        "the refusal names the lock that settled the fork: {stderr}"
+    );
+}
+
+#[test]
+fn a_workspace_passed_as_the_path_refuses_instead_of_scaffolding_inside_it() {
+    let root = write_harness("cli-workspace-arg", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(temper_dir.join("lock.toml"), "").unwrap();
+
+    let output = Command::new(BIN)
+        .arg("install")
+        .arg(&temper_dir)
+        .arg("--no-represent")
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "a workspace is not a harness root install can be aimed at"
+    );
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains(&root.display().to_string()),
+        "the refusal names the enclosing root the argument meant: {stderr}"
+    );
+    assert!(
+        !temper_dir.join(".claude").exists(),
+        "nothing is scaffolded inside the workspace"
     );
 }

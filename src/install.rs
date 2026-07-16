@@ -174,7 +174,10 @@ const NOTE_BANNER: &str = "<!-- temper: managed projection — a direct edit her
 
 /// The one question `install` asks, exactly once, after the discovery report:
 /// there is one
-/// genuine fork in the world — a harness is represented or it is not.
+/// genuine fork in the world — a harness is represented or it is not. Asked only where
+/// that fork is still live: a root whose workspace already carries a lock has answered
+/// it on disk, and install converges on that lock rather than re-asking a settled
+/// question.
 pub const REPRESENT_QUESTION: &str = "Represent this project as a temper program? [y/N]";
 
 /// Errors raised while projecting the gate wiring — the read/parse side `install`
@@ -324,11 +327,19 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
 }
 
 /// Render the discovery report for the terminal — findings first, ceremony after:
-/// member counts by kind, or a plain
-/// statement that nothing was found.
+/// `lock`, when the caller's path resolution found one, naming the root that already
+/// answered the represent question on disk — the question below the report is skipped,
+/// so the answer is stated rather than left invisible — then member counts by kind, or
+/// a plain statement that nothing was found.
 #[must_use]
-pub fn render_discovery(report: &DiscoveryReport) -> String {
+pub fn render_discovery(report: &DiscoveryReport, lock: Option<&Path>) -> String {
     let mut out = String::from("discovery:\n");
+    if let Some(lock) = lock {
+        out.push_str(&format!(
+            "  already represented — {} answers the represent question\n",
+            lock.display()
+        ));
+    }
     if report.total() == 0 {
         out.push_str("  no members found under this project's known kinds\n");
         return out;

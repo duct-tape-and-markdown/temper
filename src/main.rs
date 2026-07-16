@@ -401,15 +401,44 @@ fn main() -> miette::Result<ExitCode> {
             no_represent,
             dry_run,
         } => {
-            let discovery = install::discover(&path)?;
-            print!("{}", install::render_discovery(&discovery));
+            // The one resolution, shared with `check`: install's path argument is read
+            // against the locks already on disk before a question is asked about it.
+            let resolved = resolve_harness_path(&path)?;
 
-            let represent = if yes {
-                install::Represent::Yes
-            } else if no_represent {
-                install::Represent::No
-            } else {
-                ask_represent()?
+            // A path that IS a workspace names no harness root. Rooting install there
+            // would discover the workspace's own files and scaffold a
+            // `<path>/.claude/settings.json` inside the workspace — so refuse, naming
+            // the root the argument meant.
+            if let HarnessPath::Workspace { enclosing } = &resolved {
+                return Err(miette::miette!(
+                    "`{}` is a temper workspace, not a harness root — `install` targets the root a workspace governs; pass `{}`",
+                    path.display(),
+                    enclosing.display()
+                ));
+            }
+            let lock = match &resolved {
+                HarnessPath::Root { lock, .. } => lock.clone(),
+                HarnessPath::Workspace { .. } | HarnessPath::Raw => None,
+            };
+
+            let discovery = install::discover(&path)?;
+            print!("{}", install::render_discovery(&discovery, lock.as_deref()));
+
+            // A lock on disk has already answered the one question, so neither the
+            // prompt nor `ask_represent`'s conservative unattended default applies:
+            // converge on the lock. `--no-represent` there asserts the false half of a
+            // settled fork — refuse rather than place less than the lock justifies.
+            let represent = match (&lock, yes, no_represent) {
+                (Some(lock), _, true) => {
+                    return Err(miette::miette!(
+                        "`--no-represent` contradicts `{}`: this project is already represented, and a represented harness's placements follow its lock. Re-run without the flag.",
+                        lock.display()
+                    ));
+                }
+                (Some(_), _, false) => install::Represent::Yes,
+                (None, true, _) => install::Represent::Yes,
+                (None, _, true) => install::Represent::No,
+                (None, false, false) => ask_represent()?,
             };
 
             let outcome = install::run(&path, &discovery, represent, dry_run)?;
@@ -632,38 +661,51 @@ fn ask_represent() -> miette::Result<install::Represent> {
     })
 }
 
-/// The one-shot gate over a path argument — shared by `check` and the session-start
-/// reporter. The path resolves three ways, and each resolves *whole*: a workspace and
-/// the harness root its corpus is discovered from always name the same harness.
-///
-/// - `<path>/.temper` is a dir ⇒ `<path>` is an adopted harness root: gate its authored
-///   workspace, so the lock's declared requirement/satisfies/clause rows are read.
-/// - `<path>/lock.toml` is a file ⇒ `<path>` *is* the workspace, addressed directly:
-///   gate it against the enclosing harness root, its parent. Rooting such a path at
-///   itself instead would read the lock from `<path>` while walking `<path>` for a
-///   corpus that lives beside it — declared requirements arriving with nothing behind
-///   them, so every one of them false-fires `requirement.unfilled`.
-/// - Otherwise ⇒ an unrepresented raw root: the discovery walk finds its members off
-///   disk against the kind's embedded `governs` (the built-in lock), with an empty
-///   declaration set (never adopted, nothing to read).
+/// Where a verb's path argument lands among the locks on disk — the one resolution
+/// `check`'s gate and `install`'s represent decision both read a path through, so no
+/// verb can disagree with another about which harness a spelling names.
+enum HarnessPath {
+    /// `<path>/.temper` is a dir ⇒ `<path>` is a harness root carrying a surface
+    /// workspace.
+    Root {
+        /// The authored workspace beside the root — the lock's home.
+        workspace: PathBuf,
+        /// The workspace's `lock.toml` when it is on disk: the root is represented, and
+        /// the represent fork is answered here rather than by a question.
+        lock: Option<PathBuf>,
+    },
+    /// `<path>/lock.toml` is a file ⇒ `<path>` *is* the workspace, addressed directly,
+    /// and `enclosing` is the harness root it governs.
+    Workspace {
+        /// The harness root enclosing the workspace — the argument a root-taking verb
+        /// meant.
+        enclosing: PathBuf,
+    },
+    /// Neither ⇒ an unrepresented raw root: its members live off disk against each
+    /// kind's embedded `governs` (the built-in lock), and nothing was ever adopted.
+    Raw,
+}
+
+/// Resolve a path argument to the harness it names, and resolve it *whole*: a
+/// workspace and the harness root its corpus is discovered from always name the same
+/// harness.
 ///
 /// # Errors
 ///
-/// A workspace at the filesystem root has no enclosing harness root to discover a
-/// corpus from — unresolvable, so it fails loud rather than root somewhere else.
-///
-/// The adopted branch never re-imports: a fresh import discards recognition (the
-/// authored `satisfies` links), so every filled requirement would read unfilled — the
-/// false positive on clean input the surface-present clause forbids.
-fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
-    let authored = harness_path.join(TEMPER_DIR);
-    if authored.is_dir() {
-        gate(&authored, harness_path)
-    } else if harness_path.join(LOCK_FILE).is_file() {
-        let enclosing = harness_path.parent().ok_or_else(|| {
+/// A workspace at the filesystem root has no enclosing harness root — unresolvable, so
+/// it fails loud rather than resolving somewhere else.
+fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
+    let workspace = path.join(TEMPER_DIR);
+    if workspace.is_dir() {
+        let lock = workspace.join(LOCK_FILE);
+        let lock = lock.is_file().then_some(lock);
+        return Ok(HarnessPath::Root { workspace, lock });
+    }
+    if path.join(LOCK_FILE).is_file() {
+        let enclosing = path.parent().ok_or_else(|| {
             miette::miette!(
                 "workspace `{}` has no enclosing harness root to discover a corpus from",
-                harness_path.display()
+                path.display()
             )
         })?;
         // A bare relative workspace (`check .temper`) parents to the empty path, which
@@ -673,9 +715,33 @@ fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnos
         } else {
             enclosing
         };
-        gate(harness_path, enclosing)
-    } else {
-        gate(harness_path, harness_path)
+        return Ok(HarnessPath::Workspace {
+            enclosing: enclosing.to_path_buf(),
+        });
+    }
+    Ok(HarnessPath::Raw)
+}
+
+/// The one-shot gate over a path argument — shared by `check` and the session-start
+/// reporter, over [`resolve_harness_path`]'s three answers.
+///
+/// A [`HarnessPath::Workspace`] gates against its enclosing root, never against itself:
+/// rooting it at itself would read the lock from `<path>` while walking `<path>` for a
+/// corpus that lives beside it — declared requirements arriving with nothing behind
+/// them, so every one of them false-fires `requirement.unfilled`.
+///
+/// # Errors
+///
+/// As [`resolve_harness_path`].
+///
+/// The adopted branch never re-imports: a fresh import discards recognition (the
+/// authored `satisfies` links), so every filled requirement would read unfilled — the
+/// false positive on clean input the surface-present clause forbids.
+fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
+    match resolve_harness_path(harness_path)? {
+        HarnessPath::Root { workspace, .. } => gate(&workspace, harness_path),
+        HarnessPath::Workspace { enclosing } => gate(harness_path, &enclosing),
+        HarnessPath::Raw => gate(harness_path, harness_path),
     }
 }
 
