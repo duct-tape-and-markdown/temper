@@ -15,6 +15,15 @@
 /// Crate version, surfaced by the CLI's `--version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Directory name of the surface workspace — the authored SDK modules and the
+/// committed lock — that `install` scaffolds beside the harness root it governs.
+/// `pub`, not `pub(crate)`: the CLI binary is a separate crate consuming this lib.
+pub const WORKSPACE_DIR: &str = ".temper";
+
+/// Filename of the generated roll-up index — the contents' state-of-record —
+/// written at the workspace root.
+pub const LOCK_FILENAME: &str = "lock.toml";
+
 pub mod builtin;
 pub mod builtin_kind;
 pub mod builtin_lock;

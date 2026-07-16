@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::LazyLock;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
@@ -38,15 +39,17 @@ use temper::schema;
 
 /// The SDK surface workspace under the cwd — the emit `--into` default and the
 /// path `schema` / `explain` / `bundle` read the committed lock from.
-const DEFAULT_WORKSPACE: &str = "./.temper";
-
-/// The surface workspace directory beside a harness root — the name
-/// [`harness_diagnostics`] resolves a path argument against.
-const TEMPER_DIR: &str = ".temper";
-
-/// The committed lock inside a workspace. Its presence directly under a path is what
-/// names that path a workspace rather than a harness root ([`harness_diagnostics`]).
-const LOCK_FILE: &str = "lock.toml";
+///
+/// Explicitly `./`-prefixed: the default is the one relative shape `emit` re-resolves
+/// a `node` arg against a moved cwd from, so it is the spelling the path-doubling
+/// regression is pinned at (`drift::run_sdk_program`). Downstream the prefix is
+/// immaterial — `emit` lexically normalizes it away before deriving `harness_root`.
+///
+/// A `LazyLock` rather than a `const`: it is derived from [`temper::WORKSPACE_DIR`],
+/// and `concat!` takes only literals — which would re-spell the name this const has
+/// its one home for.
+static DEFAULT_WORKSPACE: LazyLock<String> =
+    LazyLock::new(|| format!("./{}", temper::WORKSPACE_DIR));
 
 /// Resolve a built-in kind's bare row label into its default [`Contract`], failing
 /// loud if the build embeds no default contract of that name — a
@@ -134,7 +137,7 @@ enum Command {
     Emit {
         /// The surface workspace to project (defaults to `./.temper`). The lock
         /// under it carries the emit fingerprints freshness stands on.
-        #[arg(long, default_value = DEFAULT_WORKSPACE)]
+        #[arg(long, default_value = DEFAULT_WORKSPACE.as_str())]
         into: PathBuf,
         /// Refuse network access — the CI posture.
         /// `emit` performs no network I/O today, so this is accepted for CI parity.
@@ -194,7 +197,7 @@ enum Command {
     /// reproduces an identical tree.
     Bundle {
         /// The surface workspace to compose from (defaults to `./.temper`).
-        #[arg(default_value = DEFAULT_WORKSPACE)]
+        #[arg(default_value = DEFAULT_WORKSPACE.as_str())]
         path: PathBuf,
         /// Where to write the plugin tree (defaults to `./plugin`).
         #[arg(long, default_value = "./plugin")]
@@ -284,7 +287,7 @@ fn main() -> miette::Result<ExitCode> {
             // The keystroke placement of the gate:
             // emit the *active* contract per kind — the same rows-or-default contract
             // `check` gates against — as an editor JSON Schema.
-            let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE))?;
+            let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE.as_str()))?;
 
             let json = match kind.as_deref() {
                 // An unknown kind is a hard error, never a silent empty schema.
@@ -350,9 +353,9 @@ fn main() -> miette::Result<ExitCode> {
             // harness (no lock) reads the default `warn`, matching
             // `compose::EnforcementMode`'s own default, and falls back to binding any
             // `.claude/` write since there is no declared set to consult.
-            let workspace_dir = path.join(TEMPER_DIR);
+            let workspace_dir = path.join(temper::WORKSPACE_DIR);
             let mode = mode_from_lock(&workspace_dir)?;
-            let lock_present = workspace_dir.join(LOCK_FILE).is_file();
+            let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&workspace_dir)?;
             let mut payload = String::new();
@@ -467,7 +470,7 @@ fn main() -> miette::Result<ExitCode> {
 /// assembly (`gate`) — and dispatch through [`read::explain`]'s target-species
 /// resolution.
 fn explain(target: &str) -> miette::Result<String> {
-    let workspace = PathBuf::from(DEFAULT_WORKSPACE);
+    let workspace = PathBuf::from(DEFAULT_WORKSPACE.as_str());
     let harness_root = Path::new(".");
 
     // The assembly's own declared facts, read first: the corpus below walks each
@@ -695,13 +698,13 @@ enum HarnessPath {
 /// A workspace at the filesystem root has no enclosing harness root — unresolvable, so
 /// it fails loud rather than resolving somewhere else.
 fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
-    let workspace = path.join(TEMPER_DIR);
+    let workspace = path.join(temper::WORKSPACE_DIR);
     if workspace.is_dir() {
-        let lock = workspace.join(LOCK_FILE);
+        let lock = workspace.join(temper::LOCK_FILENAME);
         let lock = lock.is_file().then_some(lock);
         return Ok(HarnessPath::Root { workspace, lock });
     }
-    if path.join(LOCK_FILE).is_file() {
+    if path.join(temper::LOCK_FILENAME).is_file() {
         let enclosing = path.parent().ok_or_else(|| {
             miette::miette!(
                 "workspace `{}` has no enclosing harness root to discover a corpus from",

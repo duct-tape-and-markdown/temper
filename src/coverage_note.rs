@@ -36,10 +36,6 @@ const UNMODELED_RULE: &str = "coverage.unmodeled-surface";
 /// `UNMODELED_RULE` finding never covers.
 const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 
-/// The workspace directory holding the committed lock this module reads its own
-/// custom-kind rows from — mirrors `install.rs`'s own copy of the same literal.
-const TEMPER_DIR: &str = ".temper";
-
 /// A known Claude Code harness surface temper's built-in kinds do not govern — an
 /// external fact carrying its citation at the point of claim
 /// (.claude/rules/collaboration.md, "External facts are cited").
@@ -71,9 +67,9 @@ struct Segment {
     collection_key: Option<&'static str>,
 }
 
-/// The Claude Code settings docs, retrieved 2026-07-02 — the shared citation for the
+/// The Claude Code settings docs, retrieved 2026-07-16 — the shared citation for the
 /// curated surfaces below, each of which is documented there.
-const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-02)";
+const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-16)";
 
 /// The curated known-surface list. Every entry is a documented Claude Code surface
 /// (verified against the settings docs, [`SETTINGS_DOC`]) that **no built-in kind
@@ -280,7 +276,7 @@ fn with_locked_kinds(
     kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<BTreeMap<String, CustomKind>> {
     let mut merged = kinds.clone();
-    let locked = drift::read_declarations(&root.join(TEMPER_DIR))?;
+    let locked = drift::read_declarations(&root.join(crate::WORKSPACE_DIR))?;
     for row in &locked.kinds {
         if !merged.contains_key(&row.name) {
             merged.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
@@ -626,7 +622,7 @@ mod tests {
         };
         crate::drift::emit(
             &payload,
-            &root.join(TEMPER_DIR),
+            &root.join(crate::WORKSPACE_DIR),
             crate::drift::EmitOptions::default(),
         )
         .unwrap();

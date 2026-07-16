@@ -22,17 +22,6 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::drift::Declarations;
 use crate::kind::{CustomKind, Governs};
 
-/// Filename of the generated roll-up index — the contents' state-of-record —
-/// written at the workspace root.
-const LOCK_FILENAME: &str = "lock.toml";
-
-/// Directory name of the surface workspace (authored modules + lock) that
-/// `install` scaffolds under the harness root. It is committed, not
-/// gitignored, so without an explicit skip a `**` glob (e.g. `memory`'s
-/// `**/CLAUDE.md`) would walk into it and count its contents as harness
-/// members — the surface is categorically not a harness member.
-const TEMPER_DIR: &str = ".temper";
-
 /// Errors raised while discovering or rolling up a harness's members.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum ImportError {
@@ -269,8 +258,12 @@ fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
         .git_exclude(true)
         .require_git(false)
         .filter_entry(|entry| {
+            // The surface workspace is committed, not gitignored, so without an
+            // explicit skip a `**` glob (e.g. `memory`'s `**/CLAUDE.md`) would walk
+            // into it and count its contents as harness members — the surface is
+            // categorically not a harness member.
             if entry.file_name() == OsStr::new(".git")
-                || entry.file_name() == OsStr::new(TEMPER_DIR)
+                || entry.file_name() == OsStr::new(crate::WORKSPACE_DIR)
             {
                 return false;
             }
@@ -296,7 +289,9 @@ fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
 /// Whether `dir` carries its own `.temper/lock.toml` — the mark of an independently
 /// governed harness whose members are its own corpus, not the enclosing walk's.
 fn is_governed_root(dir: &Path) -> bool {
-    dir.join(TEMPER_DIR).join(LOCK_FILENAME).is_file()
+    dir.join(crate::WORKSPACE_DIR)
+        .join(crate::LOCK_FILENAME)
+        .is_file()
 }
 
 /// Read `dir`'s entries into a vector, mapping any failure to an
@@ -358,7 +353,7 @@ pub(crate) fn write_rollup(
     crate::drift::write_source_deps(&mut doc, "include", includes);
 
     create_dir_all(into)?;
-    write_bytes(&into.join(LOCK_FILENAME), doc.to_string().as_bytes())
+    write_bytes(&into.join(crate::LOCK_FILENAME), doc.to_string().as_bytes())
 }
 
 /// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
@@ -568,15 +563,27 @@ Last line, no newline.";
 
         // The parent harness: its own `.temper/lock.toml` (must not self-fence) plus a
         // root memory file.
-        fs::create_dir_all(harness.join(TEMPER_DIR)).unwrap();
-        fs::write(harness.join(TEMPER_DIR).join(LOCK_FILENAME), "").unwrap();
+        fs::create_dir_all(harness.join(crate::WORKSPACE_DIR)).unwrap();
+        fs::write(
+            harness
+                .join(crate::WORKSPACE_DIR)
+                .join(crate::LOCK_FILENAME),
+            "",
+        )
+        .unwrap();
         fs::write(harness.join("CLAUDE.md"), "# root memory\n").unwrap();
 
         // A vendored sub-harness with its own governed root and its own memory file —
         // fenced from the parent's walk.
         let vendored = harness.join("examples").join("sub-harness");
-        fs::create_dir_all(vendored.join(TEMPER_DIR)).unwrap();
-        fs::write(vendored.join(TEMPER_DIR).join(LOCK_FILENAME), "").unwrap();
+        fs::create_dir_all(vendored.join(crate::WORKSPACE_DIR)).unwrap();
+        fs::write(
+            vendored
+                .join(crate::WORKSPACE_DIR)
+                .join(crate::LOCK_FILENAME),
+            "",
+        )
+        .unwrap();
         fs::write(vendored.join("CLAUDE.md"), "# vendored memory\n").unwrap();
 
         let memory = CustomKind::new(
