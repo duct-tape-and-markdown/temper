@@ -1,14 +1,13 @@
 [
   {
     "tag": "INSTALL-REPRESENTED-SKIPS-THE-QUESTION",
-    "summary": "`install` on a root already carrying `.temper/lock.toml` skips the represent question and converges on the lock, never defaulting non-interactive to session-start-only",
+    "summary": "`install` reads the lock on disk under its path: a root carrying `.temper/lock.toml` skips the settled represent question and converges on the lock; a path that IS a workspace refuses loud",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "Install"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CHECK-WORKSPACE-DIR-RESOLVE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The represent decision (396-410): `yes` ⇒ Yes, `no_represent` ⇒ No, else `ask_represent()` (618-630, which defaults an unattended terminal to No). A root whose `.temper/lock.toml` exists has answered the fork on disk, so neither the prompt nor its conservative default applies: detect it and take the represented path, placements following the lock's current contents. `--no-represent` against such a root asserts the false half of a settled fork — refuse as a usage error naming the lock, never silently place less than the lock justifies."
+          "description": "Two halves of one job — install resolving its path argument against the locks already on disk. (1) The represent decision (398-413): `yes` ⇒ Yes, `no_represent` ⇒ No, else `ask_represent()` (620-633, which defaults an unattended terminal to No). A root whose `.temper/lock.toml` exists has answered the fork on disk, so neither the prompt nor its conservative default applies: detect it and take the represented path, placements following the lock's current contents. `--no-represent` against such a root asserts the false half of a settled fork — refuse as a usage error naming the lock, never silently place less than the lock justifies. (2) The install arm resolves `path` as a harness root unconditionally, so a path that IS a workspace (`lock.toml` directly under it) is treated as a raw unrepresented root: it discovers the workspace's own files and would scaffold `<path>/.claude/settings.json` inside the workspace — silent nonsense where invariant 6 demands loud. Refuse, naming the enclosing root as the argument meant. Consolidation, not a second resolver (`specs/process/engineering.md`, 'One job, one home'): `harness_diagnostics` (658-680) already answers exactly this question three ways off the `LOCK_FILE` const c7409f0 added — extend that surface rather than hand-rolling install's own lock probe."
         },
         {
           "path": "src/install.rs",
-          "description": "`REPRESENT_QUESTION` and its doc (177-178) carry the one-genuine-fork rule; state there that the question is asked only where the fork is live (no lock on disk). `render_discovery` — the report printed before the question — names the already-represented root, so a skipped question is visible rather than invisible state."
+          "description": "`REPRESENT_QUESTION` and its doc (175-178) carry the one-genuine-fork rule; state there that the question is asked only where the fork is live (no lock on disk). `render_discovery` (330) — the report printed before the question — names the already-represented root, so a skipped question is visible rather than invisible state."
         }
       ],
       "retire": []
@@ -29,11 +28,11 @@
     "tests": [
       {
         "path": "tests/install.rs",
-        "asserts": "a represented root (lock present), neither flag, no tty: takes the represented path — the lock's placements, no prompt; `--no-represent` against a represented root refuses loud"
+        "asserts": "a represented root (lock present), neither flag, no tty: takes the represented path — the lock's placements, no prompt; `--no-represent` against a represented root refuses loud; a workspace dir passed as the path refuses instead of scaffolding a `.claude/` inside it"
       }
     ],
-    "acceptance": "On this repo, non-interactive `temper install --dry-run` reports the 3 managed-by notes `check .` demands as `install.gate-installed` — the probe and the on-ramp converge — and install asks no question the lock has already answered.",
-    "notes": "Probe at f4e3c13: `install . --dry-run` here prints the question, defaults No, and manages the session-start hook alone; `--yes --dry-run` scaffolds 0 members and places the 3 notes. So the yes-path already converges — the gap is that a settled fork is re-asked, then answered wrong when unattended. Serialized behind CHECK-WORKSPACE-DIR-RESOLVE: both edit src/main.rs. scoped at f4e3c13."
+    "acceptance": "On this repo, non-interactive `temper install . --dry-run` places the 3 managed-by notes `check .` demands — the probe and the on-ramp converge — asking no question the lock has already answered; `temper install .temper` refuses rather than scaffolding into the workspace.",
+    "notes": "Both premises re-probed live at f632c71, past c7409f0: `install . --dry-run` still prints the question, defaults No, manages the session-start hook alone; `--yes --dry-run` places the 3 notes — the yes-path already converges, so the gap is a settled fork re-asked then answered wrong unattended. `install .temper --dry-run` would place a hook at `.temper/.claude/settings.json`. Blocker CHECK-WORKSPACE-DIR-RESOLVE shipped (c7409f0); gate opened. scoped at f632c71."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +59,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at f632c71: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
   }
 ]

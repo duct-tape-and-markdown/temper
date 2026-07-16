@@ -1,32 +1,32 @@
 # Plan state
 
 - Spec derived through: 39a4833
-- Audited through: ff7da32
-- Residue swept through: ff7da32
-- This tick: ROUTE the inbox (3 notes, stamped f08ffca/4a47b2b — that window
-  carries no src/sdk/tests commit, so every premise was re-verified live rather
-  than diffed forward). (1) dark-mention containment → open fork
-  `(mention-gate-containment)`: the check needs a predicate the closed vocabulary
-  lacks (`src/contract.rs:81` — `degree` is the only mention-edge predicate, none
-  compares glob sets), and a language change is decision-tier (0022 `f67303c`
-  ratified `glob-valid` before `46b8cd1` built it), so plan registers rather than
-  files. (2) gate-opening-is-loud → evidence folded into that fork's cost side;
-  the authoring-guidance digest is docs/human territory. (3) engine finding → two
-  entries, both probed live at f4e3c13: CHECK-WORKSPACE-DIR-RESOLVE
-  (`check .temper` → 1 member + 2 false `requirement.unfilled`, exit 0;
-  `check .` → 10 members, green) and INSTALL-REPRESENTED-SKIPS-THE-QUESTION
-  (`install . --dry-run` re-asks the settled fork and defaults No; `--yes
-  --dry-run` already converges, placing the 3 notes `check .` demands).
-- Queue: 1 pickable (CHECK-WORKSPACE-DIR-RESOLVE);
-  INSTALL-REPRESENTED-SKIPS-THE-QUESTION blockedBy it (both edit src/main.rs);
+- Audited through: f632c71
+- Residue swept through: f632c71
+- This tick: RECONCILE the ff7da32..f632c71 window — one src commit in it
+  (c7409f0, CHECK-WORKSPACE-DIR-RESOLVE: main.rs/bundle.rs/gate_fail_loud.rs;
+  f632c71 already drained the entry). **Audit:** read the shipped diff on disk —
+  `harness_diagnostics` (main.rs:658-680) now resolves a path three ways off a new
+  `LOCK_FILE` const, the workspace branch gating against the enclosing root. That
+  discharges the only reason INSTALL-REPRESENTED-SKIPS-THE-QUESTION was `blockedBy`
+  it (both edit main.rs) ⇒ **gate opened**, line cites refreshed past c7409f0's
+  shift (396-410→398-413, 618-630→620-633). Both its premises re-probed live rather
+  than diffed forward: the question is still asked and still defaults No unattended;
+  `--yes` still converges on the 3 notes. PACKAGING-CHANNELS-REMAINDER's park
+  re-tested — no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers
+  darwin — still unmet, stays parked. **Sweep:** one finding, folded rather than
+  filed beside — `install` resolves its path as a harness root unconditionally, so
+  `install .temper` (probed) treats the workspace as a raw root and would scaffold
+  `.temper/.claude/settings.json`: the same half-resolve c7409f0 closed for `check`,
+  surviving in a second resolver of one job (`engineering.md`, "One job, one home").
+  Same section and same two files as the install entry, so it folds in as
+  consolidation rather than opening a second blockedBy chain on main.rs. No rider
+  moved: the window touched no file any "rides X" record names, so every line cite
+  in open-questions holds unshifted and that file is unchanged this tick.
+- Queue: 1 pickable (INSTALL-REPRESENTED-SKIPS-THE-QUESTION, gate just opened);
   PACKAGING-CHANNELS-REMAINDER parked (John's Apple notarizing + the v0.1
   lockstep tag) — condition re-tested, still unmet.
 
-Plan continues: no — the inbox job is complete and no input below it is live:
-spec delta empty (39a4833 fully derived), no src/tests/sdk commit past ff7da32
-(208e8f8 touched only .temper/, .claude/, examples/, docs/, CLAUDE.md). Cursors
-copied forward verbatim — reconciliation was not this tick's job. The prior
-tick's NB is retired: 208e8f8 flipped the SessionStart hook to `temper check .`,
-and `check .` probes green on requirements (10 members, neither unfilled) — that
-red was the same half-resolve CHECK-WORKSPACE-DIR-RESOLVE fixes, not a harness
-gap.
+Plan continues: no — reconciliation was the last input in the order, and both
+cursors now sit at HEAD. Spec cursor copied forward verbatim (delta empty; 39a4833
+fully derived). Build takes over: the queue has one pickable entry.
