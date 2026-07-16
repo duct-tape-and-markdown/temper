@@ -50,7 +50,7 @@ fn contract_for_kind(kind: &str) -> Contract {
 /// The shipped each-grain clause a typed requirement's `kind` facet sources —
 /// "every satisfier is kind K" at `required` severity. The mechanism — the predicate shape and its `required`
 /// severity — ships fixed with the requirement facet; only `kind` is
-/// per-requirement author data, so [`crate::roster::check`] calls this to
+/// per-requirement author data, so [`crate::roster::selections`] calls this to
 /// synthesize the clause fresh from [`compose::Requirement::kind`] every run
 /// rather than storing it on the requirement.
 #[must_use]

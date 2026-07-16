@@ -1176,7 +1176,7 @@ fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize 
 /// A read, never a gate — the caller prints this and exits zero on every input.
 ///
 /// The `roster` is the requirement namespace `check` gates. `by_kind` is the same
-/// decidable corpus the gate's own `roster::check` counts satisfiers from
+/// decidable corpus the gate's own selections count satisfiers from
 /// (REQUIREMENT-GATE), so `explain` cannot report a requirement unfilled that `check`
 /// counts as covered.
 #[must_use]
@@ -1323,7 +1323,7 @@ fn requirement_detail(
 /// The satisfier set of the requirement named `name` — every member whose `satisfies`
 /// opts into it, paired with its authored rationale when one is available. The
 /// rationale-carrying custom listing (`members`) is unioned with `by_kind` —
-/// the same opt-in join [`crate::roster::is_satisfier`] reads fill status from — so a
+/// the same opt-in join the roster's own selection is built on — so a
 /// satisfier `check` counts toward coverage is never missing here just because the
 /// custom listing lags `by_kind` (a `required` requirement with a satisfier
 /// locked on disk narrating as unfilled was exactly that drift, REQUIREMENT-GATE). A

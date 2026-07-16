@@ -794,6 +794,10 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // so "checked N members" is stated rather than left as bare silence.
     let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut builtin_features: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
+    // Each kind's resolved contract, kept past its dispatch loop: the set clauses in it
+    // bind to the kind's *whole* by-kind selection, which only exists once every
+    // dispatcher has run and `by_kind` is assembled below.
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
@@ -807,6 +811,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
         member_counts.insert(kind.name.clone(), features.len());
+        contracts.insert(kind.name.clone(), contract);
         builtin_features.insert(kind.name.clone(), features);
     }
 
@@ -837,6 +842,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, &features));
         member_counts.insert(row.name.clone(), features.len());
+        contracts.insert(row.name.clone(), contract);
         custom_kinds.push((custom_kind, features));
     }
 
@@ -864,8 +870,8 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         }),
     );
 
-    // The harness-contract tier: set-scope predicates over the parsed roster, each
-    // quantified over a requirement's satisfier set.
+    // The harness-contract tier: the set predicates over the parsed roster, each
+    // quantified over a requirement's opt-in selection.
     // Runs unconditionally — the lock is the sole source of assembly facts now, so an
     // unadopted harness's empty declarations make this tier a no-op rather than a
     // skip.
@@ -894,6 +900,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
         diagnostics.extend(engine::admissibility(&contract));
         diagnostics.extend(engine::validate(&contract, features));
+        contracts.insert(kind.clone(), contract);
     }
 
     let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
@@ -923,9 +930,16 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // trusted to judge the harness.
     diagnostics.extend(roster::admissibility(&requirements, &by_kind, harness_root));
 
-    // The set-scope predicates: each requirement's `count` / `unique` /
-    // `membership` gate over its satisfier set.
-    diagnostics.extend(roster::check(&requirements, &by_kind));
+    // The declared selections, whole: every requirement's opt-in selection and every
+    // kind's by-kind selection. Both lists are assembled before either is judged
+    // because a `membership` clause draws its allowed set from a *second* selection,
+    // and the judge resolves that target off this one list — the existential and the
+    // universal binding are the same algebra, so neither can be judged in isolation.
+    let mut selections = roster::selections(&requirements, &by_kind);
+    selections.extend(kind_selections(&contracts, &by_kind));
+
+    // The selection grain: `count` / `unique` / `membership` whole, `kind` each.
+    diagnostics.extend(engine::judge(&selections));
 
     // The edge scope: build the reference graph over the declared edges and check route
     // resolution — a declared reference must resolve to a real artifact of the
@@ -951,17 +965,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // positive. Always-on over the whole edge set, like route resolution above.
     diagnostics.extend(graph::acyclic(&edges, &by_kind));
 
-    // `degree`: a requirement declares an in/out
-    // edge-count bound every satisfier's degree must fall inside, so it takes
-    // the requirements *and* the edges, reusing the arc resolution
-    // `acyclic`/`check` assemble, plus the already-resolved mention edges — obligation-free
-    // by default, counted only when a `degree` clause opts in. Opt-in per requirement.
-    diagnostics.extend(graph::degree(
-        &assembly_requirements,
-        &edges,
-        &mention_edges,
-        &by_kind,
-    ));
+    // `degree`: the one set predicate whose judge needs the graph — a clause bounds
+    // every selected member's in/out edge count, so it takes the same selections
+    // `engine::judge` reads *and* the edges, reusing the arc resolution
+    // `acyclic`/`check` assemble, plus the already-resolved mention edges —
+    // obligation-free by default, counted only when a `degree` clause opts in.
+    diagnostics.extend(graph::degree(&selections, &edges, &mention_edges, &by_kind));
 
     // The requirement-coverage tier: every `required`
     // requirement must have a resolving home (≥1 artifact opting in via
@@ -1383,6 +1392,31 @@ fn assemble_by_kind<'a>(
         by_kind.insert(kind.as_str(), features.as_slice());
     }
     by_kind
+}
+
+/// Every kind's **by-kind selection**: its whole member population — the universal
+/// binding — bound to its own contract's clauses.
+///
+/// The clause set is the contract entire, not the set clauses alone: `engine::judge`
+/// reads the ones that range over the selection and `engine::validate` has already read
+/// the member-grain ones off the identical contract, so the two judges split one
+/// declaration rather than two filtered copies of it. A kind in `by_kind` with no
+/// contract of its own declares no clause to judge and contributes no selection.
+fn kind_selections<'a>(
+    contracts: &BTreeMap<String, Contract>,
+    by_kind: &BTreeMap<&'a str, &'a [extract::Features]>,
+) -> Vec<engine::Selection<'a>> {
+    by_kind
+        .iter()
+        .filter_map(|(kind, features)| {
+            let contract = contracts.get(*kind)?;
+            Some(engine::Selection {
+                selector: engine::Selector::Kind((*kind).to_string()),
+                clauses: contract.clauses.clone(),
+                members: features.iter().map(|feature| (*kind, feature)).collect(),
+            })
+        })
+        .collect()
 }
 
 /// The embedded-kind corpus: every kind declared at the embedded locus keyed to its

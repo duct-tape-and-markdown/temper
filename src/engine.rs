@@ -18,25 +18,29 @@
 //!   `max_len`), so a finding names the clause that produced it.
 //! - **artifact** is the features' `id`.
 //!
+//! ## The two grains
+//!
+//! A clause binds to a [`Selection`] and evaluates at one of two grains. [`validate`]
+//! judges the member grain — one member's own [`Features`]. [`judge`] judges the
+//! selection grain — the set predicates, over whatever selector picked the set
+//! (`crate::graph::degree` reads the same selections, since a degree bound needs the
+//! reference graph the members alone do not carry).
+//!
 //! ## The honest bound (`verified_by` philosophy)
 //!
-//! A predicate this engine has no judge for never degrades to a working no-op:
-//! [`admissibility`] **fences it**, so a hand-authored clause fails loudly
-//! instead of quietly deciding nothing. The fence is **facet-split**
-//! ([`Facet`]) — the node-set predicates are judged over a *requirement's*
-//! satisfier set (`crate::roster`/`crate::graph`) and so stay admissible there,
-//! while this per-artifact engine, which sees one member's [`Features`] against
-//! its kind's population, has no judge for them and rejects them. Only
-//! `dependency-exists`, which names no decidable reference syntax or extractor,
-//! is judge-less in both facets.
+//! A predicate no judge decides never degrades to a working no-op: [`admissibility`]
+//! **fences it**, so a hand-authored clause fails loudly instead of quietly deciding
+//! nothing. One predicate is fenced — `dependency-exists`, which names no decidable
+//! reference syntax or extractor, so no projection carries the fact it would range
+//! over.
 //!
 //! [`Error`]: check::Severity::Error
 //! [`Warn`]: check::Severity::Warn
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::check::{self, Diagnostic};
-use crate::contract::{self, Contract, EdgeBound, Predicate};
+use crate::contract::{self, Clause, Contract, EdgeBound, Predicate};
 use crate::extract::{FeatureValue, Features, ValueType};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
@@ -45,11 +49,20 @@ use crate::extract::{FeatureValue, Features, ValueType};
 /// The artifact slice is passed whole because cross-artifact clauses (e.g.
 /// `unique-name`) decide over the set, not one unit — the whole-kind slice
 /// [`crate::extract::Features`] is carried in.
+///
+/// This is the **member grain** only. A clause whose predicate ranges over the
+/// selection is skipped here and judged by [`judge`] over the assembled corpus: this
+/// loop sees one member of the kind's selection at a time, and two of the set
+/// predicates reach past the kind's own members entirely (`membership` derives its
+/// allowed set from another selection, `degree` counts arcs in the reference graph).
 #[must_use]
 pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for features in artifacts {
         for clause in &contract.clauses {
+            if clause.predicate.ranges_over_selection() {
+                continue;
+            }
             for message in evaluate(&clause.predicate, features, artifacts) {
                 diagnostics.push(
                     Diagnostic::new(
@@ -93,7 +106,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
-        for message in inadmissibilities(&clause.predicate, Facet::Contract) {
+        for message in inadmissibilities(&clause.predicate) {
             diagnostics.push(Diagnostic::error(
                 clause.predicate.key(),
                 &contract.name,
@@ -104,69 +117,38 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
     diagnostics
 }
 
-/// Which facet's clauses an admissibility pass judges. The vacuity rules are the
-/// same for both; the one fact that differs is **which predicates carry a judge**,
-/// so this is the parameter [`inadmissibilities`] splits on rather than a second
-/// copy of the rules per facet.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Facet {
-    /// A kind's per-artifact contract, judged by [`decide`] over one member's
-    /// [`Features`] against its kind's population.
-    Contract,
-    /// A requirement's own clauses, judged by [`crate::roster`] / [`crate::graph`]
-    /// over that requirement's satisfier set and the reference graph.
-    Requirement,
-}
-
-/// The admissibility violations of a single clause's predicate in `facet` — empty
-/// when the clause is well-formed over the definition. Two decidable checks live
-/// here today: (1) the predicate has a judge in this facet, since one that does not
-/// could only ever return [`Outcome::Indeterminate`] — a silent no-op; and (2) a
-/// value/key list is non-empty — a list-bearing predicate with an empty list is
-/// vacuous (an `enum` over no values admits nothing; `forbidden_keys` over no keys
-/// forbids nothing), which the author cannot have meant.
+/// The admissibility violations of a single clause's predicate — empty when the clause
+/// is well-formed over the definition. Two decidable checks live here today: (1) the
+/// predicate has a judge at all, since one that does not could only ever return
+/// [`Outcome::Indeterminate`] — a silent no-op; and (2) a value/key list is non-empty —
+/// a list-bearing predicate with an empty list is vacuous (an `enum` over no values
+/// admits nothing; `forbidden_keys` over no keys forbids nothing), which the author
+/// cannot have meant.
 ///
-/// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate
-/// vacuity rules for a requirement's own `clauses` — one definition of "vacuous",
-/// never a second copy drifting beside it.
-pub(crate) fn inadmissibilities(predicate: &Predicate, facet: Facet) -> Vec<String> {
-    let mut messages: Vec<String> = judgeless(predicate, facet).into_iter().collect();
+/// Every rule holds of every clause, whichever selection it binds to: an empty `kind`
+/// and an inverted bound are vacuous over any set, and the one judge-less predicate is
+/// judge-less everywhere.
+///
+/// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate rules
+/// for a requirement's own `clauses` — one definition of "vacuous", never a second copy
+/// drifting beside it.
+pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
+    let mut messages: Vec<String> = judgeless(predicate).into_iter().collect();
     messages.extend(vacuities(predicate));
     messages
 }
 
-/// The fence message when `facet` has no judge for `predicate`, else `None`.
+/// The fence message when no judge decides `predicate`, else `None`.
 ///
 /// A predicate with no judge cannot decide its clause, and a clause that decides
-/// nothing must fail admissibility rather than degrade to a working no-op — so this
-/// is the one declared fact about where each predicate is judged, never a rule
-/// duplicated per facet.
-fn judgeless(predicate: &Predicate, facet: Facet) -> Option<String> {
+/// nothing must fail admissibility rather than degrade to a working no-op.
+fn judgeless(predicate: &Predicate) -> Option<String> {
     match predicate {
-        // Judge-less in *both* facets: it names no decidable reference syntax or
-        // extractor, so no projection carries the fact it would range over.
         Predicate::DependencyExists => Some(
             "`dependency-exists` is held back: it names no decidable reference \
              syntax or extractor, so it is inadmissible as a clause"
                 .to_string(),
         ),
-        // The node-set/edge-scope family quantifies over a *named requirement's*
-        // satisfier set (and, for `degree`, the reference graph) — context
-        // `crate::roster`/`crate::graph` hold and this per-artifact engine does not.
-        // Sayable here, but undecidable here, so the contract facet fences them.
-        Predicate::Count { .. }
-        | Predicate::Unique { .. }
-        | Predicate::Membership { .. }
-        | Predicate::Degree { .. }
-        | Predicate::Kind { .. }
-            if facet == Facet::Contract =>
-        {
-            Some(format!(
-                "`{}` ranges over a requirement's satisfier set, which a per-artifact \
-                 contract clause has no judge for — declare it on the requirement instead",
-                predicate.key()
-            ))
-        }
         _ => None,
     }
 }
@@ -249,6 +231,260 @@ fn vacuities(predicate: &Predicate) -> Vec<String> {
         }
         _ => Vec::new(),
     }
+}
+
+/// A declared, decidable expression picking the set a contract binds to. Selectors are
+/// atomic and do not compose: narrowing a selection is an each-grain clause over it
+/// (`kind`), never a second selector, so a member outside the narrowing is a finding
+/// rather than a silent exclusion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Selector {
+    /// Every member of a kind — the universal binding.
+    Kind(String),
+    /// The members whose satisfies edge targets a requirement — the existential
+    /// binding.
+    OptIn(String),
+}
+
+impl Selector {
+    /// The kind or requirement name this selector picks by — the `artifact` a finding
+    /// over the selection names.
+    #[must_use]
+    pub fn label(&self) -> &str {
+        match self {
+            Selector::Kind(kind) => kind,
+            Selector::OptIn(requirement) => requirement,
+        }
+    }
+
+    /// The selection as a finding's subject, e.g. ``kind `skill` `` — `pub` so
+    /// [`crate::graph::degree`]'s findings name their selection in the identical words
+    /// the other set predicates' do.
+    #[must_use]
+    pub fn noun(&self) -> String {
+        match self {
+            Selector::Kind(kind) => format!("kind `{kind}`"),
+            Selector::OptIn(requirement) => format!("requirement `{requirement}`"),
+        }
+    }
+
+    /// The diagnostic `rule` id a `predicate` finding over this selection reports
+    /// under. A kind's own clauses report under the bare clause key, exactly as the
+    /// member-grain findings [`validate`] emits for the same contract do; a
+    /// requirement's report under the `requirement.` namespace its other findings share.
+    fn rule(&self, predicate: &Predicate) -> String {
+        match self {
+            Selector::Kind(_) => predicate.key().to_string(),
+            Selector::OptIn(_) => format!("requirement.{}", predicate.key()),
+        }
+    }
+}
+
+/// The set a contract binds to: the [`Selector`] that picked it, the members it
+/// resolved to (each tagged with its own kind), and the clauses bound to it.
+///
+/// One algebra judges every selection — the quantifier is the clause's *grain*, never
+/// the selector's, so there is no universal/existential machinery to keep in step.
+pub struct Selection<'a> {
+    /// The declared expression that picked the members.
+    pub selector: Selector,
+    /// The clauses bound to this selection, in declaration order.
+    pub clauses: Vec<Clause>,
+    /// The selected members, each tagged with its own kind label.
+    pub members: Vec<(&'a str, &'a Features)>,
+}
+
+impl Selection<'_> {
+    /// Every selected member's `field` value that is a scalar — the projection the
+    /// whole-grain field predicates decide over. A member missing the field carries no
+    /// value, so it contributes none.
+    fn values<'f>(&'f self, field: &str) -> impl Iterator<Item = (&'f str, &'f str)> {
+        self.members.iter().filter_map(move |(_, features)| {
+            let value = features.field(field).and_then(FeatureValue::as_scalar)?;
+            Some((features.id.as_str(), value))
+        })
+    }
+}
+
+/// Judge every clause bound to each selection, at the **selection grain** — the one
+/// algebra behind `count`/`unique`/`membership` (whole) and `kind` (each), whichever
+/// selector picked the set. Each finding carries its clause's own declared severity and
+/// names the selection it indicts.
+///
+/// `selections` is the whole declared set rather than one, because `membership` draws
+/// its allowed values from a *second* selection — shaping that set is the target's own
+/// job, never re-derived here.
+///
+/// Two grains are judged elsewhere off the same clause set: `degree` by
+/// [`crate::graph::degree`], which needs the reference graph the members do not carry,
+/// and the member-grain predicates by [`validate`], which reads one member's
+/// [`Features`].
+#[must_use]
+pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for selection in selections {
+        for clause in &selection.clauses {
+            match &clause.predicate {
+                Predicate::Count { min, max } => {
+                    diagnostics.extend(out_of_band(selection, clause, *min, *max));
+                }
+                Predicate::Unique { field } => {
+                    diagnostics.extend(duplicates(selection, clause, field));
+                }
+                Predicate::Membership { field, target } => {
+                    diagnostics.extend(out_of_set(selections, selection, clause, field, target));
+                }
+                Predicate::Kind { kind } => {
+                    diagnostics.extend(wrong_kind(selection, clause, kind));
+                }
+                // `degree` binds to a selection too, but its judge needs the graph.
+                // Every other predicate binds to a member, not a set.
+                _ => {}
+            }
+        }
+    }
+    diagnostics
+}
+
+/// The whole-grain `count` finding when the selection's cardinality falls outside the
+/// declared bound — naming the selection, the members, and the `[min, max]` it missed.
+fn out_of_band(
+    selection: &Selection,
+    clause: &Clause,
+    min: usize,
+    max: usize,
+) -> Option<Diagnostic> {
+    if (min..=max).contains(&selection.members.len()) {
+        return None;
+    }
+    let listed = if selection.members.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " ({})",
+            selection
+                .members
+                .iter()
+                .map(|(_, features)| features.id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    };
+    Some(finding(
+        selection,
+        clause,
+        format!(
+            "{} selects {} member(s){listed}, outside its declared count bound [{min}, {max}]",
+            selection.selector.noun(),
+            selection.members.len(),
+        ),
+    ))
+}
+
+/// The whole-grain `unique` findings for one declared `field` — one per value two or
+/// more members share. A member missing the field carries no value to collide on, so it
+/// is silently skipped: a missing field is no collision. Values are grouped in a
+/// [`std::collections::BTreeMap`] so the finding set is stable across runs.
+fn duplicates(selection: &Selection, clause: &Clause, field: &str) -> Vec<Diagnostic> {
+    let mut by_value: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for (id, value) in selection.values(field) {
+        by_value.entry(value).or_default().push(id);
+    }
+    by_value
+        .into_iter()
+        .filter(|(_, sharers)| sharers.len() > 1)
+        .map(|(value, sharers)| {
+            finding(
+                selection,
+                clause,
+                format!(
+                    "{} requires `{field}` unique across its selection, but {} members share `{field}` = `{value}` ({})",
+                    selection.selector.noun(),
+                    sharers.len(),
+                    sharers.join(", ")
+                ),
+            )
+        })
+        .collect()
+}
+
+/// The whole-grain `membership` findings: build the allowed set from `field` over the
+/// selection `target` names, then emit one finding per member whose own `field` scalar
+/// is absent from it. A member missing `field` carries no value to check, so it is
+/// silently skipped — a missing field is no violation, the way a missing `unique` field
+/// is no collision.
+///
+/// The allowed set is corpus-*derived*, so a `target` with no members — or a `target` no
+/// selector declares — yields the empty set, under which every valued member is
+/// genuinely a non-member.
+fn out_of_set(
+    selections: &[Selection],
+    selection: &Selection,
+    clause: &Clause,
+    field: &str,
+    target: &str,
+) -> Vec<Diagnostic> {
+    let source = Selector::OptIn(target.to_string());
+    let allowed: BTreeSet<&str> = selections
+        .iter()
+        .filter(|other| other.selector == source)
+        .flat_map(|other| other.values(field))
+        .map(|(_, value)| value)
+        .collect();
+
+    selection
+        .values(field)
+        .filter(|(_, value)| !allowed.contains(value))
+        .map(|(id, value)| {
+            finding(
+                selection,
+                clause,
+                format!(
+                    "{} requires `{field}` of each member drawn from the `{field}` feature of the members satisfying `{target}`, but `{id}` declares `{field}` = `{value}`, which is not in that set",
+                    selection.selector.noun(),
+                ),
+            )
+        })
+        .collect()
+}
+
+/// The each-grain `kind` findings — one per selected member whose actual kind is not the
+/// declared one. A member outside the narrowing is a finding, never a silent exclusion
+/// from the set `count`/`unique`/`membership` range over.
+///
+/// A member's *actual* kind is the selection's own context, never a fact [`Features`]
+/// itself carries, so this predicate is judged here rather than in [`decide`]'s
+/// per-`Features` table.
+fn wrong_kind(selection: &Selection, clause: &Clause, kind: &str) -> Vec<Diagnostic> {
+    selection
+        .members
+        .iter()
+        .filter(|(actual, _)| *actual != kind)
+        .map(|(actual, features)| {
+            finding(
+                selection,
+                clause,
+                format!(
+                    "{} narrows its members to kind `{kind}`, but `{}` is kind `{actual}`",
+                    selection.selector.noun(),
+                    features.id,
+                ),
+            )
+        })
+        .collect()
+}
+
+/// One selection-grain finding: the clause's own declared severity, the rule id the
+/// selector namespaces, the selection as the indicted artifact, and the clause's
+/// colocated guidance.
+fn finding(selection: &Selection, clause: &Clause, message: String) -> Diagnostic {
+    Diagnostic::new(
+        severity_of(clause.severity),
+        selection.selector.rule(&clause.predicate),
+        selection.selector.label(),
+        message,
+    )
+    .with_guidance(clause.guidance.clone())
 }
 
 /// Evaluate one predicate over one artifact's features, returning a message per
@@ -527,35 +763,17 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             }
         }
 
-        // Every predicate this facet has no judge for. [`admissibility`] fences each
-        // one, so a valid conformance run never reaches these arms: they are a
-        // defensive floor (never a fabricated pass), and they light up with no
-        // engine change once a judge lands — an extractor carrying a
-        // declared-dependency model for `dependency-exists`, and
-        // REQUIREMENT-CLAUSES-RECUT moving the node-set family's requirement-facet
-        // judging onto this same clause spelling.
+        // The defensive floor, never a fabricated pass, and never reached on a valid
+        // run: [`admissibility`] fences `dependency-exists` before conformance, and
+        // [`validate`] routes a set predicate to its own judge instead of this
+        // per-member table. `dependency-exists` lights up here with no other engine
+        // change once an extractor carries a declared-dependency model.
         Predicate::DependencyExists
         | Predicate::Count { .. }
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
         | Predicate::Kind { .. } => Outcome::Indeterminate,
-    }
-}
-
-/// The each-grain `kind` predicate's verdict for one satisfier — `None` when its
-/// actual kind matches the declared `kind`, else the violation message. The same
-/// [`Outcome::check`] decision every other each-grain arm in [`decide`] reaches,
-/// pulled out as its own entry point because a satisfier's *actual* kind is roster
-/// context (`crate::roster`), never a fact [`Features`] itself carries — so this
-/// predicate cannot ride `decide`'s per-`Features` match table.
-#[must_use]
-pub(crate) fn kind_violation(kind: &str, actual: &str) -> Option<String> {
-    match Outcome::check(kind == actual, || {
-        format!("is kind `{actual}`, not the requirement's declared kind `{kind}`")
-    }) {
-        Outcome::Violated(mut messages) => messages.pop(),
-        Outcome::Holds | Outcome::Indeterminate => None,
     }
 }
 
@@ -883,14 +1101,14 @@ mod tests {
     fn an_inverted_count_bound_is_inadmissible() {
         // `count`'s `min > max` is the same vacuous-bound rule as `range`, over the
         // satisfier-set's cardinality.
-        let messages = inadmissibilities(&Predicate::Count { min: 3, max: 1 }, Facet::Requirement);
+        let messages = inadmissibilities(&Predicate::Count { min: 3, max: 1 });
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("min 3 greater than max 1"));
 
         // Equal endpoints included: a well-ordered bound is admissible.
         for (min, max) in [(0, 5), (2, 2)] {
             assert!(
-                inadmissibilities(&Predicate::Count { min, max }, Facet::Requirement).is_empty(),
+                inadmissibilities(&Predicate::Count { min, max }).is_empty(),
                 "[{min}, {max}] is admissible"
             );
         }
@@ -902,7 +1120,7 @@ mod tests {
             field: "model".to_string(),
             target: String::new(),
         };
-        let messages = inadmissibilities(&empty_target, Facet::Requirement);
+        let messages = inadmissibilities(&empty_target);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("empty target"));
 
@@ -910,7 +1128,7 @@ mod tests {
             field: "model".to_string(),
             target: "approved-models".to_string(),
         };
-        assert!(inadmissibilities(&named, Facet::Requirement).is_empty());
+        assert!(inadmissibilities(&named).is_empty());
     }
 
     #[test]
@@ -921,7 +1139,7 @@ mod tests {
             incoming: None,
             outgoing: None,
         };
-        let messages = inadmissibilities(&no_direction, Facet::Requirement);
+        let messages = inadmissibilities(&no_direction);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("no incoming or outgoing bound"));
 
@@ -934,7 +1152,7 @@ mod tests {
             }),
             outgoing: None,
         };
-        assert!(inadmissibilities(&routed, Facet::Requirement).is_empty());
+        assert!(inadmissibilities(&routed).is_empty());
     }
 
     #[test]
@@ -946,17 +1164,15 @@ mod tests {
             }),
             outgoing: None,
         };
-        let messages = inadmissibilities(&inverted, Facet::Requirement);
+        let messages = inadmissibilities(&inverted);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("incoming"));
     }
 
-    /// The predicates this per-artifact facet has no judge for, each in an
-    /// otherwise well-formed shape so the fence is the only thing that can indict
-    /// them — the node-set/edge-scope family, plus the both-facet `dependency-exists`.
-    fn judgeless_predicates() -> Vec<Predicate> {
+    /// The set predicates, each in an otherwise well-formed shape so nothing but a
+    /// fence could indict them.
+    fn set_predicates() -> Vec<Predicate> {
         vec![
-            Predicate::DependencyExists,
             Predicate::Count { min: 1, max: 3 },
             Predicate::Unique {
                 field: "name".to_string(),
@@ -979,54 +1195,298 @@ mod tests {
     }
 
     #[test]
-    fn a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause() {
-        // Each is sayable and well-formed, but this engine judges one member's
-        // features against its kind's population — never a named requirement's
-        // satisfier set — so it could only ever answer `Indeterminate`. The fence
-        // makes the contract fail loud rather than let the clause read as a green
-        // pass it never ran.
-        for predicate in judgeless_predicates() {
-            let key = predicate.key();
-            let diags = admissibility(&contract(ClauseSeverity::Required, predicate));
-            assert_eq!(
-                diags.len(),
-                1,
-                "`{key}` must be fenced as a per-artifact clause, got: {diags:?}"
-            );
-            assert_eq!(diags[0].rule, key, "the finding must name the predicate");
-            assert_eq!(
-                diags[0].severity,
-                Severity::Error,
-                "an inadmissible contract fails the run"
+    fn the_one_predicate_no_judge_decides_is_inadmissible_as_a_clause() {
+        // `dependency-exists` names no decidable reference syntax or extractor, so no
+        // projection carries the fact it would range over and it could only ever answer
+        // `Indeterminate`. The fence makes the contract fail loud rather than let the
+        // clause read as a green pass it never ran.
+        let diags = admissibility(&contract(
+            ClauseSeverity::Required,
+            Predicate::DependencyExists,
+        ));
+        assert_eq!(diags.len(), 1, "got: {diags:?}");
+        assert_eq!(
+            diags[0].rule, "dependency-exists",
+            "the finding must name the predicate"
+        );
+        assert_eq!(
+            diags[0].severity,
+            Severity::Error,
+            "an inadmissible contract fails the run"
+        );
+    }
+
+    #[test]
+    fn a_set_predicate_is_admissible_as_a_clause_on_any_contract() {
+        // The set predicates bind to a selection, and a kind's own contract declares
+        // one — its whole member population. `judge` (and `crate::graph::degree`) judge
+        // them over it, so there is nothing here for a fence to stand in for: a well-
+        // formed set clause is admissible wherever it is declared, and only vacuity can
+        // indict it.
+        for predicate in set_predicates() {
+            let diags = admissibility(&contract(ClauseSeverity::Required, predicate.clone()));
+            assert!(
+                diags.is_empty(),
+                "`{}` is judged over whatever selection its contract binds to, got: {diags:?}",
+                predicate.key()
             );
         }
     }
 
+    // ---- the selection grain ----------------------------------------------
+    //
+    // The same algebra the opt-in selection reaches (`crate::roster`'s cases), over the
+    // *universal* binding: a kind's whole member population. The quantifier is the
+    // clause's grain, so nothing about the judging is per-selector.
+
+    /// A by-kind selection over `members` (each of kind `kind`), carrying one
+    /// required-severity clause — the whole surface a kind's contract declares to bind a
+    /// set predicate to its own population.
+    fn kind_selection<'a>(
+        kind: &'a str,
+        members: &'a [Features],
+        predicate: Predicate,
+    ) -> Selection<'a> {
+        Selection {
+            selector: Selector::Kind(kind.to_string()),
+            clauses: vec![Clause {
+                severity: ClauseSeverity::Required,
+                predicate,
+                guidance: None,
+                source: None,
+            }],
+            members: members.iter().map(|features| (kind, features)).collect(),
+        }
+    }
+
     #[test]
-    fn the_requirement_facet_still_admits_every_predicate_it_judges() {
-        // The fence is facet-split, never a longer shared list: `crate::roster` /
-        // `crate::graph` do judge the node-set family over a requirement's satisfier
-        // set, so rejecting them there would break the half that works.
-        for predicate in judgeless_predicates() {
-            let messages = inadmissibilities(&predicate, Facet::Requirement);
-            if predicate == Predicate::DependencyExists {
-                // The one predicate no facet judges — fenced in both.
-                assert_eq!(messages.len(), 1);
-            } else {
-                assert!(
-                    messages.is_empty(),
-                    "`{}` is judged over a requirement's satisfier set, so it stays \
-                     admissible there, got: {messages:?}",
-                    predicate.key()
-                );
-            }
+    fn count_is_whole_grain_over_a_by_kind_selection() {
+        // The kind's population *is* the selection, so `count` bounds how many members
+        // the kind has — one verdict over the set, never one per member.
+        let members = [
+            features("plan", &[], 1, None),
+            features("ship", &[], 1, None),
+        ];
+        assert!(
+            judge(&[kind_selection(
+                "skill",
+                &members,
+                Predicate::Count { min: 1, max: 2 }
+            )])
+            .is_empty(),
+            "two members inside a [1, 2] band is clean"
+        );
+
+        let diags = judge(&[kind_selection(
+            "skill",
+            &members,
+            Predicate::Count { min: 1, max: 1 },
+        )]);
+        assert_eq!(diags.len(), 1, "one finding for the set, got: {diags:?}");
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert_eq!(diags[0].rule, "count");
+        assert_eq!(diags[0].artifact, "skill");
+        assert!(diags[0].message.contains("kind `skill`"));
+        assert!(diags[0].message.contains("[1, 1]"));
+        assert!(diags[0].message.contains("plan") && diags[0].message.contains("ship"));
+    }
+
+    #[test]
+    fn an_empty_by_kind_selection_fires_its_count_floor() {
+        // The case the member-grain loop structurally cannot reach: with no members
+        // there is no artifact to iterate, yet a `count` floor of one is exactly what a
+        // kind declares to demand the population exist.
+        let diags = judge(&[kind_selection(
+            "skill",
+            &[],
+            Predicate::Count { min: 1, max: 9 },
+        )]);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "count");
+        assert!(diags[0].message.contains("selects 0 member(s)"));
+    }
+
+    #[test]
+    fn unique_is_whole_grain_over_a_by_kind_selection() {
+        let shared = [
+            features("plan", &[("model", scalar("opus"))], 1, None),
+            features("ship", &[("model", scalar("opus"))], 1, None),
+        ];
+        let diags = judge(&[kind_selection(
+            "skill",
+            &shared,
+            Predicate::Unique {
+                field: "model".to_string(),
+            },
+        )]);
+        assert_eq!(diags.len(), 1, "one finding per shared value");
+        assert_eq!(diags[0].rule, "unique");
+        assert!(diags[0].message.contains("opus"));
+        assert!(diags[0].message.contains("plan") && diags[0].message.contains("ship"));
+
+        let distinct = [
+            features("plan", &[("model", scalar("opus"))], 1, None),
+            features("ship", &[("model", scalar("sonnet"))], 1, None),
+        ];
+        assert!(
+            judge(&[kind_selection(
+                "skill",
+                &distinct,
+                Predicate::Unique {
+                    field: "model".to_string(),
+                },
+            )])
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn membership_draws_a_by_kind_selections_allowed_set_from_an_opt_in_selection() {
+        // The two selectors meet: the constrained selection is a kind's population, the
+        // set its values are drawn from is a requirement's opt-in selection. `target`
+        // resolves off the sibling selections, so neither binding needs to know the
+        // other's machinery.
+        let skills = [
+            features("plan", &[("model", scalar("opus"))], 1, None),
+            features("ship", &[("model", scalar("gpt"))], 1, None),
+        ];
+        let approved = [features(
+            "approved-a",
+            &[("model", scalar("opus"))],
+            1,
+            None,
+        )];
+        let selections = [
+            kind_selection(
+                "skill",
+                &skills,
+                Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-model".to_string(),
+                },
+            ),
+            Selection {
+                selector: Selector::OptIn("approved-model".to_string()),
+                clauses: Vec::new(),
+                members: approved.iter().map(|f| ("manifest", f)).collect(),
+            },
+        ];
+        let diags = judge(&selections);
+        assert_eq!(diags.len(), 1, "only `gpt` is outside the derived set");
+        assert_eq!(diags[0].rule, "membership");
+        assert_eq!(diags[0].artifact, "skill");
+        assert!(diags[0].message.contains("ship") && diags[0].message.contains("gpt"));
+    }
+
+    #[test]
+    fn kind_is_each_grain_over_a_by_kind_selection() {
+        // The narrowing clause over a selection whose members are all of the kind it
+        // names holds of every one; naming another kind indicts every member, one
+        // finding each.
+        let members = [
+            features("plan", &[], 1, None),
+            features("ship", &[], 1, None),
+        ];
+        assert!(
+            judge(&[kind_selection(
+                "skill",
+                &members,
+                Predicate::Kind {
+                    kind: "skill".to_string()
+                }
+            )])
+            .is_empty()
+        );
+
+        let diags = judge(&[kind_selection(
+            "skill",
+            &members,
+            Predicate::Kind {
+                kind: "rule".to_string(),
+            },
+        )]);
+        assert_eq!(diags.len(), 2, "each grain: one finding per member");
+        assert!(diags.iter().all(|d| d.rule == "kind"));
+        assert!(diags[0].message.contains("`plan` is kind `skill`"));
+    }
+
+    #[test]
+    fn a_selection_clause_carries_its_own_severity_and_guidance() {
+        // The engine never decides error-versus-warning here either: an advisory set
+        // clause reports, and its colocated guidance rides the violation.
+        let mut selection = kind_selection("skill", &[], Predicate::Count { min: 1, max: 9 });
+        selection.clauses[0].severity = ClauseSeverity::Advisory;
+        selection.clauses[0].guidance = Some("ship at least one skill".to_string());
+        let diags = judge(&[selection]);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Severity::Warn);
+        assert!(!any_error(&diags));
+        assert_eq!(
+            diags[0].guidance.as_deref(),
+            Some("ship at least one skill")
+        );
+    }
+
+    #[test]
+    fn a_member_grain_clause_on_a_selection_is_left_to_validate() {
+        // The two judges split one contract: `judge` reads the clauses that range over
+        // the selection and leaves the rest to `validate`, so a kind's whole contract
+        // can ride the selection without double-reporting the member-grain half.
+        let members = [features("plan", &[], 1, None)];
+        let mut selection = kind_selection(
+            "skill",
+            &members,
+            Predicate::Required {
+                field: "model".to_string(),
+            },
+        );
+        assert!(judge(std::slice::from_ref(&selection)).is_empty());
+
+        // …and the member-grain judge is the mirror image: it skips the set clause.
+        selection.clauses[0].predicate = Predicate::Count { min: 9, max: 9 };
+        assert!(
+            validate(
+                &contract(
+                    ClauseSeverity::Required,
+                    Predicate::Count { min: 9, max: 9 }
+                ),
+                &members,
+            )
+            .is_empty(),
+            "`validate` sees one member of the selection at a time — the set clause is \
+             not its verdict to reach"
+        );
+    }
+
+    #[test]
+    fn every_predicate_is_judged_at_exactly_one_grain() {
+        // The honest bound, whole: a predicate either ranges over the selection — where
+        // `judge`/`crate::graph::degree` decide it and this per-member table must stay
+        // out of the way — or it reaches a verdict here. A predicate that did neither
+        // would read as a green pass it never ran.
+        let demo = features("demo", &[("model", scalar("opus"))], 1, Some("demo"));
+        for predicate in set_predicates() {
+            assert!(
+                predicate.ranges_over_selection(),
+                "`{}` is judged over a selection",
+                predicate.key()
+            );
+            assert!(
+                matches!(
+                    decide(&predicate, &demo, std::slice::from_ref(&demo)),
+                    Outcome::Indeterminate
+                ),
+                "`{}` must not answer at the member grain — its selection is not one member",
+                predicate.key()
+            );
         }
     }
 
     #[test]
     fn no_admissible_predicate_reaches_indeterminate_at_conformance() {
-        // The vocabulary, whole. Every predicate an admissible contract can carry
-        // must reach a verdict over this projection; the fenced ones never reach
+        // The member-grain vocabulary, whole. Every predicate an admissible contract can
+        // carry must reach a verdict over this projection; the set predicates are judged
+        // over their selection instead (above), and the fenced one never reaches
         // conformance at all.
         let demo = features("demo", &[("model", scalar("opus"))], 1, Some("demo"));
         let vocabulary = vec![
@@ -1089,7 +1549,7 @@ mod tests {
 
         for predicate in vocabulary {
             assert!(
-                inadmissibilities(&predicate, Facet::Contract).is_empty(),
+                inadmissibilities(&predicate).is_empty(),
                 "`{}` is admissible here — the fenced set is tested above",
                 predicate.key()
             );

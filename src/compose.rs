@@ -75,7 +75,7 @@ pub struct Requirement {
     /// every modeled kind, the opt-in `satisfies` join the sole filter.
     /// Present, it instead
     /// *sources* the shipped each-grain "every satisfier is kind K" clause
-    /// [`crate::roster::check`] evaluates over that kind-blind set — a satisfier of
+    /// [`crate::engine::judge`] evaluates over that kind-blind set — a satisfier of
     /// a different kind is a finding, never a silent exclusion. Absent ⇒
     /// **kind-blind**: any artifact that opts in fills it, and no narrowing clause
     /// attaches at all.

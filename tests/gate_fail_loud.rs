@@ -185,11 +185,13 @@ fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
 }
 
 #[test]
-fn a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility() {
-    // `count` ranges over a named requirement's satisfier set — context the per-artifact
-    // engine does not hold, so as a `skill` floor clause it could only ever decide
-    // nothing. Declared on a kind it must fail loud at admissibility naming the
-    // predicate, never let the member pass a check that never ran.
+fn a_kind_contract_naming_a_judge_less_predicate_fails_loud() {
+    // `dependency-exists` names no decidable reference syntax or extractor, so no
+    // projection carries the fact it would range over: no selection makes it decidable,
+    // and it is the one predicate left that no judge reaches. Declared on a kind, the run
+    // must refuse loud naming the predicate rather than let the member pass a check that
+    // never ran. The refusal lands at *load* — the lock carries no decodable argument
+    // shape for it — one tier above the admissibility fence that would catch it next.
     let root = common::tmpdir("judgeless-kind-clause");
     common::write_skill(&root, "coordinate", CLEAN_SKILL);
     common::write_lock(
@@ -197,7 +199,40 @@ fn a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility() {
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
                 kind: Some("skill".to_string()),
-                count: Some(temper::drift::CountBoundRow { min: 1, max: 3 }),
+                ..common::clause("dependency-exists", "required")
+            }],
+            ..temper::drift::Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &["."], None);
+
+    assert!(
+        !run.ok,
+        "a contract naming a predicate no judge decides must exit non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("dependency-exists"),
+        "the refusal names the predicate it could not admit, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_count_floor_bound_to_a_kinds_own_selection_is_judged_not_fenced() {
+    // The other half of the inversion: `count` binds to the kind's *whole population* —
+    // the universal selection — which is as decidable as a requirement's opt-in one. The
+    // floor is judged rather than fenced, so a single skill against a `[2, 3]` band is a
+    // real out-of-band finding naming the kind, not an admissibility refusal.
+    let root = common::tmpdir("kind-count-floor");
+    common::write_skill(&root, "coordinate", CLEAN_SKILL);
+    common::write_lock(
+        &root,
+        temper::drift::Declarations {
+            clauses: vec![temper::drift::ClauseRow {
+                kind: Some("skill".to_string()),
+                count: Some(temper::drift::CountBoundRow { min: 2, max: 3 }),
                 ..common::clause("count", "required")
             }],
             ..temper::drift::Declarations::default()
@@ -206,22 +241,18 @@ fn a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility() {
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let fenced = common::findings_for(&findings, "count");
+    let counted = common::findings_for(&findings, "count");
     assert_eq!(
-        fenced.len(),
+        counted.len(),
         1,
-        "the judge-less floor clause must fail admissibility, got: {findings:#?}"
+        "the by-kind selection holds one member, outside [2, 3], got: {findings:#?}"
     );
     assert!(
-        fenced[0].starts_with("::error "),
-        "an inadmissible contract is error-severity (fails the run), got: {}",
-        fenced[0]
+        counted[0].contains("kind `skill`") && counted[0].contains("[2, 3]"),
+        "the finding names the selection it judged and the bound it missed, got: {}",
+        counted[0]
     );
-    assert!(
-        !success,
-        "a contract naming a predicate the engine cannot judge must exit non-zero, \
-         got: {findings:#?}"
-    );
+    assert!(!success, "a required clause's violation fails the run");
 }
 
 /// A harness whose `standard` kind templates an embedded `citation` child, with one

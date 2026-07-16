@@ -13,12 +13,12 @@ import type { KindDefinition } from "./kind.js";
 export type Severity = "required" | "advisory";
 
 /**
- * A member of the closed predicate algebra. Both a kind's
- * own `expect` clauses and a requirement's `clauses` compile to the row's full
- * `key`/`field`/`severity`/argument shape (`declarations.ts` `clauseRow`): a
- * floor clause's own `bound`/`charset`/`keys`/`values` ride the row alongside
- * a requirement's `count`/`target`/`degree`, so the lock encodes the floor
- * losslessly rather than identity+severity alone.
+ * A member of the closed predicate algebra. Both a kind's own `expect` clauses and a
+ * requirement's `clauses` compile to the row's full `key`/`field`/`severity`/argument
+ * shape (`declarations.ts` `clauseRow`) — one spelling, whichever selection the clause
+ * binds to: `bound`/`charset`/`keys`/`values` ride the row alongside
+ * `count`/`target`/`degree`, so the lock encodes the clause losslessly rather than
+ * identity+severity alone.
  */
 export interface Predicate {
   /** The predicate's clause key (`required`, `max_len`, `max_lines`, …). */
@@ -123,25 +123,28 @@ export const globValid = (field: string): Predicate => ({ key: "glob-valid", fie
  */
 export const formatPlacesEdges = (): Predicate => ({ key: "format-places-edges" });
 
-// Node-set/edge-scope predicates — a requirement's set-scope demands ride
-// these as ordinary clause values, the same four-channel `clause()` shape as
-// the node-scope predicates above.
-/** The satisfier set's size lies in the inclusive `[min, max]` bound. */
+// Set predicates — they range over the **selection** their clause binds to, not one
+// member's own fields: a kind's `expect` binds them to that kind's whole population
+// (the universal binding), a requirement's `clauses` to its opt-in satisfiers (the
+// existential one). The quantifier is the clause's grain, so the same value says the
+// same thing in either place, riding the same four-channel `clause()` shape as the
+// member-scope predicates above.
+/** The selection's size lies in the inclusive `[min, max]` bound. */
 export const count = (bounds: { min?: number; max?: number }): Predicate => {
   const args: Record<string, number> = {};
   if (bounds.min !== undefined) args.min = bounds.min;
   if (bounds.max !== undefined) args.max = bounds.max;
   return { key: "count", args };
 };
-/** The field's extracted value does not repeat across the satisfier set. */
+/** The field's extracted value does not repeat across the selection. */
 export const unique = (field: string): Predicate => ({ key: "unique", field });
-/** Every satisfier's `field` value is drawn from a feature over `target`'s own satisfier set. */
+/** Every selected member's `field` value is drawn from a feature over the selection `target` declares. */
 export const membership = (field: string, target: string): Predicate => ({
   key: "membership",
   field,
   target,
 });
-/** The in/out edge-count bound every satisfier must land in. At least one direction must be given. */
+/** The in/out edge-count bound every selected member must land in. At least one direction must be given. */
 export const degree = (bounds: {
   incoming?: { min?: number; max?: number };
   outgoing?: { min?: number; max?: number };
@@ -181,11 +184,10 @@ export function clause(
  * carries only the kind's *identity* for coverage resolution, never its field
  * type: a kind whose fields carry required members (skill, hook) assigns here,
  * where `KindDefinition<never>` would have rejected it. `required` is the
- * posture declaration; `clauses` are the requirement's own set-/edge-scope
- * demands — ordinary [`Clause`] values whose predicates range over the
- * satisfier set (`count`/`unique`/`membership`) or its graph neighborhood
- * (`degree`), the same four-channel clause as everywhere; `verifiedBy` wires
- * the behavioral remainder.
+ * posture declaration; `clauses` bind to the requirement's **opt-in selection** —
+ * ordinary [`Clause`] values, the same four-channel clause as everywhere, judged
+ * over that selection by the same algebra a kind's own clauses are judged over its
+ * population; `verifiedBy` wires the behavioral remainder.
  */
 export interface Requirement {
   readonly prose: string;

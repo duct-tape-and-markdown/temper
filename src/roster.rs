@@ -1,158 +1,81 @@
-//! Roster checks — the set-scope predicates and admissibility pass over a parsed
-//! harness contract's named requirements.
+//! The roster — a parsed harness contract's named requirements, and the **opt-in
+//! selection** each one declares.
 //!
-//! Two decidable passes read the same parsed requirements: [`check`] gates the
-//! author-declared `count`/`unique`/`membership` predicates, plus the each-grain
-//! `kind` clause a typed requirement's `kind` facet sources, over each requirement's
-//! **satisfier set** — every modeled kind's artifacts opting in via `satisfies`,
-//! kind-blind; and [`admissibility`] checks
-//! each requirement's own definition before the roster is trusted to judge a harness.
+//! [`selections`] resolves every requirement's opt-in selection — the members whose
+//! `satisfies` edge targets it, kind-blind — and binds the requirement's own clauses to
+//! it, so `crate::engine::judge` and `crate::graph::degree` judge it through the one
+//! selection algebra: this is the existential instance of that algebra, never a second
+//! machinery beside it. [`admissibility`] checks each requirement's own definition
+//! before the roster is trusted to judge a harness.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::builtin;
 use crate::check::Diagnostic;
 use crate::compose::Requirement;
-use crate::contract::{Clause, Predicate};
-use crate::engine;
-use crate::extract::{FeatureValue, Features};
-
-/// The diagnostic `rule` id every set-scope `count` finding reports under.
-const REQUIREMENT_COUNT_RULE: &str = "requirement.count";
+use crate::engine::{self, Selection, Selector};
+use crate::extract::Features;
 
 /// The diagnostic `rule` id every roster-admissibility finding reports under.
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
 
-/// The diagnostic `rule` id every set-scope `unique` finding reports under.
-const REQUIREMENT_UNIQUE_RULE: &str = "requirement.unique";
-
-/// The diagnostic `rule` id every set-scope `membership` finding reports under.
-const REQUIREMENT_MEMBERSHIP_RULE: &str = "requirement.membership";
-
-/// The diagnostic `rule` id every each-grain `kind` finding reports under — a
-/// wrong-kind opt-in satisfier.
-const REQUIREMENT_KIND_RULE: &str = "requirement.kind";
-
 /// Whether an artifact opts into the requirement named `requirement` — its
-/// `satisfies` list carries that name. The decidable join at the heart of the
-/// satisfier set. `pub(crate)` so the graph-scope `degree` check ([`crate::graph`])
-/// selects a requirement's satisfier nodes by the *same* opt-in join this roster
-/// scope uses, never a second selector that could disagree.
-pub(crate) fn is_satisfier(requirement: &str, features: &Features) -> bool {
+/// `satisfies` list carries that name. The decidable join at the heart of the opt-in
+/// selection.
+fn is_satisfier(requirement: &str, features: &Features) -> bool {
     features.satisfies.iter().any(|name| name == requirement)
 }
 
 /// Every candidate artifact any requirement may range over, before the opt-in
 /// filter: every modeled kind's workspace [`Features`], each tagged with its own
-/// kind label — kind-blind. `pub(crate)` so [`crate::graph::degree`] draws the
-/// identical kind-blind candidate stream, never a second flattening that could
-/// disagree.
-pub(crate) fn candidates<'a>(
-    by_kind: &BTreeMap<&'a str, &'a [Features]>,
-) -> Vec<(&'a str, &'a Features)> {
+/// kind label — kind-blind.
+fn candidates<'a>(by_kind: &BTreeMap<&'a str, &'a [Features]>) -> Vec<(&'a str, &'a Features)> {
     by_kind
         .iter()
         .flat_map(|(kind, features)| features.iter().map(move |feature| (*kind, feature)))
         .collect()
 }
 
-/// The requirement's **satisfier set** — every modeled kind's candidates that opt in
-/// via `satisfies`, each still tagged with its own kind label.
-/// The opt-in join is the *only* filter now: a requirement's `kind`
-/// facet no longer narrows this set (that would be a second selector) — instead it
-/// sources an each-grain clause [`check`] evaluates over exactly this kind-blind set,
-/// so a wrong-kind opt-in is a finding here, never excluded before it can be seen.
-fn satisfiers_for<'a>(
-    requirement: &Requirement,
-    by_kind: &BTreeMap<&'a str, &'a [Features]>,
-) -> Vec<(&'a str, &'a Features)> {
-    candidates(by_kind)
-        .into_iter()
-        .filter(|(_, features)| is_satisfier(&requirement.name, features))
-        .collect()
-}
-
-/// The label for a requirement's `kind` in a diagnostic — the declared kind, or
-/// `any` when the requirement is kind-blind (its satisfier may be of any kind).
-fn kind_label(requirement: &Requirement) -> &str {
-    requirement.kind.as_deref().unwrap_or("any")
-}
-
-/// Run the set-scope predicates over the parsed roster, returning a [`Diagnostic`] —
-/// at the violating clause's own declared severity — per satisfier set that violates
-/// a `count` / `unique` / `membership` clause, plus the each-grain `kind` narrowing
-/// [`requirement.kind`](Requirement::kind) sources.
+/// Every requirement's **opt-in selection**: the members that opt in via `satisfies`,
+/// each tagged with its own kind label, bound to the requirement's own clauses plus the
+/// each-grain `kind` narrowing its `kind` facet sources
+/// ([`builtin::kind_narrowing_clause`]).
 ///
-/// Every predicate quantifies over the requirement's **satisfier set** — every
-/// modeled kind's opt-in artifacts, kind-blind.
-/// A typed requirement's `kind` no longer narrows that set; instead this pass
-/// synthesizes the shipped each-grain "every satisfier is kind K" clause
-/// ([`builtin::kind_narrowing_clause`]) and evaluates it over the same kind-blind
-/// set, so a wrong-kind opt-in is a finding, never a silent exclusion. Requirements
-/// iterate in name order (the roster is a [`BTreeMap`]), each requirement's clauses
-/// in declaration order, and each kind's candidates arrive name-sorted, so the
-/// finding set is stable across runs.
+/// The opt-in join is the *only* filter: a requirement's `kind` facet never narrows the
+/// members (that would be a second selector, and selectors do not compose) — it sources
+/// a clause judged over exactly this kind-blind set, so a wrong-kind opt-in is a finding
+/// rather than a member excluded before it can be seen.
 ///
-/// This pass gates only the predicates the author declared (plus the sourced `kind`
-/// clause): the ≥1-satisfier presence of a plain `required` requirement is
-/// [`crate::coverage`]'s gate. `degree` ranges over the edge graph, so
-/// [`crate::graph::degree`] reads it off the same [`clauses`](Requirement::clauses)
-/// instead.
+/// Requirements iterate in name order (the roster is a [`BTreeMap`]) and each kind's
+/// candidates arrive name-sorted, so the selections — and every finding judged over
+/// them — are stable across runs.
 #[must_use]
-pub fn check(
+pub fn selections<'a>(
     requirements: &BTreeMap<String, Requirement>,
-    by_kind: &BTreeMap<&str, &[Features]>,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    for requirement in requirements.values() {
-        let satisfiers = satisfiers_for(requirement, by_kind);
-        let satisfier_features: Vec<&Features> =
-            satisfiers.iter().map(|(_, features)| *features).collect();
-
-        if let Some(kind) = &requirement.kind {
-            let clause = builtin::kind_narrowing_clause(kind);
-            diagnostics.extend(wrong_kind(requirement, &clause, kind, &satisfiers));
-        }
-
-        for clause in &requirement.clauses {
-            match &clause.predicate {
-                // `count` fires whenever declared — orthogonal to `required` (which
-                // coverage gates as ≥1).
-                Predicate::Count { min, max } => {
-                    if !(*min..=*max).contains(&satisfier_features.len()) {
-                        diagnostics.push(out_of_band(
-                            requirement,
-                            clause,
-                            *min,
-                            *max,
-                            &satisfier_features,
-                        ));
-                    }
-                }
-                // `unique` is orthogonal to `count`, so it fires regardless of it.
-                Predicate::Unique { field } => {
-                    diagnostics.extend(duplicates(requirement, clause, field, &satisfier_features));
-                }
-                // S₂'s kind may differ from the requirement's own, so the source set is
-                // resolved off the full `requirements` roster, not `satisfiers`.
-                Predicate::Membership { field, target } => {
-                    diagnostics.extend(out_of_set(
-                        requirement,
-                        clause,
-                        field,
-                        target,
-                        &satisfier_features,
-                        requirements,
-                        by_kind,
-                    ));
-                }
-                // `degree` is graph-scope — `crate::graph::degree` owns it.
-                _ => {}
+    by_kind: &BTreeMap<&'a str, &'a [Features]>,
+) -> Vec<Selection<'a>> {
+    let candidates = candidates(by_kind);
+    requirements
+        .values()
+        .map(|requirement| {
+            let mut clauses: Vec<_> = requirement
+                .kind
+                .iter()
+                .map(|kind| builtin::kind_narrowing_clause(kind))
+                .collect();
+            clauses.extend(requirement.clauses.iter().cloned());
+            Selection {
+                selector: Selector::OptIn(requirement.name.clone()),
+                clauses,
+                members: candidates
+                    .iter()
+                    .filter(|(_, features)| is_satisfier(&requirement.name, features))
+                    .copied()
+                    .collect(),
             }
-        }
-    }
-    diagnostics
+        })
+        .collect()
 }
 
 /// Validate the harness roster against **the definition** — admissibility.
@@ -170,14 +93,10 @@ pub fn check(
 ///   coverage; naming an unmodeled kind only ever breaks the *narrowing* clause).
 /// - **(b)** any `verified_by` path exists relative to `base_dir`.
 /// - **(c)** every clause in [`clauses`](Requirement::clauses) is itself well-formed —
-///   reusing [`crate::engine::inadmissibilities`], the same vacuous-clause rules a
-///   kind's own floor clauses are checked against (an inverted `count`/`degree` bound,
-///   an empty `membership` target), so a requirement's demands and a kind's clauses
-///   never carry two definitions of "vacuous". It is judged at
-///   [`Facet::Requirement`](crate::engine::Facet::Requirement): the node-set family a
-///   per-artifact contract has no judge for is judged right here, over the satisfier
-///   set ([`check`]) and the reference graph ([`crate::graph::degree`]), so it stays
-///   admissible on a requirement.
+///   reusing [`crate::engine::inadmissibilities`], the same rules a kind's own floor
+///   clauses are checked against (an inverted `count`/`degree` bound, an empty
+///   `membership` target), so a requirement's demands and a kind's clauses never carry
+///   two definitions of "vacuous".
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `base_dir`
 /// is the harness root a `verified_by` path resolves against.
@@ -220,9 +139,7 @@ pub fn admissibility(
 
         // (c) Every clause's own predicate must be well-formed.
         for clause in &requirement.clauses {
-            for message in
-                crate::engine::inadmissibilities(&clause.predicate, engine::Facet::Requirement)
-            {
+            for message in engine::inadmissibilities(&clause.predicate) {
                 diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,
@@ -234,214 +151,23 @@ pub fn admissibility(
     diagnostics
 }
 
-/// The finding for a requirement whose satisfier-set cardinality falls outside a
-/// declared `count` clause's bound — naming the requirement, the count, the kind, the
-/// satisfiers, and the `[min, max]` bound it missed, at the clause's own severity.
-fn out_of_band(
-    requirement: &Requirement,
-    clause: &Clause,
-    min: usize,
-    max: usize,
-    satisfiers: &[&Features],
-) -> Diagnostic {
-    let listed = if satisfiers.is_empty() {
-        String::new()
-    } else {
-        format!(
-            " ({})",
-            satisfiers
-                .iter()
-                .map(|features| features.id.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    };
-    Diagnostic::new(
- engine::severity_of(clause.severity),
-        REQUIREMENT_COUNT_RULE,
- &requirement.name,
- format!(
-            "requirement `{}` is satisfied by {} `{}` artifact(s){listed}, outside its declared count bound [{min}, {max}]",
-            requirement.name,
-            satisfiers.len(),
-            kind_label(requirement),
- ),
- )
-.with_guidance(clause.guidance.clone())
-}
-
-/// The each-grain `kind` findings for a requirement's satisfier set — one per
-/// satisfier whose actual kind does not match the declared `kind`:
-/// a wrong-kind opt-in is a finding, never
-/// a silent exclusion from the set `count`/`unique`/`membership` range over.
-/// `satisfiers` carries each satisfier's own kind label alongside its `Features`
-/// (`candidates`), the kind-blind stream the narrowing clause judges.
-fn wrong_kind(
-    requirement: &Requirement,
-    clause: &Clause,
-    kind: &str,
-    satisfiers: &[(&str, &Features)],
-) -> Vec<Diagnostic> {
-    satisfiers
-        .iter()
-        .filter_map(|(actual_kind, features)| {
-            engine::kind_violation(kind, actual_kind).map(|message| {
-                Diagnostic::new(
- engine::severity_of(clause.severity),
-                    REQUIREMENT_KIND_RULE,
- &requirement.name,
- format!(
-                        "requirement `{}` narrows its satisfiers to kind `{kind}`, but satisfier `{}` {message}",
-                        requirement.name, features.id
- ),
- )
-.with_guidance(clause.guidance.clone())
-            })
-        })
-        .collect()
-}
-
-/// The set-scope `unique` findings for one declared `field` over a requirement's
-/// satisfier set: group the satisfiers by the
-/// field's extracted scalar value and emit one finding per value two or more
-/// satisfiers share, at the clause's own declared severity. A satisfier missing the
-/// field carries no value to collide on, so it is silently skipped — a missing field
-/// is no collision. Values are grouped in a [`BTreeMap`] so the finding set is stable
-/// across runs.
-fn duplicates(
-    requirement: &Requirement,
-    clause: &Clause,
-    field: &str,
-    satisfiers: &[&Features],
-) -> Vec<Diagnostic> {
-    let mut by_value: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for features in satisfiers {
-        if let Some(value) = features.field(field).and_then(FeatureValue::as_scalar) {
-            by_value
-                .entry(value)
-                .or_default()
-                .push(features.id.as_str());
-        }
-    }
-    by_value
-        .into_iter()
-        .filter(|(_, satisfiers)| satisfiers.len() > 1)
-        .map(|(value, satisfiers)| duplicate(requirement, clause, field, value, &satisfiers))
-        .collect()
-}
-
-/// The finding for a `unique` field two or more satisfiers share — naming the
-/// requirement, the field, the shared value, and the colliding satisfiers.
-fn duplicate(
-    requirement: &Requirement,
-    clause: &Clause,
-    field: &str,
-    value: &str,
-    satisfiers: &[&str],
-) -> Diagnostic {
-    Diagnostic::new(
- engine::severity_of(clause.severity),
-        REQUIREMENT_UNIQUE_RULE,
- &requirement.name,
- format!(
-            "requirement `{}` requires `{field}` unique across its satisfier set, but {} satisfiers share `{field}` = `{value}` ({})",
-            requirement.name,
-            satisfiers.len(),
-            satisfiers.join(", ")
- ),
- )
-.with_guidance(clause.guidance.clone())
-}
-
-/// The set-scope `membership` findings for one requirement over its satisfier set:
-/// build the allowed set from `field` extracted
-/// over the `target` requirement's own satisfier set (S₂) — shaping S₂ is `target`'s
-/// own job, never re-derived here — then emit one finding per S₁ satisfier whose
-/// declared `field` scalar is absent from it, at the clause's own severity. A
-/// satisfier missing `field` carries no value to check, so it is silently skipped —
-/// a missing field is no violation, the way a missing `unique` field is no collision.
-/// The allowed set is corpus-*derived*, so a `target` with no satisfiers (or an
-/// undeclared `target`) yields the empty set, under which every valued satisfier is
-/// genuinely a non-member.
-///
-/// `requirements`/`by_kind` are the full roster/workspace maps — `target` may name a
-/// requirement typed to a different kind than this one's own, so its satisfier set is
-/// resolved through the roster, not `satisfiers`. Findings follow `satisfiers` order,
-/// which is name-sorted, so the set is stable across runs.
-fn out_of_set(
-    requirement: &Requirement,
-    clause: &Clause,
-    field: &str,
-    target: &str,
-    satisfiers: &[&Features],
-    requirements: &BTreeMap<String, Requirement>,
-    by_kind: &BTreeMap<&str, &[Features]>,
-) -> Vec<Diagnostic> {
-    // S₂ is the named target requirement's own satisfier set — an opt-in satisfier
-    // set, not a name glob.
-    // An undeclared `target` has no satisfier set at all.
-    let source_satisfiers = requirements
-        .get(target)
-        .map(|target_requirement| satisfiers_for(target_requirement, by_kind))
-        .unwrap_or_default();
-
-    let allowed: BTreeSet<&str> = source_satisfiers
-        .iter()
-        .filter_map(|(_, features)| features.field(field).and_then(FeatureValue::as_scalar))
-        .collect();
-
-    satisfiers
-        .iter()
-        .filter_map(|features| {
-            let value = features.field(field).and_then(FeatureValue::as_scalar)?;
-            if allowed.contains(value) {
-                None
-            } else {
-                Some(not_member(
-                    requirement,
-                    clause,
-                    field,
-                    target,
-                    features.id.as_str(),
-                    value,
-                ))
-            }
-        })
-        .collect()
-}
-
-/// The finding for an S₁ satisfier whose declared field falls outside the S₂-derived
-/// set — naming the requirement, the constrained field, the target requirement the
-/// allowed set is drawn from, the offending satisfier, and the value that is not a
-/// member.
-fn not_member(
-    requirement: &Requirement,
-    clause: &Clause,
-    field: &str,
-    target: &str,
-    satisfier: &str,
-    value: &str,
-) -> Diagnostic {
-    Diagnostic::new(
- engine::severity_of(clause.severity),
-        REQUIREMENT_MEMBERSHIP_RULE,
- &requirement.name,
- format!(
-            "requirement `{}` requires `{field}` of each satisfier drawn from the `{field}` feature of artifacts satisfying `{target}`, but satisfier `{satisfier}` declares `{field}` = `{value}`, which is not in that set",
-            requirement.name,
- ),
- )
-.with_guidance(clause.guidance.clone())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
     use crate::check::Severity;
-    use crate::contract::Severity as ClauseSeverity;
-    use crate::extract::ValueType;
+    use crate::contract::{Clause, Predicate, Severity as ClauseSeverity};
+    use crate::extract::{FeatureValue, ValueType};
+
+    /// Judge a roster's opt-in selections — the composition `main` runs, minus the
+    /// by-kind selections no requirement's `membership` can name.
+    fn judge_roster(
+        requirements: &BTreeMap<String, Requirement>,
+        by_kind: &BTreeMap<&str, &[Features]>,
+    ) -> Vec<Diagnostic> {
+        engine::judge(&selections(requirements, by_kind))
+    }
 
     /// A required-severity clause wrapping `predicate` — the shape every set-scope
     /// test case below attaches to a requirement's `clauses`.
@@ -501,7 +227,7 @@ mod tests {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", skills)]);
-        check(&requirements, &by_kind)
+        judge_roster(&requirements, &by_kind)
     }
 
     #[test]
@@ -545,7 +271,7 @@ mod tests {
     fn run_multi_kind(req: Requirement, by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
         let mut requirements = BTreeMap::new();
         requirements.insert(req.name.clone(), req);
-        check(&requirements, by_kind)
+        judge_roster(&requirements, by_kind)
     }
 
     #[test]
@@ -565,7 +291,7 @@ mod tests {
         let diags = run_multi_kind(req, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, REQUIREMENT_KIND_RULE);
+        assert_eq!(diags[0].rule, "requirement.kind");
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("agent-rule"));
         assert!(diags[0].message.contains("skill"));
@@ -609,7 +335,7 @@ mod tests {
         let below = run(req.clone(), &[features("lint-rust", &[])]);
         assert_eq!(below.len(), 1);
         assert_eq!(below[0].severity, Severity::Error);
-        assert_eq!(below[0].rule, REQUIREMENT_COUNT_RULE);
+        assert_eq!(below[0].rule, "requirement.count");
         assert_eq!(below[0].artifact, "agents");
         assert!(below[0].message.contains("[1, 2]"));
 
@@ -631,7 +357,7 @@ mod tests {
             &[features("agent-1", &["agents"])],
         );
         assert_eq!(one.len(), 1);
-        assert_eq!(one[0].rule, REQUIREMENT_COUNT_RULE);
+        assert_eq!(one[0].rule, "requirement.count");
     }
 
     /// A requirement declaring `unique = ["model"]` over the `skill` kind — the
@@ -680,7 +406,7 @@ mod tests {
         );
         assert_eq!(collide.len(), 1);
         assert_eq!(collide[0].severity, Severity::Error);
-        assert_eq!(collide[0].rule, REQUIREMENT_UNIQUE_RULE);
+        assert_eq!(collide[0].rule, "requirement.unique");
         assert_eq!(collide[0].artifact, "agents");
         assert!(collide[0].message.contains("model"));
         assert!(collide[0].message.contains("opus"));
@@ -767,10 +493,10 @@ mod tests {
             skill_satisfying("approved-b", &["approved-model"], Some("sonnet")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let diags = check(&requirements, &by_kind);
+        let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
+        assert_eq!(diags[0].rule, "requirement.membership");
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("agent-2"));
         assert!(diags[0].message.contains("gpt"));
@@ -784,7 +510,7 @@ mod tests {
             skill_satisfying("approved-b", &["approved-model"], Some("sonnet")),
         ];
         let by_kind_clean: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &clean[..])]);
-        assert!(check(&requirements, &by_kind_clean).is_empty());
+        assert!(judge_roster(&requirements, &by_kind_clean).is_empty());
     }
 
     #[test]
@@ -803,10 +529,10 @@ mod tests {
         ];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("skill", &skills[..]), ("manifest", &manifests[..])]);
-        let diags = check(&requirements, &by_kind);
+        let diags = judge_roster(&requirements, &by_kind);
         // Only `agent-2` (`gpt`) is outside the manifest-derived { opus, sonnet }.
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
+        assert_eq!(diags[0].rule, "requirement.membership");
         assert!(diags[0].message.contains("agent-2"));
         assert!(diags[0].message.contains("approved-model"));
     }
@@ -823,7 +549,7 @@ mod tests {
             skill_satisfying("approved-a", &["approved-model"], Some("opus")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        assert!(check(&requirements, &by_kind).is_empty());
+        assert!(judge_roster(&requirements, &by_kind).is_empty());
     }
 
     #[test]
@@ -837,9 +563,9 @@ mod tests {
             skill_with_model("agent-2", Some("sonnet")),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let diags = check(&requirements, &by_kind);
+        let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 2);
-        assert!(diags.iter().all(|d| d.rule == REQUIREMENT_MEMBERSHIP_RULE));
+        assert!(diags.iter().all(|d| d.rule == "requirement.membership"));
     }
 
     #[test]
@@ -859,9 +585,9 @@ mod tests {
         requirements.insert(agents.name.clone(), agents);
         let skills = [skill_with_model("agent-1", Some("opus"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
-        let diags = check(&requirements, &by_kind);
+        let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, REQUIREMENT_MEMBERSHIP_RULE);
+        assert_eq!(diags[0].rule, "requirement.membership");
     }
 
     // ---- admissibility ----------------------------------------------------
@@ -889,7 +615,7 @@ mod tests {
         let diags = run_admissibility(req, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].rule, "requirement.admissibility");
         assert_eq!(diags[0].artifact, "releaser");
         assert!(diags[0].message.contains("command"));
         assert!(diags[0].message.contains("never be filled"));
@@ -907,7 +633,7 @@ mod tests {
         };
         let diags = run_admissibility(req, Path::new("/no-such-temper-base-dir"));
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].rule, "requirement.admissibility");
         assert!(diags[0].message.contains("verifier"));
         assert!(diags[0].message.contains("tests/nope.rs"));
     }
@@ -944,7 +670,7 @@ mod tests {
         let diags = run_admissibility(req, Path::new(""));
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].rule, "requirement.admissibility");
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("count"));
         assert!(diags[0].message.contains("min 3 greater than max 1"));
@@ -1013,7 +739,7 @@ mod tests {
         };
         let diags = run_admissibility(req, Path::new(""));
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, REQUIREMENT_ADMISSIBILITY_RULE);
+        assert_eq!(diags[0].rule, "requirement.admissibility");
         assert!(diags[0].message.contains("command"));
     }
 }

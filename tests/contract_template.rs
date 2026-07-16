@@ -254,12 +254,12 @@ fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
     );
 }
 
-/// `kind` is a *requirement's* clause: it ranges over that requirement's satisfier
-/// set, which `temper::roster` judges. Declared on a kind's own per-artifact
-/// contract there is no judge for it, so either spelling — named or empty — is
-/// inadmissible there, rather than a clause that quietly decides nothing.
+/// `kind` ranges over whatever selection its contract binds to — a requirement's opt-in
+/// members or a kind's whole population — so a named kind is admissible on a kind's own
+/// contract exactly as on a requirement. Only vacuity indicts it: an empty `kind` names
+/// nothing to match and can never decide anything over any selection.
 #[test]
-fn a_kind_clause_is_inadmissible_on_a_per_artifact_contract() {
+fn a_named_kind_clause_is_admissible_on_a_kinds_own_contract_and_an_empty_one_is_not() {
     let bare_contract = |predicate: Predicate| Contract {
         name: "kind-clause-fixture".to_string(),
         clauses: vec![temper::contract::Clause {
@@ -271,16 +271,22 @@ fn a_kind_clause_is_inadmissible_on_a_per_artifact_contract() {
         guidance: None,
     };
 
-    for kind in ["skill", ""] {
-        let diagnostics = engine::admissibility(&bare_contract(Predicate::Kind {
-            kind: kind.to_string(),
-        }));
-        assert!(
-            !diagnostics.is_empty(),
-            "`kind` carries no judge on a per-artifact contract, so `{kind}` is inadmissible",
-        );
-        assert!(diagnostics.iter().all(|d| d.rule == "kind"));
-    }
+    assert!(
+        engine::admissibility(&bare_contract(Predicate::Kind {
+            kind: "skill".to_string(),
+        }))
+        .is_empty(),
+        "a named `kind` is judged over the contract's selection, so nothing indicts it",
+    );
+
+    let empty = engine::admissibility(&bare_contract(Predicate::Kind {
+        kind: String::new(),
+    }));
+    assert!(
+        !empty.is_empty(),
+        "an empty `kind` is vacuous over every selection",
+    );
+    assert!(empty.iter().all(|d| d.rule == "kind"));
 }
 
 // ---- the each-grain `format-places-edges` predicate -------------------------

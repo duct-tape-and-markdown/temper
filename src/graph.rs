@@ -18,10 +18,9 @@ use std::path::{Component, Path, PathBuf};
 use crate::check::{Diagnostic, Severity};
 use crate::compose::{Edge, Requirement};
 use crate::contract::{EdgeBound, Predicate};
-use crate::engine;
+use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
-use crate::roster;
 
 /// The diagnostic `rule` id every route-resolution finding reports under.
 const GRAPH_ROUTE_RULE: &str = "graph.route";
@@ -214,39 +213,36 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
     Vec::new()
 }
 
-/// Check the graph-scope **`degree`** predicate: for each `degree` clause a requirement declares, return a
-/// [`Diagnostic`] — at the clause's own declared severity — per satisfier node whose
-/// in/out edge count over the resolved arcs falls outside the bound.
+/// Check the **`degree`** predicate over every declared [`Selection`]: for each `degree`
+/// clause bound to one, return a [`Diagnostic`] — at the clause's own declared severity
+/// — per selected member whose in/out edge count over the resolved arcs falls outside
+/// the bound.
 ///
-/// Declared on the requirement's [`clauses`](Requirement::clauses) but ranging over
-/// the **edge graph**, so it lives here: it reuses [`acyclic`]'s [`resolved_arcs`] and
-/// the same kind-blind [`roster::candidates`] stream plus the opt-in
-/// [`roster::is_satisfier`] join the roster scope uses, never a second selector that
-/// could disagree. Only **resolved** arcs count (a dangling reference loads nothing;
-/// an inadmissible edge is skipped), exactly as in [`acyclic`].
+/// `degree` is the one set predicate this module judges rather than
+/// [`engine::judge`]: the clause is each-grain over the selection's members and
+/// whole-grain over each member's own **by-incidence** selection — the edges at it,
+/// filtered by direction — which is the graph, not a fact the members carry. It reuses
+/// [`acyclic`]'s [`resolved_arcs`], so only **resolved** arcs count (a dangling
+/// reference loads nothing; an inadmissible edge is skipped).
 ///
-/// Unlike route resolution and `acyclic`, `degree` is **opt-in, per-requirement** — a
-/// roster declaring no `degree` clause does no graph work. A node is `(kind, id)`; a
-/// kind-blind requirement (no [`kind`](Requirement::kind)) ranges over every modeled
-/// kind's opt-in satisfiers, each keyed by its *own* kind label, rather than being
-/// skipped. Requirements iterate in name order, each requirement's clauses in
-/// declaration order, over name-sorted candidates, so findings are stable across runs.
+/// Unlike route resolution and `acyclic`, `degree` is **opt-in** — selections declaring
+/// no `degree` clause do no graph work. A node is `(kind, id)`, so a selection whose
+/// members span kinds keys each by its *own* label. Selections, their clauses, and their
+/// members all arrive in the caller's order, which is stable across runs.
 ///
 /// `mention_edges` folds the already-resolved mention edges into the same adjacency —
-/// a mention is obligation-free by default (no shipped clause counts it,
-/// `specs/model/contract.md`), but an authored `degree` clause may range over it
-/// exactly as it does a declared reference edge.
+/// a mention is obligation-free by default (no shipped clause counts it), but an
+/// authored `degree` clause may range over it exactly as it does a declared reference
+/// edge.
 #[must_use]
 pub fn degree(
-    requirements: &BTreeMap<String, Requirement>,
+    selections: &[Selection],
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
-    // Opt-in: with no requirement declaring a `degree` clause, the graph is never
-    // assembled.
-    let any_degree_clause = requirements.values().any(|requirement| {
-        requirement
+    let any_degree_clause = selections.iter().any(|selection| {
+        selection
             .clauses
             .iter()
             .any(|clause| matches!(clause.predicate, Predicate::Degree { .. }))
@@ -272,8 +268,8 @@ pub fn degree(
     }
 
     let mut diagnostics = Vec::new();
-    for requirement in requirements.values() {
-        for clause in &requirement.clauses {
+    for selection in selections {
+        for clause in &selection.clauses {
             let Predicate::Degree {
                 incoming: incoming_bound,
                 outgoing: outgoing_bound,
@@ -281,15 +277,8 @@ pub fn degree(
             else {
                 continue;
             };
-            // Kind-blind: every modeled kind's opt-in satisfiers, each keyed by its
-            // own kind label — `requirement.kind`, when present, narrows via the
-            // each-grain clause it sources ([`roster::check`]), never a second
-            // selector here.
-            for (kind, features) in roster::candidates(by_kind) {
-                if !roster::is_satisfier(&requirement.name, features) {
-                    continue;
-                }
-                let node = (kind.to_string(), features.id.clone());
+            for (kind, features) in &selection.members {
+                let node = ((*kind).to_string(), features.id.clone());
                 let in_degree = incoming.get(&node).copied().unwrap_or(0);
                 let out_degree = adjacency.get(&node).map_or(0, BTreeSet::len);
 
@@ -297,7 +286,7 @@ pub fn degree(
                     && !edge_bound.admits(in_degree)
                 {
                     diagnostics.push(out_of_degree(
-                        requirement,
+                        selection,
                         clause,
                         &features.id,
                         Direction::Incoming,
@@ -309,7 +298,7 @@ pub fn degree(
                     && !edge_bound.admits(out_degree)
                 {
                     diagnostics.push(out_of_degree(
-                        requirement,
+                        selection,
                         clause,
                         &features.id,
                         Direction::Outgoing,
@@ -342,11 +331,11 @@ impl Direction {
     }
 }
 
-/// The finding for a matched node whose `degree` in one direction falls outside its
-/// requirement's bound — naming the requirement, kind, direction, actual count, and
-/// the `[min, max]` bound (an open endpoint rendered `∞`).
+/// The finding for a selected member whose `degree` in one direction falls outside its
+/// clause's bound — naming the selection, the direction, the actual count, and the
+/// `[min, max]` bound (an open endpoint rendered `∞`).
 fn out_of_degree(
-    requirement: &Requirement,
+    selection: &Selection,
     clause: &crate::contract::Clause,
     artifact: &str,
     direction: Direction,
@@ -355,17 +344,16 @@ fn out_of_degree(
 ) -> Diagnostic {
     let min = bound.min.map_or_else(|| "0".to_string(), |n| n.to_string());
     let max = bound.max.map_or_else(|| "∞".to_string(), |n| n.to_string());
-    let kind = requirement.kind.as_deref().unwrap_or("any");
     Diagnostic::new(
         engine::severity_of(clause.severity),
         GRAPH_DEGREE_RULE,
         artifact,
- format!(
-            "requirement `{}` bounds `{kind}` {} degree to [{min}, {max}], but `{artifact}` has {actual}",
-            requirement.name,
+        format!(
+            "{} bounds {} degree to [{min}, {max}], but `{artifact}` has {actual}",
+            selection.selector.noun(),
             direction.label(),
- ),
- )
+        ),
+    )
     .with_guidance(clause.guidance.clone())
 }
 
@@ -686,7 +674,7 @@ pub struct DirectiveClassing {
 /// Classify each member's extracted `at-import` directive occurrences against the
 /// landscape: resolve every target
 /// relative to the importing member's file directory (an absolute target as-is;
-/// code.claude.com/docs/en/memory, retrieved 2026-07-02) and sort it into one of three
+/// code.claude.com/docs/en/memory, retrieved 2026-07-16) and sort it into one of three
 /// classes — a **member** (the resolved path is another member's provenance
 /// `source_path`, yielding a member→member [`ResolvedEdge`]), a **backed repo file**
 /// (the path is present in `repo_files`, a one-way boundary edge that neither errors
@@ -1157,6 +1145,7 @@ mod tests {
     use crate::compose::Edge;
     use crate::contract::{Clause, Severity as ClauseSeverity};
     use crate::extract::ValueType;
+    use crate::roster;
 
     /// A `Features` carrying a name (its `id`) and, optionally, a `routes_to`
     /// reference field — a scalar naming one target.
@@ -1508,7 +1497,15 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&requirements, &edges, &[], &by_kind).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &edges,
+                &[],
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -1531,7 +1528,12 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &[], &by_kind);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &edges,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
@@ -1560,7 +1562,15 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&requirements, &edges, &[], &by_kind).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &edges,
+                &[],
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -1582,7 +1592,12 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &[], &by_kind);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &edges,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
         assert_eq!(diags[0].artifact, "standards");
@@ -1609,7 +1624,12 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &[], &by_kind);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &edges,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
         assert_eq!(diags[0].artifact, "style");
@@ -1636,7 +1656,12 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &[], &by_kind);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &edges,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("outgoing"));
@@ -1653,7 +1678,15 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(degree(&requirements, &edges, &[], &by_kind).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &edges,
+                &[],
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -1718,7 +1751,12 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(&requirements, &edges, &[], &by_kind);
+        let diags = degree(
+            &roster::selections(&requirements, &by_kind),
+            &edges,
+            &[],
+            &by_kind,
+        );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "standards");
     }
@@ -1747,6 +1785,14 @@ mod tests {
             member: "rule:style".to_string(),
             target: "skill:standards".to_string(),
         }]);
-        assert!(degree(&requirements, &[], &mention_edges, &by_kind).is_empty());
+        assert!(
+            degree(
+                &roster::selections(&requirements, &by_kind),
+                &[],
+                &mention_edges,
+                &by_kind
+            )
+            .is_empty()
+        );
     }
 }

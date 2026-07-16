@@ -192,49 +192,49 @@ pub enum Predicate {
     /// — so a hand-authored clause fails admissibility
     /// ([`crate::engine::admissibility`]) rather than acting as a working clause.
     DependencyExists,
-    /// `count`: the node-set scope — the satisfier set's size lies within the
-    /// inclusive `[min, max]` bound. An inverted `min > max` bound admits nothing and is
-    /// rejected at admissibility.
+    /// `count`: the **whole** grain — the selection's size lies within the inclusive
+    /// `[min, max]` bound. An inverted `min > max` bound admits nothing and is rejected
+    /// at admissibility.
     Count {
-        /// The inclusive lower bound on the set's size.
+        /// The inclusive lower bound on the selection's size.
         min: usize,
-        /// The inclusive upper bound on the set's size.
+        /// The inclusive upper bound on the selection's size.
         max: usize,
     },
-    /// `unique`: the node-set scope — the named field's extracted value does not
-    /// repeat across the set.
+    /// `unique`: the **whole** grain — the named field's extracted value does not repeat
+    /// across the selection.
     Unique {
-        /// The field checked for uniqueness across the set.
+        /// The field checked for uniqueness across the selection.
         field: String,
     },
-    /// `membership`: the node-set scope — every satisfier's `field` value is drawn
-    /// from a feature over the named `target` requirement's own satisfier set.
-    /// Shaping that set is the target requirement's own job,
-    /// so this
-    /// predicate names it, never re-derives it. Its arg key is `target`, not `source`
-    /// — the clause's own [`Clause::source`] citation already owns that key.
+    /// `membership`: the **whole** grain — every selected member's `field` value is
+    /// drawn from a feature over the selection the named `target` requirement declares.
+    /// Shaping that set is the target's own job, so this predicate names it, never
+    /// re-derives it. Its arg key is `target`, not `source` — the clause's own
+    /// [`Clause::source`] citation already owns that key.
     Membership {
-        /// The field checked on every satisfier of this clause's own set.
+        /// The field checked on every member of this clause's own selection.
         field: String,
-        /// The name of the requirement whose satisfier set supplies the allowed values.
+        /// The name of the requirement whose selection supplies the allowed values.
         target: String,
     },
-    /// `degree`: the edge scope — the in/out edge-count bound every satisfier must
-    /// land in over the one relation graph. At least one direction must be bounded — an empty `degree`
-    /// constrains nothing and is rejected at admissibility.
+    /// `degree`: the **each** grain over the selection, whole-grain over each member's
+    /// own by-incidence selection — the in/out edge-count bound every selected member
+    /// must land in over the one relation graph. At least one direction must be bounded —
+    /// an empty `degree` constrains nothing and is rejected at admissibility.
     Degree {
-        /// The bound on a satisfier's incoming edge count, when constrained.
+        /// The bound on a member's incoming edge count, when constrained.
         incoming: Option<EdgeBound>,
-        /// The bound on a satisfier's outgoing edge count, when constrained.
+        /// The bound on a member's outgoing edge count, when constrained.
         outgoing: Option<EdgeBound>,
     },
-    /// `kind`: the node-set scope, at the **each** grain — every satisfier in the
-    /// selection is of the declared artifact kind. A satisfier of a different kind is a finding, never a
-    /// silent exclusion from the set a `count`/`unique`/`membership` clause ranges
-    /// over. An empty `kind` names nothing to match and is rejected at
+    /// `kind`: the **each** grain — every member of the selection is of the declared
+    /// artifact kind. This is how a selection narrows: a member of a different kind is a
+    /// finding, never a silent exclusion from the set a `count`/`unique`/`membership`
+    /// clause ranges over. An empty `kind` names nothing to match and is rejected at
     /// admissibility.
     Kind {
-        /// The kind every satisfier in the selection must be.
+        /// The kind every member of the selection must be.
         kind: String,
     },
     /// `glob-valid`: every glob the named field carries parses under `globset`
@@ -429,6 +429,24 @@ impl Predicate {
         }
     }
 
+    /// Whether this predicate ranges over the **selection** a clause binds to rather
+    /// than one member's own features — `count`/`unique`/`membership` at the whole
+    /// grain, `degree`/`kind` at the each grain. Judged by
+    /// [`crate::engine::judge`] and [`crate::graph::degree`] over the resolved
+    /// selection; every other predicate is judged by [`crate::engine::validate`] over a
+    /// member.
+    #[must_use]
+    pub fn ranges_over_selection(&self) -> bool {
+        matches!(
+            self,
+            Predicate::Count { .. }
+                | Predicate::Unique { .. }
+                | Predicate::Membership { .. }
+                | Predicate::Degree { .. }
+                | Predicate::Kind { .. }
+        )
+    }
+
     /// The field (or marker) this predicate constrains, or `None` for the
     /// artifact- and cross-artifact-level predicates that name no single field
     /// (`forbidden_keys`, `max_lines`, `require_sections`, `name-matches-dir`,
@@ -485,9 +503,9 @@ impl Predicate {
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. }
             | Predicate::GlobValid { field } => Some(field),
-            // The node-set/edge-scope predicates range over a satisfier set, not a
-            // single kind's frontmatter — they document no schema property here even
-            // when `target` (above) names a field for layering purposes.
+            // The set predicates range over a selection, not a single member's
+            // frontmatter — they document no schema property here even when
+            // [`Predicate::target`] names a field.
             Predicate::MustDefine { .. }
             | Predicate::ForbiddenKeys { .. }
             | Predicate::MaxLines { .. }
