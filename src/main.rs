@@ -1139,36 +1139,28 @@ fn resolve_kind_units(
         (kind::Content::Fields, Some(address), _) => {
             manifest_units(harness_root, &overlaid, address)?
         }
-        // A nested file kind is discovered off its host's template, never a `governs` walk
-        // — a locus it does not have — so no file surfaces for it here.
-        (_, _, None) => Vec::new(),
+        // A nested file kind governs no glob to walk: its members sit under each *host*
+        // member's unit at the host kind's template pattern, so they are found through the
+        // declared set the host lives in, and each child's id folds against its own host's
+        // unit rather than one shared scan root.
+        (_, _, None) => {
+            let kinds = declared_kinds(declarations)?;
+            let mut child_units = Vec::new();
+            for found in import::discover_nested_file(harness_root, &overlaid, &kinds)? {
+                child_units.push(read_file_unit(
+                    &overlaid,
+                    &found.file,
+                    &found.host_unit,
+                    &edge_fields,
+                )?);
+            }
+            child_units
+        }
         (_, _, Some(governs)) => {
             let base = harness_root.join(&governs.root);
             let mut file_units = Vec::new();
             for file in import::discover_kind_files(harness_root, kind, governs)? {
-                // Dispatch on the kind's content: a layout kind's document is read under
-                // its declared layout — its field sections fill the unit's fields, a
-                // non-fitting document refusing loud — where a file-content kind reads
-                // through the generic frontmatter adapter. A fields-only kind with no
-                // collection address (not a manifest kind) reads its frontmatter the same
-                // way, differing only in projection.
-                let unit = match &overlaid.content {
-                    kind::Content::Layout(layout) => {
-                        layout_unit(layout, &file, &base, &edge_fields)?
-                    }
-                    kind::Content::File | kind::Content::Fields => {
-                        let source = frontmatter::Member::from_source_rooted(kind, &file, &base)?;
-                        Unit {
-                            id: source.id.clone(),
-                            frontmatter: source.fields.iter().cloned().collect(),
-                            body: source.body.clone(),
-                            source_path: source.provenance.source_path.clone(),
-                            satisfies: Vec::new(),
-                            satisfies_clauses: Vec::new(),
-                        }
-                    }
-                };
-                file_units.push(unit);
+                file_units.push(read_file_unit(&overlaid, &file, &base, &edge_fields)?);
             }
             file_units
         }
@@ -1202,6 +1194,64 @@ fn resolve_kind_units(
 
     units.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(units)
+}
+
+/// One discovered source file as a raw [`Unit`], its id folded against `base` — the read
+/// both file loci share, so a nested file child and a `governs`-scanned member differ only
+/// in the base each composes under. Dispatches on the kind's content: a layout kind's
+/// document is read under its declared layout — its field sections fill the unit's fields,
+/// a non-fitting document refusing loud — where a file-content kind reads through the
+/// generic frontmatter adapter. A fields-only kind with no collection address (not a
+/// manifest kind) reads its frontmatter the same way, differing only in projection.
+///
+/// # Errors
+///
+/// Returns an error if the file is unreadable, malformed, or does not fit its declared
+/// layout.
+fn read_file_unit(
+    kind: &CustomKind,
+    file: &Path,
+    base: &Path,
+    edge_fields: &BTreeSet<String>,
+) -> miette::Result<Unit> {
+    match &kind.content {
+        kind::Content::Layout(layout) => layout_unit(layout, file, base, edge_fields),
+        kind::Content::File | kind::Content::Fields => {
+            let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
+            Ok(Unit {
+                id: source.id.clone(),
+                frontmatter: source.fields.iter().cloned().collect(),
+                body: source.body.clone(),
+                source_path: source.provenance.source_path.clone(),
+                satisfies: Vec::new(),
+                satisfies_clauses: Vec::new(),
+            })
+        }
+    }
+}
+
+/// Every kind this harness declares, keyed by bare name: each embedded built-in under its
+/// lock overlay, plus each lock-declared custom kind — the same universe `gate`'s own
+/// dispatch ranges over. A nested file kind's host is found here, so the set is what
+/// carries the two halves of its locus that the child kind itself cannot.
+///
+/// # Errors
+///
+/// Returns an error if the embedded kind set fails to load or a lock row falls outside a
+/// closed vocabulary.
+fn declared_kinds(
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<String, CustomKind>> {
+    let builtin_defs = builtin_kind::definitions()?;
+    let mut kinds = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        kinds.insert(kind.name.clone(), overlay_builtin_kind(kind, declarations)?);
+    }
+    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
+    for row in custom_rows {
+        kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
+    }
+    Ok(kinds)
 }
 
 /// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or

@@ -356,8 +356,8 @@ fn a_child_kinds_row_reconstructs_governing_no_glob_rather_than_a_fabricated_one
 
     let reconstructed = CustomKind::from_kind_fact_row(&row).unwrap();
     assert_eq!(reconstructed.governs, None);
-    // Governing no glob, it is discovered at none and owns no surface subdirectory to be
-    // discovered under.
+    // Governing no glob, it owns no surface subdirectory and no source of its own: the
+    // locus it *is* discovered at composes under its host's unit, never here.
     assert_eq!(reconstructed.surface_subdir(), None);
     assert!(!reconstructed.owns_source(std::path::Path::new(".claude/skills/checklist.md")));
 }
@@ -379,4 +379,98 @@ fn a_lock_reconstructed_kind_resolves_the_same_embedded_members_as_its_live_decl
 
     assert_eq!(reconstructed.nested_members.len(), 1);
     assert_eq!(reconstructed.nested_members, live.nested_members);
+}
+
+/// The `skill` built-in, overlaid with a template declaring `child`'s file layer at
+/// `pattern` — the relocation path a lock row's `templates` column reaches a live kind
+/// through, so the host half of the locus is a declared fact and not a test's invention.
+fn skill_templating(child: &str, pattern: &str) -> CustomKind {
+    builtin_kind::definition("skill")
+        .unwrap()
+        .unwrap()
+        .overlay_templates(&[TemplateRow {
+            kind: child.to_string(),
+            path: Some(pattern.to_string()),
+        }])
+}
+
+/// A nested file kind's declaration: no governs pair at all, a lone file per member.
+fn nested_file_kind(name: &str) -> CustomKind {
+    CustomKind::from_kind_fact_row(&KindFactRow {
+        governs_root: None,
+        governs_glob: None,
+        unit_shape: Some("file".to_string()),
+        ..common::kind_facts(name, "", "")
+    })
+    .unwrap()
+}
+
+/// A skill at `.claude/skills/<name>/SKILL.md` — the real Claude Code layout — with a
+/// companion markdown doc and a companion script beside it.
+fn write_skill_with_companions(harness: &std::path::Path, name: &str) -> std::path::PathBuf {
+    let unit = harness.join(".claude").join("skills").join(name);
+    std::fs::create_dir_all(unit.join("scripts")).unwrap();
+    std::fs::write(
+        unit.join("SKILL.md"),
+        format!("---\nname: {name}\ndescription: A host skill.\n---\n# {name}\n"),
+    )
+    .unwrap();
+    std::fs::write(unit.join("PLAYBOOK.md"), "# Playbook\n").unwrap();
+    std::fs::write(unit.join("scripts").join("run.sh"), "#!/bin/sh\n").unwrap();
+    unit
+}
+
+#[test]
+fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
+    // 0027's read half: an adopted harness's file is classified through the *host*
+    // template's pattern, the host's own declared fact — the child kind governs no glob
+    // for the walk to have keyed on instead.
+    let harness = common::tmpdir("nested-file-discovery");
+    let unit = write_skill_with_companions(&harness, "coordinate");
+
+    let child = nested_file_kind("reference-doc");
+    let kinds = BTreeMap::from([(
+        "skill".to_string(),
+        skill_templating("reference-doc", "*.md"),
+    )]);
+
+    let found = temper::import::discover_nested_file(&harness, &child, &kinds).unwrap();
+
+    // The companion doc surfaces as the skill's child, carrying the host unit its path
+    // composed under; `scripts/run.sh` matches no `*.md` and the host's own `SKILL.md` is
+    // the host member itself, never its own child.
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].file, unit.join("PLAYBOOK.md"));
+    assert_eq!(found[0].host_unit, unit);
+
+    // The classification is the template's declared child kind: a second nested file kind
+    // no template names surfaces nothing, off the identical tree.
+    let unnamed = nested_file_kind("appendix");
+    assert!(
+        temper::import::discover_nested_file(&harness, &unnamed, &kinds)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn a_file_the_hosts_pattern_does_not_match_is_discovered_as_no_member() {
+    // Unmodeled, never mis-classified: the pattern is the whole classification rule, so a
+    // file sitting under the host's unit outside it belongs to no kind at all.
+    let harness = common::tmpdir("nested-file-unmatched");
+    let unit = write_skill_with_companions(&harness, "coordinate");
+    std::fs::write(unit.join("NOTES.txt"), "loose\n").unwrap();
+
+    let child = nested_file_kind("reference-doc");
+    let kinds = BTreeMap::from([(
+        "skill".to_string(),
+        // A fixed-name template: only this one file under a host's unit is a child.
+        skill_templating("reference-doc", "PLAYBOOK.md"),
+    )]);
+
+    let found = temper::import::discover_nested_file(&harness, &child, &kinds).unwrap();
+    assert_eq!(
+        found.iter().map(|unit| &unit.file).collect::<Vec<_>>(),
+        vec![&unit.join("PLAYBOOK.md")]
+    );
 }

@@ -576,8 +576,10 @@ pub struct Template {
     pub kind: String,
     /// The path pattern a file child's unit sits at, relative to the parent's unit.
     /// [`None`] for an embedded layer, whose children live in the host's body and own no
-    /// unit. Declared only: nothing discovers a file child off it, exactly as a host's
-    /// embedded members resolve independently of its templates.
+    /// unit. Both faces compose against it: emit writes a child's projection under its
+    /// host's unit at this pattern, and discovery classifies an adopted harness's matching
+    /// files there as that host's children — the pattern's one home is the host, so the
+    /// child kind governs no glob of its own.
     pub path: Option<String>,
 }
 

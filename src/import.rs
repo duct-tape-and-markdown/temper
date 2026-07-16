@@ -20,7 +20,7 @@ use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::drift::Declarations;
-use crate::kind::{CustomKind, Governs};
+use crate::kind::{CustomKind, Governs, UnitShape};
 
 /// Errors raised while discovering or rolling up a harness's members.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -73,9 +73,9 @@ pub(crate) struct RollupEntry {
     pub(crate) emit_hash: String,
 }
 
-/// Discover a built-in `kind`'s source files, keying off its declared `governs`
-/// locus — the same data-driven scan a custom kind would get, so `skill`/`rule`
-/// are no longer hardwired paths (the emit face's locus is the read face's scan root).
+/// Discover a built-in `kind`'s source files at whichever locus it declares — the same
+/// data-driven scan a custom kind would get, so `skill`/`rule` are no longer hardwired
+/// paths (the emit face's locus is the read face's scan root).
 /// The `skill` locus (`.claude/skills` + `*/SKILL.md`) resolves through the generalized
 /// subdir glob; `rule`'s (`.claude/rules` + `*.md`) is flat. Yields the member source
 /// *files* — for a skill the `SKILL.md`, not its directory.
@@ -88,18 +88,106 @@ pub(crate) struct RollupEntry {
 /// itself a skill — is Claude Code's own convention, outside the `.claude/skills`
 /// locus the `governs` scan covers, so it is layered on for the `skill` kind only.
 ///
-/// `pub(crate)` so drift re-scans the harness, and install's modeline placement
-/// targets the same set, through the identical discovery `import` used.
-/// A kind governing no locus — a nested file kind, whose members sit under their host's
-/// unit — is discovered at none: the scan is a `governs` walk, and there is nothing to walk.
+/// A kind governing no locus — a **nested file** kind, whose members sit under their
+/// host's unit — is discovered off `kinds` instead ([`discover_nested_file`]): the two
+/// halves of its locus are the host's, so the declared set the host lives in is what the
+/// scan keys on.
 pub(crate) fn discover_builtin(
     harness: &Path,
     kind: &CustomKind,
+    kinds: &BTreeMap<String, CustomKind>,
 ) -> Result<Vec<PathBuf>, ImportError> {
     match &kind.governs {
         Some(governs) => discover_kind_files(harness, kind, governs),
-        None => Ok(Vec::new()),
+        None => Ok(discover_nested_file(harness, kind, kinds)?
+            .into_iter()
+            .map(|unit| unit.file)
+            .collect()),
     }
+}
+
+/// One discovered nested file member: the child's source file, plus the host unit
+/// directory its path composed under. The file alone cannot name that directory — a
+/// `*`-free pattern may seat the child levels below it — and the id a `file` unit shape
+/// folds is the file's placement under it, so both halves travel together.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NestedFileUnit {
+    /// The host member's unit directory.
+    pub host_unit: PathBuf,
+    /// The child's source file, under `host_unit` at the host template's pattern.
+    pub file: PathBuf,
+}
+
+/// Discover a nested file `kind`'s members on `harness`: under each host member's unit,
+/// every file matching the host template's pattern for this kind. The child kind carries
+/// neither half — the pattern is the host kind's declared `templates` fact and the units
+/// are the host kind's own `governs` scan — so `kinds`, the declared set keyed by bare
+/// name, is what the host is read out of. This is the read side of the composition emit
+/// writes a child's projection at: host unit joined with pattern, and nothing else.
+///
+/// A host qualifies only where it owns a directory unit at a `governs` locus: a template's
+/// pattern is relative to its host's unit, and a lone file has no interior to seat a child
+/// in. A host's entry file is that host's own member and never its own child, so a pattern
+/// matching it collects nothing.
+///
+/// # Errors
+///
+/// Returns an [`ImportError`] if a host's locus or unit cannot be enumerated.
+pub fn discover_nested_file(
+    harness: &Path,
+    kind: &CustomKind,
+    kinds: &BTreeMap<String, CustomKind>,
+) -> Result<Vec<NestedFileUnit>, ImportError> {
+    let discoverable = discoverable_paths(harness);
+    let mut found = Vec::new();
+    for host in kinds.values() {
+        let (Some(pattern), Some(governs)) =
+            (file_template(host, &kind.name), host.governs.as_ref())
+        else {
+            continue;
+        };
+        if host.unit_shape != Some(UnitShape::Directory) {
+            continue;
+        }
+        let root = harness.join(&governs.root);
+        for entry in discover_kind_files(harness, host, governs)? {
+            let Some(host_unit) = unit_dir(&root, &entry) else {
+                continue;
+            };
+            for file in scan_locus(&host_unit, pattern, &discoverable)? {
+                if file != entry {
+                    found.push(NestedFileUnit {
+                        host_unit: host_unit.clone(),
+                        file,
+                    });
+                }
+            }
+        }
+    }
+    found.sort_by(|a, b| a.file.cmp(&b.file));
+    Ok(found)
+}
+
+/// The path pattern `host` templates `child`'s file layer at, if it declares one — the
+/// child's half of the locus, owned by the host. A template carrying no path is an
+/// embedded layer, whose children own no file to find.
+fn file_template<'a>(host: &'a CustomKind, child: &str) -> Option<&'a str> {
+    host.templates
+        .iter()
+        .find(|template| template.kind == child)
+        .and_then(|template| template.path.as_deref())
+}
+
+/// The unit directory a discovered entry file sits in: the one level below the kind's
+/// `governs` root, where a directory-unit member's `<root>/<name>/` is composed. [`None`]
+/// for a file the root does not contain (a bare harness that is itself a skill) or one
+/// lying loose at the root, neither of which owns an interior a template addresses.
+fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
+    let relative = entry.strip_prefix(root).ok()?;
+    let mut components = relative.components();
+    let name = components.next()?;
+    components.next()?;
+    Some(root.join(name))
 }
 
 /// Discover a `kind`'s member source files under `harness`, matching an explicit
@@ -143,26 +231,30 @@ pub fn discover_kind_files(
 /// yields an empty list (a declared kind whose corpus does not exist on this
 /// harness). Data-driven discovery — the locus is the kind's own `governs`
 /// declaration, never a hardwired path.
-///
-/// `pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a
-/// live harness — every kind's members classify through the identical discovery
-/// `import` used.
-pub(crate) fn discover_kind_units(
-    harness: &Path,
-    governs: &Governs,
-) -> Result<Vec<PathBuf>, ImportError> {
-    let root = harness.join(&governs.root);
-    // A glob is a `/`-separated segment list: the final segment matches files, each
-    // earlier one a subdirectory to descend into — a `**` segment descending any
-    // number of levels. `split` always yields at least one segment.
-    let segments: Vec<&str> = governs.glob.split('/').collect();
+fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>, ImportError> {
     // A member is authored content; an ignored file is by declaration not authored
     // here, so discovery sees only what the repo's ignore rules leave in — else a
     // `**` glob would import a vendored dep's memory file. Resolved off the harness (repo) root so a
     // root `.gitignore` governs every kind's walk, whatever its `governs.root` depth.
     let discoverable = discoverable_paths(harness);
+    scan_locus(&harness.join(&governs.root), &governs.glob, &discoverable)
+}
+
+/// The scan itself: every file under `root` matching `glob`, deterministically ordered.
+/// Split from [`discover_kind_units`] so a nested file child's walk under each host unit
+/// rides the same matcher and the same already-computed `discoverable` set — one scanner
+/// serves every kind's locus, host and child alike.
+fn scan_locus(
+    root: &Path,
+    glob: &str,
+    discoverable: &BTreeSet<PathBuf>,
+) -> Result<Vec<PathBuf>, ImportError> {
+    // A glob is a `/`-separated segment list: the final segment matches files, each
+    // earlier one a subdirectory to descend into — a `**` segment descending any
+    // number of levels. `split` always yields at least one segment.
+    let segments: Vec<&str> = glob.split('/').collect();
     let mut files = Vec::new();
-    collect_glob(&root, &segments, &discoverable, &mut files)?;
+    collect_glob(root, &segments, discoverable, &mut files)?;
     // A `**` reaches one file by exactly one path, but `read_dir` order across levels
     // is unspecified; sort for deterministic processing.
     files.sort();
@@ -398,8 +490,15 @@ mod tests {
     use super::*;
 
     use crate::builtin_kind;
+    use crate::drift::TemplateRow;
     use crate::kind::Extraction;
     use crate::test_support::tmpdir;
+
+    /// A kind set declaring no template at all: every `governs` scan below is keyed on its
+    /// own kind's locus, and the set the nested file arm reads a host out of plays no part.
+    fn no_hosts() -> BTreeMap<String, CustomKind> {
+        BTreeMap::new()
+    }
 
     const COORDINATE: &str = "---\n\
 name: coordinate\n\
@@ -469,7 +568,7 @@ Last line, no newline.";
 
         // The skill locus (`.claude/skills` + `*/SKILL.md`) yields the `SKILL.md`
         // files themselves — the subdir glob descended one level.
-        let skills = discover_builtin(&harness, &skill_kind).unwrap();
+        let skills = discover_builtin(&harness, &skill_kind, &no_hosts()).unwrap();
         assert_eq!(
             skills,
             vec![
@@ -479,7 +578,7 @@ Last line, no newline.";
         );
 
         // The rule locus (`.claude/rules` + `*.md`) is flat — immediate `*.md` files.
-        let rules = discover_builtin(&harness, &rule_kind).unwrap();
+        let rules = discover_builtin(&harness, &rule_kind, &no_hosts()).unwrap();
         assert_eq!(
             rules,
             vec![
@@ -510,7 +609,7 @@ Last line, no newline.";
             Extraction::new(Vec::new()),
         );
 
-        let found = discover_builtin(&harness, &memory).unwrap();
+        let found = discover_builtin(&harness, &memory, &no_hosts()).unwrap();
         assert_eq!(found, vec![harness.join("mem").join("CLAUDE.md")]);
     }
 
@@ -554,7 +653,7 @@ Last line, no newline.";
         fs::write(harness.join("SKILL.md"), DEMO).unwrap();
 
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let found = discover_builtin(&harness, &skill_kind).unwrap();
+        let found = discover_builtin(&harness, &skill_kind, &no_hosts()).unwrap();
         assert_eq!(found, vec![harness.join("SKILL.md")]);
     }
 
@@ -600,7 +699,7 @@ Last line, no newline.";
             Extraction::new(Vec::new()),
         );
 
-        let found = discover_builtin(&harness, &memory).unwrap();
+        let found = discover_builtin(&harness, &memory, &no_hosts()).unwrap();
         assert_eq!(found, vec![harness.join("CLAUDE.md")]);
     }
 
@@ -617,12 +716,43 @@ Last line, no newline.";
         fs::create_dir_all(harness.join(".claude").join("skills").join("empty")).unwrap();
 
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let found = discover_builtin(&harness, &skill_kind).unwrap();
+        let found = discover_builtin(&harness, &skill_kind, &no_hosts()).unwrap();
         assert_eq!(
             found,
             vec![
                 harness.join(".claude/skills/coordinate").join("SKILL.md"),
                 harness.join(".claude/skills/demo").join("SKILL.md"),
+            ]
+        );
+    }
+
+    #[test]
+    fn discover_builtin_routes_a_nested_file_kind_through_its_hosts_template() {
+        // The locus dispatch install's own report is built on: a kind declaring no governs
+        // pair is not discovered at none — it is discovered under each host member's unit,
+        // at the pattern the host's `templates` column declares for it.
+        let harness = tmpdir("nested-file-dispatch");
+        write_fixture_harness(&harness);
+
+        let host = builtin_kind::definition("skill")
+            .unwrap()
+            .unwrap()
+            .overlay_templates(&[TemplateRow {
+                kind: "reference-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }]);
+        let kinds = BTreeMap::from([("skill".to_string(), host)]);
+        let child = CustomKind::nested_file("reference-doc", Extraction::new(Vec::new()));
+
+        // `coordinate`'s companion doc, and nothing from `demo` (which carries none) or the
+        // hosts' own `SKILL.md` entry files.
+        let found = discover_builtin(&harness, &child, &kinds).unwrap();
+        assert_eq!(
+            found,
+            vec![
+                harness
+                    .join(".claude/skills/coordinate")
+                    .join("PLAYBOOK.md")
             ]
         );
     }

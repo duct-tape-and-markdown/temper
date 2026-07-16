@@ -309,14 +309,18 @@ impl DiscoveryReport {
 
 /// Walk `root` for every embedded built-in kind's members — the discovery report's
 /// data, computed once and shared by the printed report and the yes-path's scaffold.
+/// The whole kind set travels with each kind: a nested file kind is discovered under its
+/// host's units at the host template's pattern, so its own row of the report is a
+/// function of another kind's declaration.
 ///
 /// # Errors
 /// Returns a [`miette::Report`] if the embedded kind set fails to load or a kind's
 /// discovery walk fails to read a directory.
 pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
-    for kind in builtin_kind::definitions()?.values() {
-        let files = import::discover_builtin(root, kind)?;
+    let kinds = builtin_kind::definitions()?;
+    for kind in kinds.values() {
+        let files = import::discover_builtin(root, kind, &kinds)?;
         members.insert(kind.name.clone(), files);
     }
     Ok(DiscoveryReport { members })
