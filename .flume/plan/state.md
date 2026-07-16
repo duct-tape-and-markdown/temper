@@ -1,31 +1,31 @@
 # Plan state
 
 - Spec derived through: 06e0c2c
-- Audited through: 5ef998b
-- Residue swept through: 5ef998b
-- This tick: reconciled the fd0ba24..5ef998b ship window (two builds:
-  LOCK-SPELLING-REAP e5dbb75, MENTION-DISCOVERY-DEFER ed5bb8e — both dropped
-  from pending by build). AUDIT: verified both on disk. LOCK-SPELLING-REAP
-  added `normalize_lock_path` (drift.rs:511), routed `to_lock_path` through it,
-  and normalizes both reap-join sides at drift.rs:879 (a `./`-prefixed row
-  rejoins its live projection); its blocked dependent EMIT-INTO-REROOT-REAP
-  unblocks to `open`. MENTION-DISCOVERY-DEFER defers a declared-`at`-kind
-  mention to check and corrected the MentionRow doc — standalone, no dependents.
-  Re-derived the drift.rs anchors both blocked entries cite (window shifted
-  drift.rs +25/+8): reap_or_report_orphan 1312→1326, emit_program 537→547,
-  orphan sweep 865-872→875-882; main.rs anchors unshifted. SWEEP: no fileable
-  residue — `normalize_lock_path` is the one canonicalizer (consolidation, not
-  a duplicate). Two riders in touched files maintained: prose.ts law/posture
-  narration (MENTION-DEFER +48 at line 53, lines re-derived) and
-  emit.test.ts:904→907 renderMemberFence — both left as unchanged context,
-  undischarged.
-- Queue: EMIT-INTO-REROOT-REAP (open, drift.rs+main.rs) → LOCK-LAYER-DROP-REFUSE
-  (blockedBy EMIT-INTO) — serial drift.rs chain; PACKAGING parked. Pickable now:
-  EMIT-INTO-REROOT-REAP only.
+- Audited through: 4ec488a
+- Residue swept through: 4ec488a
+- This tick: reconciled the 5ef998b..4ec488a ship window (one build:
+  EMIT-INTO-REROOT-REAP 8f19385, dropped from pending by build). AUDIT:
+  verified on disk. drift.rs split `reap_or_report_orphan` into a
+  disk-touchless `classify_orphan` (drift.rs:1384) plus a deferred delete
+  loop, and added the `TotalReapWave` cliff refusal (drift.rs:81/890) —
+  `!any_survivor && reaping >= 2 && !teardown` refuses before a byte is
+  written; the `teardown` EmitOptions flag threads through main.rs (the
+  `--teardown` arg) and install.rs (both `false`). Tests in emit.rs
+  (strand-refuses + spelled-teardown-proceeds). Its blocked dependent
+  LOCK-LAYER-DROP-REFUSE unblocks to `open`; re-derived its cited anchor
+  (`emit_program` drift.rs:547→566) — the drift.rs window shifted, and the
+  entry reuses this build's `classify_orphan`/`read_prior_provenance` (1343)
+  path + `teardown` flag. SWEEP: no fileable residue — `classify_orphan` is a
+  clean split, no lingering `reap_or_report_orphan` reference in code (only
+  the prior state.md, rewritten here); no tracked-rider file was touched this
+  window (drift/install/main.rs + emit/install tests carry none).
+- Queue: LOCK-LAYER-DROP-REFUSE (open now, drift.rs — the second 0024 cliff:
+  a whole declared layer re-reading to zero refuses) → PACKAGING parked.
+  Pickable now: LOCK-LAYER-DROP-REFUSE only.
 
 Plan continues: no — inbox empty, spec cursor at HEAD's last specs commit
-(06e0c2c), and the fd0ba24..5ef998b ship window is fully reconciled (audit +
-sweep). One `open` entry pickable (EMIT-INTO) — build takes over. NB the
-SessionStart reporter shows the `.temper` dogfood gate red (two unfilled
-requirements: friction-capture-procedure, pending-entry-discipline); harness
-territory, a `chore(harness)` fix outside plan's writable paths.
+(06e0c2c), and the 5ef998b..4ec488a ship window is fully reconciled (audit +
+sweep). One `open` entry pickable (LOCK-LAYER-DROP-REFUSE) — build takes over.
+NB the SessionStart reporter shows the `.temper` dogfood gate red (two
+unfilled requirements: friction-capture-procedure, pending-entry-discipline);
+harness territory, a `chore(harness)` fix outside plan's writable paths.
