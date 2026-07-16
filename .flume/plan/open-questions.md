@@ -13,6 +13,48 @@ tax.
 
 ## Open forks
 
+- `(edge-field-floor)` — OPEN, raised reconciling 74f4e62
+  (EMBEDDED-FORMAT-TARGET-FACTS). An embedded value whose kind declares an edge
+  field but whose instance leaves it unfilled **refuses at emit**:
+  `edgeTargetFacts` throws on an absent or empty leaf (`sdk/src/emit.ts:186-193`),
+  shipped as a tested refusal (`sdk/test/refusals.test.ts:260`). So a declared
+  edge field is mandatory at every instance of its kind, undialable. Three
+  sections say a presence floor is not the tool's to bake: invariant 1
+  ("declaration is opt-in at every grain, and no check may demand declaration
+  density"), invariant 4 (temper "never decides the harness is missing something
+  nobody declared" — the kind declared that `source` *is* an address, never that
+  every citation carries one), and the spine rule (field presence is
+  `Predicate::Required`, a severity-declared clause — `src/contract.rs:83`). The
+  refusal's own cite does not license it: `pipeline.md`'s "Refusing" bullet
+  refuses a **dangling** edge — a target that does not resolve — and an unfilled
+  field is *no edge*, not a dangling one. The two sibling refusals that same
+  entry shipped (target names no composed member; target owns no projection) are
+  squarely licensed by that bullet and are not in question. Verified independent
+  of rendering: refusals.test.ts's `citationKind` declares no `render` hook and
+  emit throws anyway, so the entry's own rationale — the reference is rendered
+  now, so a deferred target has nothing true to place — does not reach this case.
+  **Why a fork, not an entry:** deleting the throw needs a landing place neither
+  the corpus rules nor the code carries. A clause cannot reach it —
+  `Features::has_field` reads the host member's frontmatter (`src/extract.rs:287`),
+  and an embedded value's leaves surface only to the read family
+  (`embedded_leaves`, `src/extract.rs:349-355`); nothing selects an embedded
+  kind's leaves for a clause. And a hook selecting an absent fact renders
+  `undefined` — the fabrication class the entry exists to kill.
+  **What the ruling owes:** which of three — (a) clause reach over embedded
+  leaves (a selection capability: `contract.md`'s "by kind" over an embedded
+  kind); (b) requiredness as kind-side schema (`representation.md` does make "the
+  field schema" a kind's own fact, so an `EdgeField` optionality flag is
+  spellable — but every shipped presence check is a clause, so this splits one
+  job across two homes); or (c) the corpus ratifies the floor — a declared edge
+  field is filled at every instance, and the refusal is correct as shipped.
+  **Plan's read, for the ruling to test:** (c) is the cheapest encoding and the
+  least likely — an optional reference (a decision that may cite the one
+  superseding it) is an ordinary shape, and (c) makes it unspellable.
+  **Blocks nothing:** FORMAT-OMITS-EDGE-CLAUSE ranges by **incidence**
+  (`contract.md`, "selection": the edges at a member), so an unfilled field is
+  simply not incident and the clause is buildable under every outcome above — it
+  declares no `dependsOnForks`.
+
 - `(guidance-climb)` — OPEN, raised routing 0025. The decision's third
   delivery layer — "the opinionated layer is **guidance describing the
   climb** from plain built-ins to the postured shape" — has no home in the
