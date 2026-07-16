@@ -1,5 +1,109 @@
 [
   {
+    "tag": "AGENTS-MD-STDLIB-DROP",
+    "summary": "Drop the claude-code AGENTS.md-memory-kind remnant from the SDK provider std-lib and the built-in lock comment — no AGENTS.md kind ships (Claude Code does not read it).",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Strip the `agents-md.memory` kind framing from the `memoryAgentsMdDefaultContract` region (builtins.ts:645-667): the doc comment presents it as 'the qualified agents-md.memory kind', which is not a shipped Claude Code kind (Claude Code does not read AGENTS.md). Per the ruling, delete the orphaned `memoryAgentsMdDefaultContract` export (no kind adopts it) OR retain it as a de-framed honest-encoding empty clause array — build's call; say which in the commit body."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Drop the `memoryAgentsMdDefaultContract` re-export (line 22) if the export is deleted; keep it if build retains the export."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Reconcile the header comment (lines 14-26) that lists `memoryAgentsMdDefaultContract` among the default contracts and discusses a distinct `agents-md.memory` kind row — to the seven-kind reality after the drop. The `[declaration.*]` rows are unchanged (guidance-only contract contributed no clause row), so `tests/builtin_lock_frozen.rs` stays green."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Remove the `memoryAgentsMdDefaultContract` import (lines 20,36) and the `is guidance-only — zero clauses` test (lines 118-119) if the export is deleted; keep both if build retains the export."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "The provider suite passes after the drop; no `agents-md.memory` kind framing survives (the guidance-only test is removed with the export, or retained de-framed per build's call)."
+      }
+    ],
+    "acceptance": "No `agents-md.memory` kind framing survives in `@dtmd/temper/claude-code` or the built-in lock comment; the provider exports the seven shipped kinds' constructs (plus, at build's discretion, a de-framed empty `memoryAgentsMdDefaultContract`); `pnpm --dir sdk test` and `cargo test builtin_lock_frozen` stay green.",
+    "notes": "Routes inbox `(agents-md-builtin-kind)` (07-15): no claude-code AGENTS.md kind — Claude Code does not read AGENTS.md (code.claude.com/docs/en/memory, 2026-07-15). The cross-tool AGENTS.md story now rides `(multi-harness-projection)`. Lock declaration rows unchanged (guidance-only contract = zero clause rows); only the SDK framing + lock header comment move. Build decides delete vs de-framed keep for the export. scoped at 39a4833."
+  },
+  {
+    "tag": "LAYOUT-EMPTY-REGION-TOLERATE",
+    "summary": "Layout reader reads an unfilled declared region as empty — a prose-only document under a prose+field+collection layout reads green with zero members, not a loud MissingSection.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "`Layout::read` (kind.rs:340-407) consumes headings purely positionally via `next_heading`, which errors `LayoutError::MissingSection` (enum kind.rs:283, raised 422) when the document runs out of headings for a declared field/collection region. Per the ruling a region 'states what may appear, never what must': read an unfilled region as empty (zero collection members / absent field) rather than erroring. An unadmitted heading fitting no region still refuses via `LayoutError::Unadmitted` (kind.rs:401). NB the reader is positional today; a mid-sequence empty region (headings present for a later region) needs region-to-heading identity matching (slug == slot/member_kind) — build owns the matching mechanism, and surfaces an open question if the ruling underspecifies a case beyond the prose-only acceptance."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Rework `a_document_missing_a_declared_section_fails_loud_naming_file_and_heading` (126-141): it asserts the now-wrong behavior (empty collection => MissingSection). Replace with the ruling's acceptance — a prose-only / trailing-empty-region document reads green with zero members. Keep `an_unadmitted_top_level_heading_refuses_loud` (144-158) unchanged: unadmitted structure still refuses."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "A prose-only document under a layout declaring field + collection regions reads green with those regions empty (zero collection members); a fully-membered document still reads every region; an unadmitted top-level heading still refuses loud."
+      }
+    ],
+    "acceptance": "A prose-only (or trailing-region-empty) document under a layout declaring field/collection regions reads green with those regions empty; unadmitted structure still refuses loud; `cargo test layout_kind` green.",
+    "notes": "Routes inbox `(layout-kind-heterogeneous-corpus)` (07-15) + representation.md amendment (39a4833): regions state what may appear, never what must. Verified on disk — the reader does NOT tolerate empty regions today: layout_kind.rs:126 asserts MissingSection, contradicting the ruling. Floors (required section, min member count) become dialable clauses over the selection — out of scope here, a future entry when demand arrives. scoped at 39a4833."
+  },
+  {
+    "tag": "FLAT-GLOB-DEPTH-REFUSE",
+    "summary": "Flat file kind with a multi-segment or multi-star governs_glob refuses loudly, instead of name-splicing the first `*` and leaving a literal `*` in the derived projection path.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`member_projection_path` (drift.rs:555-572) falls to `governs_glob.replacen('*', name, 1)` for any non-directory, non-`**` glob — so a multi-segment or multi-star flat-file glob leaves stray literal `*`/segments in the derived path (silent nonsense today, invariant 6 'Loud or nothing'). Refuse loudly at this derivation (or its emit-time caller) when a flat `file` kind's glob is not a single-segment single-`*` pattern (any-depth `**` still lands the root `<name>.md`); the finding names the two sanctioned shapes for depth — a skill (agent-loaded), a nesting kind (governed content). Any new error variant lives in drift.rs's existing error enum."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Add coverage: a harness declaring a flat `file` kind whose `governs_glob` is multi-segment/multi-star refuses at emit with a finding naming the offending kind and the skill/nesting-kind shapes; a normal single-`*` glob (`*.md`) and an any-depth `**/CLAUDE.md` glob still derive their projection paths unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "Emitting a harness with a flat file kind whose governs_glob can't map to one projection path fails loud (finding names the kind + the skill/nesting-kind shapes); single-`*` and any-depth `**` globs project unchanged."
+      }
+    ],
+    "acceptance": "Emitting a harness with a flat file kind whose `governs_glob` can't map to one projection path fails loud, the finding naming the file and the two sanctioned depth shapes; single-`*` and any-depth `**` globs project unchanged; `cargo test emit` green.",
+    "notes": "Routes inbox `(directory-sliced-governance)` (07-15): a multi-segment glob on a flat file kind is a loud refusal, never a derived path with a literal `*`. The two sanctioned shapes for depth — a skill (agent-loaded), a nesting kind (governed content) — are the finding's guidance, built when demand arrives, not this entry. `member_projection_path` drifted 513->555 since the note's sha. scoped at 39a4833."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
