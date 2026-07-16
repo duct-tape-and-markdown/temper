@@ -1,34 +1,5 @@
 [
   {
-    "tag": "LOCK-SPELLING-REAP",
-    "summary": "A post-e7b859a engine's first emit against an older `./`-spelled lock silently mass-reaps every live projection — the orphan sweep matches no row and reaps all",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "The orphan sweep (drift.rs:865-872) builds `owned_paths` via `to_lock_path` (drift.rs:501, backslash-only normalization) but compares against `read_prior_provenance` rows' raw `source_path` (drift.rs:866); an older lock spells them `./CLAUDE.md` while the post-e7b859a fingerprint pass keys the normalized `CLAUDE.md`, so every live projection reads ownerless and is reaped. Read robustly (0024): normalize both sides of the join — canonicalize the row `source_path` too (strip `./`, the backslash handling as precedent) so a byte-identical projection matches its row. The genuine total-reap backstop is EMIT-INTO-REROOT-REAP's cliff refusal."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "an emit against a lock whose provenance rows carry `./`-prefixed source paths matches them to the live projections and reaps nothing (0 reaped), rather than mass-reaping every projection"
-      }
-    ],
-    "acceptance": "An emit under a normalized-path engine against an older `./`-spelled lock matches each byte-identical projection to its row and reaps nothing — no silent mass-reap; the loud-or-nothing invariant holds.",
-    "notes": "Field incident (centercode 07-15): one emit reported '21 reaped', exit 0 — deleted every projection while writing a lock claiming them live and unchanged. e7b859a normalizes the workspace path pre-`harness_root`; to_lock_path (drift.rs:501) strips backslashes, never `./`. 0024 rules read-robustly (normalize the join key) — dependsOnForks dropped; SATISFIES shipped 3d08a4a, unblocked. observed 0aa9e62; scoped 06e0c2c (re-verified vs c0bbf3b)."
-  },
-  {
     "tag": "EMIT-INTO-REROOT-REAP",
     "summary": "`emit --into <dir>` inside an adopted harness re-roots the projection tree, orphaning every live projection — emit refuses the total-reap wave unless the author spells an explicit teardown flag",
     "per": {
@@ -95,47 +66,6 @@
     ],
     "acceptance": "A re-read that drops a whole declared layer the committed lock still carries refuses with the finding stated — no silent layer loss on an upgrade — unless the author spells the teardown flag; a partial member change still emits.",
     "notes": "0024's fourth incident: a harness green pre-0018 re-emitted with its ~57 embedded members silently gone (`explain`: 'carries no nested member'). The `(member-fence-dead-text)` loss repro folded in — the prose-scan alternative is rejected (0024 'Rejected': matching-is-mining; a quoted fence false-positives); the loss is the cliff refusal's job. Serialized after EMIT-INTO (shared drift.rs refusal path + teardown flag). observed d26b3ce; scoped 06e0c2c."
-  },
-  {
-    "tag": "MENTION-DISCOVERY-DEFER",
-    "summary": "A composed mention naming a declared kind with no composed member wrongly fails emit; it should defer to check (the row rides the lock), while a mention naming no declared kind still refuses",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`renderTextBody` (emit.ts:162-164) rejects any mention whose address is outside `mentionable` ('resolves to no declared value'). Thread the program's declared kinds; defer (emit the mention as a lock row, no throw) when the address's kind is a declared kind with no composed member, keep refusing when the address names no declared kind (pipeline.md 'Refusing': the deferral's signal is the declared kind, never a guess over the address)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Carry the deferred mention as a `MentionRow` riding the lock so check resolves it at the same table `implemented-by` resolves on; `mentionRows` already builds `${member.kind}:${member.name}` addresses (declarations.ts:340, kind-qualified since SATISFIES). SATISFIES shipped 3d08a4a (shared file)."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Verify the engine resolves a deferred mention edge over discovered members at check time (note: verify graph already covers it) — check owns the verdict; an undeclared-kind address stays dangling at emit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/mention.test.ts",
-        "asserts": "a mention addressing a declared kind with no composed member emits (defers) rather than throwing; a mention addressing no declared kind still throws at emit"
-      },
-      {
-        "path": "tests/graph.rs",
-        "asserts": "check resolves a deferred discovery-locus mention against a discovered member of the declared kind, and refuses when no such member is discovered"
-      }
-    ],
-    "acceptance": "A composed mention naming a declared kind with no composed member emits (defers to check, which resolves it over discovered members) instead of failing emit; a mention naming no declared kind still refuses at emit; the example's skill→script mention demo builds.",
-    "notes": "pipeline.md 'Emit'/'Refusing' amendment (human-ruled 07-15, 06e0c2c) resolves `(composed-mention-discovery-locus)`. Live: `source:main` is a real corpus member the engine resolves `implemented-by`/`graph.route` on, but `renderTextBody` rejects it as dangling. Unblocks the example's (examples/base-harness) skill→script mention demo. SATISFIES shipped 3d08a4a (shared sdk/src/declarations.ts). observed d26b3ce; scoped 06e0c2c."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
