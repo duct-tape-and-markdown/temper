@@ -159,6 +159,78 @@
     "notes": "Derived from 0028 (14a803b), whose Rejected list settles the two live objections. Opt-in-only adoption is rejected — the author who makes this mistake is the one who never opts in — so it ships in the default contract; engine-side always-on is rejected because a known false alarm needs an off switch, which is what makes it a clause. A corpus that hits the false alarm retunes or drops one clause in its own contract. scoped at d19124a."
   },
   {
+    "tag": "EDGE-TARGET-SET",
+    "summary": "A field edge's `to` widens to a declared non-empty set of target kinds: a one-element set resolves bare names exactly as today, a multi-element set demands the kind-qualified address always",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MENTION-REACHABLE-PREDICATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "The authoring type. `EdgeField.to` (46, doc 45 'The target kind's name — the far end of the edge') widens from `string` to the set — and the model's non-emptiness is TS-expressible (`readonly [string, ...string[]]`), which is where it costs nothing: the keystroke is the SDK's declared enforcement placement (distribution.md), so an empty set failing only at engine load would be the weaker spelling of a bar the type can hold. 0029 forecloses the friendlier `string | readonly string[]` union — it rules the type widens to the set, and a permanent two-spelling surface is the no-middles violation. `edgeFields` rides `KindFacts` (152) and `EmbeddedMemberValue` (346) as `readonly EdgeField[]` and needs no edit at either site."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "The lowering. `assemblyFactRows` (347-354) copies `to: edge.to` verbatim into the `edge` assembly fact (351) — one line, and the whole seam: the shape it writes is the shape `src/drift.rs`'s `AssemblyFactRow` reads, so the two spell one column type or the lock is malformed."
+        },
+        {
+          "path": "sdk/src/generated/AssemblyFactRow.ts",
+          "description": "Regenerated from `src/drift.rs`'s `AssemblyFactRow` by ts-rs, never hand-edited — it moves because the row's `to` column changes type. `tests/seam_bindings_current.rs` is the gate that catches a stale binding."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The lock wire, and the legacy read it owes. `AssemblyFactRow.to` (2821, doc 2820 'An `edge` fact's target kind') becomes the array column; `to_table` (3563-3565) writes it and `from_table` (3575, via `opt_str`) reads it. **The legacy read is owed, not optional** — pipeline.md, 'The lock': an upgraded engine owes a committed lock a robust read and a canonical rewrite. A bare `to = \"decision\"` is the lossless spelling of the one-element set (0029's degenerate case) and reads as `[\"decision\"]`; the file is never patched, and the next emit rewrites it whole in canonical form. `templates_from_table`'s legacy normalize (08484b3) is the shipped shape to follow rather than reinvent — including its narrowness: a `to` that is neither string nor array-of-strings still refuses loud as a `RowError`, so the gate stays tight against a genuinely corrupt lock. Field evidence the bare spelling really shipped: `examples/base-harness/.temper/lock.toml:317-326` carries two."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`Edge.to` (52) widens to the set. Its doc (49-51) — 'The artifact kind the reference resolves to — the edge *target*. The target kind must be one `temper` models' — is singular twice over and goes false with the field; it moves with it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The lift, and the empty-set call. `edges_from_declarations` (1897-1911) maps each `edge` assembly fact into a `compose::Edge`; `edge_column(fact.to.clone(), \"to\")?` (1908) is the required-column refusal an absent column already takes. An EMPTY set is the model's own violation (contract.md, 'edge': a **non-empty** set) and refuses at load in that same class — an edge declaring no target kind can never resolve, and loading it would be a silent degrade against intent.md invariant 6. State the call in the commit body."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The normalizer 0029 names, and every reader of the widened field. `target_identity` (1102, doc 1092-1101) is the one home: today it strips a `to_kind:` prefix and returns any other spelling whole so it dangles under its authored name. Over a set it must answer WHICH declared kind resolved, not the identity alone — the one-element case (bare name or `kind:name`) behaving exactly as EMBEDDED-EDGE-DEGREE-SEAM (c607fad) built it, the multi-element case resolving only a `kind:name` whose kind is in the declared set, and a BARE name in a multi-element set resolving to nothing (0029: resolution depends on the written text, never the member population — so no uniqueness inference, even when one member would happen to be unique). Its two callers move with it: `check` (123-140) and `resolved_edges` (803-822) each build one `targets` set from `by_kind.get(edge.to)` (124, 804), which over a set becomes a per-kind lookup — `ResolvedEdge.to` (819) is a `(kind, id)` pair and must name the kind that actually resolved, so the tuple shape itself needs no change. `admissibility` clause (b) (174-180, doc 149-152) and `is_admissible` (1077) both test `by_kind.contains_key(edge.to)`; over a set the bar is EVERY declared element modeled — an unmodeled element is a route that can never resolve, the fault is the declaration's, and the finding names the element, not the set. The two diagnostics interpolating `edge.to` into prose (168, 1123 via `dangling`) render a set now."
+        },
+        {
+          "path": "tests/projection_path_seam.rs",
+          "description": "Fixture migration, mechanical: the `waypoint` kind's six single-kind edge fields (70-78, `{ field: \"to_skill\", to: \"skill\" }` and five siblings) each re-spell as the one-element set. Spelling only — the fixture's coverage (an embedded format's rendered target facts) is unchanged and no assertion moves."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Two fixture sites, same mechanical migration: `edgeFields: [{ field: \"source\", to: \"rule\" }]` at 1085 and 1173 re-spell as the one-element set. Note this file is also SEAM-EXPORTS-RETRACT's and MENTION-REACHABLE-PREDICATE's — the reason this entry is `blockedBy` rather than `open` beside them."
+        },
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "Third fixture site: `edgeFields: [{ field: \"source\", to: \"rule\" }]` (220), the same one-element re-spelling."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "the addressing rule both ways: a multi-element `to` resolves a `kind:name` address to that kind and DANGLES a bare name even when it would be unique across the set; a one-element `to` resolves a bare name exactly as today; an admissibility finding names the unmodeled element of a set, not the set"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the widened `to` column round-trips as an array, a committed lock's legacy bare-string `to` reads as the one-element set without the file being patched, and a `to` that is neither string nor string-array still refuses loud"
+      }
+    ],
+    "acceptance": "A field edge declares its target set: a one-element `to` behaves exactly as today (a bare name resolves within its one kind), a multi-element `to` resolves only kind-qualified addresses and never infers from the member population, and a committed lock's legacy bare-string `to` reads as the singleton unpatched (contract.md, \"edge\": the kind declares the field's target as a non-empty set of kinds, the authored address naming which member of the declared set). `cargo test` green; `pnpm --dir sdk test` green.",
+    "notes": "Derived from 0029 (f6fe385). Built-in lock untouched, verified: `fact = \"edge\"` count is 0 in src/builtin_lock.toml — no shipped kind declares an edge field — so the frozen lock does not re-derive. Legacy-read evidence on disk: examples/base-harness/.temper/lock.toml:317-326 carries two bare-string `to` rows. That example's kinds.ts (135, 182) needs the same re-spelling, but examples/ is human territory outside build's fence — a `docs(example):` commit, not this entry. scoped at 3e02d96."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
