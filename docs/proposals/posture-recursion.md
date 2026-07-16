@@ -41,24 +41,30 @@ an inline template literal solely to thread positional mentions; a
 hand-rolled `cite()` exists solely to control address spelling and
 display. Under this element both delete.
 
-## Element B — std-lib block kinds
+## Element B — named blocks are the mechanism; posture is configuration
 
-Ship the posture blocks in the box: `orientation`, `directive`,
-`reference`, `step` as standard embedded kinds. A kind's layout declares
-which postures may appear in its body (may-appear, per the 07-15 regions
-ruling); budgets bind push-posture blocks; reference blocks carry
-block-attached edges. `file()` bodies remain the sanctioned exception for
-genuine long-form — supporting docs, the pull tier's stock — because
-unstructured prose is unbounded and contract-invisible, where a block has
-a name to justify and a budget the gate can hold (human-ruled 07-16:
-"file-referencing is a path to prose explosion; prose should be concise
-and meaningful").
+Human-ruled 07-16: "postures are a named member, that's it — a member of
+the configuration, not the engine." The engine ships exactly one thing
+here: the **named block** — an embedded member that carries concise
+prose, block-attached edges, and contract bindings (may-appear per the
+07-15 regions ruling, budgets, degrees). That mechanism largely exists:
+base-harness's `invariant`/`step`/`alternative` are consumer-declared
+embedded kinds already. What the engine never learns is a posture word —
+`orientation` is a name some configuration declares, exactly as
+`dev-standards` is a requirement name the engine resolves without
+understanding. Declaring a posture vocabulary is consumer work on
+purpose: encoding the semantic structure is the point.
 
-Consumer evidence: base-harness minted `invariant`/`step`/`alternative`
-plus a hand-rolled `span()`; the centercode scaffold wants
-orientation/intent/reference. Two corpora independently minting posture
-blocks is the product missing a std-lib. Domain refinements (an
-`invariant` as a directive specialization) stay consumer-declarable.
+`file()` bodies remain the sanctioned exception for genuine long-form —
+supporting docs, the pull tier's stock — because unstructured prose is
+unbounded and contract-invisible, where a block has a name to justify
+and a budget the gate can hold (human-ruled 07-16: "file-referencing is
+a path to prose explosion; prose should be concise and meaningful").
+
+Engine-side, this element therefore shrinks to ergonomics: the authoring
+path for "a short list of named blocks with plain prose" must not
+require a hand-rolled `span()` (base-harness rolls one today) or
+template ceremony. The vocabulary itself moves to Element C.
 
 ## Element C — the governance package ships in the box
 
@@ -70,9 +76,15 @@ converged on the same filing rule. N consumers will otherwise carry N
 drifting copies of one truth — the restatement disease at product scale.
 
 Ship it once: a standard governance package — the doctrine document, the
-intake skill that routes to it, and the contract template (slice
-requirements, reached-by degree clauses, tier budgets) — scaffolded by
-`install`, extended by consumers. This is also the positioning: rulesync
+intake skill that routes to it, the contract template (slice
+requirements, reached-by degree clauses, tier budgets), and the **default
+posture vocabulary as declared, extendable configuration**: named block
+kinds (orientation / directive / reference / step) a consumer extends or
+replaces. Per the 07-16 ruling these are configuration members, so they
+live here and never in the engine — and they must be real declared
+kinds, not prose describing kinds, or vocabulary-in-config decays back
+into every corpus re-deriving the names. Scaffolded by `install`,
+extended by consumers. This is also the positioning: rulesync
 makes a harness portable, marketplaces distribute it, temper makes it
 *correct* — and "correct" is undefined without the economy. The product
 is not a gate you configure; it is an opinionated theory of harness
@@ -84,6 +96,13 @@ economics, made checkable.
   coexisting edge mechanisms (mention, EdgeField, references), three
   resolution paths, and consumers choosing per case with no principle.
   The recursion collapses them to one noun with an optional position.
+- **Engine-shipped posture kinds (this proposal's own first draft).**
+  Rejected by the 07-16 ruling: the engine stays vocabulary-free — it
+  resolves names, it never understands them. A baked posture set is the
+  std-lib pattern-match from language products; temper's grain is
+  vocabulary-in-configuration (the built-in kinds themselves live at a
+  provider subpath, not the core). The default vocabulary rides in the
+  governance package as config.
 - **Body structure via headings/layout only, no typed blocks.** A heading
   types position, not force: it cannot carry an edge, a budget, or a
   posture, so contract-invisible prose blobs persist under a structured
