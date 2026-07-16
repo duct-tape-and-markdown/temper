@@ -7,8 +7,7 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INDETERMINATE-NEVER-SILENT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -32,7 +31,15 @@
         },
         {
           "path": "src/main.rs",
-          "description": "`embedded_member_features` (1481-1517) builds `edge_placements` from `edge_fields_by_kind`'s whole declared set crossed with the row's `placed_edges`, so an unfilled edge field reads `false` — a `format-places-edges` false positive (`intent.md` invariant 2) the moment emit's throw retreats and such a value can emit at all. Range the map over the edge fields the row's own `leaves` fills; the `None` placed_edges case (a layout-hosted value, no format to indict) is unchanged."
+          "description": "`embedded_member_features` (1480-1516) builds `edge_placements` from `edge_fields_by_kind`'s whole declared set crossed with the row's `placed_edges`, so an unfilled edge field reads `false` — a `format-places-edges` false positive (`intent.md` invariant 2) the moment emit's throw retreats and such a value can emit at all. Range the map over the edge fields the row's own `leaves` fills. This construction is also the one site that can separate the two facts the empty map conflates (9f3541c's declared deferral, below): the `None` placed_edges arm (1508-1515) means no format rendered the value — a layout host's document is source — while a `Some` arm over no filled edge means there was nothing to place. Both are decidable here; only the engine cannot tell them apart."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "The deferral 9f3541c declared in its own commit body and handed here by name: `evaluate` (256-268) maps `Outcome::Indeterminate` onto the empty violation vec, and `decide`'s `FormatPlacesEdges` arm (513-516) returns exactly that whenever `features.edge_placements` is empty — the sole `Indeterminate` an admissible conformance run still reaches, so one clause still reads as a green pass it never ran (`intent.md` invariant 6). A member whose format placed nothing to omit cannot violate \"the format omits an edge its kind declares\" (`representation.md`, \"kind\"), and a member with no format of its own is not a format to indict — so the verdict is decidable once main.rs carries the distinction, and this arm stops producing `Indeterminate`. Whether the formatless member reads as excluded from the selection or as a vacuous hold is mechanism (spec-system.md, \"Depth rule\"): both spell the same verdict, no finding. The two comment blocks at 260-267 and 534-540 state the residual as live and move with it."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "`Features::edge_placements` (341) and its doc (332-340), which states the conflation as the shape (\"Empty when the kind declares no edge, or when no row records this member — the clause is then undecidable here\"): the feature must carry the two facts apart, since a `BTreeMap` that is empty for both reasons is what forces the engine's silent arm. Rider (open-questions): `EmbeddedMember`'s doc (196-198) says floor-leaf interpolation \"stays deferred until a floor mention syntax is separately ratified\" — 0020 ratified the opposite, so no such syntax will exist and the plain `String` leaf is the permanent shape; reconcile it while here (five entries have opened this file and left it). Second rider: the narration cite at 774 is dated @07-02 — the fact holds, the date is stale; bump it against the live doc while here."
         },
         {
           "path": "tests/contract_template.rs",
@@ -54,10 +61,14 @@
       {
         "path": "tests/contract_template.rs",
         "asserts": "format-places-edges reports no omission for an edge field the value never filled, and still indicts a dropped filled edge"
+      },
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "no admissible clause reaches conformance undecided — a member with no format and a member with no edge to place each reach a verdict, neither a silent pass"
       }
     ],
-    "acceptance": "emit refuses no unfilled edge field — refusal reaches only a reference filled yet unresolvable (pipeline.md, \"Emit\", the Refusing bullet) — and `format-places-edges` indicts no format for an edge the value never carried; `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes 0026 (fd52717). Its second consequence — the schema's optionality reaching the declared fact row — reads as: the row already carries it (`NestedMemberRow.leaves` names the filled fields), so no-edge-when-absent is decidable off existing row data; required-vs-optional never reaches the engine. Re-gated behind INDETERMINATE-NEVER-SILENT (07-16 ruling): it settles how `format-places-edges`' absent fact reads, and both touch contract_template.rs. scoped at ca4e866, re-gated at d572827."
+    "acceptance": "emit refuses no unfilled edge field — refusal reaches only a reference filled yet unresolvable (pipeline.md, \"Emit\", the Refusing bullet); `format-places-edges` indicts no format for an edge the value never carried, and no longer answers `Indeterminate` for any member a conformance run reaches (intent.md invariant 6 — 9f3541c's declared deferral). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes 0026 (fd52717). Its second consequence — the schema's optionality reaching the declared fact row — reads as: the row already carries it (`NestedMemberRow.leaves` names the filled fields), so no-edge-when-absent is decidable off existing row data; required-vs-optional never reaches the engine. Unblocked: INDETERMINATE-NEVER-SILENT shipped (9f3541c), whose body deferred the `format-places-edges` Indeterminate here by name — now scoped, not silently inherited. rescoped at cc12ed0."
   },
   {
     "tag": "NESTED-FILE-LOCUS",
@@ -291,7 +302,7 @@
       "edit": [
         {
           "path": "src/engine.rs",
-          "description": "The five predicates INDETERMINATE-NEVER-SILENT fenced out of the per-artifact facet (the arm at 492-509 and its comment block) gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence entries retire as each gains its judge; `inadmissibilities` keeps only genuinely vacuous spellings (an empty `kind`, an inverted bound). `kind_violation` (516-527) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot."
+          "description": "The five predicates 9f3541c fenced out of the per-artifact facet gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence is `judgeless` (144-175), which returns the \"ranges over a requirement's satisfier set, which a per-artifact contract clause has no judge for\" message for the five under `Facet::Contract` (112-121); its `decide` counterpart is the defensive-floor arm at 541-546. Each fence entry retires as its predicate gains a judge, and `Facet` itself outlives the entry only if some predicate is still facet-split — `dependency-exists` is (judge-less in both), so the split stands. `vacuities` (177+) is untouched: an empty `kind` and an inverted bound are vacuous in every facet. `kind_violation` (557) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot. Rider: the comments at 538-540 and the module doc name this work as `REQUIREMENT-CLAUSES-RECUT`, a tag no queue carries — reconcile the narration to what lands."
         },
         {
           "path": "src/roster.rs",
@@ -299,7 +310,7 @@
         },
         {
           "path": "src/graph.rs",
-          "description": "The reference-graph context `Degree` needs — the half `engine::decide` says \"isn't even in scope here\" (495-497). A by-kind or by-incidence selection needs the same context a requirement's satisfier scan has, so the graph reaches the judge for every selection, not one selector."
+          "description": "The reference-graph context `Degree` needs — the context `engine::judgeless` (152-155) names as the reason the per-artifact facet fences it. A by-kind or by-incidence selection needs the same context a requirement's satisfier scan has, so the graph reaches the judge for every selection, not one selector. Rider (open-questions): the narration cites at 61 and 689 are dated @07-02 — the facts hold, the dates are stale; bump them against the live docs while here."
         },
         {
           "path": "src/contract.rs",
@@ -312,6 +323,14 @@
         {
           "path": "tests/requirement_roster.rs",
           "description": "The existing requirement-facet coverage: the five keep judging a requirement's satisfier set identically — the generalization adds selections, never moves the one that works."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "`a_kind_clause_is_inadmissible_on_a_per_artifact_contract` (254-285, rewritten by 9f3541c) pins the fence this entry retires: a named `kind` on a kind's own contract inverts back to admissible once the judge lands, while an empty `kind` stays inadmissible on vacuity — the half `vacuities` keeps. The engine.rs test `a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause` (985+) and its `judgeless_predicates` fixture (961) move the same way."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "`a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility` (added 9f3541c): a `count` floor clause on `skill` fails the run today because the engine has no judge for it. Once it judges the by-kind selection, the fixture's clause is admissible and the assertion is what the entry inverts — the fail-loud bar itself stands, since `dependency-exists` is still judge-less in both facets and is the honest fixture for it."
         }
       ],
       "retire": []
@@ -323,12 +342,16 @@
         "asserts": "count/unique/membership are whole-grain over a by-kind selection, and degree/kind each-grain over it — the same verdicts the requirement facet reaches over its opt-in selection"
       },
       {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "a predicate with no judge in any facet still fails loud at admissibility — the fence narrows to `dependency-exists`, it does not lapse"
+      },
+      {
         "path": "tests/requirement_roster.rs",
         "asserts": "a requirement's satisfier-set clauses are unchanged — the opt-in selection is one selector, not a second machinery"
       }
     ],
     "acceptance": "count/unique/membership/degree/kind judge over any declared selection — by kind, by opt-in, by incidence — with the quantifier the clause's grain and no separate universal/existential machinery (contract.md, \"selection\"), and no per-artifact clause among them is inadmissible for want of a judge. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"), which the ruling states. The recut `engine.rs:492-504`'s own comments name it (REQUIREMENT-CLAUSES-RECUT). Serialized behind UNFILLED-EDGE-FIELD-NO-EDGE (shared src/main.rs wiring and the contract-clause test surface); file-disjoint from the NESTED-FILE chain, so the two run in parallel after it. scoped at d572827."
+    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"), which the ruling states; 9f3541c's fence is the placeholder it retires, and that commit's own comments name this work REQUIREMENT-CLAUSES-RECUT. Serialized behind UNFILLED-EDGE-FIELD-NO-EDGE (shares engine.rs, contract_template.rs, gate_fail_loud.rs); file-disjoint from the NESTED-FILE chain, so the two run in parallel after it. rescoped at cc12ed0."
   },
   {
     "tag": "SUPPORTING-DOC-REACH-CLAUSE",
