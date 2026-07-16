@@ -1,3 +1,5 @@
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
 Repositories that document themselves must choose which side is authoritative when docs and code disagree. The conventional answer makes code the source of truth and docs a trailing description, held close by a per-change duty ("update the affected docs") that reviewers enforce. In a repository whose code is substantially agent-authored, that answer reads intent out of an artifact — the one direction this corpus forbids.
 
 ## Ruling

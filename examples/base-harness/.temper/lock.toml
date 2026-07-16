@@ -1,26 +1,26 @@
 [[decision]]
 name = "authority-arrow"
 source_path = "docs/decisions/authority-arrow.md"
-source_hash = "ca2adf8129a5bff9472e58b3fdc2a6ddd9761add6f5f6343336beccbb8c9a16d"
-emit_hash = "ca2adf8129a5bff9472e58b3fdc2a6ddd9761add6f5f6343336beccbb8c9a16d"
+source_hash = "ad492a88187bd0e70bf9b50b53121cd26504dba6eb23a1fb455407847f6c1ab4"
+emit_hash = "ad492a88187bd0e70bf9b50b53121cd26504dba6eb23a1fb455407847f6c1ab4"
 
 [[flow]]
 name = "summarize"
 source_path = "docs/flows/summarize.md"
-source_hash = "8c1344296318e108ea8b1281e91d2e381a99c7881c3ffac065213ee82d893f33"
-emit_hash = "8c1344296318e108ea8b1281e91d2e381a99c7881c3ffac065213ee82d893f33"
+source_hash = "c92a63922bf018ffaf12a3c4df781c7987323944863e7d4cddd061374b9bb693"
+emit_hash = "c92a63922bf018ffaf12a3c4df781c7987323944863e7d4cddd061374b9bb693"
 
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "74fb4d803db5de8e0f3cc1ddd473045740aefa034388303365b4643824307cab"
-emit_hash = "74fb4d803db5de8e0f3cc1ddd473045740aefa034388303365b4643824307cab"
+source_hash = "f55a70eb56de014bd551c592c9c6ba3a05a644bc318ddf51dfccfe40d4d97e19"
+emit_hash = "f55a70eb56de014bd551c592c9c6ba3a05a644bc318ddf51dfccfe40d4d97e19"
 
 [[rule]]
 name = "conduct"
 source_path = ".claude/rules/conduct.md"
-source_hash = "ab660d31f5fd62dbc4016f1d3900b35860d0e76882b0b98dd7a44d101984337a"
-emit_hash = "ab660d31f5fd62dbc4016f1d3900b35860d0e76882b0b98dd7a44d101984337a"
+source_hash = "27227247fb748e906c6de810b5bdcf48b824973c865ff817cb147d5f5f300c99"
+emit_hash = "27227247fb748e906c6de810b5bdcf48b824973c865ff817cb147d5f5f300c99"
 
 [[rule]]
 name = "docs-discipline"

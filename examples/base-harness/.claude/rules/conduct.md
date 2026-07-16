@@ -1,3 +1,5 @@
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
 # Conduct — how any agent works here
 
 Portable by design: nothing in this rule is a fact about this project, so it
