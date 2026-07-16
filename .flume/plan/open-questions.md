@@ -13,6 +13,49 @@ tax.
 
 ## Open forks
 
+- `(posture-recursion)` — OPEN, blocked on a human sequencing ruling.
+  `docs/proposals/posture-recursion.md` (f9e1c02) proposes one posture
+  vocabulary recursing harness → member → block, in three elements: (A) one
+  edge noun — `reference` = declared intent, `mention` respelled as a
+  reference that additionally claims a rendered position, display derived
+  from the target's kind and never authored; (B) std-lib posture block kinds
+  (`orientation`/`directive`/`reference`/`step`) a layout admits per the
+  07-15 may-appear regions ruling, budgets binding push-posture blocks,
+  `file()` bodies the sanctioned long-form exception; (C) the governance
+  package — doctrine document + intake skill + contract template —
+  scaffolded by `install`. Frame human-ratified in the field 07-16 ("go").
+  **Why a fork, not the one entry the note asked for:** that note's force is
+  anti-fragmentation — the four 07-16 authoring-model asks are absorbed here
+  and must not route as separate entries beside it — and one fork record
+  honors that exactly: one record, no fragments. But A and B respell `edge`
+  and `mention`, kernel nouns whose section (`specs/model/contract.md`,
+  "edge") states today's four loci with `mention` among them, so the entry's
+  own `per` would cite the section it contradicts. A kernel respell is a
+  Decision appended in the same commit as the section
+  (`specs/process/spec-system.md`, "Change ceremony"), human-authored, and
+  `docs/` is candidate intent, never intent (the asymmetry below). Plan does
+  not write intent; the ruling returns through the spec delta.
+  **The blocking ruling (design-session review, 07-16):** sequencing. A+B
+  respell the SDK authoring surface, `specs/builtins.md`, and both example
+  corpora. Pre-tag lands churn before adopters exist; post-tag churns the
+  courted surface immediately after the v0.1 gate (`specs/distribution.md`,
+  "The offering"). Neither is free; nothing routes until John rules.
+  **Riders the fork carries** (same review): (1) the positionless reference
+  owes a reader story — either every reference renders somewhere (inline or
+  block), or a renderless reference is legal gate-only wiring like
+  `satisfies`; the design must pick one, and "the rendering is the agent's
+  retrieval instruction" implies the former (0019, one face). (2) Display
+  derivation is a declared projection fact on the kind — built-ins carry
+  theirs in their shipped declarations, custom kinds get the same lever —
+  never engine-hardcoded (`specs/intent.md`, the spine rule). (3) Element C
+  is spine-clean only as an adopted-by-import, opt-in package: `install`
+  placing doctrine by default is baked judgment, and "correct is undefined
+  without the economy" overclaims against invariant 4 — the economy is a
+  shipped contract, not the definition of correct. (4) The migration sketch
+  forward-references a "native skill-package form" no element ships; the
+  07-15 deferral stands (the asymmetry below), so the sketch is conditional
+  on that condition, not evidence for it.
+
 - `(mention-gate-containment)` — OPEN. A skill's `paths` removes it from every
   invocation channel until a matching file is read (`specs/builtins.md`, "The
   shipped kinds"; `sdk/src/builtins.ts` `Skill.paths`, verified 2.1.210), so a
@@ -66,6 +109,15 @@ tax.
   type and/or the behavioral remainder made concrete — probabilistic, NEVER a
   well-formedness check or the hard gate (`specs/intent.md`, invariant 2 / "The
   honest bound"). Do not let it near the launch wedge.
+  **Field evidence, 07-16:** behavior is the unverified half — `check` proves
+  structure, and the consumer campaign's two highest-value facts (the
+  `skill_listing` herald, `paths`-gate channel semantics — both feeding
+  `(mention-gate-containment)` above) were unknowable from structure and cost
+  hand-built headless probes (transcript-verified, 2.1.210). So the fork's
+  cost side is now measured, not assumed. `Requirement.verifiedBy` is already
+  in the model, dormant. Unchanged: this is a quarter-scale bet, parked past
+  launch, and `docs/horizons.md` is where a human carries it — plan does not
+  write that page.
 
 - `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
   harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
@@ -82,6 +134,35 @@ tax.
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
 condition arrives, it is the next break. If work touches one, surface it.
+
+- **Skill-package nesting stays doctrinal, built on demand** (human-ruled
+  07-15, 39a4833: the centercode pack trial resolved as "a pack is a skill" —
+  native directory unit, nested reference docs, paths-gated pull). The
+  condition is **demand**, and the first datum arrived 07-16: the centercode
+  corpus hand-rolls `supportingDocs(skillName)`, a factory minting one
+  nested-root kind per skill directory (`.claude/skills/<name>/docs`, glob
+  `*.md`, registration-free) — two live kinds, each doc held by a required
+  incoming-degree clause and a typed mention from its skill body.
+  **Verified on disk 07-16 (the gap is real and wider than the note says):**
+  the SDK ships no nesting template at all — `KindDefinition`
+  (`sdk/src/kind.ts:179`) carries `facts`/`key`/`render` and no "template per
+  inner layer" fact, and `nested_member` rows are the embedded-`blocks()`
+  case only, `templates` deriving solely from `withinHosts`
+  (`sdk/src/declarations.ts:475` says so outright). So
+  `specs/model/representation.md` ("kind", the template fact) and
+  `specs/builtins.md` ("skill — its bundled reference documents are nested
+  file members of the same skill") both describe a fact the code does not
+  carry; nested-in-model-yet-owning-files is the case with no surface.
+  **The datum is logged, not acted on — it does not trip the condition.** The
+  factory *works*: expressing the pattern with shipped primitives is evidence
+  the primitive set suffices, and what it wants is ergonomics (one template
+  fact instead of N sibling root kinds impersonating nesting), which is not
+  the trigger the ruling named. One consumer, authored by the product's own
+  human, is not a population. What would trip it: a consumer who *cannot*
+  express the pattern, or a second independent corpus re-deriving the
+  factory. The vendor pattern is documented (code.claude.com/docs/en/skills,
+  "Add supporting files", retrieved 2026-07-16), so the coverage bar
+  (`specs/builtins.md`) is what the next break argues from.
 
 - **Default-contract auto-adoption** (a bare harness gets the built-in kinds
   checked with no assembly declaration) — kept for the zero-config front door;
