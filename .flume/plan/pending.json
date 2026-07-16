@@ -235,6 +235,45 @@
     "notes": "Routes 0027 (abe5d5d), Consequences half 3 — the built-in adoption; 0027 says it re-enters buildable, and it does, minus the clause. The template claims the honest markdown subset: supporting files of other types stay unmodeled and named as such (0027's second Rejected bullet), the `settings.json` partial-governance posture. Discharges the `supportingDocs()` factory asymmetry in open-questions. scoped at 4ba483f."
   },
   {
+    "tag": "SDK-FIXTURE-WIRING-ONE-HOME",
+    "summary": "The fixture-harness wiring builder belongs in `tests/common`, not copy-pasted per suite: three copies of tmpdir → `.temper` → `harness.ts` → `vendor_sdk` collapse into one home",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SKILL-NESTED-REFERENCE-DOCS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The declared one home for test scaffolding — its own header (1-4) names \"the SDK vendoring used by tests that drive a real `node` subprocess\" as the copy-per-suite it exists to end. It carries every ingredient (`tmpdir` 31, `scaffold` 44, `vendor_sdk` 96) and not the builder that composes them into a fixture harness, which is exactly the surface the three copies below each re-derive. Add that builder: a label plus the fixture program text, returning `(harness, into)`. `tests/install.rs`'s eleven `vendor_sdk` calls are a different job — the install verb scaffolds its own `harness.ts` under test, rather than wiring an authored fixture program — and are out of scope."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "`wire_sdk_harness_program` (1220-1230) is the original, and the surface the other two copies' doc comments cite by name as the pattern they follow; `wire_sdk_harness` (1214-1216) binds it to this suite's `HARNESS_PROGRAM`. Retire the local body onto the common home — the `HARNESS_PROGRAM` binding stays suite-local, being this suite's fixture rather than scaffolding."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "`wire_memberless_harness` (61-71): a verbatim copy of emit.rs's builder — tmpdir, `.temper`, write `harness.ts`, `vendor_sdk` — whose own doc (58-60) cites `tests/emit.rs`'s `wire_sdk_harness` as the pattern it follows. Call the common builder with `MEMBERLESS_BUILTIN_PROGRAM`."
+        },
+        {
+          "path": "tests/projection_path_seam.rs",
+          "description": "`wire_waypoint_harness` (117-123), the third copy (e76ec85), carrying the same doc cite back to emit.rs's builder. Call the common builder with `WAYPOINT_PROGRAM`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "One builder composes tmpdir → `.temper` → `harness.ts` → `vendor_sdk`, in `tests/common`, and no suite re-derives it (engineering.md, \"One job, one home\": shared fixtures and builders live in one home, never copy-pasted per file). Behavior is unchanged, so the three suites' existing tests are the coverage; `cargo test` green.",
+    "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, its doc citing emit.rs's `wire_sdk_harness` as the pattern it followed rather than the home it should have extended — the copy-per-suite `tests/common`'s own header says it exists to end. Serialized behind the chain: shares projection_path_seam.rs with NESTED-FILE-LOCUS, builtin_lock_frozen.rs with SKILL-NESTED-REFERENCE-DOCS. scoped at 688d8cc."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {

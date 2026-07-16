@@ -1,58 +1,63 @@
 # Plan state
 
 - Spec derived through: abe5d5d
-- Audited through: 74f4e62
-- Residue swept through: 74f4e62
-- This tick: ROUTED the spec delta's last commit — abe5d5d (0027, the nested
-  file child composes its path from its host). The delta is now empty.
-  **0027's Consequences, bullet by bullet:** (1) "`representation.md`'s locus
-  section goes ternary and `builtins.md`'s skill bullet names the
-  honest-subset claim — same commit, this record" — moot, verified in
-  abe5d5d's own diff (both files: the locus list's third spelling, the skill
-  bullet's markdown-subset sentence). (2) "the composition surface" —
-  **NESTED-FILE-LOCUS**: `Locus` is binary in both layers (`sdk/src/kind.ts:57`;
-  `Governs`, `src/kind.rs:30`, a required root+glob), and `projectionPath`
-  refuses every non-`at` locus (`sdk/src/emit.ts:129`), so a file-owning child
-  has no spelling. (3) "discovery off the template pattern" —
-  **NESTED-FILE-DISCOVERY**: `discover_kind_units` (`src/import.rs:145`) keys
-  every scan on `governs`, and a nested-file kind has none;
-  TEMPLATE-FILE-CHILD-FACT's declared-fact-only bound (`src/kind.rs:576-579`)
-  retires there. (4) "the built-in adoption — SKILL-NESTED-REFERENCE-DOCS
-  re-enters buildable" — filed under that tag: `skill`'s template plus the
-  `supporting-doc` kind.
-  **The one half that does not re-enter buildable, stated for the veto:**
-  0027 ships `supporting-doc`'s advisory "reachable from its skill's body"
-  clause, and no spelling fires it. `degree` is the only edge-count predicate
-  (`src/contract.rs:222`) and `graph::degree` judges it over a *requirement's*
-  satisfiers alone (`src/graph.rs:240-246`, wired off `assembly_requirements`,
-  `src/main.rs:938`); a default contract is a by-kind `expect` array, and that
-  path returns `Indeterminate` (`src/engine.rs:506-509`) — no finding. The
-  clause would ship green and silent: invariant 6. `contract.md`'s "selection"
-  already licenses the by-kind binding, so this is code lagging intent — but
-  the fix is the node-set/edge-scope recut the engine's own comments name
-  (`src/engine.rs:492-504`), a language change a decision ratifies before it
-  is built (the `glob-valid` precedent). Registered
-  `(supporting-doc-reach-clause)`; the adoption ships without the clause,
-  exactly as 0027's "re-enters buildable" says.
-  Closing checklist: the queue serializes as one chain —
-  UNFILLED-EDGE-FIELD-NO-EDGE → NESTED-FILE-LOCUS (shared `sdk/src/kind.ts`,
-  `sdk/src/emit.ts`, `sdk/test/emit.test.ts`) → NESTED-FILE-DISCOVERY (shared
-  `src/drift.rs`, `tests/nested_member.rs`) → SKILL-NESTED-REFERENCE-DOCS (no
-  shared path; serialized because the locus is what a discovered child is
-  classified as). PACKAGING-CHANNELS-REMAINDER's park re-tested at 4ba483f and
+- Audited through: ca4e866
+- Residue swept through: ca4e866
+- This tick: RECONCILED the 74f4e62..ca4e866 window — two build commits,
+  13c58ed (FORMAT-OMITS-EDGE-CLAUSE) and e76ec85 (PROJECTION-PATH-SEAM-GATE),
+  both already dropped from pending by ca4e866.
+  **Audit — verified on disk, not from the log:** the clause shipped whole —
+  `Predicate::FormatPlacesEdges` (`src/contract.rs:261`, spelled
+  `format-places-edges` at 354/428), its judge (`src/engine.rs:464-482`, empty
+  map ⇒ `Indeterminate`), the `placed_edges` lock column
+  (`src/drift.rs:2596-2613`, `Option<Vec<String>>`, `None` for a layout-hosted
+  value at 1288-1292), `Features::edge_placements` (`src/extract.rs:329-338`),
+  the SDK's recording view (`sdk/src/emit.ts` `placedEdges`, 340-350), and
+  `formatPlacesEdges()` (`sdk/src/contract.ts:124`). No built-in adopts it —
+  `src/builtin_lock.toml` unmoved. The seam gate is `tests/projection_path_seam.rs`,
+  212 lines, comparing the two derivations through the property, not the symbol.
+  No pending entry's work shipped; nothing to drop. **Gates re-tested, each still
+  true:** UNFILLED-EDGE-FIELD-NO-EDGE open, its every cite resolving
+  (`edgeTargetFacts`'s `names no target` throw at emit.ts:188-193; `placedEdges`'s
+  no-`render` whole-set claim at 346; `embedded_member_features`'s
+  declared-set-crossed-with-`placed_edges` map at main.rs:1508-1516 — the
+  false positive the entry is scoped to). The three-entry chain behind it
+  (NESTED-FILE-LOCUS → NESTED-FILE-DISCOVERY → SKILL-NESTED-REFERENCE-DOCS)
+  holds on its shared paths. PACKAGING-CHANNELS-REMAINDER's park re-tested and
   true verbatim: 4 tags, all era-named, crate 0.1.0 vs npm 0.0.7,
-  release.yml:7-9 still defers darwin. Every cited line resolves on disk
-  (kind.ts:49-59, emit.ts:114-140, kind.rs:29-37/567-580, drift.rs:569-605,
-  import.rs:114-167, builtins.ts:142-158, builtin_kind.rs:70-291). Two riders
-  found carriers and were re-routed in open-questions: drift.rs:570's "retired
-  `projectionPath`" onto NESTED-FILE-LOCUS, and builtins.ts:565/611's two dead
-  `PACKAGE.md` cites onto SKILL-NESTED-REFERENCE-DOCS — nine entries had opened
-  that file and left them. Fork board: five open, none blocking a queued entry.
-- Queue: 1 pickable (UNFILLED-EDGE-FIELD-NO-EDGE); three serialized behind it
-  (NESTED-FILE-LOCUS → NESTED-FILE-DISCOVERY → SKILL-NESTED-REFERENCE-DOCS);
+  release.yml:7-9 still defers darwin on John's Apple notarizing.
+  **Sweep — one gap filed, SDK-FIXTURE-WIRING-ONE-HOME:** `tests/common/mod.rs`'s
+  own header declares it the one home for "the SDK vendoring used by tests that
+  drive a real `node` subprocess … every suite was carrying its own copy of", and
+  it carries `tmpdir`/`scaffold`/`vendor_sdk` — every ingredient except the
+  builder that composes them into a fixture harness. That builder now exists
+  three times: `wire_sdk_harness_program` (tests/emit.rs:1220), and two verbatim
+  copies whose doc comments cite it by name as the pattern they follow —
+  `wire_memberless_harness` (tests/builtin_lock_frozen.rs:61) and, added by this
+  very window, `wire_waypoint_harness` (tests/projection_path_seam.rs:117).
+  `specs/process/engineering.md`, "One job, one home": test scaffolding is a
+  surface, and a builder lives in one home, never copy-pasted per file. Serialized
+  behind SKILL-NESTED-REFERENCE-DOCS — it shares projection_path_seam.rs with
+  NESTED-FILE-LOCUS and builtin_lock_frozen.rs with SKILL-NESTED-REFERENCE-DOCS,
+  and two `open` entries over one file revert the wave.
+  Closing checklist: the queue is disjoint — one chain of five
+  (UNFILLED-EDGE-FIELD-NO-EDGE → NESTED-FILE-LOCUS → NESTED-FILE-DISCOVERY →
+  SKILL-NESTED-REFERENCE-DOCS → SDK-FIXTURE-WIRING-ONE-HOME) plus the park.
+  Fork board: five open, none blocking a queued entry. Every rider record
+  re-verified on disk at ca4e866; three restamped — contract.rs's layering
+  straggler (moved 475 → 490; 13c58ed opened the file and left it, the second
+  entry to do so), drift.rs:570's "retired projectionPath" (unmoved; 13c58ed
+  opened drift.rs and left it — its carrier stays NESTED-FILE-LOCUS, which names
+  it in `files[].description`), and extract.rs's floor-mention comment (unmoved;
+  13c58ed is its fifth opener). The rest (session_start.rs fixtures,
+  builtins.ts:565/611, read.rs's five strand comments, prose.ts's narration,
+  Cargo.toml:42-43) unmoved and untouched this window.
+- Queue: 1 pickable (UNFILLED-EDGE-FIELD-NO-EDGE); four serialized behind it as
+  one chain (NESTED-FILE-LOCUS → NESTED-FILE-DISCOVERY →
+  SKILL-NESTED-REFERENCE-DOCS → SDK-FIXTURE-WIRING-ONE-HOME);
   PACKAGING-CHANNELS-REMAINDER parked (John's Apple notarizing + the v0.1
   lockstep tag).
 
-Plan continues: yes — the spec delta is drained, and the post-ship
-reconciliation window (74f4e62..ca4e866 — two build commits, 13c58ed and
-e76ec85) is the next live input.
+Plan continues: no — inbox empty, no refactor captures, the spec delta drained
+at abe5d5d, and both reconciliation cursors now at ca4e866 (HEAD's only later
+commits are `plan:` restamps). Build takes over on UNFILLED-EDGE-FIELD-NO-EDGE.

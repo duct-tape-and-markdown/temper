@@ -197,10 +197,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   then MCP-SERVER-KIND (1ffab8f, hunks at 913/938/1148/1167), then HOOK-SHAPE
   (5fc3e9f, +135 lines: the `hook_matcher_group` write/read pair at 928-1015),
   then SATISFIES-LABEL-QUALIFY (3d08a4a, the `host_address`
-  `pub(crate)`→`pub` widen at line 640, net-zero), each opened extract.rs
-  but left 196-198 as unchanged context, so — reconciliation-not-opening —
-  undischarged; re-verified on disk (extract.rs:196-198, unshifted) at
-  reconcile HEAD fd0ba24.
+  `pub(crate)`→`pub` widen at line 640, net-zero), then FORMAT-OMITS-EDGE-CLAUSE
+  (13c58ed, +11: the `Features::edge_placements` field at 329), each opened
+  extract.rs but left 196-198 as unchanged context, so —
+  reconciliation-not-opening — undischarged; re-verified on disk
+  (extract.rs:196-198, unshifted) at reconcile HEAD ca4e866.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,
@@ -232,12 +233,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   of the retired SDK `projectionPath`" names a live twin as a dead
   predecessor — the sharper reading of the very duplication
   PROJECTION-PATH-SEAM-GATE gates. Comment staleness only; behavior correct.
-  That entry added a test file and opened no Rust file. **Carrier found:**
+  That entry added a test file and opened no Rust file; FORMAT-OMITS-EDGE-CLAUSE
+  (13c58ed) then opened `drift.rs` (+23: the `placed_edges` column at 2596-2613)
+  and left 570 as unchanged context — undischarged. **Carrier found:**
   NESTED-FILE-LOCUS opens `drift.rs` (the nested-file case in
   `member_projection_path`, the very twin the doc miscalls), and its
   `files[].description` names the rider — so it discharges there, never
   standalone. Found draining the projection-path capture at HEAD 74f4e62;
-  re-verified on disk (drift.rs:569-571) at routing HEAD 4ba483f.
+  re-verified on disk (drift.rs:569-571, unmoved) at reconcile HEAD ca4e866.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
@@ -257,13 +260,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   from the corrected `Predicate::target` doc — the layer is gone, so
   `target`'s live job is array-surgery identity, never layering. Behavior
   and symbols correct; doc-comment staleness only. Each rides whichever
-  entry next opens its file — FORMAT-OMITS-EDGE-CLAUSE now opens
-  `src/contract.rs` (the new predicate variant); no queued entry opens
-  `compose.rs` — never standalone. Found at residue sweep HEAD d029d4b. GLOB-VALIDITY-PREDICATE
-  (46b8cd1) then opened `src/contract.rs` (+20: the glob-validity predicate)
-  yet left the straggler as unchanged context — undischarged; it shifted +16,
-  459 → 475. compose.rs:233 untouched this window. Re-verified on disk
-  (compose.rs:233, contract.rs:475) at reconcile HEAD c0bbf3b.
+  entry next opens its file; no queued entry opens either — never standalone.
+  Found at residue sweep HEAD d029d4b. Two entries have now opened
+  `src/contract.rs` and left the straggler as unchanged context:
+  GLOB-VALIDITY-PREDICATE (46b8cd1, +20: the glob-validity predicate, shifting
+  it 459 → 475), then FORMAT-OMITS-EDGE-CLAUSE (13c58ed, +20: the
+  `format-places-edges` variant, shifting it 475 → 490) — the carrier this
+  record itself named, which discharged nothing. The lesson generalizes to
+  every rider here: a carrier named in *this file* is not read at build time;
+  only an entry naming the rider in its own `files[].description` discharges
+  one (NESTED-FILE-LOCUS's drift.rs:570 clause is the working shape).
+  compose.rs:233 untouched this window. Re-verified on disk (compose.rs:233,
+  contract.rs:490) at reconcile HEAD ca4e866.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
