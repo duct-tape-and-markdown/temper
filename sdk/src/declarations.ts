@@ -448,7 +448,7 @@ function includeRows(harness: Harness): IncludeRow[] {
  * `nested_member` row it feeds is identified by.
  */
 export function placementKey(host: string, kind: string, key: string): string {
-  return `${host} ${kind} ${key}`;
+  return `${host}${kind}${key}`;
 }
 
 /**
