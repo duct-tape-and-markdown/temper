@@ -1,40 +1,5 @@
 [
   {
-    "tag": "INSTALL-REPRESENTED-SKIPS-THE-QUESTION",
-    "summary": "`install` reads the lock on disk under its path: a root carrying `.temper/lock.toml` skips the settled represent question and converges on the lock; a path that IS a workspace refuses loud",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Two halves of one job — install resolving its path argument against the locks already on disk. (1) The represent decision (398-413): `yes` ⇒ Yes, `no_represent` ⇒ No, else `ask_represent()` (620-633, which defaults an unattended terminal to No). A root whose `.temper/lock.toml` exists has answered the fork on disk, so neither the prompt nor its conservative default applies: detect it and take the represented path, placements following the lock's current contents. `--no-represent` against such a root asserts the false half of a settled fork — refuse as a usage error naming the lock, never silently place less than the lock justifies. (2) The install arm resolves `path` as a harness root unconditionally, so a path that IS a workspace (`lock.toml` directly under it) is treated as a raw unrepresented root: it discovers the workspace's own files and would scaffold `<path>/.claude/settings.json` inside the workspace — silent nonsense where invariant 6 demands loud. Refuse, naming the enclosing root as the argument meant. Consolidation, not a second resolver (`specs/process/engineering.md`, 'One job, one home'): `harness_diagnostics` (658-680) already answers exactly this question three ways off the `LOCK_FILE` const c7409f0 added — extend that surface rather than hand-rolling install's own lock probe."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "`REPRESENT_QUESTION` and its doc (175-178) carry the one-genuine-fork rule; state there that the question is asked only where the fork is live (no lock on disk). `render_discovery` (330) — the report printed before the question — names the already-represented root, so a skipped question is visible rather than invisible state."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a represented root (lock present), neither flag, no tty: takes the represented path — the lock's placements, no prompt; `--no-represent` against a represented root refuses loud; a workspace dir passed as the path refuses instead of scaffolding a `.claude/` inside it"
-      }
-    ],
-    "acceptance": "On this repo, non-interactive `temper install . --dry-run` places the 3 managed-by notes `check .` demands — the probe and the on-ramp converge — asking no question the lock has already answered; `temper install .temper` refuses rather than scaffolding into the workspace.",
-    "notes": "Both premises re-probed live at f632c71, past c7409f0: `install . --dry-run` still prints the question, defaults No, manages the session-start hook alone; `--yes --dry-run` places the 3 notes — the yes-path already converges, so the gap is a settled fork re-asked then answered wrong unattended. `install .temper --dry-run` would place a hook at `.temper/.claude/settings.json`. Blocker CHECK-WORKSPACE-DIR-RESOLVE shipped (c7409f0); gate opened. scoped at f632c71."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
