@@ -59,6 +59,182 @@
     "notes": "Routes 0026 (fd52717). Its second consequence — \"the schema's optionality reaches the declared fact row\" — reads as: the row already carries it. `NestedMemberRow.leaves` names the filled fields, so no-edge-when-absent is decidable off existing row data; required-vs-optional never reaches the engine (an unfilled required field fails in the author's program at compose time). The rival reading — an optionality column — needs the runtime flag 0026's Rejected list forbids. scoped at ca4e866."
   },
   {
+    "tag": "NESTED-FILE-LOCUS",
+    "summary": "Locus goes ternary: a nested file child owns a file whose path composes from its host's unit and the host template's pattern, and governs no glob of its own",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "UNFILLED-EDGE-FIELD-NO-EDGE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`Locus` (49-59) is binary — `{kind:\"at\", root, glob}` or `{kind:\"embedded\"}` — and its doc (50-56) states that binary as the whole story. Grow the third spelling: a nested-file child owns a unit whose path composes from its host's unit plus the host template's `path` pattern (`Template`, 102-118, already carries the pattern), so the child kind declares no `root`/`glob` and cannot collide with its host's governs glob."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`projectionPath` (114-140) refuses every non-`at` locus (129-133, the `is embedded` arm) — the floor that makes a standalone projection an `at`-locus privilege. A nested-file child projects at its host's unit joined with the template's pattern; the `# Throws` doc (123-127) states the retired floor and moves with it. `joinSlash` (110-112) is the existing path composer — extend it, never a second joiner (`specs/process/engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "The kind fact row's locus columns: `governs_root`/`governs_glob` are unconditional today, and a nested-file kind fills neither. The row carries the third spelling instead of a root+glob pair the kind does not have."
+        },
+        {
+          "path": "sdk/src/generated/KindFactRow.ts",
+          "description": "Regenerated seam binding for the grown locus columns (ts-rs output — regenerate, never hand-edit)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`Governs` (29-37) is a required root+glob pair every `CustomKind` carries (`CustomKind::new`, 587-600, takes it by value); `from_kind_fact_row` (644-651) rebuilds it from the row's two columns. A nested-file kind governs no glob, so the locus must admit the host-composed spelling rather than a fabricated root+glob."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`member_projection_path` (578-605) derives a member's projection off `governs_glob`/`governs_root` alone, and the doc (569-577) is the SDK-side twin PROJECTION-PATH-SEAM-GATE (e76ec85) holds in agreement — both sides gain the nested-file case together or the gate fires. Line 1075-1077 joins root+glob the same way. Rider (open-questions): the doc at 570 calls the live SDK `projectionPath` \"retired\" — reconcile it while here."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The `supportingDoc` fixture (459-465) spells the locus 0027's first Rejected bullet forbids: a self-governing `{at, .claude/skills, *.md}` glob overlapping `skill`'s own `*/SKILL.md`. Respell it as a nested-file child of its `guide` host (467-476); the template-fact assertions (478-487) stand."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "The file-child template round-trip (225-245) proves the declared fact only. Extend it onto the locus: the child's projection path derives from the host's unit plus the pattern, on both the SDK and engine sides."
+        },
+        {
+          "path": "tests/projection_path_seam.rs",
+          "description": "The two-homes agreement gate (e76ec85) ranges over the loci that project; the nested-file spelling enters it, so the SDK and engine derivations cannot diverge on a child's composed path."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "`KindFactRow`'s locus columns grow the third spelling: `governs_root`/`governs_glob` are absent for a nested-file kind, whose path composes from its host's unit and the host template's pattern. No built-in declares the locus until SKILL-NESTED-REFERENCE-DOCS, so `src/builtin_lock.toml` stays byte-identical and the frozen compare does not move.",
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a nested file child's projection path composes from its host's unit and the host template's pattern, and the child kind carries no governs glob"
+      },
+      {
+        "path": "tests/projection_path_seam.rs",
+        "asserts": "the SDK and engine derivations agree on a nested file child's composed path"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a host's file child emits at its composed path — the child kind declaring no glob of its own"
+      }
+    ],
+    "acceptance": "A nested file member owns a file whose path composes from its host's unit and the host template's path pattern, the child kind governing no glob (representation.md, \"locus\"); two kinds still never share a governs glob. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes 0027 (abe5d5d), Consequences half 1 — the composition surface. TEMPLATE-FILE-CHILD-FACT (794678f) landed the declared fact; the locus under it was unspellable, which is what forked. Serialized behind UNFILLED-EDGE-FIELD-NO-EDGE (shared kind.ts, emit.ts, emit.test.ts). Discharges the drift.rs:570 \"retired projectionPath\" rider. scoped at 4ba483f."
+  },
+  {
+    "tag": "NESTED-FILE-DISCOVERY",
+    "summary": "Discovery classifies an adopted harness's matching files as its host's children through the host template's pattern — the child kind governing no glob to scan for",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "NESTED-FILE-LOCUS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "`discover_kind_units` (145-167) is `governs`-keyed — it scans `<harness>/<governs.root>` for `governs.glob` matches — and `discover_kind_files` (114-131) wraps it. A nested-file kind has no `governs` to key on, so nothing discovers its members: its units are found under each *host* unit at the host template's pattern. Extend the one scanner (its doc names it as serving every kind's locus) rather than adding a second walk beside it (`specs/process/engineering.md`, \"One job, one home\"); the ignore-honoring `discoverable_paths` set (250-252) governs the child walk exactly as it governs a host's."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The per-kind discovery wiring that feeds `by_kind`: a nested-file kind's members reach it through their host's units, not a root+glob scan, so the host's discovery must run before its children's."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Drift re-runs the same `governs`-keyed scan against a live harness (`import::discover_kind_units` is `pub(crate)` for exactly that) — the nested-file case moves with it, or a discovered child is an ownerless projection to the reaper."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Discovery coverage for the file child: an adopted harness's file matching a host template's pattern classifies as that host's child, of the template's kind."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a file under a host's unit matching the host template's path pattern is discovered as that host's nested file child, of the template's declared kind"
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a file under a host's unit that the pattern does not match is discovered as no member — unmodeled, never mis-classified"
+      }
+    ],
+    "acceptance": "Discovery classifies an adopted harness's matching files as their host's children through the host template's pattern (representation.md, \"locus\"; the pattern is the host's declared fact) — with no glob of the child kind's own scanned for. `cargo test` green.",
+    "notes": "Routes 0027 (abe5d5d), Consequences half 2 — discovery off the template pattern. The declared-fact-only bound TEMPLATE-FILE-CHILD-FACT (794678f) stated in its own body (\"Nothing resolves a file child's discovery off the pattern\") and in `Template`'s doc (src/kind.rs:576-579) retires here; the doc moves with the behavior. Serialized behind NESTED-FILE-LOCUS: the locus is what a discovered child is classified as. scoped at 4ba483f."
+  },
+  {
+    "tag": "SKILL-NESTED-REFERENCE-DOCS",
+    "summary": "The built-in adoption: `skill` templates its bundled reference documents at the directory's markdown, and `supporting-doc` ships as their prose-only kind",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "NESTED-FILE-DISCOVERY"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships almost-empty per the standing bar (\"Default contracts\") — the one candidate clause is held by `(supporting-doc-reach-clause)` and is not this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The engine-side reader mirror of the shipped kinds (`CustomKind::new` calls at 70/91/117/148/173/209/236, and `definitions` at 291): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "The embedded built-in lock re-derives once `skill`'s row carries a template and `supporting-doc` has a row — the first built-in to declare either (TEMPLATE-FILE-CHILD-FACT left every built-in row's `templates` column absent, so this file was byte-identical there and is not here)."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The frozen gate re-derives the built-in lock through the real SDK and byte-compares; it moves with the two grown rows."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "`skill`'s declaration row carries its reference-document template, and `supporting-doc`'s row carries its nested-file locus and empty field schema."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "`src/builtin_lock.toml` re-derives: `skill`'s kind row grows its `templates` column (child kind `supporting-doc`, the markdown path pattern), and `supporting-doc` enters as a new kind row at the nested-file locus.",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "`skill` declares one file-child layer of `supporting-doc` at the directory's markdown pattern, and `supporting-doc` is fields-free, prose-only, channel-less, identity from the filename"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the embedded built-in lock re-derives byte-identically from the SDK with the two grown rows"
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a real skill directory's markdown document is discovered as that skill's `supporting-doc` child"
+      }
+    ],
+    "acceptance": "A skill's bundled reference documents are nested file members of the same skill, typed `supporting-doc` (builtins.md, \"The shipped kinds\"), their path the skill template's declared fact — nesting-is-model-containment / locus-is-serialization stops being an unbacked claim. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes 0027 (abe5d5d), Consequences half 3 — the built-in adoption; 0027 says it re-enters buildable, and it does, minus the clause. The template claims the honest markdown subset: supporting files of other types stay unmodeled and named as such (0027's second Rejected bullet), the `settings.json` partial-governance posture. Discharges the `supportingDocs()` factory asymmetry in open-questions. scoped at 4ba483f."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
