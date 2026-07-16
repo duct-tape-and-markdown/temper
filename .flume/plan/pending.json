@@ -1,47 +1,5 @@
 [
   {
-    "tag": "WORKSPACE-DIR-ONE-HOME",
-    "summary": "The workspace directory name and the lock filename are private consts in four modules under two names each — consolidate onto one home the whole crate reads them from",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "The home: `pub const` for the workspace directory name (`.temper`) and the lock filename (`lock.toml`), beside the existing `pub const VERSION`. `pub`, not `pub(crate)` — main.rs is a separate bin crate consuming this lib, so a crate-private const cannot reach it."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Retire the local `TEMPER_DIR` (45) and `LOCK_FILE` (49); derive `DEFAULT_WORKSPACE` (41, `\"./.temper\"`) from the shared const rather than re-spelling the literal. `resolve_harness_path` then reads the one home."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Retire `WORKSPACE_DIR` (56) — the second name for the one concept — and read the shared const at its use sites (421, 500, 653)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Retire `LOCK_FILENAME` (27) and `TEMPER_DIR` (34), reading the shared consts; keep each doc comment's discovery-fencing rationale at its use site (273, 277, 299) — that is import's own job, not the literal's."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "Retire `TEMPER_DIR` (41) — its doc comment already confesses it \"mirrors `install.rs`'s own copy of the same literal\" — and read the shared const at 283, 629. This entry is also the carrier for the standing citation-staleness rider on this file (open-questions, \"Rust engine narration cites lag the SDK clause re-fetch\"): `SETTINGS_DOC` (76) cites code.claude.com/docs/en/settings @2026-07-02 while the SDK's clause cites were re-fetched 07-15 — the fact holds, only the date lags, so re-verify the URL live and bump the retrieval date."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "One home spells `.temper` and one spells `lock.toml`: `rg '= \"\\.temper\"|= \"lock\\.toml\"' src/` returns the home alone. Behavior unchanged — `cargo test` green with no test edited, `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "Sweep finding, f632c71..169e62f. 7367c1e consolidated the lock *probe* (harness_diagnostics → resolve_harness_path, one resolver for check + install) but left the literals it reads split five ways. Pure refactor: no behavior moves, so no new test — the existing suites are the regression net. Test fixtures spell `.temper` inline; out of scope (test data, not a const surface). scoped at 169e62f."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
