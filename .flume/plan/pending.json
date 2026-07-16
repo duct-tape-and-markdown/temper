@@ -1,5 +1,52 @@
 [
   {
+    "tag": "INDETERMINATE-NEVER-SILENT",
+    "summary": "Indeterminate is never silent: a predicate this engine has no judge for fails admissibility (the `dependency-exists` precedent), and `evaluate` stops dropping an undecided clause into a green pass",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "well-formedness"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "`evaluate` (214-219) collapses `Outcome::Indeterminate` into the empty violation vec — a clause the engine never decided reads as green, the silent degrade `intent.md` invariant 6 forbids. The live instance is the judge-less arm (492-509): `Count`/`Unique`/`Membership`/`Degree`/`Kind` are admissible in a per-artifact `expect` contract today and silently hold there, because this engine judges one kind's population against `all`, never a named requirement's satisfier set. Send them to the admissibility fence exactly as `DependencyExists` already goes (`inadmissibilities` 110-140; its arm's own comment at 125-129 states the rule: \"A hand-authored clause must therefore fail admissibility, not degrade to a working no-op\"). **The fence is facet-split, never a longer shared list** — `inadmissibilities` is `pub(crate)` precisely so `roster::admissibility` reuses its vacuity rules for a *requirement's* clauses (src/roster.rs:173-176, 219), and there all five DO have a live judge (`crate::roster`/`crate::graph`), so rejecting them in that facet would break the half that works. After the fence the only `Indeterminate` a conformance run can reach is `FormatPlacesEdges`'s absent-fact arm (460-466); `contract.md`, \"selection\" settles it — a member outside the narrowing is a finding, never a silent exclusion. The `Outcome` doc (220-232), the two comment blocks naming REQUIREMENT-CLAUSES-RECUT as the future that lifts the floor (492-504, 943-947), and the `dependency-exists` doc at 253 all state the retired floor and move with it."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "The shared-fence reuse point — the doc at 173-176 (\"reusing `crate::engine::inadmissibilities`, the same vacuous-clause rules … so a requirement's demands and a kind's clauses never carry two definitions of `vacuous`\") and the call at 219. The facet split lands here as the side that keeps admitting the five: one definition of vacuity still, plus one declared fact about which facet carries a judge — never a second copy of the rules drifting beside the first (`specs/process/engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "The fail-loud suite drives the real binary (its header: \"neither spelling can half-gate into a silent green\"). A per-artifact contract carrying one of the five now fails loud at admissibility naming the predicate, rather than passing a check it never ran."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "each of count/unique/membership/degree/kind is inadmissible as a per-artifact clause, and no admissible predicate reaches `Outcome::Indeterminate` at conformance except `format-places-edges`'s absent-fact arm"
+      },
+      {
+        "path": "src/roster.rs",
+        "asserts": "a requirement's own clauses still admit all five — the facet that carries a judge is unchanged"
+      },
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "a contract naming a judge-less predicate fails loud at admissibility, never a green check"
+      }
+    ],
+    "acceptance": "No clause the engine cannot decide over its selection reads as a green pass: it is an admissibility error or a finding (contract.md, \"well-formedness\"; intent.md invariant 6 — no path silently degrades over an unresolved input), and a requirement's clauses keep every predicate `roster`/`graph` judges. `cargo test` green.",
+    "notes": "Routes the 07-16 inbox ruling, entry 1 — landed first so the gap cannot recur silently. The rule pre-exists in code as `dependency-exists`'s fence; the five never joined it. Trap named in the entry: `inadmissibilities` is shared with the requirement facet where the five ARE judged, so a naive push onto the list breaks roster. `extract.rs`'s edge_placements doc is not here — UNFILLED-EDGE-FIELD-NO-EDGE owns that construction site. scoped at d572827."
+  },
+  {
     "tag": "UNFILLED-EDGE-FIELD-NO-EDGE",
     "summary": "An unfilled edge field is no edge: emit's refusal retreats to a filled-yet-unresolvable reference, and the engine's placement view ranges over the value's filled edges only",
     "per": {
@@ -7,7 +54,8 @@
       "section": "Emit"
     },
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tag": "INDETERMINATE-NEVER-SILENT"
     },
     "dependsOnForks": [],
     "files": {
@@ -56,7 +104,7 @@
       }
     ],
     "acceptance": "emit refuses no unfilled edge field — refusal reaches only a reference filled yet unresolvable (pipeline.md, \"Emit\", the Refusing bullet) — and `format-places-edges` indicts no format for an edge the value never carried; `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes 0026 (fd52717). Its second consequence — \"the schema's optionality reaches the declared fact row\" — reads as: the row already carries it. `NestedMemberRow.leaves` names the filled fields, so no-edge-when-absent is decidable off existing row data; required-vs-optional never reaches the engine (an unfilled required field fails in the author's program at compose time). The rival reading — an optionality column — needs the runtime flag 0026's Rejected list forbids. scoped at ca4e866."
+    "notes": "Routes 0026 (fd52717). Its second consequence — the schema's optionality reaching the declared fact row — reads as: the row already carries it (`NestedMemberRow.leaves` names the filled fields), so no-edge-when-absent is decidable off existing row data; required-vs-optional never reaches the engine. Re-gated behind INDETERMINATE-NEVER-SILENT (07-16 ruling): it settles how `format-places-edges`' absent fact reads, and both touch contract_template.rs. scoped at ca4e866, re-gated at d572827."
   },
   {
     "tag": "NESTED-FILE-LOCUS",
@@ -195,7 +243,7 @@
       "edit": [
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships almost-empty per the standing bar (\"Default contracts\") — the one candidate clause is held by `(supporting-doc-reach-clause)` and is not this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent."
+          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships **empty** per the standing bar (\"Default contracts\") — the exported clause array exists so adoption is an import; its one clause is SUPPORTING-DOC-REACH-CLAUSE's to add once an incidence clause outside a requirement is admissible, never this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent."
         },
         {
           "path": "src/builtin_kind.rs",
@@ -272,6 +320,110 @@
     "tests": [],
     "acceptance": "One builder composes tmpdir → `.temper` → `harness.ts` → `vendor_sdk`, in `tests/common`, and no suite re-derives it (engineering.md, \"One job, one home\": shared fixtures and builders live in one home, never copy-pasted per file). Behavior is unchanged, so the three suites' existing tests are the coverage; `cargo test` green.",
     "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, its doc citing emit.rs's `wire_sdk_harness` as the pattern it followed rather than the home it should have extended — the copy-per-suite `tests/common`'s own header says it exists to end. Serialized behind the chain: shares projection_path_seam.rs with NESTED-FILE-LOCUS, builtin_lock_frozen.rs with SKILL-NESTED-REFERENCE-DOCS. scoped at 688d8cc."
+  },
+  {
+    "tag": "PREDICATE-SELECTION-ALGEBRA",
+    "summary": "The node-set and edge-scope predicates move onto the selection algebra: count/unique/membership/degree/kind judge over any declared selection, not only a requirement's satisfier set",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "selection"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "UNFILLED-EDGE-FIELD-NO-EDGE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "The five predicates INDETERMINATE-NEVER-SILENT fenced out of the per-artifact facet (the arm at 492-509 and its comment block) gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence entries retire as each gains its judge; `inadmissibilities` keeps only genuinely vacuous spellings (an empty `kind`, an inverted bound). `kind_violation` (516-527) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "`roster` judges these five today over a requirement's satisfier set — the *only* selection they reach. The opt-in selection (`contract.md`, \"selection\": the members whose satisfies edge targets a requirement) is one selector among three, so this judging is the algebra's existential instance, never its home. Route it through the generalized judge rather than leaving a second implementation beside it (`specs/process/engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The reference-graph context `Degree` needs — the half `engine::decide` says \"isn't even in scope here\" (495-497). A by-kind or by-incidence selection needs the same context a requirement's satisfier scan has, so the graph reaches the judge for every selection, not one selector."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "The clause's selection binding: the five carry their selection today only implicitly, via the requirement facet that hosts them. The `Predicate` enum (the closed vocabulary) does not grow — adding one is a deliberate language change and this is not one; what moves is which selections a clause may bind to."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The author-facing spelling of the five (`count`/`unique`/`membership`/`degree`/`kind`) — sayable outside a requirement's `clauses` array once the engine judges them there, so the SDK type surface stops implying the requirement facet is their only home."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "The existing requirement-facet coverage: the five keep judging a requirement's satisfier set identically — the generalization adds selections, never moves the one that works."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "count/unique/membership are whole-grain over a by-kind selection, and degree/kind each-grain over it — the same verdicts the requirement facet reaches over its opt-in selection"
+      },
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a requirement's satisfier-set clauses are unchanged — the opt-in selection is one selector, not a second machinery"
+      }
+    ],
+    "acceptance": "count/unique/membership/degree/kind judge over any declared selection — by kind, by opt-in, by incidence — with the quantifier the clause's grain and no separate universal/existential machinery (contract.md, \"selection\"), and no per-artifact clause among them is inadmissible for want of a judge. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"), which the ruling states. The recut `engine.rs:492-504`'s own comments name it (REQUIREMENT-CLAUSES-RECUT). Serialized behind UNFILLED-EDGE-FIELD-NO-EDGE (shared src/main.rs wiring and the contract-clause test surface); file-disjoint from the NESTED-FILE chain, so the two run in parallel after it. scoped at d572827."
+  },
+  {
+    "tag": "SUPPORTING-DOC-REACH-CLAUSE",
+    "summary": "`supporting-doc`'s reach clause: a supporting file is invisible unless its host skill references it — the by-kind universal binding, each-grain incidence, advisory",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "PREDICATE-SELECTION-ALGEBRA"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`supporting-doc`'s default contract — the empty exported clause array SKILL-NESTED-REFERENCE-DOCS ships — gains its one clause: an incoming-degree bound over the kind's members, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16), the vendor fact that every supporting file is invisible unless SKILL.md references it. **Universal, not existential**: the fact holds of every supporting document, so the spelling is the by-kind binding with each-grain incidence (`contract.md`, \"selection\"), never a requirement — a requirement is the opt-in selector and would make a vendor fact consumer ceremony. **Reach is locus-agnostic**: any resolved edge from the host skill counts, post-0025's one edge noun and one degree semantics — a mention included, this clause being the \"a contract may\" that mention's obligation-free default reserves (`contract.md`, \"edge\"). Severity **advisory**, per `intent.md` invariant 5: a shipped coverage clause enters advisory, and escalation is the corpus's declared act."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "The embedded built-in lock re-derives: `supporting-doc`'s kind row gains its one clause row."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The frozen gate re-derives the built-in lock through the real SDK and byte-compares; it moves with the grown clause row."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "`supporting-doc`'s default contract carries exactly one clause, at advisory severity, cited and guided — the shipped-clause bar (`builtins.md`, \"The clauses live in code\")."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "`src/builtin_lock.toml` re-derives: `supporting-doc`'s kind row gains one clause row (the incoming-degree reach bound, advisory).",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "`supporting-doc`'s default contract is one advisory reach clause, cited to the vendor fact and carrying its guidance"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the embedded built-in lock re-derives byte-identically with the clause row"
+      }
+    ],
+    "acceptance": "A supporting document no edge from its host skill reaches is an advisory finding naming the vendor fact (builtins.md, \"Default contracts\"; the clause is decidable, severity-declared, guided, cited and dated) — and reach counts any resolved edge, locus-agnostic. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes the 07-16 ruling's clause itself (25e9317 resolved the fork). The single-tag gate names PREDICATE-SELECTION-ALGEBRA — without it an incidence clause outside a requirement is inadmissible, so the clause cannot ship. It ALSO requires SKILL-NESTED-REFERENCE-DOCS: that entry mints the kind and its empty contract, and shares builtins.ts / builtin_lock.toml / builtin_lock_frozen.rs — so this is the queue tail, behind both chains. scoped at d572827."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
