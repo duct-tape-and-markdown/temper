@@ -221,6 +221,88 @@ fn decision_kind_fact_row() -> KindFactRow {
     }
 }
 
+/// A program whose `guide` host templates a `supporting-doc` file child at `*.md`, with
+/// one child composed under one host — the whole composition surface a nested file locus
+/// needs: the pattern is the host kind's declared fact, and the child kind declares no
+/// locus of its own to compose from.
+const NESTED_FILE_PROGRAM: &str = r#"
+import { emit, harness, kind, text } from "@dtmd/temper";
+
+const supportingDoc = kind<object>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const guide = kind<object>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [operating, supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` })],
+    }),
+  ).seam,
+);
+"#;
+
+#[test]
+fn a_file_childs_projection_composes_from_its_hosts_unit_and_the_templates_pattern() {
+    // The engine is the sole compiler of every projection, so the composed path is proven
+    // where it is actually written: `emit` reports where each member landed, and the
+    // child's own kind declares no glob the path could have come from instead.
+    let harness = common::tmpdir("nested-file-locus");
+    let into = harness.join(".temper");
+    std::fs::create_dir_all(&into).unwrap();
+    std::fs::write(into.join("harness.ts"), NESTED_FILE_PROGRAM).unwrap();
+    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
+
+    let report = temper::drift::emit_program(&into, temper::drift::EmitOptions::default()).expect(
+        "the nested file locus is proven through a real SDK program, never a hand-built row",
+    );
+
+    let child = report
+        .entries
+        .iter()
+        .find(|entry| entry.kind == "supporting-doc" && entry.name == "checklist")
+        .expect("a nested file child owns a file, so emit projects it");
+
+    // The host's unit (`.claude/guides/operate-the-gate`) joined with the host template's
+    // `*.md` pattern, the child's name spliced through it — never `.claude/guides/*.md`,
+    // a locus the child kind does not carry.
+    assert_eq!(
+        child.source_path,
+        harness.join(".claude/guides/operate-the-gate/checklist.md")
+    );
+    assert!(child.source_path.is_file());
+
+    // The child kind governs no glob: two kinds still never share one, and the host's
+    // template is the path fact's one home.
+    let kinds = &temper::drift::read_declarations(&into).unwrap().kinds;
+    let child_row = kinds
+        .iter()
+        .find(|row| row.name == "supporting-doc")
+        .expect("a nested file kind takes a fact row — the engine places its file off one");
+    assert_eq!(child_row.governs_root, None);
+    assert_eq!(child_row.governs_glob, None);
+    let host_row = kinds.iter().find(|row| row.name == "guide").unwrap();
+    assert_eq!(
+        host_row.templates,
+        vec![TemplateRow {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }]
+    );
+}
+
 #[test]
 fn a_declared_file_child_template_round_trips_off_the_lock_with_its_path_pattern() {
     // TEMPLATE-FILE-CHILD-FACT: a kind's nesting template is a declared kind-side fact —
@@ -257,6 +339,27 @@ fn a_declared_file_child_template_round_trips_off_the_lock_with_its_path_pattern
     )
     .overlay_templates(&row.templates);
     assert_eq!(overlaid.templates, reconstructed.templates);
+}
+
+#[test]
+fn a_child_kinds_row_reconstructs_governing_no_glob_rather_than_a_fabricated_one() {
+    // The locus under the declared fact: the child's path composes from its host's unit
+    // and the host template's pattern, so its row carries no governs pair — and the lift
+    // reads that absence as the spelling it is, never mining a root+glob the kind never
+    // declared.
+    let row = KindFactRow {
+        governs_root: None,
+        governs_glob: None,
+        unit_shape: Some("file".to_string()),
+        ..common::kind_facts("supporting-doc", "", "")
+    };
+
+    let reconstructed = CustomKind::from_kind_fact_row(&row).unwrap();
+    assert_eq!(reconstructed.governs, None);
+    // Governing no glob, it is discovered at none and owns no surface subdirectory to be
+    // discovered under.
+    assert_eq!(reconstructed.surface_subdir(), None);
+    assert!(!reconstructed.owns_source(std::path::Path::new(".claude/skills/checklist.md")));
 }
 
 #[test]

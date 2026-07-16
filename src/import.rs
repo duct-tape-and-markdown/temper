@@ -90,11 +90,16 @@ pub(crate) struct RollupEntry {
 ///
 /// `pub(crate)` so drift re-scans the harness, and install's modeline placement
 /// targets the same set, through the identical discovery `import` used.
+/// A kind governing no locus — a nested file kind, whose members sit under their host's
+/// unit — is discovered at none: the scan is a `governs` walk, and there is nothing to walk.
 pub(crate) fn discover_builtin(
     harness: &Path,
     kind: &CustomKind,
 ) -> Result<Vec<PathBuf>, ImportError> {
-    discover_kind_files(harness, kind, &kind.governs)
+    match &kind.governs {
+        Some(governs) => discover_kind_files(harness, kind, governs),
+        None => Ok(Vec::new()),
+    }
 }
 
 /// Discover a `kind`'s member source files under `harness`, matching an explicit

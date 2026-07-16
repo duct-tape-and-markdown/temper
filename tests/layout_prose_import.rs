@@ -57,6 +57,7 @@ fn layout_member(kind: &str) -> PayloadMember {
     PayloadMember {
         kind: kind.to_string(),
         name: kind.to_string(),
+        host: None,
         fields: Vec::new(),
         body: String::new(),
         source_path: None,
@@ -117,8 +118,8 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
     let skill_facts = KindFactRow {
         name: "skill".to_string(),
         provider: None,
-        governs_root: ".claude/skills".to_string(),
-        governs_glob: "*/SKILL.md".to_string(),
+        governs_root: Some(".claude/skills".to_string()),
+        governs_glob: Some("*/SKILL.md".to_string()),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: Vec::new(),
@@ -144,6 +145,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
             PayloadMember {
                 kind: "skill".to_string(),
                 name: "demo".to_string(),
+                host: None,
                 fields: vec![(
                     "name".to_string(),
                     serde_json::Value::String("demo".to_string()),

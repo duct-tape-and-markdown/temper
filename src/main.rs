@@ -609,12 +609,13 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
     let mut manifests = Vec::new();
     for kind in builtin_defs.values() {
         let kind = overlay_builtin_kind(kind, &declarations)?;
-        let Some(address) = kind.collection_address.clone() else {
+        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
+        else {
             continue;
         };
         let contract = builtin_contract(&declarations.clauses, &kind.name)?;
         manifests.push(install::GuardedManifest {
-            path: manifest_path(&kind),
+            path,
             kind,
             contract,
             address,
@@ -624,12 +625,13 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
     let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     for row in custom_rows {
         let kind = CustomKind::from_kind_fact_row(row)?;
-        let Some(address) = kind.collection_address.clone() else {
+        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
+        else {
             continue;
         };
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
         manifests.push(install::GuardedManifest {
-            path: manifest_path(&kind),
+            path,
             kind,
             contract,
             address,
@@ -640,13 +642,15 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
 
 /// The harness-relative path a manifest `kind` governs — its `governs` locus, the suffix the
 /// guard matches a pending write's `file_path` against (tolerant of the file_path arriving
-/// absolute, the same suffix compare the projection binding runs).
-fn manifest_path(kind: &CustomKind) -> PathBuf {
-    if kind.governs.root == "." {
-        PathBuf::from(&kind.governs.glob)
+/// absolute, the same suffix compare the projection binding runs). [`None`] for a kind
+/// governing no locus, which has no host file for the guard to watch.
+fn manifest_path(kind: &CustomKind) -> Option<PathBuf> {
+    let governs = kind.governs.as_ref()?;
+    Some(if governs.root == "." {
+        PathBuf::from(&governs.glob)
     } else {
-        Path::new(&kind.governs.root).join(&kind.governs.glob)
-    }
+        Path::new(&governs.root).join(&governs.glob)
+    })
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)
@@ -1028,10 +1032,11 @@ fn overlay_builtin_kind(
         return Ok(kind.clone());
     };
     let mut overlaid = kind.clone();
-    overlaid.governs = kind::Governs {
-        root: row.governs_root.clone(),
-        glob: row.governs_glob.clone(),
-    };
+    // The two governs columns are one spelling, and a row declaring neither defers to the
+    // built-in's own locus rather than blanking it — the posture `overlay_content` takes.
+    if let Some((root, glob)) = row.governs_root.clone().zip(row.governs_glob.clone()) {
+        overlaid.governs = Some(kind::Governs { root, glob });
+    }
     if !row.templates.is_empty() {
         overlaid = overlaid.overlay_templates(&row.templates);
     }
@@ -1113,7 +1118,6 @@ fn resolve_kind_units(
 ) -> miette::Result<Vec<Unit>> {
     let overlaid = overlay_builtin_kind(kind, declarations)?;
     let governs = overlaid.governs.clone();
-    let base = harness_root.join(&governs.root);
     // The kind's edge-field slots: a layout field section on one of these reads as
     // addresses, not a verbatim span, so it never lands as a frontmatter field. A custom
     // kind's relationships live only in the lock's assembly facts (its kind-fact row
@@ -1131,11 +1135,17 @@ fn resolve_kind_units(
     // dispatch the manifest adapter delivered a library face for (MANIFEST-ADAPTER-READ)
     // lands here at its first manifest kind. Every other kind walks its `governs` locus
     // and reads each file through the layout or frontmatter adapter.
-    let mut units = match (&overlaid.content, &overlaid.collection_address) {
-        (kind::Content::Fields, Some(address)) => manifest_units(harness_root, &overlaid, address)?,
-        _ => {
+    let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
+        (kind::Content::Fields, Some(address), _) => {
+            manifest_units(harness_root, &overlaid, address)?
+        }
+        // A nested file kind is discovered off its host's template, never a `governs` walk
+        // — a locus it does not have — so no file surfaces for it here.
+        (_, _, None) => Vec::new(),
+        (_, _, Some(governs)) => {
+            let base = harness_root.join(&governs.root);
             let mut file_units = Vec::new();
-            for file in import::discover_kind_files(harness_root, kind, &governs)? {
+            for file in import::discover_kind_files(harness_root, kind, governs)? {
                 // Dispatch on the kind's content: a layout kind's document is read under
                 // its declared layout — its field sections fill the unit's fields, a
                 // non-fitting document refusing loud — where a file-content kind reads
@@ -1687,6 +1697,10 @@ const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
 /// `hook` and a `settings.json`-owning kind coexist). The mining the spec forbids is two
 /// *document* kinds contending for one file; two manifest kinds contending for one
 /// collection address is a distinct, out-of-scope question.
+///
+/// A nested file kind falls out for a stronger reason: it governs no glob at all — its
+/// members' paths compose from their host's unit and the host template's pattern — so it
+/// enters no bucket and can contend with nobody. That is the whole point of the locus.
 fn governs_collision_diagnostics(
     builtin_defs: &BTreeMap<String, CustomKind>,
     custom_rows: &[&drift::KindFactRow],
@@ -1695,21 +1709,26 @@ fn governs_collision_diagnostics(
     let mut by_governs: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
     for kind in builtin_defs.values() {
         let overlaid = overlay_builtin_kind(kind, declarations)?;
+        let Some(governs) = overlaid.governs else {
+            continue;
+        };
         if overlaid.collection_address.is_some() {
             continue;
         }
-        let governs = overlaid.governs;
         by_governs
             .entry((governs.root, governs.glob))
             .or_default()
             .push(kind.name.clone());
     }
     for row in custom_rows {
+        let Some(governs) = row.governs_root.clone().zip(row.governs_glob.clone()) else {
+            continue;
+        };
         if row.collection_address.is_some() {
             continue;
         }
         by_governs
-            .entry((row.governs_root.clone(), row.governs_glob.clone()))
+            .entry(governs)
             .or_default()
             .push(row.name.clone());
     }

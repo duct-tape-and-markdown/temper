@@ -31,11 +31,13 @@ use temper::drift::{self, EmitOptions, EmitReport};
 mod common;
 
 /// A harness whose embedded `waypoint` format renders one link per edge field, each
-/// spelled off the derived target facts alone (`value.targets`), and whose targets
-/// cover every built-in file kind's unit shape: `skill` (a directory unit), `rule` and
+/// spelled off the derived target facts alone (`value.targets`), and whose targets cover
+/// every unit shape a member can project at: `skill` (a directory unit), `rule` and
 /// `command` (a single-segment single-`*` flat glob), `agent` and `memory` (an any-depth
 /// `**` glob — `agent`'s locus is `.claude/agents/**\/*.md`, so it splices through the
-/// any-depth branch, not the flat one).
+/// any-depth branch, not the flat one), and `supporting-doc` (a nested file child, whose
+/// path composes from its `guide` host's unit and that host's template pattern rather
+/// than from a glob of its own).
 ///
 /// The host is itself a `skill`, so its own projection lands two directories deep and
 /// every rendered link must climb out of it — a host at the root would let a broken
@@ -43,6 +45,23 @@ mod common;
 const WAYPOINT_PROGRAM: &str = r#"
 import { blocks, emit, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
 import { agent, command, memory, rule, skill } from "@dtmd/temper/claude-code";
+
+const supportingDoc = kind<object>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+const guide = kind<object>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  unitShape: "directory",
+  registration: [],
+  templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+const operating = guide({ name: "operate-the-gate", prose: text`# Operate the gate` });
 
 const waypoint = kind<object>(
   {
@@ -56,6 +75,7 @@ const waypoint = kind<object>(
       { field: "to_agent", to: "agent" },
       { field: "to_command", to: "command" },
       { field: "to_memory", to: "memory" },
+      { field: "to_doc", to: "supporting-doc" },
     ],
   },
   {
@@ -81,10 +101,13 @@ const program = harness({
             to_agent: "agent:explore",
             to_command: "command:review",
             to_memory: "memory:CLAUDE",
+            to_doc: "supporting-doc:checklist",
           },
         }),
       ),
     }),
+    operating,
+    supportingDoc({ name: "checklist", host: operating, prose: text`# Checklist` }),
     skill({
       name: "coordinate",
       description: "Use when driving a complex task across a team of agents.",
@@ -109,6 +132,7 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_agent", "agent", "explore"),
     ("to_command", "command", "review"),
     ("to_memory", "memory", "CLAUDE"),
+    ("to_doc", "supporting-doc", "checklist"),
 ];
 
 /// Wire the fixture under `<harness>/.temper/harness.ts`, with a

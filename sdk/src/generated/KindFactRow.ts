@@ -18,13 +18,17 @@ name: string,
  */
 provider?: string, 
 /**
- * The `governs` locus root directory.
+ * The `governs` locus root directory. Absent together with
+ * [`governs_glob`](KindFactRow::governs_glob) for a **nested file** kind: its members'
+ * paths compose from their host's unit and the host template's pattern, so it governs
+ * no glob of its own and two kinds still never share one.
  */
-governs_root: string, 
+governs_root?: string, 
 /**
- * The `governs` locus filename glob.
+ * The `governs` locus filename glob, absent for a nested file kind (see
+ * [`governs_root`](KindFactRow::governs_root)).
  */
-governs_glob: string, 
+governs_glob?: string, 
 /**
  * The declared projection format label, when declared.
  */

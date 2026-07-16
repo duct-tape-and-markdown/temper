@@ -323,24 +323,28 @@ fn governed_by_any_path(kinds: &BTreeMap<String, CustomKind>, path: &str, is_dir
 /// (`hooks.<Event>` of `settings.json`) represents only its own slice, so it governs no
 /// whole-path surface — [`governs_segment`] reports which slice it does cover, and the
 /// coverage note narrows the manifest's finding to the ungoverned residue. A manifest kind
-/// never governs a directory surface (its members live in a file, not a tree).
+/// never governs a directory surface (its members live in a file, not a tree). A kind
+/// governing no locus at all — a nested file kind, whose members compose their paths under
+/// their host's unit — covers no surface of its own.
 fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
+    let Some(governs) = &kind.governs else {
+        return false;
+    };
     if let Some(address) = &kind.collection_address {
         if is_dir || !address.key_path.spans_whole_manifest() {
             return false;
         }
         let (parent, leaf) = split_file(path);
-        return normalize_root(&kind.governs.root) == parent
-            && compile_glob(kind.governs.glob_leaf())
-                .is_some_and(|matcher| matcher.is_match(leaf));
+        return normalize_root(&governs.root) == parent
+            && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf));
     }
-    let root = normalize_root(&kind.governs.root);
+    let root = normalize_root(&governs.root);
     if is_dir {
         root == path || root.starts_with(&format!("{path}/"))
     } else {
         let (parent, leaf) = split_file(path);
         root == parent
-            && compile_glob(kind.governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))
+            && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))
     }
 }
 
@@ -348,15 +352,16 @@ fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
 /// of it rather than the whole file — `Some("hooks")` for the `hook` kind against
 /// `settings.json`. Returns `None` for a whole-manifest kind (its coverage is [`governs`]'s
 /// binary yes), a non-manifest kind, a directory surface, or a kind whose `governs` locus
-/// selects a different file.
+/// selects a different file (a kind governing none at all included).
 fn governs_segment(kind: &CustomKind, path: &str, is_dir: bool) -> Option<&'static str> {
     let address = kind.collection_address.as_ref()?;
+    let governs = kind.governs.as_ref()?;
     if is_dir || address.key_path.spans_whole_manifest() {
         return None;
     }
     let (parent, leaf) = split_file(path);
-    (normalize_root(&kind.governs.root) == parent
-        && compile_glob(kind.governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf)))
+    (normalize_root(&governs.root) == parent
+        && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf)))
     .then(|| address.key_path.collection_key())
 }
 
@@ -606,8 +611,8 @@ mod tests {
                 kinds: vec![crate::drift::KindFactRow {
                     name: "widget".to_string(),
                     provider: None,
-                    governs_root: ".claude".to_string(),
-                    governs_glob: "settings.json".to_string(),
+                    governs_root: Some(".claude".to_string()),
+                    governs_glob: Some("settings.json".to_string()),
                     format: None,
                     unit_shape: Some("file".to_string()),
                     registration: Vec::new(),

@@ -232,6 +232,7 @@ fn intent_payload() -> Payload {
         members: vec![PayloadMember {
             kind: "intent".to_string(),
             name: "intent".to_string(),
+            host: None,
             fields: Vec::new(),
             body: String::new(),
             source_path: None,

@@ -456,10 +456,14 @@ test("a host kind's fact row carries the embedded kinds the corpus admits over i
   assert.equal(declarations.kinds.find((k) => k.name === "memory")?.templates, undefined);
 });
 
-/** A file-locus `supporting-doc` kind — the child a host templates at a path pattern. */
+/**
+ * A nested-file `supporting-doc` kind — the child a host templates at a path pattern. It
+ * governs no glob of its own: the pattern is its host's declared fact, so it can never
+ * contend with the host's own locus for a document's position.
+ */
 const supportingDoc = kind<Record<never, never>>({
   name: "supporting-doc",
-  locus: { kind: "at", root: ".claude/skills", glob: "*.md" },
+  locus: { kind: "nested-file" },
   unitShape: "file",
   registration: [{ via: "always" }],
 });
@@ -474,6 +478,38 @@ const guide = kind<Record<never, never>>({
   identityField: "name",
   registration: [{ via: "always" }],
   templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+test("a host's file child emits at its host's unit joined with the template's pattern", () => {
+  const gate = guide({ name: "operate-the-gate" });
+  const result = emit(
+    harness({ members: [gate, supportingDoc({ name: "checklist", host: gate, prose: text`# Checklist` })] }),
+  );
+
+  // The child owns a file — its path composed from the host's unit and the `*.md` pattern
+  // the host declares, never a glob of its own.
+  const child = result.members.find((m) => m.kind === "supporting-doc")!;
+  assert.equal(child.host, "guide:operate-the-gate");
+  assert.equal(child.body, "# Checklist");
+
+  // The child kind takes a fact row (the engine places its file off one) carrying no
+  // governs pair, and no locus it could share with its `guide` host.
+  const childRow = result.declarations.kinds.find((k) => k.name === "supporting-doc")!;
+  assert.equal(childRow.governs_root, undefined);
+  assert.equal(childRow.governs_glob, undefined);
+  assert.deepEqual(
+    result.declarations.kinds.find((k) => k.name === "guide")!.templates,
+    [{ kind: "supporting-doc", path: "*.md" }],
+  );
+});
+
+test("a nested file child names its host, and every other locus names none", () => {
+  const gate = guide({ name: "operate-the-gate" });
+  assert.throws(
+    () => supportingDoc({ name: "checklist" }),
+    /composes from its host's unit, so it names the `host` member/,
+  );
+  assert.throws(() => rule({ name: "rust", host: gate, prose: text`# Rust` }), /its path composes from nobody/);
 });
 
 test("a kind's declared file-child template reaches its fact row with no admission in play", () => {

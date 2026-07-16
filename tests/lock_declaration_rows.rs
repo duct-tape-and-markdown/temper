@@ -256,8 +256,8 @@ fn lock_carries_all_four_declaration_families() {
         .find(|k| k.name == "skill")
         .expect("the skill kind fact is recorded");
     assert_eq!(skill.provider.as_deref(), Some("claude-code"));
-    assert_eq!(skill.governs_root, ".claude/skills");
-    assert_eq!(skill.governs_glob, "*/SKILL.md");
+    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
@@ -1743,8 +1743,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "skill")
         .expect("the skill kind fact is embedded");
-    assert_eq!(skill.governs_root, ".claude/skills");
-    assert_eq!(skill.governs_glob, "*/SKILL.md");
+    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
@@ -1760,8 +1760,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "rule")
         .expect("the rule kind fact is embedded");
-    assert_eq!(rule.governs_root, ".claude/rules");
-    assert_eq!(rule.governs_glob, "*.md");
+    assert_eq!(rule.governs_root.as_deref(), Some(".claude/rules"));
+    assert_eq!(rule.governs_glob.as_deref(), Some("*.md"));
     assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(rule.unit_shape.as_deref(), Some("file"));
     assert_eq!(rule.registration, vec!["paths-match(paths)".to_string()]);
@@ -1771,8 +1771,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "memory")
         .expect("the memory kind fact is embedded");
-    assert_eq!(memory.governs_root, ".");
-    assert_eq!(memory.governs_glob, "**/CLAUDE.md");
+    assert_eq!(memory.governs_root.as_deref(), Some("."));
+    assert_eq!(memory.governs_glob.as_deref(), Some("**/CLAUDE.md"));
     assert_eq!(memory.format, None);
     assert_eq!(memory.unit_shape.as_deref(), Some("file"));
     assert_eq!(memory.registration, vec!["always".to_string()]);
@@ -1782,8 +1782,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "command")
         .expect("the command kind fact is embedded");
-    assert_eq!(command.governs_root, ".claude/commands");
-    assert_eq!(command.governs_glob, "*.md");
+    assert_eq!(command.governs_root.as_deref(), Some(".claude/commands"));
+    assert_eq!(command.governs_glob.as_deref(), Some("*.md"));
     assert_eq!(command.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(command.unit_shape.as_deref(), Some("file"));
     assert_eq!(
@@ -1799,8 +1799,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "agent")
         .expect("the agent kind fact is embedded");
-    assert_eq!(agent.governs_root, ".claude/agents");
-    assert_eq!(agent.governs_glob, "**/*.md");
+    assert_eq!(agent.governs_root.as_deref(), Some(".claude/agents"));
+    assert_eq!(agent.governs_glob.as_deref(), Some("**/*.md"));
     assert_eq!(agent.format.as_deref(), Some("yaml-frontmatter"));
     // Named-field identity — the third mode, wire-spelled `named-field(<field>)`.
     assert_eq!(agent.unit_shape.as_deref(), Some("named-field(name)"));
@@ -1817,8 +1817,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "hook")
         .expect("the hook kind fact is embedded");
-    assert_eq!(hook.governs_root, ".claude");
-    assert_eq!(hook.governs_glob, "settings.json");
+    assert_eq!(hook.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(hook.governs_glob.as_deref(), Some("settings.json"));
     assert_eq!(hook.format, None);
     assert_eq!(hook.unit_shape.as_deref(), Some("file"));
     assert_eq!(hook.registration, vec!["event(event)".to_string()]);
@@ -1837,8 +1837,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "mcp-server")
         .expect("the mcp-server kind fact is embedded");
-    assert_eq!(mcp.governs_root, ".");
-    assert_eq!(mcp.governs_glob, ".mcp.json");
+    assert_eq!(mcp.governs_root.as_deref(), Some("."));
+    assert_eq!(mcp.governs_glob.as_deref(), Some(".mcp.json"));
     assert_eq!(mcp.format, None);
     assert_eq!(mcp.registration, vec!["connection".to_string()]);
     assert_eq!(mcp.shape.as_deref(), Some("fields"));

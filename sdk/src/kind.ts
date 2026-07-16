@@ -47,16 +47,22 @@ export interface EdgeField {
 }
 
 /**
- * A kind's **locus** (fact 2): members live at path globs (`at`) or as typed
- * fenced blocks inside host documents (`embedded`). An `at` locus is split root +
- * glob so the kind fact row carries `governs_root`/`governs_glob` directly. An
- * `embedded` locus names no host: which types may compose a kind's body is the
- * adopting corpus's `admit` declaration over the host kind (`assembly.ts`), so one
- * embedded type means the same thing in every body that admits it.
+ * A kind's **locus** (fact 2), in three spellings: members live at path globs (`at`),
+ * as typed fenced blocks inside host documents (`embedded`), or as `nested-file`
+ * children owning a file whose path composes from their host member's unit and the host
+ * kind's template pattern. An `at` locus is split root + glob so the kind fact row
+ * carries `governs_root`/`governs_glob` directly; a `nested-file` kind declares neither
+ * — the pattern is the host {@link Template}'s one home, so a child can never collide
+ * with its host's own governs glob. An `embedded` locus names no host: which types may
+ * compose a kind's body is the adopting corpus's `admit` declaration over the host kind
+ * (`assembly.ts`), so one embedded type means the same thing in every body that admits
+ * it. A `nested-file` child names its host per member ({@link MemberInit}'s `host`) —
+ * the unit its path composes under.
  */
 export type Locus =
   | { readonly kind: "at"; readonly root: string; readonly glob: string }
-  | { readonly kind: "embedded" };
+  | { readonly kind: "embedded" }
+  | { readonly kind: "nested-file" };
 
 /**
  * One region of a kind's **layout** — one of the three corpus primitives over the
@@ -171,6 +177,8 @@ export interface Member {
   readonly facts: KindFacts;
   /** Identity within the kind. */
   readonly name: string;
+  /** The host member a nested-file child's path composes under; absent at every other locus. */
+  readonly host?: Member;
   /** The member's words. */
   readonly prose?: Prose;
   /** The kind's typed fields, flat and ordered — the projected frontmatter. */
@@ -184,11 +192,13 @@ export interface Member {
 }
 
 /** The framework keys of a member init — everything else is a typed field (flat). */
-const FRAMEWORK_KEYS = new Set(["name", "prose", "satisfies", "requires", "needs"]);
+const FRAMEWORK_KEYS = new Set(["name", "host", "prose", "satisfies", "requires", "needs"]);
 
 /** The init a kind constructor takes — the framework keys plus the kind's typed fields `T`. */
 export type MemberInit<T> = {
   readonly name: string;
+  /** The host member this member's unit composes under — a nested-file child's, and only its. */
+  readonly host?: Member;
   readonly prose?: Prose;
   readonly satisfies?: readonly string[];
   readonly requires?: Readonly<Record<string, Requirement>>;
@@ -235,6 +245,32 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
   return [...head, ...typed];
 }
 
+/**
+ * The host a member init names, checked against its kind's locus: a nested-file child's
+ * path composes from its host's unit, so it names one and every other locus names none.
+ *
+ * # Throws
+ * If a nested-file member declares no host, or a member at any other locus declares one.
+ */
+function hostOf(facts: KindFacts, init: MemberInit<object>): Member | undefined {
+  const nested = facts.locus.kind === "nested-file";
+  if (nested && init.host === undefined) {
+    throw new Error(
+      `member \`${init.name}\` of kind \`${facts.name}\`: a nested file child owns a file whose ` +
+        `path composes from its host's unit, so it names the \`host\` member it sits under ` +
+        `(specs/model/representation.md, "locus").`,
+    );
+  }
+  if (!nested && init.host !== undefined) {
+    throw new Error(
+      `member \`${init.name}\` of kind \`${facts.name}\`: \`host\` names the member a nested ` +
+        `file child composes its path under, and this kind's locus is \`${facts.locus.kind}\` — ` +
+        `its path composes from nobody.`,
+    );
+  }
+  return init.host;
+}
+
 /** The options `kind()` takes beyond its seven facts — today, only the embedded `render` hook. */
 export interface KindOptions {
   readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
@@ -252,6 +288,7 @@ export function kind<T extends object>(facts: KindFacts, options: KindOptions = 
     kind: facts.name,
     facts,
     name: init.name,
+    host: hostOf(facts, init),
     prose: init.prose,
     fields: orderedFields(facts, init),
     satisfies: init.satisfies ?? [],

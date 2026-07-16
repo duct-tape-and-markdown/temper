@@ -304,6 +304,24 @@ pub enum DriftError {
         glob: String,
     },
 
+    /// A nested file member's path cannot be composed: its host's unit and the host
+    /// template's pattern are the two halves it derives from, and one is missing. The
+    /// child kind governs no glob of its own, so there is no second derivation to fall
+    /// back on — refused loud before a byte is written (invariant 6) rather than guessing
+    /// a locus.
+    #[error(
+        "nested file member `{member}` of kind `{kind}` has no path to compose: {detail} — a nested file child's path composes from its host's unit and the host template's pattern, and the pattern is the host kind's declared fact"
+    )]
+    #[diagnostic(code(temper::drift::nested_file_locus))]
+    NestedFileLocus {
+        /// The nested file kind whose member cannot be placed.
+        kind: String,
+        /// The member with no composable path.
+        member: String,
+        /// Which half of the composition is missing.
+        detail: String,
+    },
+
     /// A committed lock carries a present-but-malformed declaration row — a required
     /// column absent, a column the wrong type, a malformed nested element, or a label
     /// outside its closed vocabulary. Surfaced at load rather than silently dropped: a
@@ -504,6 +522,11 @@ pub struct PayloadMember {
     pub kind: String,
     /// Identity within the kind.
     pub name: String,
+    /// The `kind:name` address of the host member this member's unit composes under —
+    /// carried by a **nested file** child, whose path is its host's unit joined with the
+    /// host template's pattern; absent at every other locus.
+    #[serde(default)]
+    pub host: Option<String>,
     /// The kind's typed fields, flat and ordered — the projected frontmatter. The
     /// value is arbitrary JSON, so the seam type is `unknown`, never a serde_json
     /// binding — the SDK reads the field values, never the engine over this pipe.
@@ -566,45 +589,118 @@ fn normalize_lock_path(path: &str) -> String {
     path.replace('\\', "/").trim_start_matches("./").to_string()
 }
 
-/// The harness-relative locus a member of `facts` named `name` projects onto — the
-/// Rust port of the retired SDK `projectionPath`: a directory unit lands
-/// its entry file under `<root>/<name>/`; a lone file replaces the glob's `*` with the
-/// name (an any-depth glob, a memory kind's `**/CLAUDE.md`, lands the root `<name>.md`).
-///
-/// # Errors
-/// Returns [`DriftError::FlatGlobDepth`] when a flat-file glob carries a `*` but is
-/// neither a single-segment single-`*` pattern nor an any-depth `**` glob:
-/// name-splicing the first `*` would leave a stray literal `*` or directory segment in
-/// the path, so the derivation refuses rather than emit the nonsense.
-fn member_projection_path(facts: &KindFactRow, name: &str) -> Result<PathBuf, DriftError> {
-    let relative = if facts.unit_shape.as_deref() == Some("directory") {
-        let entry = facts
-            .governs_glob
-            .split_once('/')
-            .map_or(facts.governs_glob.as_str(), |(_, rest)| rest);
-        format!("{name}/{entry}")
-    } else if facts.governs_glob.contains("**") {
-        format!("{name}.md")
-    } else {
-        // A glob with a `*` maps its member name through it: require exactly one `*` in
-        // one segment, else the splice leaves a stray literal `*` (multi-star) or a
-        // literal directory segment (multi-segment) in the path. A `*`-free glob is a
-        // fixed path — a manifest container's `settings.json` — spliced nowhere and
-        // left verbatim.
-        let stars = facts.governs_glob.matches('*').count();
-        if stars > 0 && (stars > 1 || facts.governs_glob.contains('/')) {
-            return Err(DriftError::FlatGlobDepth {
-                kind: facts.name.clone(),
-                glob: facts.governs_glob.clone(),
-            });
-        }
-        facts.governs_glob.replacen('*', name, 1)
-    };
-    Ok(if facts.governs_root == "." {
+/// `relative` joined under a locus `root`, dropping the `.` a root-locus kind carries.
+fn join_locus(root: &str, relative: &str) -> PathBuf {
+    if root == "." {
         PathBuf::from(relative)
     } else {
-        Path::new(&facts.governs_root).join(relative)
-    })
+        Path::new(root).join(relative)
+    }
+}
+
+/// `name` spliced through `pattern`'s single `*` — the one name-through-a-glob map, shared
+/// by a flat `governs` glob and a host template's path pattern. A `*`-free pattern is a
+/// fixed path (a manifest container's `settings.json`), spliced nowhere and left verbatim.
+///
+/// # Errors
+/// Returns [`DriftError::FlatGlobDepth`] when `pattern` carries a `*` but is neither
+/// single-star nor single-segment: the splice would leave a stray literal `*` (multi-star)
+/// or a literal directory segment (multi-segment) in the path.
+fn splice_name(kind: &str, pattern: &str, name: &str) -> Result<String, DriftError> {
+    let stars = pattern.matches('*').count();
+    if stars > 0 && (stars > 1 || pattern.contains('/')) {
+        return Err(DriftError::FlatGlobDepth {
+            kind: kind.to_string(),
+            glob: pattern.to_string(),
+        });
+    }
+    Ok(pattern.replacen('*', name, 1))
+}
+
+/// A nested file child's harness-relative locus: its host member's unit joined with the
+/// host kind's template pattern for this child kind, the child's name spliced through the
+/// pattern. The pattern is the host's declared fact — one home — so the child kind governs
+/// no glob and can never contend with its host's own.
+///
+/// # Errors
+/// Returns [`DriftError::NestedFileLocus`] when the host cannot supply both halves of the
+/// composition: no host address, an address naming no declared kind, a host kind
+/// templating no file layer for this child, or a host owning no directory unit (a
+/// template's pattern is relative to its unit, and a lone file has no interior).
+/// Propagates [`DriftError::FlatGlobDepth`] from the pattern's own name splice.
+fn nested_file_path(
+    facts: &KindFactRow,
+    name: &str,
+    host: Option<&str>,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+) -> Result<PathBuf, DriftError> {
+    let refuse = |detail: String| DriftError::NestedFileLocus {
+        kind: facts.name.clone(),
+        member: name.to_string(),
+        detail,
+    };
+    let address = host.ok_or_else(|| refuse("it names no host member".to_string()))?;
+    let (host_kind, host_name) = address
+        .split_once(':')
+        .ok_or_else(|| refuse(format!("its host `{address}` is no `kind:name` address")))?;
+    let host_facts = kind_facts
+        .get(host_kind)
+        .ok_or_else(|| refuse(format!("its host `{address}` names no declared kind")))?;
+    let pattern = host_facts
+        .templates
+        .iter()
+        .find(|template| template.kind == facts.name && template.path.is_some())
+        .and_then(|template| template.path.as_deref())
+        .ok_or_else(|| {
+            refuse(format!(
+                "its host kind `{host_kind}` templates no file layer for it"
+            ))
+        })?;
+    let (Some(host_root), Some("directory")) = (
+        host_facts.governs_root.as_deref(),
+        host_facts.unit_shape.as_deref(),
+    ) else {
+        return Err(refuse(format!(
+            "its host `{address}` owns no directory unit to compose under"
+        )));
+    };
+    let leaf = splice_name(&facts.name, pattern, name)?;
+    Ok(join_locus(host_root, &format!("{host_name}/{leaf}")))
+}
+
+/// The harness-relative locus a member of `facts` named `name` projects onto: a directory
+/// unit lands its entry file under `<root>/<name>/`; a lone file replaces the glob's `*`
+/// with the name (an any-depth glob, a memory kind's `**/CLAUDE.md`, lands the root
+/// `<name>.md`); a nested file child — one governing no glob — composes its path under
+/// `host`'s own unit ([`nested_file_path`]). The SDK's `projectionPath`
+/// (`sdk/src/emit.ts`) derives the same locus from the same facts, and
+/// `tests/projection_path_seam.rs` gates the two into agreement.
+///
+/// # Errors
+/// Returns [`DriftError::FlatGlobDepth`] when a glob maps its member name to no one path
+/// ([`splice_name`]), or [`DriftError::NestedFileLocus`] when a nested file child's host
+/// supplies no unit and pattern to compose against.
+fn member_projection_path(
+    facts: &KindFactRow,
+    name: &str,
+    host: Option<&str>,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+) -> Result<PathBuf, DriftError> {
+    // The two governs columns are one spelling: present together at an `at` locus, absent
+    // together for a nested file kind, whose path composes from its host instead.
+    let (Some(root), Some(glob)) = (facts.governs_root.as_deref(), facts.governs_glob.as_deref())
+    else {
+        return nested_file_path(facts, name, host, kind_facts);
+    };
+    let relative = if facts.unit_shape.as_deref() == Some("directory") {
+        let entry = glob.split_once('/').map_or(glob, |(_, rest)| rest);
+        format!("{name}/{entry}")
+    } else if glob.contains("**") {
+        format!("{name}.md")
+    } else {
+        splice_name(&facts.name, glob, name)?
+    };
+    Ok(join_locus(root, &relative))
 }
 
 /// Run the SDK program at `<workspace_dir>/harness.ts` and compile its payload in one
@@ -780,7 +876,15 @@ pub fn emit(
                     kind: registration.kind.clone(),
                     member: registration.key.clone(),
                 })?;
-        let path = manifest_target_path(harness_root, facts);
+        let path = manifest_target_path(harness_root, facts).ok_or_else(|| {
+            DriftError::NestedFileLocus {
+                kind: registration.kind.clone(),
+                member: registration.key.clone(),
+                detail: "it declares a collection address, and a manifest's host file lives at \
+                         the governs path this kind has none of"
+                    .to_string(),
+            }
+        })?;
         let collection = collection_key_of(&registration.key_path);
         let segment = manifests
             .entry(path)
@@ -819,7 +923,12 @@ pub fn emit(
                     kind: member.kind.clone(),
                     member: member.name.clone(),
                 })?;
-        let source_path = harness_root.join(member_projection_path(facts, &member.name)?);
+        let source_path = harness_root.join(member_projection_path(
+            facts,
+            &member.name,
+            member.host.as_deref(),
+            &kind_facts,
+        )?);
         // A container member of a represented manifest: its typed fields are the manifest's
         // opaque residue, and the whole file is regenerated by the write face below — never
         // projected as a frontmatter-and-body text artifact.
@@ -1069,14 +1178,12 @@ struct ManifestBuild {
 /// The on-disk path a manifest kind's host file lives at — its `governs` locus joined onto
 /// the harness root. A manifest kind's glob is a concrete filename (`settings.json`,
 /// `.mcp.json`), so this is the file its registration members surface inside and the path
-/// the canonical write face regenerates.
-fn manifest_target_path(harness_root: &Path, facts: &KindFactRow) -> PathBuf {
-    let relative = if facts.governs_root == "." {
-        PathBuf::from(&facts.governs_glob)
-    } else {
-        Path::new(&facts.governs_root).join(&facts.governs_glob)
-    };
-    harness_root.join(relative)
+/// the canonical write face regenerates. `None` for a kind governing no locus at all — a
+/// nested file kind has no host file to register inside.
+fn manifest_target_path(harness_root: &Path, facts: &KindFactRow) -> Option<PathBuf> {
+    let root = facts.governs_root.as_deref()?;
+    let glob = facts.governs_glob.as_deref()?;
+    Some(harness_root.join(join_locus(root, glob)))
 }
 
 /// The on-disk path the manifest named `manifest` lives at, resolved through any in-play
@@ -1096,7 +1203,7 @@ fn manifest_path_for(
                 .as_ref()
                 .is_some_and(|address| address.manifest == manifest)
         })
-        .map(|facts| manifest_target_path(harness_root, facts))
+        .and_then(|facts| manifest_target_path(harness_root, facts))
 }
 
 /// The top-level manifest collection key a registration's key-path label names — the
@@ -1393,9 +1500,9 @@ fn splice_includes(host: &str, body: &str, contents: &[String]) -> Result<String
 /// no fact for is skipped — the [`emit`] loop reports that fault where it dispatches.
 ///
 /// # Errors
-/// Returns [`DriftError::FlatGlobDepth`] when a member's flat-file glob cannot map to
-/// one projection path — the same refusal [`emit`]'s member loop raises, surfaced here
-/// so the index never carries a nonsense path.
+/// Returns the refusals [`member_projection_path`] raises when a member maps to no one
+/// projection path — the same ones [`emit`]'s member loop raises, surfaced here so the
+/// index never carries a nonsense path.
 fn member_path_index(
     members: &[PayloadMember],
     kind_facts: &BTreeMap<&str, &KindFactRow>,
@@ -1406,9 +1513,12 @@ fn member_path_index(
         let Some(facts) = kind_facts.get(member.kind.as_str()) else {
             continue;
         };
-        let path = crate::graph::normalize_path(
-            &harness_root.join(member_projection_path(facts, &member.name)?),
-        );
+        let path = crate::graph::normalize_path(&harness_root.join(member_projection_path(
+            facts,
+            &member.name,
+            member.host.as_deref(),
+            kind_facts,
+        )?));
         index.insert(path, host_address(&member.kind, &member.name));
     }
     Ok(index)
@@ -2183,10 +2293,16 @@ pub struct KindFactRow {
     /// The declared provider authority, when the kind qualifies by one.
     #[serde(default)]
     pub provider: Option<String>,
-    /// The `governs` locus root directory.
-    pub governs_root: String,
-    /// The `governs` locus filename glob.
-    pub governs_glob: String,
+    /// The `governs` locus root directory. Absent together with
+    /// [`governs_glob`](KindFactRow::governs_glob) for a **nested file** kind: its members'
+    /// paths compose from their host's unit and the host template's pattern, so it governs
+    /// no glob of its own and two kinds still never share one.
+    #[serde(default)]
+    pub governs_root: Option<String>,
+    /// The `governs` locus filename glob, absent for a nested file kind (see
+    /// [`governs_root`](KindFactRow::governs_root)).
+    #[serde(default)]
+    pub governs_glob: Option<String>,
     /// The declared projection format label, when declared.
     #[serde(default)]
     pub format: Option<String>,
@@ -2943,8 +3059,12 @@ impl KindFactRow {
         if let Some(provider) = &self.provider {
             table.insert("provider", value(provider.clone()));
         }
-        table.insert("governs_root", value(self.governs_root.clone()));
-        table.insert("governs_glob", value(self.governs_glob.clone()));
+        if let Some(root) = &self.governs_root {
+            table.insert("governs_root", value(root.clone()));
+        }
+        if let Some(glob) = &self.governs_glob {
+            table.insert("governs_glob", value(glob.clone()));
+        }
         if let Some(format) = &self.format {
             table.insert("format", value(format.clone()));
         }
@@ -2976,8 +3096,8 @@ impl KindFactRow {
         Ok(Self {
             name: req_str(table, "name")?,
             provider: opt_str(table, "provider")?,
-            governs_root: req_str(table, "governs_root")?,
-            governs_glob: req_str(table, "governs_glob")?,
+            governs_root: opt_str(table, "governs_root")?,
+            governs_glob: opt_str(table, "governs_glob")?,
             format: opt_str(table, "format")?,
             unit_shape: opt_str(table, "unit_shape")?,
             registration: opt_str_array(table, "registration")?.unwrap_or_default(),

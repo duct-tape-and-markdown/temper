@@ -226,22 +226,25 @@ function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefine
 }
 
 /**
- * One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`,
- * `templates` names the embedded kinds the corpus admits over it, and
- * `content` lowers a declared layout (absent for a `file`-content kind). A registration
- * kind extends the row with its `shape` marker and `collection_address`.
+ * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and a
+ * nested-file kind neither (its path composes from its host's unit and the host
+ * template's pattern, so it governs no glob), `templates` names the embedded kinds the
+ * corpus admits over it, and `content` lowers a declared layout (absent for a
+ * `file`-content kind). A registration kind extends the row with its `shape` marker and
+ * `collection_address`.
  */
 function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRow {
-  if (facts.locus.kind !== "at") {
-    // An embedded kind inherits its world residue through its host; it carries no
- // `at` locus, so it takes no kind-fact row. Callers filter these out before this point.
+  if (facts.locus.kind === "embedded") {
+    // An embedded kind inherits its world residue through its host; it owns no unit at
+ // all, so it takes no kind-fact row. Callers filter these out before this point.
     throw new Error(`kind \`${facts.name}\` is embedded — it carries no locus-bearing kind fact.`);
  }
+  const governs = facts.locus.kind === "at" ? facts.locus : undefined;
   return {
     name: facts.name,
     provider: facts.provider,
-    governs_root: facts.locus.root,
-    governs_glob: facts.locus.glob,
+    governs_root: governs?.root,
+    governs_glob: governs?.glob,
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     registration: registrationLabels(facts.registration),
@@ -260,10 +263,21 @@ function kindsInPlay(harness: Harness): KindFacts[] {
   return [...byName.values()];
 }
 
-/** The distinct locus-bearing (`at`) kinds in play, name-sorted. */
+/** The distinct discoverable (`at`) kinds in play, name-sorted. */
 function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
   return allKinds
     .filter((facts) => facts.locus.kind === "at")
+    .sort((a, b) => compareStrings(a.name, b.name));
+}
+
+/**
+ * The distinct unit-owning kinds in play, name-sorted — every locus but `embedded`. The
+ * kinds that take a fact row: a nested-file kind owns a file the engine must place, and
+ * places it off its row, though it governs no glob to be discovered at.
+ */
+function unitKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
+  return allKinds
+    .filter((facts) => facts.locus.kind !== "embedded")
     .sort((a, b) => compareStrings(a.name, b.name));
 }
 
@@ -679,7 +693,7 @@ export function mentionScope(harness: Harness): MentionScope {
  * alone.
  */
 export function compileDeclarations(harness: Harness, placements?: EdgePlacements): Declarations {
-  const kinds = atLocusKindsInPlay(kindsInPlay(harness));
+  const kinds = unitKindsInPlay(kindsInPlay(harness));
   const admissions = admissionsByHost(harness);
   const clauses: ClauseRow[] = [];
   for (const binding of [...harness.expect].sort((a, b) => compareStrings(a.kind.key, b.kind.key))) {

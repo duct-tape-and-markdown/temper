@@ -1183,6 +1183,7 @@ fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
     let mut members = vec![temper::drift::PayloadMember {
         kind: "skill".to_string(),
         name: skill.id.clone(),
+        host: None,
         fields: skill.fields.clone(),
         body: skill.body.clone(),
         source_path: None,
@@ -1197,6 +1198,7 @@ fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
         members.push(temper::drift::PayloadMember {
             kind: "rule".to_string(),
             name: rule.id.clone(),
+            host: None,
             fields: rule.fields.clone(),
             body: rule.body.clone(),
             source_path: None,

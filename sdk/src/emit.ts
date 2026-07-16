@@ -16,7 +16,6 @@ import type { Harness } from "./assembly.js";
 import type {
   EdgeTargetFacts,
   EmbeddedMemberValue,
-  KindFacts,
   Member,
   ResolvedEmbeddedMemberCollectionEntry,
   ResolvedEmbeddedMemberValue,
@@ -112,41 +111,102 @@ function joinSlash(...parts: string[]): string {
 }
 
 /**
- * The harness-relative locus a member of `facts` named `name` projects onto: a
- * directory unit lands its entry file under `<root>/<name>/`; a lone file splices the
- * name through the glob's single `*` (an any-depth glob — a memory kind's
- * `**\/CLAUDE.md` — lands the root `<name>.md`, and a `*`-free glob is a fixed path
- * left verbatim). The engine derives the same locus from the same facts
- * (`src/drift.rs`'s `member_projection_path`); the two must agree, since a hook's
- * rendered link is written from this side and reaped from that one.
+ * `name` spliced through `pattern`'s single `*` — the one name-through-a-glob map, shared
+ * by a flat `at` glob and a host template's path pattern. A `*`-free pattern is a fixed
+ * path, left verbatim.
  *
  * # Throws
- * If the kind is embedded (no standalone projection), or a flat-file glob carries a
- * `*` yet is neither a single-segment single-`*` pattern nor an any-depth `**` glob —
- * splicing the name would leave a stray literal `*` or directory segment behind.
+ * If `pattern` carries a `*` yet is neither single-star nor single-segment: the splice
+ * would leave a stray literal `*` or directory segment behind.
  */
-function projectionPath(facts: KindFacts, name: string): string {
-  if (facts.locus.kind !== "at") {
+function spliceName(kindName: string, pattern: string, name: string): string {
+  const stars = pattern.split("*").length - 1;
+  if (stars > 0 && (stars > 1 || pattern.includes("/"))) {
+    throw new Error(
+      `kind \`${kindName}\`: glob \`${pattern}\` is neither a single-segment single-\`*\` ` +
+        `pattern nor an any-depth \`**\` glob — a member name splices through neither.`,
+    );
+  }
+  return pattern.replace("*", name);
+}
+
+/**
+ * The unit `host`'s file children compose their paths under — a directory unit's own
+ * directory, since a template's path pattern is relative to the parent's unit.
+ *
+ * # Throws
+ * If the host owns no directory unit: a lone file has no interior for a child to sit in.
+ */
+function hostUnit(host: Member, context: string): string {
+  if (host.facts.locus.kind === "at" && host.facts.unitShape === "directory") {
+    return joinSlash(host.facts.locus.root, host.name);
+  }
+  throw new Error(
+    `${context}: its host \`${host.kind}:${host.name}\` owns no directory unit — a template's ` +
+      `path pattern is relative to the host's unit, and a lone file has no interior for a ` +
+      `child to sit in (specs/model/representation.md, "locus").`,
+  );
+}
+
+/**
+ * A nested file child's harness-relative locus: its host member's unit joined with the
+ * host template's path pattern, its own name spliced through the pattern. The pattern is
+ * the host kind's declared fact and the child kind governs no glob, so one home owns the
+ * path and no child contends with its host's own locus.
+ *
+ * # Throws
+ * If the child names no host, or its host's kind templates no file layer for the child's
+ * kind — there is no pattern to compose against.
+ */
+function nestedFilePath(member: Member): string {
+  const context = `member \`${member.name}\` of kind \`${member.kind}\``;
+  const host = member.host;
+  if (host === undefined) {
+    throw new Error(`${context}: a nested file child names the host its path composes under.`);
+  }
+  const template = (host.facts.templates ?? []).find(
+    (layer) => layer.kind.key === member.kind && layer.path !== undefined,
+  );
+  if (template?.path === undefined) {
+    throw new Error(
+      `${context}: its host \`${host.kind}:${host.name}\` templates no file layer for kind ` +
+        `\`${member.kind}\` — the path pattern is the host kind's declared fact, and there is ` +
+        `none to compose against (specs/model/representation.md, "locus").`,
+    );
+  }
+  return joinSlash(hostUnit(host, context), spliceName(member.kind, template.path, member.name));
+}
+
+/**
+ * The harness-relative locus `member` projects onto: a directory unit lands its entry
+ * file under `<root>/<name>/`; a lone file splices the name through the glob's single
+ * `*` (an any-depth glob — a memory kind's `**\/CLAUDE.md` — lands the root `<name>.md`,
+ * and a `*`-free glob is a fixed path left verbatim); a nested file child composes its
+ * path under its host's unit ({@link nestedFilePath}). The engine derives the same locus
+ * from the same facts (`src/drift.rs`'s `member_projection_path`); the two must agree,
+ * since a hook's rendered link is written from this side and reaped from that one.
+ *
+ * # Throws
+ * If the kind is embedded (no standalone projection), or the member's glob or host
+ * template pattern maps its name to no one path ({@link spliceName},
+ * {@link nestedFilePath}).
+ */
+function projectionPath(member: Member): string {
+  const facts = member.facts;
+  if (facts.locus.kind === "embedded") {
     throw new Error(
       `kind \`${facts.name}\` is embedded — its members live inside a host body and ` +
         `carry no standalone projection (specs/model/representation.md, "locus").`,
     );
   }
+  if (facts.locus.kind === "nested-file") return nestedFilePath(member);
   const { root, glob } = facts.locus;
   if (facts.unitShape === "directory") {
     const slash = glob.indexOf("/");
-    return joinSlash(root, name, slash < 0 ? glob : glob.slice(slash + 1));
+    return joinSlash(root, member.name, slash < 0 ? glob : glob.slice(slash + 1));
   }
-  if (glob.includes("**")) return joinSlash(root, `${name}.md`);
-  const stars = glob.split("*").length - 1;
-  if (stars > 0 && (stars > 1 || glob.includes("/"))) {
-    throw new Error(
-      `kind \`${facts.name}\`: flat-file glob \`${glob}\` is neither a single-segment ` +
-        `single-\`*\` pattern nor an any-depth \`**\` glob — a member name splices through ` +
-        `neither.`,
-    );
-  }
-  return joinSlash(root, glob.replace("*", name));
+  if (glob.includes("**")) return joinSlash(root, `${member.name}.md`);
+  return joinSlash(root, spliceName(facts.name, glob, member.name));
 }
 
 /**
@@ -208,7 +268,7 @@ function edgeTargetFacts(
       name: target.name,
       address,
       kind: target.kind,
-      path: relativeProjection(projectionPath(host.facts, host.name), projectionPath(target.facts, target.name)),
+      path: relativeProjection(projectionPath(host), projectionPath(target)),
     };
   }
   return targets;
@@ -472,12 +532,12 @@ function isRegistration(member: Member): boolean {
 }
 
 /**
- * A member is projected iff its kind lives at a path locus and is not a fields-only
- * registration member — an embedded member and a registration member each carry no
- * standalone projection.
+ * A member is projected iff it owns a file — at its kind's governed glob or composed
+ * under its host's unit — and is not a fields-only registration member. An embedded
+ * member and a registration member each carry no standalone projection.
  */
 function isProjected(member: Member): boolean {
-  return member.facts.locus.kind === "at" && !isRegistration(member);
+  return member.facts.locus.kind !== "embedded" && !isRegistration(member);
 }
 
 /**
@@ -574,6 +634,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
     .map((member) => ({
       kind: member.kind,
       name: member.name,
+      host: member.host && `${member.host.kind}:${member.host.name}`,
       // The generated row carries a mutable field list; the member's is read-only,
       // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
       fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),

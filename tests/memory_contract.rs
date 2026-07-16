@@ -68,6 +68,7 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
         members: vec![PayloadMember {
             kind: "memory".to_string(),
             name: "CLAUDE".to_string(),
+            host: None,
             fields: Vec::new(),
             body: CLAUDE_MD.to_string(),
             source_path: None,

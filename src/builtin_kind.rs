@@ -362,10 +362,10 @@ mod tests {
         assert_eq!(skill.name, "skill");
         assert_eq!(
             skill.governs,
-            Governs {
+            Some(Governs {
                 root: ".claude/skills".to_string(),
                 glob: "*/SKILL.md".to_string(),
-            }
+            })
         );
         // The composed extractor: the documented frontmatter fields (`version` is
         // in neither the agentskills.io spec nor Claude Code's table — dropped), then the
@@ -415,10 +415,10 @@ mod tests {
         assert_eq!(rule.name, "rule");
         assert_eq!(
             rule.governs,
-            Governs {
+            Some(Governs {
                 root: ".claude/rules".to_string(),
                 glob: "*.md".to_string(),
-            }
+            })
         );
         assert_eq!(
             rule.extraction.primitives(),
@@ -489,10 +489,10 @@ mod tests {
         assert_eq!(agent.name, "agent");
         assert_eq!(
             agent.governs,
-            Governs {
+            Some(Governs {
                 root: ".claude/agents".to_string(),
                 glob: "**/*.md".to_string(),
-            }
+            })
         );
         assert_eq!(
             agent.extraction.primitives(),
@@ -535,10 +535,10 @@ mod tests {
         assert_eq!(command.name, "command");
         assert_eq!(
             command.governs,
-            Governs {
+            Some(Governs {
                 root: ".claude/commands".to_string(),
                 glob: "*.md".to_string(),
-            }
+            })
         );
         // The skill's field schema, reused verbatim — command is a second placement of
         // the skill surface, not a second schema.
@@ -577,10 +577,10 @@ mod tests {
         // its own.
         assert_eq!(
             hook.governs,
-            Governs {
+            Some(Governs {
                 root: ".claude".to_string(),
                 glob: "settings.json".to_string(),
-            }
+            })
         );
         // Fields-only: no body slot, distinct from every file-content built-in.
         assert_eq!(hook.content, Content::Fields);
@@ -618,10 +618,10 @@ mod tests {
         // Discovered off the root `.mcp.json` manifest locus, never a file tree of its own.
         assert_eq!(
             mcp.governs,
-            Governs {
+            Some(Governs {
                 root: ".".to_string(),
                 glob: ".mcp.json".to_string(),
-            }
+            })
         );
         assert_eq!(mcp.content, Content::Fields);
         assert_eq!(

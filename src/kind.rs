@@ -55,8 +55,11 @@ pub struct CustomKind {
     /// surface subdirectory/member-document convention key
     /// ([`member_document`](CustomKind::member_document)).
     pub name: String,
-    /// The file locus the kind reads.
-    pub governs: Governs,
+    /// The file locus the kind reads. [`None`] for a **nested file** kind: its members'
+    /// paths compose from their host's unit and the host template's pattern, so it governs
+    /// no glob of its own — nothing discovers it at one, and it contends with no other
+    /// kind's locus.
+    pub governs: Option<Governs>,
     /// The composed extractor over the closed algebra,
     /// authored via [`Extraction::new`]. An empty primitive set is the vacuous
     /// extractor (only the intrinsic id).
@@ -586,6 +589,25 @@ impl CustomKind {
     /// the caller rather than parsed.
     #[must_use]
     pub fn new(name: impl Into<String>, governs: Governs, extraction: Extraction) -> Self {
+        Self::with_locus(name, Some(governs), extraction)
+    }
+
+    /// Construct a **nested file** kind's declared definition — the host-composed spelling
+    /// of the locus: its members own files whose paths compose from their host member's
+    /// unit and the host kind's template pattern, so the kind governs no glob and nothing
+    /// discovers it at one.
+    #[must_use]
+    pub fn nested_file(name: impl Into<String>, extraction: Extraction) -> Self {
+        Self::with_locus(name, None, extraction)
+    }
+
+    /// The shared body of the two constructors — a kind's definition at either locus, its
+    /// remaining facts at their declare-nothing defaults.
+    fn with_locus(
+        name: impl Into<String>,
+        governs: Option<Governs>,
+        extraction: Extraction,
+    ) -> Self {
         Self {
             name: name.into(),
             governs,
@@ -644,12 +666,14 @@ impl CustomKind {
             templates: row.templates.iter().map(template_from_row).collect(),
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,
-            ..CustomKind::new(
+            ..CustomKind::with_locus(
                 row.name.clone(),
-                Governs {
-                    root: row.governs_root.clone(),
-                    glob: row.governs_glob.clone(),
-                },
+                // The two columns are one spelling: an `at` locus writes both, a nested file
+                // kind neither — so the row is never mined for a root+glob it does not carry.
+                row.governs_root
+                    .clone()
+                    .zip(row.governs_glob.clone())
+                    .map(|(root, glob)| Governs { root, glob }),
                 Extraction::new(vec![
                     Primitive::LineCount,
                     Primitive::Headings,
@@ -751,13 +775,12 @@ impl CustomKind {
     /// `governs.root` locus (`.claude/skills` → `skills`, `.claude/rules` → `rules`).
     /// The read face's scan root and the emit face's write root share this leaf, so a
     /// built-in kind's surface tree is derived from its declaration, not hardwired.
+    /// [`None`] for a nested file kind — its members land under their host's unit, never
+    /// under a surface root of their own.
     #[must_use]
-    pub fn surface_subdir(&self) -> &str {
-        self.governs
-            .root
-            .rsplit('/')
-            .next()
-            .unwrap_or(&self.governs.root)
+    pub fn surface_subdir(&self) -> Option<&str> {
+        let root = &self.governs.as_ref()?.root;
+        Some(root.rsplit('/').next().unwrap_or(root))
     }
 
     /// Whether a surface member imported from `source_path` belongs to this kind — its
@@ -765,10 +788,14 @@ impl CustomKind {
     /// kinds that **share a surface locus**. A kind at a unique locus
     /// (skill's `SKILL.md`, rule's `*.md`) matches its own members, so the filter is a
     /// no-op there. A member with no readable source name belongs to nothing rather than
-    /// mis-dispatching.
+    /// mis-dispatching, as does every member of a kind that governs no glob at all.
     #[must_use]
     pub fn owns_source(&self, source_path: &Path) -> bool {
-        let Some(matcher) = compile_glob(self.governs.glob_leaf()) else {
+        let Some(matcher) = self
+            .governs
+            .as_ref()
+            .and_then(|governs| compile_glob(governs.glob_leaf()))
+        else {
             return false;
         };
         source_path
@@ -1450,8 +1477,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         KindFactRow {
             name: "spec".to_string(),
             provider: None,
-            governs_root: "specs".to_string(),
-            governs_glob: "*.md".to_string(),
+            governs_root: Some("specs".to_string()),
+            governs_glob: Some("*.md".to_string()),
             format: None,
             unit_shape: None,
             registration: Vec::new(),
@@ -1499,8 +1526,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
-            governs_root: "specs".to_string(),
-            governs_glob: "*.md".to_string(),
+            governs_root: Some("specs".to_string()),
+            governs_glob: Some("*.md".to_string()),
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: vec!["description-trigger(description)".to_string()],
@@ -1514,10 +1541,10 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert_eq!(kind.name, "spec");
         assert_eq!(
             kind.governs,
-            Governs {
+            Some(Governs {
                 root: "specs".to_string(),
                 glob: "*.md".to_string(),
-            }
+            })
         );
         assert_eq!(kind.format, Some(Format::YamlFrontmatter));
         assert_eq!(kind.unit_shape, Some(UnitShape::Directory));
@@ -1547,8 +1574,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
-            governs_root: "specs".to_string(),
-            governs_glob: "*.md".to_string(),
+            governs_root: Some("specs".to_string()),
+            governs_glob: Some("*.md".to_string()),
             format: Some("xml".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: vec!["bogus".to_string()],
@@ -1572,8 +1599,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
-            governs_root: "specs".to_string(),
-            governs_glob: "*.md".to_string(),
+            governs_root: Some("specs".to_string()),
+            governs_glob: Some("*.md".to_string()),
             format: None,
             unit_shape: None,
             registration: vec!["user-invoked".to_string(), "bogus".to_string()],
@@ -1596,8 +1623,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let row = KindFactRow {
             name: "skill".to_string(),
             provider: None,
-            governs_root: ".claude/skills".to_string(),
-            governs_glob: "*/SKILL.md".to_string(),
+            governs_root: Some(".claude/skills".to_string()),
+            governs_glob: Some("*/SKILL.md".to_string()),
             format: None,
             unit_shape: None,
             registration: vec![
@@ -1626,8 +1653,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let row = KindFactRow {
             name: "adr".to_string(),
             provider: None,
-            governs_root: "adr".to_string(),
-            governs_glob: "*.md".to_string(),
+            governs_root: Some("adr".to_string()),
+            governs_glob: Some("*.md".to_string()),
             format: None,
             unit_shape: None,
             registration: Vec::new(),
@@ -1772,8 +1799,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
-            governs_root: "specs".to_string(),
-            governs_glob: "*.md".to_string(),
+            governs_root: Some("specs".to_string()),
+            governs_glob: Some("*.md".to_string()),
             format: None,
             unit_shape: None,
             registration: Vec::new(),

@@ -16,6 +16,12 @@ kind: string,
  */
 name: string, 
 /**
+ * The `kind:name` address of the host member this member's unit composes under —
+ * carried by a **nested file** child, whose path is its host's unit joined with the
+ * host template's pattern; absent at every other locus.
+ */
+host?: string, 
+/**
  * The kind's typed fields, flat and ordered — the projected frontmatter. The
  * value is arbitrary JSON, so the seam type is `unknown`, never a serde_json
  * binding — the SDK reads the field values, never the engine over this pipe.

@@ -390,6 +390,7 @@ fn a_member_naming_an_undeclared_kind_is_a_clear_refusal() {
     payload.members.push(PayloadMember {
         kind: "ghost".to_string(),
         name: "phantom".to_string(),
+        host: None,
         fields: Vec::new(),
         body: "boo".to_string(),
         source_path: None,
@@ -423,6 +424,7 @@ fn plain_member(kind: &str, name: &str) -> PayloadMember {
     PayloadMember {
         kind: kind.to_string(),
         name: name.to_string(),
+        host: None,
         fields: Vec::new(),
         body: "# Body\n".to_string(),
         source_path: None,
@@ -548,6 +550,7 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
         members: vec![PayloadMember {
             kind: "settings".to_string(),
             name: "settings".to_string(),
+            host: None,
             fields: vec![(
                 "permissions".to_string(),
                 serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
