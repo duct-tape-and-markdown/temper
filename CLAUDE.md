@@ -71,11 +71,10 @@ Conventions live in `.claude/rules/*.md`, auto-loaded by Claude Code at launch
 
 ## Workflow: flume drives the build
 
-Two autonomous phases share one dispatcher. Chain config in `.flume/chain.ts`;
-prompts in `.flume/prompts/{plan,build}.md`; conventions in `.flume/PROTOCOL.md`.
-Plan reconciles `.flume/plan/pending.json` against `specs/`; build ships entries to the
-trunk one validated commit at a time. State is on disk; each tick is a fresh
-`claude -p`. Loops are autonomous — no slash command invokes them.
+`.flume/` runs the autonomous build: plan reconciles the queue against
+`specs/`; build ships one validated commit per entry. Everything operational
+— conventions, commands, phase mechanics, non-negotiables — lives in
+`.flume/PROTOCOL.md`, nowhere else. Feedback routes to `.flume/inbox.md`.
 
 ## Common commands
 
@@ -90,12 +89,7 @@ Manual/periodic **checks** (no pipeline enforcement — a signal for a human to
 read, not a bar the pipeline holds; nothing reverts on either):
 
 - `cargo machete --with-metadata` — unused-dependency scan.
-- `cargo llvm-cov --summary-only` — coverage, no threshold enforced (2026-07-08's
-  pass found `install.rs`'s append-to-an-existing-hook-entry path untested end
-  to end).
-- `pnpm exec flume status` — baton state.
-- `pnpm exec flume render plan` — preview the next plan prompt (no agent call).
-- `pnpm exec flume tick` / `loop` — run the pipeline.
+- `cargo llvm-cov --summary-only` — coverage, no threshold enforced.
 
 ## Quality standard
 
@@ -105,7 +99,6 @@ Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tic
 
 ## Non-negotiables
 
-- Build commits per pending entry to the trunk after green validation.
 - NEVER force-push, amend pushed commits, or `--no-verify`.
 - NEVER modify files when asked to investigate — investigate and report.
 - Search the codebase before implementing — don't assume not implemented.

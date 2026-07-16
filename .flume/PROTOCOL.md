@@ -57,6 +57,22 @@ expensive step):
 No `setupWorktree`: cargo shares its registry cache via `~/.cargo`; only `target/`
 is per-worktree (the cold compile kept off the parallel path on purpose).
 
+## Commands
+
+- `pnpm exec flume status` — baton state.
+- `pnpm exec flume render plan` — preview the next plan prompt (no agent call).
+- `pnpm exec flume tick` / `loop` — run the pipeline. Loops are autonomous —
+  no slash command invokes them; wake-then-loop runs as its own background
+  task.
+
+## Prior attempts are write-only to plan
+
+A voluntary bail persists to `.flume/prior-attempts/<entry>.json` and is read
+by nothing but that entry's next build attempt — plan never sees it. An ask
+that needs plan (a fork, a rescope) must route through `.flume/inbox.md` or an
+open-questions record to move. Humans delete a record once its entry re-scopes
+or ships: a stale refusal misleads the next attempt.
+
 ## Plan dispatch + continuation marker
 
 Plan is iteratively prompted: one tick = one job, dispatched off its stateful
