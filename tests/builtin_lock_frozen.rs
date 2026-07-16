@@ -62,21 +62,6 @@ const program = harness({
 process.stdout.write(emit(program).seam);
 "#;
 
-/// Wire the memberless fixture under `<harness>/.temper/harness.ts`, with a
-/// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the stand-in
-/// for a real consumer's installed dependency (`tests/emit.rs`'s `wire_sdk_harness`).
-fn wire_memberless_harness() -> (PathBuf, PathBuf) {
-    let harness = common::tmpdir("memberless");
-    let into = harness.join(".temper");
-    fs::create_dir_all(&into).unwrap();
-    fs::write(into.join("harness.ts"), MEMBERLESS_BUILTIN_PROGRAM).unwrap();
-
-    let node_modules_scope = into.join("node_modules").join("@dtmd");
-    common::vendor_sdk(&node_modules_scope);
-
-    (harness, into)
-}
-
 /// The embedded lock's declaration rows, with its hand-authored provenance header
 /// comment stripped: that header explains the row family's provenance, but is not
 /// itself part of `drift::emit`'s row output, so it plays no part in the byte-compare.
@@ -92,7 +77,7 @@ fn embedded_declaration_rows() -> String {
 
 #[test]
 fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
-    let (_harness, into) = wire_memberless_harness();
+    let (_harness, into) = common::wire_sdk_harness("memberless", MEMBERLESS_BUILTIN_PROGRAM);
 
     drift::emit_program(&into, EmitOptions::default()).expect(
         "re-deriving the built-in lock requires a working node + the built \

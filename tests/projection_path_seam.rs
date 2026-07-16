@@ -135,18 +135,6 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_doc", "supporting-doc", "checklist"),
 ];
 
-/// Wire the fixture under `<harness>/.temper/harness.ts`, with a
-/// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the stand-in for
-/// a real consumer's installed dependency (`tests/emit.rs`'s `wire_sdk_harness`).
-fn wire_waypoint_harness() -> (PathBuf, PathBuf) {
-    let harness = common::tmpdir("projection-path-seam");
-    let into = harness.join(".temper");
-    fs::create_dir_all(&into).unwrap();
-    fs::write(into.join("harness.ts"), WAYPOINT_PROGRAM).unwrap();
-    common::vendor_sdk(&into.join("node_modules").join("@dtmd"));
-    (harness, into)
-}
-
 /// The path `emit` wrote the `kind`/`name` member to, as the engine itself reported it —
 /// the ground truth this lane compares the SDK's rendered links against.
 fn projection_of(report: &EmitReport, kind: &str, name: &str) -> PathBuf {
@@ -185,7 +173,7 @@ fn resolve(path: &Path, context: &str) -> PathBuf {
 
 #[test]
 fn every_rendered_edge_link_resolves_to_the_projection_emit_wrote_for_its_target() {
-    let (_harness, into) = wire_waypoint_harness();
+    let (_harness, into) = common::wire_sdk_harness("projection-path-seam", WAYPOINT_PROGRAM);
 
     let report = drift::emit_program(&into, EmitOptions::default()).expect(
         "gating the projection-path seam requires a working node + the built @dtmd/temper \

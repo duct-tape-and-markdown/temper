@@ -119,6 +119,20 @@ pub fn vendor_sdk(node_modules_scope: &Path) {
     }
 }
 
+/// Wire a fixture harness under `<harness>/.temper/harness.ts` carrying `program`,
+/// with a `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the
+/// stand-in for a real consumer's installed dependency. Returns the harness root and
+/// its `.temper` directory. The seam every real-SDK test drives is the same; only the
+/// authored fixture program differs, so it stays the caller's.
+pub fn wire_sdk_harness(label: &str, program: &str) -> (PathBuf, PathBuf) {
+    let harness = tmpdir(label);
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    fs::write(into.join("harness.ts"), program).unwrap();
+    vendor_sdk(&into.join("node_modules").join("@dtmd"));
+    (harness, into)
+}
+
 /// Write a one-skill harness member directly at its real Claude Code locus
 /// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
 /// live off harness disk, no scratch import.

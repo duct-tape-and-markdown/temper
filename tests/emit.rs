@@ -1211,25 +1211,9 @@ const program = harness({
 process.stdout.write(emit(program).seam);
 "#;
 
-/// Wire a fixture harness under `<harness>/.temper/harness.ts`, with a
-/// `node_modules/@dtmd/temper` resolving to the repo's own built SDK — the
-/// stand-in for a real consumer's installed dependency.
+/// The common fixture-harness wiring bound to this suite's [`HARNESS_PROGRAM`].
 fn wire_sdk_harness(label: &str) -> (PathBuf, PathBuf) {
-    wire_sdk_harness_program(label, HARNESS_PROGRAM)
-}
-
-/// [`wire_sdk_harness`], parameterized over the fixture program text — the seam
-/// each real-SDK test drives is the same; only the authored harness differs.
-fn wire_sdk_harness_program(label: &str, program: &str) -> (PathBuf, PathBuf) {
-    let harness = common::tmpdir(label);
-    let into = harness.join(".temper");
-    fs::create_dir_all(&into).unwrap();
-    fs::write(into.join("harness.ts"), program).unwrap();
-
-    let node_modules_scope = into.join("node_modules").join("@dtmd");
-    common::vendor_sdk(&node_modules_scope);
-
-    (harness, into)
+    common::wire_sdk_harness(label, HARNESS_PROGRAM)
 }
 
 /// A fixture SDK program declaring a `require`d requirement carrying a `count`
@@ -1267,7 +1251,7 @@ process.stdout.write(emit(program).seam);
 #[test]
 fn emit_program_emits_a_requirements_clauses_end_to_end() {
     let (_harness, into) =
-        wire_sdk_harness_program("requirement-clauses", REQUIREMENT_CLAUSES_PROGRAM);
+        common::wire_sdk_harness("requirement-clauses", REQUIREMENT_CLAUSES_PROGRAM);
 
     drift::emit_program(&into, EmitOptions::default()).unwrap();
 
@@ -1401,7 +1385,7 @@ process.stdout.write(emit(program).seam);
 
 #[test]
 fn emit_program_hands_node_an_entry_path_with_no_verbatim_prefix() {
-    let (_harness, into) = wire_sdk_harness_program("argv-probe", ARGV_PROBE_PROGRAM);
+    let (_harness, into) = common::wire_sdk_harness("argv-probe", ARGV_PROBE_PROGRAM);
 
     drift::emit_program(&into, EmitOptions::default()).unwrap();
 
@@ -1462,7 +1446,7 @@ fn emit_cli_resolves_the_default_relative_into_without_doubling_the_path() {
 
 #[test]
 fn emit_cli_fails_loud_when_the_sdk_program_is_broken() {
-    let (harness, _into) = wire_sdk_harness_program("broken-program", BROKEN_HARNESS_PROGRAM);
+    let (harness, _into) = common::wire_sdk_harness("broken-program", BROKEN_HARNESS_PROGRAM);
 
     let output = Command::new(BIN)
         .arg("emit")
