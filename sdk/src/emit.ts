@@ -171,10 +171,13 @@ function relativeProjection(from: string, to: string): string {
  * resolves against. The facts are read off the resolved target, so a format that
  * selects them renders a reference true by construction; the four are the whole set.
  *
+ * An unfilled leaf is no edge, so it contributes no entry: requiredness is the kind's
+ * own field schema, which fails in the author's program at compose time.
+ *
  * # Throws
- * If an edge field's leaf is absent or empty, names no composed member, or names one
- * that owns no projection to point at. An edge target cannot defer to the gate the way
- * a bare mention may: the reference is written now, and there is nothing true to write.
+ * If a filled leaf names no composed member, or names one that owns no projection to
+ * point at. An edge target cannot defer to the gate the way a bare mention may: the
+ * reference is written now, and there is nothing true to write.
  */
 function edgeTargetFacts(
   host: Member,
@@ -186,12 +189,7 @@ function edgeTargetFacts(
   const context = `member \`${host.name}\`: embedded value \`${value.key}\` of kind \`${value.kind}\``;
   for (const edge of value.edgeFields ?? []) {
     const address = leaves[edge.field];
-    if (address === undefined || address === "") {
-      throw new Error(
-        `${context}: edge field \`${edge.field}\` names no target — an edge field's leaf is ` +
-          `the target's address (specs/model/representation.md, "kind").`,
-      );
-    }
+    if (address === undefined || address === "") continue;
     const target = options.members?.get(address);
     if (target === undefined) {
       throw new Error(
@@ -328,10 +326,14 @@ function recordingView(
  * The declared edge fields one embedded value's format placed, sorted — the fact a
  * `format-places-edges` clause decides over, since the engine never sees a format and
  * never reads a rendering back. A `render`-less kind takes the default TOML view, which
- * writes every leaf, so every declared edge is placed by construction; a kind that
+ * writes every leaf, so every edge the value fills is placed by construction; a kind that
  * declares one runs the hook against a {@link recordingView} and reports what it
- * selected. `undefined` for a kind declaring no edge field: there is nothing to place,
- * so the row records nothing rather than an empty column on every ordinary value.
+ * selected.
+ *
+ * The obligation ranges over the edges this value *fills*, never its kind's whole
+ * declared set: an unfilled field is no edge, so a format cannot omit it. `undefined`
+ * when the value fills none — there is nothing to place, so the row records nothing
+ * rather than an empty column on every ordinary value.
  *
  * This renders the value a second time, the way `nestedMemberRow` reads its leaves a
  * second time: a hook is pure (emit double-verifies its own bytes), so the observing
@@ -342,11 +344,14 @@ function placedEdges(
   value: EmbeddedMemberValue,
   options: ResolveOptions,
 ): string[] | undefined {
-  const edgeFields = new Set((value.edgeFields ?? []).map((edge) => edge.field));
+  if ((value.edgeFields ?? []).length === 0) return undefined;
+  const resolved = resolveMemberLeaves(host, value, options);
+  // `targets` carries exactly the filled edge fields — an unfilled one derives no facts.
+  const edgeFields = new Set(Object.keys(resolved.targets));
   if (edgeFields.size === 0) return undefined;
   if (value.render === undefined) return [...edgeFields].sort(compareStrings);
   const placed = new Set<string>();
-  value.render(recordingView(resolveMemberLeaves(host, value, options), edgeFields, placed));
+  value.render(recordingView(resolved, edgeFields, placed));
   return [...placed].sort(compareStrings);
 }
 

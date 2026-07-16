@@ -1219,7 +1219,7 @@ impl Extraction {
             // A unit's own format is the file format the extraction just read it
             // back through, so nothing here observed a placement. The fact belongs to
             // an embedded value, whose format `emit` rendered ([`crate::main`]).
-            edge_placements: BTreeMap::new(),
+            edge_placements: None,
         };
         for primitive in &self.primitives {
             primitive.apply(unit, &mut features);

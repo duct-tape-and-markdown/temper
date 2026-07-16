@@ -257,12 +257,9 @@ fn evaluate(predicate: &Predicate, features: &Features, all: &[Features]) -> Vec
     match decide(predicate, features, all) {
         Outcome::Holds => Vec::new(),
         Outcome::Violated(messages) => messages,
-        // Reachable only via `format-places-edges` over a member carrying no
-        // placement fact; every other producer is fenced at admissibility. That
-        // fact's absence conflates "the kind declares no edge" (the clause holds
-        // vacuously) with "no format rendered this member" (undecidable), and only
-        // the construction that builds `Features::edge_placements` can tell them
-        // apart — so reporting either verdict here would fabricate it.
+        // Unreachable on an admissible run: [`admissibility`] fences every producer
+        // before conformance. The empty vec keeps that floor silent rather than
+        // reporting a verdict no judge reached.
         Outcome::Indeterminate => Vec::new(),
     }
 }
@@ -507,15 +504,14 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
 
         // `format-places-edges` decides over the placement `emit` observed and lowered
         // into the member's own declaration row: one finding per omitted edge, so each
-        // points at the field it left unrepresented. An empty map carries no placement
-        // fact for this member — the kind declares no edge, or no row records it — so
-        // the clause is `Indeterminate` there rather than a fabricated pass.
+        // points at the field it left unrepresented. A member with no format of its own
+        // is not a format to indict, and a format whose value carries no edge placed
+        // everything there was to place — both hold, neither is a fabricated pass.
         Predicate::FormatPlacesEdges => {
-            if features.edge_placements.is_empty() {
-                return Outcome::Indeterminate;
-            }
-            let omitted: Vec<String> = features
-                .edge_placements
+            let Some(placements) = &features.edge_placements else {
+                return Outcome::Holds;
+            };
+            let omitted: Vec<String> = placements
                 .iter()
                 .filter(|(_, placed)| !**placed)
                 .map(|(field, _)| {
@@ -627,7 +623,7 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            edge_placements: BTreeMap::new(),
+            edge_placements: None,
         }
     }
 
@@ -1031,10 +1027,7 @@ mod tests {
     fn no_admissible_predicate_reaches_indeterminate_at_conformance() {
         // The vocabulary, whole. Every predicate an admissible contract can carry
         // must reach a verdict over this projection; the fenced ones never reach
-        // conformance at all. The lone exception is `format-places-edges` over a
-        // member carrying no placement fact — `Features::edge_placements` conflates
-        // "the kind declares no edge" with "no format rendered this member", so its
-        // construction, not this engine, is what can settle it.
+        // conformance at all.
         let demo = features("demo", &[("model", scalar("opus"))], 1, Some("demo"));
         let vocabulary = vec![
             Predicate::Required {
@@ -1091,6 +1084,7 @@ mod tests {
             Predicate::GlobValid {
                 field: "model".to_string(),
             },
+            Predicate::FormatPlacesEdges,
         ];
 
         for predicate in vocabulary {

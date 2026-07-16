@@ -1124,7 +1124,10 @@ test("an edge field's leaf still rides the nested_member row as the authored add
  * The host for one citation-shaped value, whose render hook is the test's variable —
  * what the format does or does not place is the whole subject.
  */
-function citationHarness(render: (value: ResolvedEmbeddedMemberValue) => string) {
+function citationHarness(
+  render: (value: ResolvedEmbeddedMemberValue) => string,
+  leaves: Record<string, string> = { source: "rule:rust", note: "the bar" },
+) {
   const citation = kind<object>(
     {
       name: "citation",
@@ -1140,13 +1143,7 @@ function citationHarness(render: (value: ResolvedEmbeddedMemberValue) => string)
       rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
       memory({
         name: "CLAUDE",
-        prose: blocks(
-          embeddedMemberValue({
-            kind: citation,
-            key: "the-standard",
-            leaves: { source: "rule:rust", note: "the bar" },
-          }),
-        ),
+        prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves })),
       }),
     ],
     admit: [{ host: memory, admits: [citation] }],
@@ -1166,6 +1163,16 @@ test("emit records which declared edges an embedded format placed — the fact t
   // the clause exists for. `[]`, never absent: a format ran and placed nothing.
   const omitting = emit(citationHarness((value) => value.leaves.note));
   assert.deepEqual(omitting.declarations.nested_members[0].placed_edges, []);
+});
+
+test("a value leaving a declared edge field unfilled records no placement — an absent edge is nothing to omit", () => {
+  const unfilled = emit(citationHarness((value) => value.leaves.note, { note: "the bar" }));
+  assert.deepEqual(unfilled.declarations.nested_members[0].placed_edges, undefined);
+
+  // The obligation ranges over what the value fills, so the same format placing nothing
+  // does record an omission once the edge is actually carried.
+  const filled = emit(citationHarness((value) => value.leaves.note));
+  assert.deepEqual(filled.declarations.nested_members[0].placed_edges, []);
 });
 
 test("a value whose kind declares no edge field records no placement — an ordinary nested_member row is unchanged", () => {

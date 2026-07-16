@@ -12,9 +12,9 @@ import type { EmbeddedMemberCollectionEntry } from "./EmbeddedMemberCollectionEn
  * addressed structurally (member + kind + key + child path) so drift, `impact`, and
  * citations survive rewording ([`EmbeddedMember::addressed_leaves`]).
  *
- * Floor leaves carry no mentions — interpolation stays deferred until a floor
- * mention syntax is separately ratified — so a
- * leaf is a plain [`String`], not a mention-bearing span.
+ * Floor leaves carry no mentions: an edge is declared at a position, never matched as
+ * a pattern within prose, so no floor mention syntax can exist and a leaf is
+ * permanently a plain [`String`], never a mention-bearing span.
  */
 export type EmbeddedMember = { 
 /**

@@ -80,14 +80,18 @@ nested_members: Array<EmbeddedMember>,
  */
 satisfies: Array<string>, 
 /**
- * Each edge this member's kind declares, paired with whether the format that
- * renders the member placed it — the feature a `format-places-edges` clause
- * decides over. The declared set is the lock's `assembly` `edge` facts for this
- * member's kind; the placed set is its own
+ * Each edge this member *carries*, paired with whether the format that renders the
+ * member placed it — the feature a `format-places-edges` clause decides over. The
+ * carried set is the lock's `assembly` `edge` facts for this member's kind, narrowed
+ * to the fields its own row fills; the placed set is its
  * [`NestedMemberRow::placed_edges`](crate::drift::NestedMemberRow::placed_edges),
  * which `emit` captured while rendering. It arrives as a declaration row because
  * the engine never sees the `render` hook and never reads a projection back.
- * Empty when the kind declares no edge, or when no row records this member — the
- * clause is then undecidable here, never a fabricated pass.
+ *
+ * The two ways a member offers nothing to indict stay apart, because an empty map
+ * standing for both is what would leave the clause undecidable: `None` is no format
+ * at all (a layout host's document is source, so no rendering happened, and a kind
+ * declaring no edge places nothing either way), `Some` over an empty map is a format
+ * that ran with no carried edge to place. Both hold; neither is a fabricated pass.
  */
-edge_placements: { [key in string]: boolean }, };
+edge_placements: { [key in string]: boolean } | null, };

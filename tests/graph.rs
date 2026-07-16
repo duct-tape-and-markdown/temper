@@ -931,7 +931,7 @@ mod reachability {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            edge_placements: BTreeMap::new(),
+            edge_placements: None,
         }
     }
 

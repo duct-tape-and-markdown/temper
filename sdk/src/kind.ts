@@ -354,10 +354,10 @@ export interface ResolvedEmbeddedMemberValue {
   /** Sibling collections, each entry's leaves already resolved. */
   readonly collections: Readonly<Record<string, readonly ResolvedEmbeddedMemberCollectionEntry[]>>;
   /**
-   * Each declared edge field's target facts, keyed by the edge field's own name —
-   * the data a `render` hook selects to spell a reference. A kind declaring no
-   * edge fields (or a value composed off a bare kind name, which carries none)
-   * has an empty map.
+   * The target facts of each edge field this value *fills*, keyed by the edge field's
+   * own name — the data a `render` hook selects to spell a reference. An unfilled
+   * field is no edge and carries no entry; a kind declaring no edge fields (or a value
+   * composed off a bare kind name, which carries none) has an empty map.
    */
   readonly targets: Readonly<Record<string, EdgeTargetFacts>>;
 }

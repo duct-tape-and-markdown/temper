@@ -1179,7 +1179,7 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            edge_placements: BTreeMap::new(),
+            edge_placements: None,
         }
     }
 
@@ -1682,7 +1682,7 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
-            edge_placements: BTreeMap::new(),
+            edge_placements: None,
         };
 
         assert!(dead_registration(&channel, &member, &["src/a/foo.rs".to_string()]).is_none());

@@ -257,8 +257,11 @@ test("emit refuses an edge field naming a target that owns no projection", () =>
   assert.throws(() => emit(h), /owns no projection to reference/);
 });
 
-test("emit refuses an edge field whose leaf names no target at all", () => {
-  assert.throws(() => emit(citingHarness(citationKind(), "")), /names no target/);
+test("an unfilled edge field is no edge — it emits, deriving no target facts", () => {
+  const result = emit(citingHarness(citationKind(), ""));
+  // Requiredness is the kind's own field schema, which fails in the author's program at
+  // compose time; refusal here reaches only a reference filled yet unresolvable.
+  assert.deepEqual(result.declarations.nested_members[0].placed_edges, undefined);
 });
 
 test("an edge field resolving to a composed member emits without throwing", () => {

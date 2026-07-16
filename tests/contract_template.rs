@@ -289,10 +289,16 @@ fn a_kind_clause_is_inadmissible_on_a_per_artifact_contract() {
 // represent. The engine never sees the format, so it decides over the placement `emit`
 // observed while rendering and lowered into the member's own declaration row.
 
-/// A member of a kind declaring the edges `placements` names, each paired with whether
-/// its format placed it — the `Features` shape `main`'s embedded-member lift builds off a
-/// `nested_member` row's `placed_edges` column.
+/// A member carrying the edges `placements` names, each paired with whether its format
+/// placed it — the `Features` shape `main`'s embedded-member lift builds off a
+/// `nested_member` row's `placed_edges` column. The carried set is what the value fills,
+/// so an edge field its kind declares but the value leaves unfilled never appears here.
 fn cited(placements: &[(&str, bool)]) -> Features {
+    formatted(Some(placements))
+}
+
+/// A member whose placement fact is `placements` — `None` when no format rendered it.
+fn formatted(placements: Option<&[(&str, bool)]>) -> Features {
     Features {
         id: "the-standard".to_string(),
         fields: BTreeMap::new(),
@@ -304,10 +310,12 @@ fn cited(placements: &[(&str, bool)]) -> Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: Vec::new(),
-        edge_placements: placements
-            .iter()
-            .map(|(field, placed)| ((*field).to_string(), *placed))
-            .collect(),
+        edge_placements: placements.map(|placements| {
+            placements
+                .iter()
+                .map(|(field, placed)| ((*field).to_string(), *placed))
+                .collect()
+        }),
     }
 }
 
@@ -384,17 +392,35 @@ fn the_omission_findings_severity_is_the_clause_authors() {
     assert_eq!(reported[0].severity, check::Severity::Warn);
 }
 
-/// A member carrying no placement fact decides nothing — a kind declaring no edge, and a
-/// value no format rendered (one embedded in a layout document is read off its host's
-/// declared layout, so there is no format to indict). Never a fabricated pass, never a
-/// fabricated finding.
+/// An edge field the value never filled is no edge, so the clause indicts nothing: it
+/// reaches only a format that drops an edge the value actually carries. The lift builds
+/// the carried set off the row's own leaves, so the unfilled field never reaches the
+/// clause as an obligation at all.
 #[test]
-fn a_member_with_no_placement_fact_yields_no_finding() {
-    let diagnostics = engine::validate(&places_edges_contract(Severity::Required), &[cited(&[])]);
+fn an_edge_the_value_never_carried_is_no_omission() {
+    let diagnostics = engine::validate(
+        &places_edges_contract(Severity::Required),
+        &[cited(&[("source", true)])],
+    );
     assert!(
         diagnostics.is_empty(),
-        "an absent placement fact is undecidable, not a violation: {diagnostics:?}",
+        "the value carries only `source`, which the format placed: {diagnostics:?}",
     );
+}
+
+/// Both ways a member offers nothing to indict reach a verdict — no silent pass. A format
+/// that ran over a value carrying no edge placed everything there was to place; a member
+/// with no format of its own (one embedded in a layout document is read off its host's
+/// declared layout) is not a format to indict.
+#[test]
+fn a_member_with_nothing_to_place_holds_rather_than_going_undecided() {
+    for member in [cited(&[]), formatted(None)] {
+        let diagnostics = engine::validate(&places_edges_contract(Severity::Required), &[member]);
+        assert!(
+            diagnostics.is_empty(),
+            "nothing to place is a hold, not a finding: {diagnostics:?}",
+        );
+    }
 }
 
 /// No shipped default contract adopts the clause: the predicate exists so an author can

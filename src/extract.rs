@@ -193,9 +193,9 @@ pub struct FencedBlock {
 /// addressed structurally (member + kind + key + child path) so drift, `impact`, and
 /// citations survive rewording ([`EmbeddedMember::addressed_leaves`]).
 ///
-/// Floor leaves carry no mentions — interpolation stays deferred until a floor
-/// mention syntax is separately ratified — so a
-/// leaf is a plain [`String`], not a mention-bearing span.
+/// Floor leaves carry no mentions: an edge is declared at a position, never matched as
+/// a pattern within prose, so no floor mention syntax can exist and a leaf is
+/// permanently a plain [`String`], never a mention-bearing span.
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub struct EmbeddedMember {
     /// The child kind this member instantiates — the fence info string's
@@ -329,16 +329,20 @@ pub struct Features {
     /// `rationale` is deliberately absent: it is the human *why*, never a
     /// decidable feature.
     pub satisfies: Vec<String>,
-    /// Each edge this member's kind declares, paired with whether the format that
-    /// renders the member placed it — the feature a `format-places-edges` clause
-    /// decides over. The declared set is the lock's `assembly` `edge` facts for this
-    /// member's kind; the placed set is its own
+    /// Each edge this member *carries*, paired with whether the format that renders the
+    /// member placed it — the feature a `format-places-edges` clause decides over. The
+    /// carried set is the lock's `assembly` `edge` facts for this member's kind, narrowed
+    /// to the fields its own row fills; the placed set is its
     /// [`NestedMemberRow::placed_edges`](crate::drift::NestedMemberRow::placed_edges),
     /// which `emit` captured while rendering. It arrives as a declaration row because
     /// the engine never sees the `render` hook and never reads a projection back.
-    /// Empty when the kind declares no edge, or when no row records this member — the
-    /// clause is then undecidable here, never a fabricated pass.
-    pub edge_placements: BTreeMap<String, bool>,
+    ///
+    /// The two ways a member offers nothing to indict stay apart, because an empty map
+    /// standing for both is what would leave the clause undecidable: `None` is no format
+    /// at all (a layout host's document is source, so no rendering happened, and a kind
+    /// declaring no edge places nothing either way), `Some` over an empty map is a format
+    /// that ran with no carried edge to place. Both hold; neither is a fabricated pass.
+    pub edge_placements: Option<BTreeMap<String, bool>>,
 }
 
 impl Features {
@@ -780,10 +784,10 @@ pub(crate) fn source_dir_name(source_path: &Path) -> Option<String> {
 /// byte-faithful markdown body, in document order — the raw path strings, one per
 /// occurrence. An `@` opens an import only at a word boundary (start of line or after
 /// whitespace), so an email `user@host` and a bare `@` in prose yield nothing; the
-/// occurrence is the run of non-whitespace after the `@` (`@path`, absolute allowed;
-/// code.claude.com/docs/en/memory, retrieved 2026-07-02). A `@path` inside a fenced
-/// code block or an inline code span is illustration the harness does not execute
-/// ("imports are not evaluated inside markdown code spans and code blocks", same
+/// occurrence is the run of non-whitespace after the `@` ("Both relative and absolute
+/// paths are allowed"; code.claude.com/docs/en/memory, retrieved 2026-07-16). A `@path`
+/// inside a fenced code block or an inline code span is illustration the harness does
+/// not execute ("Import parsing skips Markdown code spans and fenced code blocks", same
 /// retrieval), so it is skipped — the fence exclusion [`body_headings`] makes,
 /// extended to inline spans, is what keeps the extraction sound rather than a guess.
 /// Resolution/classing is a later slice; this yields the raw occurrence strings only.
