@@ -1,40 +1,5 @@
 [
   {
-    "tag": "CHECK-WORKSPACE-DIR-RESOLVE",
-    "summary": "`temper check <dir>` where `<dir>` carries `lock.toml` directly resolves whole — harness root is the parent — instead of half-gating the workspace as its own rootless corpus",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`harness_diagnostics` (645-652) resolves two cases today: `<path>/.temper` is a dir ⇒ `gate(authored, path)`, else `gate(path, path)`. The else branch is meant for an unrepresented raw root and swallows a workspace dir: `check .temper` loads the lock from `.temper/lock.toml` but walks `.temper` as the harness root, so declarations arrive with no corpus behind them (required requirements false-fire `requirement.unfilled`; coverage collapses to whatever module-adjacent prose matches a governs glob). Add the third case — `<path>/lock.toml` is a file ⇒ the path IS the workspace, so `gate(path, path.parent())` — and reconcile the `Command::Check` doc comment (88-105) plus the one-resolution comment (~246) with the three-way resolution."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "Line 89 — the shipped plugin skill's prose teaches `temper check .temper` as the gate. Retarget to `temper check .` (the harness root), the spelling 208e8f8 flipped every authored surface to and `SESSION_START_COMMAND` (line 61) already carries."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "`check <workspace-dir>` (the dir carrying lock.toml) resolves the parent's corpus — members discovered, no false `requirement.unfilled` — the mirror of `an_adopted_root_resolves_its_own_lock_rather_than_half_gating` (41)"
-      }
-    ],
-    "acceptance": "`temper check .temper` reports the same member count and requirement verdict as `temper check .` (10 members, no false `requirement.unfilled`); no path loads the lock from one place and discovers a corpus from another.",
-    "notes": "Probe at f4e3c13: `check .temper` → 1 member + 2 false `requirement.unfilled`, exit 0; `check .` → 10 members, neither fires. Mirror of the pre-4256274 false-green. Rejected: refuse loudly naming the harness root — equally loud-or-nothing-clean, but John ruled resolve-whole (inbox, 07-16) and the dir carries lock.toml at its top, so there is nothing ambiguous to refuse over. scoped at f4e3c13."
-  },
-  {
     "tag": "INSTALL-REPRESENTED-SKIPS-THE-QUESTION",
     "summary": "`install` on a root already carrying `.temper/lock.toml` skips the represent question and converges on the lock, never defaulting non-interactive to session-start-only",
     "per": {
