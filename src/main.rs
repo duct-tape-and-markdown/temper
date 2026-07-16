@@ -718,6 +718,14 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let (custom_rows, collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     // The one site among the three dispatchers that can surface a diagnostic.
     diagnostics.extend(collisions.iter().map(|row| kind_collision_diagnostic(row)));
+    // Two distinct kinds resolving to one `governs` locus would double-route every
+    // matching document into both member sets — a document's kind is its position
+    // alone, never its content — so a shared locus refuses loud here.
+    diagnostics.extend(governs_collision_diagnostics(
+        &builtin_defs,
+        &custom_rows,
+        &declarations,
+    )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
@@ -1477,6 +1485,82 @@ fn kind_collision_diagnostic(row: &drift::KindFactRow) -> check::Diagnostic {
              distinct custom kind of its own — rename it, or drop the diverging facts to \
              relocate the built-in instead",
             row.name
+        ),
+    )
+}
+
+/// The diagnostic `rule` id for two distinct kinds resolving to the same `governs`
+/// (root+glob) locus. Sibling of [`KIND_COLLISION_RULE`], which guards the bare-name
+/// namespace; this one guards the locus namespace — a document's kind is its position
+/// alone, so two kinds selecting the same locus is a routing ambiguity, not two homes.
+const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
+
+/// Governs-glob-collision findings over the **effective** kind set: the built-in
+/// definitions, each overlaid with any [`row_relocates_builtin`] row that moves its
+/// locus, plus the genuinely-custom rows. Two distinct kinds resolving to the same
+/// `governs` (root+glob) would silently double-route every matching document into both
+/// member sets — a document's kind is its position alone (`representation.md`) — so each
+/// shared locus surfaces one error naming the kinds and the glob. A relocation is
+/// resolved before comparison, so moving a built-in's locus to a fresh path is never a
+/// self-collision; moving it *onto* a custom kind's locus is.
+///
+/// Manifest kinds (a `collection_address`) are excluded: they register members at an
+/// address *inside* a host manifest, never claiming the whole document, so a manifest
+/// kind legitimately shares its host file with the file-locus kind that owns it whole (a
+/// `hook` and a `settings.json`-owning kind coexist). The mining the spec forbids is two
+/// *document* kinds contending for one file; two manifest kinds contending for one
+/// collection address is a distinct, out-of-scope question.
+fn governs_collision_diagnostics(
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+    declarations: &drift::Declarations,
+) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
+    let mut by_governs: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        let overlaid = overlay_builtin_kind(kind, declarations)?;
+        if overlaid.collection_address.is_some() {
+            continue;
+        }
+        let governs = overlaid.governs;
+        by_governs
+            .entry((governs.root, governs.glob))
+            .or_default()
+            .push(kind.name.clone());
+    }
+    for row in custom_rows {
+        if row.collection_address.is_some() {
+            continue;
+        }
+        by_governs
+            .entry((row.governs_root.clone(), row.governs_glob.clone()))
+            .or_default()
+            .push(row.name.clone());
+    }
+    Ok(by_governs
+        .into_iter()
+        .filter(|(_, names)| names.len() > 1)
+        .map(|((root, glob), mut names)| {
+            names.sort();
+            governs_collision_diagnostic(&root, &glob, &names)
+        })
+        .collect())
+}
+
+/// A [`GOVERNS_COLLISION_RULE`] finding naming every kind that shares the
+/// `root`/`glob` locus and the glob itself.
+fn governs_collision_diagnostic(root: &str, glob: &str, names: &[String]) -> check::Diagnostic {
+    let named = names
+        .iter()
+        .map(|name| format!("`{name}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    check::Diagnostic::error(
+        GOVERNS_COLLISION_RULE,
+        format!("{root}/{glob}"),
+        format!(
+            "kinds {named} share the `governs` glob `{root}/{glob}` — a document's kind is \
+             its position alone, so two kinds selecting the same locus would route every \
+             matching document into both member sets; give each kind a distinct `governs`",
         ),
     )
 }

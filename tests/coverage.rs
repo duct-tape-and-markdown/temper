@@ -391,3 +391,105 @@ fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_d
         run.output
     );
 }
+
+#[test]
+fn two_custom_kinds_sharing_a_governs_glob_fire_the_governs_collision_diagnostic() {
+    // KIND-GLOB-COLLISION-REFUSE: a document's kind is its position alone, so two kinds
+    // resolving to one `governs` locus would double-route every matching document into
+    // both member sets — silently, before this fix (per-kind discovery walks each locus
+    // independently). Two custom kinds declaring the identical `docs/*.md` locus refuse
+    // loud, the finding naming both kinds and the shared glob.
+    let root = common::tmpdir("governs-collision");
+    let docs = root.join("docs");
+    fs::create_dir_all(&docs).unwrap();
+    fs::write(docs.join("charter.md"), "# Charter\n\nBody.\n").unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![
+                common::kind_facts("policy", "docs", "*.md"),
+                common::kind_facts("standard", "docs", "*.md"),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.ok,
+        "a governs-glob collision must block ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("kind.governs-collision"),
+        "the finding names the governs-collision rule, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("`policy`") && run.output.contains("`standard`"),
+        "the finding names both colliding kinds, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("docs/*.md"),
+        "the finding names the shared glob, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn custom_kinds_on_disjoint_governs_globs_fire_no_governs_collision_diagnostic() {
+    // Two custom kinds with distinct loci (and, implicitly, the shipped built-in set,
+    // whose globs are all disjoint) never trip the collision rule: distinct positions
+    // route unambiguously.
+    let root = common::tmpdir("governs-disjoint");
+    for dir in ["policies", "standards"] {
+        let sub = root.join(dir);
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(sub.join("doc.md"), "# Doc\n\nBody.\n").unwrap();
+    }
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![
+                common::kind_facts("policy", "policies", "*.md"),
+                common::kind_facts("standard", "standards", "*.md"),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.output.contains("kind.governs-collision"),
+        "disjoint governs loci must never fire the collision rule, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_kind_row_relocating_a_built_ins_governs_fires_no_governs_collision_diagnostic() {
+    // A relocation is resolved before the loci are compared, so moving a built-in's
+    // locus to a fresh path is never read as a self-collision with its embedded default.
+    let root = common::tmpdir("governs-relocation");
+    let rules = root.join("custom-locus").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join("dev-standards.md"), "# Dev standards\n\nBody.\n").unwrap();
+
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("rule", "custom-locus/rules", "*.md")],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], Some("github"));
+    assert!(
+        !run.output.contains("kind.governs-collision"),
+        "a governs relocation must never fire the collision rule, got:\n{}",
+        run.output
+    );
+}
