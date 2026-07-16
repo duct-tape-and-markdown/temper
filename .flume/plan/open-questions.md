@@ -13,6 +13,46 @@ tax.
 
 ## Open forks
 
+- `(mention-gate-containment)` — OPEN. A skill's `paths` removes it from every
+  invocation channel until a matching file is read (`specs/builtins.md`, "The
+  shipped kinds"; `sdk/src/builtins.ts` `Skill.paths`, verified 2.1.210), so a
+  rule→skill mention fires only if the rule's own scope falls inside the target
+  skill's gate. That containment — `rule.paths ⊆ skill.paths` over every mention
+  edge whose source and target both declare `paths` — is held by nothing, and
+  the failure is silent: a probe on 2.1.210 (headless testbed, 2026-07-16) shows
+  gate-opening emits a `skill_listing` delta only for the *target's own* paths
+  match, so a mention arriving through a rule outside the gate points at an
+  inventory absence with no error anywhere — it reads as "the model ignored the
+  rule". The consumer hand-derives each pack-skill's `paths` as the union of its
+  mentioning rules' paths, which drifts the first mention added without widening
+  the gate.
+  **Why a fork, not an entry:** the check needs a predicate the closed
+  vocabulary does not carry — `degree` is the only mention-edge predicate, and
+  nothing compares two members' glob sets (`src/contract.rs:81`). Adding one is
+  a deliberate language change (`specs/model/contract.md`, "clause"), ratified
+  by a decision before it is built: 0022 (`f67303c`) admitted `glob-valid`
+  *before* `46b8cd1` shipped it. Plan does not write intent; the ruling returns
+  through the spec delta.
+  **The objection to settle first:** glob-set containment is not decidable in
+  general (`src/**` vs `src/**/*.ts`), so the buildable spelling is a *literal*
+  superset — every glob string in `rule.paths` appears verbatim in
+  `skill.paths`. That is decidable, and exact for the union-authoring pattern
+  that motivates it, but it false-fires on a semantically-contained narrower
+  glob, which invariant 2 ("a gate that cries wolf gets disabled") aims at. So
+  the decision owes: the predicate's literal bound stated as its declared
+  leniency, and the shipped severity — advisory reads as the honest entry
+  (invariant 5), error only as the corpus's declared act.
+  **Cost evidence for the gated-vs-ungated side:** gate-opening is *loud*. Same
+  probe, transcript-verified: reading a gate-matching file injects two
+  attachments in one turn — the path-scoped rule as `nested_memory`, and a
+  `skill_listing` with `isInitial: false` carrying only the newly ungated
+  skills, name plus full description. An ungated skill's description is day-one
+  scenery; a gated skill's arrives as an event at the moment of relevance — so
+  the remaining costs of gating reduce to the cold-question hole and this
+  containment invariant. (Also observed: the rendered rule strips the managed-by
+  frontmatter note, `contentDiffersFromDisk: true` — the provenance marker costs
+  the agent zero tokens at fire time.)
+
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
