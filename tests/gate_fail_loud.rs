@@ -185,6 +185,46 @@ fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
 }
 
 #[test]
+fn a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility() {
+    // `count` ranges over a named requirement's satisfier set — context the per-artifact
+    // engine does not hold, so as a `skill` floor clause it could only ever decide
+    // nothing. Declared on a kind it must fail loud at admissibility naming the
+    // predicate, never let the member pass a check that never ran.
+    let root = common::tmpdir("judgeless-kind-clause");
+    common::write_skill(&root, "coordinate", CLEAN_SKILL);
+    common::write_lock(
+        &root,
+        temper::drift::Declarations {
+            clauses: vec![temper::drift::ClauseRow {
+                kind: Some("skill".to_string()),
+                count: Some(temper::drift::CountBoundRow { min: 1, max: 3 }),
+                ..common::clause("count", "required")
+            }],
+            ..temper::drift::Declarations::default()
+        },
+    );
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    let fenced = common::findings_for(&findings, "count");
+    assert_eq!(
+        fenced.len(),
+        1,
+        "the judge-less floor clause must fail admissibility, got: {findings:#?}"
+    );
+    assert!(
+        fenced[0].starts_with("::error "),
+        "an inadmissible contract is error-severity (fails the run), got: {}",
+        fenced[0]
+    );
+    assert!(
+        !success,
+        "a contract naming a predicate the engine cannot judge must exit non-zero, \
+         got: {findings:#?}"
+    );
+}
+
+#[test]
 fn a_genuinely_empty_harness_stays_silent() {
     // No declared requirements at all: the assembly declares nothing, so zero resolved
     // members is legitimate and the check exits clean.

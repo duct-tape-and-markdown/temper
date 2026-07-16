@@ -254,10 +254,12 @@ fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
     );
 }
 
-/// A named `kind` clause is admissible; an empty `kind` is vacuous — it names
-/// nothing to match, so it is rejected exactly as an empty `enum`/`deny` list is.
+/// `kind` is a *requirement's* clause: it ranges over that requirement's satisfier
+/// set, which `temper::roster` judges. Declared on a kind's own per-artifact
+/// contract there is no judge for it, so either spelling — named or empty — is
+/// inadmissible there, rather than a clause that quietly decides nothing.
 #[test]
-fn an_empty_kind_clause_is_inadmissible_a_named_one_is_not() {
+fn a_kind_clause_is_inadmissible_on_a_per_artifact_contract() {
     let bare_contract = |predicate: Predicate| Contract {
         name: "kind-clause-fixture".to_string(),
         clauses: vec![temper::contract::Clause {
@@ -269,18 +271,16 @@ fn an_empty_kind_clause_is_inadmissible_a_named_one_is_not() {
         guidance: None,
     };
 
-    assert!(
-        engine::admissibility(&bare_contract(Predicate::Kind {
-            kind: "skill".to_string()
-        }))
-        .is_empty()
-    );
-
-    let empty = engine::admissibility(&bare_contract(Predicate::Kind {
-        kind: String::new(),
-    }));
-    assert_eq!(empty.len(), 1);
-    assert!(empty[0].message.contains("kind"));
+    for kind in ["skill", ""] {
+        let diagnostics = engine::admissibility(&bare_contract(Predicate::Kind {
+            kind: kind.to_string(),
+        }));
+        assert!(
+            !diagnostics.is_empty(),
+            "`kind` carries no judge on a per-artifact contract, so `{kind}` is inadmissible",
+        );
+        assert!(diagnostics.iter().all(|d| d.rule == "kind"));
+    }
 }
 
 // ---- the each-grain `format-places-edges` predicate -------------------------
