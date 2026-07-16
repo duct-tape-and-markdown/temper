@@ -43,7 +43,9 @@
   Closing checklist: the queue is disjoint — one chain of five
   (UNFILLED-EDGE-FIELD-NO-EDGE → NESTED-FILE-LOCUS → NESTED-FILE-DISCOVERY →
   SKILL-NESTED-REFERENCE-DOCS → SDK-FIXTURE-WIRING-ONE-HOME) plus the park.
-  Fork board: five open, none blocking a queued entry. Every rider record
+  Fork board: four open, none blocking a queued entry — 25e9317 landed mid-tick
+  and resolved `(supporting-doc-reach-clause)`, filing its ruling to the inbox;
+  that is the next tick's job, not this one's. Every rider record
   re-verified on disk at ca4e866; three restamped — contract.rs's layering
   straggler (moved 475 → 490; 13c58ed opened the file and left it, the second
   entry to do so), drift.rs:570's "retired projectionPath" (unmoved; 13c58ed
@@ -58,6 +60,9 @@
   PACKAGING-CHANNELS-REMAINDER parked (John's Apple notarizing + the v0.1
   lockstep tag).
 
-Plan continues: no — inbox empty, no refactor captures, the spec delta drained
-at abe5d5d, and both reconciliation cursors now at ca4e866 (HEAD's only later
-commits are `plan:` restamps). Build takes over on UNFILLED-EDGE-FIELD-NO-EDGE.
+Plan continues: yes — the inbox is live. 25e9317 landed while this tick's
+reconciliation was in flight (it was not HEAD when the tick was dispatched) and
+filed John's `(supporting-doc-reach-clause)` ruling: the reachability check is a
+clause, never a requirement, plus two entries to route and a SKILL.md 500-line
+budget clause candidate. Inbox outranks reconciliation, so it is the next tick's
+job; this tick's window (74f4e62..ca4e866) is closed either way.
