@@ -72,7 +72,16 @@ hard.
   rulings enforced (one read verb, may-appear regions, packs-are-skills,
   no AGENTS.md kind); open-questions down to three strategic forks.
   Sequencing: stranger dry run next, then channel 3.
-- On John: Apple Developer notarizing (decide at release); USPTO name
+- Consumer lane 07-16 (PR #21): posture-recursion design landed at
+  `docs/proposals/posture-recursion.md`; fork `(posture-recursion)` OPEN,
+  blocked on John's pre/post-tag sequencing ruling, four review riders in
+  the fork record; `(mention-gate-containment)` fork opened beside it.
+  Same-day engine arc: check-workspace-arg false-red + install converge
+  gap found at session open, fixed, field-verified; managed-by notes
+  converged in both harnesses; three one-home consolidations swept.
+- On John: the `(posture-recursion)` sequencing ruling (blocks that fork);
+  carrying the behavioral-horizon note into `docs/horizons.md` if wanted;
+  Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).
 
