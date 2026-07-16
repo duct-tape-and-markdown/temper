@@ -180,8 +180,20 @@ test("supporting-doc is a nested-file kind: fields-free, prose-only, channel-les
   assert.deepEqual(member.fields, []);
 });
 
-test("supportingDocDefaultContract ships empty — the format documents no schema to gate", () => {
-  assert.deepEqual(supportingDocDefaultContract, []);
+test("supportingDocDefaultContract is one advisory reach clause — the format's one decidable fact", () => {
+  // The format documents no frontmatter schema, no required field and no cap, so the
+  // only clause is the one that ranges over the graph rather than the file's bytes.
+  assert.equal(supportingDocDefaultContract.length, 1);
+  const [reach] = supportingDocDefaultContract;
+  // An incoming-degree floor: at least one resolved edge must reach the document.
+  // Locus-agnostic — any edge from the host skill counts, a mention included — so the
+  // bound names no field and leaves the outgoing direction unconstrained.
+  assert.deepEqual(reach.predicate, { key: "degree", args: { incoming_min: 1 } });
+  // Advisory: a shipped coverage clause enters advisory, and escalation is the
+  // adopting corpus's declared act, never this default's.
+  assert.equal(reach.severity, "advisory");
+  assert.match(reach.guidance ?? "", /never points at/);
+  assert.equal(reach.cite, "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)");
 });
 
 test("command is a file-shaped unit with no identityField, unlike the directory-shaped skill", () => {

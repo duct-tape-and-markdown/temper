@@ -21,9 +21,9 @@ mod common;
 /// only the kind facts and their default contract clauses, exactly the family
 /// `src/builtin_lock.toml` embeds (`sdk/src/builtins.ts`, the built-in kinds/default
 /// contracts). `expect` is also the one surface a kind reaches the lock through, so
-/// `supporting-doc` — whose default contract is empty, and whose members compose under a
-/// host rather than at a locus of their own — is bound here like any other, contributing
-/// its kind fact and no clause.
+/// `supporting-doc` — whose members compose under a host rather than at a locus of their
+/// own, and whose one default clause bounds their place in the graph rather than their
+/// bytes — is bound here like any other, contributing its kind fact and that clause.
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { emit, harness } from "@dtmd/temper";
 import {

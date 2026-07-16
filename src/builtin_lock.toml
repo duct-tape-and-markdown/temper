@@ -27,8 +27,8 @@
 # `supporting-doc` is the one kind here at the nested-file locus, so its row alone
 # carries no `governs` pair: its members' paths compose from their host skill's unit and
 # `skill`'s own `templates` pattern, the only home that fact has. Its default contract is
-# empty — the format documents no schema to gate — so it contributes a kind fact and no
-# clause row.
+# one clause — the format documents no schema to gate, so the only decidable fact left is
+# the graph one: a supporting file no edge from its host skill reaches is never read.
 
 [[declaration.kind]]
 name = "agent"
@@ -386,6 +386,14 @@ field = "paths"
 severity = "required"
 guidance = "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
+
+[[declaration.clause]]
+kind = "supporting-doc"
+predicate = "degree"
+severity = "advisory"
+guidance = "Reference the file from `SKILL.md` — a supporting file the skill's body never points at is invisible: Claude has no way to learn what it holds or when to load it, and it ships as dead weight in the bundle. Any resolved edge from the host skill counts, a mention included; what the edge cannot decide is whether the reference tells Claude *when* to follow it, and that sentence is the point of writing one."
+cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)"
+degree = { incoming = { min = 1 } }
 
 [[declaration.assembly]]
 fact = "mode"

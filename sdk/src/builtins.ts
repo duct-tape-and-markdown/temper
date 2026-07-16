@@ -16,6 +16,7 @@ import type { Prose } from "./prose.js";
 import {
   allowedChars,
   clause,
+  degree,
   deny,
   enumOf,
   forbiddenKeys,
@@ -543,18 +544,29 @@ export const skillDefaultContract: readonly Clause[] = [
 ];
 
 /**
- * The default contract for `supporting-doc` — **empty**, because the format is: a
- * supporting file is documented as prose Claude reads when the skill's body points at
- * it, with no frontmatter schema, no required field, and no cap of its own
- * (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16).
- * Manufacturing a clause would fake a check the format does not carry — an
- * almost-empty format gets an almost-empty contract, and this one bottoms out at zero.
+ * The default contract for `supporting-doc` — one clause, because the format documents
+ * exactly one thing about a supporting file that is decidable, and it is not a fact
+ * about the file's own contents: a supporting file is prose Claude reads when the
+ * skill's body points at it, so an unreferenced one is never read at all
+ * (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16). The
+ * format carries no frontmatter schema, no required field and no cap of its own, so
+ * nothing else joins it — an almost-empty format gets an almost-empty contract, and
+ * manufacturing a second clause would fake a check the format does not carry.
  *
- * What the clauses cannot carry, as guidance: reference the file from `SKILL.md` so
- * Claude knows what it holds and when to load it — an unreferenced supporting file is
- * never read, and nothing about the file itself can decide that.
+ * The reach bound is a property of the file's *place in the graph*, not its bytes, and
+ * the fact holds of every supporting document — so it is spelled as the by-kind
+ * universal binding at the `each` grain (`model/contract.md`, "selection"), never as a
+ * requirement: a requirement is the opt-in selector, and routing a vendor fact through
+ * one would make the harness's own truth a consumer's ceremony.
  */
-export const supportingDocDefaultContract: readonly Clause[] = [];
+export const supportingDocDefaultContract: readonly Clause[] = [
+  clause(degree({ incoming: { min: 1 } }), {
+    severity: "advisory",
+    guidance:
+      "Reference the file from `SKILL.md` — a supporting file the skill's body never points at is invisible: Claude has no way to learn what it holds or when to load it, and it ships as dead weight in the bundle. Any resolved edge from the host skill counts, a mention included; what the edge cannot decide is whether the reference tells Claude *when* to follow it, and that sentence is the point of writing one.",
+    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)",
+  }),
+];
 
 /**
  * The default contract for `command` — `skillDefaultContract`'s clauses minus `nameMatchesDir`: a
