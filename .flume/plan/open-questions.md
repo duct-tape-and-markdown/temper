@@ -53,44 +53,6 @@ tax.
   frontmatter note, `contentDiffersFromDisk: true` — the provenance marker costs
   the agent zero tokens at fire time.)
 
-- `(supporting-doc-reach-clause)` — OPEN. 0027 (abe5d5d) ships
-  `supporting-doc`'s one candidate clause — reachable from its skill's body,
-  the vendor documenting supporting files as read when linked — advisory,
-  with its cite. It has no spelling that fires. `degree` is the only
-  edge-count predicate (`src/contract.rs:222-231`), and it is judged **only**
-  over a *requirement's* satisfier set: `graph::degree` iterates
-  `requirements.values()` (`src/graph.rs:240-246`, wired off
-  `assembly_requirements` at `src/main.rs:938`). A default contract is a
-  by-kind `expect` clause array (`specs/builtins.md`, "Default contracts"),
-  and a `degree` clause reaching the per-artifact engine that way is
-  admissible yet returns `Outcome::Indeterminate` (`src/engine.rs:506-509`),
-  which yields no finding (`engine.rs:216`). So the clause as 0027 states it
-  would ship green and silent — a shipped advisory nobody is ever told about,
-  against invariant 6.
-  **Why a fork, not an entry:** the corpus already licenses the binding —
-  "by kind — every member of a kind: the universal binding"
-  (`specs/model/contract.md`, "selection") — so this is code lagging intent,
-  but the fix is the recut the engine's own comments name
-  (`src/engine.rs:492-504`: moving the node-set/edge-scope predicates
-  `count`/`unique`/`membership`/`degree`/`kind` off the requirement facet
-  onto the same clause spelling every selection binds). That is a
-  language-level change ratified by a decision before it is built — the
-  `glob-valid` precedent (0022 `f67303c` admitted it before `46b8cd1` shipped
-  it). Plan does not write intent; the ruling returns through the spec delta.
-  **The objection to settle first:** the cheap alternative — ship the clause
-  as a requirement rather than a kind-bound contract — collides with
-  `builtins.md`'s own "Default contracts": a default contract *is* an
-  exported clause array adopted by import, and a requirement is an
-  existential the adopting corpus fills, not a per-member floor. The decision
-  owes which of the two the reachability check is. Also live: whether a
-  mention edge from a skill's body to its own child is even the reach being
-  claimed, since a mention is obligation-free by default and the vendor's
-  "read when linked" is runtime consequence — which 0027 already routes to
-  guidance, never encoded behavior.
-  **What it does not block:** SKILL-NESTED-REFERENCE-DOCS ships the kind, the
-  template, and the almost-empty default contract without it, exactly as
-  0027's "re-enters buildable" says — the clause is the fork's own follow-on.
-
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
