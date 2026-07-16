@@ -13,48 +13,52 @@ tax.
 
 ## Open forks
 
-- `(posture-recursion)` — OPEN, blocked on a human sequencing ruling.
-  `docs/proposals/posture-recursion.md` (f9e1c02) proposes one posture
-  vocabulary recursing harness → member → block, in three elements: (A) one
-  edge noun — `reference` = declared intent, `mention` respelled as a
-  reference that additionally claims a rendered position, display derived
-  from the target's kind and never authored; (B) std-lib posture block kinds
-  (`orientation`/`directive`/`reference`/`step`) a layout admits per the
-  07-15 may-appear regions ruling, budgets binding push-posture blocks,
-  `file()` bodies the sanctioned long-form exception; (C) the governance
-  package — doctrine document + intake skill + contract template —
-  scaffolded by `install`. Frame human-ratified in the field 07-16 ("go").
-  **Why a fork, not the one entry the note asked for:** that note's force is
-  anti-fragmentation — the four 07-16 authoring-model asks are absorbed here
-  and must not route as separate entries beside it — and one fork record
-  honors that exactly: one record, no fragments. But A and B respell `edge`
-  and `mention`, kernel nouns whose section (`specs/model/contract.md`,
-  "edge") states today's four loci with `mention` among them, so the entry's
-  own `per` would cite the section it contradicts. A kernel respell is a
-  Decision appended in the same commit as the section
-  (`specs/process/spec-system.md`, "Change ceremony"), human-authored, and
-  `docs/` is candidate intent, never intent (the asymmetry below). Plan does
-  not write intent; the ruling returns through the spec delta.
-  **The blocking ruling (design-session review, 07-16):** sequencing. A+B
-  respell the SDK authoring surface, `specs/builtins.md`, and both example
-  corpora. Pre-tag lands churn before adopters exist; post-tag churns the
-  courted surface immediately after the v0.1 gate (`specs/distribution.md`,
-  "The offering"). Neither is free; nothing routes until John rules.
-  **Riders the fork carries** (same review): (1) the positionless reference
-  owes a reader story — either every reference renders somewhere (inline or
-  block), or a renderless reference is legal gate-only wiring like
-  `satisfies`; the design must pick one, and "the rendering is the agent's
-  retrieval instruction" implies the former (0019, one face). (2) Display
-  derivation is a declared projection fact on the kind — built-ins carry
-  theirs in their shipped declarations, custom kinds get the same lever —
-  never engine-hardcoded (`specs/intent.md`, the spine rule). (3) Element C
-  is spine-clean only as an adopted-by-import, opt-in package: `install`
-  placing doctrine by default is baked judgment, and "correct is undefined
-  without the economy" overclaims against invariant 4 — the economy is a
-  shipped contract, not the definition of correct. (4) The migration sketch
-  forward-references a "native skill-package form" no element ships; the
-  07-15 deferral stands (the asymmetry below), so the sketch is conditional
-  on that condition, not evidence for it.
+- `(posture-recursion)` — OPEN, design settled 07-16; in Decision drafting.
+  The proposal at `docs/proposals/posture-recursion.md` (fourth cut,
+  f6124bd, worked prototype under `docs/proposals/posture-recursion/`): a
+  posture is a **consumer-declared type extending member** (embeddable
+  locus, host-agnostic — admission is the host layout's decision, per the
+  07-15 may-appear regions ruling); edges ride as **posture properties**
+  (`EdgeField` is the one noun; a member's reference set is a derived
+  view, never authored; no member-level `references` key — the second
+  draft's own ask, rejected in the document); `mention` respells as a
+  positioned citation; **citation rendering is the posture type's
+  template** — data over a closed engine-supplied set of derivable target
+  facts (name, address, kind, projection path relative to the citing
+  member), so a rendered citation is true by construction; vocabulary is
+  configuration, never engine. The single engine gap: built-in kinds do
+  not admit consumer-declared content in their bodies — one admission
+  plus the embeddable locus enables the model.
+  **Design-session rulings (07-16, interactive, John):**
+  (1) **Delivery is three layers.** `install` scaffolds ground-truth
+  representation of the built-ins as they are (no opinion); the posture
+  machinery is the unopinionated authoring power layer; the opinionated
+  layer is **guidance describing the climb** from plain built-ins to the
+  proposal's demo shape — the 07-15 prescription ruling ("what the
+  example demonstrates") applied to the authoring format; no spine
+  amendment. "Correct is undefined without the economy" softens on
+  encode: the economy is the guidance's theory; correct stays the
+  consumer's declared contract (invariant 4).
+  (2) **Supporting docs are a facet of the built-in `skill` kind.** The
+  vendor defines a skill as `SKILL.md` plus supporting files
+  (code.claude.com/docs/en/skills "Add supporting files", retrieved
+  2026-07-16), so the SKILL.md-only built-in is inaccurate under the
+  07-15 accuracy mandate — no nesting kind, no factory; centercode's
+  `supportingDocs()` deletes against the built-in. Static shape
+  (addressable members, citation targets, reachability) ships on the doc
+  cite; runtime loading semantics stay probe-gated before any
+  registration fact encodes.
+  **Rider disposition:** riders 1–2 of the 07-16 review were absorbed by
+  the third/fourth cuts (derived reference view + the
+  template-places-its-edge check; config-not-engine); riders 3–4 are
+  resolved by rulings (1)–(2). No contested element remains.
+  **The gate to routing (unchanged):** A respells kernel-adjacent nouns
+  (`specs/model/contract.md`, "edge" — `mention` among the stated loci),
+  so the ruling returns through the change ceremony — a human-authored
+  Decision appended in the same commit as the spec delta
+  (`specs/process/spec-system.md`, "Change ceremony"), drafted in the
+  design session. Plan routes build entries only against the landed spec
+  sections; nothing here is a build entry yet.
 
 - `(mention-gate-containment)` — OPEN. A skill's `paths` removes it from every
   invocation channel until a matching file is read (`specs/builtins.md`, "The
