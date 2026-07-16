@@ -13,7 +13,11 @@ tax.
 
 ## Open forks
 
-- `(posture-recursion)` — OPEN, design settled 07-16; in Decision drafting.
+- `(posture-recursion)` — RESOLVED 07-16: Decision 0025 + the spec delta
+  landed (82c816e) — `contract.md` "edge", `representation.md` format and
+  nesting, `builtins.md` composed-body admission. Plan routes
+  reconciliation entries against the amended sections; the record below
+  is the design history the entries cite alongside their `per`.
   The proposal at `docs/proposals/posture-recursion.md` (fourth cut,
   f6124bd, worked prototype under `docs/proposals/posture-recursion/`): a
   posture is a **consumer-declared type extending member** (embeddable
