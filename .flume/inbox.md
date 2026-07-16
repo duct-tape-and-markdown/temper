@@ -34,12 +34,10 @@ routing.
   previous engine had been silently skipping — the bound moved to a
   requirement and judges correctly there.) observed at 8b43293
 
-- sdk export gap: `ResolvedEmbeddedMemberValue` (the `render` hook's
-  parameter type) and now `EdgeTargetFacts` are exported from neither the
-  package root nor the claude-code subpath, so a consumer factoring posture
-  kinds through a shared helper must recover the hook shape as
-  `Parameters<NonNullable<KindDefinition<object>["render"]>>[0]`. Export
-  both beside `EmbeddedMemberValue`. observed at 8b43293
+- addendum to the routed export-face entry (dedup of a PR #22 note that
+  re-reported it): the consumer confirms the types are unnameable from the
+  `claude-code` subpath too, not the root alone — the closure rule should
+  range over both public faces. observed at 8b43293
 
 - sdk/spec: `EdgeField.to` names exactly one target kind, but a citation
   posture naturally ranges over heterogeneous targets — centercode's
