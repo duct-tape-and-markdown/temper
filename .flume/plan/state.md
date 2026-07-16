@@ -1,30 +1,31 @@
 # Plan state
 
-- Spec derived through: 06e0c2c
+- Spec derived through: 39a4833
 - Audited through: cb5da8d
 - Residue swept through: cb5da8d
-- This tick: drained the inbox — three 07-15 fork rulings routed into pending,
-  all `open` and disjoint. AGENTS-MD-STDLIB-DROP (agents-md remnant is
-  SDK-side only — builtins.ts doc+export, claude-code.ts:22 re-export,
-  builtins.test.ts, and the src/builtin_lock.toml header comment; NO Rust
-  engine remnant, lock declaration rows already spec-faithful). Prior attempt
-  was reverted (refs gate) for putting `memoryAgentsMdDefaultContract` in
-  `retire` — it is a symbol in surviving files, so refiled as `edit`s.
-  LAYOUT-EMPTY-REGION-TOLERATE: verified a REAL gap — `Layout::read`
-  (kind.rs) is positional and raises `LayoutError::MissingSection` on an
-  empty region; layout_kind.rs:126 asserts that now-wrong behavior,
-  contradicting the 39a4833 representation.md amendment (regions state what
-  may appear, never what must). FLAT-GLOB-DEPTH-REFUSE: confirmed the
-  silent-nonsense path (`member_projection_path`, drift.rs:565
-  `replacen('*', name, 1)`) — refuse loudly instead.
-- Queue: 3 pickable (AGENTS-MD-STDLIB-DROP, LAYOUT-EMPTY-REGION-TOLERATE,
-  FLAT-GLOB-DEPTH-REFUSE — disjoint files: sdk/+lock.toml, kind.rs, drift.rs)
-  + PACKAGING-CHANNELS-REMAINDER parked. Spec cursor still at 06e0c2c.
+- This tick: derived 39a4833's last unrouted slice, advancing the cursor
+  06e0c2c -> 39a4833. "One read verb" (contract.md/pipeline.md "Read verbs")
+  is already shipped: the CLI has one read verb `Explain` (main.rs, doc "The
+  one read verb"); `why`/`impact`/`context`/`requirements` are internal
+  strands of `read::explain`, and read.rs:192 documents the four-spelling ->
+  `explain` unification — verified-moot. Its residue (strand doc comments
+  spelling `temper <verb>` CLI spellings, read.rs:270/470/608/745/1147) is a
+  vocabulary-staleness rider (open-questions), rides next read.rs entry.
+  Filed KIND-GLOB-COLLISION-REFUSE for representation.md's second new claim
+  ("two kinds never share a governs glob"): the "by position, never content"
+  half is already true (glob-positional discovery, no mining), but the
+  disjointness ENFORCEMENT is a real gap — only NAME-collision exists
+  (KIND_COLLISION_RULE, main.rs:1414); two kinds sharing a glob double-route
+  silently today. All five 07-15 rulings now routed: 3 filed be3bd27
+  (AGENTS/LAYOUT/FLAT-GLOB), KIND-GLOB this tick, one-read-verb moot.
+- Queue: 4 pickable (AGENTS-MD-STDLIB-DROP sdk+lock, LAYOUT-EMPTY-REGION
+  kind.rs, FLAT-GLOB-DEPTH drift.rs, KIND-GLOB-COLLISION main.rs+coverage.rs —
+  disjoint files) + PACKAGING-CHANNELS-REMAINDER parked.
 
-Plan continues: yes — spec delta 39a4833 (four fork rulings) is unrouted; the
-spec cursor stays at 06e0c2c and next tick's job 2 advances it (three of the
-four rulings are now routed via these entries; the fourth, "one read verb",
-is still to derive/verify). NB the SessionStart reporter shows the `.temper`
-dogfood gate red (friction-capture-procedure, pending-entry-discipline
-unfilled) — harness territory, a `chore(harness)` fix outside plan's writable
-paths.
+Plan continues: no — spec delta fully routed at 39a4833 (the last spec
+commit); no reconciliation window (37e6844/be3bd27 are plan-only, 39a4833
+specs-only — nothing past cb5da8d touches src/tests/sdk); inbox empty. 4
+pickable disjoint entries hand off to build. NB the SessionStart reporter
+shows the `.temper` dogfood gate red (friction-capture-procedure,
+pending-entry-discipline unfilled) — harness territory, a `chore(harness)`
+fix outside plan's writable paths.

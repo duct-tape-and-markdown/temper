@@ -115,6 +115,20 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens each file, never standalone, never the queue's
   only new work. Found at reconcile HEAD 794ca2b.
 
+- **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
+  one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
+  already shipped in code: the CLI has one read verb `explain` (main.rs
+  `Command::Explain`, doc "The one read verb"), with `why`/`impact`/`context`/
+  `requirements` as internal strands of `read::explain`, and read.rs:192
+  already documents the four-spelling→`explain` unification. But the
+  individual strand doc comments still spell `temper why <member>`
+  (read.rs:270), `temper impact <member>`/`<leaf-address>` (470/608),
+  `temper context <address>` (745), and `temper requirements [<name>]` (1147)
+  as if each were its own CLI command. Vocabulary staleness only — the verb is
+  `explain`, the strands are correctly-named internal functions. Rides
+  whichever entry next opens read.rs (no queued entry does), never standalone.
+  Found deriving 39a4833 at HEAD be3bd27.
+
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
   (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"
   = `Format` + `UnitShape`, the projection shape) still spell fact 3

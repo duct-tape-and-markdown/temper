@@ -104,6 +104,38 @@
     "notes": "Routes inbox `(directory-sliced-governance)` (07-15): a multi-segment glob on a flat file kind is a loud refusal, never a derived path with a literal `*`. The two sanctioned shapes for depth — a skill (agent-loaded), a nesting kind (governed content) — are the finding's guidance, built when demand arrives, not this entry. `member_projection_path` drifted 513->555 since the note's sha. scoped at 39a4833."
   },
   {
+    "tag": "KIND-GLOB-COLLISION-REFUSE",
+    "summary": "Two kinds declaring the same governs glob refuse loud at check — instead of silently double-routing every matching document into both kinds' member sets.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The check assembly (main.rs:717-731) partitions kind rows and emits `kind_collision_diagnostic` (KIND_COLLISION_RULE `kind.admissibility`, main.rs:1414/1469) only for a custom row colliding with a built-in by NAME — nothing checks two kinds sharing a `governs` (root+glob). Add a governs-glob-collision rule over the EFFECTIVE kind set (built-in defs + custom rows, AFTER `row_relocates_builtin` relocation resolution so a legitimate relocation of a built-in's locus is not flagged): when two distinct kinds resolve to the same `governs`, emit an error diagnostic naming both kinds and the shared glob. representation.md: 'two kinds never share a governs glob, because routing a document by its content would be mining.' Strict reading = identical governs (root+glob); build owns whether emit refuses at parity."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "Beside the sibling name-collision test `a_kind_row_relocating_a_built_ins_..._fires_no_collision_diagnostic`, add coverage: two custom kinds declaring an identical `governs` fire the glob-collision diagnostic naming both kinds + the glob; disjoint governs (and the shipped built-in set) fire nothing; a legitimate same-shape built-in relocation still fires no collision. Build may prefer a focused test file — name the choice in the commit body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "Two kinds with an identical governs glob fire an error collision diagnostic naming both kinds + the glob; disjoint globs and the built-in set fire nothing; a same-shape built-in relocation is not a collision."
+      }
+    ],
+    "acceptance": "Two kinds sharing a governs glob refuse loud at check, the finding naming both kinds and the shared glob; the shipped built-in kind set (disjoint globs) and a legitimate relocation fire nothing; `cargo test` green.",
+    "notes": "Routes 39a4833 representation.md: 'two kinds never share a governs glob — position types, content never routes.' Sibling of the NAME-collision rule (KIND_COLLISION_RULE, main.rs:1414), which does NOT cover governs. Verified no glob-collision check exists; per-kind discovery (import.rs) double-routes silently today. Overlapping-but-distinct globs (`*.md` vs `foo.md`) are a harder intersection question, out of scope — flag if build hits it. scoped at be3bd27."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
