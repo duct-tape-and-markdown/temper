@@ -7,8 +7,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "COMPOSED-BODY-ADMISSION"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`KindFacts` gains the nesting-template fact representation.md declares: per inner layer, the child kind plus the path pattern relative to the parent's unit when children are files. Today `KindFacts` (fields/key/render, 179+) carries no template fact at all — templating is inferred, embedded-only."
+          "description": "`KindFacts` (102) gains the nesting-template fact representation.md declares: per inner layer, the child kind plus the path pattern relative to the parent's unit when children are files. Today `KindFacts` carries no template fact at all — a kind's templating is inferred from corpus-side admission (`AdmissionsByHost`), so it reaches only embedded children."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`templatesFor` (176) folds a kind's declared file-child templates in beside the admission-derived embedded ones, and the `KindFactRow.templates` column grows from bare child-kind names to kind-plus-path-pattern rows."
+          "description": "`templatesFor` (179) folds a kind's declared file-child templates in beside the admission-derived embedded ones, and the `KindFactRow.templates` column grows from bare child-kind names to kind-plus-path-pattern rows."
         },
         {
           "path": "sdk/src/builtins.ts",
@@ -32,11 +31,11 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "`Template` (565) carries only `kind: String`, and its doc comment scopes templates to \"the embedded locus\" — both narrower than representation.md. Grow it with the child's path pattern, and widen `CustomKind::templates` (92), `from_table` (635), and `overlay_templates` (675) onto the grown column."
+          "description": "`Template` (565) carries only `kind: String`, and its doc comment scopes a template to the child kind a fence info string names — narrower than representation.md. Grow it with the child's path pattern, and widen `CustomKind::templates` (92), `from_table` (635), and `overlay_templates` (675) onto the grown column."
         },
         {
           "path": "tests/builtin_lock_frozen.rs",
-          "description": "The built-in lock re-derives once `skill`'s row carries a template — the frozen byte-compare moves with it."
+          "description": "The built-in lock re-derives once `skill`'s row carries a template — no built-in declares one today, so `skill` is the first — and the frozen byte-compare moves with it."
         },
         {
           "path": "tests/nested_member.rs",
@@ -53,7 +52,7 @@
       ],
       "retire": []
     },
-    "schemaDelta": "`KindFactRow.templates` grows from `Array<string>` (bare child-kind names) to one row per template carrying the child kind plus, for file children, the path pattern relative to the parent's unit. The built-in lock re-derives.",
+    "schemaDelta": "`KindFactRow.templates` grows from `Array<string>` (bare child-kind names, admission-derived) to one row per template carrying the child kind plus, for file children, the path pattern relative to the parent's unit. The built-in lock re-derives — `skill` becomes the first built-in whose row carries a template column.",
     "tests": [
       {
         "path": "tests/nested_member.rs",
@@ -65,7 +64,7 @@
       }
     ],
     "acceptance": "`skill`'s bundled reference documents are nested file members of the same skill (builtins.md, \"The shipped kinds\"), because a kind can declare a template per inner layer — child kind plus path pattern relative to the parent's unit, when children are files (representation.md, \"kind\"). Nesting-is-model-containment / locus-is-serialization stops being an unbacked claim.",
-    "notes": "0025 (82c816e) Consequences bullet 4 — the SDK closing this is \"reconciliation toward the spec\": builtins.md already declares the documents, and 0025's Rejected list kills the parallel skill-package/nesting kind. Discharges the standing asymmetry in open-questions (the `supportingDocs()` factory's want). Serialized behind COMPOSED-BODY-ADMISSION: both edit `sdk/src/kind.ts` + `sdk/src/declarations.ts`. scoped at 1baeedd."
+    "notes": "0025 bullet 4 — reconciliation toward the spec: builtins.md already declares the documents; 0025's Rejected list kills a parallel skill-package kind. Unblocked at cac023a (COMPOSED-BODY-ADMISSION shipped, 0b2da21). Do NOT route skill's file children through `admit`: that is corpus-side admission over an embedded body, and it now refuses a non-embedded kind; a file-child template is kind-side. scoped at cac023a."
   },
   {
     "tag": "EMBEDDED-FORMAT-TARGET-FACTS",
@@ -84,11 +83,11 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`ResolvedEmbeddedMemberValue` (296) carries kind/key/leaves/collections only — no target facts. Add the closed derived set, keyed by the declaring kind's `edgeFields` (43): name, address, kind, and the target's projection path relative to the host member's own projection. Data the template selects, never authored at the instance."
+          "description": "`ResolvedEmbeddedMemberValue` (300) carries kind/key/leaves/collections only — no target facts. Add the closed derived set, keyed by the declaring kind's edge fields (the `EdgeField` interface, 43; `KindFacts.edgeFields`, 126): name, address, kind, and the target's projection path relative to the host member's own projection. Data the template selects, never authored at the instance."
         },
         {
           "path": "sdk/src/emit.ts",
-          "description": "`resolveMemberLeaves` (104) / `renderMemberBlock` (158) derive the target facts from the value's edge-field leaves resolved against the harness's member table — the resolution the mention scope already carries — before the resolved value reaches the `render` hook (160). A dangling target refuses here, the way an unresolvable mention does (pipeline.md, \"Emit\": Refusing)."
+          "description": "`resolveMemberLeaves` (104) / `renderMemberBlock` (158) derive the target facts from the value's edge-field leaves resolved against the harness's member table — the resolution the mention scope already carries — before the resolved value reaches the `render` hook (159). A dangling target refuses here, the way an unresolvable mention does (pipeline.md, \"Emit\": Refusing)."
         },
         {
           "path": "sdk/test/emit.test.ts",
@@ -113,7 +112,7 @@
       }
     ],
     "acceptance": "An embedded format selects its edge targets' facts as data — a rendered reference is true by construction, and instance prose never spells its target (representation.md, \"kind\"). The `display: \"src/main.js\"` restatement class becomes unspellable.",
-    "notes": "0025 (82c816e) Consequences bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Serialized behind SKILL-NESTED-REFERENCE-DOCS (shared `sdk/src/kind.ts`). scoped at 1baeedd."
+    "notes": "0025 bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Serialized behind SKILL-NESTED-REFERENCE-DOCS (shared `sdk/src/kind.ts`). Rider: `sdk/test/emit.test.ts:937`'s retired-`renderMemberFence` cite rides this entry — the only queued entry opening that file. scoped at cac023a."
   },
   {
     "tag": "FORMAT-OMITS-EDGE-CLAUSE",
@@ -132,11 +131,11 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "Add the predicate variant to the closed `Predicate` enum (81) — the placement check over an edge selection, evaluated at `each` grain by incidence (contract.md, \"selection\"). Severity is the clause author's, never the tool's."
+          "description": "Add the predicate variant to the closed `Predicate` enum (81) — the placement check over an edge selection, evaluated at `each` grain by incidence (contract.md, \"selection\"). Severity is the clause author's, never the tool's. Rider: the retired-`effective` comment at 475 rides this entry."
         },
         {
           "path": "src/engine.rs",
-          "description": "Evaluate the new predicate and admit it in the admissibility walk (the vacuous/unfillable bar, 114/466 neighborhood)."
+          "description": "Evaluate the new predicate and admit it in the admissibility walk (`admissibility`, 97; the vacuous/unfillable bar, 114+)."
         },
         {
           "path": "sdk/src/contract.ts",
@@ -165,7 +164,7 @@
       }
     ],
     "acceptance": "An author can declare the check representation.md names: a format that omits an edge its kind declares renders a contract the prose does not represent. Adding the predicate is the ratified language change; no default contract adopts it unbidden.",
-    "notes": "0025 (82c816e) Consequences bullet 3. Two bars build must not paper over: (1) the spec puts this clause in no default contract — do not invent an adoption; the predicate exists, the author declares it. (2) The engine cannot inspect an erased `render` hook and never reads a projection back (invariant 7), so the placement fact must reach the lock as an emit-captured declaration row. If that spelling does not hold, leave the entry and raise an open question. scoped at 1baeedd."
+    "notes": "0025 bullet 3. Two bars build must not paper over: (1) the spec puts this clause in no default contract — do not invent an adoption; the predicate exists, the author declares it. (2) The engine cannot inspect an erased `render` hook and never reads a projection back (invariant 7), so the placement fact must reach the lock as an emit-captured declaration row. If that spelling does not hold, leave the entry and raise an open question. scoped at cac023a."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -184,7 +183,7 @@
       "edit": [
         {
           "path": ".github/workflows/release.yml",
-          "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
+          "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut, the darwin deferral stated at line 7) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
         }
       ],
       "retire": []
@@ -192,6 +191,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at 1baeedd: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at cac023a: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
   }
 ]

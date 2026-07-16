@@ -185,9 +185,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   removing its host, while leaving the two survivors as unchanged context:
   the deletion sat below them, so `rule.anthropic`/`memory.anthropic` stay
   undischarged and *unshifted* at 565/611. Re-verified on disk at reconcile
-  HEAD 525111a (builtins.ts survivors at 565/611; session_start.rs `+++`
-  fixtures still 128/133/146). Now rides the next entry opening builtins.ts —
-  no queued entry does — unless it reconciles the two survivors.
+  HEAD cac023a (builtins.ts survivors at 565/611; session_start.rs `+++`
+  fixtures still 128/133/146 — neither file touched in the
+  a2f4a1c..cac023a window). Both survivors now ride
+  SKILL-NESTED-REFERENCE-DOCS — `open` and pickable, and it opens builtins.ts
+  for `skill`'s nesting template — discharged only if it reconciles them.
+  The `+++` fixtures still ride the next entry opening session_start.rs; no
+  queued entry does.
 
 - **Rust engine narration cites lag the SDK clause re-fetch.**
   BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live
@@ -232,7 +236,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   495/633/770/1172. Re-verified on disk at reconcile HEAD ff7da32.
 
 - **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
-  (line 4) and the fact-3 doc comments (lines 16/106/108 — "fact 3, layout"
+  (line 4) and the fact-3 doc comments (lines 16/109/111 — "fact 3, layout"
   = `Format` + `UnitShape`, the projection shape) still spell fact 3
   "layout" — vocabulary now colliding, in the same file, with the
   sanctioned `Layout` content type a538a76 exported (0019: a layout is the
@@ -240,18 +244,22 @@ condition arrives, it is the next break. If work touches one, surface it.
   name per concept, `specs/process/spec-system.md`). Doc-comment staleness
   only — the symbols themselves (`Format`, `UnitShape`, `Layout`) are
   correctly named. Rides whichever entry next opens `sdk/src/kind.ts` —
-  COMPOSED-BODY-ADMISSION is now that entry (the host-free `Locus`), with
-  SKILL-NESTED-REFERENCE-DOCS and EMBEDDED-FORMAT-TARGET-FACTS behind it —
-  never standalone; the fix renames the *fact narration*, never the
-  sanctioned type. Found at residue sweep HEAD
-  e9d05f6. MANIFEST-KIND-MODEL (cd1ca29) opened all three regions to add
+  SKILL-NESTED-REFERENCE-DOCS is now that entry (`KindFacts` grows the
+  nesting-template fact, right at the fact-3 narration), with
+  EMBEDDED-FORMAT-TARGET-FACTS behind it — never standalone; the fix renames
+  the *fact narration*, never the sanctioned type. Found at residue sweep
+  HEAD e9d05f6. MANIFEST-KIND-MODEL (cd1ca29) opened all three regions to add
   the `Fields`/`registration` content shape — writing module-doc line 4
   *fresh* in the retired "layout" vocabulary (self-propagation, again) —
   yet left the fact-3 narration, so per the reconciliation-not-opening
   precedent the rider is undischarged. MANIFEST-WRITE-SDK-ERASURE (8cc0561)
   then opened `sdk/src/kind.ts` again (carrying fields-only typed fields)
-  and once more left the fact-3 narration; re-verified on disk (lines
-  4/16/106/108) at reconcile HEAD f075f8d.
+  and once more left the fact-3 narration. COMPOSED-BODY-ADMISSION (0b2da21)
+  then opened the file a third time and rewrote the `Locus` doc (49-59)
+  *fresh* — the host-free admission narration — yet once more left the
+  fact-3 narration as unchanged context: undischarged; lines 4/16 unmoved,
+  106/108 shifted +3 → 109/111, re-verified on disk at reconcile HEAD
+  cac023a.
 
 - **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
   The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
@@ -275,13 +283,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   renamed `NNNN-*.md`) still narrates `sdk/src/prose.ts` ("law 5" at
   6/141/258, "law 8" at 11, "posture N" at 126/156/161/188/238, pre-recut
   decision cites `` `15-kinds.md` ``:126 and `` `20-surface.md` ``:200 —
-  neither file exists) and `sdk/src/kind.ts:254` ("posture 3"). Doc-comment
+  neither file exists) and `sdk/src/kind.ts:257` ("posture 3"). Doc-comment
   staleness only —
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
   in the retired vocabulary, so the narration self-propagates by imitation
   until scrubbed. Rides whichever entry next opens each file —
-  COMPOSED-BODY-ADMISSION now opens `sdk/src/kind.ts`; no queued entry opens
-  `prose.ts` — never standalone. (Fixture body text inside tests —
+  SKILL-NESTED-REFERENCE-DOCS now opens `sdk/src/kind.ts`; no queued entry
+  opens `prose.ts` — never standalone. (Fixture body text inside tests —
   not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
   strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
   which 3611335 shifted 1153/1188→1227/1262, MCP-SERVER-KIND (1ffab8f)
@@ -308,10 +316,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   MENTION-DISCOVERY-DEFER (ed5bb8e) then opened prose.ts a fourth time
   (+48 at the `Include` region, line 53) and once more left every narration
   line as unchanged context — undischarged; each shifted +48 below line 53,
-  re-derived on disk at reconcile HEAD 5ef998b (`kind.ts:254` unchanged,
-  that file untouched this window).
+  re-derived on disk at reconcile HEAD 5ef998b. COMPOSED-BODY-ADMISSION
+  (0b2da21) then opened `sdk/src/kind.ts` (the host-free `Locus` at 49-59)
+  and once more left the "posture 3" narration as unchanged context —
+  undischarged; it shifted +3, 254 → 257, re-verified on disk at reconcile
+  HEAD cac023a (`prose.ts` untouched in this window).
 
-- **`sdk/test/emit.test.ts:853` cites the retired `renderMemberFence`.**
+- **`sdk/test/emit.test.ts:937` cites the retired `renderMemberFence`.**
   EMBED-RENDER-FENCE-FREE (f2d73da) renamed `renderMemberFence` →
   `renderMemberBlock` (an embedded format is writer-only, the fence cosmetic
   — `specs/model/representation.md`, "kind") and opened this test file, but
@@ -333,9 +344,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   (ed5bb8e) then opened the file a sixth time (retargeting the
   unresolved-mention test at 579+, +3 above the comment) and once more left
   it as unchanged context — undischarged; it shifted 904 → 907, re-verified
-  on disk at reconcile HEAD 5ef998b. (Routing note, 07-16:
-  COMPOSED-BODY-ADMISSION now opens `sdk/test/emit.test.ts` — the
-  `withinHosts` fixture retargets — so the comment rides it.)
+  on disk at reconcile HEAD 5ef998b. COMPOSED-BODY-ADMISSION (0b2da21) then
+  opened the file a seventh time — retargeting the `withinHosts` fixtures
+  onto `admit`, the routing note predicted it would carry the comment — and
+  once more left it as unchanged context: undischarged; it shifted 907 → 937,
+  re-verified on disk at reconcile HEAD cac023a. Now rides
+  EMBEDDED-FORMAT-TARGET-FACTS, the one queued entry opening this file.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
