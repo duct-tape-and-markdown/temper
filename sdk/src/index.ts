@@ -32,6 +32,7 @@ export {
   enumOf,
   forbiddenKeys,
   formatPlacesEdges,
+  globValid,
   maxLen,
   maxLines,
   membership,
@@ -50,22 +51,27 @@ export {
 } from "./contract.js";
 
 // The engine room — kinds as typed constructors, plus the embedded-member value
-// shape `blocks()` composes.
+// shape `blocks()` composes and the resolved shape a `render` hook receives.
 export type {
   CollectionAddress,
   EdgeField,
+  EdgeTargetFacts,
   EmbeddedMemberCollectionEntry,
   EmbeddedMemberValue,
   Format,
   KindDefinition,
   KindFacts,
+  KindOptions,
   Layout,
   LayoutRegion,
   Locus,
   Member,
   MemberInit,
   Registration,
+  ResolvedEmbeddedMemberCollectionEntry,
+  ResolvedEmbeddedMemberValue,
   Shape,
+  Template,
   UnitShape,
 } from "./kind.js";
 export { embeddedMemberValue, kind } from "./kind.js";
@@ -79,6 +85,7 @@ export type {
   AssemblyFactRow,
   ClauseRow,
   Declarations,
+  EdgePlacements,
   KindFactRow,
   RequirementRow,
   SatisfiesRow,
@@ -87,5 +94,5 @@ export { SEAM_VERSION, compileDeclarations } from "./declarations.js";
 
 // Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
 // of every projection and the whole lock.
-export type { EmitResult, PayloadMember, RegistrationFact, ResolveOptions } from "./emit.js";
+export type { EmitResult, PayloadMember, RegistrationFact, ResolveOptions, SettingsResidue } from "./emit.js";
 export { emit } from "./emit.js";

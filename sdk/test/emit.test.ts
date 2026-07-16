@@ -34,7 +34,7 @@ import {
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
-import type { ResolvedEmbeddedMemberValue } from "../src/kind.js";
+import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
