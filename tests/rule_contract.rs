@@ -169,6 +169,7 @@ fn rule_features(paths: &[&str]) -> temper::extract::Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: Vec::new(),
+        edge_placements: None,
     }
 }
 

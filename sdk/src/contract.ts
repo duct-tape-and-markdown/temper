@@ -114,6 +114,14 @@ export const sectionContains = (heading: string, marker: string): Predicate => (
 });
 /** Every glob the field carries parses under globset (brace-expansion aware). */
 export const globValid = (field: string): Predicate => ({ key: "glob-valid", field });
+/**
+ * Every edge the member's kind declares is placed by the format that renders the member
+ * — a format that omits one renders a contract the prose does not represent. Names no
+ * field: the selection is the member's whole incident edge set, at the `each` grain.
+ * Decided over the placement `emit` observes while rendering and lowers into the
+ * member's `nested_member` row, since the engine never sees a format.
+ */
+export const formatPlacesEdges = (): Predicate => ({ key: "format-places-edges" });
 
 // Node-set/edge-scope predicates — a requirement's set-scope demands ride
 // these as ordinary clause values, the same four-channel `clause()` shape as

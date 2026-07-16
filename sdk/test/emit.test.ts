@@ -34,6 +34,7 @@ import {
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
+import type { ResolvedEmbeddedMemberValue } from "../src/kind.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
@@ -409,25 +410,26 @@ test("needs derive the permission union, deduped and sorted, never authored twic
 // standalone projection.
 // ---------------------------------------------------------------------------
 
-/** An embedded-locus kind, built via `kind()` directly. */
-function embeddedKind<T extends object>(name: string, withinHosts: readonly string[]) {
+/** An embedded-locus kind, built via `kind()` directly — host-free, as every embedded kind is. */
+function embeddedKind<T extends object>(name: string) {
   return kind<T>({
     name,
-    locus: { kind: "embedded", withinHosts },
+    locus: { kind: "embedded" },
     unitShape: "file",
     registration: [{ via: "always" }],
   });
 }
 
 /**
- * The `decision` embedded kind the `blocks()` cases nest under a `memory` host — bound
- * into each harness via `expect` so it is in play and its `withinHosts` admits the
- * nesting (`emit` refuses a value its host never templates).
+ * The `decision` embedded kind the `blocks()` cases nest under a `memory` host, plus the
+ * admission each harness declares to let it compose one (`emit` refuses a value the
+ * corpus never admitted over the host kind).
  */
-const memoryDecision = embeddedKind<Record<never, never>>("decision", ["memory"]);
+const memoryDecision = embeddedKind<Record<never, never>>("decision");
+const admitDecision = { host: memory, admits: [memoryDecision] };
 
 test("an embedded member neither projects nor takes a kind-fact row", () => {
-  const decisionBlock = embeddedKind<Record<never, never>>("decision-block", ["spec"]);
+  const decisionBlock = embeddedKind<Record<never, never>>("decision-block");
   const mixed = harness({
  members: [
       rule({ name: "rust", prose: text`# Rust` }),
@@ -441,14 +443,121 @@ test("an embedded member neither projects nor takes a kind-fact row", () => {
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
 });
 
-test("a host kind's fact row carries its declared embedded children as templates", () => {
-  const decisionBlock = embeddedKind<Record<never, never>>("decision", ["rule"]);
+test("a host kind's fact row carries the embedded kinds the corpus admits over it as templates", () => {
+  const decisionBlock = embeddedKind<Record<never, never>>("decision");
   const mixed = harness({
     members: [rule({ name: "rust", prose: text`# Rust` }), decisionBlock({ name: "surface-authority" })],
+    admit: [{ host: rule, admits: [decisionBlock] }],
  });
   const declarations = compileDeclarations(mixed);
   const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
-  assert.deepEqual(ruleRow.templates, ["decision"]);
+  assert.deepEqual(ruleRow.templates, [{ kind: "decision" }]);
+  // The same kind, admitted nowhere else, leaves every other host's column absent.
+  assert.equal(declarations.kinds.find((k) => k.name === "memory")?.templates, undefined);
+});
+
+/**
+ * A nested-file `supporting-doc` kind — the child a host templates at a path pattern. It
+ * governs no glob of its own: the pattern is its host's declared fact, so it can never
+ * contend with the host's own locus for a document's position.
+ */
+const supportingDoc = kind<Record<never, never>>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [{ via: "always" }],
+});
+
+/** A `guide` host declaring one file-child layer: `supporting-doc` units at `*.md`,
+ * relative to the host's own unit. */
+const guide = kind<Record<never, never>>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  format: "yaml-frontmatter",
+  unitShape: "directory",
+  identityField: "name",
+  registration: [{ via: "always" }],
+  templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+test("a host's file child emits at its host's unit joined with the template's pattern", () => {
+  const gate = guide({ name: "operate-the-gate" });
+  const result = emit(
+    harness({ members: [gate, supportingDoc({ name: "checklist", host: gate, prose: text`# Checklist` })] }),
+  );
+
+  // The child owns a file — its path composed from the host's unit and the `*.md` pattern
+  // the host declares, never a glob of its own.
+  const child = result.members.find((m) => m.kind === "supporting-doc")!;
+  assert.equal(child.host, "guide:operate-the-gate");
+  assert.equal(child.body, "# Checklist");
+
+  // The child kind takes a fact row (the engine places its file off one) carrying no
+  // governs pair, and no locus it could share with its `guide` host.
+  const childRow = result.declarations.kinds.find((k) => k.name === "supporting-doc")!;
+  assert.equal(childRow.governs_root, undefined);
+  assert.equal(childRow.governs_glob, undefined);
+  assert.deepEqual(
+    result.declarations.kinds.find((k) => k.name === "guide")!.templates,
+    [{ kind: "supporting-doc", path: "*.md" }],
+  );
+});
+
+test("a nested file child names its host, and every other locus names none", () => {
+  const gate = guide({ name: "operate-the-gate" });
+  assert.throws(
+    () => supportingDoc({ name: "checklist" }),
+    /composes from its host's unit, so it names the `host` member/,
+  );
+  assert.throws(() => rule({ name: "rust", host: gate, prose: text`# Rust` }), /its path composes from nobody/);
+});
+
+test("a kind's declared file-child template reaches its fact row with no admission in play", () => {
+  const h = harness({ members: [guide({ name: "operate-the-gate" })] });
+  const guideRow = compileDeclarations(h).kinds.find((k) => k.name === "guide")!;
+
+  // The template is a kind-side fact: no `admit` declaration exists, and a file child
+  // could not be admitted anyway — admission is over an embedded body.
+  assert.deepEqual(guideRow.templates, [{ kind: "supporting-doc", path: "*.md" }]);
+});
+
+test("an admission over a host overrides the child kind its own template declares", () => {
+  const richDoc = embeddedKind<Record<never, never>>("rich-doc");
+  const h = harness({
+    members: [guide({ name: "operate-the-gate" })],
+    admit: [{ host: guide, admits: [richDoc] }],
+ });
+  const guideRow = compileDeclarations(h).kinds.find((k) => k.name === "guide")!;
+
+  // The adopting corpus wants richer typing than the declared child kind, so its
+  // admission wins. The admitted kind is embedded by construction, so the overriding
+  // layer carries no path — the declared `*.md` pattern goes with the kind it addressed.
+  assert.deepEqual(guideRow.templates, [{ kind: "rich-doc" }]);
+});
+
+test("a built-in kind's composed body admits a corpus-declared embedded kind", () => {
+  // The built-in `skill` names no child kind — admission is the adopting corpus's
+  // declaration, so a locally-declared embedded kind composes a shipped kind's body.
+  const rubric = embeddedKind<Record<never, never>>("rubric");
+  const h = harness({
+    members: [
+      skill({
+        name: "operate-the-gate",
+        description: "Use when operating the gate.",
+        prose: blocks(
+          embeddedMemberValue({ kind: rubric, key: "green-bar", leaves: { check: "every gate passes" } }),
+        ),
+      }),
+    ],
+    admit: [{ host: skill, admits: [rubric] }],
+ });
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "operate-the-gate")!;
+  assert.equal(member.body, '```member.rubric green-bar\ncheck = "every gate passes"\n```\n');
+  assert.deepEqual(compileDeclarations(h).kinds.find((k) => k.name === "skill")!.templates, [{ kind: "rubric" }]);
+  assert.deepEqual(result.declarations.nested_members, [
+    { host: "skill:operate-the-gate", kind: "rubric", key: "green-bar", leaves: { check: "every gate passes" }, collections: {} },
+  ]);
 });
 
 test("a kind's declared layout lowers into its content row; a file-content kind omits it", () => {
@@ -604,7 +713,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -616,7 +725,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
 
 test("a kind()'s render hook projects fence-free in place of the default TOML view; a kind() without one keeps its member fence byte-identical", () => {
   const embeddedFacts = {
-    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    locus: { kind: "embedded" as const },
     unitShape: "file" as const,
     registration: [],
   };
@@ -644,7 +753,7 @@ test("a kind()'s render hook projects fence-free in place of the default TOML vi
         ),
       }),
     ],
-    expect: [{ kind: decisionWithRender, clauses: [] }],
+    admit: [{ host: memory, admits: [decisionWithRender, decisionWithoutRender] }],
   });
 
   const result = emit(h);
@@ -661,7 +770,7 @@ test("a kind()'s render hook projects fence-free in place of the default TOML vi
 
 test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, the same as the hook-less default TOML view", () => {
   const embeddedFacts = {
-    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    locus: { kind: "embedded" as const },
     unitShape: "file" as const,
     registration: [],
   };
@@ -683,6 +792,7 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
         ),
       }),
     ],
+    admit: [{ host: memory, admits: [decisionWithRender] }],
   });
 
   assert.throws(() => emit(h), /a mention cannot dangle/);
@@ -690,7 +800,7 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
 
 test("a kind()'s render hook receives a resolvable leaf mention already rendered to a plain string, not a Text object", () => {
   const embeddedFacts = {
-    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    locus: { kind: "embedded" as const },
     unitShape: "file" as const,
     registration: [],
   };
@@ -713,7 +823,7 @@ test("a kind()'s render hook receives a resolvable leaf mention already rendered
         ),
       }),
     ],
-    expect: [{ kind: decisionWithRender, clauses: [] }],
+    admit: [{ host: memory, admits: [decisionWithRender] }],
   });
 
   const result = emit(h);
@@ -741,7 +851,7 @@ test("a blocks() body renders a keyed collection entry as its own [collection.en
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -776,7 +886,7 @@ test("multiple blocks() values render as sibling fences, and a leaf's quotes/new
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -815,7 +925,7 @@ test("a Text-valued leaf's mention resolves and renders inline — in the fence 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -875,7 +985,7 @@ test("a leaf's mention contributes a mention row keyed to the leaf's own structu
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   assert.deepEqual(compileDeclarations(h).mentions, [
     { member: "CLAUDE/decision/surface-authority/chosen", target: "rule:rust" },
@@ -897,15 +1007,14 @@ test("a bare-string leaf is unchanged — no mention row, no resolution check", 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   assert.deepEqual(compileDeclarations(h).mentions, []);
 });
 
 test("a blocks()-declared embedded member surfaces a matching nested_member row alongside its unchanged rendered fence", () => {
-  // NESTED-MEMBER-LOCK-ROW (0018): the composed value feeds both the rendered fence
-  // (untouched — `renderMemberFence`) and, additively, a `nested_member` declaration
-  // row carrying the identical facts.
+  // The composed value feeds both the rendered fence and, additively, a
+  // `nested_member` declaration row carrying the identical facts.
   const h = harness({
     members: [
       memory({
@@ -925,7 +1034,7 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   const result = emit(h);
@@ -961,11 +1070,172 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
   ]);
 });
 
+/**
+ * An embedded kind whose `source` field is an edge to a `rule`, and whose render hook
+ * spells the reference off the derived target facts alone — the instance authors an
+ * address and never a word of the rendering.
+ */
+function citationKind() {
+  return kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: "rule" }],
+    },
+    {
+      render: (value) => {
+        const target = value.targets.source;
+        return `See [${target.name}](${target.path}) — the ${target.kind} at \`${target.address}\`.`;
+      },
+    },
+  );
+}
+
+test("an embedded format spells an edge target off the derived facts — name, address, kind, and a path relative to each host's own projection", () => {
+  const citation = citationKind();
+  // One authored value, two hosts whose projections land at different depths: the
+  // rendered path differs per host, so it is derived from the host's own locus rather
+  // than baked into the instance.
+  const cite = () =>
+    embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "rule:rust" } });
+
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+      memory({ name: "CLAUDE", prose: blocks(cite()) }),
+      skill({
+        name: "coordinate",
+        description: "Use when driving a complex task across a team of agents.",
+        prose: blocks(cite()),
+      }),
+    ],
+    admit: [
+      { host: memory, admits: [citation] },
+      { host: skill, admits: [citation] },
+    ],
+  });
+
+  const result = emit(h);
+  // `CLAUDE.md` sits at the root, so the target's projection is the path itself.
+  assert.equal(
+    result.members.find((m) => m.name === "CLAUDE")!.body,
+    "See [rust](.claude/rules/rust.md) — the rule at `rule:rust`.\n",
+  );
+  // `.claude/skills/coordinate/SKILL.md` sits two directories down from `.claude/`.
+  assert.equal(
+    result.members.find((m) => m.name === "coordinate")!.body,
+    "See [rust](../../rules/rust.md) — the rule at `rule:rust`.\n",
+  );
+});
+
+test("an edge field's leaf still rides the nested_member row as the authored address, never the rendered reference", () => {
+  const citation = citationKind();
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "rule:rust" } }),
+        ),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+
+  assert.deepEqual(compileDeclarations(h).nested_members, [
+    {
+      host: "memory:CLAUDE",
+      kind: "citation",
+      key: "the-standard",
+      leaves: { source: "rule:rust" },
+      collections: {},
+    },
+  ]);
+});
+
+/**
+ * The host for one citation-shaped value, whose render hook is the test's variable —
+ * what the format does or does not place is the whole subject.
+ */
+function citationHarness(
+  render: (value: ResolvedEmbeddedMemberValue) => string,
+  leaves: Record<string, string> = { source: "rule:rust", note: "the bar" },
+) {
+  const citation = kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: "rule" }],
+    },
+    { render },
+  );
+  return harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves })),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+}
+
+test("emit records which declared edges an embedded format placed — the fact the engine cannot observe for itself", () => {
+  const placing = emit(citationHarness((value) => `See [${value.targets.source.name}](${value.targets.source.path}).`));
+  assert.deepEqual(placing.declarations.nested_members[0].placed_edges, ["source"]);
+
+  // The same edge placed off its address leaf rather than the derived facts still
+  // represents the reference, so it is still placed.
+  const viaLeaf = emit(citationHarness((value) => `See \`${value.leaves.source}\`.`));
+  assert.deepEqual(viaLeaf.declarations.nested_members[0].placed_edges, ["source"]);
+
+  // A format that renders only the value's prose never names the edge at all — the case
+  // the clause exists for. `[]`, never absent: a format ran and placed nothing.
+  const omitting = emit(citationHarness((value) => value.leaves.note));
+  assert.deepEqual(omitting.declarations.nested_members[0].placed_edges, []);
+});
+
+test("a value leaving a declared edge field unfilled records no placement — an absent edge is nothing to omit", () => {
+  const unfilled = emit(citationHarness((value) => value.leaves.note, { note: "the bar" }));
+  assert.deepEqual(unfilled.declarations.nested_members[0].placed_edges, undefined);
+
+  // The obligation ranges over what the value fills, so the same format placing nothing
+  // does record an omission once the edge is actually carried.
+  const filled = emit(citationHarness((value) => value.leaves.note));
+  assert.deepEqual(filled.declarations.nested_members[0].placed_edges, []);
+});
+
+test("a value whose kind declares no edge field records no placement — an ordinary nested_member row is unchanged", () => {
+  const passage = kind<object>(
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { render: (value) => value.leaves.body },
+  );
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: passage, key: "intro", leaves: { body: "Words." } })),
+      }),
+    ],
+    admit: [{ host: memory, admits: [passage] }],
+  });
+
+  assert.deepEqual(emit(h).declarations.nested_members, [
+    { host: "memory:CLAUDE", kind: "passage", key: "intro", leaves: { body: "Words." }, collections: {} },
+  ]);
+});
+
 test("a composed body interleaves prose spans and embedded values in authored order, byte-identical to a wrapper-kind narrative", () => {
   // A passage-style wrapper: an embedded kind whose render hook projects a leaf
   // verbatim, fence-free — the exhibit the native interleave retires.
   const passage = kind<object>(
-    { name: "passage", locus: { kind: "embedded", withinHosts: ["memory"] }, unitShape: "file", registration: [] },
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
     { render: (value) => value.leaves.body },
   );
   const decisionValue = embeddedMemberValue({
@@ -986,7 +1256,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   // The same narrative carried by wrapper passages minted to hold it.
@@ -1001,10 +1271,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
         ),
       }),
     ],
-    expect: [
-      { kind: memoryDecision, clauses: [] },
-      { kind: passage, clauses: [] },
-    ],
+    admit: [{ host: memory, admits: [memoryDecision, passage] }],
   });
 
   const nativeBody = emit(native).members.find((m) => m.name === "CLAUDE")!.body;

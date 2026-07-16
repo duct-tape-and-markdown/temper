@@ -185,6 +185,147 @@ fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
 }
 
 #[test]
+fn a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility() {
+    // `count` ranges over a named requirement's satisfier set — context the per-artifact
+    // engine does not hold, so as a `skill` floor clause it could only ever decide
+    // nothing. Declared on a kind it must fail loud at admissibility naming the
+    // predicate, never let the member pass a check that never ran.
+    let root = common::tmpdir("judgeless-kind-clause");
+    common::write_skill(&root, "coordinate", CLEAN_SKILL);
+    common::write_lock(
+        &root,
+        temper::drift::Declarations {
+            clauses: vec![temper::drift::ClauseRow {
+                kind: Some("skill".to_string()),
+                count: Some(temper::drift::CountBoundRow { min: 1, max: 3 }),
+                ..common::clause("count", "required")
+            }],
+            ..temper::drift::Declarations::default()
+        },
+    );
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    let fenced = common::findings_for(&findings, "count");
+    assert_eq!(
+        fenced.len(),
+        1,
+        "the judge-less floor clause must fail admissibility, got: {findings:#?}"
+    );
+    assert!(
+        fenced[0].starts_with("::error "),
+        "an inadmissible contract is error-severity (fails the run), got: {}",
+        fenced[0]
+    );
+    assert!(
+        !success,
+        "a contract naming a predicate the engine cannot judge must exit non-zero, \
+         got: {findings:#?}"
+    );
+}
+
+/// A harness whose `standard` kind templates an embedded `citation` child, with one
+/// citation value whose format placed `placed_edges`. The `citation` kind declares a
+/// `source` edge and carries a `format-places-edges` clause, so the value's placement is
+/// the only thing that varies between the two cases below.
+fn write_embedded_citation_harness(root: &Path, placed_edges: Vec<String>) {
+    fs::create_dir_all(root.join("docs").join("standards")).unwrap();
+    fs::write(
+        root.join("docs").join("standards").join("the-charter.md"),
+        "# The charter\n\nThe standard the citation points back at.\n",
+    )
+    .unwrap();
+    common::write_lock(
+        root,
+        temper::drift::Declarations {
+            kinds: vec![temper::drift::KindFactRow {
+                templates: vec![temper::drift::TemplateRow {
+                    kind: "citation".to_string(),
+                    path: None,
+                }],
+                ..common::kind_facts("standard", "docs/standards", "*.md")
+            }],
+            assembly: vec![temper::drift::AssemblyFactRow {
+                fact: "edge".to_string(),
+                value: None,
+                from: Some("citation".to_string()),
+                field: Some("source".to_string()),
+                to: Some("standard".to_string()),
+            }],
+            nested_members: vec![temper::drift::NestedMemberRow {
+                host: "standard:the-charter".to_string(),
+                kind: "citation".to_string(),
+                key: "the-standard".to_string(),
+                leaves: std::collections::BTreeMap::from([(
+                    "source".to_string(),
+                    "the-charter".to_string(),
+                )]),
+                collections: Vec::new(),
+                placed_edges: Some(placed_edges),
+            }],
+            clauses: vec![temper::drift::ClauseRow {
+                kind: Some("citation".to_string()),
+                ..common::clause("format-places-edges", "required")
+            }],
+            ..temper::drift::Declarations::default()
+        },
+    );
+}
+
+#[test]
+fn a_clause_bound_to_an_embedded_kind_judges_its_members() {
+    // An embedded kind reaches the lock solely through its host's `templates` column, so
+    // it has no kind-fact row and neither at-locus dispatcher keys off it. Its members
+    // must still reach conformance: a `format-places-edges` clause over a citation whose
+    // format dropped the `source` edge it carries fails the run loud, naming the field.
+    // Bound to a kind nobody judged, the clause would silently decide nothing.
+    let root = common::tmpdir("embedded-kind-clause-fires");
+    write_embedded_citation_harness(&root, Vec::new());
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    let omissions = common::findings_for(&findings, "format-places-edges");
+    assert_eq!(
+        omissions.len(),
+        1,
+        "the embedded kind's clause must fire over its member, got: {findings:#?}"
+    );
+    assert!(
+        omissions[0].starts_with("::error "),
+        "a `required` clause's violation is error-severity (fails the run), got: {}",
+        omissions[0]
+    );
+    assert!(
+        omissions[0].contains("source"),
+        "the finding must name the omitted edge field, got: {}",
+        omissions[0]
+    );
+    assert!(
+        !success,
+        "an embedded kind's error-severity finding must exit non-zero, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn an_embedded_kind_clause_that_holds_leaves_the_run_silent() {
+    // The same harness with the `source` edge placed: the dispatcher adds a judge, never
+    // a finding. A clause reaching a kind it never reached before must not invent one.
+    let root = common::tmpdir("embedded-kind-clause-holds");
+    write_embedded_citation_harness(&root, vec!["source".to_string()]);
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    assert!(
+        common::findings_for(&findings, "format-places-edges").is_empty(),
+        "the format placed every edge the value carries, got: {findings:#?}"
+    );
+    assert!(
+        success,
+        "a holding embedded-kind clause must exit zero, got: {findings:#?}"
+    );
+}
+
+#[test]
 fn a_genuinely_empty_harness_stays_silent() {
     // No declared requirements at all: the assembly declares nothing, so zero resolved
     // members is legitimate and the check exits clean.

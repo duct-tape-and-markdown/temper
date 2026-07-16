@@ -609,12 +609,13 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
     let mut manifests = Vec::new();
     for kind in builtin_defs.values() {
         let kind = overlay_builtin_kind(kind, &declarations)?;
-        let Some(address) = kind.collection_address.clone() else {
+        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
+        else {
             continue;
         };
         let contract = builtin_contract(&declarations.clauses, &kind.name)?;
         manifests.push(install::GuardedManifest {
-            path: manifest_path(&kind),
+            path,
             kind,
             contract,
             address,
@@ -624,12 +625,13 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
     let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     for row in custom_rows {
         let kind = CustomKind::from_kind_fact_row(row)?;
-        let Some(address) = kind.collection_address.clone() else {
+        let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
+        else {
             continue;
         };
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
         manifests.push(install::GuardedManifest {
-            path: manifest_path(&kind),
+            path,
             kind,
             contract,
             address,
@@ -640,13 +642,15 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
 
 /// The harness-relative path a manifest `kind` governs — its `governs` locus, the suffix the
 /// guard matches a pending write's `file_path` against (tolerant of the file_path arriving
-/// absolute, the same suffix compare the projection binding runs).
-fn manifest_path(kind: &CustomKind) -> PathBuf {
-    if kind.governs.root == "." {
-        PathBuf::from(&kind.governs.glob)
+/// absolute, the same suffix compare the projection binding runs). [`None`] for a kind
+/// governing no locus, which has no host file for the guard to watch.
+fn manifest_path(kind: &CustomKind) -> Option<PathBuf> {
+    let governs = kind.governs.as_ref()?;
+    Some(if governs.root == "." {
+        PathBuf::from(&governs.glob)
     } else {
-        Path::new(&kind.governs.root).join(&kind.governs.glob)
-    }
+        Path::new(&governs.root).join(&governs.glob)
+    })
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)
@@ -875,6 +879,23 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
     let embedded_features = embedded_features_by_kind(&declarations);
+
+    // The third dispatcher: an embedded kind's members through the identical two greens
+    // the two at-locus loops above run, so a clause bound to an embedded kind is judged
+    // rather than silently no-opped. Ordered here because the embedded corpus is what a
+    // host's `templates` column yields, which is only assembled above. Like a custom
+    // kind, an embedded kind carries no embedded default — its whole contract is the
+    // committed lock's own clause rows naming it. Its member counts stay out of the
+    // coverage note's summary: that map is keyed by kind-fact row label, which an
+    // embedded kind has none of, and an embedded member's host file is already counted
+    // under its own kind.
+    for (kind, features) in &embedded_features {
+        let contract = compose::default_contract_from_rows(&declarations.clauses, kind)?;
+
+        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::validate(&contract, features));
+    }
+
     let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
     // A bare `satisfies` label an older engine wrote qualifies against this corpus, but a
@@ -1011,10 +1032,11 @@ fn overlay_builtin_kind(
         return Ok(kind.clone());
     };
     let mut overlaid = kind.clone();
-    overlaid.governs = kind::Governs {
-        root: row.governs_root.clone(),
-        glob: row.governs_glob.clone(),
-    };
+    // The two governs columns are one spelling, and a row declaring neither defers to the
+    // built-in's own locus rather than blanking it — the posture `overlay_content` takes.
+    if let Some((root, glob)) = row.governs_root.clone().zip(row.governs_glob.clone()) {
+        overlaid.governs = Some(kind::Governs { root, glob });
+    }
     if !row.templates.is_empty() {
         overlaid = overlaid.overlay_templates(&row.templates);
     }
@@ -1096,7 +1118,6 @@ fn resolve_kind_units(
 ) -> miette::Result<Vec<Unit>> {
     let overlaid = overlay_builtin_kind(kind, declarations)?;
     let governs = overlaid.governs.clone();
-    let base = harness_root.join(&governs.root);
     // The kind's edge-field slots: a layout field section on one of these reads as
     // addresses, not a verbatim span, so it never lands as a frontmatter field. A custom
     // kind's relationships live only in the lock's assembly facts (its kind-fact row
@@ -1114,11 +1135,17 @@ fn resolve_kind_units(
     // dispatch the manifest adapter delivered a library face for (MANIFEST-ADAPTER-READ)
     // lands here at its first manifest kind. Every other kind walks its `governs` locus
     // and reads each file through the layout or frontmatter adapter.
-    let mut units = match (&overlaid.content, &overlaid.collection_address) {
-        (kind::Content::Fields, Some(address)) => manifest_units(harness_root, &overlaid, address)?,
-        _ => {
+    let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
+        (kind::Content::Fields, Some(address), _) => {
+            manifest_units(harness_root, &overlaid, address)?
+        }
+        // A nested file kind is discovered off its host's template, never a `governs` walk
+        // — a locus it does not have — so no file surfaces for it here.
+        (_, _, None) => Vec::new(),
+        (_, _, Some(governs)) => {
+            let base = harness_root.join(&governs.root);
             let mut file_units = Vec::new();
-            for file in import::discover_kind_files(harness_root, kind, &governs)? {
+            for file in import::discover_kind_files(harness_root, kind, governs)? {
                 // Dispatch on the kind's content: a layout kind's document is read under
                 // its declared layout — its field sections fill the unit's fields, a
                 // non-fitting document refusing loud — where a file-content kind reads
@@ -1333,16 +1360,41 @@ fn embedded_features_by_kind(
     // kind no host declares is an orphan rejected at admissibility
     // ([`nested_member_admissibility`]), so this `get_mut` now backstops that already-loud
     // unreachable state rather than swallowing a live one.
+    let edge_fields = edge_fields_by_kind(declarations);
+    let no_edges = BTreeSet::new();
     for row in &declarations.nested_members {
         if let Some(features) = by_kind.get_mut(&row.kind) {
-            features.push(embedded_member_features(row));
+            features.push(embedded_member_features(
+                row,
+                edge_fields.get(&row.kind).unwrap_or(&no_edges),
+            ));
+        }
+    }
+    by_kind
+}
+
+/// The edge fields each kind declares, off the lock's `assembly` `edge` facts — the
+/// declared set a `format-places-edges` clause measures a value's own
+/// [`placed_edges`](drift::NestedMemberRow::placed_edges) against
+/// ([`embedded_member_features`]). A malformed edge fact is
+/// [`edges_from_declarations`]'s own load error, raised before any check runs, so this
+/// fold reads the well-formed rows rather than raise the identical fault twice.
+fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, BTreeSet<String>> {
+    let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for fact in &declarations.assembly {
+        if fact.fact != "edge" {
+            continue;
+        }
+        if let (Some(from), Some(field)) = (fact.from.clone(), fact.field.clone()) {
+            by_kind.entry(from).or_default().insert(field);
         }
     }
     by_kind
 }
 
 /// The embedded kinds the lock declares: every child kind a host names, whether through
-/// its `templates` column or a layout member collection's `member_kind`. The set a
+/// its `templates` column — a *path-less* entry, the embedded layer; a `path` templates a
+/// file child, which owns its own unit — or a layout member collection's `member_kind`. The set a
 /// `nested_member` row's kind must belong to — a row of any other kind is an orphan no
 /// host templates ([`nested_member_admissibility`]) — and the keys
 /// [`embedded_features_by_kind`] seeds its corpus with.
@@ -1350,7 +1402,12 @@ fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<Strin
     let mut kinds = BTreeSet::new();
     for row in &declarations.kinds {
         for template in &row.templates {
-            kinds.insert(template.clone());
+            // A template carrying a `path` templates a *file* child — the child owns a
+            // unit at that pattern rather than a fence in the host's body — so its child
+            // kind is no part of the embedded set.
+            if template.path.is_none() {
+                kinds.insert(template.kind.clone());
+            }
         }
         if let Some(content) = &row.content {
             for region in &content.regions {
@@ -1444,7 +1501,16 @@ fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<check:
 /// (or a deeper edge) can range over them exactly as a file member's frontmatter. The
 /// body-derived features are empty — an embedded member has no document of its own; it is
 /// read off its host's declared surface.
-fn embedded_member_features(row: &drift::NestedMemberRow) -> extract::Features {
+///
+/// `edge_fields` is what the member's kind declares ([`edge_fields_by_kind`]); pairing the
+/// ones this row actually fills with its own `placed_edges` is what makes a
+/// `format-places-edges` clause decidable without the engine ever seeing the format that
+/// rendered the value. An unfilled field is no edge, so it is no obligation: ranging over
+/// the kind's whole declared set would read an absent edge as one the format dropped.
+fn embedded_member_features(
+    row: &drift::NestedMemberRow,
+    edge_fields: &BTreeSet<String>,
+) -> extract::Features {
     let fields = row
         .leaves
         .iter()
@@ -1466,6 +1532,17 @@ fn embedded_member_features(row: &drift::NestedMemberRow) -> extract::Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: Vec::new(),
+        // `None` ⇒ no format rendered the value (a layout host's document is source, not
+        // projection), which is not a format to indict. `Some` over an empty map ⇒ a
+        // format ran and the value carries no edge to place. The engine cannot tell the
+        // two apart once they collapse into one empty map, so they are kept apart here.
+        edge_placements: row.placed_edges.as_ref().map(|placed| {
+            edge_fields
+                .iter()
+                .filter(|field| row.leaves.get(*field).is_some_and(|text| !text.is_empty()))
+                .map(|field| (field.clone(), placed.contains(field)))
+                .collect()
+        }),
     }
 }
 
@@ -1620,6 +1697,10 @@ const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
 /// `hook` and a `settings.json`-owning kind coexist). The mining the spec forbids is two
 /// *document* kinds contending for one file; two manifest kinds contending for one
 /// collection address is a distinct, out-of-scope question.
+///
+/// A nested file kind falls out for a stronger reason: it governs no glob at all — its
+/// members' paths compose from their host's unit and the host template's pattern — so it
+/// enters no bucket and can contend with nobody. That is the whole point of the locus.
 fn governs_collision_diagnostics(
     builtin_defs: &BTreeMap<String, CustomKind>,
     custom_rows: &[&drift::KindFactRow],
@@ -1628,21 +1709,26 @@ fn governs_collision_diagnostics(
     let mut by_governs: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
     for kind in builtin_defs.values() {
         let overlaid = overlay_builtin_kind(kind, declarations)?;
+        let Some(governs) = overlaid.governs else {
+            continue;
+        };
         if overlaid.collection_address.is_some() {
             continue;
         }
-        let governs = overlaid.governs;
         by_governs
             .entry((governs.root, governs.glob))
             .or_default()
             .push(kind.name.clone());
     }
     for row in custom_rows {
+        let Some(governs) = row.governs_root.clone().zip(row.governs_glob.clone()) else {
+            continue;
+        };
         if row.collection_address.is_some() {
             continue;
         }
         by_governs
-            .entry((row.governs_root.clone(), row.governs_glob.clone()))
+            .entry(governs)
             .or_default()
             .push(row.name.clone());
     }
@@ -1819,5 +1905,116 @@ mod tests {
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
         assert!(files.iter().any(|f| f == "CLAUDE.md"));
+    }
+
+    /// One `nested_member` row of a `citation` kind declaring the edges `edges` names,
+    /// filling the leaves `leaves` names, whose format placed `placed` (`None` ⇒ no
+    /// format rendered the value).
+    fn citation_row(
+        edges: &[&str],
+        leaves: &[&str],
+        placed: Option<Vec<String>>,
+    ) -> drift::Declarations {
+        drift::Declarations {
+            assembly: edges
+                .iter()
+                .map(|field| drift::AssemblyFactRow {
+                    fact: "edge".to_string(),
+                    from: Some("citation".to_string()),
+                    field: Some((*field).to_string()),
+                    to: Some("rule".to_string()),
+                    value: None,
+                })
+                .collect(),
+            nested_members: vec![drift::NestedMemberRow {
+                host: "memory:CLAUDE".to_string(),
+                kind: "citation".to_string(),
+                key: "the-standard".to_string(),
+                leaves: leaves
+                    .iter()
+                    .map(|leaf| ((*leaf).to_string(), "rule:rust".to_string()))
+                    .collect(),
+                collections: Vec::new(),
+                placed_edges: placed,
+            }],
+            ..drift::Declarations::default()
+        }
+    }
+
+    /// The placement feature of the row `declarations` carries, against its kind's
+    /// declared edges — the join the lift performs.
+    fn placement_feature(declarations: &drift::Declarations) -> Option<BTreeMap<String, bool>> {
+        let edges = edge_fields_by_kind(declarations);
+        embedded_member_features(
+            &declarations.nested_members[0],
+            edges.get("citation").unwrap(),
+        )
+        .edge_placements
+    }
+
+    /// A member's placement feature is the join of two lock families: the edges the
+    /// `assembly` family says its kind declares, against the `placed_edges` its own row
+    /// says the format rendered. Neither alone decides a `format-places-edges` clause.
+    #[test]
+    fn an_embedded_members_placement_feature_joins_declared_edges_against_the_placed_set() {
+        let declarations = citation_row(
+            &["source", "supersedes"],
+            &["source", "supersedes"],
+            Some(vec!["source".to_string()]),
+        );
+        assert_eq!(
+            placement_feature(&declarations),
+            Some(BTreeMap::from([
+                ("source".to_string(), true),
+                ("supersedes".to_string(), false),
+            ])),
+            "the edge the format never selected must read as unplaced",
+        );
+    }
+
+    /// An edge field the value never filled is no edge, so it is no placement obligation:
+    /// ranging over the kind's whole declared set would read the absent field as one the
+    /// format dropped. An empty leaf is unfilled the same way an absent one is.
+    #[test]
+    fn an_unfilled_edge_field_carries_no_placement_obligation() {
+        let unfilled = citation_row(
+            &["source", "supersedes"],
+            &["source"],
+            Some(vec!["source".to_string()]),
+        );
+        assert_eq!(
+            placement_feature(&unfilled),
+            Some(BTreeMap::from([("source".to_string(), true)])),
+            "the unfilled `supersedes` is no edge, so the format omitted nothing",
+        );
+
+        let mut empty_leaf = citation_row(&["source"], &["source"], Some(Vec::new()));
+        empty_leaf.nested_members[0]
+            .leaves
+            .insert("source".to_string(), String::new());
+        assert_eq!(placement_feature(&empty_leaf), Some(BTreeMap::new()));
+    }
+
+    /// The two ways a member offers nothing to indict stay apart: no format rendered the
+    /// value at all (a layout host's document is source), versus a format that ran over a
+    /// value carrying no edge. Both hold at the gate, but only this lift can tell them
+    /// apart — an empty map standing for both is what left the clause undecidable.
+    #[test]
+    fn a_value_no_format_rendered_is_distinct_from_a_format_with_nothing_to_place() {
+        assert_eq!(
+            placement_feature(&citation_row(&["source"], &["source"], None)),
+            None
+        );
+        assert_eq!(
+            placement_feature(&citation_row(&["source"], &[], Some(Vec::new()))),
+            Some(BTreeMap::new()),
+        );
+
+        // The row whose format ran over a filled edge and placed nothing does carry the
+        // fact — an unplaced edge, which is the finding the clause exists to make.
+        assert_eq!(
+            placement_feature(&citation_row(&["source"], &["source"], Some(Vec::new()))),
+            Some(BTreeMap::from([("source".to_string(), false)])),
+        );
     }
 }

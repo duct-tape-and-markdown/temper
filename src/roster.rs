@@ -173,7 +173,11 @@ pub fn check(
 ///   reusing [`crate::engine::inadmissibilities`], the same vacuous-clause rules a
 ///   kind's own floor clauses are checked against (an inverted `count`/`degree` bound,
 ///   an empty `membership` target), so a requirement's demands and a kind's clauses
-///   never carry two definitions of "vacuous".
+///   never carry two definitions of "vacuous". It is judged at
+///   [`Facet::Requirement`](crate::engine::Facet::Requirement): the node-set family a
+///   per-artifact contract has no judge for is judged right here, over the satisfier
+///   set ([`check`]) and the reference graph ([`crate::graph::degree`]), so it stays
+///   admissible on a requirement.
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `base_dir`
 /// is the harness root a `verified_by` path resolves against.
@@ -216,7 +220,9 @@ pub fn admissibility(
 
         // (c) Every clause's own predicate must be well-formed.
         for clause in &requirement.clauses {
-            for message in crate::engine::inadmissibilities(&clause.predicate) {
+            for message in
+                crate::engine::inadmissibilities(&clause.predicate, engine::Facet::Requirement)
+            {
                 diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,
@@ -462,6 +468,7 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
+            edge_placements: None,
         }
     }
 
@@ -941,6 +948,43 @@ mod tests {
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("count"));
         assert!(diags[0].message.contains("min 3 greater than max 1"));
+    }
+
+    #[test]
+    fn a_requirements_clauses_admit_every_predicate_this_scope_judges() {
+        // The other half of the facet split: a per-artifact contract has no judge for
+        // the node-set family and fences it, but here every one of them is judged —
+        // `count`/`unique`/`membership`/`kind` over the satisfier set by `check`,
+        // `degree` over the reference graph by `crate::graph` — so a requirement
+        // declaring all five is admissible.
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            clauses: vec![
+                required_clause(Predicate::Count { min: 1, max: 3 }),
+                required_clause(Predicate::Unique {
+                    field: "name".to_string(),
+                }),
+                required_clause(Predicate::Membership {
+                    field: "model".to_string(),
+                    target: "approved-models".to_string(),
+                }),
+                required_clause(Predicate::Degree {
+                    incoming: Some(crate::contract::EdgeBound {
+                        min: Some(1),
+                        max: None,
+                    }),
+                    outgoing: None,
+                }),
+                required_clause(Predicate::Kind {
+                    kind: "skill".to_string(),
+                }),
+            ],
+            ..requirement("agents")
+        };
+        assert!(
+            run_admissibility(req, Path::new("")).is_empty(),
+            "the facet that carries a judge must keep admitting all five"
+        );
     }
 
     #[test]

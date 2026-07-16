@@ -49,8 +49,12 @@ fn discovery_over_the_embedded_governs_finds_the_command_file() {
     let command_kind = builtin_kind::definition("command")
         .unwrap()
         .expect("command is embedded");
-    let found =
-        import::discover_kind_files(&harness, &command_kind, &command_kind.governs).unwrap();
+    let found = import::discover_kind_files(
+        &harness,
+        &command_kind,
+        command_kind.governs.as_ref().unwrap(),
+    )
+    .unwrap();
 
     assert_eq!(
         found,

@@ -12,13 +12,16 @@ import { test } from "node:test";
 import { blocks, embeddedMemberValue, emit, harness, kind, mentionOf, text } from "../src/index.js";
 import { memory, rule } from "../src/claude-code.js";
 
-/** The `decision` embedded kind the host below nests, bound in via `expect` so it is in play. */
+/** The `decision` embedded kind the host below nests — host-free, admitted over `memory` per harness. */
 const memoryDecision = kind<Record<never, never>>({
   name: "decision",
-  locus: { kind: "embedded", withinHosts: ["memory"] },
+  locus: { kind: "embedded" },
   unitShape: "file",
   registration: [{ via: "always" }],
 });
+
+/** The admission letting a `memory` host compose a `decision` — every `blocks()` harness below declares it. */
+const admitDecision = { host: memory, admits: [memoryDecision] };
 
 /**
  * A `source`-shaped `at`-locus kind whose members live on disk under `src/`, never
@@ -57,7 +60,7 @@ test("a mention targeting an embedded member's host-scoped address resolves with
   });
   const h = harness({
     members: [hostWithEmbeddedMember(), citer],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   const result = emit(h);
@@ -72,7 +75,7 @@ test("the embedded address is host-scoped, never a flat kind:key — a flat ment
   });
   const h = harness({
     members: [hostWithEmbeddedMember(), citer],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   assert.throws(() => emit(h), /a mention cannot dangle/);
@@ -138,7 +141,7 @@ test("a composed-body prose span's mention keys to the host kind:name and mints 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   const result = emit(h);

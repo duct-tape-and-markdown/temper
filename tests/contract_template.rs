@@ -14,10 +14,12 @@
 //! The clause *vocabulary* is pinned; the guidance/citation prose is product
 //! territory, so it is asserted present, not pinned verbatim.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
+use temper::check;
 use temper::contract::{Charset, Contract, Predicate, Severity};
 use temper::engine;
+use temper::extract::Features;
 
 /// The built-in skill contract, resolved from the embedded built-in lock the same
 /// way the shipped tool resolves it.
@@ -252,10 +254,12 @@ fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
     );
 }
 
-/// A named `kind` clause is admissible; an empty `kind` is vacuous — it names
-/// nothing to match, so it is rejected exactly as an empty `enum`/`deny` list is.
+/// `kind` is a *requirement's* clause: it ranges over that requirement's satisfier
+/// set, which `temper::roster` judges. Declared on a kind's own per-artifact
+/// contract there is no judge for it, so either spelling — named or empty — is
+/// inadmissible there, rather than a clause that quietly decides nothing.
 #[test]
-fn an_empty_kind_clause_is_inadmissible_a_named_one_is_not() {
+fn a_kind_clause_is_inadmissible_on_a_per_artifact_contract() {
     let bare_contract = |predicate: Predicate| Contract {
         name: "kind-clause-fixture".to_string(),
         clauses: vec![temper::contract::Clause {
@@ -267,16 +271,169 @@ fn an_empty_kind_clause_is_inadmissible_a_named_one_is_not() {
         guidance: None,
     };
 
-    assert!(
-        engine::admissibility(&bare_contract(Predicate::Kind {
-            kind: "skill".to_string()
-        }))
-        .is_empty()
-    );
+    for kind in ["skill", ""] {
+        let diagnostics = engine::admissibility(&bare_contract(Predicate::Kind {
+            kind: kind.to_string(),
+        }));
+        assert!(
+            !diagnostics.is_empty(),
+            "`kind` carries no judge on a per-artifact contract, so `{kind}` is inadmissible",
+        );
+        assert!(diagnostics.iter().all(|d| d.rule == "kind"));
+    }
+}
 
-    let empty = engine::admissibility(&bare_contract(Predicate::Kind {
-        kind: String::new(),
-    }));
-    assert_eq!(empty.len(), 1);
-    assert!(empty[0].message.contains("kind"));
+// ---- the each-grain `format-places-edges` predicate -------------------------
+//
+// A format that omits an edge its kind declares renders a contract the prose does not
+// represent. The engine never sees the format, so it decides over the placement `emit`
+// observed while rendering and lowered into the member's own declaration row.
+
+/// A member carrying the edges `placements` names, each paired with whether its format
+/// placed it — the `Features` shape `main`'s embedded-member lift builds off a
+/// `nested_member` row's `placed_edges` column. The carried set is what the value fills,
+/// so an edge field its kind declares but the value leaves unfilled never appears here.
+fn cited(placements: &[(&str, bool)]) -> Features {
+    formatted(Some(placements))
+}
+
+/// A member whose placement fact is `placements` — `None` when no format rendered it.
+fn formatted(placements: Option<&[(&str, bool)]>) -> Features {
+    Features {
+        id: "the-standard".to_string(),
+        fields: BTreeMap::new(),
+        body_lines: 0,
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: placements.map(|placements| {
+            placements
+                .iter()
+                .map(|(field, placed)| ((*field).to_string(), *placed))
+                .collect()
+        }),
+    }
+}
+
+/// A one-clause contract over `format-places-edges` at `severity` — the whole surface an
+/// author declares to adopt the check.
+fn places_edges_contract(severity: Severity) -> Contract {
+    Contract {
+        name: "citation".to_string(),
+        clauses: vec![temper::contract::Clause {
+            severity,
+            predicate: Predicate::FormatPlacesEdges,
+            guidance: None,
+            source: None,
+        }],
+        guidance: None,
+    }
+}
+
+/// The clause loads off a lock row and carries the closed-vocabulary shape: no argument
+/// columns, since the selection is the member's whole incident edge set at the `each`
+/// grain.
+#[test]
+fn the_format_places_edges_clause_loads_off_a_bare_predicate_row() {
+    assert_eq!(Predicate::FormatPlacesEdges.key(), "format-places-edges");
+    assert_eq!(Predicate::FormatPlacesEdges.target(), None);
+    assert!(
+        engine::admissibility(&places_edges_contract(Severity::Required)).is_empty(),
+        "the predicate carries no list or bound, so nothing about it can be vacuous",
+    );
+}
+
+/// A format placing every edge its kind declares holds — no finding.
+#[test]
+fn a_format_placing_every_declared_edge_passes() {
+    let diagnostics = engine::validate(
+        &places_edges_contract(Severity::Required),
+        &[cited(&[("source", true), ("supersedes", true)])],
+    );
+    assert!(
+        diagnostics.is_empty(),
+        "every declared edge was placed, got: {diagnostics:?}",
+    );
+}
+
+/// A format omitting one declared edge is a finding naming that field — one per omitted
+/// edge, so each points at the reference the format left unrepresented, and the other
+/// edges' placement does not mask it.
+#[test]
+fn a_format_omitting_a_declared_edge_is_a_finding_naming_the_field() {
+    let diagnostics = engine::validate(
+        &places_edges_contract(Severity::Required),
+        &[cited(&[("source", true), ("supersedes", false)])],
+    );
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].rule, "format-places-edges");
+    assert_eq!(diagnostics[0].artifact, "the-standard");
+    assert!(
+        diagnostics[0].message.contains("supersedes"),
+        "the finding must name the omitted edge, got: {}",
+        diagnostics[0].message,
+    );
+    assert!(!diagnostics[0].message.contains("source"));
+}
+
+/// The severity is the clause author's, never the tool's: the identical omission gates as
+/// an error under a `required` clause and reports as a warning under an `advisory` one.
+#[test]
+fn the_omission_findings_severity_is_the_clause_authors() {
+    let omitted = [cited(&[("source", false)])];
+    let blocking = engine::validate(&places_edges_contract(Severity::Required), &omitted);
+    assert_eq!(blocking[0].severity, check::Severity::Error);
+
+    let reported = engine::validate(&places_edges_contract(Severity::Advisory), &omitted);
+    assert_eq!(reported[0].severity, check::Severity::Warn);
+}
+
+/// An edge field the value never filled is no edge, so the clause indicts nothing: it
+/// reaches only a format that drops an edge the value actually carries. The lift builds
+/// the carried set off the row's own leaves, so the unfilled field never reaches the
+/// clause as an obligation at all.
+#[test]
+fn an_edge_the_value_never_carried_is_no_omission() {
+    let diagnostics = engine::validate(
+        &places_edges_contract(Severity::Required),
+        &[cited(&[("source", true)])],
+    );
+    assert!(
+        diagnostics.is_empty(),
+        "the value carries only `source`, which the format placed: {diagnostics:?}",
+    );
+}
+
+/// Both ways a member offers nothing to indict reach a verdict — no silent pass. A format
+/// that ran over a value carrying no edge placed everything there was to place; a member
+/// with no format of its own (one embedded in a layout document is read off its host's
+/// declared layout) is not a format to indict.
+#[test]
+fn a_member_with_nothing_to_place_holds_rather_than_going_undecided() {
+    for member in [cited(&[]), formatted(None)] {
+        let diagnostics = engine::validate(&places_edges_contract(Severity::Required), &[member]);
+        assert!(
+            diagnostics.is_empty(),
+            "nothing to place is a hold, not a finding: {diagnostics:?}",
+        );
+    }
+}
+
+/// No shipped default contract adopts the clause: the predicate exists so an author can
+/// declare it, and adding it to the vocabulary is the whole language change.
+#[test]
+fn no_built_in_contract_adopts_the_format_places_edges_clause() {
+    for (name, contract) in &temper::builtin::contracts() {
+        assert!(
+            !contract
+                .clauses
+                .iter()
+                .any(|clause| clause.predicate == Predicate::FormatPlacesEdges),
+            "{name} adopts `format-places-edges` unbidden — the author declares it",
+        );
+    }
 }

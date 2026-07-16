@@ -19,7 +19,7 @@
 
 use std::fs;
 
-use temper::drift::{Declarations, KindFactRow};
+use temper::drift::{Declarations, KindFactRow, TemplateRow};
 
 mod common;
 
@@ -361,7 +361,8 @@ fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_d
     // check `declared.templates.is_empty() || declared.templates == builtin.templates`
     // reduced to "declared templates must be empty" — hard-failing the legitimate
     // pattern of a row extending a built-in host with a declared child template
-    // (e.g. `rule` gaining a `directive` template via `withinHosts: ["rule"]`).
+    // (e.g. `rule` gaining a `directive` template by the corpus admitting `directive`
+    // over the `rule` host).
     // A relocation that additionally declares `templates` must stay admissible.
     let root = common::tmpdir("kind-relocation-templates");
     let rules = root.join("custom-locus").join("rules");
@@ -372,7 +373,10 @@ fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_d
         &root,
         Declarations {
             kinds: vec![KindFactRow {
-                templates: vec!["directive".to_string()],
+                templates: vec![TemplateRow {
+                    kind: "directive".to_string(),
+                    path: None,
+                }],
                 ..common::kind_facts("rule", "custom-locus/rules", "*.md")
             }],
             ..Declarations::default()

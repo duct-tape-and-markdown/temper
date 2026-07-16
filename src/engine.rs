@@ -20,19 +20,15 @@
 //!
 //! ## The honest bound (`verified_by` philosophy)
 //!
-//! One predicate in the vocabulary — `dependency-exists` — is **held back**: it
-//! names no decidable reference syntax or extractor yet (a declared-dependency
-//! model the current [`Features`] projection does not carry), so the engine
-//! could only ever return *indeterminate* for it — a silent no-op the decidable-only
-//! invariant forbids.
-//! Rather than fabricate a pass or degrade to that no-op, [`admissibility`]
-//! **fences it**: a contract carrying a `dependency-exists` clause fails
-//! admissibility, exactly as the full `pattern` primitive is held back, so a
-//! hand-authored clause fails loudly instead of quietly deciding nothing. The
-//! decidable members the spec keeps — name format,
-//! lengths, forbidden keys, required fields, `name-matches-dir`, body
-//! `max_lines`, `require_sections` over the extracted headings, and
-//! `section_contains` over the extracted sections — are evaluated here in full.
+//! A predicate this engine has no judge for never degrades to a working no-op:
+//! [`admissibility`] **fences it**, so a hand-authored clause fails loudly
+//! instead of quietly deciding nothing. The fence is **facet-split**
+//! ([`Facet`]) — the node-set predicates are judged over a *requirement's*
+//! satisfier set (`crate::roster`/`crate::graph`) and so stay admissible there,
+//! while this per-artifact engine, which sees one member's [`Features`] against
+//! its kind's population, has no judge for them and rejects them. Only
+//! `dependency-exists`, which names no decidable reference syntax or extractor,
+//! is judge-less in both facets.
 //!
 //! [`Error`]: check::Severity::Error
 //! [`Warn`]: check::Severity::Warn
@@ -97,7 +93,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
-        for message in inadmissibilities(&clause.predicate) {
+        for message in inadmissibilities(&clause.predicate, Facet::Contract) {
             diagnostics.push(Diagnostic::error(
                 clause.predicate.key(),
                 &contract.name,
@@ -108,31 +104,78 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
     diagnostics
 }
 
-/// The admissibility violations of a single clause's predicate — empty when the
-/// clause is well-formed over the definition. Two decidable checks live here
-/// today: (1) a value/key list is non-empty — a list-bearing predicate with an
-/// empty list is vacuous (an `enum` over no values admits nothing;
-/// `forbidden_keys` over no keys forbids nothing), which the author cannot have
-/// meant; and (2) no **held-back** predicate is used as a working clause —
-/// `dependency-exists` names no decidable reference syntax or extractor, so it is
-/// inadmissible until it does.
+/// Which facet's clauses an admissibility pass judges. The vacuity rules are the
+/// same for both; the one fact that differs is **which predicates carry a judge**,
+/// so this is the parameter [`inadmissibilities`] splits on rather than a second
+/// copy of the rules per facet.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Facet {
+    /// A kind's per-artifact contract, judged by [`decide`] over one member's
+    /// [`Features`] against its kind's population.
+    Contract,
+    /// A requirement's own clauses, judged by [`crate::roster`] / [`crate::graph`]
+    /// over that requirement's satisfier set and the reference graph.
+    Requirement,
+}
+
+/// The admissibility violations of a single clause's predicate in `facet` — empty
+/// when the clause is well-formed over the definition. Two decidable checks live
+/// here today: (1) the predicate has a judge in this facet, since one that does not
+/// could only ever return [`Outcome::Indeterminate`] — a silent no-op; and (2) a
+/// value/key list is non-empty — a list-bearing predicate with an empty list is
+/// vacuous (an `enum` over no values admits nothing; `forbidden_keys` over no keys
+/// forbids nothing), which the author cannot have meant.
 ///
 /// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate
 /// vacuity rules for a requirement's own `clauses` — one definition of "vacuous",
 /// never a second copy drifting beside it.
-pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
+pub(crate) fn inadmissibilities(predicate: &Predicate, facet: Facet) -> Vec<String> {
+    let mut messages: Vec<String> = judgeless(predicate, facet).into_iter().collect();
+    messages.extend(vacuities(predicate));
+    messages
+}
+
+/// The fence message when `facet` has no judge for `predicate`, else `None`.
+///
+/// A predicate with no judge cannot decide its clause, and a clause that decides
+/// nothing must fail admissibility rather than degrade to a working no-op — so this
+/// is the one declared fact about where each predicate is judged, never a rule
+/// duplicated per facet.
+fn judgeless(predicate: &Predicate, facet: Facet) -> Option<String> {
     match predicate {
-        // `dependency-exists` is held back — like the full `pattern` primitive.
-        // It names no decidable reference syntax or extractor, so the engine
-        // could only return `Indeterminate` for it. A hand-authored clause must therefore fail admissibility, not
-        // degrade to a working no-op.
-        Predicate::DependencyExists => {
-            vec![
-                "`dependency-exists` is held back: it names no decidable reference \
-                 syntax or extractor, so it is inadmissible as a contract clause"
-                    .to_string(),
-            ]
+        // Judge-less in *both* facets: it names no decidable reference syntax or
+        // extractor, so no projection carries the fact it would range over.
+        Predicate::DependencyExists => Some(
+            "`dependency-exists` is held back: it names no decidable reference \
+             syntax or extractor, so it is inadmissible as a clause"
+                .to_string(),
+        ),
+        // The node-set/edge-scope family quantifies over a *named requirement's*
+        // satisfier set (and, for `degree`, the reference graph) — context
+        // `crate::roster`/`crate::graph` hold and this per-artifact engine does not.
+        // Sayable here, but undecidable here, so the contract facet fences them.
+        Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::Kind { .. }
+            if facet == Facet::Contract =>
+        {
+            Some(format!(
+                "`{}` ranges over a requirement's satisfier set, which a per-artifact \
+                 contract clause has no judge for — declare it on the requirement instead",
+                predicate.key()
+            ))
         }
+        _ => None,
+    }
+}
+
+/// The clause's vacuity violations — the rules that hold identically in every
+/// facet: a predicate that can never decide anything over *any* selection, whoever
+/// judges it.
+fn vacuities(predicate: &Predicate) -> Vec<String> {
+    match predicate {
         Predicate::Enum { field, values } if values.is_empty() => {
             vec![format!("`enum` clause on field `{field}` lists no values")]
         }
@@ -209,12 +252,15 @@ pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
 }
 
 /// Evaluate one predicate over one artifact's features, returning a message per
-/// violation (empty ⇒ the clause holds, or could not be decided over this
-/// projection — see [`Outcome`]).
+/// violation (empty ⇒ the clause holds — see [`Outcome`]).
 fn evaluate(predicate: &Predicate, features: &Features, all: &[Features]) -> Vec<String> {
     match decide(predicate, features, all) {
-        Outcome::Holds | Outcome::Indeterminate => Vec::new(),
+        Outcome::Holds => Vec::new(),
         Outcome::Violated(messages) => messages,
+        // Unreachable on an admissible run: [`admissibility`] fences every producer
+        // before conformance. The empty vec keeps that floor silent rather than
+        // reporting a verdict no judge reached.
+        Outcome::Indeterminate => Vec::new(),
     }
 }
 
@@ -249,10 +295,10 @@ impl Outcome {
 }
 
 /// The decision table — one arm per primitive. Every arm is decidable *given the
-/// feature it names*; the one held-back predicate whose feature the projection
-/// omits (`dependency-exists`) returns [`Outcome::Indeterminate`] rather than a
-/// fabricated pass — though [`admissibility`] fences it before a valid run ever
-/// reaches conformance, so that arm is a defensive floor, not a working clause.
+/// feature it names*; the predicates this facet has no judge for return
+/// [`Outcome::Indeterminate`] rather than a fabricated pass, though
+/// [`admissibility`] fences each before a valid run reaches conformance, so those
+/// arms are a defensive floor, not working clauses.
 fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
@@ -456,27 +502,40 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             })
         }
 
-        // `dependency-exists` is held back — [`admissibility`] rejects any
-        // contract carrying it, so a valid conformance run never reaches this arm.
-        // It stays `Indeterminate` as a defensive floor (never a fabricated pass)
-        // and to light up with no engine change once the extractor grows a
-        // declared-dependency model.
-        Predicate::DependencyExists => Outcome::Indeterminate,
+        // `format-places-edges` decides over the placement `emit` observed and lowered
+        // into the member's own declaration row: one finding per omitted edge, so each
+        // points at the field it left unrepresented. A member with no format of its own
+        // is not a format to indict, and a format whose value carries no edge placed
+        // everything there was to place — both hold, neither is a fabricated pass.
+        Predicate::FormatPlacesEdges => {
+            let Some(placements) = &features.edge_placements else {
+                return Outcome::Holds;
+            };
+            let omitted: Vec<String> = placements
+                .iter()
+                .filter(|(_, placed)| !**placed)
+                .map(|(field, _)| {
+                    format!(
+                        "the format renders no `{field}` edge, so it projects a contract the prose does not represent"
+                    )
+                })
+                .collect();
+            if omitted.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(omitted)
+            }
+        }
 
-        // The node-set/edge-scope predicates REQUIREMENT-CLAUSES-ALGEBRA admits:
-        // sayable and admissible as ordinary clauses, but this per-artifact engine
-        // judges one kind's population against `all`, not a *named requirement's*
-        // satisfier set or the reference graph — the context `Degree` needs isn't
-        // even in scope here. Unlike `dependency-exists` they already have a live
-        // judge — `crate::roster`/`crate::graph` over the `Requirement` facet
-        // fields — REQUIREMENT-CLAUSES-RECUT moves that judging onto this same
-        // clause spelling; until then this arm stays honestly `Indeterminate`
-        // rather than fabricate a scan this engine has no requirement context for.
-        // `kind` joins the same node-set family: an each-grain clause over a
-        // *requirement's* satisfier set, judged by `crate::roster` (which knows
-        // each satisfier's actual kind label) via `kind_violation` below, never
-        // this per-`Features` table.
-        Predicate::Count { .. }
+        // Every predicate this facet has no judge for. [`admissibility`] fences each
+        // one, so a valid conformance run never reaches these arms: they are a
+        // defensive floor (never a fabricated pass), and they light up with no
+        // engine change once a judge lands — an extractor carrying a
+        // declared-dependency model for `dependency-exists`, and
+        // REQUIREMENT-CLAUSES-RECUT moving the node-set family's requirement-facet
+        // judging onto this same clause spelling.
+        Predicate::DependencyExists
+        | Predicate::Count { .. }
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
@@ -564,6 +623,7 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
+            edge_placements: None,
         }
     }
 
@@ -815,25 +875,22 @@ mod tests {
         }
     }
 
+    // The node-set family's vacuity rules bite on the facet that carries a judge for
+    // them — a requirement's own clauses — since the contract facet fences the whole
+    // family ahead of any vacuity question.
+
     #[test]
     fn an_inverted_count_bound_is_inadmissible() {
         // `count`'s `min > max` is the same vacuous-bound rule as `range`, over the
         // satisfier-set's cardinality.
-        let inverted = contract(
-            ClauseSeverity::Required,
-            Predicate::Count { min: 3, max: 1 },
-        );
-        let diags = admissibility(&inverted);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "count");
-        assert_eq!(diags[0].severity, Severity::Error);
-        assert!(any_error(&diags));
+        let messages = inadmissibilities(&Predicate::Count { min: 3, max: 1 }, Facet::Requirement);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("min 3 greater than max 1"));
 
         // Equal endpoints included: a well-ordered bound is admissible.
         for (min, max) in [(0, 5), (2, 2)] {
-            let ok = contract(ClauseSeverity::Required, Predicate::Count { min, max });
             assert!(
-                admissibility(&ok).is_empty(),
+                inadmissibilities(&Predicate::Count { min, max }, Facet::Requirement).is_empty(),
                 "[{min}, {max}] is admissible"
             );
         }
@@ -841,48 +898,73 @@ mod tests {
 
     #[test]
     fn a_membership_clause_with_an_empty_target_is_inadmissible() {
-        let empty_target = contract(
-            ClauseSeverity::Required,
-            Predicate::Membership {
-                field: "model".to_string(),
-                target: String::new(),
-            },
-        );
-        let diags = admissibility(&empty_target);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "membership");
-        assert_eq!(diags[0].severity, Severity::Error);
+        let empty_target = Predicate::Membership {
+            field: "model".to_string(),
+            target: String::new(),
+        };
+        let messages = inadmissibilities(&empty_target, Facet::Requirement);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("empty target"));
 
-        let named = contract(
-            ClauseSeverity::Required,
-            Predicate::Membership {
-                field: "model".to_string(),
-                target: "approved-models".to_string(),
-            },
-        );
-        assert!(admissibility(&named).is_empty());
+        let named = Predicate::Membership {
+            field: "model".to_string(),
+            target: "approved-models".to_string(),
+        };
+        assert!(inadmissibilities(&named, Facet::Requirement).is_empty());
     }
 
     #[test]
     fn a_degree_clause_with_no_direction_is_inadmissible() {
         // A `degree` clause bounding neither direction constrains nothing —
         // vacuous, like an empty-list clause.
-        let no_direction = contract(
-            ClauseSeverity::Required,
-            Predicate::Degree {
-                incoming: None,
-                outgoing: None,
-            },
-        );
-        let diags = admissibility(&no_direction);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "degree");
-        assert_eq!(diags[0].severity, Severity::Error);
+        let no_direction = Predicate::Degree {
+            incoming: None,
+            outgoing: None,
+        };
+        let messages = inadmissibilities(&no_direction, Facet::Requirement);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("no incoming or outgoing bound"));
 
         // At least one bounded direction is admissible — the routed (incoming) and
         // self-registering (outgoing-only) idioms both stand.
-        let routed = contract(
-            ClauseSeverity::Required,
+        let routed = Predicate::Degree {
+            incoming: Some(EdgeBound {
+                min: Some(1),
+                max: None,
+            }),
+            outgoing: None,
+        };
+        assert!(inadmissibilities(&routed, Facet::Requirement).is_empty());
+    }
+
+    #[test]
+    fn a_degree_clause_with_an_inverted_direction_bound_is_inadmissible() {
+        let inverted = Predicate::Degree {
+            incoming: Some(EdgeBound {
+                min: Some(5),
+                max: Some(1),
+            }),
+            outgoing: None,
+        };
+        let messages = inadmissibilities(&inverted, Facet::Requirement);
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].contains("incoming"));
+    }
+
+    /// The predicates this per-artifact facet has no judge for, each in an
+    /// otherwise well-formed shape so the fence is the only thing that can indict
+    /// them — the node-set/edge-scope family, plus the both-facet `dependency-exists`.
+    fn judgeless_predicates() -> Vec<Predicate> {
+        vec![
+            Predicate::DependencyExists,
+            Predicate::Count { min: 1, max: 3 },
+            Predicate::Unique {
+                field: "name".to_string(),
+            },
+            Predicate::Membership {
+                field: "model".to_string(),
+                target: "approved-models".to_string(),
+            },
             Predicate::Degree {
                 incoming: Some(EdgeBound {
                     min: Some(1),
@@ -890,68 +972,136 @@ mod tests {
                 }),
                 outgoing: None,
             },
-        );
-        assert!(admissibility(&routed).is_empty());
-    }
-
-    #[test]
-    fn a_degree_clause_with_an_inverted_direction_bound_is_inadmissible() {
-        let inverted = contract(
-            ClauseSeverity::Required,
-            Predicate::Degree {
-                incoming: Some(EdgeBound {
-                    min: Some(5),
-                    max: Some(1),
-                }),
-                outgoing: None,
+            Predicate::Kind {
+                kind: "skill".to_string(),
             },
-        );
-        let diags = admissibility(&inverted);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "degree");
-        assert!(diags[0].message.contains("incoming"));
+        ]
     }
 
     #[test]
-    fn the_node_set_and_edge_scope_predicates_are_indeterminate_in_conformance() {
-        // Their conformance judging still rides the `Requirement` facet fields
-        // (`crate::roster`/`crate::graph`) — a per-artifact `expect` contract
-        // honestly reports `Indeterminate` (no finding, no fabricated pass) until
-        // REQUIREMENT-CLAUSES-RECUT moves that judging onto this clause spelling.
-        let demo = features("demo", &[("model", scalar("opus"))], 1, None);
-        assert!(run(Predicate::Count { min: 1, max: 3 }, demo.clone()).is_empty());
-        assert!(
-            run(
-                Predicate::Unique {
-                    field: "name".to_string()
-                },
-                demo.clone()
-            )
-            .is_empty()
-        );
-        assert!(
-            run(
-                Predicate::Membership {
-                    field: "model".to_string(),
-                    target: "approved-models".to_string(),
-                },
-                demo.clone()
-            )
-            .is_empty()
-        );
-        assert!(
-            run(
-                Predicate::Degree {
-                    incoming: Some(EdgeBound {
-                        min: Some(1),
-                        max: None
-                    }),
-                    outgoing: None,
-                },
-                demo
-            )
-            .is_empty()
-        );
+    fn a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause() {
+        // Each is sayable and well-formed, but this engine judges one member's
+        // features against its kind's population — never a named requirement's
+        // satisfier set — so it could only ever answer `Indeterminate`. The fence
+        // makes the contract fail loud rather than let the clause read as a green
+        // pass it never ran.
+        for predicate in judgeless_predicates() {
+            let key = predicate.key();
+            let diags = admissibility(&contract(ClauseSeverity::Required, predicate));
+            assert_eq!(
+                diags.len(),
+                1,
+                "`{key}` must be fenced as a per-artifact clause, got: {diags:?}"
+            );
+            assert_eq!(diags[0].rule, key, "the finding must name the predicate");
+            assert_eq!(
+                diags[0].severity,
+                Severity::Error,
+                "an inadmissible contract fails the run"
+            );
+        }
+    }
+
+    #[test]
+    fn the_requirement_facet_still_admits_every_predicate_it_judges() {
+        // The fence is facet-split, never a longer shared list: `crate::roster` /
+        // `crate::graph` do judge the node-set family over a requirement's satisfier
+        // set, so rejecting them there would break the half that works.
+        for predicate in judgeless_predicates() {
+            let messages = inadmissibilities(&predicate, Facet::Requirement);
+            if predicate == Predicate::DependencyExists {
+                // The one predicate no facet judges — fenced in both.
+                assert_eq!(messages.len(), 1);
+            } else {
+                assert!(
+                    messages.is_empty(),
+                    "`{}` is judged over a requirement's satisfier set, so it stays \
+                     admissible there, got: {messages:?}",
+                    predicate.key()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_admissible_predicate_reaches_indeterminate_at_conformance() {
+        // The vocabulary, whole. Every predicate an admissible contract can carry
+        // must reach a verdict over this projection; the fenced ones never reach
+        // conformance at all.
+        let demo = features("demo", &[("model", scalar("opus"))], 1, Some("demo"));
+        let vocabulary = vec![
+            Predicate::Required {
+                field: "model".to_string(),
+            },
+            Predicate::Optional {
+                field: "model".to_string(),
+            },
+            Predicate::Type {
+                field: "model".to_string(),
+                kind: ValueType::String,
+            },
+            Predicate::MinLen {
+                field: "model".to_string(),
+                min: 1,
+            },
+            Predicate::MaxLen {
+                field: "model".to_string(),
+                max: 9,
+            },
+            Predicate::Range {
+                field: "model".to_string(),
+                min: 0.0,
+                max: 9.0,
+            },
+            Predicate::Enum {
+                field: "model".to_string(),
+                values: vec!["opus".to_string()],
+            },
+            Predicate::Deny {
+                field: "model".to_string(),
+                values: vec!["claude".to_string()],
+            },
+            Predicate::ForbiddenKeys {
+                keys: vec!["globs".to_string()],
+            },
+            Predicate::AllowedChars {
+                field: "model".to_string(),
+                charset: slug_charset(),
+            },
+            Predicate::MaxLines { max: 9 },
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string()],
+            },
+            Predicate::MustDefine {
+                marker: "model".to_string(),
+            },
+            Predicate::SectionContains {
+                heading: "Decision".to_string(),
+                marker: "Rejected".to_string(),
+            },
+            Predicate::NameMatchesDir,
+            Predicate::UniqueName,
+            Predicate::GlobValid {
+                field: "model".to_string(),
+            },
+            Predicate::FormatPlacesEdges,
+        ];
+
+        for predicate in vocabulary {
+            assert!(
+                inadmissibilities(&predicate, Facet::Contract).is_empty(),
+                "`{}` is admissible here — the fenced set is tested above",
+                predicate.key()
+            );
+            assert!(
+                !matches!(
+                    decide(&predicate, &demo, std::slice::from_ref(&demo)),
+                    Outcome::Indeterminate
+                ),
+                "`{}` reached conformance undecided — it would read as a green pass",
+                predicate.key()
+            );
+        }
     }
 
     #[test]

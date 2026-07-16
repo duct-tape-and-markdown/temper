@@ -66,6 +66,10 @@ The deterministic compile of the harness value into artifacts plus the lock.
 - **Refusing.** A dangling edge, an unresolvable mention or include, an
   unfilled requirement whose fill clause errors — each refuses before a byte
   is written; the author cannot produce output from a broken source.
+  An unfilled edge field refuses nothing: a field the kind's schema marks
+  optional is no edge when absent — requiredness is the kind's own schema,
+  failing in the author's program at compose time — and refusal reaches
+  only a reference that is filled yet unresolvable.
   Refusal reaches exactly as far as the program's own universe: a mention
   addressing a kind the program declares whose member is not a composed
   value defers to the gate — the row rides the lock and `check` owns the

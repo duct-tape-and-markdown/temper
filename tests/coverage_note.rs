@@ -85,6 +85,7 @@ fn lock_widget_kind(root: &Path) {
         members: vec![PayloadMember {
             kind: "widget".to_string(),
             name: "settings".to_string(),
+            host: None,
             fields: Vec::new(),
             body: "{}\n".to_string(),
             source_path: None,

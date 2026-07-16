@@ -33,4 +33,19 @@ leaves: { [key in string]: string },
  * The Rust side flattens the map to a `Vec`; the seam type carries the wire
  * shape the flatten reads, a map of collection name to its ordered entries.
  */
-collections: { [key in string]: Array<CollectionEntryWire> }, };
+collections: { [key in string]: Array<CollectionEntryWire> }, 
+/**
+ * The declared edge fields this value's **format placed** — which of them the
+ * format selected while `emit` rendered the value, sorted. The engine never sees
+ * a format and never reads a rendering back, so an edge's placement reaches it
+ * here or not at all; the declared set it is measured against is the `assembly`
+ * family's `edge` facts for [`kind`](Self::kind).
+ *
+ * `None` and `Some(vec![])` are distinct, and the distinction is the whole point:
+ * `Some(vec![])` is a format that placed no edge (a `format-places-edges` finding
+ * per declared edge), while `None` is a value **no format rendered** — a member
+ * embedded in a layout document is read off its host's declared layout, so it has
+ * no format to omit anything and the clause has nothing to decide. Absent from a
+ * row whose value no format rendered, so an ordinary row stays byte-identical.
+ */
+placed_edges?: Array<string>, };

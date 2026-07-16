@@ -51,6 +51,7 @@ fn layout_member(kind: &str) -> PayloadMember {
     PayloadMember {
         kind: kind.to_string(),
         name: kind.to_string(),
+        host: None,
         fields: Vec::new(),
         body: String::new(),
         source_path: None,
@@ -110,6 +111,7 @@ fn guide_features(fills: &[String]) -> Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: fills.to_vec(),
+        edge_placements: None,
     }
 }
 

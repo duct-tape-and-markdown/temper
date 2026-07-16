@@ -13,7 +13,13 @@ import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
-import type { EmbeddedMemberValue, Member, ResolvedEmbeddedMemberCollectionEntry, ResolvedEmbeddedMemberValue } from "./kind.js";
+import type {
+  EdgeTargetFacts,
+  EmbeddedMemberValue,
+  Member,
+  ResolvedEmbeddedMemberCollectionEntry,
+  ResolvedEmbeddedMemberValue,
+} from "./kind.js";
 import type { MentionScope, Text } from "./prose.js";
 import { checkMentions, isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
@@ -25,6 +31,7 @@ import {
   declaredAtLocusKinds,
   declaredRequirements,
   encodeSeam,
+  placementKey,
   registrationRows,
   settingsRows,
 } from "./declarations.js";
@@ -44,6 +51,13 @@ export interface ResolveOptions {
    * these whose member is not composed defers to `check` rather than refusing at emit.
    */
   readonly deferrableKinds?: ReadonlySet<string>;
+  /**
+   * The program's composed members by `kind:name` address — what an embedded value's
+   * edge field resolves against to derive its target facts. An edge target never defers
+   * to the gate the way a bare mention may: the facts are rendered into the projection
+   * now, so an unresolved one has nothing true to place.
+   */
+  readonly members?: ReadonlyMap<string, Member>;
 }
 
 /** The {@link MentionScope} a set of {@link ResolveOptions} names — its two sets, each defaulting to empty. */
@@ -91,9 +105,179 @@ function tomlString(text: string): string {
   return out + '"';
 }
 
+/** Join path parts with `/`, dropping the empties and the `.` root a root-locus kind carries. */
+function joinSlash(...parts: string[]): string {
+  return parts.filter((part) => part !== "" && part !== ".").join("/");
+}
+
+/**
+ * `name` spliced through `pattern`'s single `*` — the one name-through-a-glob map, shared
+ * by a flat `at` glob and a host template's path pattern. A `*`-free pattern is a fixed
+ * path, left verbatim.
+ *
+ * # Throws
+ * If `pattern` carries a `*` yet is neither single-star nor single-segment: the splice
+ * would leave a stray literal `*` or directory segment behind.
+ */
+function spliceName(kindName: string, pattern: string, name: string): string {
+  const stars = pattern.split("*").length - 1;
+  if (stars > 0 && (stars > 1 || pattern.includes("/"))) {
+    throw new Error(
+      `kind \`${kindName}\`: glob \`${pattern}\` is neither a single-segment single-\`*\` ` +
+        `pattern nor an any-depth \`**\` glob — a member name splices through neither.`,
+    );
+  }
+  return pattern.replace("*", name);
+}
+
+/**
+ * The unit `host`'s file children compose their paths under — a directory unit's own
+ * directory, since a template's path pattern is relative to the parent's unit.
+ *
+ * # Throws
+ * If the host owns no directory unit: a lone file has no interior for a child to sit in.
+ */
+function hostUnit(host: Member, context: string): string {
+  if (host.facts.locus.kind === "at" && host.facts.unitShape === "directory") {
+    return joinSlash(host.facts.locus.root, host.name);
+  }
+  throw new Error(
+    `${context}: its host \`${host.kind}:${host.name}\` owns no directory unit — a template's ` +
+      `path pattern is relative to the host's unit, and a lone file has no interior for a ` +
+      `child to sit in (specs/model/representation.md, "locus").`,
+  );
+}
+
+/**
+ * A nested file child's harness-relative locus: its host member's unit joined with the
+ * host template's path pattern, its own name spliced through the pattern. The pattern is
+ * the host kind's declared fact and the child kind governs no glob, so one home owns the
+ * path and no child contends with its host's own locus.
+ *
+ * # Throws
+ * If the child names no host, or its host's kind templates no file layer for the child's
+ * kind — there is no pattern to compose against.
+ */
+function nestedFilePath(member: Member): string {
+  const context = `member \`${member.name}\` of kind \`${member.kind}\``;
+  const host = member.host;
+  if (host === undefined) {
+    throw new Error(`${context}: a nested file child names the host its path composes under.`);
+  }
+  const template = (host.facts.templates ?? []).find(
+    (layer) => layer.kind.key === member.kind && layer.path !== undefined,
+  );
+  if (template?.path === undefined) {
+    throw new Error(
+      `${context}: its host \`${host.kind}:${host.name}\` templates no file layer for kind ` +
+        `\`${member.kind}\` — the path pattern is the host kind's declared fact, and there is ` +
+        `none to compose against (specs/model/representation.md, "locus").`,
+    );
+  }
+  return joinSlash(hostUnit(host, context), spliceName(member.kind, template.path, member.name));
+}
+
+/**
+ * The harness-relative locus `member` projects onto: a directory unit lands its entry
+ * file under `<root>/<name>/`; a lone file splices the name through the glob's single
+ * `*` (an any-depth glob — a memory kind's `**\/CLAUDE.md` — lands the root `<name>.md`,
+ * and a `*`-free glob is a fixed path left verbatim); a nested file child composes its
+ * path under its host's unit ({@link nestedFilePath}). The engine derives the same locus
+ * from the same facts (`src/drift.rs`'s `member_projection_path`); the two must agree,
+ * since a hook's rendered link is written from this side and reaped from that one.
+ *
+ * # Throws
+ * If the kind is embedded (no standalone projection), or the member's glob or host
+ * template pattern maps its name to no one path ({@link spliceName},
+ * {@link nestedFilePath}).
+ */
+function projectionPath(member: Member): string {
+  const facts = member.facts;
+  if (facts.locus.kind === "embedded") {
+    throw new Error(
+      `kind \`${facts.name}\` is embedded — its members live inside a host body and ` +
+        `carry no standalone projection (specs/model/representation.md, "locus").`,
+    );
+  }
+  if (facts.locus.kind === "nested-file") return nestedFilePath(member);
+  const { root, glob } = facts.locus;
+  if (facts.unitShape === "directory") {
+    const slash = glob.indexOf("/");
+    return joinSlash(root, member.name, slash < 0 ? glob : glob.slice(slash + 1));
+  }
+  if (glob.includes("**")) return joinSlash(root, `${member.name}.md`);
+  return joinSlash(root, spliceName(facts.name, glob, member.name));
+}
+
+/**
+ * `to`'s path as read from the document at `from` — the shared leading segments drop
+ * and each of `from`'s remaining directory segments becomes a `..`, so a rendered link
+ * resolves from wherever the host member's own projection lands.
+ */
+function relativeProjection(from: string, to: string): string {
+  const fromDirs = from.split("/").slice(0, -1);
+  const toParts = to.split("/");
+  let shared = 0;
+  while (shared < fromDirs.length && shared < toParts.length - 1 && fromDirs[shared] === toParts[shared]) {
+    shared += 1;
+  }
+  return [...fromDirs.slice(shared).map(() => ".."), ...toParts.slice(shared)].join("/");
+}
+
+/**
+ * The closed, engine-derived facts about one embedded value's edge-field targets,
+ * keyed by edge field: the declaring kind names which leaves are addresses, and each
+ * address resolves against the program's composed members — the same table a mention
+ * resolves against. The facts are read off the resolved target, so a format that
+ * selects them renders a reference true by construction; the four are the whole set.
+ *
+ * An unfilled leaf is no edge, so it contributes no entry: requiredness is the kind's
+ * own field schema, which fails in the author's program at compose time.
+ *
+ * # Throws
+ * If a filled leaf names no composed member, or names one that owns no projection to
+ * point at. An edge target cannot defer to the gate the way a bare mention may: the
+ * reference is written now, and there is nothing true to write.
+ */
+function edgeTargetFacts(
+  host: Member,
+  value: EmbeddedMemberValue,
+  leaves: Readonly<Record<string, string>>,
+  options: ResolveOptions,
+): Record<string, EdgeTargetFacts> {
+  const targets: Record<string, EdgeTargetFacts> = {};
+  const context = `member \`${host.name}\`: embedded value \`${value.key}\` of kind \`${value.kind}\``;
+  for (const edge of value.edgeFields ?? []) {
+    const address = leaves[edge.field];
+    if (address === undefined || address === "") continue;
+    const target = options.members?.get(address);
+    if (target === undefined) {
+      throw new Error(
+        `${context}: edge field \`${edge.field}\` names \`${address}\`, which resolves to no ` +
+          `composed member — an edge target's facts are derived, never fabricated ` +
+          `(specs/model/pipeline.md, "Emit", the "Refusing" bullet).`,
+      );
+    }
+    if (!isProjected(target)) {
+      throw new Error(
+        `${context}: edge field \`${edge.field}\` names \`${address}\`, which owns no ` +
+          `projection to reference (specs/model/representation.md, "locus").`,
+      );
+    }
+    targets[edge.field] = {
+      name: target.name,
+      address,
+      kind: target.kind,
+      path: relativeProjection(projectionPath(host), projectionPath(target)),
+    };
+  }
+  return targets;
+}
+
 /**
  * Resolve one embedded member's value's leaves — top-level and each
- * collection entry's — to their final stored strings: a `Text`-authored leaf
+ * collection entry's — to their final stored strings, and derive its edge fields'
+ * target facts off the resolved leaves: a `Text`-authored leaf
  * resolves the way `resolveBody` resolves a member-level `Text` body (mention
  * resolution-checked against `mentionable`, loud on a dangling address); a
  * bare-string leaf is unchanged. The one resolution point shared by the
@@ -101,7 +285,12 @@ function tomlString(text: string): string {
  * embedded-kind leaf mention never depends on whether the kind declares
  * `render` (`pipeline.md`, "Emit", the "Refusing" bullet).
  */
-function resolveMemberLeaves(value: EmbeddedMemberValue, scope: MentionScope): ResolvedEmbeddedMemberValue {
+function resolveMemberLeaves(
+  host: Member,
+  value: EmbeddedMemberValue,
+  options: ResolveOptions,
+): ResolvedEmbeddedMemberValue {
+  const scope = scopeOf(options);
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const leaves: Record<string, string> = {};
   for (const [key, leaf] of Object.entries(value.leaves)) {
@@ -117,7 +306,13 @@ function resolveMemberLeaves(value: EmbeddedMemberValue, scope: MentionScope): R
       return { key: entry.key, leaves: entryLeaves };
     });
   }
-  return { kind: value.kind, key: value.key, leaves, collections };
+  return {
+    kind: value.kind,
+    key: value.key,
+    leaves,
+    collections,
+    targets: edgeTargetFacts(host, value, leaves, options),
+  };
 }
 
 /**
@@ -155,10 +350,90 @@ function renderMemberToml(value: ResolvedEmbeddedMemberValue): string {
  * Leaves resolve once (`resolveMemberLeaves`) before either path sees them, so a
  * hook receives plain strings, never a raw `Text` leaf.
  */
-function renderMemberBlock(value: EmbeddedMemberValue, options: ResolveOptions): string {
-  const resolved = resolveMemberLeaves(value, scopeOf(options));
+function renderMemberBlock(host: Member, value: EmbeddedMemberValue, options: ResolveOptions): string {
+  const resolved = resolveMemberLeaves(host, value, options);
   if (value.render !== undefined) return value.render(resolved);
   return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(resolved)}\n\`\`\``;
+}
+
+/**
+ * A recording view of a resolved value: every read of an edge field's key — off the
+ * derived `targets` facts or off the `leaves` that authored its address — is collected
+ * into `placed`. Those two are the whole surface an edge's data can reach a format
+ * through, so a format that touches neither placed nothing.
+ *
+ * Placement is observed as *selection*, which bounds the check in one direction only: a
+ * format that reads an edge and discards it reads as placed. That keeps the predicate
+ * free of false positives, which is what earns it the gate — a format that never names
+ * the edge, the case the check exists for, is caught exactly.
+ */
+function recordingView(
+  resolved: ResolvedEmbeddedMemberValue,
+  edgeFields: ReadonlySet<string>,
+  placed: Set<string>,
+): ResolvedEmbeddedMemberValue {
+  const watch = <T extends object>(record: T): T =>
+    new Proxy(record, {
+      get(target, property, receiver) {
+        if (typeof property === "string" && edgeFields.has(property)) placed.add(property);
+        return Reflect.get(target, property, receiver);
+      },
+    });
+  return { ...resolved, leaves: watch(resolved.leaves), targets: watch(resolved.targets) };
+}
+
+/**
+ * The declared edge fields one embedded value's format placed, sorted — the fact a
+ * `format-places-edges` clause decides over, since the engine never sees a format and
+ * never reads a rendering back. A `render`-less kind takes the default TOML view, which
+ * writes every leaf, so every edge the value fills is placed by construction; a kind that
+ * declares one runs the hook against a {@link recordingView} and reports what it
+ * selected.
+ *
+ * The obligation ranges over the edges this value *fills*, never its kind's whole
+ * declared set: an unfilled field is no edge, so a format cannot omit it. `undefined`
+ * when the value fills none — there is nothing to place, so the row records nothing
+ * rather than an empty column on every ordinary value.
+ *
+ * This renders the value a second time, the way `nestedMemberRow` reads its leaves a
+ * second time: a hook is pure (emit double-verifies its own bytes), so the observing
+ * render and the projecting one cannot disagree.
+ */
+function placedEdges(
+  host: Member,
+  value: EmbeddedMemberValue,
+  options: ResolveOptions,
+): string[] | undefined {
+  if ((value.edgeFields ?? []).length === 0) return undefined;
+  const resolved = resolveMemberLeaves(host, value, options);
+  // `targets` carries exactly the filled edge fields — an unfilled one derives no facts.
+  const edgeFields = new Set(Object.keys(resolved.targets));
+  if (edgeFields.size === 0) return undefined;
+  if (value.render === undefined) return [...edgeFields].sort(compareStrings);
+  const placed = new Set<string>();
+  value.render(recordingView(resolved, edgeFields, placed));
+  return [...placed].sort(compareStrings);
+}
+
+/**
+ * Every composed embedded value's placed edge fields, keyed by the value's
+ * {@link placementKey} — what `emit` hands {@link compileDeclarations} so each
+ * `nested_member` row carries its own format's placement record. Iterates exactly the
+ * values `nestedMemberRows` does, so every edge-bearing row it builds has an observation.
+ */
+export function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, string[]> {
+  const placements = new Map<string, string[]>();
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "blocks") continue;
+    for (const value of member.prose.values) {
+      if (isTextSpan(value)) continue;
+      const placed = placedEdges(member, value, options);
+      if (placed !== undefined) {
+        placements.set(placementKey(`${member.kind}:${member.name}`, value.kind, value.key), placed);
+      }
+    }
+  }
+  return placements;
 }
 
 /**
@@ -209,7 +484,9 @@ function resolveBody(member: Member, options: ResolveOptions): string {
     const context = `member \`${member.name}\``;
     return (
       prose.values
-        .map((value) => (isTextSpan(value) ? renderTextBody(value, scope, context) : renderMemberBlock(value, options)))
+        .map((value) =>
+          isTextSpan(value) ? renderTextBody(value, scope, context) : renderMemberBlock(member, value, options),
+        )
         .join("\n\n") + "\n"
     );
   }
@@ -255,12 +532,12 @@ function isRegistration(member: Member): boolean {
 }
 
 /**
- * A member is projected iff its kind lives at a path locus and is not a fields-only
- * registration member — an embedded member and a registration member each carry no
- * standalone projection.
+ * A member is projected iff it owns a file — at its kind's governed glob or composed
+ * under its host's unit — and is not a fields-only registration member. An embedded
+ * member and a registration member each carry no standalone projection.
  */
 function isProjected(member: Member): boolean {
-  return member.facts.locus.kind === "at" && !isRegistration(member);
+  return member.facts.locus.kind !== "embedded" && !isRegistration(member);
 }
 
 /**
@@ -340,6 +617,15 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
   return settingsRows(harness).map((row) => ({ manifest: row.manifest, key: row.key, value: row.value }));
 }
 
+/**
+ * The harness's composed members by `kind:name` address — the table an embedded value's
+ * edge field resolves its target against. Keyed the identical way {@link declaredAddresses}
+ * spells a member address, so an edge field and a mention name a member the same way.
+ */
+function memberTable(harness: Harness): Map<string, Member> {
+  return new Map(harness.members.map((member) => [`${member.kind}:${member.name}`, member]));
+}
+
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
 function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMember[] {
   return [...harness.members]
@@ -348,6 +634,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
     .map((member) => ({
       kind: member.kind,
       name: member.name,
+      host: member.host && `${member.host.kind}:${member.host.name}`,
       // The generated row carries a mutable field list; the member's is read-only,
       // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
       fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
@@ -405,10 +692,11 @@ export function emit(harness: Harness): EmitResult {
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
     deferrableKinds: declaredAtLocusKinds(harness),
+    members: memberTable(harness),
   };
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);
-    const declarations = compileDeclarations(harness);
+    const declarations = compileDeclarations(harness, edgePlacements(harness, resolve));
     return {
       declarations,
       members,

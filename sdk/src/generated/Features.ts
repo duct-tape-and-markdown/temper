@@ -78,4 +78,20 @@ nested_members: Array<EmbeddedMember>,
  * `rationale` is deliberately absent: it is the human *why*, never a
  * decidable feature.
  */
-satisfies: Array<string>, };
+satisfies: Array<string>, 
+/**
+ * Each edge this member *carries*, paired with whether the format that renders the
+ * member placed it — the feature a `format-places-edges` clause decides over. The
+ * carried set is the lock's `assembly` `edge` facts for this member's kind, narrowed
+ * to the fields its own row fills; the placed set is its
+ * [`NestedMemberRow::placed_edges`](crate::drift::NestedMemberRow::placed_edges),
+ * which `emit` captured while rendering. It arrives as a declaration row because
+ * the engine never sees the `render` hook and never reads a projection back.
+ *
+ * The two ways a member offers nothing to indict stay apart, because an empty map
+ * standing for both is what would leave the clause undecidable: `None` is no format
+ * at all (a layout host's document is source, so no rendering happened, and a kind
+ * declaring no edge places nothing either way), `Some` over an empty map is a format
+ * that ran with no carried edge to place. Both hold; neither is a fabricated pass.
+ */
+edge_placements: { [key in string]: boolean } | null, };

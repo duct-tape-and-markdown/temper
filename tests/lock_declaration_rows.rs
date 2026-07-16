@@ -24,7 +24,7 @@ use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow,
     CollectionEntryRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
     KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
-    RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow, SectionContainsRow,
+    RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow, SectionContainsRow, TemplateRow,
 };
 use temper::engine;
 use temper::extract::Features;
@@ -36,13 +36,24 @@ use temper::kind::{
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// A host kind declaring one embedded nesting template — the `decision` child kind,
-/// the shape [`tests/nested_member.rs`]'s `decision_kind` declares live.
+/// A host kind declaring both nesting layers a template can name: the embedded
+/// `decision` child kind (the shape [`tests/nested_member.rs`]'s `decision_kind` declares
+/// live), and a file child — the `note` kind at a path pattern relative to the host's own
+/// unit.
 fn spec_kind_facts_with_template() -> KindFactRow {
     KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        templates: vec!["decision".to_string()],
+        templates: vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: Some("notes/*.md".to_string()),
+            },
+        ],
         ..common::kind_facts("spec", "specs", "*.md")
     }
 }
@@ -245,8 +256,8 @@ fn lock_carries_all_four_declaration_families() {
         .find(|k| k.name == "skill")
         .expect("the skill kind fact is recorded");
     assert_eq!(skill.provider.as_deref(), Some("claude-code"));
-    assert_eq!(skill.governs_root, ".claude/skills");
-    assert_eq!(skill.governs_glob, "*/SKILL.md");
+    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
@@ -802,8 +813,8 @@ fn a_bare_harness_lock_still_round_trips() {
     assert!(declarations.mentions.is_empty());
 }
 
-/// A host kind's declared nesting templates — the embedded child kind names it
-/// folds — round-trip through the lock's `kind`
+/// A host kind's declared nesting templates — the embedded child kind it folds, and the
+/// file child's kind plus the path pattern its units sit at — round-trip through the lock's `kind`
 /// row unchanged, and a template-less kind (`rule`, `skill` here) still round-trips
 /// with no `templates` column at all (the empty-array-vanishes tolerance the rest of
 /// the declaration-row family already carries).
@@ -829,7 +840,21 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
         .iter()
         .find(|k| k.name == "spec")
         .expect("the templated kind fact is recorded");
-    assert_eq!(spec.templates, vec!["decision".to_string()]);
+    assert_eq!(
+        spec.templates,
+        vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: Some("notes/*.md".to_string()),
+            },
+        ],
+        "both nesting layers survive the wire: the embedded child by kind alone, the file \
+         child carrying its path pattern"
+    );
 
     let rule = declarations
         .kinds
@@ -1134,6 +1159,7 @@ fn nested_member_row() -> NestedMemberRow {
         key: "surface-authority".to_string(),
         leaves,
         collections,
+        placed_edges: None,
     }
 }
 
@@ -1195,6 +1221,65 @@ fn a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_membe
     assert_eq!(
         entry.leaves.get("because").map(String::as_str),
         Some("a stamping projector breaks law 5")
+    );
+}
+
+/// A value's format-placement record round-trips through the lock as its row's
+/// `placed_edges` column, which is the only way the fact reaches `check` — the engine
+/// never sees a `render` hook and never reads the rendering back. The three states stay
+/// distinct across the trip: a format that placed an edge, one that placed none
+/// (`Some(vec![])`), and a value no format rendered at all (absent, so the column is
+/// omitted and an ordinary row is byte-unchanged).
+#[test]
+fn a_values_format_placement_record_round_trips_through_the_lock() {
+    let row = |key: &str, placed: Option<Vec<String>>| NestedMemberRow {
+        host: "memory:CLAUDE".to_string(),
+        kind: "citation".to_string(),
+        key: key.to_string(),
+        leaves: BTreeMap::from([("source".to_string(), "rule:rust".to_string())]),
+        collections: Vec::new(),
+        placed_edges: placed,
+    };
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        nested_members: vec![
+            row("placed", Some(vec!["source".to_string()])),
+            row("omitted", Some(Vec::new())),
+            row("unrendered", None),
+        ],
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("placed-edges-row", &payload);
+    let first = fs::read(into.join("lock.toml")).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "a re-emit must not churn the lock",
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let placement = |key: &str| {
+        declarations
+            .nested_members
+            .iter()
+            .find(|row| row.key == key)
+            .expect("the row round-trips")
+            .placed_edges
+            .clone()
+    };
+    assert_eq!(placement("placed"), Some(vec!["source".to_string()]));
+    assert_eq!(placement("omitted"), Some(Vec::new()));
+    assert_eq!(
+        placement("unrendered"),
+        None,
+        "no format rendered the value, which is not a format that placed nothing",
     );
 }
 
@@ -1497,7 +1582,7 @@ fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
          provider = \"claude-code\"\n\
          governs_root = \".claude/rules\"\n\
          governs_glob = \"*.md\"\n\
-         templates = [\"directive\"]\n\
+         templates = [{ kind = \"directive\" }]\n\
          \n\
          [[declaration.nested_member]]\n\
          host = \"rule:uses-directive\"\n\
@@ -1658,8 +1743,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "skill")
         .expect("the skill kind fact is embedded");
-    assert_eq!(skill.governs_root, ".claude/skills");
-    assert_eq!(skill.governs_glob, "*/SKILL.md");
+    assert_eq!(skill.governs_root.as_deref(), Some(".claude/skills"));
+    assert_eq!(skill.governs_glob.as_deref(), Some("*/SKILL.md"));
     assert_eq!(skill.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(skill.unit_shape.as_deref(), Some("directory"));
     assert_eq!(
@@ -1675,8 +1760,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "rule")
         .expect("the rule kind fact is embedded");
-    assert_eq!(rule.governs_root, ".claude/rules");
-    assert_eq!(rule.governs_glob, "*.md");
+    assert_eq!(rule.governs_root.as_deref(), Some(".claude/rules"));
+    assert_eq!(rule.governs_glob.as_deref(), Some("*.md"));
     assert_eq!(rule.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(rule.unit_shape.as_deref(), Some("file"));
     assert_eq!(rule.registration, vec!["paths-match(paths)".to_string()]);
@@ -1686,8 +1771,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "memory")
         .expect("the memory kind fact is embedded");
-    assert_eq!(memory.governs_root, ".");
-    assert_eq!(memory.governs_glob, "**/CLAUDE.md");
+    assert_eq!(memory.governs_root.as_deref(), Some("."));
+    assert_eq!(memory.governs_glob.as_deref(), Some("**/CLAUDE.md"));
     assert_eq!(memory.format, None);
     assert_eq!(memory.unit_shape.as_deref(), Some("file"));
     assert_eq!(memory.registration, vec!["always".to_string()]);
@@ -1697,8 +1782,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "command")
         .expect("the command kind fact is embedded");
-    assert_eq!(command.governs_root, ".claude/commands");
-    assert_eq!(command.governs_glob, "*.md");
+    assert_eq!(command.governs_root.as_deref(), Some(".claude/commands"));
+    assert_eq!(command.governs_glob.as_deref(), Some("*.md"));
     assert_eq!(command.format.as_deref(), Some("yaml-frontmatter"));
     assert_eq!(command.unit_shape.as_deref(), Some("file"));
     assert_eq!(
@@ -1714,8 +1799,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "agent")
         .expect("the agent kind fact is embedded");
-    assert_eq!(agent.governs_root, ".claude/agents");
-    assert_eq!(agent.governs_glob, "**/*.md");
+    assert_eq!(agent.governs_root.as_deref(), Some(".claude/agents"));
+    assert_eq!(agent.governs_glob.as_deref(), Some("**/*.md"));
     assert_eq!(agent.format.as_deref(), Some("yaml-frontmatter"));
     // Named-field identity — the third mode, wire-spelled `named-field(<field>)`.
     assert_eq!(agent.unit_shape.as_deref(), Some("named-field(name)"));
@@ -1732,8 +1817,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "hook")
         .expect("the hook kind fact is embedded");
-    assert_eq!(hook.governs_root, ".claude");
-    assert_eq!(hook.governs_glob, "settings.json");
+    assert_eq!(hook.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(hook.governs_glob.as_deref(), Some("settings.json"));
     assert_eq!(hook.format, None);
     assert_eq!(hook.unit_shape.as_deref(), Some("file"));
     assert_eq!(hook.registration, vec!["event(event)".to_string()]);
@@ -1752,8 +1837,8 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
         .iter()
         .find(|k| k.name == "mcp-server")
         .expect("the mcp-server kind fact is embedded");
-    assert_eq!(mcp.governs_root, ".");
-    assert_eq!(mcp.governs_glob, ".mcp.json");
+    assert_eq!(mcp.governs_root.as_deref(), Some("."));
+    assert_eq!(mcp.governs_glob.as_deref(), Some(".mcp.json"));
     assert_eq!(mcp.format, None);
     assert_eq!(mcp.registration, vec!["connection".to_string()]);
     assert_eq!(mcp.shape.as_deref(), Some("fields"));

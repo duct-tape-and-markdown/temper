@@ -134,6 +134,7 @@ fn acceptance_check_then_reemit_is_a_no_diff() {
         members: vec![PayloadMember {
             kind: "skill".to_string(),
             name: skill.id.clone(),
+            host: None,
             fields: skill.fields.clone(),
             body: skill.body.clone(),
             source_path: None,

@@ -239,17 +239,17 @@ impl Manifest {
     /// ([`crate::import::discover_kind_files`]), then reads each through [`Manifest::read`]
     /// against the kind's own declared address. A kind with no collection address is not a
     /// manifest kind — the caller routes it to the frontmatter loader — so this yields no
-    /// reads for it.
+    /// reads for it, as does one governing no locus to discover a manifest at.
     ///
     /// # Errors
     ///
     /// Returns a [`JsonManifestError`] if discovery fails or a discovered manifest cannot
     /// be read.
     pub fn read_kind(harness: &Path, kind: &CustomKind) -> Result<Vec<Self>, JsonManifestError> {
-        let Some(address) = &kind.collection_address else {
+        let (Some(address), Some(governs)) = (&kind.collection_address, &kind.governs) else {
             return Ok(Vec::new());
         };
-        crate::import::discover_kind_files(harness, kind, &kind.governs)?
+        crate::import::discover_kind_files(harness, kind, governs)?
             .iter()
             .map(|file| Manifest::read(file, &[address]))
             .collect()

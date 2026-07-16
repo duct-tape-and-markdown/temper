@@ -333,6 +333,7 @@ pub fn skill_member(name: &str, description: &str, body: &str) -> PayloadMember 
     PayloadMember {
         kind: "skill".to_string(),
         name: name.to_string(),
+        host: None,
         fields: vec![
             ("name".to_string(), serde_json::json!(name)),
             ("description".to_string(), serde_json::json!(description)),
@@ -352,6 +353,7 @@ pub fn rule_member(name: &str, paths: Option<&[&str]>, body: &str) -> PayloadMem
     PayloadMember {
         kind: "rule".to_string(),
         name: name.to_string(),
+        host: None,
         fields,
         body: body.to_string(),
         source_path: None,
@@ -365,8 +367,8 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
     KindFactRow {
         name: "skill".to_string(),
         provider: provider.map(str::to_string),
-        governs_root: ".claude/skills".to_string(),
-        governs_glob: "*/SKILL.md".to_string(),
+        governs_root: Some(".claude/skills".to_string()),
+        governs_glob: Some("*/SKILL.md".to_string()),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: registration.iter().map(|r| r.to_string()).collect(),
@@ -383,8 +385,8 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
     KindFactRow {
         name: "rule".to_string(),
         provider: provider.map(str::to_string),
-        governs_root: ".claude/rules".to_string(),
-        governs_glob: "*.md".to_string(),
+        governs_root: Some(".claude/rules".to_string()),
+        governs_glob: Some("*.md".to_string()),
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("file".to_string()),
         registration: registration.iter().map(|r| r.to_string()).collect(),
@@ -404,8 +406,8 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
     KindFactRow {
         name: name.to_string(),
         provider: None,
-        governs_root: governs_root.to_string(),
-        governs_glob: governs_glob.to_string(),
+        governs_root: Some(governs_root.to_string()),
+        governs_glob: Some(governs_glob.to_string()),
         format: None,
         unit_shape: None,
         registration: Vec::new(),

@@ -1,6 +1,7 @@
 # 0025 — postures are configuration: the citation respell and the composed-body admission
 
-- **Date:** 2026-07-16 · **Status:** accepted
+- **Date:** 2026-07-16 · **Status:** accepted · **Amended:** 2026-07-16
+  (kind-side clarification of the supporting-docs bullet)
 
 ## Context
 
@@ -44,12 +45,16 @@ encoded here resolved the rest.
   is unopinionated capability; the opinionated layer is guidance describing
   the climb from plain built-ins to the postured shape. No doctrine is
   placed by machinery.
-- **Supporting docs need no new kind**: the skill built-in already declares
-  its bundled reference documents as nested file members
-  (`../builtins.md`, "The shipped kinds"); the SDK closing that gap is
-  reconciliation toward the spec, and the documents become addressable
-  reference targets for free. Runtime loading semantics stay unencoded
-  until probed.
+- **Supporting docs need no separate kind** (amended same day: the first
+  spelling, "no new kind", was over-broad — an implementation collision
+  proved it forbade the very shape it ruled for; kind-side ruled): the
+  skill built-in owns the shape whole — its template names the shipped
+  `supporting-doc` kind (fields-free, prose-only, channel-less; the
+  requirement precedent — shipped, outside the surface enumeration), and
+  an adopting corpus may override the template's child kind by admission
+  for richer typing. The SDK closing the gap is reconciliation toward the
+  spec, and the documents become addressable reference targets for free.
+  Runtime loading semantics stay unencoded until probed.
 
 ## Rejected
 

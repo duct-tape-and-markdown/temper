@@ -75,11 +75,16 @@ are the same construct — ownership, not privilege (`../builtins.md`).
 
 ## locus
 
-Where a member serializes. Binary:
+Where a member serializes. Three spellings:
 
-- **file** — the member owns a file at a path its kind governs, or
+- **file** — the member owns a file at a path its kind governs,
 - **embedded** — the member lives inside its parent's body, addressed per
-  the parent's format.
+  the parent's format, or
+- **nested file** — the member owns a file whose path composes from its
+  host's unit and the host template's path pattern (the template fact
+  above): the pattern is the host's declared fact, the child kind governs
+  no glob of its own, and position stays decidable — two kinds still never
+  share a governs glob.
 
 ## nesting
 
