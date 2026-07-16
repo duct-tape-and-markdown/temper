@@ -35,11 +35,15 @@ tax.
   supporting-docs bullet). The ruling ships `supporting-doc` as the child kind
   of `skill`'s template (`specs/builtins.md`, "The shipped kinds"), but a
   **file-locus nested child has no spelling** in either layer. Three
-  collisions, each verified on disk at cc5a9b3:
-  (1) the SDK's nesting surface is embedded-only — `EmbeddedMemberValue` /
-  `NestedMemberRow` (`sdk/src/declarations.ts:425`) carry a host's *body*
-  children; no surface exists for a skill to compose a child that owns its
-  own file;
+  collisions, each re-verified on disk at d97a704:
+  (1) **narrowed by TEMPLATE-FILE-CHILD-FACT (`794678f`), not closed.** A kind
+  can now *declare* a file-child layer — `KindFacts.templates`
+  (`sdk/src/kind.ts:158`) carries the child kind plus the path pattern — but
+  that entry's scope was the declared fact alone: nothing composes or resolves
+  such a child. `EmbeddedMemberValue` / `NestedMemberRow`
+  (`sdk/src/declarations.ts:438`) still carry a host's *body* children only,
+  and nothing discovers a file child off the pattern. So a skill still has no
+  surface through which to compose a child that owns its own file;
   (2) `Locus` is binary (`sdk/src/kind.ts:57`) — `{at: root+glob}` or
   `{embedded}`; neither says "my path is my host's template pattern under my
   host's unit";
@@ -58,10 +62,12 @@ tax.
   (`specs/builtins.md`, "Default contracts": each shipped kind does, and an
   almost-empty one is the honest encoding) — a fields-free, prose-only,
   channel-less kind has nothing decidable to check.
-  **Nothing waits that need not:** TEMPLATE-FILE-CHILD-FACT is unblocked and
-  ships the template's *declared fact* — child kind plus path pattern — which
-  is what representation.md states whatever resolves the child. The built-in
-  adoption returns as an entry once this fork rules, through the inbox.
+  **Nothing waits that need not:** TEMPLATE-FILE-CHILD-FACT shipped
+  (`794678f`) — the template's *declared fact*, child kind plus path pattern,
+  which is what representation.md states whatever resolves the child. What
+  this fork gates is only the half above it: composition, resolution, and the
+  built-in adoption, which returns as an entry once the fork rules, through
+  the inbox.
 
 - `(mention-gate-containment)` — OPEN. A skill's `paths` removes it from every
   invocation channel until a matching file is read (`specs/builtins.md`, "The
@@ -151,7 +157,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   centercode `supportingDocs()` factory, minting one nested-root kind per
   skill directory — is **routed, not pending**: it was ergonomics standing in
   for a template fact the spec already declares and the SDK lacks.
-  TEMPLATE-FILE-CHILD-FACT ships that fact; the built-in adoption that lets
+  TEMPLATE-FILE-CHILD-FACT shipped that fact (794678f); the built-in adoption that lets
   the factory delete against `skill` + `supporting-doc` waits on
   `(nested-file-child)` above. When both land, the factory deletes against the
   built-in and this record's condition is what a future pack argument must
@@ -172,60 +178,23 @@ condition arrives, it is the next break. If work touches one, surface it.
 - **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
   drained and the physical trees were deleted (`chore(harness)` 68f187d). Two
   standing debts survive, both accepted, both riding the next entry that
-  touches their file rather than a standalone one: (1) `tests/session_start.rs`
-  still writes `+++`-format `.temper/kinds/spec/KIND.md` +
-  `.temper/packages/spec/PACKAGE.md` fixtures — live test code asserting stray
-  old-format files are ignored — `664a522` touched the file (retargeting two
-  unrelated satisfies-fixture tests) without reconciling this one; (2)
-  `sdk/src/builtins.ts:392,432,469` doc-comment-cited three deleted
-  `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
-  fourth, `skill.anthropic`, was already cut by `dfba26f`; the third,
-  `memory.agents-md`, was discharged by AGENTS-MD-STDLIB-DROP `955be32`
-  deleting the whole `memoryAgentsMdDefaultContract` block that carried it —
-  so **two** cites now survive, `rule.anthropic` + `memory.anthropic`) —
-  untouched since `706139a` (2026-07-07). NB the exit clause fires on
-  *reconciliation*, not
-  on the file being opened: f36c192, HOOK-KIND (76aaa83), then MCP-SERVER-KIND
-  (1ffab8f, +83 lines shifting the cites 344/384/421→392/432/469), then
-  MANIFEST-WRITE-SDK-ERASURE (8cc0561) each opened builtins.ts and left all
-  three cites as unchanged context — the predicted "SDK-ERASURE next opens
-  builtins.ts and carries them again" came true (its hunks carried the
-  fields-only typed fields, not the doc comments; cites unshifted at
-  392/432/469). SKILL-PATHS-CHANNEL-GATE (2c26759) then opened builtins.ts
-  a fifth time — adding the skill `paths` field's 12-line doc comment above
-  the cites (builtins.ts:63) — and once more left all three as unchanged
-  context, so per the reconciliation-not-opening precedent the rider is
-  undischarged; the cites shifted +12, 392/432/469 → 404/444/481.
-  BUILTINS-CITE-REFRESH (c4b060d) then opened builtins.ts a sixth time
-  (108 lines: bumping every clause `cite` and doc-comment retrieval date to
-  2026-07-15) and once more left all three `packages/…PACKAGE.md` cites as
-  unchanged context — undischarged; they shifted +2, 404/444/481 → 406/446/483.
-  GROWN-FIELD-SCHEMAS (e76934e) then opened builtins.ts a seventh time
-  (+152 lines: the grown Skill/Agent typed-field doc comments, all above the
-  cites) and once more left all three as unchanged context — undischarged;
-  they shifted +152, 406/446/483 → 558/598/635. (Routing note, 07-16:
-  SKILL-NESTED-REFERENCE-DOCS now opens builtins.ts — `skill`'s nesting
-  template — so the two survivors ride it, discharged only if it reconciles
-  them.)
-  GLOB-VALIDITY-PREDICATE (46b8cd1) then opened builtins.ts an eighth time
-  (+13 lines: the `paths` glob-validity clause, above the cites) and once
-  more left all three as unchanged context — undischarged; they shifted +7,
-  558/598/635 → 565/611/648. And CHECK-ARG-HALF-GATE (4256274) opened
-  `session_start.rs` (+51: the install-wired-command test) yet left the `+++`
-  fixtures as unchanged context — undischarged, unmoved at 128/133/146.
-  Then AGENTS-MD-STDLIB-DROP (955be32) opened builtins.ts a ninth time and
-  *deleted* the `memoryAgentsMdDefaultContract` block (line ~642, below both
-  survivors) — discharging the third cite (`memory.agents-md`, was 648) by
-  removing its host, while leaving the two survivors as unchanged context:
-  the deletion sat below them, so `rule.anthropic`/`memory.anthropic` stay
-  undischarged and *unshifted* at 565/611. Re-verified on disk at reconcile
-  HEAD cac023a (builtins.ts survivors at 565/611; session_start.rs `+++`
-  fixtures still 128/133/146 — neither file touched in the
-  a2f4a1c..cac023a window). Both survivors ride the next entry opening
-  builtins.ts — cc5a9b3's split routed `skill`'s nesting template to the
-  built-in adoption, which waits on `(nested-file-child)`, so **no queued
-  entry opens builtins.ts** today. The `+++` fixtures still ride the next
-  entry opening session_start.rs; no queued entry does either.
+  **reconciles** their file (never merely opens it — the precedent below),
+  never a standalone entry:
+  (1) `tests/session_start.rs:128/133/146` still writes `+++`-format
+  `.temper/kinds/spec/KIND.md` + `.temper/packages/spec/PACKAGE.md` fixtures —
+  live test code asserting stray old-format files are ignored. Two entries
+  (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them.
+  (2) `sdk/src/builtins.ts:565/611` doc-comment-cite two deleted
+  `packages/{rule,memory}.anthropic/PACKAGE.md` files — untouched since
+  706139a (2026-07-07). Nine entries have now opened builtins.ts and left both
+  as unchanged context; two sibling cites discharged along the way, each by
+  deletion of its host rather than by reconciliation (`skill.anthropic` cut by
+  dfba26f, `memory.agents-md` by AGENTS-MD-STDLIB-DROP 955be32 deleting the
+  whole `memoryAgentsMdDefaultContract` block).
+  Both re-verified on disk at reconcile HEAD d97a704, unmoved; neither file was
+  touched in the cac023a..d97a704 window. **No queued entry opens either file**
+  — cc5a9b3's split routed `skill`'s nesting template to the built-in
+  adoption, which waits on `(nested-file-child)`.
 
 - **Rust engine narration cites lag the SDK clause re-fetch.**
   BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live
@@ -269,32 +238,6 @@ condition arrives, it is the next break. If work touches one, surface it.
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
   495/633/770/1172. Re-verified on disk at reconcile HEAD ff7da32.
 
-- **Pre-0019 "layout" fact name in `sdk/src/kind.ts`.** The module doc
-  (line 4) and the fact-3 doc comments (lines 16/109/111 — "fact 3, layout"
-  = `Format` + `UnitShape`, the projection shape) still spell fact 3
-  "layout" — vocabulary now colliding, in the same file, with the
-  sanctioned `Layout` content type a538a76 exported (0019: a layout is the
-  declared content template — `specs/model/representation.md`, "kind"; one
-  name per concept, `specs/process/spec-system.md`). Doc-comment staleness
-  only — the symbols themselves (`Format`, `UnitShape`, `Layout`) are
-  correctly named. Rides whichever entry next opens `sdk/src/kind.ts` —
-  TEMPLATE-FILE-CHILD-FACT is now that entry (`KindFacts` grows the
-  nesting-template fact, right at the fact-3 narration), with
-  EMBEDDED-FORMAT-TARGET-FACTS behind it — never standalone; the fix renames
-  the *fact narration*, never the sanctioned type. Found at residue sweep
-  HEAD e9d05f6. MANIFEST-KIND-MODEL (cd1ca29) opened all three regions to add
-  the `Fields`/`registration` content shape — writing module-doc line 4
-  *fresh* in the retired "layout" vocabulary (self-propagation, again) —
-  yet left the fact-3 narration, so per the reconciliation-not-opening
-  precedent the rider is undischarged. MANIFEST-WRITE-SDK-ERASURE (8cc0561)
-  then opened `sdk/src/kind.ts` again (carrying fields-only typed fields)
-  and once more left the fact-3 narration. COMPOSED-BODY-ADMISSION (0b2da21)
-  then opened the file a third time and rewrote the `Locus` doc (49-59)
-  *fresh* — the host-free admission narration — yet once more left the
-  fact-3 narration as unchanged context: undischarged; lines 4/16 unmoved,
-  106/108 shifted +3 → 109/111, re-verified on disk at reconcile HEAD
-  cac023a.
-
 - **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
   The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
   interpolation "stays deferred until a floor mention syntax is separately
@@ -312,80 +255,41 @@ condition arrives, it is the next break. If work touches one, surface it.
   undischarged; re-verified on disk (extract.rs:196-198, unshifted) at
   reconcile HEAD fd0ba24.
 
-- **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
-  retirement map (law → invariant/spine rule, posture → retired, decisions
-  renamed `NNNN-*.md`) still narrates `sdk/src/prose.ts` ("law 5" at
-  6/141/258, "law 8" at 11, "posture N" at 126/156/161/188/238, pre-recut
-  decision cites `` `15-kinds.md` ``:126 and `` `20-surface.md` ``:200 —
-  neither file exists) and `sdk/src/kind.ts:257` ("posture 3"). Doc-comment
-  staleness only —
-  behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
-  in the retired vocabulary, so the narration self-propagates by imitation
-  until scrubbed. Rides whichever entry next opens each file —
-  TEMPLATE-FILE-CHILD-FACT now opens `sdk/src/kind.ts`; no queued entry
-  opens `prose.ts` — never standalone. (Fixture body text inside tests —
-  not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
-  strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
-  which 3611335 shifted 1153/1188→1227/1262, MCP-SERVER-KIND (1ffab8f)
-  shifted 1227/1262→1223/1258, then HOOK-SHAPE (5fc3e9f) shifted
-  1223/1258→1340/1375 — reclassified out of the doc-comment list
-  above on finding them `.to_string()` test data.)
-  Found at
-  residue sweep HEAD c2a8cae. MANIFEST-WRITE-SDK-ERASURE (8cc0561) opened
-  `sdk/src/kind.ts` and shifted its "posture 3" line 252→254 (+2) while
-  leaving the narration; `prose.ts` untouched in this window. Re-verified on
-  disk at reconcile HEAD f075f8d (`sdk/src/kind.ts:254` "posture 3";
-  `sdk/src/prose.ts` unchanged). PROSE-SENTINEL-ESCAPE respelled the two slot sentinels as
-  unicode escape sequences (050ef2b), so prose.ts is now NUL-free — grep
-  reads it as text without `-a`, and the sweep-mechanics NB retired with
-  it. That entry opened prose.ts (lines 56/64) yet left these doc comments
-  as unchanged context, so — per the reconciliation-not-opening precedent
-  above — the rider is undischarged, still riding whichever entry next
-  reconciles the comment lines. PROSE-INTERLEAVE-SDK (6450ba6) then opened
-  prose.ts to widen `blocks()`, and *rewrote* the two "posture 3" doc
-  comments fresh (self-propagation again, this time the very lines the
-  rider names) while leaving the rest as unchanged context — undischarged;
-  prose.ts line numbers above re-derived on disk at reconcile HEAD d2496b6
-  (`kind.ts:254` unchanged, that file untouched this window).
-  MENTION-DISCOVERY-DEFER (ed5bb8e) then opened prose.ts a fourth time
-  (+48 at the `Include` region, line 53) and once more left every narration
-  line as unchanged context — undischarged; each shifted +48 below line 53,
-  re-derived on disk at reconcile HEAD 5ef998b. COMPOSED-BODY-ADMISSION
-  (0b2da21) then opened `sdk/src/kind.ts` (the host-free `Locus` at 49-59)
-  and once more left the "posture 3" narration as unchanged context —
-  undischarged; it shifted +3, 254 → 257, re-verified on disk at reconcile
-  HEAD cac023a (`prose.ts` untouched in this window).
+- **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
+  0001's retirement map (law → invariant/spine rule, posture → retired,
+  decisions renamed `NNNN-*.md`) still narrates the file: "law 5" at
+  6/141/258, "law 8" at 11, "posture N" at 126/156/161/188/238, and the
+  pre-recut decision cites `` `15-kinds.md` ``:126 / `` `20-surface.md` ``:200
+  — neither file exists. Doc-comment staleness only; behavior and symbols are
+  correct. The narration **self-propagates**: a8562b5 wrote line 10 fresh in
+  the retired vocabulary, and PROSE-INTERLEAVE-SDK (6450ba6) rewrote the two
+  "posture 3" comments fresh — the very lines this record names — so each
+  entry that opens the file without reconciling it deepens the rider. Four
+  entries have now opened `prose.ts` and left every narration line as
+  unchanged context (the precedent: the rider discharges on *reconciliation*,
+  never on the file being opened). Rides whichever entry next reconciles the
+  comment lines — no queued entry opens `prose.ts` — never standalone. Lines
+  re-verified on disk at reconcile HEAD d97a704 (unmoved; `prose.ts` untouched
+  in this window). The `sdk/src/kind.ts:257` "posture 3" half of this record is
+  **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
+  "posture" a consumer-declared member type, not a body-authoring mode number,
+  and the cite is gone from the file. (Fixture body text inside tests is a
+  separate class, excluded — `src/kind.rs`'s `15-kinds.md` strings and
+  `src/extract.rs`'s two `"…law 5"` decision-fixture strings are `.to_string()`
+  test data, not cites.)
 
-- **`sdk/test/emit.test.ts:937` cites the retired `renderMemberFence`.**
+- **`sdk/test/emit.test.ts:980` cites the retired `renderMemberFence`.**
   EMBED-RENDER-FENCE-FREE (f2d73da) renamed `renderMemberFence` →
   `renderMemberBlock` (an embedded format is writer-only, the fence cosmetic
   — `specs/model/representation.md`, "kind") and opened this test file, but
-  left the test comment at 851-854 ("untouched — `renderMemberFence`")
-  naming the gone symbol. Behavior correct; comment staleness only — the
-  symbol is now `renderMemberBlock`. Rides whichever entry next reconciles
-  the comment (not merely opens the file), never standalone. Found at
-  reconcile HEAD 99a79ec. PROSE-INTERLEAVE-SDK (6450ba6) then opened
-  `sdk/test/emit.test.ts` to add a composed-body test below (line 907+) and
-  left 853 as unchanged context — undischarged; re-verified on disk at 853,
-  reconcile HEAD d2496b6. GROWN-FIELD-SCHEMAS (e76934e) then opened the file
-  again (+53 lines: a typed-surface emit test) and once more left the comment
-  as unchanged context — undischarged; it shifted 853 → 904, re-verified on
-  disk at reconcile HEAD 9223917. SATISFIES-LABEL-QUALIFY (3d08a4a) then
-  opened `sdk/test/emit.test.ts` a fifth time (the `rule:`-qualified
-  satisfies-row assertions at 257-393, all net-zero, above the comment) and
-  once more left 904 as unchanged context — undischarged, unshifted;
-  re-verified on disk at 904, reconcile HEAD fd0ba24. MENTION-DISCOVERY-DEFER
-  (ed5bb8e) then opened the file a sixth time (retargeting the
-  unresolved-mention test at 579+, +3 above the comment) and once more left
-  it as unchanged context — undischarged; it shifted 904 → 907, re-verified
-  on disk at reconcile HEAD 5ef998b. COMPOSED-BODY-ADMISSION (0b2da21) then
-  opened the file a seventh time — retargeting the `withinHosts` fixtures
-  onto `admit`, the routing note predicted it would carry the comment — and
-  once more left it as unchanged context: undischarged; it shifted 907 → 937,
-  re-verified on disk at reconcile HEAD cac023a. Rides
-  EMBEDDED-FORMAT-TARGET-FACTS, the one queued entry reconciling this file's
-  comments; TEMPLATE-FILE-CHILD-FACT opens it first (the template-row
-  assertions) and may shift the line without discharging it.
+  left the test comment ("untouched — `renderMemberFence`") naming the gone
+  symbol. Behavior correct; comment staleness only. Seven entries have now
+  opened the file and left the comment as unchanged context — the rider
+  discharges on *reconciliation*, never on the file being opened; the last,
+  TEMPLATE-FILE-CHILD-FACT (794678f), shifted it 937 → 980, re-verified on
+  disk at reconcile HEAD d97a704. Rides EMBEDDED-FORMAT-TARGET-FACTS, the one
+  queued entry reconciling this file's comments; never standalone. Found at
+  reconcile HEAD 99a79ec.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

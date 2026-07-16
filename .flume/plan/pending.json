@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TEMPLATE-FILE-CHILD-FACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,15 +15,15 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`ResolvedEmbeddedMemberValue` (300) carries kind/key/leaves/collections only — no target facts. Add the closed derived set, keyed by the declaring kind's edge fields (the `EdgeField` interface, 43; `KindFacts.edgeFields`, 126): name, address, kind, and the target's projection path relative to the host member's own projection. Data the template selects, never authored at the instance."
+          "description": "`ResolvedEmbeddedMemberValue` (323) carries kind/key/leaves/collections only — no target facts. Add the closed derived set, keyed by the declaring kind's edge fields (the `EdgeField` interface, 43; `KindFacts.edgeFields`, 146): name, address, kind, and the target's projection path relative to the host member's own projection. Data the template selects, never authored at the instance."
         },
         {
           "path": "sdk/src/emit.ts",
-          "description": "`resolveMemberLeaves` (104) / `renderMemberBlock` (158) derive the target facts from the value's edge-field leaves resolved against the harness's member table — the resolution the mention scope already carries — before the resolved value reaches the `render` hook (159). A dangling target refuses here, the way an unresolvable mention does (pipeline.md, \"Emit\": Refusing)."
+          "description": "`resolveMemberLeaves` (104) / `renderMemberBlock` (158) derive the target facts from the value's edge-field leaves resolved against the harness's member table — the resolution the mention scope already carries — before the resolved value reaches the `render` hook (160). A dangling target refuses here, the way an unresolvable mention does (pipeline.md, \"Emit\": Refusing)."
         },
         {
           "path": "sdk/test/emit.test.ts",
-          "description": "A `render` hook placing a target's address and projection path renders it true by construction. Rider: the retired-`renderMemberFence` cite at 937 rides this entry — the one queued entry reconciling this file's comments after TEMPLATE-FILE-CHILD-FACT."
+          "description": "A `render` hook placing a target's address and projection path renders it true by construction. Rider: the retired-`renderMemberFence` cite at 980 rides this entry — the one queued entry reconciling this file's comments."
         },
         {
           "path": "sdk/test/refusals.test.ts",
@@ -45,7 +44,7 @@
       }
     ],
     "acceptance": "An embedded format selects its edge targets' facts as data — a rendered reference is true by construction, and instance prose never spells its target (representation.md, \"kind\"). The `display: \"src/main.js\"` restatement class becomes unspellable.",
-    "notes": "0025 bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Serialized behind TEMPLATE-FILE-CHILD-FACT (shared `sdk/src/kind.ts` and `sdk/test/emit.test.ts`). scoped at cc5a9b3."
+    "notes": "0025 bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Unblocked at d97a704 (TEMPLATE-FILE-CHILD-FACT shipped); cites re-derived on disk at that HEAD. scoped at cc5a9b3."
   },
   {
     "tag": "FORMAT-OMITS-EDGE-CLAUSE",
@@ -124,6 +123,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at cc5a9b3: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at d97a704: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. scoped at b676656."
   }
 ]
