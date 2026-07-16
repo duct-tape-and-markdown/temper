@@ -1,36 +1,37 @@
 # Plan state
 
 - Spec derived through: 39a4833
-- Audited through: 27a2e28
-- Residue swept through: 27a2e28
-- This tick: RECONCILE the 169e62f..27a2e28 window — one src commit in it
-  (23c31c4, WORKSPACE-DIR-ONE-HOME: lib.rs/main.rs/install.rs/import.rs/
-  coverage_note.rs; 27a2e28 already drained the entry). **Audit:** verified on
-  disk, not off the log — `WORKSPACE_DIR`/`LOCK_FILENAME` now sit beside
-  `VERSION` in lib.rs:21/25, `pub` because main.rs is a separate bin crate, and
-  all four modules read them at their use sites; `rg '"\.temper"' src/` returns
-  lib.rs's const alone, so the workspace-dir half is complete. The entry's two
-  named judgement calls hold: `DEFAULT_WORKSPACE` is a `LazyLock<String>`
-  deriving `./` + the const (main.rs:51 — `concat!` takes only literals, and the
-  `./` prefix pins the path-doubling regression), and import.rs's
-  discovery-fencing rationale moved to its use site (266-270) rather than riding
-  the shared const. The rider it carried is discharged: `SETTINGS_DOC` bumped
-  @07-02 → @07-16 on a live re-verify (coverage_note.rs:70-72); the record is
-  annotated. PACKAGING-CHANNELS-REMAINDER's park re-tested — no version tag (era
-  tags only), crate 0.1.0 vs npm 0.0.7, release.yml still linux-x64+win32-x64
-  with darwin/notarize/bundle absent — still unmet, stays parked. **Sweep:** one
-  finding, filed as LOCK-FILENAME-ONE-HOME — the lock-filename half of the same
-  consolidation stopped short: drift.rs re-spells `join("lock.toml")` inline at
-  five sites (1436/1812/1939/2075/2738) while `LOCK_FILENAME` now holds the one
-  home. It escaped the shipped entry twice over — the scope named the four
-  modules holding *consts*, which drift.rs is not, and the acceptance
-  (`rg '= "lock\.toml"'`) matched const definitions only, so five inline
-  literals passed it green. `engineering.md`, "One job, one home"; code
-  literals, not comment staleness, so it stands alone. No rider moved: the
-  window touched lib.rs/main.rs/install.rs/import.rs/coverage_note.rs, and of
-  the "rides X" records only coverage_note.rs's names a line in that set — every
-  other line cite in open-questions holds unshifted.
-- Queue: 1 pickable (LOCK-FILENAME-ONE-HOME); PACKAGING-CHANNELS-REMAINDER
+- Audited through: b3327fb
+- Residue swept through: b3327fb
+- This tick: RECONCILE the 27a2e28..b3327fb window — one src commit in it
+  (a330b56, LOCK-FILENAME-ONE-HOME: drift.rs alone; b3327fb already drained the
+  entry). **Audit:** verified on disk, not off the log — all five sites
+  (1436/1812/1939/2075/2738) now read `workspace_dir.join(crate::LOCK_FILENAME)`,
+  and the entry's own acceptance holds where its predecessor's did not:
+  `rg '"lock\.toml"' src/` returns lib.rs:25's const alone, so with `.temper`
+  already consolidated both halves of the one-home pass are complete in `src/`.
+  The commit's two named scope calls are honest and I sustain them: drift.rs's
+  prose doc comments naming `lock.toml`/`./.temper` name the concept to a reader,
+  not the literal to the compiler, and the ~50 test-fixture spellings across
+  tests/ are test data, not a const surface. PACKAGING-CHANNELS-REMAINDER's park
+  re-tested — no version tag (era tags only), crate 0.1.0 vs npm 0.0.7,
+  release.yml still linux-x64+win32-x64 with darwin/notarize/bundle absent —
+  still unmet, stays parked; its notes restamped to b3327fb. **Sweep:** one
+  finding, filed as SETTINGS-PATH-ONE-HOME — the same "One job, one home" class,
+  third sibling: install.rs spells `root.join(".claude").join("settings.json")`
+  at 559 and 583, one job (where install's settings write lands) with two
+  spellings and no home. Scoped to a private helper, NOT a lib.rs const beside
+  WORKSPACE_DIR/LOCK_FILENAME — those two are temper's own names, while
+  `.claude`/`settings.json` are harness format facts already homed in the kind's
+  own source (builtins.md, "The shipped kinds"), so a const would mint the very
+  second home the entry exists to remove. Three near-misses checked and excluded
+  as different jobs, not re-spellings: coverage_note.rs:240 (the unclaimed-entry
+  scan's dir), builtin_kind.rs + builtin_lock.toml (`governs` data), fixtures.
+  No rider moved: the window touched drift.rs alone, which no "rides X" record
+  names — builtins.ts's two survivors (565/611) and session_start.rs's `+++`
+  fixtures (128/133/146) re-verified unshifted on disk, every other cite
+  untouched.
+- Queue: 1 pickable (SETTINGS-PATH-ONE-HOME); PACKAGING-CHANNELS-REMAINDER
   parked (John's Apple notarizing + the v0.1 lockstep tag) — condition
   re-tested, still unmet.
 
