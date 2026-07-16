@@ -1,5 +1,236 @@
 [
   {
+    "tag": "COMPOSED-BODY-ADMISSION",
+    "summary": "Retire declaration-side `withinHosts` — an embedded kind declares no host; the adopting corpus admits types over a host kind, so a built-in's composed body admits corpus-declared types",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "nesting"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`Locus`'s embedded variant (line 56) drops `withinHosts`: an embedded kind declares no host. Every doc comment naming `withinHosts` as the templating fact re-narrates to the corpus-side admission."
+        },
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "`Harness` + `harness()` gain the admission declaration — the adopting corpus naming, per host kind, the embedded kinds its composed body admits. Keyed by kind VALUE (identity travels by import), the way `ExpectBinding` already keys `expect`; absent = admits nothing."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`templatesFor` (line 176) and `embeddedHostsByKind` (line 451) re-derive from the admission instead of `locus.withinHosts`; `nestedMemberRows`'s untemplated-nesting refusal (line 492) re-words against admission. The `KindFactRow.templates` column keeps its wire shape (host kind → admitted child kind names, name-sorted), so the Rust read side and the lock format are unchanged."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export the admission declaration type alongside `ExpectBinding` (line 55 neighborhood)."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The `embeddedKind` helper (413) and the four inline `withinHosts` literals (619/664/693/968) retarget to host-free kinds plus a harness-level admission. Add the case 0025 turns on: a corpus-declared embedded kind admitted over the built-in `skill`, emitting into a skill's composed body, with skill's `templates` row naming it."
+        },
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "`decisionKind(withinHosts)` (22-26) retargets: the unadmitted-nesting refusal now fires on a `blocks()` value whose kind the corpus never admitted over the host kind."
+        },
+        {
+          "path": "sdk/test/mention.test.ts",
+          "description": "The `withinHosts: [\"memory\"]` fixture kind (18) retargets to a host-free kind plus an admission over `memory`."
+        },
+        {
+          "path": "tests/coverage.rs",
+          "description": "The comment at 364 cites `withinHosts: [\"rule\"]` as the way a kind gains a template; re-word against admission (behavior unchanged — the Rust side reads `templates` off the lock row)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none — `KindFactRow.templates` keeps its `Array<string>` wire shape; only the SDK-side derivation of it moves.",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "A corpus-declared embedded kind, declaring no host, is admitted over the built-in `skill` and emits into a skill's composed body; skill's `templates` row names it."
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "A `blocks()` value whose kind the corpus never admitted over the host kind refuses before a byte is written."
+      }
+    ],
+    "acceptance": "An embedded kind declares no host; admission is the adopting corpus's declaration over the host kind, so one type means the same thing in every body that admits it and a shipped kind's composed body admits corpus-declared types (representation.md, \"nesting\"; builtins.md's composed-body paragraph). Untemplated nesting still refuses; the lock's `templates` column stays byte-identical for a harness admitting what `withinHosts` used to name.",
+    "notes": "0025 (82c816e) Consequences bullet 1. Its Rejected list names host-bound types (`withinHosts` at declaration) as \"vocabulary coupling reborn one level down\". This is the built-ins half too: a built-in cannot list a consumer's kind in `withinHosts`, which is exactly why composed bodies admit no consumer types today. `.temper/harness.ts` uses no `blocks()`/`withinHosts` — checked; the dogfood does not ripple. scoped at 1baeedd."
+  },
+  {
+    "tag": "SKILL-NESTED-REFERENCE-DOCS",
+    "summary": "The nesting template for file children: a kind declares its child kind plus the child's path pattern relative to the parent's unit, and `skill` declares its bundled reference documents",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "COMPOSED-BODY-ADMISSION"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`KindFacts` gains the nesting-template fact representation.md declares: per inner layer, the child kind plus the path pattern relative to the parent's unit when children are files. Today `KindFacts` (fields/key/render, 179+) carries no template fact at all — templating is inferred, embedded-only."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`templatesFor` (176) folds a kind's declared file-child templates in beside the admission-derived embedded ones, and the `KindFactRow.templates` column grows from bare child-kind names to kind-plus-path-pattern rows."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`skill` (142) declares its nesting template — its bundled reference documents as nested file members of the same skill, path pattern relative to the skill directory — cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16)."
+        },
+        {
+          "path": "sdk/src/generated/KindFactRow.ts",
+          "description": "Regenerated seam binding for the grown `templates` column (ts-rs output — regenerate, never hand-edit)."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`Template` (565) carries only `kind: String`, and its doc comment scopes templates to \"the embedded locus\" — both narrower than representation.md. Grow it with the child's path pattern, and widen `CustomKind::templates` (92), `from_table` (635), and `overlay_templates` (675) onto the grown column."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The built-in lock re-derives once `skill`'s row carries a template — the frozen byte-compare moves with it."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Nesting coverage extends to a file-locus child: nested in the model, owning its own file."
+        },
+        {
+          "path": "tests/seam_bindings_current.rs",
+          "description": "The seam-binding freshness check moves with the regenerated `KindFactRow`."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "`skill`'s declaration row grows its reference-document template."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "`KindFactRow.templates` grows from `Array<string>` (bare child-kind names) to one row per template carrying the child kind plus, for file children, the path pattern relative to the parent's unit. The built-in lock re-derives.",
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "A skill's bundled reference document is a nested file member of the same skill — nested in the model, owning its own file at the declared path pattern."
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "`skill`'s declaration row carries its reference-document template."
+      }
+    ],
+    "acceptance": "`skill`'s bundled reference documents are nested file members of the same skill (builtins.md, \"The shipped kinds\"), because a kind can declare a template per inner layer — child kind plus path pattern relative to the parent's unit, when children are files (representation.md, \"kind\"). Nesting-is-model-containment / locus-is-serialization stops being an unbacked claim.",
+    "notes": "0025 (82c816e) Consequences bullet 4 — the SDK closing this is \"reconciliation toward the spec\": builtins.md already declares the documents, and 0025's Rejected list kills the parallel skill-package/nesting kind. Discharges the standing asymmetry in open-questions (the `supportingDocs()` factory's want). Serialized behind COMPOSED-BODY-ADMISSION: both edit `sdk/src/kind.ts` + `sdk/src/declarations.ts`. scoped at 1baeedd."
+  },
+  {
+    "tag": "EMBEDDED-FORMAT-TARGET-FACTS",
+    "summary": "An embedded format places a closed, engine-derived set of facts about its edge targets — name, address, kind, relative projection path — so a rendered reference is true by construction",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "SKILL-NESTED-REFERENCE-DOCS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`ResolvedEmbeddedMemberValue` (296) carries kind/key/leaves/collections only — no target facts. Add the closed derived set, keyed by the declaring kind's `edgeFields` (43): name, address, kind, and the target's projection path relative to the host member's own projection. Data the template selects, never authored at the instance."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`resolveMemberLeaves` (104) / `renderMemberBlock` (158) derive the target facts from the value's edge-field leaves resolved against the harness's member table — the resolution the mention scope already carries — before the resolved value reaches the `render` hook (160). A dangling target refuses here, the way an unresolvable mention does (pipeline.md, \"Emit\": Refusing)."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "A `render` hook placing a target's address and projection path renders it true by construction."
+        },
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "An edge field whose target the program does not resolve refuses at emit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none — the target facts are derived at emit and consumed by the erased `render` hook; the engine sees only the rendered string it already saw.",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "An embedded kind's `render` hook places an edge target's name/address/kind/relative projection path from the derived facts, never an authored string; the rendered reference matches the resolved target."
+      },
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "An edge field whose target the program does not resolve refuses before a byte is written."
+      }
+    ],
+    "acceptance": "An embedded format selects its edge targets' facts as data — a rendered reference is true by construction, and instance prose never spells its target (representation.md, \"kind\"). The `display: \"src/main.js\"` restatement class becomes unspellable.",
+    "notes": "0025 (82c816e) Consequences bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Serialized behind SKILL-NESTED-REFERENCE-DOCS (shared `sdk/src/kind.ts`). scoped at 1baeedd."
+  },
+  {
+    "tag": "FORMAT-OMITS-EDGE-CLAUSE",
+    "summary": "The format-omits-edge check: a predicate over a member's declared edges asserting its format placed each one, so a format cannot render a contract the prose does not represent",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMBEDDED-FORMAT-TARGET-FACTS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Add the predicate variant to the closed `Predicate` enum (81) — the placement check over an edge selection, evaluated at `each` grain by incidence (contract.md, \"selection\"). Severity is the clause author's, never the tool's."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Evaluate the new predicate and admit it in the admissibility walk (the vacuous/unfillable bar, 114/466 neighborhood)."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The clause constructor for the new predicate, with its guidance channel."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "Lower the format's placement observation into a declaration row at emit — which of a value's declared edge fields the render hook actually selected from the derived target facts (EMBEDDED-FORMAT-TARGET-FACTS is the observation point). The engine never sees the format and never reads a projection back, so this fact reaches the gate as a declaration row or not at all."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "Regenerated seam binding for the grown predicate vocabulary (ts-rs output)."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Predicate coverage for the placement check — held and violated."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "The closed predicate vocabulary grows by one variant (a deliberate language change, ratified by 0025); a declaration row family carries emit's per-value record of which declared edge fields the format placed.",
+    "tests": [
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "A format placing every edge its kind declares passes; one that omits an edge is a finding at the clause author's declared severity."
+      }
+    ],
+    "acceptance": "An author can declare the check representation.md names: a format that omits an edge its kind declares renders a contract the prose does not represent. Adding the predicate is the ratified language change; no default contract adopts it unbidden.",
+    "notes": "0025 (82c816e) Consequences bullet 3. Two bars build must not paper over: (1) the spec puts this clause in no default contract — do not invent an adoption; the predicate exists, the author declares it. (2) The engine cannot inspect an erased `render` hook and never reads a projection back (invariant 7), so the placement fact must reach the lock as an emit-captured declaration row. If that spelling does not hold, leave the entry and raise an open question. scoped at 1baeedd."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
@@ -24,6 +255,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at a2f4a1c: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at 1baeedd: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
   }
 ]

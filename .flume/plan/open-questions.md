@@ -13,56 +13,23 @@ tax.
 
 ## Open forks
 
-- `(posture-recursion)` — RESOLVED 07-16: Decision 0025 + the spec delta
-  landed (82c816e) — `contract.md` "edge", `representation.md` format and
-  nesting, `builtins.md` composed-body admission. Plan routes
-  reconciliation entries against the amended sections; the record below
-  is the design history the entries cite alongside their `per`.
-  The proposal at `docs/proposals/posture-recursion.md` (fourth cut,
-  f6124bd, worked prototype under `docs/proposals/posture-recursion/`): a
-  posture is a **consumer-declared type extending member** (embeddable
-  locus, host-agnostic — admission is the host layout's decision, per the
-  07-15 may-appear regions ruling); edges ride as **posture properties**
-  (`EdgeField` is the one noun; a member's reference set is a derived
-  view, never authored; no member-level `references` key — the second
-  draft's own ask, rejected in the document); `mention` respells as a
-  positioned citation; **citation rendering is the posture type's
-  template** — data over a closed engine-supplied set of derivable target
-  facts (name, address, kind, projection path relative to the citing
-  member), so a rendered citation is true by construction; vocabulary is
-  configuration, never engine. The single engine gap: built-in kinds do
-  not admit consumer-declared content in their bodies — one admission
-  plus the embeddable locus enables the model.
-  **Design-session rulings (07-16, interactive, John):**
-  (1) **Delivery is three layers.** `install` scaffolds ground-truth
-  representation of the built-ins as they are (no opinion); the posture
-  machinery is the unopinionated authoring power layer; the opinionated
-  layer is **guidance describing the climb** from plain built-ins to the
-  proposal's demo shape — the 07-15 prescription ruling ("what the
-  example demonstrates") applied to the authoring format; no spine
-  amendment. "Correct is undefined without the economy" softens on
-  encode: the economy is the guidance's theory; correct stays the
-  consumer's declared contract (invariant 4).
-  (2) **Supporting docs are a facet of the built-in `skill` kind.** The
-  vendor defines a skill as `SKILL.md` plus supporting files
-  (code.claude.com/docs/en/skills "Add supporting files", retrieved
-  2026-07-16), so the SKILL.md-only built-in is inaccurate under the
-  07-15 accuracy mandate — no nesting kind, no factory; centercode's
-  `supportingDocs()` deletes against the built-in. Static shape
-  (addressable members, citation targets, reachability) ships on the doc
-  cite; runtime loading semantics stay probe-gated before any
-  registration fact encodes.
-  **Rider disposition:** riders 1–2 of the 07-16 review were absorbed by
-  the third/fourth cuts (derived reference view + the
-  template-places-its-edge check; config-not-engine); riders 3–4 are
-  resolved by rulings (1)–(2). No contested element remains.
-  **The gate to routing (unchanged):** A respells kernel-adjacent nouns
-  (`specs/model/contract.md`, "edge" — `mention` among the stated loci),
-  so the ruling returns through the change ceremony — a human-authored
-  Decision appended in the same commit as the spec delta
-  (`specs/process/spec-system.md`, "Change ceremony"), drafted in the
-  design session. Plan routes build entries only against the landed spec
-  sections; nothing here is a build entry yet.
+- `(guidance-climb)` — OPEN, raised routing 0025. The decision's third
+  delivery layer — "the opinionated layer is **guidance describing the
+  climb** from plain built-ins to the postured shape" — has no home in the
+  corpus body, and the two homes that exist both refuse it. The plugin's
+  skill "teaches mechanics … It never teaches taste: opinions live in
+  default contracts" (`specs/distribution.md`, "What ships — three
+  channels"), and a default contract carries opinion only as a **clause's**
+  guidance (`specs/builtins.md`, "The clauses live in code") — but the climb
+  is not a check, so there is no clause for it to ride. So the ratified layer
+  is currently unspellable: a guidance artifact with no shipped channel.
+  **What the ruling owes:** which surface carries it, and how it stays
+  taste-without-a-gate (invariant 4: temper never decides the harness is
+  missing something nobody declared — a climb the tool describes must not
+  become a floor the tool implies). 0025 sequences it anyway ("the guidance
+  climb and the example recut follow the machinery"), so nothing waits on
+  this: the four machinery entries are unblocked, and the fork resolves
+  through the inbox before any entry can cite a section for the climb.
 
 - `(mention-gate-containment)` — OPEN. A skill's `paths` removes it from every
   invocation channel until a matching file is read (`specs/builtins.md`, "The
@@ -143,34 +110,18 @@ tax.
 Every asymmetry below is a **choice with a condition**, not a fact. When its
 condition arrives, it is the next break. If work touches one, surface it.
 
-- **Skill-package nesting stays doctrinal, built on demand** (human-ruled
-  07-15, 39a4833: the centercode pack trial resolved as "a pack is a skill" —
-  native directory unit, nested reference docs, paths-gated pull). The
-  condition is **demand**, and the first datum arrived 07-16: the centercode
-  corpus hand-rolls `supportingDocs(skillName)`, a factory minting one
-  nested-root kind per skill directory (`.claude/skills/<name>/docs`, glob
-  `*.md`, registration-free) — two live kinds, each doc held by a required
-  incoming-degree clause and a typed mention from its skill body.
-  **Verified on disk 07-16 (the gap is real and wider than the note says):**
-  the SDK ships no nesting template at all — `KindDefinition`
-  (`sdk/src/kind.ts:179`) carries `facts`/`key`/`render` and no "template per
-  inner layer" fact, and `nested_member` rows are the embedded-`blocks()`
-  case only, `templates` deriving solely from `withinHosts`
-  (`sdk/src/declarations.ts:475` says so outright). So
-  `specs/model/representation.md` ("kind", the template fact) and
-  `specs/builtins.md` ("skill — its bundled reference documents are nested
-  file members of the same skill") both describe a fact the code does not
-  carry; nested-in-model-yet-owning-files is the case with no surface.
-  **The datum is logged, not acted on — it does not trip the condition.** The
-  factory *works*: expressing the pattern with shipped primitives is evidence
-  the primitive set suffices, and what it wants is ergonomics (one template
-  fact instead of N sibling root kinds impersonating nesting), which is not
-  the trigger the ruling named. One consumer, authored by the product's own
-  human, is not a population. What would trip it: a consumer who *cannot*
-  express the pattern, or a second independent corpus re-deriving the
-  factory. The vendor pattern is documented (code.claude.com/docs/en/skills,
-  "Add supporting files", retrieved 2026-07-16), so the coverage bar
-  (`specs/builtins.md`) is what the next break argues from.
+- **A pack is a skill — no skill-package kind** (human-ruled 07-15, 39a4833;
+  reaffirmed by 0025's Rejected list, 82c816e: "a separate skill-package or
+  nesting kind for supporting docs — the built-in already owns the shape; a
+  parallel kind would be the duplicate-surface disease"). The condition is a
+  consumer who *cannot* express a pack with the built-in `skill` plus its
+  nested reference documents. The 07-16 datum that looked like demand — the
+  centercode `supportingDocs()` factory, minting one nested-root kind per
+  skill directory — is **routed, not pending**: it was ergonomics standing in
+  for a template fact the spec already declares and the SDK lacks, and
+  SKILL-NESTED-REFERENCE-DOCS is the entry that closes it. When that entry
+  lands, the factory deletes against the built-in and this record's condition
+  is what a future pack argument must clear.
 
 - **Default-contract auto-adoption** (a bare harness gets the built-in kinds
   checked with no assembly declaration) — kept for the zero-config front door;
@@ -218,7 +169,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   GROWN-FIELD-SCHEMAS (e76934e) then opened builtins.ts a seventh time
   (+152 lines: the grown Skill/Agent typed-field doc comments, all above the
   cites) and once more left all three as unchanged context — undischarged;
-  they shifted +152, 406/446/483 → 558/598/635.
+  they shifted +152, 406/446/483 → 558/598/635. (Routing note, 07-16:
+  SKILL-NESTED-REFERENCE-DOCS now opens builtins.ts — `skill`'s nesting
+  template — so the two survivors ride it, discharged only if it reconciles
+  them.)
   GLOB-VALIDITY-PREDICATE (46b8cd1) then opened builtins.ts an eighth time
   (+13 lines: the `paths` glob-validity clause, above the cites) and once
   more left all three as unchanged context — undischarged; they shifted +7,
@@ -285,9 +239,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   declared content template — `specs/model/representation.md`, "kind"; one
   name per concept, `specs/process/spec-system.md`). Doc-comment staleness
   only — the symbols themselves (`Format`, `UnitShape`, `Layout`) are
-  correctly named. Rides whichever entry next opens `sdk/src/kind.ts` (no
-  queued entry does), never standalone; the fix renames the *fact
-  narration*, never the sanctioned type. Found at residue sweep HEAD
+  correctly named. Rides whichever entry next opens `sdk/src/kind.ts` —
+  COMPOSED-BODY-ADMISSION is now that entry (the host-free `Locus`), with
+  SKILL-NESTED-REFERENCE-DOCS and EMBEDDED-FORMAT-TARGET-FACTS behind it —
+  never standalone; the fix renames the *fact narration*, never the
+  sanctioned type. Found at residue sweep HEAD
   e9d05f6. MANIFEST-KIND-MODEL (cd1ca29) opened all three regions to add
   the `Fields`/`registration` content shape — writing module-doc line 4
   *fresh* in the retired "layout" vocabulary (self-propagation, again) —
@@ -323,8 +279,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   staleness only —
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
   in the retired vocabulary, so the narration self-propagates by imitation
-  until scrubbed. Rides whichever entry next opens each file (no queued
-  entry opens any), never standalone. (Fixture body text inside tests —
+  until scrubbed. Rides whichever entry next opens each file —
+  COMPOSED-BODY-ADMISSION now opens `sdk/src/kind.ts`; no queued entry opens
+  `prose.ts` — never standalone. (Fixture body text inside tests —
   not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
   strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
   which 3611335 shifted 1153/1188→1227/1262, MCP-SERVER-KIND (1ffab8f)
@@ -376,7 +333,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   (ed5bb8e) then opened the file a sixth time (retargeting the
   unresolved-mention test at 579+, +3 above the comment) and once more left
   it as unchanged context — undischarged; it shifted 904 → 907, re-verified
-  on disk at reconcile HEAD 5ef998b.
+  on disk at reconcile HEAD 5ef998b. (Routing note, 07-16:
+  COMPOSED-BODY-ADMISSION now opens `sdk/test/emit.test.ts` — the
+  `withinHosts` fixture retargets — so the comment rides it.)
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
@@ -396,8 +355,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   from the corrected `Predicate::target` doc — the layer is gone, so
   `target`'s live job is array-surgery identity, never layering. Behavior
   and symbols correct; doc-comment staleness only. Each rides whichever
-  entry next opens its file (no queued entry opens either), never
-  standalone. Found at residue sweep HEAD d029d4b. GLOB-VALIDITY-PREDICATE
+  entry next opens its file — FORMAT-OMITS-EDGE-CLAUSE now opens
+  `src/contract.rs` (the new predicate variant); no queued entry opens
+  `compose.rs` — never standalone. Found at residue sweep HEAD d029d4b. GLOB-VALIDITY-PREDICATE
   (46b8cd1) then opened `src/contract.rs` (+20: the glob-validity predicate)
   yet left the straggler as unchanged context — undischarged; it shifted +16,
   459 → 475. compose.rs:233 untouched this window. Re-verified on disk
