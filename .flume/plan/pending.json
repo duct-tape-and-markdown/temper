@@ -33,7 +33,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at cc8d823 and holds — nothing ruled the hop semantics, and both cited files are untouched since 4a33911, so every line cite above still resolves. EMBEDDED-EDGE-DEGREE-SEAM (c607fad) opened both files without naming this rider, so it did not discharge — the law four ticks have now proven. The entry stays parked: the constant may still be wrong, the one thing that keeps it out of the staleness-rider class. rescoped at 4a33911."
+    "notes": "Park re-tested at 8978596 and holds — nothing ruled the hop semantics, and both cited files are untouched since 4a33911, so every line cite above still resolves. The constant reads 5 at graph.rs:62 under a cite claiming five the live page does not say. The entry stays parked: the constant may still be wrong, the one thing that keeps it out of the staleness-rider class. rescoped at 4a33911."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +60,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at cc8d823 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8978596 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
   }
 ]
