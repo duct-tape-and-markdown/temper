@@ -1,5 +1,31 @@
 [
   {
+    "tag": "PLACEMENT-KEY-NUL-DELIMITER",
+    "summary": "`placementKey`'s NUL delimiter classes `sdk/src/declarations.ts` binary to grep/rg — swap it for U+001F so the seam file every row question routes through is searchable again",
+    "per": {
+      "path": ".claude/rules/sdk.md",
+      "section": "The engine seam"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`placementKey` (450-452) joins host/kind/key with two literal NUL bytes at 451, so grep/rg class the whole 729-line file as binary and print nothing — `grep -c placementKey` exits 1 on a file that defines the symbol. Swap both for U+001F (unit separator): the identical non-collision property over identifier components, and the key never leaves memory — `emit.ts` fills the map at 432 (importing the function at 34), `declarations.ts` reads it back at 492, and both `.temper/lock.toml` and `src/builtin_lock.toml` carry zero NUL bytes, so no delimiter round-trips through the lock. Both sides call the one function, so the swap is atomic by construction. The doc comment (445-449) names the identifying triple, not the delimiter — no narration change owed."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`rg placementKey sdk/src/declarations.ts` prints its hits instead of nothing, so the rule's own instruction — `rg` both trees for the seam (.claude/rules/sdk.md, \"The engine seam\") — works on the file that same section names as the row-builder home. Behavior is unchanged: the key is an in-memory map key only, so the built-in lock re-derives byte-identically. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes the 07-16 inbox line (friction capture plan-declarations-ts-nul-byte-greps-blind.md, human-agreed, observed at 9862b2e). Diffed forward: 91c288c touched the file (715→729 lines), the NUL survives at 451. Swept every tracked .ts/.rs/.toml/.json/.md — declarations.ts is the only one carrying a NUL, so this entry is the whole class, not one instance. File-disjoint from every queued entry, hence open. scoped at b745415."
+  },
+  {
     "tag": "NESTED-FILE-DISCOVERY",
     "summary": "Discovery classifies an adopted harness's matching files as its host's children through the host template's pattern — the child kind governing no glob to scan for",
     "per": {
