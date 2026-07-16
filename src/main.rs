@@ -483,9 +483,10 @@ fn explain(target: &str) -> miette::Result<String> {
         .map(|row| Ok((row.name.clone(), requirement_from_row(row)?)))
         .collect::<Result<_, compose::ClauseRowError>>()?;
     let assembly_edges = edges_from_declarations(&declarations)?;
-    // Mentions and layout prose imports both resolve once at emit and lift off the lock;
-    // `why` narrates them in the same resolved-edge set the gate's graph predicates range
-    // over, so a read cannot disagree with the gate (READ-EDGE-UNIFY).
+    // Authored mentions (route-resolved at check) and layout prose imports (path-resolved
+    // at emit) both lift off the lock; `why` route-resolves them against this same corpus,
+    // narrating a dangling mention as the gate's route finding rather than a resolved edge,
+    // so a read cannot disagree with the gate (READ-EDGE-UNIFY).
     let mut mention_edges = mention_edges_from_declarations(&declarations);
     mention_edges.extend(import_edges_from_lock(&workspace)?);
 
@@ -669,9 +670,10 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         .map(|row| Ok((row.name.clone(), requirement_from_row(row)?)))
         .collect::<Result<_, compose::ClauseRowError>>()?;
     let assembly_edges = edges_from_declarations(&declarations)?;
-    // The already-resolved reference edges the graph predicates and read verbs fold in
-    // alongside the declared-field arcs: authored mentions and layout prose imports, each
-    // resolved once at emit and lifted off the lock's own declaration family.
+    // The lifted reference edges the graph predicates and read verbs fold in alongside the
+    // declared-field arcs: authored mentions (route-resolved at check — `route_mentions`
+    // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
+    // at emit), each lifted off the lock's own declaration family.
     let mut mention_edges = mention_edges_from_declarations(&declarations);
     mention_edges.extend(import_edges_from_lock(workspace)?);
 
@@ -814,6 +816,17 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // reported once and skipped by the route check.
     diagnostics.extend(graph::admissibility(&edges, &by_kind));
     diagnostics.extend(graph::check(&edges, &by_kind));
+
+    // Mention route resolution: `emit` defers a mention naming a declared kind with no
+    // composed member — its row rides the lock — so `check` owns that verdict here,
+    // resolving each mention's target against the discovered corpus (members) and the
+    // roster (bare requirement names). A dangler fires `graph.route` exactly as a declared
+    // reference does.
+    diagnostics.extend(graph::route_mentions(
+        &mention_edges,
+        &by_kind,
+        &assembly_requirements,
+    ));
 
     // `acyclic`: the resolved graph must contain no
     // cycle — a circular import loads nothing, so every finding is a true

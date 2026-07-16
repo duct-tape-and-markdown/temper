@@ -298,9 +298,14 @@ pub fn why(
 ) -> String {
     // The resolved edge set the gate ranges over — computed once, filtered per matched
     // node below. One source of truth: the exact arcs `graph::check` resolves, plus the
-    // already-resolved mention edges `graph::degree` also folds in.
+    // mention edges route-resolved against this corpus exactly as the gate's
+    // `route_mentions` does. A mention whose target is absent from the corpus dangles: it
+    // stays out of the resolved set and narrates as the gate's route finding, never as a
+    // resolved edge.
     let mut resolved = graph::resolved_edges(edges, by_kind);
-    resolved.extend(mention_edges.iter().cloned());
+    let (resolved_mentions, dangling_mentions) =
+        graph::partition_mentions(mention_edges, by_kind, roster);
+    resolved.extend(resolved_mentions);
 
     // Every `(kind, id)` naming `member`: the rationale-carrying custom listing,
     // unioned with `by_kind` — the same decidable corpus the dispatcher's own species
@@ -346,7 +351,7 @@ pub fn why(
         if index > 0 {
             out.push('\n');
         }
-        why_one(&mut out, member, roster, &resolved);
+        why_one(&mut out, member, roster, &resolved, &dangling_mentions);
     }
     out
 }
@@ -358,6 +363,7 @@ fn why_one(
     member: &Member,
     roster: &BTreeMap<String, Requirement>,
     resolved: &[ResolvedEdge],
+    dangling_mentions: &[ResolvedEdge],
 ) {
     let _ = writeln!(
         out,
@@ -392,8 +398,10 @@ fn why_one(
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
     // (`crate::graph::resolved_edges`), not a private re-derivation (READ-EDGE-UNIFY).
-    // A dangling reference resolves to no node, so it appears in neither list — route
-    // resolution is the gate's finding to report, not `why`'s.
+    // A dangling declared reference resolves to no node, so it appears in neither list —
+    // route resolution is the gate's finding to report, not `why`'s. A dangling *mention*
+    // is narrated below its own way: the gate's `route_mentions` verdict, surfaced as
+    // teaching rather than silently dropped.
     let node: (String, String) = (member.kind.clone(), member.id.clone());
 
     let outgoing: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.from == node).collect();
@@ -415,6 +423,23 @@ fn why_one(
                 edge.field
             );
         }
+    }
+
+    // Dangling mentions out: a deferred mention whose target is absent from the discovered
+    // corpus. It fired the gate's `graph.route` finding, so it reads as dangling here, not
+    // as a resolved edge.
+    for edge in dangling_mentions.iter().filter(|edge| edge.from == node) {
+        let (to_kind, to_id) = &edge.to;
+        let target = if to_kind == graph::REQUIREMENT_KIND {
+            format!("requirement `{to_id}`")
+        } else {
+            format!("`{to_id}` ({to_kind})")
+        };
+        let _ = writeln!(
+            out,
+            "  • it mentions {target}, which resolves to nothing in the surface — a \
+             dangling mention `check` reports."
+        );
     }
 
     let incoming: Vec<&ResolvedEdge> = resolved.iter().filter(|edge| edge.to == node).collect();

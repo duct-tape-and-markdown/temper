@@ -366,3 +366,71 @@ mod default_contract_binding {
         assert!(!out.contains("binds the `skill` default contract"), "{out}");
     }
 }
+
+/// `why`'s edge narration route-resolves mentions against the same corpus the gate's
+/// `route_mentions` does (READ-EDGE-UNIFY): a mention to a discovered member narrates as a
+/// resolved edge, a mention to an absent target as a dangling mention — never folded into
+/// the resolved set as though it pointed at a real member.
+mod mention_narration {
+    use std::collections::BTreeMap;
+
+    use temper::compose::Requirement;
+    use temper::extract::Features;
+    use temper::graph::{self, MentionDeclaration};
+    use temper::read;
+
+    use super::feature;
+
+    /// The lifted mention edge the read family folds in — built through the real lift so
+    /// the edge carries the `mention` field route resolution keys on.
+    fn mention_edges(member: &str, target: &str) -> Vec<graph::ResolvedEdge> {
+        graph::resolved_mention_edges(&[MentionDeclaration {
+            member: member.to_string(),
+            target: target.to_string(),
+        }])
+    }
+
+    #[test]
+    fn a_mention_to_a_discovered_member_narrates_as_a_resolved_edge() {
+        // `style` mentions `skill:standards`, present in the corpus — the mention resolves
+        // and narrates as an edge the citing member points at, exactly as the gate resolves
+        // it.
+        let rules = [feature("style", &[])];
+        let skills = [feature("standards", &[])];
+        let by_kind: BTreeMap<&str, &[Features]> =
+            BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+        let mentions = mention_edges("rule:style", "skill:standards");
+
+        let out = read::why(&[], &roster, &by_kind, &[], &mentions, "style");
+        assert!(
+            out.contains("it points at `standards` (skill) via its `mention` field"),
+            "a mention to a discovered member narrates as a resolved edge: {out}"
+        );
+        assert!(
+            !out.contains("dangling mention"),
+            "a resolved mention is never narrated as dangling: {out}"
+        );
+    }
+
+    #[test]
+    fn a_deferred_mention_to_an_absent_target_narrates_as_dangling() {
+        // `style` mentions `skill:ghost`, absent from the corpus — the deferred mention
+        // dangles. `why` narrates it as the gate's route verdict, never folded into the
+        // resolved edge set as though it reached a real member.
+        let rules = [feature("style", &[])];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
+        let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+        let mentions = mention_edges("rule:style", "skill:ghost");
+
+        let out = read::why(&[], &roster, &by_kind, &[], &mentions, "style");
+        assert!(
+            out.contains("dangling mention") && out.contains("ghost"),
+            "a mention to an absent target narrates as a dangling mention naming its target: {out}"
+        );
+        assert!(
+            !out.contains("it points at `ghost`"),
+            "a dangling mention is never narrated as a resolved edge: {out}"
+        );
+    }
+}

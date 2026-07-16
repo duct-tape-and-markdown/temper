@@ -861,23 +861,31 @@ pub struct MentionDeclaration {
     pub target: String,
 }
 
+/// The reserved kind a bare requirement name resolves under — distinct from [`world`]
+/// and every artifact kind, so a requirement-targeted mention binds a node the
+/// degree/explain traversals range over and route resolution ([`route_mentions`])
+/// resolves against the roster rather than the by-kind corpus. Exposed so the read family
+/// renders a requirement-targeted mention as its bare name, never a `requirement:name`
+/// address no author wrote (READ-EDGE-UNIFY).
+pub const REQUIREMENT_KIND: &str = "requirement";
+
 /// Parse an address a mention may name into its graph [`Node`]: `kind:name` parses
-/// into that member's node; a bare name (no `:`) addresses a requirement — modeled
-/// under a reserved `requirement` kind, distinct from [`world`] and every artifact
-/// kind, so a requirement-targeted mention still binds a node the degree/explain
-/// traversals can range over.
+/// into that member's node; a bare name (no `:`) addresses a requirement under the
+/// reserved [`REQUIREMENT_KIND`].
 fn node_from_address(address: &str) -> Node {
     match address.split_once(':') {
         Some((kind, name)) => (kind.to_string(), name.to_string()),
-        None => ("requirement".to_string(), address.to_string()),
+        None => (REQUIREMENT_KIND.to_string(), address.to_string()),
     }
 }
 
-/// Fold the lock's already-resolved `mention` rows into [`ResolvedEdge`]s: no
-/// admissibility or dangling check runs here — a dangling mention never reaches the
-/// lock, `emit` refuses first — just the address parse [`node_from_address`] runs.
-/// Unlike [`resolved_edges`], this never filters: every mention lands, obligation-free
-/// by default (`specs/model/contract.md`) until a `degree` clause opts in to counting it.
+/// Lift the lock's `mention` rows into [`ResolvedEdge`]s by parsing both addresses
+/// ([`node_from_address`]) — the mention-family mirror of [`resolved_edges`]. The parse
+/// alone binds no verdict: `emit` refuses a mention naming no declared kind before a byte
+/// is written, but a mention naming a declared kind with no composed member *defers* — its
+/// row rides the lock, and [`route_mentions`] owns the dangling verdict at `check` against
+/// the discovered corpus. Every mention lands here regardless, obligation-free by default
+/// (`specs/model/contract.md`) until a `degree` clause opts in to counting it.
 #[must_use]
 pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEdge> {
     mentions
@@ -887,6 +895,66 @@ pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEd
             field: MENTION_FIELD.to_string(),
             to: node_from_address(&mention.target),
         })
+        .collect()
+}
+
+/// Whether a lifted reference edge resolves against the **discovered corpus**. Only a
+/// mention route-resolves at `check`: a member `kind:name` target resolves when the
+/// corpus carries a member of that kind and name; a bare requirement name resolves when
+/// the roster declares it. An import ([`IMPORT_FIELD`]) or any other lifted edge already
+/// resolved at emit and never dangles here, so it always resolves.
+fn edge_resolves(
+    edge: &ResolvedEdge,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirements: &BTreeMap<String, Requirement>,
+) -> bool {
+    if edge.field != MENTION_FIELD {
+        return true;
+    }
+    let (kind, name) = &edge.to;
+    if kind == REQUIREMENT_KIND {
+        requirements.contains_key(name)
+    } else {
+        by_kind
+            .get(kind.as_str())
+            .is_some_and(|members| members.iter().any(|features| features.id == *name))
+    }
+}
+
+/// Split the lifted mention/import edges into those that resolve against the discovered
+/// corpus and those that dangle ([`edge_resolves`]). The read verbs narrate the two
+/// halves differently — a resolved mention as an edge, a dangling one as the gate's route
+/// finding — over the exact split [`route_mentions`] fires on, so read never disagrees
+/// with the gate (READ-EDGE-UNIFY).
+#[must_use]
+pub fn partition_mentions(
+    mentions: &[ResolvedEdge],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirements: &BTreeMap<String, Requirement>,
+) -> (Vec<ResolvedEdge>, Vec<ResolvedEdge>) {
+    mentions
+        .iter()
+        .cloned()
+        .partition(|edge| edge_resolves(edge, by_kind, requirements))
+}
+
+/// Check **route resolution** over the authored mention edges: a mention whose target —
+/// a member `kind:name` or a bare requirement name — is absent from the discovered corpus
+/// returns an error-severity [`Diagnostic`] naming the citing member and the dangling
+/// target. `emit` defers such a mention (a declared kind with no composed member rides the
+/// lock), so `check` owns the verdict here, at the same corpus `implemented-by` resolution
+/// reads; a mention naming no declared kind refused earlier, at emit. Edges iterate in the
+/// lock's order, so the finding set is stable.
+#[must_use]
+pub fn route_mentions(
+    mentions: &[ResolvedEdge],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    requirements: &BTreeMap<String, Requirement>,
+) -> Vec<Diagnostic> {
+    mentions
+        .iter()
+        .filter(|edge| !edge_resolves(edge, by_kind, requirements))
+        .map(dangling_mention)
         .collect()
 }
 
@@ -1045,6 +1113,37 @@ fn dangling(edge: &Edge, source: &str, target: &str) -> Diagnostic {
         format!(
             "`{source}` `{}` routes to `{target}`, which resolves to no `{}` artifact",
             edge.field, edge.to
+        ),
+    )
+}
+
+/// Render a mention target [`Node`] as the author wrote it: a member as its `kind:name`
+/// address, a requirement as its bare name.
+fn render_target(node: &Node) -> String {
+    let (kind, name) = node;
+    if kind == REQUIREMENT_KIND {
+        name.clone()
+    } else {
+        format!("{kind}:{name}")
+    }
+}
+
+/// The finding for a mention whose target resolves to no member or requirement in the
+/// discovered corpus — naming the citing member and the dangling target
+/// ([`route_mentions`]).
+fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
+    let (from_kind, from_id) = &edge.from;
+    let target = render_target(&edge.to);
+    let resolves_against = if edge.to.0 == REQUIREMENT_KIND {
+        "requirement"
+    } else {
+        "member"
+    };
+    Diagnostic::error(
+        GRAPH_ROUTE_RULE,
+        format!("{from_kind}:{from_id}"),
+        format!(
+            "`{from_kind}:{from_id}` mentions `{target}`, which resolves to no {resolves_against} in the discovered corpus",
         ),
     )
 }

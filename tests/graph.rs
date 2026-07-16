@@ -536,10 +536,10 @@ fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
 fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
     let root = common::tmpdir("mention-dangles");
     // The same routed `incoming = { min = 1 }` bound on the discovered `standards`, but the
-    // rule's mention names `skill:ghost` — no such skill is discovered. The mention resolves
-    // by identity against the discovered corpus, so it reaches the phantom `ghost`, never
-    // the real `standards`, whose incoming degree stays zero: the gate refuses, the same
-    // verdict a dangling declared edge earns.
+    // rule's mention names `skill:ghost` — no such skill is discovered. The mention reaches
+    // the real `standards` never, whose incoming degree stays zero, so the degree bound is
+    // missed: the gate refuses, the same verdict a dangling declared edge earns (a dangling
+    // mention also trips its own `graph.route` finding — this case pins the degree miss).
     write_harness(
         &root,
         "style",
@@ -574,6 +574,109 @@ fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
             && run.output.contains("incoming")
             && run.output.contains("standards"),
         "the finding names the unreached discovered member and the bound it misses, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
+    let root = common::tmpdir("mention-route-dangles");
+    // The rule `style` mentions `skill:ghost`, absent from the discovered corpus, and no
+    // degree clause opts the mention into counting — so the deferred mention's own dangling
+    // verdict is check's to own: a `graph.route` finding naming the citing member and the
+    // dangling target, the same verb a dangling declared edge trips.
+    write_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![mention("rule:style", "skill:ghost")],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a mention whose target is absent from the corpus dangles ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("graph.route")
+            && run.output.contains("rule:style")
+            && run.output.contains("ghost"),
+        "the route finding names its citing member and the dangling mention target, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_mention_to_a_declared_requirement_stays_clean() {
+    let root = common::tmpdir("mention-requirement-resolves");
+    // A mention may name a bare requirement, resolved against the roster rather than the
+    // by-kind corpus. `gate` is declared (advisory, so its own coverage never gates), so the
+    // mention resolves and the run stays clean.
+    write_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![mention("rule:style", "gate")],
+            requirements: vec![common::requirement("gate", false, None)],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a mention naming a declared requirement resolves ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_mention_to_an_undeclared_requirement_fires_a_route_finding() {
+    let root = common::tmpdir("mention-requirement-dangles");
+    // The same bare-requirement mention, but no `gate` requirement is declared — the roster
+    // resolves it nowhere, so check owns the dangling verdict exactly as it does an absent
+    // member target.
+    write_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![mention("rule:style", "gate")],
+            ..Declarations::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a mention naming no declared requirement dangles ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("graph.route")
+            && run.output.contains("rule:style")
+            && run.output.contains("gate"),
+        "the route finding names its citing member and the dangling requirement target, got:\n{}",
         run.output
     );
 }
