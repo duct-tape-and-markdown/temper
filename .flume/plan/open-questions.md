@@ -29,7 +29,7 @@ tax.
 
 - `(directory-sliced-governance)` — OPEN (registered 2026-07-15). A single
   non-nesting **file**-locus kind cannot govern a directory-sliced corpus:
-  `member_projection_path` (`src/drift.rs:513`) derives a projection path by
+  `member_projection_path` (`src/drift.rs:519`) derives a projection path by
   `governs_glob.replacen('*', name, 1)` — the glob's *first* `*` only — so a
   glob `*/*.md` yields `<name>/*.md`, a literal `*` left in the path. The
   workaround (one kind per directory, each with a `*`-terminal glob) works but
@@ -212,8 +212,8 @@ condition arrives, it is the next break. If work touches one, surface it.
 - **Pre-recut vocabulary survives in prose-layer doc comments.** 0001's
   retirement map (law → invariant/spine rule, posture → retired, decisions
   renamed `NNNN-*.md`) still narrates `sdk/src/prose.ts` ("law 5" at
-  6/93/210, "law 8" at 11, "posture N" at 78/108/113/140/190, pre-recut
-  decision cites `` `15-kinds.md` ``:78 and `` `20-surface.md` ``:152 —
+  6/141/258, "law 8" at 11, "posture N" at 126/156/161/188/238, pre-recut
+  decision cites `` `15-kinds.md` ``:126 and `` `20-surface.md` ``:200 —
   neither file exists) and `sdk/src/kind.ts:254` ("posture 3"). Doc-comment
   staleness only —
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
@@ -243,6 +243,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   rider names) while leaving the rest as unchanged context — undischarged;
   prose.ts line numbers above re-derived on disk at reconcile HEAD d2496b6
   (`kind.ts:254` unchanged, that file untouched this window).
+  MENTION-DISCOVERY-DEFER (ed5bb8e) then opened prose.ts a fourth time
+  (+48 at the `Include` region, line 53) and once more left every narration
+  line as unchanged context — undischarged; each shifted +48 below line 53,
+  re-derived on disk at reconcile HEAD 5ef998b (`kind.ts:254` unchanged,
+  that file untouched this window).
 
 - **`sdk/test/emit.test.ts:853` cites the retired `renderMemberFence`.**
   EMBED-RENDER-FENCE-FREE (f2d73da) renamed `renderMemberFence` →
@@ -262,7 +267,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   opened `sdk/test/emit.test.ts` a fifth time (the `rule:`-qualified
   satisfies-row assertions at 257-393, all net-zero, above the comment) and
   once more left 904 as unchanged context — undischarged, unshifted;
-  re-verified on disk at 904, reconcile HEAD fd0ba24.
+  re-verified on disk at 904, reconcile HEAD fd0ba24. MENTION-DISCOVERY-DEFER
+  (ed5bb8e) then opened the file a sixth time (retargeting the
+  unresolved-mention test at 579+, +3 above the comment) and once more left
+  it as unchanged context — undischarged; it shifted 904 → 907, re-verified
+  on disk at reconcile HEAD 5ef998b.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

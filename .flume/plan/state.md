@@ -1,31 +1,31 @@
 # Plan state
 
 - Spec derived through: 06e0c2c
-- Audited through: fd0ba24
-- Residue swept through: fd0ba24
-- This tick: reconciled the 226199b..fd0ba24 ship window (three builds:
-  SATISFIES-LABEL-QUALIFY 3d08a4a, INSTALL-FRONTMATTERLESS-BANNER aa24e62,
-  CUSTOM-KIND-DOCS bd8f31f — all dropped from pending by build). AUDIT: verified
-  SATISFIES on disk (qualified the satisfies wire to `kind:name`; `mentionRows`
-  builds `${kind}:${name}` at declarations.ts:340); its two blocked dependents
-  unblock to `open` — LOCK-SPELLING-REAP and MENTION-DISCOVERY-DEFER. Re-verified
-  premises: `to_lock_path` (drift.rs:501) strips backslashes never `./`; the
-  orphan sweep still compares raw row `source_path` at drift.rs:866;
-  `renderTextBody` still rejects on `mentionable` at emit.ts:164. SWEEP: no
-  fileable residue — BANNER folded the memory kind special-case into
-  content-keyed routing (consolidation, not a duplicate); two comment-staleness
-  riders maintained (extract.rs:196-198 floor-mention, emit.test.ts:904
-  renderMemberFence — both opened by SATISFIES, neither reconciled, both
-  unshifted).
-- Queue: LOCK-SPELLING-REAP (open, drift.rs) → EMIT-INTO (blockedBy LOCK-SPELLING)
-  → LOCK-LAYER-DROP (blockedBy EMIT-INTO) — serial drift.rs chain;
-  MENTION-DISCOVERY-DEFER (open, emit.ts+declarations.ts+graph.rs); PACKAGING
-  parked. Pickable now: LOCK-SPELLING-REAP + MENTION-DISCOVERY-DEFER — disjoint
-  (drift.rs / sdk+graph.rs).
+- Audited through: 5ef998b
+- Residue swept through: 5ef998b
+- This tick: reconciled the fd0ba24..5ef998b ship window (two builds:
+  LOCK-SPELLING-REAP e5dbb75, MENTION-DISCOVERY-DEFER ed5bb8e — both dropped
+  from pending by build). AUDIT: verified both on disk. LOCK-SPELLING-REAP
+  added `normalize_lock_path` (drift.rs:511), routed `to_lock_path` through it,
+  and normalizes both reap-join sides at drift.rs:879 (a `./`-prefixed row
+  rejoins its live projection); its blocked dependent EMIT-INTO-REROOT-REAP
+  unblocks to `open`. MENTION-DISCOVERY-DEFER defers a declared-`at`-kind
+  mention to check and corrected the MentionRow doc — standalone, no dependents.
+  Re-derived the drift.rs anchors both blocked entries cite (window shifted
+  drift.rs +25/+8): reap_or_report_orphan 1312→1326, emit_program 537→547,
+  orphan sweep 865-872→875-882; main.rs anchors unshifted. SWEEP: no fileable
+  residue — `normalize_lock_path` is the one canonicalizer (consolidation, not
+  a duplicate). Two riders in touched files maintained: prose.ts law/posture
+  narration (MENTION-DEFER +48 at line 53, lines re-derived) and
+  emit.test.ts:904→907 renderMemberFence — both left as unchanged context,
+  undischarged.
+- Queue: EMIT-INTO-REROOT-REAP (open, drift.rs+main.rs) → LOCK-LAYER-DROP-REFUSE
+  (blockedBy EMIT-INTO) — serial drift.rs chain; PACKAGING parked. Pickable now:
+  EMIT-INTO-REROOT-REAP only.
 
-Plan continues: no — inbox empty, spec delta routed to HEAD's last specs commit
-(06e0c2c), and the 226199b..fd0ba24 ship window is fully reconciled (audit +
-sweep). Two `open` entries remain, disjoint — build takes over. NB the
+Plan continues: no — inbox empty, spec cursor at HEAD's last specs commit
+(06e0c2c), and the fd0ba24..5ef998b ship window is fully reconciled (audit +
+sweep). One `open` entry pickable (EMIT-INTO) — build takes over. NB the
 SessionStart reporter shows the `.temper` dogfood gate red (two unfilled
 requirements: friction-capture-procedure, pending-entry-discipline); harness
 territory, a `chore(harness)` fix outside plan's writable paths.

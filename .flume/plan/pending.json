@@ -7,8 +7,7 @@
       "section": "The lock"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCK-SPELLING-REAP"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "In the emit reap path (`reap_or_report_orphan` drift.rs:1312, driven by `emit_program` drift.rs:537, over the orphan sweep at 865-872) add the cliff refusal (0024): a reap wave that would delete every live projection while emitting nothing refuses with the finding stated, never deletes byte-faithfully. The `--into` re-root of an adopted harness is the motivating instance (every prior projection reads ownerless). The explicit teardown flag is threaded here as the spelled opt-out. Sits on the LOCK-SPELLING-corrected join so the refusal fires only on a genuine wave, not a spelling-induced false one."
+          "description": "In the emit reap path (`reap_or_report_orphan` drift.rs:1326, driven by `emit_program` drift.rs:547, over the orphan sweep at 875-882, joining on `normalize_lock_path(&row.source_path)` at 879) add the cliff refusal (0024): a reap wave that would delete every live projection while emitting nothing refuses with the finding stated, never deletes byte-faithfully. The `--into` re-root of an adopted harness is the motivating instance (every prior projection reads ownerless). The explicit teardown flag is threaded here as the spelled opt-out. Sits on the LOCK-SPELLING-corrected join so the refusal fires only on a genuine wave, not a spelling-induced false one."
         },
         {
           "path": "src/main.rs",
@@ -52,7 +51,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "The second cliff refusal (0024): a re-read (`emit_program` drift.rs:537) that produces zero members for a whole layer the committed lock still declares — declaration rows present in the prior lock, derived rows empty — refuses with the finding stated. Compare this emit's derived declaration rows against `read_prior_provenance`/the prior lock's declared collections; a whole declared collection dropping to zero refuses. The disappearance is loud because the lock still declares it, never because prose was mined (invariant 1). Reuses EMIT-INTO's teardown flag as the spelled opt-out for a genuine layer removal."
+          "description": "The second cliff refusal (0024): a re-read (`emit_program` drift.rs:547) that produces zero members for a whole layer the committed lock still declares — declaration rows present in the prior lock, derived rows empty — refuses with the finding stated. Compare this emit's derived declaration rows against `read_prior_provenance`/the prior lock's declared collections; a whole declared collection dropping to zero refuses. The disappearance is loud because the lock still declares it, never because prose was mined (invariant 1). Reuses EMIT-INTO's teardown flag as the spelled opt-out for a genuine layer removal."
         }
       ],
       "retire": []
