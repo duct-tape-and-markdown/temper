@@ -31,6 +31,38 @@ tax.
   this: the four machinery entries are unblocked, and the fork resolves
   through the inbox before any entry can cite a section for the climb.
 
+- `(nested-file-child)` — OPEN, raised routing cc5a9b3 (0025's amended
+  supporting-docs bullet). The ruling ships `supporting-doc` as the child kind
+  of `skill`'s template (`specs/builtins.md`, "The shipped kinds"), but a
+  **file-locus nested child has no spelling** in either layer. Three
+  collisions, each verified on disk at cc5a9b3:
+  (1) the SDK's nesting surface is embedded-only — `EmbeddedMemberValue` /
+  `NestedMemberRow` (`sdk/src/declarations.ts:425`) carry a host's *body*
+  children; no surface exists for a skill to compose a child that owns its
+  own file;
+  (2) `Locus` is binary (`sdk/src/kind.ts:57`) — `{at: root+glob}` or
+  `{embedded}`; neither says "my path is my host's template pattern under my
+  host's unit";
+  (3) if `supporting-doc` self-governs instead, its glob overlaps `skill`'s
+  `*/SKILL.md` under `.claude/skills` — and a document's kind is declared by
+  its position alone (`specs/model/representation.md`, "kind"), so an overlap
+  makes position undecidable.
+  **What the ruling owes:** whether a nested file child's path composes from
+  the host template's pattern (locus grows a third spelling) or the child
+  self-governs (and how the overlap is legal); the composition surface a skill
+  declares its documents through; and the pattern itself as an external fact —
+  code.claude.com/docs/en/skills, "Add supporting files", documents supporting
+  files of any type anywhere in the skill directory while the ruling types only
+  prose documents, so which paths the template claims is a cited fact, never a
+  guess. Also owed: whether `supporting-doc` carries a default contract
+  (`specs/builtins.md`, "Default contracts": each shipped kind does, and an
+  almost-empty one is the honest encoding) — a fields-free, prose-only,
+  channel-less kind has nothing decidable to check.
+  **Nothing waits that need not:** TEMPLATE-FILE-CHILD-FACT is unblocked and
+  ships the template's *declared fact* — child kind plus path pattern — which
+  is what representation.md states whatever resolves the child. The built-in
+  adoption returns as an entry once this fork rules, through the inbox.
+
 - `(mention-gate-containment)` — OPEN. A skill's `paths` removes it from every
   invocation channel until a matching file is read (`specs/builtins.md`, "The
   shipped kinds"; `sdk/src/builtins.ts` `Skill.paths`, verified 2.1.210), so a
@@ -118,10 +150,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   nested reference documents. The 07-16 datum that looked like demand — the
   centercode `supportingDocs()` factory, minting one nested-root kind per
   skill directory — is **routed, not pending**: it was ergonomics standing in
-  for a template fact the spec already declares and the SDK lacks, and
-  SKILL-NESTED-REFERENCE-DOCS is the entry that closes it. When that entry
-  lands, the factory deletes against the built-in and this record's condition
-  is what a future pack argument must clear.
+  for a template fact the spec already declares and the SDK lacks.
+  TEMPLATE-FILE-CHILD-FACT ships that fact; the built-in adoption that lets
+  the factory delete against `skill` + `supporting-doc` waits on
+  `(nested-file-child)` above. When both land, the factory deletes against the
+  built-in and this record's condition is what a future pack argument must
+  clear.
 
 - **Default-contract auto-adoption** (a bare harness gets the built-in kinds
   checked with no assembly declaration) — kept for the zero-config front door;
@@ -187,11 +221,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   undischarged and *unshifted* at 565/611. Re-verified on disk at reconcile
   HEAD cac023a (builtins.ts survivors at 565/611; session_start.rs `+++`
   fixtures still 128/133/146 — neither file touched in the
-  a2f4a1c..cac023a window). Both survivors now ride
-  SKILL-NESTED-REFERENCE-DOCS — `open` and pickable, and it opens builtins.ts
-  for `skill`'s nesting template — discharged only if it reconciles them.
-  The `+++` fixtures still ride the next entry opening session_start.rs; no
-  queued entry does.
+  a2f4a1c..cac023a window). Both survivors ride the next entry opening
+  builtins.ts — cc5a9b3's split routed `skill`'s nesting template to the
+  built-in adoption, which waits on `(nested-file-child)`, so **no queued
+  entry opens builtins.ts** today. The `+++` fixtures still ride the next
+  entry opening session_start.rs; no queued entry does either.
 
 - **Rust engine narration cites lag the SDK clause re-fetch.**
   BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live
@@ -244,7 +278,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   name per concept, `specs/process/spec-system.md`). Doc-comment staleness
   only — the symbols themselves (`Format`, `UnitShape`, `Layout`) are
   correctly named. Rides whichever entry next opens `sdk/src/kind.ts` —
-  SKILL-NESTED-REFERENCE-DOCS is now that entry (`KindFacts` grows the
+  TEMPLATE-FILE-CHILD-FACT is now that entry (`KindFacts` grows the
   nesting-template fact, right at the fact-3 narration), with
   EMBEDDED-FORMAT-TARGET-FACTS behind it — never standalone; the fix renames
   the *fact narration*, never the sanctioned type. Found at residue sweep
@@ -288,7 +322,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   behavior and symbols correct; note a8562b5 wrote prose.ts line 10 *fresh*
   in the retired vocabulary, so the narration self-propagates by imitation
   until scrubbed. Rides whichever entry next opens each file —
-  SKILL-NESTED-REFERENCE-DOCS now opens `sdk/src/kind.ts`; no queued entry
+  TEMPLATE-FILE-CHILD-FACT now opens `sdk/src/kind.ts`; no queued entry
   opens `prose.ts` — never standalone. (Fixture body text inside tests —
   not cites, excluded — is a separate class: `src/kind.rs`'s `15-kinds.md`
   strings, and `src/extract.rs`'s two `"…law 5"` decision-fixture strings,
@@ -348,8 +382,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   opened the file a seventh time — retargeting the `withinHosts` fixtures
   onto `admit`, the routing note predicted it would carry the comment — and
   once more left it as unchanged context: undischarged; it shifted 907 → 937,
-  re-verified on disk at reconcile HEAD cac023a. Now rides
-  EMBEDDED-FORMAT-TARGET-FACTS, the one queued entry opening this file.
+  re-verified on disk at reconcile HEAD cac023a. Rides
+  EMBEDDED-FORMAT-TARGET-FACTS, the one queued entry reconciling this file's
+  comments; TEMPLATE-FILE-CHILD-FACT opens it first (the template-row
+  assertions) and may shift the line without discharging it.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

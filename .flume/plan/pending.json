@@ -1,70 +1,75 @@
 [
   {
-    "tag": "SKILL-NESTED-REFERENCE-DOCS",
-    "summary": "The nesting template for file children: a kind declares its child kind plus the child's path pattern relative to the parent's unit, and `skill` declares its bundled reference documents",
+    "tag": "TEMPLATE-FILE-CHILD-FACT",
+    "summary": "A kind declares its nesting template kind-side — the child kind plus, for file children, the path pattern relative to the parent's unit — and an admission over the host overrides the child kind",
     "per": {
-      "path": "specs/builtins.md",
-      "section": "The shipped kinds"
+      "path": "specs/model/representation.md",
+      "section": "kind"
     },
     "gate": {
       "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
-      "new": [],
+      "new": [
+        {
+          "path": "sdk/src/generated/TemplateRow.ts",
+          "description": "Regenerated seam binding for the new Rust `TemplateRow` (ts-rs output — regenerate with `BLESS_SEAM_BINDINGS=1`, never hand-edit)."
+        }
+      ],
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`KindFacts` (102) gains the nesting-template fact representation.md declares: per inner layer, the child kind plus the path pattern relative to the parent's unit when children are files. Today `KindFacts` carries no template fact at all — a kind's templating is inferred from corpus-side admission (`AdmissionsByHost`), so it reaches only embedded children."
+          "description": "`KindFacts` (102) carries no template fact at all — a kind's templating is inferred corpus-side from admissions, so it reaches only embedded children. Add the declared fact representation.md names: per inner layer, the child kind plus the path pattern relative to the parent's unit when children are files. Riders: the pre-0019 fact-3 \"layout\" narration (4/16/109/111) and the \"posture 3\" cite (257) ride this entry."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`templatesFor` (179) folds a kind's declared file-child templates in beside the admission-derived embedded ones, and the `KindFactRow.templates` column grows from bare child-kind names to kind-plus-path-pattern rows."
-        },
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "`skill` (142) declares its nesting template — its bundled reference documents as nested file members of the same skill, path pattern relative to the skill directory — cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16)."
+          "description": "`templatesFor` (179) derives a host's templates from `AdmissionsByHost` alone. Fold the kind's own declared templates in: the kind-side declaration is the default; an admission over the host overrides its child kind (builtins.md, \"The shipped kinds\"). An embedded host declares no template, so admission stays its sole source — unchanged."
         },
         {
           "path": "sdk/src/generated/KindFactRow.ts",
-          "description": "Regenerated seam binding for the grown `templates` column (ts-rs output — regenerate, never hand-edit)."
+          "description": "Regenerated seam binding for the grown `templates` column (ts-rs output)."
+        },
+        {
+          "path": "sdk/src/generated/index.ts",
+          "description": "Re-exports the new `TemplateRow` binding (generated header — regenerate, never hand-edit)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`KindFactRow::templates` (2204) is `Vec<String>` — bare child-kind names. Grow it onto a new ts-rs-derived `TemplateRow` (the presence-coupled sibling `CollectionAddressRow`, 2228, is the shape precedent), and move the writer (2916) and the `from_table` reader (2943) onto it."
         },
         {
           "path": "src/kind.rs",
-          "description": "`Template` (565) carries only `kind: String`, and its doc comment scopes a template to the child kind a fence info string names — narrower than representation.md. Grow it with the child's path pattern, and widen `CustomKind::templates` (92), `from_table` (635), and `overlay_templates` (675) onto the grown column."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "The built-in lock re-derives once `skill`'s row carries a template — no built-in declares one today, so `skill` is the first — and the frozen byte-compare moves with it."
-        },
-        {
-          "path": "tests/nested_member.rs",
-          "description": "Nesting coverage extends to a file-locus child: nested in the model, owning its own file."
+          "description": "`Template` (565) carries only `kind: String`, and its doc scopes a template to the child kind a fence info string names — narrower than representation.md. Grow it with the child's path pattern, and widen `CustomKind::templates` (92), `from_table` (635) and `overlay_templates` (675) onto the grown column."
         },
         {
           "path": "tests/seam_bindings_current.rs",
-          "description": "The seam-binding freshness check moves with the regenerated `KindFactRow`."
+          "description": "The freshness gate's type list (`fresh_bindings`, 55) gains `TemplateRow`, and the committed `KindFactRow` binding moves with the regenerated export."
         },
         {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "`skill`'s declaration row grows its reference-document template."
+          "path": "tests/nested_member.rs",
+          "description": "Nesting coverage extends to a declared file-child template: the host kind's row carries the child kind plus its path pattern, read back off the lock."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The template-row assertions (207, 445-455, 477) move onto the grown row shape, and gain the kind-side pair: a custom kind's declared file-child template reaches its row with no admission, and an admission over that host overrides the child kind."
         }
       ],
       "retire": []
     },
-    "schemaDelta": "`KindFactRow.templates` grows from `Array<string>` (bare child-kind names, admission-derived) to one row per template carrying the child kind plus, for file children, the path pattern relative to the parent's unit. The built-in lock re-derives — `skill` becomes the first built-in whose row carries a template column.",
+    "schemaDelta": "`KindFactRow.templates` grows from `Array<string>` (bare child-kind names) to one `TemplateRow` per template — child kind plus, for file children, the path pattern relative to the parent's unit. No built-in declares a template, so every built-in row still omits the column and `src/builtin_lock.toml` stays byte-identical.",
     "tests": [
       {
         "path": "tests/nested_member.rs",
-        "asserts": "A skill's bundled reference document is a nested file member of the same skill — nested in the model, owning its own file at the declared path pattern."
+        "asserts": "A host kind declaring a file-child template round-trips it off the lock — child kind plus path pattern — through `from_table`/`overlay_templates`."
       },
       {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "`skill`'s declaration row carries its reference-document template."
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "A kind's declared template reaches its fact row with no admission present; an admission over the same host overrides the template's child kind."
       }
     ],
-    "acceptance": "`skill`'s bundled reference documents are nested file members of the same skill (builtins.md, \"The shipped kinds\"), because a kind can declare a template per inner layer — child kind plus path pattern relative to the parent's unit, when children are files (representation.md, \"kind\"). Nesting-is-model-containment / locus-is-serialization stops being an unbacked claim.",
-    "notes": "0025 bullet 4 — reconciliation toward the spec: builtins.md already declares the documents; 0025's Rejected list kills a parallel skill-package kind. Unblocked at cac023a (COMPOSED-BODY-ADMISSION shipped, 0b2da21). Do NOT route skill's file children through `admit`: that is corpus-side admission over an embedded body, and it now refuses a non-embedded kind; a file-child template is kind-side. scoped at cac023a."
+    "acceptance": "A kind's nesting template is a declared kind-side fact — the child kind, plus the path pattern relative to the parent's unit when children are files (representation.md, \"kind\") — reaching the lock through the grown `templates` column, with a corpus admission overriding the child kind (builtins.md, \"The shipped kinds\"). Templating stops being inferable only from corpus-side admission over an embedded body.",
+    "notes": "Was SKILL-NESTED-REFERENCE-DOCS; cc5a9b3's ruling (0025 amended) split it — the declared fact is derivable now, the built-in adoption is not (fork `(nested-file-child)`). Scope is the declared fact only — nothing resolves a file child's discovery off the pattern yet, exactly as a host's embedded members already resolve independently of its templates. Do NOT route a file child through `admit`: admission is over an embedded body and refuses a non-embedded kind. scoped at cc5a9b3."
   },
   {
     "tag": "EMBEDDED-FORMAT-TARGET-FACTS",
@@ -75,7 +80,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "SKILL-NESTED-REFERENCE-DOCS"
+      "tag": "TEMPLATE-FILE-CHILD-FACT"
     },
     "dependsOnForks": [],
     "files": {
@@ -91,7 +96,7 @@
         },
         {
           "path": "sdk/test/emit.test.ts",
-          "description": "A `render` hook placing a target's address and projection path renders it true by construction."
+          "description": "A `render` hook placing a target's address and projection path renders it true by construction. Rider: the retired-`renderMemberFence` cite at 937 rides this entry — the one queued entry reconciling this file's comments after TEMPLATE-FILE-CHILD-FACT."
         },
         {
           "path": "sdk/test/refusals.test.ts",
@@ -112,7 +117,7 @@
       }
     ],
     "acceptance": "An embedded format selects its edge targets' facts as data — a rendered reference is true by construction, and instance prose never spells its target (representation.md, \"kind\"). The `display: \"src/main.js\"` restatement class becomes unspellable.",
-    "notes": "0025 bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Serialized behind SKILL-NESTED-REFERENCE-DOCS (shared `sdk/src/kind.ts`). Rider: `sdk/test/emit.test.ts:937`'s retired-`renderMemberFence` cite rides this entry — the only queued entry opening that file. scoped at cac023a."
+    "notes": "0025 bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Serialized behind TEMPLATE-FILE-CHILD-FACT (shared `sdk/src/kind.ts` and `sdk/test/emit.test.ts`). scoped at cc5a9b3."
   },
   {
     "tag": "FORMAT-OMITS-EDGE-CLAUSE",
@@ -191,6 +196,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at cac023a: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at cc5a9b3: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers darwin. scoped at b676656."
   }
 ]
