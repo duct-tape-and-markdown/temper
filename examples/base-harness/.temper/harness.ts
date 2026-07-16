@@ -75,6 +75,13 @@ const program = harness({
     hook_sessionStart,
     hook_guard,
   ],
+  // Admission is the corpus's declaration, not the type's: an embedded kind
+  // declares no host, and each host names what its composed body admits.
+  admit: [
+    { host: system, admits: [invariant] },
+    { host: flow, admits: [stepKind] },
+    { host: decision, admits: [alternative] },
+  ],
   expect: [
     {
       kind: system,

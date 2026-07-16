@@ -40,7 +40,7 @@ export const span = (words: string): Text => ({
 export const invariant: KindDefinition<Record<never, never>> = kind(
   {
     name: "invariant",
-    locus: { kind: "embedded", withinHosts: ["system"] },
+    locus: { kind: "embedded" },
     unitShape: "file",
     registration: [{ via: "always" }],
   },
@@ -59,7 +59,7 @@ export const invariantOf = (key: string, title: string, body: string | Text): Em
 export const stepKind: KindDefinition<Record<never, never>> = kind(
   {
     name: "step",
-    locus: { kind: "embedded", withinHosts: ["flow"] },
+    locus: { kind: "embedded" },
     unitShape: "file",
     registration: [{ via: "always" }],
   },
@@ -104,7 +104,7 @@ export const participantsLine = (steps: readonly Step[]): string => {
 export const alternative: KindDefinition<Record<never, never>> = kind(
   {
     name: "alternative",
-    locus: { kind: "embedded", withinHosts: ["decision"] },
+    locus: { kind: "embedded" },
     unitShape: "file",
     registration: [{ via: "always" }],
   },
