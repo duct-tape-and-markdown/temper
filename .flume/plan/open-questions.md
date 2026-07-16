@@ -84,6 +84,48 @@ tax.
   seam by name — so nothing is blocked on this ruling, and the resolution
   returns through the inbox.
 
+- `(edge-field-target-openness)` — OPEN. `EdgeField.to` names exactly one
+  target kind (`sdk/src/kind.ts:43-47`, required), but a citation posture
+  ranges over heterogeneous targets — centercode's `reference` points at a
+  rule and at two per-skill supporting-doc kinds, so no single `to` is true.
+  **Three surfaces disagree today, verified on disk:** the corpus says a field
+  edge is "resolved by identity within the target kind" (`specs/model/contract.md`,
+  "edge") — one kind, bare identity; the engine implements exactly that
+  (`src/graph.rs:792-820` matches bare `features.id` within `edge.to`); and
+  emit does not — `edgeTargetFacts` (`sdk/src/emit.ts:248-274`) resolves the
+  leaf's full `kind:name` address against the program's composed members and
+  never reads `to` at all. So `to` is already load-bearing on one side of the
+  seam and dead on the other.
+  **Why a fork, not an entry:** `to`'s arity is the edge's declared type. The
+  model file owns it, so the ruling is a `specs/model/contract.md` change plus
+  a decision record — the change ceremony (`process/spec-system.md`), never a
+  derived layer's to invent.
+  **The position plan holds, against both spellings the report offered:**
+  neither. Not an optional `to` — that makes an edge's target kind a
+  per-instance property of the address rather than a declared contract, and
+  the kind-level declaration is what the gate holds. Not "wait for
+  `supporting-doc` to unify the doc kinds and split citation postures per
+  target kind" — it does not solve the case: after SKILL-NESTED-REFERENCE-DOCS
+  the set is still {rule, supporting-doc}, still two kinds, and splitting one
+  authored posture per target kind duplicates a surface to dodge a modeling
+  gap. The proposal is **`to` widens to a declared, non-empty SET of target
+  kinds**: resolution stays "by identity within the target kind", the leaf's
+  authored address names WHICH member of the declared set, a one-element set
+  is today's behavior exactly (so the migration is mechanical and the engine's
+  bare-id path survives as its degenerate case), and the edge's type stays
+  declared — invariant 1 holds, and a corpus wanting narrower keeps its
+  each-grain `kind` clause over the selection.
+  **The objection that must be answered first:** a set is still a closed
+  enumeration, so a corpus that genuinely wants an open citation ("cite
+  anything addressable") is unserved and will be back — and if that consumer
+  is the common case, the set is ceremony over an optional `to`. Whether the
+  heterogeneous-but-bounded case is the real one is unmeasured: centercode is
+  n=1.
+  EMBEDDED-EDGE-DEGREE-SEAM builds the standing corpus reading (the address's
+  kind component must equal `to`), which the set proposal strictly generalizes
+  and neither spelling contests — so nothing is blocked on this ruling, and
+  the resolution returns through the inbox.
+
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
