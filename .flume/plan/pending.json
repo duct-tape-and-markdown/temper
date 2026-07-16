@@ -1,52 +1,5 @@
 [
   {
-    "tag": "EMBEDDED-FORMAT-TARGET-FACTS",
-    "summary": "An embedded format places a closed, engine-derived set of facts about its edge targets — name, address, kind, relative projection path — so a rendered reference is true by construction",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "`ResolvedEmbeddedMemberValue` (323) carries kind/key/leaves/collections only — no target facts. Add the closed derived set, keyed by the declaring kind's edge fields (the `EdgeField` interface, 43; `KindFacts.edgeFields`, 146): name, address, kind, and the target's projection path relative to the host member's own projection. Data the template selects, never authored at the instance."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`resolveMemberLeaves` (104) / `renderMemberBlock` (158) derive the target facts from the value's edge-field leaves resolved against the harness's member table — the resolution the mention scope already carries — before the resolved value reaches the `render` hook (160). A dangling target refuses here, the way an unresolvable mention does (pipeline.md, \"Emit\": Refusing)."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "A `render` hook placing a target's address and projection path renders it true by construction. Rider: the retired-`renderMemberFence` cite at 980 rides this entry — the one queued entry reconciling this file's comments."
-        },
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "An edge field whose target the program does not resolve refuses at emit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none — the target facts are derived at emit and consumed by the erased `render` hook; the engine sees only the rendered string it already saw.",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "An embedded kind's `render` hook places an edge target's name/address/kind/relative projection path from the derived facts, never an authored string; the rendered reference matches the resolved target."
-      },
-      {
-        "path": "sdk/test/refusals.test.ts",
-        "asserts": "An edge field whose target the program does not resolve refuses before a byte is written."
-      }
-    ],
-    "acceptance": "An embedded format selects its edge targets' facts as data — a rendered reference is true by construction, and instance prose never spells its target (representation.md, \"kind\"). The `display: \"src/main.js\"` restatement class becomes unspellable.",
-    "notes": "0025 bullet 2. The closed set is exactly the four facts representation.md names — never fabricated, never widened by build: a fifth fact is a spec question, not a convenience. Unblocked at d97a704 (TEMPLATE-FILE-CHILD-FACT shipped); cites re-derived on disk at that HEAD. scoped at cc5a9b3."
-  },
-  {
     "tag": "FORMAT-OMITS-EDGE-CLAUSE",
     "summary": "The format-omits-edge check: a predicate over a member's declared edges asserting its format placed each one, so a format cannot render a contract the prose does not represent",
     "per": {
