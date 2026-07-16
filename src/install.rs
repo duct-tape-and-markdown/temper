@@ -552,11 +552,16 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     )]
 }
 
+/// Resolves the settings document every `install` placement writes under a project root.
+fn settings_path(root: &Path) -> PathBuf {
+    root.join(".claude").join("settings.json")
+}
+
 /// Project only the `SessionStart` hook into `.claude/settings.json` — the no-path's
 /// whole write. No guard, no note, no modeline: those bind
 /// only paths a lock declares emit-owned, and an unrepresented project has no lock.
 fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<InstallEntry>> {
-    let settings_path = root.join(".claude").join("settings.json");
+    let settings_path = settings_path(root);
     let existing = read_optional(&settings_path)?;
     let settings = project_settings(&settings_path, existing.as_deref(), false)?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
@@ -580,7 +585,7 @@ fn evaluate_placements(
     let targets = drift::emit_owned_targets(temper_dir);
 
     let mut entries = Vec::new();
-    let settings_path = root.join(".claude").join("settings.json");
+    let settings_path = settings_path(root);
     let existing = read_optional(&settings_path)?;
     let settings = project_settings(&settings_path, existing.as_deref(), !targets.is_empty())?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
