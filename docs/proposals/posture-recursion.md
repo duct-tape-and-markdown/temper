@@ -40,11 +40,33 @@ in-place rendering. One resolution path, one degree semantics; the
 dark-mention containment clause (filed 07-16) ranges over all edges
 uniformly.
 
-Display is never authored. A `reference` block still projects as
-something actionable, and that rendering derives from the target's kind
-and projection path — functional, not cosmetic, because the rendering is
-the agent's retrieval instruction: a skill renders as its invocable
-name, a supporting doc as its readable path.
+**How a citation renders is the posture type's declaration** —
+human-settled 07-16: the citer knows how it speaks; the engine knows
+what is true about the target. The posture type carries a citation
+template; the engine supplies the closed set of derivable target facts a
+template may place — name, address, kind, and the projection path
+*relative to the citing member's own projection*, which is what makes
+the rendered citation actionable (the agent's retrieval instruction).
+The template crosses the seam as **data** — placeholders, never a
+function — because the engine is the sole compiler of projections and
+Turing-completeness stays quarantined at authoring time. A template can
+select and place target facts but cannot fabricate them: a rendered
+citation is true by construction. Instance prose never spells a target.
+
+**The moat and its bound.** The trust the product sells is that the
+encoded contract is represented by the prose. The declared→rendered
+direction holds by construction (above), with one deterministic check
+worth having: a cite-bearing type whose template never places its edge
+renders a contract the prose doesn't represent. The rendered→declared
+direction — could authored prose smuggle a pointer no edge declares? —
+is **deliberately not machinery** (human-ruled 07-16: the citation
+regime is not expected to extract cited paths from prose). Extraction
+would be heuristic guessing inside a deterministic gate, and the corpus
+is full of legitimate untracked path-text (currency `file:line` anchors,
+code examples in reference stock). That direction is held by the block
+grain itself — sentence-scale prose gives a smuggled pointer nowhere to
+hide from a human — and by the intake discipline, which is where
+judgment lives on purpose.
 
 ## Element B — a posture is a house type extending member
 
@@ -125,6 +147,7 @@ export const reference = kind<{ prose: Prose; cite: Member }>({
   name: "reference",
   locus: "embeddable",
   edgeFields: [{ field: "cite" }], // target kind open; resolution corpus-wide
+  render: "{prose}: {cite.path}",  // template-as-data over derived target facts
 });
 ```
 
@@ -213,8 +236,14 @@ can range over — and prose explosion dies by clause, not by review.
   copies of a truth the product itself defines.
 - **Authored display (status quo).** The cosmetic half is noise to a
   robot reader; the functional half (the retrieval instruction) is fully
-  derivable from the target's kind and projection path; every authored
-  display string is a drift surface.
+  derivable from the target's facts through the citing type's template;
+  every authored display string is a drift surface.
+- **A smuggled-citation lint (prose extraction; this proposal's fourth
+  draft briefly held it).** Rejected 07-16: extracting cited paths from
+  authored prose is heuristic guessing inside a deterministic gate, and
+  legitimate untracked path-text is everywhere (currency `file:line`
+  anchors, code examples). Collides with loud-or-nothing; the
+  rendered→declared direction stays human, held by the block grain.
 
 ## Explicitly deferred — the behavioral horizon
 
