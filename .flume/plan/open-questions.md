@@ -90,8 +90,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  8978596: both dead trees still spelled (121/140), in a file the window never
-  touched.
+  eb2776d: both dead trees still spelled (121/140), in a file the window never
+  touched and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
   `packages/{rule,memory}.anthropic/PACKAGE.md` files; `rg` over the file finds
@@ -116,7 +116,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   route-resolving deferred mentions) yet left every strand doc comment as
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. Re-verified on disk at reconcile HEAD 8978596.
+  495/633/770/1172. Re-verified on disk at reconcile HEAD eb2776d — all five
+  unmoved, and no queued entry edits `read.rs`, so it still has no carrier.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,
@@ -132,8 +133,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. Lines
-  re-verified on disk at reconcile HEAD 8978596 (unmoved; `prose.ts` untouched
-  in this window). The `sdk/src/kind.ts:257` "posture 3" half of this record is
+  re-verified on disk at reconcile HEAD eb2776d (unmoved; `prose.ts` untouched
+  in this window and edited by no queued entry — still no carrier). The
+  `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
   and the cite is gone from the file. (Fixture body text inside tests is a
@@ -148,15 +150,22 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45)
-  at reconcile HEAD 8978596.
+  at reconcile HEAD eb2776d — no queued entry edits `Cargo.toml`, so it still
+  has no carrier.
 
 - **4144b20's retirement of `compose::effective` left one surviving one-line
   comment straggler.** `src/compose.rs:233` ("Unlike `effective`, …") cites
   the retired symbol by name inside `default_contract_from_rows`'s test doc
   comment. Behavior and symbols correct; doc-comment staleness only. It rides
-  whichever entry next opens `compose.rs`; **no queued entry does, so it has
-  no carrier and waits** — never standalone. Found at residue sweep HEAD
-  d029d4b; re-verified on disk, unmoved, at reconcile HEAD 8978596.
+  whichever entry next opens `compose.rs` — never standalone. **It now has a
+  carrier, and the carrier names it: EDGE-TARGET-SET** widens `Edge.to` at 52
+  in this same file, and its `files[].description` carries the straggler
+  explicitly, per the precedent below — a carrier that merely opens the file
+  discharges nothing. Found at residue sweep HEAD d029d4b; re-verified on
+  disk, unmoved, at reconcile HEAD eb2776d, where the retirement re-checked
+  clean: no `fn effective` survives in `compose.rs`, and the `effective
+  contract` hits in `main.rs`/`drift.rs`/`install.rs` are the ordinary English
+  word, never the retired symbol.
   **The `src/contract.rs` half is discharged** — 28ad61f rewrote
   `Predicate::target`'s doc (now `documented_field`, contract.rs:494) and the
   retired severity-flip layer's "for layering purposes" vocabulary is gone

@@ -7,8 +7,7 @@
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SEAM-EXPORTS-RETRACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -40,7 +39,7 @@
         },
         {
           "path": "sdk/src/index.ts",
-          "description": "The factory joins the root export block (26-51 — alphabetical, `globValid` at 35; `Predicate` itself already type-exports at 25, so the closure walk in `sdk/test/root_exports.test.ts` stays green with no edit). This one file is the whole reason this entry serializes behind SEAM-EXPORTS-RETRACT rather than running beside it: that entry retracts ten names from this same export face."
+          "description": "The factory joins the contract export block (26-51 — alphabetical, `globValid` at 35; `Predicate` itself already type-exports at 25, so the closure walk in `sdk/test/root_exports.test.ts` stays green with no edit). Re-verified on disk at eb2776d: SEAM-EXPORTS-RETRACT (e5de411) cut the ten seam names from lines 80+ of this same file and left the contract block untouched, so every line cite above holds and this entry no longer serializes behind it."
         },
         {
           "path": "sdk/src/declarations.ts",
@@ -65,7 +64,7 @@
       }
     ],
     "acceptance": "The vocabulary carries `mention-reachable`: a clause naming it loads and judges, an unknown predicate still rejects at load, both diagnoses fire, and literal containment is the declared leniency (contract.md, \"clause\": the predicate vocabulary is closed, the enum in code is the authority, and adding one is a deliberate language change). No default contract adopts it yet — that is MENTION-REACHABLE-RULE-CLAUSE. `cargo test` green; `pnpm --dir sdk test` green.",
-    "notes": "Derived from 0028 (14a803b). Collision surfaced, NOT encoded — the full statement rides the src/graph.rs description: 0028's \"registers by `paths-match`\" selects rules on disk, never skills, so read literally the ruling's own rule-to-skill case never fires. The trigger is the target's gate field, per 0028's own design sentence. scoped at d19124a."
+    "notes": "Derived from 0028 (14a803b). Collision surfaced, NOT encoded — the full statement rides the src/graph.rs description: 0028's \"registers by `paths-match`\" selects rules on disk, never skills, so read literally the ruling's own rule-to-skill case never fires. The trigger is the target's gate field, per 0028's own design sentence. scoped at d19124a; unblocked at eb2776d — SEAM-EXPORTS-RETRACT shipped, the ten names verified gone from index.ts."
   },
   {
     "tag": "MENTION-REACHABLE-RULE-CLAUSE",
@@ -144,7 +143,7 @@
         },
         {
           "path": "src/compose.rs",
-          "description": "`Edge.to` (52) widens to the set. Its doc (49-51) — 'The artifact kind the reference resolves to — the edge *target*. The target kind must be one `temper` models' — is singular twice over and goes false with the field; it moves with it."
+          "description": "`Edge.to` (52) widens to the set. Its doc (49-51) — 'The artifact kind the reference resolves to — the edge *target*. The target kind must be one `temper` models' — is singular twice over and goes false with the field; it moves with it. **Carry the accepted-debt rider this entry is now the carrier for** (open-questions, 4144b20's retirement): the test doc comment at 233 ('Unlike `effective`, a custom kind has no embedded default to override…') cites `compose::effective`, a symbol 4144b20 retired — verified absent from this file, and the surviving `effective contract` hits elsewhere are the ordinary English word, not the symbol. Re-word it off the retired name; the rider discharges only when an entry names it, never when the file is merely opened."
         },
         {
           "path": "src/main.rs",
@@ -160,7 +159,7 @@
         },
         {
           "path": "sdk/test/emit.test.ts",
-          "description": "Two fixture sites, same mechanical migration: `edgeFields: [{ field: \"source\", to: \"rule\" }]` at 1085 and 1173 re-spell as the one-element set. Note this file is also SEAM-EXPORTS-RETRACT's and MENTION-REACHABLE-PREDICATE's — the reason this entry is `blockedBy` rather than `open` beside them."
+          "description": "Two fixture sites, same mechanical migration: `edgeFields: [{ field: \"source\", to: \"rule\" }]` at **1087 and 1175** re-spell as the one-element set. Re-verified on disk at eb2776d — SEAM-EXPORTS-RETRACT (e5de411) retargeted this file's `compileDeclarations` import to `../src/declarations.js` and shifted both sites +2 from the 1085/1173 they were scoped at."
         },
         {
           "path": "sdk/test/refusals.test.ts",
@@ -181,7 +180,7 @@
       }
     ],
     "acceptance": "A field edge declares its target set: a one-element `to` behaves exactly as today (a bare name resolves within its one kind), a multi-element `to` resolves only kind-qualified addresses and never infers from the member population, and a committed lock's legacy bare-string `to` reads as the singleton unpatched (contract.md, \"edge\": the kind declares the field's target as a non-empty set of kinds, the authored address naming which member of the declared set). `cargo test` green; `pnpm --dir sdk test` green.",
-    "notes": "Derived from 0029 (f6fe385). Built-in lock untouched, verified: `fact = \"edge\"` count is 0 in src/builtin_lock.toml — no shipped kind declares an edge field — so the frozen lock does not re-derive. Legacy-read evidence on disk: examples/base-harness/.temper/lock.toml:317-326 carries two bare-string `to` rows. That example's kinds.ts (135, 182) needs the same re-spelling, but examples/ is human territory outside build's fence — a `docs(example):` commit, not this entry. scoped at 3e02d96."
+    "notes": "Derived from 0029 (f6fe385). Built-in lock untouched, verified: `fact = \"edge\"` count is 0 in src/builtin_lock.toml — no shipped kind declares an edge field — so the frozen lock does not re-derive. Legacy-read evidence: examples/base-harness/.temper/lock.toml:317-326 carries two bare-string `to` rows; that example's own kinds.ts (135, 182) needs the same re-spelling but is human territory outside build's fence — a `docs(example):` commit. scoped at 3e02d96; cites re-tested at eb2776d."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
