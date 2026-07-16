@@ -409,6 +409,95 @@ fn an_unsupported_seam_version_is_a_clear_refusal() {
     assert!(format!("{err}").contains("999"), "{err}");
 }
 
+/// A flat `file` kind fact over `root`/`glob` named `name` — unit shape `file`, the
+/// shape whose projection path splices the member name into the glob's lone `*`.
+fn flat_file_kind_facts(name: &str, root: &str, glob: &str) -> KindFactRow {
+    KindFactRow {
+        unit_shape: Some("file".to_string()),
+        ..common::kind_facts(name, root, glob)
+    }
+}
+
+/// A bare `PayloadMember` of `kind` named `name` — no fields, a one-line body.
+fn plain_member(kind: &str, name: &str) -> PayloadMember {
+    PayloadMember {
+        kind: kind.to_string(),
+        name: name.to_string(),
+        fields: Vec::new(),
+        body: "# Body\n".to_string(),
+        source_path: None,
+    }
+}
+
+#[test]
+fn a_flat_file_kind_with_a_multi_segment_glob_refuses_naming_the_depth_shapes() {
+    let (_harness, into) = workspace("flat-glob-multi-segment");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![flat_file_kind_facts("spec", ".claude", "docs/*.md")],
+            ..Default::default()
+        },
+        members: vec![plain_member("spec", "intent")],
+    };
+
+    // A multi-segment glob would splice the name into the `*` and leave a literal
+    // `docs/` segment: no one path to project onto, so emit refuses before writing.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    let msg = format!("{err}");
+    assert!(msg.contains("spec"), "names the offending kind: {msg}");
+    assert!(msg.contains("skill"), "names the skill depth shape: {msg}");
+    assert!(
+        msg.contains("nesting kind"),
+        "names the nesting-kind shape: {msg}"
+    );
+}
+
+#[test]
+fn a_flat_file_kind_with_a_multi_star_glob_refuses() {
+    let (_harness, into) = workspace("flat-glob-multi-star");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![flat_file_kind_facts("spec", ".claude", "*-*.md")],
+            ..Default::default()
+        },
+        members: vec![plain_member("spec", "intent")],
+    };
+
+    // Two `*`s: splicing the first leaves a literal `*` in the path.
+    let err = drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(format!("{err}").contains("spec"), "{err}");
+}
+
+#[test]
+fn a_single_star_and_any_depth_glob_project_to_the_expected_paths() {
+    let (harness, into) = workspace("flat-glob-project-unchanged");
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                flat_file_kind_facts("spec", "specs", "*.md"),
+                flat_file_kind_facts("memory", ".", "**/CLAUDE.md"),
+            ],
+            ..Default::default()
+        },
+        members: vec![
+            plain_member("spec", "intent"),
+            plain_member("memory", "root"),
+        ],
+    };
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "intent"), EmitOutcome::Emitted);
+    assert_eq!(outcome(&report, "root"), EmitOutcome::Emitted);
+
+    // The single-`*` glob splices the name into its one segment; the any-depth `**`
+    // glob lands the root `<name>.md` — both unchanged by the depth refusal.
+    assert!(harness.join("specs").join("intent.md").is_file());
+    assert!(harness.join("root.md").is_file());
+}
+
 // ---------------------------------------------------------------------------
 // Represented manifests — a container member's residue plus its registration
 // members are regenerated whole through the canonical write face, never
