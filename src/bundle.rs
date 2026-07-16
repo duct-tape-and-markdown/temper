@@ -86,7 +86,7 @@ opinion about what a good harness is — that lives in the SDK module
   first `emit`, and places the session-start hook, guard hook, schema modeline, and
   managed-by notes; no wires the session-start hook alone. Re-running converges: an
   unchanged harness is a no-op.
-- `temper check .temper` — the gate. It validates two greens: every built-in
+- `temper check .` — the gate, run at the harness root. It validates two greens: every built-in
   contract is itself admissible, and every artifact conforms to the contract for its
   kind. It exits non-zero on a `required`-severity violation; add `--deny-advisories`
   to also fail on advisory ones.

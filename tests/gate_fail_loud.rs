@@ -1,7 +1,7 @@
-//! Fail-loud on a mis-rooted or malformed harness. `temper check <root>` resolves
-//! the harness root's own `<root>/.temper` lock and walks members off `<root>`, so an
-//! adopted assembly can no longer resolve to a lockless workspace and exit a silent
-//! green — the half-gate the arg-resolution fix closed. What remains fail-loud here:
+//! Fail-loud on a mis-rooted or malformed harness. Every path argument naming one
+//! harness — its root or its `.temper` workspace — resolves whole: the lock is read
+//! from the same harness the corpus is walked from, so neither spelling can half-gate
+//! into a silent green or a false unfilled requirement. What remains fail-loud here:
 //! a required requirement with no filler still fails via the coverage tier, and a
 //! malformed member aborts loud naming the file. This drives the real binary so the
 //! resolution is exercised exactly as a session hits it, not just the pure predicate.
@@ -62,6 +62,38 @@ fn an_adopted_root_resolves_its_own_lock_rather_than_half_gating() {
     assert!(
         !success,
         "a declared-but-unfilled required requirement must exit non-zero, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_workspace_dir_argument_resolves_the_enclosing_roots_corpus() {
+    // The mirror half: the workspace directory itself as the path argument. `.temper`
+    // carries the lock at its top, so it resolves whole — gated against the harness root
+    // enclosing it, the corpus its declarations were written about. Rooting it at itself
+    // would read the lock from `.temper` while walking `.temper` for members that live
+    // beside it, so the filled requirement below would false-fire `requirement.unfilled`
+    // and the member count would collapse to whatever prose sits inside the workspace.
+    let root = common::tmpdir("workspace-dir-arg");
+    common::write_skill(&root, "coordinate", CLEAN_SKILL);
+    common::write_requirements(&root, vec![common::requirement("docs", true, None)]);
+    common::author_satisfies(&root, "skills", "coordinate", &["docs"]);
+
+    let (from_root, root_ok) = check_in(&root, &["."]);
+    let (from_workspace, workspace_ok) = check_in(&root, &[".temper"]);
+
+    assert!(
+        common::findings_for(&from_workspace, "requirement.unfilled").is_empty(),
+        "the skill fills `docs`, so no unfilled requirement may fire, got: {from_workspace:#?}"
+    );
+    // Every spelling of one harness earns one verdict: same members discovered, same
+    // requirements judged.
+    assert_eq!(
+        from_workspace, from_root,
+        "`check .temper` must report exactly what `check .` reports"
+    );
+    assert_eq!(
+        workspace_ok, root_ok,
+        "`check .temper` must reach the same exit verdict as `check .`"
     );
 }
 

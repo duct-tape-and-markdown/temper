@@ -40,10 +40,13 @@ use temper::schema;
 /// path `schema` / `explain` / `bundle` read the committed lock from.
 const DEFAULT_WORKSPACE: &str = "./.temper";
 
-/// The surface workspace directory beside a harness root. [`harness_diagnostics`]
-/// resolves `<root>/.temper` and gates it on its committed lock when present (the
-/// adopted case), else gates the raw harness root directly.
+/// The surface workspace directory beside a harness root — the name
+/// [`harness_diagnostics`] resolves a path argument against.
 const TEMPER_DIR: &str = ".temper";
+
+/// The committed lock inside a workspace. Its presence directly under a path is what
+/// names that path a workspace rather than a harness root ([`harness_diagnostics`]).
+const LOCK_FILE: &str = "lock.toml";
 
 /// Resolve a built-in kind's bare row label into its default [`Contract`], failing
 /// loud if the build embeds no default contract of that name — a
@@ -88,16 +91,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Lint a harness against the active contract. The path argument is a **harness
-    /// root** for every reporter: `<root>/.temper` gates on its committed lock when
-    /// present, else the raw root gates off disk — so a terminal `check <root>`
-    /// resolves the lock exactly where the session-start reporter does, never a
-    /// silent half-gate over a lockless workspace. Session-start is a **reporter** of
+    /// Lint a harness against the active contract. The path argument resolves the same
+    /// way for every reporter — a harness root (gating its `.temper/` workspace when
+    /// present, else the raw root off disk), or a workspace directory carrying
+    /// `lock.toml`, gated against the harness root enclosing it. Every spelling of one
+    /// harness resolves to the same verdict, and none reads the lock from a different
+    /// place than the session-start reporter does. Session-start is a **reporter** of
     /// this gate, never a verb: it is advisory (always exits zero), so a Claude Code
     /// `SessionStart` hook runs `temper check . --reporter session-start`.
     Check {
-        /// The harness root to lint (defaults to the cwd). Its `.temper/` surface
-        /// gates on the committed lock when present, else the raw root gates off disk.
+        /// The harness root to lint (defaults to the cwd) — or the `.temper/` workspace
+        /// inside one, which gates against the harness root enclosing it.
         root: Option<PathBuf>,
         /// An explicit spelling of the same harness root, kept as a usage-conflict
         /// guard: passing it together with the positional root is a usage error, not a
@@ -242,12 +246,11 @@ fn main() -> miette::Result<ExitCode> {
             reporter,
         } => {
             // The one resolution for every reporter: the path argument (the positional
-            // root or its `--harness` synonym) is a harness root, and
-            // `harness_diagnostics` gates `<root>/.temper` on its committed lock when
-            // present, else the raw root. A terminal `check <root>` can never read the
-            // lock from a different place than the session-start reporter does — the
-            // silent half-gate an explicit `.` used to hit, resolving a lockless
-            // workspace while built-ins still matched off disk and the run exited green.
+            // root or its `--harness` synonym) goes to `harness_diagnostics`, which
+            // resolves a harness root and a workspace directory alike — and resolves
+            // either whole. A terminal `check <path>` can never read the lock from a
+            // different place than it discovers the corpus from, nor from a different
+            // place than the session-start reporter does.
             let harness_path = harness.or(root).unwrap_or_else(|| PathBuf::from("."));
             let diagnostics = harness_diagnostics(&harness_path)?;
 
@@ -349,7 +352,7 @@ fn main() -> miette::Result<ExitCode> {
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(TEMPER_DIR);
             let mode = mode_from_lock(&workspace_dir)?;
-            let lock_present = workspace_dir.join("lock.toml").is_file();
+            let lock_present = workspace_dir.join(LOCK_FILE).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&workspace_dir)?;
             let mut payload = String::new();
@@ -629,23 +632,48 @@ fn ask_represent() -> miette::Result<install::Represent> {
     })
 }
 
-/// The one-shot gate over a harness root — shared by `check --harness` and the
-/// session-start reporter: surface-present ⇒ gate the authored `.temper/` itself, so
-/// its lock's declared requirement/satisfies/clause rows are read; surfaceless ⇒ gate
-/// the harness root directly — the discovery walk finds its members straight off
-/// disk, against the kind's embedded `governs` (the built-in lock), with an empty
-/// declaration set (never adopted, nothing to read).
+/// The one-shot gate over a path argument — shared by `check` and the session-start
+/// reporter. The path resolves three ways, and each resolves *whole*: a workspace and
+/// the harness root its corpus is discovered from always name the same harness.
 ///
-/// The surface-present branch never re-imports: a fresh import discards recognition (the
+/// - `<path>/.temper` is a dir ⇒ `<path>` is an adopted harness root: gate its authored
+///   workspace, so the lock's declared requirement/satisfies/clause rows are read.
+/// - `<path>/lock.toml` is a file ⇒ `<path>` *is* the workspace, addressed directly:
+///   gate it against the enclosing harness root, its parent. Rooting such a path at
+///   itself instead would read the lock from `<path>` while walking `<path>` for a
+///   corpus that lives beside it — declared requirements arriving with nothing behind
+///   them, so every one of them false-fires `requirement.unfilled`.
+/// - Otherwise ⇒ an unrepresented raw root: the discovery walk finds its members off
+///   disk against the kind's embedded `governs` (the built-in lock), with an empty
+///   declaration set (never adopted, nothing to read).
+///
+/// # Errors
+///
+/// A workspace at the filesystem root has no enclosing harness root to discover a
+/// corpus from — unresolvable, so it fails loud rather than root somewhere else.
+///
+/// The adopted branch never re-imports: a fresh import discards recognition (the
 /// authored `satisfies` links), so every filled requirement would read unfilled — the
-/// false positive on clean input the surface-present clause forbids. It also supplies
-/// `gate` with the one place a harness's declared requirement/satisfies/clause rows
-/// live: reading `harness_path` alone finds no lock at all, so a harness gated only off
-/// its raw root would evaluate against an empty declaration set.
+/// false positive on clean input the surface-present clause forbids.
 fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
     let authored = harness_path.join(TEMPER_DIR);
     if authored.is_dir() {
         gate(&authored, harness_path)
+    } else if harness_path.join(LOCK_FILE).is_file() {
+        let enclosing = harness_path.parent().ok_or_else(|| {
+            miette::miette!(
+                "workspace `{}` has no enclosing harness root to discover a corpus from",
+                harness_path.display()
+            )
+        })?;
+        // A bare relative workspace (`check .temper`) parents to the empty path, which
+        // names the CWD it was resolved against.
+        let enclosing = if enclosing.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            enclosing
+        };
+        gate(harness_path, enclosing)
     } else {
         gate(harness_path, harness_path)
     }
