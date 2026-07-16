@@ -79,6 +79,10 @@ hard.
   Same-day engine arc: check-workspace-arg false-red + install converge
   gap found at session open, fixed, field-verified; managed-by notes
   converged in both harnesses; three one-home consolidations swept.
+- Posture-recursion design session OWED as its own sitting — the fork's
+  riders are the agenda, one ruling per round. The 07-16 conversational
+  Q&A on it was STRUCK by John (reset): no rulings came out of that
+  exchange; do not read that transcript as decisions.
 - On John: the `(posture-recursion)` sequencing ruling (blocks that fork);
   carrying the behavioral-horizon note into `docs/horizons.md` if wanted;
   Apple Developer notarizing (decide at release); USPTO name
