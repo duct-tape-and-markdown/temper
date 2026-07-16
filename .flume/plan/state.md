@@ -3,57 +3,49 @@
 - Spec derived through: abe5d5d
 - Audited through: 8978596
 - Residue swept through: 8978596
-- This tick: RECONCILED cc8d823..8978596 — audit plus sweep in one tick, the
-  window being two build commits wide. **Audit:** both shipped entries verify
-  on disk, not merely in the log. LOCK-LEGACY-TEMPLATES-READ (08484b3):
-  `templates_from_table` (src/drift.rs:3146) now lifts a bare string to
-  `TemplateRow { kind, path: None }` and falls through to the canonical inline
-  table, with an element outside both spellings still refusing
-  (`RowError::wrong("templates", "array of tables or strings")`) — the 0024
-  read-robustly shape exactly: the read normalizes, the committed file is
-  untouched, the next emit rewrites the column whole. Both new cases in
-  tests/lock_declaration_rows.rs (867-995) pin it, including the
-  never-patched-in-place assertion. FIXTURE-WIRING-FOURTH-COPY (9948c03): the
-  fourth copy is gone — tests/nested_member.rs:262 is now a single
-  `common::wire_sdk_harness("nested-file-locus", NESTED_FILE_PROGRAM)` call.
-  Both suites green (13 passed, 0 failed). Both entries were already absent
-  from pending, removed by the ship commit 8978596 — a verification, not a
-  drop. Both parks re-tested on disk at this HEAD and hold verbatim: no
-  version tag (only the four era tags), crate 0.1.0 vs npm 0.0.7,
-  release.yml:7-9 still deferring darwin + channel 3; `MAX_IMPORT_HOPS` still
-  reads 5 at src/graph.rs:62 under a cite claiming five, and nothing ruled the
-  hop semantics.
-  **Sweep — no finding.** The consolidation is now closed rather than merely
-  advanced: `rg` over tests/ finds every real-SDK fixture site routed through
-  `common::wire_sdk_harness` (projection_path_seam.rs:176,
-  builtin_lock_frozen.rs:80, nested_member.rs:262, emit.rs via its
-  four-caller binding at 1215-1216 plus three direct calls) — no fifth copy.
-  install.rs's nine `vendor_sdk` calls re-verified as the justified exception
-  on disk, not on the prior tick's word: it never authors a fixture program,
-  it scaffolds `harness.ts` through `install::run` and rewrites it after
-  (732/879) — a different job. The new read path is one home: 3104 is the
-  sole caller of `templates_from_table`, and no sibling column reads a second
-  way. `respell_templates_column` (lock_declaration_rows.rs:893) is unique —
-  the other `.lines()` helpers across tests/ filter `::`-prefixed finding
-  lines, a different job. The corpus's own scale clause (pipeline.md, "The
-  lock": a reap wave deleting every live projection, or a re-read dropping a
-  whole declared layer, refuses) is built and needs no entry — `--teardown`
-  at main.rs:150, both refusals at drift.rs:72-93, enforced at 1044-1066.
-  Every named rider re-verified and unmoved, each still carrier-less — the
-  window touched three files and none is a rider's home: session_start.rs
-  121/140, read.rs 270/495/633/770/1172, prose.ts (law 5 at 6/141/258, law 8
-  at 11, posture at 126/156/161/188/238), Cargo.toml 42-45, compose.rs:233 —
-  stamps advanced to 8978596.
-  Closing checklist: no open entry, so the disjointness gate is vacuous; the
-  two parks share no file with each other. No fork resolved or opened — all
-  six records re-read and their cites re-stamped, none contradicted by this
-  window. Field lengths validated. `Spec derived through:` copied forward
-  verbatim — this tick derived no spec; the delta is empty.
-- Queue: 0 pickable; 2 parked on human acts (IMPORT-HOP-CAP-CITE: a hop-depth
-  probe. PACKAGING-CHANNELS-REMAINDER: Apple notarizing + the v0.1 tag). No
-  gate is stale — both were tested this tick.
+- This tick: INBOX — routed the one note, the `(seam-rows-public-face)`
+  ruling, into **SEAM-EXPORTS-RETRACT** (`open`, `per` pipeline.md/"Emit" —
+  the payload is internal, not a designed public interchange), and deleted
+  the resolved fork record. The ruling's premise was re-verified at HEAD
+  rather than taken from the note (observed at 2b6bd57; the window since is
+  specs/ + plan/chore only, no `sdk/` commit): the ten root exports still
+  read at sdk/src/index.ts:84-94 + 97, and measured consumers outside
+  `sdk/test/` are zero — `.temper/harness.ts` imports `emit`/`harness`,
+  `.temper/`'s other modules import the `claude-code` subpath, both READMEs
+  and every `docs/proposals/` module spell only root nouns, and no Rust
+  fixture names a retracted symbol. **The re-verify moved the scope twice.**
+  (1) The note called the retarget one line; it is three — the value import
+  `compileDeclarations` off the root at contract.test.ts:12 and
+  emit.test.ts:22 sits beside the type import the note named at
+  contract.test.ts:25, and a source-only grep never sees them. (2)
+  root_exports.test.ts's generated exclusion splits in two: its `continue`
+  at 88 goes dead (no root export is declared under `generated/` after the
+  retraction) while `isAuthoringNoun`'s filter at 77 stays load-bearing,
+  because `EmitResult` still names `Declarations`/`PayloadMember`
+  (emit.ts:653/655) — the accepted residue the ruling names, and the reason
+  the closure walk stays green through the retraction rather than breaking.
+  Entry scoped to the verified gap, with emit.test.ts's existing
+  removed-exports walk (623-628) named as the one home for the value-half
+  assertion — no second test beside it. The eight type-only names erase at
+  runtime, so strict `tsc` plus the `.d.ts` walk hold them, not that test.
+  Closing checklist: queue disjoint — SEAM-EXPORTS-RETRACT is the only
+  `open` entry and shares no file with either park (`sdk/**` vs `src/` +
+  `tests/graph.rs` vs `.github/`). Both park gates re-tested on disk at this
+  HEAD and hold verbatim: `git tag -l` carries the four era tags and no
+  version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still states the
+  darwin + channel-3 deferral; `MAX_IMPORT_HOPS` still reads 5 at
+  src/graph.rs:62 and nothing ruled the hop semantics. One fork resolved and
+  deleted; the remaining four re-read, none contradicted by this window. All
+  three cursors copied forward verbatim — this tick derived no spec and
+  reconciled no code window; 8978596..HEAD touched no `src/`, `tests/`, or
+  `sdk/` file.
+- Queue: 1 pickable (SEAM-EXPORTS-RETRACT); 2 parked on human acts
+  (IMPORT-HOP-CAP-CITE: a hop-depth probe. PACKAGING-CHANNELS-REMAINDER:
+  Apple notarizing + the v0.1 tag). No gate is stale — both were tested this
+  tick.
 
-Plan continues: no — inbox drained and empty, no refactor captures, spec delta
-empty at abe5d5d, and cc8d823..8978596 is now reconciled on both motions with
-both cursors advanced. Nothing is pickable: the queue's remaining two entries
-are parked on acts only John can take. The loop hibernates.
+Plan continues: yes — the spec delta is live below this job: three `specs/`
+commits past abe5d5d (14a803b, f6fe385, a571973 — decisions 0028
+mention-reachable and 0029 an-edge-declares-its-target-set, plus their
+contract.md edits), un-routed. Next tick derives it; each Decision's own
+Consequences section is that tick's checklist.

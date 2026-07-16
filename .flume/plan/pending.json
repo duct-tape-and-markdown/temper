@@ -1,5 +1,52 @@
 [
   {
+    "tag": "SEAM-EXPORTS-RETRACT",
+    "summary": "Retract the ten seam root exports to nothing — the payload is internal by ruling, and the root face must stop naming its rows, its compiler, and its version",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Retract all ten. Off `./declarations.js` (84-94): the type block `AssemblyFactRow`/`ClauseRow`/`Declarations`/`EdgePlacements`/`KindFactRow`/`RequirementRow`/`SatisfiesRow`, and the value line `SEAM_VERSION`/`compileDeclarations`. Off `./emit.js` (97): `PayloadMember` out of the `export type` list — `EmitResult`/`RegistrationFact`/`ResolveOptions`/`SettingsResidue` and `emit` stay. Delete the 'Declaration rows — the erased program the seam carries' section comment (83) with its block; no subpath home, no re-export elsewhere. The module header (1-14) narrates `emit` compiling to the JSON pipe and stays true — leave it unless the retraction makes a sentence false. `declarations.ts` keeps every symbol exported module-side (its own 42-48 block, `EdgePlacements` 485, `compileDeclarations` 719, `SEAM_VERSION` 743): this retracts the ROOT face only, not the internal one."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "Two sites, not one — the inbox note named only the second. The value import off `../src/index.js` carries `compileDeclarations` (12), and the type import (25) carries `ClauseRow`/`RequirementRow` alongside `Predicate`/`Requirement`, which are root nouns and stay. Retarget the retracted names to `../src/declarations.js`, keeping `clause`/`count`/`harness`/… and `Predicate`/`Requirement` on the root — the SDK's own suite reaching past the public face is the honest spelling of a spec-internal seam, not a workaround."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Third retarget site: `compileDeclarations` in the root value import (22, off `../src/index.js` at 35) moves to `../src/declarations.js`; the ~20 bare call sites are unaffected. Then extend the existing removed-exports test (623-628) — it already walks `import * as sdk` (36) for names the root must not carry (`decision`/`law`/`bound`/`genre`/`genreValue`) — with the retraction's two value names, so the value half is pinned where a re-export cannot silently restore it. Extend that test; never add a second one beside it. The eight type-only names erase at runtime and are unreachable from that walk — `root_exports.test.ts`'s `.d.ts` walk plus strict `tsc` is what holds them."
+        },
+        {
+          "path": "sdk/test/root_exports.test.ts",
+          "description": "The closure walk's generated-family exclusion, re-pointed at the ruled boundary. Its header (10-14) justifies the exclusion by the OPEN `(seam-rows-public-face)` fork and names `Declarations`/`PayloadMember` as root-exported aliases — both claims retire with this entry: the fork is ruled, and neither name is root-exported after it. Re-word to the ruling: the row family is internal, versioned in lockstep, and reaches the face only by inference through `EmitResult` — nameability was never the boundary, the never-made stability promise is. The `continue` skipping generated-declared exports (88) goes dead the same moment — no root export is declared under `generated/` once `Declarations`/`PayloadMember` retract; delete it rather than leave a guard for a case that cannot arise. `isAuthoringNoun`'s own `generated/` filter (77) stays live and load-bearing: `EmitResult` still NAMES both types (emit.ts:653/655), and that filter is what keeps the walk from calling them holes."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "the root namespace carries neither `compileDeclarations` nor `SEAM_VERSION` — the value half of the retraction pinned against a silent re-export"
+      },
+      {
+        "path": "sdk/test/root_exports.test.ts",
+        "asserts": "the closure still holds over the retracted face: every type a root-exported declaration names is root-exported, the generated row family excluded by declaration file"
+      }
+    ],
+    "acceptance": "The root face names no seam row type, no `EdgePlacements`, no `SEAM_VERSION`, no `compileDeclarations`, no `PayloadMember`; the rows reach a caller only by inference through `emit()`'s return (pipeline.md, \"Emit\": the payload is internal, versioned in lockstep, not a designed public interchange; one is admitted when a consumer exists, and none does). `pnpm --dir sdk test` green (strict `tsc` + `node --test`); `cargo test` green.",
+    "notes": "Ruled 2026-07-16; scoped at 0c25b2c. Re-verified on disk: zero consumers outside sdk/test — `.temper/harness.ts` imports `emit`/`harness`, both READMEs the same, `docs/proposals/` none, no Rust fixture spells a retracted name; the engine mirrors `SEAM_VERSION` independently (src/drift.rs:512) and is untouched. The inbox undercounted the retarget: three sites, not one."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -33,7 +80,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 8978596 and holds — nothing ruled the hop semantics, and both cited files are untouched since 4a33911, so every line cite above still resolves. The constant reads 5 at graph.rs:62 under a cite claiming five the live page does not say. The entry stays parked: the constant may still be wrong, the one thing that keeps it out of the staleness-rider class. rescoped at 4a33911."
+    "notes": "Park re-tested at 0c25b2c and holds — nothing ruled the hop semantics, and neither cited file has moved since 4a33911, so every line cite above still resolves (`MAX_IMPORT_HOPS` reads 5 at graph.rs:62 under a cite claiming five). The entry stays parked: the constant may still be wrong, the one thing that keeps it out of the staleness-rider class. rescoped at 4a33911."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +107,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8978596 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 0c25b2c and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
   }
 ]
