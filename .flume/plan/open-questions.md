@@ -151,9 +151,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   2026-07-15 and bumped the SDK clause cites plus doc-comment dates to match;
   the engine's own reader-side narration cites mirror the same facts at their
   older retrieval dates — `src/builtin_kind.rs` (85 @07-07; 194/222 @07-10;
-  63/106 undated skills/sub-agents mentions), `src/coverage_note.rs:76`
-  (`SETTINGS_DOC`, @07-02), `src/extract.rs:774` (@07-02), `src/graph.rs`
-  (61/689 @07-02). The build entry's `per` targeted the SDK
+  63/106 undated skills/sub-agents mentions), `src/extract.rs:774` (@07-02),
+  `src/graph.rs` (61/689 @07-02). The build entry's `per` targeted the SDK
   clause-enforcement point (`specs/builtins.md`, "The clauses live in code"),
   not this parallel surface, so it flagged them for routing rather than
   silently bumping. Every fact still holds — the two that moved (memory's
@@ -162,10 +161,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   builtin_kind.rs's `**/CLAUDE.md` glob already covers the new location — so
   this is date-staleness on correct facts: citation staleness, riding
   whichever entry next opens each file, never standalone, never the queue's
-  only new work. Found at reconcile HEAD 794ca2b. `coverage_note.rs:76` now
-  has a carrier: WORKSPACE-DIR-ONE-HOME opens that file and names the bump in
-  its `files[].description`. The rest (`builtin_kind.rs`, `extract.rs:774`,
-  `graph.rs`) still ride the next entry opening each.
+  only new work. Found at reconcile HEAD 794ca2b. The `coverage_note.rs:76`
+  rider is **discharged**: WORKSPACE-DIR-ONE-HOME (23c31c4) carried it —
+  `SETTINGS_DOC` re-verified live against code.claude.com/docs/en/settings (it
+  still documents every surface cited off it) and the retrieval date bumped
+  @07-02 → @07-16, verified on disk at coverage_note.rs:70-72. The rest
+  (`builtin_kind.rs`, `extract.rs:774`, `graph.rs`) still ride the next entry
+  opening each; no queued entry opens any.
 
 - **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
   one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
