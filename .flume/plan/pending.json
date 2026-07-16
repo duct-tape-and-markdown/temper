@@ -1,48 +1,5 @@
 [
   {
-    "tag": "MENTION-ROUTE-RESOLVE-AT-CHECK",
-    "summary": "Route-resolve mention edges at check against the discovered corpus; a deferred mention rides the lock verified nowhere today. Fire graph.route on a dangle; explain narrates it.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "Route-resolve mention `ResolvedEdge`s against the by-kind corpus (discovered members included) and fire a `graph.route` finding on a dangling mention target (member `kind:name` or bare requirement name). Today `resolved_mention_edges` (L882) folds every mention in as already-resolved and only `degree` consumes them, so no route check runs. Correct the now-false doc (L876-880: 'a dangling mention never reaches the lock, emit refuses first' — a deferred mention DOES ride the lock)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Wire mention route-resolution into both the `check` command path (~L489, mention_edges assembled there) and the shared `gate` (~L675/L816), so a deferred mention's verdict is owned at check against the discovered corpus — the same table `implemented-by`/route resolution reads. Correct the stale narration at L672-674 ('resolved once at emit and lifted off the lock', true pre-deferral)."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "explain narrates a dangling mention instead of folding every mention edge into the resolved set (L303 extends `resolved` with all mention edges unconditionally) — a mention whose target is absent from the discovered corpus must read as dangling, not resolved, matching the gate verdict (READ-EDGE-UNIFY)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a mention edge whose target is absent from the by-kind corpus fires a graph.route error naming the citing member and the dangling target; a mention resolving to a discovered member stays clean"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain narrates a deferred mention to a target absent from disk as dangling, not resolved"
-      }
-    ],
-    "acceptance": "A deferred mention whose target is absent from the discovered corpus fires a graph.route error at check (surfaced by every reporter); explain narrates the dangle; a mention resolving to a discovered member stays clean — check owns the verdict the deferral hands it (pipeline.md Emit: the row rides the lock and check owns the verdict).",
-    "notes": "Field-verified (base-harness verify-summary mentions source:main): emit defers, lock rides, check+explain stay green with src/main.js gone. resolved_mention_edges folds every mention in as resolved; graph::check ranges over declared Edges only; read.rs:303 extends resolved with all mentions. drift.rs:2472 MentionRow doc already states the target behavior; graph.rs:876 doc ('a dangling mention never reaches the lock') now false. scoped at 7a3632f."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
