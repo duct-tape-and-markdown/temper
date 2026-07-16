@@ -875,6 +875,23 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // The by-kind corpus every set-scope and graph predicate ranges over,
     // assembled through the same helper the read arm uses.
     let embedded_features = embedded_features_by_kind(&declarations);
+
+    // The third dispatcher: an embedded kind's members through the identical two greens
+    // the two at-locus loops above run, so a clause bound to an embedded kind is judged
+    // rather than silently no-opped. Ordered here because the embedded corpus is what a
+    // host's `templates` column yields, which is only assembled above. Like a custom
+    // kind, an embedded kind carries no embedded default — its whole contract is the
+    // committed lock's own clause rows naming it. Its member counts stay out of the
+    // coverage note's summary: that map is keyed by kind-fact row label, which an
+    // embedded kind has none of, and an embedded member's host file is already counted
+    // under its own kind.
+    for (kind, features) in &embedded_features {
+        let contract = compose::default_contract_from_rows(&declarations.clauses, kind)?;
+
+        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::validate(&contract, features));
+    }
+
     let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
     // A bare `satisfies` label an older engine wrote qualifies against this corpus, but a
