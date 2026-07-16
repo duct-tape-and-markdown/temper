@@ -35,9 +35,14 @@ What the harness demonstrates:
   verify skill's procedure, and the settings manifest all interpolate the
   same constants, so one edit moves every projection and the surfaces
   cannot contradict each other.
-- **A skill can be path-gated.** `verify-summary` declares
-  `paths: ["src/**", "TODO.md"]`, so it registers only when the work
-  touches what it knows how to verify.
+- **A skill can be path-gated, and its claims are edges.** `verify-summary`
+  declares `paths: ["src/**", "TODO.md"]`, so it registers only when the
+  work touches what it knows how to verify — and its body mentions the
+  entrypoint it tests, so moving `src/main.js` fails the gate:
+
+  ```
+  x `skill:verify-summary` mentions `source:main`, which resolves to no member in the discovered corpus
+  ```
 - **Typed claims can go false, and the gate catches them.** Each system
   document names the `src/` files implementing it (`implemented-by`,
   resolved within the `source` kind). Delete `src/scan.js` and

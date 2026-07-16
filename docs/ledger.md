@@ -66,8 +66,12 @@ hard.
   gated skill, conduct/grow-harness members. Three new findings inboxed
   same day (check-workspace half-gate + install.rs:88 hardcode; mention
   cannot target discovered member — blocks the script-edge demo; emit
-  --into re-root reap). Sequencing: wrap remaining findings via flume,
-  then stranger dry run, then channel 3.
+  --into re-root reap). Findings arc CLOSED 07-15 evening: 0024 posture +
+  all cliffs shipped, mention deferral + check-side route resolution
+  shipped (skill→script edge verified red/green), four design-session
+  rulings enforced (one read verb, may-appear regions, packs-are-skills,
+  no AGENTS.md kind); open-questions down to three strategic forks.
+  Sequencing: stranger dry run next, then channel 3.
 - On John: Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).
