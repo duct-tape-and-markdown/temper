@@ -17,7 +17,6 @@ import {
   mcpServer,
   mcpServerDefaultContract,
   memory,
-  memoryAgentsMdDefaultContract,
   memoryAnthropicDefaultContract,
   rule,
   ruleDefaultContract,
@@ -33,7 +32,6 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   mcpServerDefaultContract,
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
-  memoryAgentsMdDefaultContract,
 ];
 
 test("every exported default contract is a well-formed clause array", () => {
@@ -113,10 +111,6 @@ test("memoryAnthropicDefaultContract is a single advisory size budget", () => {
   assert.equal(memoryAnthropicDefaultContract.length, 1);
   assert.equal(memoryAnthropicDefaultContract[0].predicate.key, "max_lines");
   assert.equal(memoryAnthropicDefaultContract[0].severity, "advisory");
-});
-
-test("memoryAgentsMdDefaultContract is guidance-only — zero clauses", () => {
-  assert.deepEqual(memoryAgentsMdDefaultContract, []);
 });
 
 test("mcpServer is a fields-only manifest kind at the mcpServers.* collection address", () => {

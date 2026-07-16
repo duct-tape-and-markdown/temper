@@ -643,30 +643,6 @@ export const memoryAnthropicDefaultContract: readonly Clause[] = [
 ];
 
 /**
- * The default contract for the qualified `agents-md.memory` kind — the AGENTS.md
- * standard's contract for a memory file, which is that there is almost none
- * (`packages/memory.agents-md/PACKAGE.md`, the curated authoring reference
- * this migrates). Guidance-only, and that is the honest encoding: `AGENTS.md`
- * "is just standard Markdown" with no required fields, no sections, and no
- * frontmatter (agents.md, retrieved 2026-07-15); the format deliberately
- * constrains nothing. A default contract that manufactured a required field, a size
- * gate, or a forbidden-key list would assert a contract the standard
- * disclaims. Even the tempting size
- * number is a *tool's* rule, not the format's: agents read the closest
- * `AGENTS.md` in the tree (nested, nearest-wins; agents.md, retrieved
- * 2026-07-15); Codex concatenates the chain root-to-cwd and stops once
- * combined size hits a byte budget, not a per-file line count
- * (`project_doc_max_bytes`, 32 KiB default;
- * learn.chatgpt.com/docs/agent-configuration/agents-md, retrieved 2026-07-15);
- * Gemini CLI reads `GEMINI.md` by default and only treats `AGENTS.md` as an
- * alias when configured via `context.fileName` (geminicli.com/docs/cli/gemini-md,
- * retrieved 2026-07-15); Claude Code does not read `AGENTS.md` natively —
- * bridge it with a `CLAUDE.md` that `@AGENTS.md`-imports it
- * (code.claude.com/docs/en/memory, retrieved 2026-07-15).
- */
-export const memoryAgentsMdDefaultContract: readonly Clause[] = [];
-
-/**
  * Every documented Claude Code hook lifecycle event — the closed set a `hooks.<Event>`
  * key is drawn from (code.claude.com/docs/en/hooks, "Hook events", retrieved 2026-07-15).
  * The allowlist the `hook` default contract's one decidable clause ranges over; the

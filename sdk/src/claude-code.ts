@@ -19,7 +19,6 @@ export {
   mcpServer,
   mcpServerDefaultContract,
   memory,
-  memoryAgentsMdDefaultContract,
   memoryAnthropicDefaultContract,
   rule,
   ruleDefaultContract,

@@ -11,19 +11,17 @@
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
 # built-in kinds (`agent`, `command`, `hook`, `mcp-server`, `skill`, `rule`, `memory`)
-# and its eight default contracts (`agentDefaultContract`, `commandDefaultContract`,
+# and its seven default contracts (`agentDefaultContract`, `commandDefaultContract`,
 # `hookDefaultContract`, `mcpServerDefaultContract`, `skillDefaultContract`,
-# `ruleDefaultContract`, `memoryAnthropicDefaultContract`,
-# `memoryAgentsMdDefaultContract`) — the identical rows an adopted harness's own emit
-# produces, just with no members to project. Regenerate by re-running that memberless
-# emit and re-embedding the resulting lock's declaration rows verbatim; never hand-edit
-# a row here.
+# `ruleDefaultContract`, `memoryAnthropicDefaultContract`) — the identical rows an
+# adopted harness's own emit produces, just with no members to project. Regenerate by
+# re-running that memberless emit and re-embedding the resulting lock's declaration rows
+# verbatim; never hand-edit a row here.
 #
-# `memoryAgentsMdDefaultContract` is guidance-only (zero clauses,
-# `sdk/src/builtins.ts`), so it contributes no clause row; the SDK module exports one
-# `memory` kind (the `CLAUDE.md` locus) and no `provider`-qualified kind values yet,
-# so this lock's seven kind facts carry no `provider` column and there is no distinct
-# `agents-md.memory` kind row.
+# The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
+# `provider`-qualified kind values, so this lock's seven kind facts carry no `provider`
+# column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
+# retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 
 [[declaration.kind]]
 name = "agent"

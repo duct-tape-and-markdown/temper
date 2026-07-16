@@ -1786,9 +1786,8 @@ fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
         floor_triples("rule"),
         "rule's floor clauses round-trip through the derived lock unchanged"
     );
-    // The memberless emit binds both memory default contracts to the SDK's one exported
-    // `memory` kind; `memoryAgentsMdDefaultContract` is guidance-only (zero clauses), so only
-    // `memoryAnthropicDefaultContract`'s clause survives under the `memory` kind's rows.
+    // The memberless emit binds `memoryAnthropicDefaultContract` to the SDK's one exported
+    // `memory` kind — its single advisory size clause survives under the `memory` kind's rows.
     assert_eq!(
         lock_triples("memory"),
         floor_triples("memory"),
