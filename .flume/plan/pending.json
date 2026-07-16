@@ -1,5 +1,64 @@
 [
   {
+    "tag": "UNFILLED-EDGE-FIELD-NO-EDGE",
+    "summary": "An unfilled edge field is no edge: emit's refusal retreats to a filled-yet-unresolvable reference, and the engine's placement view ranges over the value's filled edges only",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`edgeTargetFacts` throws when an edge field's leaf is absent or empty (186-193, the `names no target` arm) — the floor that made a declared edge field mandatory at every instance. Retreat it: an unfilled leaf is no edge, so it contributes no `EdgeTargetFacts` entry and no placement obligation. The two sibling refusals stand (target names no composed member, 194-200; target owns no projection, 201-206) — those are the filled-yet-unresolvable reference `pipeline.md` licenses. `placedEdges` (344-350) builds its obligation from `value.edgeFields`, the kind's whole declared set; range it over the fields this value fills, so the default no-`render` view cannot claim placement of an absent edge. The function's own `# Throws` doc (172-178) states the retired floor and moves with it."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`ResolvedEmbeddedMemberValue.targets`'s doc (356-364) says each *declared* edge field's facts, with an empty map only for a kind declaring none; under 0026 an unfilled field carries no entry either. `EdgeField` (43-47) gains no optionality flag — the kind's own field schema (the SDK type parameter, `cite: Member` vs `cite?: Member`) is optionality's one home, per 0026's Rejected list."
+        },
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "`emit refuses an edge field whose leaf names no target at all` (260-262) pins the retired floor — invert it: an unfilled leaf emits, with no target facts and no placement claim. The two sibling refusal tests (237, 243) and the resolving case (264) stand unchanged."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The `nested_member` placement rows (1097-1200): an edge field the value never filled records no placement obligation, so `placed_edges` cannot read as an omission."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`embedded_member_features` (1481-1517) builds `edge_placements` from `edge_fields_by_kind`'s whole declared set crossed with the row's `placed_edges`, so an unfilled edge field reads `false` — a `format-places-edges` false positive (`intent.md` invariant 2) the moment emit's throw retreats and such a value can emit at all. Range the map over the edge fields the row's own `leaves` fills; the `None` placed_edges case (a layout-hosted value, no format to indict) is unchanged."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "The `format-places-edges` clause tests (added 13c58ed): a value leaving a declared edge field unfilled is not an omission — the clause indicts only a format that drops an edge the value actually carries."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "an embedded value whose declared edge field is unfilled emits — no throw, and no target facts for that field"
+      },
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "an unfilled edge field is absent from the value's `placed_edges`, while a filled one still records"
+      },
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "format-places-edges reports no omission for an edge field the value never filled, and still indicts a dropped filled edge"
+      }
+    ],
+    "acceptance": "emit refuses no unfilled edge field — refusal reaches only a reference filled yet unresolvable (pipeline.md, \"Emit\", the Refusing bullet) — and `format-places-edges` indicts no format for an edge the value never carried; `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes 0026 (fd52717). Its second consequence — \"the schema's optionality reaches the declared fact row\" — reads as: the row already carries it. `NestedMemberRow.leaves` names the filled fields, so no-edge-when-absent is decidable off existing row data; required-vs-optional never reaches the engine (an unfilled required field fails in the author's program at compose time). The rival reading — an optionality column — needs the runtime flag 0026's Rejected list forbids. scoped at ca4e866."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
@@ -24,6 +83,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at d97a704: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at ca4e866: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. scoped at b676656."
   }
 ]

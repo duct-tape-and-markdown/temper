@@ -1,45 +1,49 @@
 # Plan state
 
-- Spec derived through: cc5a9b3
+- Spec derived through: fd52717
 - Audited through: 74f4e62
 - Residue swept through: 74f4e62
-- This tick: RECONCILED the d97a704..74f4e62 window (1ca1f9b,
-  EMBEDDED-FORMAT-TARGET-FACTS) — the audit motions 341717b left unrun. The
-  window touches four files, all SDK-side (`emit.ts`, `kind.ts`, and two test
-  files); no Rust file moved, so every Rust-side record on the fork board is
-  unshifted by construction.
-  **Audit:** the four target facts match `representation.md`'s closed set
-  exactly — `EdgeTargetFacts` is `{name, address, kind, path}`
-  (`sdk/src/kind.ts:330-340`), nothing fifth. `edgeFields` reaches a value off
-  `definition.facts.edgeFields` at construction, the way `render` does
-  (`kind.ts:381`) — kind-declared, never instance-authored, so "the edge
-  fields — which fields are references" holds. Two of the three shipped
-  refusals check out against `pipeline.md`'s "Refusing" bullet: a dangling edge
-  refuses, and the mention deferral is scoped to mentions by its own words, so
-  an edge target refusing is licensed rather than a collision. No pending
-  entry's work shipped; neither queued entry drops.
-  **Sweep:** the third refusal is a real divergence — an *unfilled* edge field
-  refuses at emit (`emit.ts:186-193`), baking a presence floor the spine rule
-  and invariants 1/4 make a dialable clause. Registered as
-  **`(edge-field-floor)`**, not an entry: the clause layer cannot reach an
-  embedded value's leaves today (`has_field` reads host frontmatter,
-  `extract.rs:287`), so every fix picks a spec outcome plan does not write. The
-  window's only other residue is the `law 5` fixture strings in emit.test.ts —
-  the excluded body-text class, not a cite.
-  Closing checklist: FORMAT-OMITS-EDGE-CLAUSE's cites re-read on disk and
-  unmoved (contract.rs:81/475, engine.rs:97/114); PROJECTION-PATH-SEAM-GATE's
-  test file is still absent, gate stays `open`. PACKAGING-CHANNELS-REMAINDER's
-  park re-tested at 74f4e62 and true verbatim: no version tag (4 tags, all
-  era-named), crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin.
-  `(nested-file-child)`'s three cites re-verified against the window's own
-  file — kind.ts:158, kind.ts:57, declarations.ts:438, all unshifted.
-- Queue: 2 pickable and disjoint by file (FORMAT-OMITS-EDGE-CLAUSE;
-  PROJECTION-PATH-SEAM-GATE — one test file); PACKAGING-CHANNELS-REMAINDER
-  parked (John's Apple notarizing + the v0.1 lockstep tag). Fork board grows by
-  one: `(edge-field-floor)`, blocking nothing. `(nested-file-child)` still
-  blocks the supporting-doc adoption; `(guidance-climb)` blocks nothing.
+- This tick: ROUTED the spec delta's first commit — fd52717 (0026, an unfilled
+  edge field is no edge). The delta carries two decisions; 0027 (abe5d5d) is
+  the larger slice and waits its own tick, so the cursor stops at fd52717.
+  **0026's Consequences, bullet by bullet:** (1) "`pipeline.md`'s 'Refusing'
+  bullet gains the boundary sentence — same commit" — moot, verified in
+  fd52717's own diff (pipeline.md, "Emit", the four-line insert). (2) "the
+  emit throw retreats to dangling-only" + (3) "the schema's optionality
+  reaches the declared fact row so the engine sees what the author declared"
+  — both filed as **UNFILLED-EDGE-FIELD-NO-EDGE**, one entry because they land
+  together or ship a false positive: emit's throw (`sdk/src/emit.ts:186-193`)
+  is what keeps an unfilled edge field from ever reaching the engine today,
+  and `embedded_member_features` (`src/main.rs:1481`) crosses the kind's
+  *whole* declared edge set with the row's `placed_edges` — so the moment the
+  throw retreats, a legitimately unfilled optional field reads `false` and
+  `format-places-edges` (13c58ed) indicts a format for an edge the value never
+  carried. Invariant 2's false positive.
+  **The reading bullet 3 rests on, stated for the veto:** optionality reaches
+  the engine through the row emit already writes — `NestedMemberRow.leaves`
+  names the filled fields — never a new column. The rival reading (an
+  optionality marker on the `assembly` `edge` fact row) is unbuildable by
+  0026's own Rejected list: it forbids a flag on `EdgeField`, and the field
+  schema's one runtime spelling is the type parameter `T`, erased at the seam
+  (`sdk/src/kind.ts:250`). Required-vs-optional need never reach the engine —
+  0026 puts the unfilled *required* field's failure in the author's program at
+  compose time, so absent is no edge either way.
+  Closing checklist: the two entries are disjoint by file (`sdk/**` +
+  `src/main.rs` + `tests/contract_template.rs` vs
+  `.github/workflows/release.yml`). PACKAGING-CHANNELS-REMAINDER's park
+  re-tested at ca4e866 and true verbatim: 4 tags, all era-named (no version
+  tag), crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. Every
+  cited line resolves on disk (emit.ts:186/344, kind.ts:43/356,
+  refusals.test.ts:260, main.rs:1481). The fork board holds at four records —
+  `(edge-field-floor)`, `(nested-file-child)`, and `(guidance-climb)` were
+  resolved and deleted by 8769ed8, so it needs no edit this tick; the prior
+  state's "grows by one" line is retired by that ruling.
+- Queue: 1 pickable (UNFILLED-EDGE-FIELD-NO-EDGE);
+  PACKAGING-CHANNELS-REMAINDER parked (John's Apple notarizing + the v0.1
+  lockstep tag). Fork board: four open, none blocking either entry.
 
-Plan continues: no — every input is drained. The inbox is empty, no refactor
-capture is live, the spec delta is empty at cc5a9b3, and both reconciliation
-cursors now sit at the window's last shipped commit. Build takes over: two
-entries are pickable.
+Plan continues: yes — the spec delta is still live. abe5d5d (0027, the nested
+file child composes its path from its host) is unrouted, and its Consequences
+name three code-side halves plus SKILL-NESTED-REFERENCE-DOCS re-entering
+buildable. The post-ship reconciliation window (74f4e62..ca4e866 — two build
+commits, 13c58ed and e76ec85) is live behind it.
