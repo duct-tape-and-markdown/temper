@@ -79,12 +79,16 @@ hard.
   Same-day engine arc: check-workspace-arg false-red + install converge
   gap found at session open, fixed, field-verified; managed-by notes
   converged in both harnesses; three one-home consolidations swept.
-- Posture-recursion design session OWED as its own sitting — the fork's
-  riders are the agenda, one ruling per round. The 07-16 conversational
-  Q&A on it was STRUCK by John (reset): no rulings came out of that
-  exchange; do not read that transcript as decisions.
-- On John: the `(posture-recursion)` sequencing ruling (blocks that fork);
-  carrying the behavioral-horizon note into `docs/horizons.md` if wanted;
+- Posture-recursion design session HELD 07-16 (second sitting; the earlier
+  same-day Q&A remains struck — today's rulings are the record): fourth-cut
+  proposal merged with worked prototype; delivery ruled three-layer
+  (install = ground representation, posture machinery = unopinionated
+  power layer, guidance describes the climb); supporting docs ruled a
+  built-in `skill` facet under the accuracy mandate (runtime loading
+  semantics probe-gated). Fork refreshed — no contested element remains;
+  next gate is the Decision + spec delta, drafted in-session.
+- On John: carrying the behavioral-horizon note into `docs/horizons.md`
+  if wanted;
   Apple Developer notarizing (decide at release); USPTO name
   screen; CHANGELOG for the shipped 0.0.x npm cuts — backfill or start the
   log at the first tag (raised 07-10).
