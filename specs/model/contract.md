@@ -5,16 +5,22 @@ layer is the gate — representation without it is a dotfiles manager.
 
 ## edge
 
-A typed, directed relationship between two members. One noun, authored at any
-of four loci:
+A typed, directed relationship between two members. One noun, declared at any
+of three loci:
 
-- a **field** — a frontmatter reference, resolved by identity within the
-  target kind,
+- a **field** — a reference carried as a typed property of the member that
+  speaks it, at any grain (a frontmatter field, an embedded member's edge
+  field), resolved by identity within the target kind,
 - an **import directive** — a reference the target format itself executes
   (a memory file's `@path` import), resolved by path,
-- a **satisfies entry** — an edge whose target is a requirement member,
-- a **mention** — a reference planted on a word of prose; its target may be
-  a member or a leaf.
+- a **satisfies entry** — an edge whose target is a requirement member.
+
+A field-declared edge may additionally claim a **rendered position** in its
+member's prose — the **mention**: a rendering claim, never a fourth locus;
+its target may be a member or a leaf. One resolution path and one degree
+semantics hold whatever an edge claims about rendering. A member's
+reference set is a **derived view** — the union of the edges its fields and
+embedded members declare — never a second authored list.
 
 Every edge resolves into one enumeration that the gate and every read verb
 share, so narration can never disagree with the verdict. Edges are declared,

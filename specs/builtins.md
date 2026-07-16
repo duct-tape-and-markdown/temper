@@ -50,6 +50,11 @@ field, never a channel entry.
 Each kind's format facts are external facts about the harness, cited at the
 point of claim in the kind's own source.
 
+A shipped kind's composed body admits corpus-declared member types by the
+same admission any kind's does (`model/representation.md`, "nesting"): the
+body a consumer's program composes may grain into their own embedded types,
+and the projection stays the format the harness documents.
+
 ## The domain partition
 
 Each shipped kind owns a semantic domain and an output posture, and the

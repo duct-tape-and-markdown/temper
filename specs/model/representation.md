@@ -55,7 +55,15 @@ The type of a member. A kind declares
   spelled as constant text. An **embedded**-locus kind's format is
   writer-only and unconstrained — no admissibility bar — when its host is
   composed: the rendering is a projection, its facts declared (`pipeline.md`,
-  "The lock"), never read back. A member embedded in a layout document has
+  "The lock"), never read back. Beside the member's own values, an embedded
+  format may place a **closed, engine-derived set of facts about its edge
+  fields' targets** — name, address, kind, and the target's projection path
+  relative to the host member's own projection — as data the template
+  selects, never authored at the instance and never fabricated: a rendered
+  reference is true by construction, and instance prose never spells its
+  target. A format that omits an edge its kind declares renders a contract
+  the prose does not represent; that check is a clause. A member embedded
+  in a layout document has
   no format of its own: it is read off the host's declared layout — source,
   never projection.
 - and, when it nests, a **template** per inner layer: the child kind, plus
@@ -86,7 +94,12 @@ lock one of two declared ways: carried from the composing program — a
 projection is never mined for them (`pipeline.md`, "Emit") — or read off a
 layout host's document, whose declared layout is the typed surface they are
 declared on. A prose **leaf** — one addressable authored string — is a
-nested member at the finest grain.
+nested member at the finest grain. An embedded member type declares no
+host: which types may compose a kind's body is the adopting corpus's
+**admission** — a contract declaration over the host kind — so one type
+means the same thing in every body that admits it, and a shipped kind's
+composed body admits corpus-declared types by the same declaration
+(`../builtins.md`).
 
 ## The root member
 
