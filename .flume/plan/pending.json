@@ -1,52 +1,5 @@
 [
   {
-    "tag": "SEAM-EXPORTS-RETRACT",
-    "summary": "Retract the ten seam root exports to nothing — the payload is internal by ruling, and the root face must stop naming its rows, its compiler, and its version",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Retract all ten. Off `./declarations.js` (84-94): the type block `AssemblyFactRow`/`ClauseRow`/`Declarations`/`EdgePlacements`/`KindFactRow`/`RequirementRow`/`SatisfiesRow`, and the value line `SEAM_VERSION`/`compileDeclarations`. Off `./emit.js` (97): `PayloadMember` out of the `export type` list — `EmitResult`/`RegistrationFact`/`ResolveOptions`/`SettingsResidue` and `emit` stay. Delete the 'Declaration rows — the erased program the seam carries' section comment (83) with its block; no subpath home, no re-export elsewhere. The module header (1-14) narrates `emit` compiling to the JSON pipe and stays true — leave it unless the retraction makes a sentence false. `declarations.ts` keeps every symbol exported module-side (its own 42-48 block, `EdgePlacements` 485, `compileDeclarations` 719, `SEAM_VERSION` 743): this retracts the ROOT face only, not the internal one."
-        },
-        {
-          "path": "sdk/test/contract.test.ts",
-          "description": "Two sites, not one — the inbox note named only the second. The value import off `../src/index.js` carries `compileDeclarations` (12), and the type import (25) carries `ClauseRow`/`RequirementRow` alongside `Predicate`/`Requirement`, which are root nouns and stay. Retarget the retracted names to `../src/declarations.js`, keeping `clause`/`count`/`harness`/… and `Predicate`/`Requirement` on the root — the SDK's own suite reaching past the public face is the honest spelling of a spec-internal seam, not a workaround."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Third retarget site: `compileDeclarations` in the root value import (22, off `../src/index.js` at 35) moves to `../src/declarations.js`; the ~20 bare call sites are unaffected. Then extend the existing removed-exports test (623-628) — it already walks `import * as sdk` (36) for names the root must not carry (`decision`/`law`/`bound`/`genre`/`genreValue`) — with the retraction's two value names, so the value half is pinned where a re-export cannot silently restore it. Extend that test; never add a second one beside it. The eight type-only names erase at runtime and are unreachable from that walk — `root_exports.test.ts`'s `.d.ts` walk plus strict `tsc` is what holds them."
-        },
-        {
-          "path": "sdk/test/root_exports.test.ts",
-          "description": "The closure walk's generated-family exclusion, re-pointed at the ruled boundary. Its header (10-14) justifies the exclusion by the OPEN `(seam-rows-public-face)` fork and names `Declarations`/`PayloadMember` as root-exported aliases — both claims retire with this entry: the fork is ruled, and neither name is root-exported after it. Re-word to the ruling: the row family is internal, versioned in lockstep, and reaches the face only by inference through `EmitResult` — nameability was never the boundary, the never-made stability promise is. The `continue` skipping generated-declared exports (88) goes dead the same moment — no root export is declared under `generated/` once `Declarations`/`PayloadMember` retract; delete it rather than leave a guard for a case that cannot arise. `isAuthoringNoun`'s own `generated/` filter (77) stays live and load-bearing: `EmitResult` still NAMES both types (emit.ts:653/655), and that filter is what keeps the walk from calling them holes."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "the root namespace carries neither `compileDeclarations` nor `SEAM_VERSION` — the value half of the retraction pinned against a silent re-export"
-      },
-      {
-        "path": "sdk/test/root_exports.test.ts",
-        "asserts": "the closure still holds over the retracted face: every type a root-exported declaration names is root-exported, the generated row family excluded by declaration file"
-      }
-    ],
-    "acceptance": "The root face names no seam row type, no `EdgePlacements`, no `SEAM_VERSION`, no `compileDeclarations`, no `PayloadMember`; the rows reach a caller only by inference through `emit()`'s return (pipeline.md, \"Emit\": the payload is internal, versioned in lockstep, not a designed public interchange; one is admitted when a consumer exists, and none does). `pnpm --dir sdk test` green (strict `tsc` + `node --test`); `cargo test` green.",
-    "notes": "Ruled 2026-07-16; scoped at 0c25b2c. Re-verified on disk: zero consumers outside sdk/test — `.temper/harness.ts` imports `emit`/`harness`, both READMEs the same, `docs/proposals/` none, no Rust fixture spells a retracted name; the engine mirrors `SEAM_VERSION` independently (src/drift.rs:512) and is untouched. The inbox undercounted the retarget: three sites, not one."
-  },
-  {
     "tag": "MENTION-REACHABLE-PREDICATE",
     "summary": "`mention-reachable` joins the closed predicate vocabulary: one generic variant taking the source's scope field and the target's gate field as arguments, judged where mentions already resolve",
     "per": {
