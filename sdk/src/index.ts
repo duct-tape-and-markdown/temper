@@ -31,6 +31,7 @@ export {
   deny,
   enumOf,
   forbiddenKeys,
+  formatPlacesEdges,
   maxLen,
   maxLines,
   membership,

@@ -34,6 +34,7 @@ import {
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
+import type { ResolvedEmbeddedMemberValue } from "../src/kind.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
@@ -1116,6 +1117,74 @@ test("an edge field's leaf still rides the nested_member row as the authored add
       leaves: { source: "rule:rust" },
       collections: {},
     },
+  ]);
+});
+
+/**
+ * The host for one citation-shaped value, whose render hook is the test's variable —
+ * what the format does or does not place is the whole subject.
+ */
+function citationHarness(render: (value: ResolvedEmbeddedMemberValue) => string) {
+  const citation = kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: "rule" }],
+    },
+    { render },
+  );
+  return harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+      memory({
+        name: "CLAUDE",
+        prose: blocks(
+          embeddedMemberValue({
+            kind: citation,
+            key: "the-standard",
+            leaves: { source: "rule:rust", note: "the bar" },
+          }),
+        ),
+      }),
+    ],
+    admit: [{ host: memory, admits: [citation] }],
+  });
+}
+
+test("emit records which declared edges an embedded format placed — the fact the engine cannot observe for itself", () => {
+  const placing = emit(citationHarness((value) => `See [${value.targets.source.name}](${value.targets.source.path}).`));
+  assert.deepEqual(placing.declarations.nested_members[0].placed_edges, ["source"]);
+
+  // The same edge placed off its address leaf rather than the derived facts still
+  // represents the reference, so it is still placed.
+  const viaLeaf = emit(citationHarness((value) => `See \`${value.leaves.source}\`.`));
+  assert.deepEqual(viaLeaf.declarations.nested_members[0].placed_edges, ["source"]);
+
+  // A format that renders only the value's prose never names the edge at all — the case
+  // the clause exists for. `[]`, never absent: a format ran and placed nothing.
+  const omitting = emit(citationHarness((value) => value.leaves.note));
+  assert.deepEqual(omitting.declarations.nested_members[0].placed_edges, []);
+});
+
+test("a value whose kind declares no edge field records no placement — an ordinary nested_member row is unchanged", () => {
+  const passage = kind<object>(
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { render: (value) => value.leaves.body },
+  );
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: passage, key: "intro", leaves: { body: "Words." } })),
+      }),
+    ],
+    admit: [{ host: memory, admits: [passage] }],
+  });
+
+  assert.deepEqual(emit(h).declarations.nested_members, [
+    { host: "memory:CLAUDE", kind: "passage", key: "intro", leaves: { body: "Words." }, collections: {} },
   ]);
 });
 

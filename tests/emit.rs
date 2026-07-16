@@ -998,6 +998,7 @@ fn embedded(host: &str, key: &str) -> NestedMemberRow {
         key: key.to_string(),
         leaves: std::collections::BTreeMap::new(),
         collections: Vec::new(),
+        placed_edges: None,
     }
 }
 

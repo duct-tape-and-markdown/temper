@@ -247,6 +247,18 @@ pub enum Predicate {
         /// The field whose every glob must parse.
         field: String,
     },
+    /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
+    /// the edges incident on the member, and every one of them must be placed by the
+    /// format that renders the member. A format that omits an edge its kind declares
+    /// renders a contract the prose does not represent.
+    ///
+    /// Carries no argument: the selection is every edge the member's kind declares, and
+    /// the grain is already `each`. Decidable over
+    /// [`edge_placements`](crate::extract::Features::edge_placements) — `emit` observes
+    /// which edges the format selected and lowers the observation into a declaration
+    /// row, because the engine never sees a `render` hook and never reads a projection
+    /// back.
+    FormatPlacesEdges,
 }
 
 /// Lift one clause row's `charset` column into the typed [`Charset`] — `None`
@@ -339,6 +351,7 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "glob-valid" => Predicate::GlobValid {
             field: row.field.clone()?,
         },
+        "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
             target: row.target.clone()?,
@@ -412,6 +425,7 @@ impl Predicate {
             Predicate::Degree { .. } => "degree",
             Predicate::Kind { .. } => "kind",
             Predicate::GlobValid { .. } => "glob-valid",
+            Predicate::FormatPlacesEdges => "format-places-edges",
         }
     }
 
@@ -445,7 +459,8 @@ impl Predicate {
             | Predicate::DependencyExists
             | Predicate::Count { .. }
             | Predicate::Degree { .. }
-            | Predicate::Kind { .. } => None,
+            | Predicate::Kind { .. }
+            | Predicate::FormatPlacesEdges => None,
         }
     }
 
@@ -485,7 +500,8 @@ impl Predicate {
             | Predicate::Unique { .. }
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
-            | Predicate::Kind { .. } => None,
+            | Predicate::Kind { .. }
+            | Predicate::FormatPlacesEdges => None,
         }
     }
 }

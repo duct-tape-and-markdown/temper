@@ -806,6 +806,7 @@ disable-model-invocation: true\n\
                 key: "at-import".to_string(),
                 leaves: BTreeMap::from([("target".to_string(), "some/path.md".to_string())]),
                 collections: Vec::new(),
+                placed_edges: None,
             },
             crate::drift::NestedMemberRow {
                 host: "rule:some-other-rule".to_string(),
@@ -813,6 +814,7 @@ disable-model-invocation: true\n\
                 key: "unrelated".to_string(),
                 leaves: BTreeMap::new(),
                 collections: Vec::new(),
+                placed_edges: None,
             },
         ];
 

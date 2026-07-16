@@ -456,6 +456,32 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             })
         }
 
+        // `format-places-edges` decides over the placement `emit` observed and lowered
+        // into the member's own declaration row: one finding per omitted edge, so each
+        // points at the field it left unrepresented. An empty map carries no placement
+        // fact for this member — the kind declares no edge, or no row records it — so
+        // the clause is `Indeterminate` there rather than a fabricated pass.
+        Predicate::FormatPlacesEdges => {
+            if features.edge_placements.is_empty() {
+                return Outcome::Indeterminate;
+            }
+            let omitted: Vec<String> = features
+                .edge_placements
+                .iter()
+                .filter(|(_, placed)| !**placed)
+                .map(|(field, _)| {
+                    format!(
+                        "the format renders no `{field}` edge, so it projects a contract the prose does not represent"
+                    )
+                })
+                .collect();
+            if omitted.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(omitted)
+            }
+        }
+
         // `dependency-exists` is held back — [`admissibility`] rejects any
         // contract carrying it, so a valid conformance run never reaches this arm.
         // It stays `Indeterminate` as a defensive floor (never a fabricated pass)
@@ -564,6 +590,7 @@ mod tests {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
+            edge_placements: BTreeMap::new(),
         }
     }
 

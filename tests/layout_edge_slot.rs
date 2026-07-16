@@ -110,6 +110,7 @@ fn guide_features(fills: &[String]) -> Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: fills.to_vec(),
+        edge_placements: BTreeMap::new(),
     }
 }
 

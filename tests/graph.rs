@@ -733,6 +733,7 @@ mod embedded_edge_targets {
             key: key.to_string(),
             leaves: BTreeMap::new(),
             collections: Vec::new(),
+            placed_edges: None,
         }
     }
 
@@ -930,6 +931,7 @@ mod reachability {
             fenced_blocks: Vec::new(),
             nested_members: Vec::new(),
             satisfies: Vec::new(),
+            edge_placements: BTreeMap::new(),
         }
     }
 

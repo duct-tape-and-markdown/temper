@@ -14,10 +14,12 @@
 //! The clause *vocabulary* is pinned; the guidance/citation prose is product
 //! territory, so it is asserted present, not pinned verbatim.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
+use temper::check;
 use temper::contract::{Charset, Contract, Predicate, Severity};
 use temper::engine;
+use temper::extract::Features;
 
 /// The built-in skill contract, resolved from the embedded built-in lock the same
 /// way the shipped tool resolves it.
@@ -279,4 +281,133 @@ fn an_empty_kind_clause_is_inadmissible_a_named_one_is_not() {
     }));
     assert_eq!(empty.len(), 1);
     assert!(empty[0].message.contains("kind"));
+}
+
+// ---- the each-grain `format-places-edges` predicate -------------------------
+//
+// A format that omits an edge its kind declares renders a contract the prose does not
+// represent. The engine never sees the format, so it decides over the placement `emit`
+// observed while rendering and lowered into the member's own declaration row.
+
+/// A member of a kind declaring the edges `placements` names, each paired with whether
+/// its format placed it — the `Features` shape `main`'s embedded-member lift builds off a
+/// `nested_member` row's `placed_edges` column.
+fn cited(placements: &[(&str, bool)]) -> Features {
+    Features {
+        id: "the-standard".to_string(),
+        fields: BTreeMap::new(),
+        body_lines: 0,
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: placements
+            .iter()
+            .map(|(field, placed)| ((*field).to_string(), *placed))
+            .collect(),
+    }
+}
+
+/// A one-clause contract over `format-places-edges` at `severity` — the whole surface an
+/// author declares to adopt the check.
+fn places_edges_contract(severity: Severity) -> Contract {
+    Contract {
+        name: "citation".to_string(),
+        clauses: vec![temper::contract::Clause {
+            severity,
+            predicate: Predicate::FormatPlacesEdges,
+            guidance: None,
+            source: None,
+        }],
+        guidance: None,
+    }
+}
+
+/// The clause loads off a lock row and carries the closed-vocabulary shape: no argument
+/// columns, since the selection is the member's whole incident edge set at the `each`
+/// grain.
+#[test]
+fn the_format_places_edges_clause_loads_off_a_bare_predicate_row() {
+    assert_eq!(Predicate::FormatPlacesEdges.key(), "format-places-edges");
+    assert_eq!(Predicate::FormatPlacesEdges.target(), None);
+    assert!(
+        engine::admissibility(&places_edges_contract(Severity::Required)).is_empty(),
+        "the predicate carries no list or bound, so nothing about it can be vacuous",
+    );
+}
+
+/// A format placing every edge its kind declares holds — no finding.
+#[test]
+fn a_format_placing_every_declared_edge_passes() {
+    let diagnostics = engine::validate(
+        &places_edges_contract(Severity::Required),
+        &[cited(&[("source", true), ("supersedes", true)])],
+    );
+    assert!(
+        diagnostics.is_empty(),
+        "every declared edge was placed, got: {diagnostics:?}",
+    );
+}
+
+/// A format omitting one declared edge is a finding naming that field — one per omitted
+/// edge, so each points at the reference the format left unrepresented, and the other
+/// edges' placement does not mask it.
+#[test]
+fn a_format_omitting_a_declared_edge_is_a_finding_naming_the_field() {
+    let diagnostics = engine::validate(
+        &places_edges_contract(Severity::Required),
+        &[cited(&[("source", true), ("supersedes", false)])],
+    );
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].rule, "format-places-edges");
+    assert_eq!(diagnostics[0].artifact, "the-standard");
+    assert!(
+        diagnostics[0].message.contains("supersedes"),
+        "the finding must name the omitted edge, got: {}",
+        diagnostics[0].message,
+    );
+    assert!(!diagnostics[0].message.contains("source"));
+}
+
+/// The severity is the clause author's, never the tool's: the identical omission gates as
+/// an error under a `required` clause and reports as a warning under an `advisory` one.
+#[test]
+fn the_omission_findings_severity_is_the_clause_authors() {
+    let omitted = [cited(&[("source", false)])];
+    let blocking = engine::validate(&places_edges_contract(Severity::Required), &omitted);
+    assert_eq!(blocking[0].severity, check::Severity::Error);
+
+    let reported = engine::validate(&places_edges_contract(Severity::Advisory), &omitted);
+    assert_eq!(reported[0].severity, check::Severity::Warn);
+}
+
+/// A member carrying no placement fact decides nothing — a kind declaring no edge, and a
+/// value no format rendered (one embedded in a layout document is read off its host's
+/// declared layout, so there is no format to indict). Never a fabricated pass, never a
+/// fabricated finding.
+#[test]
+fn a_member_with_no_placement_fact_yields_no_finding() {
+    let diagnostics = engine::validate(&places_edges_contract(Severity::Required), &[cited(&[])]);
+    assert!(
+        diagnostics.is_empty(),
+        "an absent placement fact is undecidable, not a violation: {diagnostics:?}",
+    );
+}
+
+/// No shipped default contract adopts the clause: the predicate exists so an author can
+/// declare it, and adding it to the vocabulary is the whole language change.
+#[test]
+fn no_built_in_contract_adopts_the_format_places_edges_clause() {
+    for (name, contract) in &temper::builtin::contracts() {
+        assert!(
+            !contract
+                .clauses
+                .iter()
+                .any(|clause| clause.predicate == Predicate::FormatPlacesEdges),
+            "{name} adopts `format-places-edges` unbidden — the author declares it",
+        );
+    }
 }

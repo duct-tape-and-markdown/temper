@@ -32,6 +32,7 @@ import {
   declaredAtLocusKinds,
   declaredRequirements,
   encodeSeam,
+  placementKey,
   registrationRows,
   settingsRows,
 } from "./declarations.js";
@@ -298,6 +299,79 @@ function renderMemberBlock(host: Member, value: EmbeddedMemberValue, options: Re
 }
 
 /**
+ * A recording view of a resolved value: every read of an edge field's key — off the
+ * derived `targets` facts or off the `leaves` that authored its address — is collected
+ * into `placed`. Those two are the whole surface an edge's data can reach a format
+ * through, so a format that touches neither placed nothing.
+ *
+ * Placement is observed as *selection*, which bounds the check in one direction only: a
+ * format that reads an edge and discards it reads as placed. That keeps the predicate
+ * free of false positives, which is what earns it the gate — a format that never names
+ * the edge, the case the check exists for, is caught exactly.
+ */
+function recordingView(
+  resolved: ResolvedEmbeddedMemberValue,
+  edgeFields: ReadonlySet<string>,
+  placed: Set<string>,
+): ResolvedEmbeddedMemberValue {
+  const watch = <T extends object>(record: T): T =>
+    new Proxy(record, {
+      get(target, property, receiver) {
+        if (typeof property === "string" && edgeFields.has(property)) placed.add(property);
+        return Reflect.get(target, property, receiver);
+      },
+    });
+  return { ...resolved, leaves: watch(resolved.leaves), targets: watch(resolved.targets) };
+}
+
+/**
+ * The declared edge fields one embedded value's format placed, sorted — the fact a
+ * `format-places-edges` clause decides over, since the engine never sees a format and
+ * never reads a rendering back. A `render`-less kind takes the default TOML view, which
+ * writes every leaf, so every declared edge is placed by construction; a kind that
+ * declares one runs the hook against a {@link recordingView} and reports what it
+ * selected. `undefined` for a kind declaring no edge field: there is nothing to place,
+ * so the row records nothing rather than an empty column on every ordinary value.
+ *
+ * This renders the value a second time, the way `nestedMemberRow` reads its leaves a
+ * second time: a hook is pure (emit double-verifies its own bytes), so the observing
+ * render and the projecting one cannot disagree.
+ */
+function placedEdges(
+  host: Member,
+  value: EmbeddedMemberValue,
+  options: ResolveOptions,
+): string[] | undefined {
+  const edgeFields = new Set((value.edgeFields ?? []).map((edge) => edge.field));
+  if (edgeFields.size === 0) return undefined;
+  if (value.render === undefined) return [...edgeFields].sort(compareStrings);
+  const placed = new Set<string>();
+  value.render(recordingView(resolveMemberLeaves(host, value, options), edgeFields, placed));
+  return [...placed].sort(compareStrings);
+}
+
+/**
+ * Every composed embedded value's placed edge fields, keyed by the value's
+ * {@link placementKey} — what `emit` hands {@link compileDeclarations} so each
+ * `nested_member` row carries its own format's placement record. Iterates exactly the
+ * values `nestedMemberRows` does, so every edge-bearing row it builds has an observation.
+ */
+export function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, string[]> {
+  const placements = new Map<string, string[]>();
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "blocks") continue;
+    for (const value of member.prose.values) {
+      if (isTextSpan(value)) continue;
+      const placed = placedEdges(member, value, options);
+      if (placed !== undefined) {
+        placements.set(placementKey(`${member.kind}:${member.name}`, value.kind, value.key), placed);
+      }
+    }
+  }
+  return placements;
+}
+
+/**
  * Render a member-level `Text` body to its final bytes: its mentions are
  * resolution-checked against `scope` ({@link checkMentions}: loud on a dangling
  * address, a discovery-locus one deferred; `context` naming the host) and the
@@ -556,7 +630,7 @@ export function emit(harness: Harness): EmitResult {
   };
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);
-    const declarations = compileDeclarations(harness);
+    const declarations = compileDeclarations(harness, edgePlacements(harness, resolve));
     return {
       declarations,
       members,

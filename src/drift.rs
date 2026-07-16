@@ -1288,6 +1288,10 @@ fn derive_layout_rows(
             key: member.key,
             leaves: member.leaves,
             collections: Vec::new(),
+            // A member embedded in a layout document is read off its host's declared
+            // layout — source, never projection — so no format rendered it and none
+            // could have omitted an edge.
+            placed_edges: None,
         })
         .collect();
     Ok(LayoutDerivation {
@@ -2592,6 +2596,21 @@ pub struct NestedMemberRow {
     #[serde(default, deserialize_with = "deserialize_collections")]
     #[ts(as = "std::collections::BTreeMap<String, Vec<CollectionEntryWire>>")]
     pub collections: Vec<CollectionEntryRow>,
+    /// The declared edge fields this value's **format placed** — which of them the
+    /// format selected while `emit` rendered the value, sorted. The engine never sees
+    /// a format and never reads a rendering back, so an edge's placement reaches it
+    /// here or not at all; the declared set it is measured against is the `assembly`
+    /// family's `edge` facts for [`kind`](Self::kind).
+    ///
+    /// `None` and `Some(vec![])` are distinct, and the distinction is the whole point:
+    /// `Some(vec![])` is a format that placed no edge (a `format-places-edges` finding
+    /// per declared edge), while `None` is a value **no format rendered** — a member
+    /// embedded in a layout document is read off its host's declared layout, so it has
+    /// no format to omit anything and the clause has nothing to decide. Absent from a
+    /// row whose value no format rendered, so an ordinary row stays byte-identical.
+    #[serde(default)]
+    #[ts(optional)]
+    pub placed_edges: Option<Vec<String>>,
 }
 
 /// One entry belonging to one of a [`NestedMemberRow`]'s sibling collections: the
@@ -3492,6 +3511,9 @@ impl NestedMemberRow {
         if !self.collections.is_empty() {
             table.insert("collections", value(collections_array(&self.collections)));
         }
+        if let Some(placed) = &self.placed_edges {
+            table.insert("placed_edges", value(string_array(placed)));
+        }
         table
     }
 
@@ -3500,6 +3522,7 @@ impl NestedMemberRow {
             host: req_str(table, "host")?,
             kind: req_str(table, "kind")?,
             key: req_str(table, "key")?,
+            placed_edges: opt_str_array(table, "placed_edges")?,
             leaves: match opt_table(table, "leaves")? {
                 Some(leaves) => string_map_from_table(leaves)?,
                 None => BTreeMap::new(),

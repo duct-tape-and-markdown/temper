@@ -27,4 +27,5 @@ Features {
     fenced_blocks: [],
     nested_members: [],
     satisfies: [],
+    edge_placements: {},
 }

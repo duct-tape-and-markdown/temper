@@ -429,13 +429,37 @@ function includeRows(harness: Harness): IncludeRow[] {
 }
 
 /**
+ * One composed embedded value's key in an {@link EdgePlacements} table — its host's
+ * `kind:name` address plus the value's own kind and key, the same triple the
+ * `nested_member` row it feeds is identified by.
+ */
+export function placementKey(host: string, kind: string, key: string): string {
+  return `${host} ${kind} ${key}`;
+}
+
+/**
+ * Each composed embedded value's placed edge fields, by {@link placementKey} — `emit`'s
+ * record of which declared edges each value's format actually rendered (`emit.ts`'s
+ * `edgePlacements`). A value with no entry had no format observe it, which is distinct
+ * from a format that placed nothing: the row omits the column entirely and the
+ * `format-places-edges` clause stays undecided rather than indict a format that never ran.
+ */
+export type EdgePlacements = ReadonlyMap<string, readonly string[]>;
+
+/**
  * One host member's declared embedded-member value as its declaration row —
  * each `Text`-authored leaf resolved to its final stored string
  * ([`NestedMemberRow`]), mention-resolution-checked against `scope` the identical
  * way `emit.ts`'s `renderMemberToml` checks the same leaf on its way into the
- * rendered fence.
+ * rendered fence — plus the `placed_edges` record `emit` observed while rendering the
+ * same value, which is the only way an edge's placement reaches the engine.
  */
-function nestedMemberRow(host: string, value: EmbeddedMemberValue, scope: MentionScope): NestedMemberRow {
+function nestedMemberRow(
+  host: string,
+  value: EmbeddedMemberValue,
+  scope: MentionScope,
+  placements: EdgePlacements | undefined,
+): NestedMemberRow {
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const leaves: Record<string, string> = {};
   for (const [field, leaf] of Object.entries(value.leaves)) {
@@ -451,7 +475,19 @@ function nestedMemberRow(host: string, value: EmbeddedMemberValue, scope: Mentio
       return { key: entry.key, leaves: entryLeaves };
  });
  }
-  return { host, kind: value.kind, key: value.key, leaves, collections };
+  const placed = placements?.get(placementKey(host, value.kind, value.key));
+  return {
+    host,
+    kind: value.kind,
+    key: value.key,
+    leaves,
+    collections,
+    // Omitted, never `undefined`-valued: an absent column is the wire's own spelling of
+    // "no format placement was observed here", so a value with no edge to place keeps
+    // the row it has always written. The generated row carries a mutable column and the
+    // placement record is read-only, so the copy is a fresh array.
+    ...(placed === undefined ? {} : { placed_edges: [...placed] }),
+  };
 }
 
 /** Each host kind's admitted embedded kinds, by host kind name — the corpus's `admit`, indexed. */
@@ -500,7 +536,12 @@ function admissionsByHost(harness: Harness): AdmissionsByHost {
  * admission is the adopting corpus's own declaration, so an unadmitted nested member is
  * an unresolved input, not output to write over.
  */
-function nestedMemberRows(harness: Harness, admissions: AdmissionsByHost, scope: MentionScope): NestedMemberRow[] {
+function nestedMemberRows(
+  harness: Harness,
+  admissions: AdmissionsByHost,
+  scope: MentionScope,
+  placements: EdgePlacements | undefined,
+): NestedMemberRow[] {
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
@@ -515,7 +556,7 @@ function nestedMemberRows(harness: Harness, admissions: AdmissionsByHost, scope:
             `(specs/model/representation.md, "nesting").`,
         );
       }
-      rows.push(nestedMemberRow(host, value, scope));
+      rows.push(nestedMemberRow(host, value, scope, placements));
  }
  }
   return rows.sort(
@@ -627,8 +668,17 @@ export function mentionScope(harness: Harness): MentionScope {
   return { mentionable: declaredAddresses(harness), deferrableKinds: declaredAtLocusKinds(harness) };
 }
 
-/** Compile a harness into its seven declaration families — the erased program. */
-export function compileDeclarations(harness: Harness): Declarations {
+/**
+ * Compile a harness into its seven declaration families — the erased program.
+ *
+ * `placements` is `emit`'s record of what each embedded value's format rendered
+ * (`emit.ts`'s `edgePlacements`); this pass compiles declarations and never renders, so
+ * it has no way to observe one itself. Omitted, every `nested_member` row omits its
+ * `placed_edges` column — honest (nothing observed a format) but undecidable for a
+ * `format-places-edges` clause, so a whole compile goes through `emit`, never this
+ * alone.
+ */
+export function compileDeclarations(harness: Harness, placements?: EdgePlacements): Declarations {
   const kinds = atLocusKindsInPlay(kindsInPlay(harness));
   const admissions = admissionsByHost(harness);
   const clauses: ClauseRow[] = [];
@@ -645,7 +695,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),
-    nested_members: nestedMemberRows(harness, admissions, mentionScope(harness)),
+    nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements),
     registrations: registrationRows(harness),
     settings: settingsRows(harness),
   };

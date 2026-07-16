@@ -329,6 +329,16 @@ pub struct Features {
     /// `rationale` is deliberately absent: it is the human *why*, never a
     /// decidable feature.
     pub satisfies: Vec<String>,
+    /// Each edge this member's kind declares, paired with whether the format that
+    /// renders the member placed it — the feature a `format-places-edges` clause
+    /// decides over. The declared set is the lock's `assembly` `edge` facts for this
+    /// member's kind; the placed set is its own
+    /// [`NestedMemberRow::placed_edges`](crate::drift::NestedMemberRow::placed_edges),
+    /// which `emit` captured while rendering. It arrives as a declaration row because
+    /// the engine never sees the `render` hook and never reads a projection back.
+    /// Empty when the kind declares no edge, or when no row records this member — the
+    /// clause is then undecidable here, never a fabricated pass.
+    pub edge_placements: BTreeMap<String, bool>,
 }
 
 impl Features {
@@ -1340,6 +1350,7 @@ prose below\n";
                     "a stamping projector breaks law 5".to_string(),
                 )]),
             }],
+            placed_edges: None,
         }
     }
 

@@ -1333,9 +1333,33 @@ fn embedded_features_by_kind(
     // kind no host declares is an orphan rejected at admissibility
     // ([`nested_member_admissibility`]), so this `get_mut` now backstops that already-loud
     // unreachable state rather than swallowing a live one.
+    let edge_fields = edge_fields_by_kind(declarations);
+    let no_edges = BTreeSet::new();
     for row in &declarations.nested_members {
         if let Some(features) = by_kind.get_mut(&row.kind) {
-            features.push(embedded_member_features(row));
+            features.push(embedded_member_features(
+                row,
+                edge_fields.get(&row.kind).unwrap_or(&no_edges),
+            ));
+        }
+    }
+    by_kind
+}
+
+/// The edge fields each kind declares, off the lock's `assembly` `edge` facts — the
+/// declared set a `format-places-edges` clause measures a value's own
+/// [`placed_edges`](drift::NestedMemberRow::placed_edges) against
+/// ([`embedded_member_features`]). A malformed edge fact is
+/// [`edges_from_declarations`]'s own load error, raised before any check runs, so this
+/// fold reads the well-formed rows rather than raise the identical fault twice.
+fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, BTreeSet<String>> {
+    let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for fact in &declarations.assembly {
+        if fact.fact != "edge" {
+            continue;
+        }
+        if let (Some(from), Some(field)) = (fact.from.clone(), fact.field.clone()) {
+            by_kind.entry(from).or_default().insert(field);
         }
     }
     by_kind
@@ -1450,7 +1474,14 @@ fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<check:
 /// (or a deeper edge) can range over them exactly as a file member's frontmatter. The
 /// body-derived features are empty — an embedded member has no document of its own; it is
 /// read off its host's declared surface.
-fn embedded_member_features(row: &drift::NestedMemberRow) -> extract::Features {
+///
+/// `edge_fields` is what the member's kind declares ([`edge_fields_by_kind`]); pairing it
+/// with the row's own `placed_edges` is what makes a `format-places-edges` clause
+/// decidable without the engine ever seeing the format that rendered the value.
+fn embedded_member_features(
+    row: &drift::NestedMemberRow,
+    edge_fields: &BTreeSet<String>,
+) -> extract::Features {
     let fields = row
         .leaves
         .iter()
@@ -1472,6 +1503,16 @@ fn embedded_member_features(row: &drift::NestedMemberRow) -> extract::Features {
         fenced_blocks: Vec::new(),
         nested_members: Vec::new(),
         satisfies: Vec::new(),
+        // No format rendered the value (a layout host's document is source, not
+        // projection) ⇒ no placement fact at all, so the clause stays undecided rather
+        // than indict a format that does not exist.
+        edge_placements: match &row.placed_edges {
+            None => BTreeMap::new(),
+            Some(placed) => edge_fields
+                .iter()
+                .map(|field| (field.clone(), placed.contains(field)))
+                .collect(),
+        },
     }
 }
 
@@ -1825,5 +1866,79 @@ mod tests {
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
         assert!(files.iter().any(|f| f == "CLAUDE.md"));
+    }
+
+    /// One `nested_member` row of a `citation` kind declaring the edges `edges` names,
+    /// whose format placed `placed` (`None` ⇒ no format rendered the value).
+    fn citation_declarations(edges: &[&str], placed: Option<Vec<String>>) -> drift::Declarations {
+        drift::Declarations {
+            assembly: edges
+                .iter()
+                .map(|field| drift::AssemblyFactRow {
+                    fact: "edge".to_string(),
+                    from: Some("citation".to_string()),
+                    field: Some((*field).to_string()),
+                    to: Some("rule".to_string()),
+                    value: None,
+                })
+                .collect(),
+            nested_members: vec![drift::NestedMemberRow {
+                host: "memory:CLAUDE".to_string(),
+                kind: "citation".to_string(),
+                key: "the-standard".to_string(),
+                leaves: BTreeMap::new(),
+                collections: Vec::new(),
+                placed_edges: placed,
+            }],
+            ..drift::Declarations::default()
+        }
+    }
+
+    /// A member's placement feature is the join of two lock families: the edges the
+    /// `assembly` family says its kind declares, against the `placed_edges` its own row
+    /// says the format rendered. Neither alone decides a `format-places-edges` clause.
+    #[test]
+    fn an_embedded_members_placement_feature_joins_declared_edges_against_the_placed_set() {
+        let declarations =
+            citation_declarations(&["source", "supersedes"], Some(vec!["source".to_string()]));
+        let edges = edge_fields_by_kind(&declarations);
+        let features = embedded_member_features(
+            &declarations.nested_members[0],
+            edges.get("citation").unwrap(),
+        );
+
+        assert_eq!(
+            features.edge_placements,
+            BTreeMap::from([
+                ("source".to_string(), true),
+                ("supersedes".to_string(), false),
+            ]),
+            "the edge the format never selected must read as unplaced",
+        );
+    }
+
+    /// A value no format rendered carries no placement fact at all — a member embedded in
+    /// a layout document is read off its host's declared layout, so there is no format to
+    /// indict and the clause stays undecided. Distinct from a format that placed nothing.
+    #[test]
+    fn a_value_no_format_rendered_carries_no_placement_feature() {
+        let unrendered = citation_declarations(&["source"], None);
+        let edges = edge_fields_by_kind(&unrendered);
+        let features = embedded_member_features(
+            &unrendered.nested_members[0],
+            edges.get("citation").unwrap(),
+        );
+        assert!(features.edge_placements.is_empty());
+
+        // The same row whose format ran and placed nothing does carry the fact — an
+        // unplaced edge, which is the finding the clause exists to make.
+        let rendered = citation_declarations(&["source"], Some(Vec::new()));
+        let edges = edge_fields_by_kind(&rendered);
+        let features =
+            embedded_member_features(&rendered.nested_members[0], edges.get("citation").unwrap());
+        assert_eq!(
+            features.edge_placements,
+            BTreeMap::from([("source".to_string(), false)]),
+        );
     }
 }

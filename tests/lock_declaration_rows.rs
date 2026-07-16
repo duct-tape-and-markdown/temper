@@ -1159,6 +1159,7 @@ fn nested_member_row() -> NestedMemberRow {
         key: "surface-authority".to_string(),
         leaves,
         collections,
+        placed_edges: None,
     }
 }
 
@@ -1220,6 +1221,65 @@ fn a_declared_embedded_members_facts_round_trip_through_the_lock_as_nested_membe
     assert_eq!(
         entry.leaves.get("because").map(String::as_str),
         Some("a stamping projector breaks law 5")
+    );
+}
+
+/// A value's format-placement record round-trips through the lock as its row's
+/// `placed_edges` column, which is the only way the fact reaches `check` — the engine
+/// never sees a `render` hook and never reads the rendering back. The three states stay
+/// distinct across the trip: a format that placed an edge, one that placed none
+/// (`Some(vec![])`), and a value no format rendered at all (absent, so the column is
+/// omitted and an ordinary row is byte-unchanged).
+#[test]
+fn a_values_format_placement_record_round_trips_through_the_lock() {
+    let row = |key: &str, placed: Option<Vec<String>>| NestedMemberRow {
+        host: "memory:CLAUDE".to_string(),
+        kind: "citation".to_string(),
+        key: key.to_string(),
+        leaves: BTreeMap::from([("source".to_string(), "rule:rust".to_string())]),
+        collections: Vec::new(),
+        placed_edges: placed,
+    };
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+        ],
+        nested_members: vec![
+            row("placed", Some(vec!["source".to_string()])),
+            row("omitted", Some(Vec::new())),
+            row("unrendered", None),
+        ],
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("placed-edges-row", &payload);
+    let first = fs::read(into.join("lock.toml")).unwrap();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(into.join("lock.toml")).unwrap(),
+        "a re-emit must not churn the lock",
+    );
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let placement = |key: &str| {
+        declarations
+            .nested_members
+            .iter()
+            .find(|row| row.key == key)
+            .expect("the row round-trips")
+            .placed_edges
+            .clone()
+    };
+    assert_eq!(placement("placed"), Some(vec!["source".to_string()]));
+    assert_eq!(placement("omitted"), Some(Vec::new()));
+    assert_eq!(
+        placement("unrendered"),
+        None,
+        "no format rendered the value, which is not a format that placed nothing",
     );
 }
 

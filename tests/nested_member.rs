@@ -60,6 +60,7 @@ fn surface_authority_row(host: &str) -> NestedMemberRow {
                 )]),
             },
         ],
+        placed_edges: None,
     }
 }
 
@@ -157,6 +158,7 @@ fn a_leaf_carrying_a_resolved_mentions_display_text_reads_as_a_plain_string() {
             "the composition surface is canonical, per the read-only lens rejection".to_string(),
         )]),
         collections: Vec::new(),
+        placed_edges: None,
     };
     let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &[row]);
 
