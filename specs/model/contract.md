@@ -10,7 +10,12 @@ of three loci:
 
 - a **field** — a reference carried as a typed property of the member that
   speaks it, at any grain (a frontmatter field, an embedded member's edge
-  field), resolved by identity within the target kind,
+  field). The kind declares the field's target as a non-empty **set of
+  kinds**; resolution is by identity within the target kind, with the
+  authored address naming which member of the declared set. A one-element
+  set resolves a bare name within its one kind; a multi-element set
+  requires the kind-qualified address always — resolution depends on the
+  written text, never the member population (decision 0029),
 - an **import directive** — a reference the target format itself executes
   (a memory file's `@path` import), resolved by path,
 - a **satisfies entry** — an edge whose target is a requirement member.

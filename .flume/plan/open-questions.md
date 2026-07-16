@@ -50,58 +50,6 @@ tax.
   deciding it should — which is the fork's whole tension, not a new one. The
   resolution returns through the inbox.
 
-- `(edge-field-target-openness)` — OPEN. `EdgeField.to` names exactly one
-  target kind (`sdk/src/kind.ts:43-47`, required), but a citation posture
-  ranges over heterogeneous targets — centercode's `reference` points at a
-  rule and at two per-skill supporting-doc kinds, so no single `to` is true.
-  **The seam half of this record is CLOSED — EMBEDDED-EDGE-DEGREE-SEAM
-  (c607fad) shipped it; the arity half is what survives.** What stood here was
-  a three-surface disagreement: the corpus reads a field edge as "resolved by
-  identity within the target kind" (`specs/model/contract.md`, "edge"), the
-  engine matched only the bare `features.id`, and emit derived the leaf's full
-  `kind:name` address — so `to` was load-bearing on one side of the seam and
-  dead on the other. The engine now reads `to` on both compare paths through
-  one normalizer (`src/graph.rs` `target_identity` 1102-1107, applied at 136
-  and 813): it accepts either spelling and resolves by identity within `to` —
-  read-time normalization on decision 0024's precedent, not a second
-  resolution path. `edgeTargetFacts` (`sdk/src/emit.ts:242-275`, re-verified
-  8978596) still never reads `to`, and no longer needs to — the engine
-  reconciles the spelling emit derives. Corpus and engine agree, and the
-  one-kind reading is now *enforced*: an address naming any other kind is left
-  deliberately dangling under its authored spelling.
-  **Why a fork, not an entry:** `to`'s arity is the edge's declared type. The
-  model file owns it, so the ruling is a `specs/model/contract.md` change plus
-  a decision record — the change ceremony (`process/spec-system.md`), never a
-  derived layer's to invent.
-  **The position plan holds, against both spellings the report offered:**
-  neither. Not an optional `to` — that makes an edge's target kind a
-  per-instance property of the address rather than a declared contract, and
-  the kind-level declaration is what the gate holds. Not "wait for
-  `supporting-doc` to unify the doc kinds and split citation postures per
-  target kind" — it does not solve the case: after SKILL-NESTED-REFERENCE-DOCS
-  the set is still {rule, supporting-doc}, still two kinds, and splitting one
-  authored posture per target kind duplicates a surface to dodge a modeling
-  gap. The proposal is **`to` widens to a declared, non-empty SET of target
-  kinds**: resolution stays "by identity within the target kind", the leaf's
-  authored address names WHICH member of the declared set, a one-element set
-  is today's behavior exactly (so the migration is mechanical and the engine's
-  bare-id path survives as its degenerate case), and the edge's type stays
-  declared — invariant 1 holds, and a corpus wanting narrower keeps its
-  each-grain `kind` clause over the selection.
-  **The objection that must be answered first:** a set is still a closed
-  enumeration, so a corpus that genuinely wants an open citation ("cite
-  anything addressable") is unserved and will be back — and if that consumer
-  is the common case, the set is ceremony over an optional `to`. Whether the
-  heterogeneous-but-bounded case is the real one is unmeasured: centercode is
-  n=1.
-  EMBEDDED-EDGE-DEGREE-SEAM **shipped** (c607fad): the standing corpus reading
-  — the address's kind component must equal `to` — is now built and enforced,
-  which the set proposal strictly generalizes and neither spelling contests, a
-  one-element set being that entry's behavior exactly. The migration cost the
-  set proposal owes is therefore *measured now, not estimated*: one normalizer
-  at one home, both compare paths already routed through it. Nothing is blocked
-  on this ruling, and the resolution returns through the inbox.
-
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
