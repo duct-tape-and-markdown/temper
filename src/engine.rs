@@ -102,11 +102,15 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 /// "advisory" admissibility, because a contract that cannot be trusted cannot be
 /// used. The diagnostic's `artifact` is the contract's display label so a finding
 /// names the contract it indicts.
+///
+/// `locus` is where the bound kind's members live. Most rules never read it; the
+/// body-shaped fence does, because a predicate's decidability is a fact about the
+/// selection's locus, not about the predicate alone ([`bodyless`]).
 #[must_use]
-pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
+pub fn admissibility(contract: &Contract, locus: &Locus) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
-        for message in inadmissibilities(&clause.predicate) {
+        for message in inadmissibilities(&clause.predicate, locus) {
             diagnostics.push(Diagnostic::error(
                 clause.predicate.key(),
                 &contract.name,
@@ -117,25 +121,73 @@ pub fn admissibility(contract: &Contract) -> Vec<Diagnostic> {
     diagnostics
 }
 
-/// The admissibility violations of a single clause's predicate — empty when the clause
-/// is well-formed over the definition. Two decidable checks live here today: (1) the
-/// predicate has a judge at all, since one that does not could only ever return
-/// [`Outcome::Indeterminate`] — a silent no-op; and (2) a value/key list is non-empty —
-/// a list-bearing predicate with an empty list is vacuous (an `enum` over no values
-/// admits nothing; `forbidden_keys` over no keys forbids nothing), which the author
-/// cannot have meant.
+/// Where a clause's selected members live — the one thing beyond the predicate a
+/// vacuity rule reads.
 ///
-/// Every rule holds of every clause, whichever selection it binds to: an empty `kind`
-/// and an inverted bound are vacuous over any set, and the one judge-less predicate is
-/// judge-less everywhere.
+/// The distinction is decidability, not taxonomy: a member at the document locus is
+/// extracted from a file of its own, so every body-derived feature carries real bytes;
+/// an embedded member is read off its host's declared surface and owns no document, so
+/// the same features arrive empty and any predicate ranging over them returns one fixed
+/// answer for every member.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Locus {
+    /// The selection's members each own a document — the at-locus binding, where the
+    /// full predicate vocabulary is decidable.
+    Document,
+    /// The members of the named embedded kind, folded from their hosts' bodies.
+    Embedded(String),
+}
+
+/// The admissibility violations of a single clause's predicate at `locus` — empty when
+/// the clause is well-formed over the definition. Three decidable checks live here
+/// today: (1) the predicate has a judge at all, since one that does not could only ever
+/// return [`Outcome::Indeterminate`] — a silent no-op; (2) a value/key list is
+/// non-empty — a list-bearing predicate with an empty list is vacuous (an `enum` over no
+/// values admits nothing; `forbidden_keys` over no keys forbids nothing), which the
+/// author cannot have meant; and (3) the predicate reads a feature the bound locus
+/// carries ([`bodyless`]).
 ///
 /// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate rules
 /// for a requirement's own `clauses` — one definition of "vacuous", never a second copy
 /// drifting beside it.
-pub(crate) fn inadmissibilities(predicate: &Predicate) -> Vec<String> {
+pub(crate) fn inadmissibilities(predicate: &Predicate, locus: &Locus) -> Vec<String> {
     let mut messages: Vec<String> = judgeless(predicate).into_iter().collect();
+    messages.extend(bodyless(predicate, locus));
     messages.extend(vacuities(predicate));
     messages
+}
+
+/// The fence message when `predicate` reads a feature `locus` carries none of, else
+/// `None`.
+///
+/// An embedded member is lifted from its host's declared surface — its leaves become
+/// fields, and every body-derived feature is empty because there is no document to read
+/// them from. A predicate ranging over one of those features therefore returns the same
+/// answer over every member of the kind: `max_lines` reads zero lines and passes over
+/// any value, `section_contains` finds no section to indict, `name-matches-dir` has no
+/// directory to compare. Deciding nothing, they are inadmissible where they are bound,
+/// rather than degrading to a check that never ran.
+///
+/// The line is the feature read, not the predicate's family: `must_define` looks the
+/// part but resolves as field presence, which an embedded member's leaves answer, so it
+/// stays decidable and unfenced.
+fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
+    let Locus::Embedded(kind) = locus else {
+        return None;
+    };
+    let feature = match predicate {
+        Predicate::MaxLines { .. } => "the body's line count",
+        Predicate::RequireSections { .. } => "the body's headings",
+        Predicate::SectionContains { .. } => "the body's sections",
+        Predicate::NameMatchesDir => "the member's source directory",
+        _ => return None,
+    };
+    Some(format!(
+        "`{}` ranges over {feature}, which no member of embedded kind `{kind}` has: an \
+         embedded member is read off its host's declared surface, never a document of \
+         its own, so the clause decides the same thing over every member",
+        predicate.key()
+    ))
 }
 
 /// The fence message when no judge decides `predicate`, else `None`.
@@ -153,9 +205,10 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
     }
 }
 
-/// The clause's vacuity violations — the rules that hold identically in every
-/// facet: a predicate that can never decide anything over *any* selection, whoever
-/// judges it.
+/// The clause's vacuity violations — a predicate that can never decide anything over
+/// *any* selection, at any locus: an empty `enum` admits nothing and an inverted bound
+/// excludes everything, whatever the clause binds to. The locus-dependent half of
+/// vacuity is [`bodyless`]'s.
 fn vacuities(predicate: &Predicate) -> Vec<String> {
     match predicate {
         Predicate::Enum { field, values } if values.is_empty() => {
@@ -531,10 +584,9 @@ impl Outcome {
 }
 
 /// The decision table — one arm per primitive. Every arm is decidable *given the
-/// feature it names*; the predicates this facet has no judge for return
-/// [`Outcome::Indeterminate`] rather than a fabricated pass, though
-/// [`admissibility`] fences each before a valid run reaches conformance, so those
-/// arms are a defensive floor, not working clauses.
+/// feature it names*; the predicates ranging over a whole selection rather than one
+/// member ([`Predicate::ranges_over_selection`]) return [`Outcome::Indeterminate`] here
+/// rather than a fabricated pass, since their judges live elsewhere.
 fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
@@ -1069,7 +1121,7 @@ mod tests {
                 max: 0.0,
             },
         );
-        let diags = admissibility(&inverted);
+        let diags = admissibility(&inverted, &Locus::Document);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "range");
         assert_eq!(diags[0].severity, Severity::Error);
@@ -1087,28 +1139,27 @@ mod tests {
                 },
             );
             assert!(
-                admissibility(&ok).is_empty(),
+                admissibility(&ok, &Locus::Document).is_empty(),
                 "[{min}, {max}] is admissible"
             );
         }
     }
 
-    // The node-set family's vacuity rules bite on the facet that carries a judge for
-    // them — a requirement's own clauses — since the contract facet fences the whole
-    // family ahead of any vacuity question.
+    // The node-set family's vacuity rules are exercised where a judge reaches them — a
+    // requirement's own clauses, via `crate::roster::admissibility`.
 
     #[test]
     fn an_inverted_count_bound_is_inadmissible() {
         // `count`'s `min > max` is the same vacuous-bound rule as `range`, over the
         // satisfier-set's cardinality.
-        let messages = inadmissibilities(&Predicate::Count { min: 3, max: 1 });
+        let messages = inadmissibilities(&Predicate::Count { min: 3, max: 1 }, &Locus::Document);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("min 3 greater than max 1"));
 
         // Equal endpoints included: a well-ordered bound is admissible.
         for (min, max) in [(0, 5), (2, 2)] {
             assert!(
-                inadmissibilities(&Predicate::Count { min, max }).is_empty(),
+                inadmissibilities(&Predicate::Count { min, max }, &Locus::Document).is_empty(),
                 "[{min}, {max}] is admissible"
             );
         }
@@ -1120,7 +1171,7 @@ mod tests {
             field: "model".to_string(),
             target: String::new(),
         };
-        let messages = inadmissibilities(&empty_target);
+        let messages = inadmissibilities(&empty_target, &Locus::Document);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("empty target"));
 
@@ -1128,7 +1179,7 @@ mod tests {
             field: "model".to_string(),
             target: "approved-models".to_string(),
         };
-        assert!(inadmissibilities(&named).is_empty());
+        assert!(inadmissibilities(&named, &Locus::Document).is_empty());
     }
 
     #[test]
@@ -1139,7 +1190,7 @@ mod tests {
             incoming: None,
             outgoing: None,
         };
-        let messages = inadmissibilities(&no_direction);
+        let messages = inadmissibilities(&no_direction, &Locus::Document);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("no incoming or outgoing bound"));
 
@@ -1152,7 +1203,7 @@ mod tests {
             }),
             outgoing: None,
         };
-        assert!(inadmissibilities(&routed).is_empty());
+        assert!(inadmissibilities(&routed, &Locus::Document).is_empty());
     }
 
     #[test]
@@ -1164,7 +1215,7 @@ mod tests {
             }),
             outgoing: None,
         };
-        let messages = inadmissibilities(&inverted);
+        let messages = inadmissibilities(&inverted, &Locus::Document);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("incoming"));
     }
@@ -1200,10 +1251,10 @@ mod tests {
         // projection carries the fact it would range over and it could only ever answer
         // `Indeterminate`. The fence makes the contract fail loud rather than let the
         // clause read as a green pass it never ran.
-        let diags = admissibility(&contract(
-            ClauseSeverity::Required,
-            Predicate::DependencyExists,
-        ));
+        let diags = admissibility(
+            &contract(ClauseSeverity::Required, Predicate::DependencyExists),
+            &Locus::Document,
+        );
         assert_eq!(diags.len(), 1, "got: {diags:?}");
         assert_eq!(
             diags[0].rule, "dependency-exists",
@@ -1224,11 +1275,88 @@ mod tests {
         // formed set clause is admissible wherever it is declared, and only vacuity can
         // indict it.
         for predicate in set_predicates() {
-            let diags = admissibility(&contract(ClauseSeverity::Required, predicate.clone()));
+            let diags = admissibility(
+                &contract(ClauseSeverity::Required, predicate.clone()),
+                &Locus::Document,
+            );
             assert!(
                 diags.is_empty(),
                 "`{}` is judged over whatever selection its contract binds to, got: {diags:?}",
                 predicate.key()
+            );
+        }
+    }
+
+    #[test]
+    fn a_body_shaped_predicate_bound_to_an_embedded_kind_is_inadmissible() {
+        // The lift zeroes an embedded member's body-derived features, so each of these
+        // returns one fixed answer over every member of the kind: `max_lines` reads
+        // zero lines and passes any value, `section_contains` finds no section to
+        // indict, `require_sections` misses every named heading, `name-matches-dir` has
+        // no directory to compare. Bound where nothing can decide them, they fail
+        // admissibility rather than read as checks that ran.
+        let embedded = Locus::Embedded("citation".to_string());
+        for predicate in [
+            Predicate::MaxLines { max: 2 },
+            Predicate::RequireSections {
+                sections: vec!["Usage".to_string()],
+            },
+            Predicate::SectionContains {
+                heading: "Usage".to_string(),
+                marker: "example".to_string(),
+            },
+            Predicate::NameMatchesDir,
+        ] {
+            let key = predicate.key();
+            let diags = admissibility(
+                &contract(ClauseSeverity::Required, predicate.clone()),
+                &embedded,
+            );
+            assert_eq!(diags.len(), 1, "`{key}` must be fenced, got: {diags:?}");
+            assert_eq!(diags[0].rule, key, "the finding names the predicate");
+            assert!(
+                diags[0].message.contains("citation"),
+                "the finding names the kind it is bound to, got: {}",
+                diags[0].message
+            );
+            assert_eq!(
+                diags[0].severity,
+                Severity::Error,
+                "an inadmissible contract fails the run"
+            );
+
+            let at_locus = admissibility(
+                &contract(ClauseSeverity::Required, predicate),
+                &Locus::Document,
+            );
+            assert!(
+                at_locus.is_empty(),
+                "`{key}` decides over a member that owns a document, got: {at_locus:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_leaf_reading_predicate_bound_to_an_embedded_kind_still_judges() {
+        // The fence's line is the feature read, not the predicate's family.
+        // `must_define` looks body-shaped but resolves as field presence, which an
+        // embedded member's leaves answer — so it stays admissible, as do the field and
+        // placement predicates the embedded dispatcher exists to run.
+        let embedded = Locus::Embedded("citation".to_string());
+        for predicate in [
+            Predicate::MustDefine {
+                marker: "source".to_string(),
+            },
+            Predicate::Required {
+                field: "source".to_string(),
+            },
+            Predicate::FormatPlacesEdges,
+        ] {
+            let key = predicate.key();
+            let diags = admissibility(&contract(ClauseSeverity::Required, predicate), &embedded);
+            assert!(
+                diags.is_empty(),
+                "`{key}` decides over an embedded member's leaves, got: {diags:?}"
             );
         }
     }
@@ -1549,7 +1677,7 @@ mod tests {
 
         for predicate in vocabulary {
             assert!(
-                inadmissibilities(&predicate).is_empty(),
+                inadmissibilities(&predicate, &Locus::Document).is_empty(),
                 "`{}` is admissible here — the fenced set is tested above",
                 predicate.key()
             );
@@ -1770,7 +1898,7 @@ mod tests {
         // syntax or extractor, so a hand-authored clause must fail admissibility
         // loudly rather than silently decide `Indeterminate`. The fence is mirrored on the full `pattern` primitive.
         let held = contract(ClauseSeverity::Required, Predicate::DependencyExists);
-        let diags = admissibility(&held);
+        let diags = admissibility(&held, &Locus::Document);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "dependency-exists");
         assert_eq!(diags[0].severity, Severity::Error);
@@ -1781,7 +1909,7 @@ mod tests {
         // A clause's declared severity is irrelevant: it is inadmissible even
         // when marked advisory, because an inadmissible contract cannot be used.
         let advisory = contract(ClauseSeverity::Advisory, Predicate::DependencyExists);
-        assert_eq!(admissibility(&advisory).len(), 1);
+        assert_eq!(admissibility(&advisory, &Locus::Document).len(), 1);
     }
 
     #[test]
@@ -1795,7 +1923,7 @@ mod tests {
                 values: Vec::new(),
             },
         );
-        let diags = admissibility(&empty_enum);
+        let diags = admissibility(&empty_enum, &Locus::Document);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "enum");
         assert_eq!(diags[0].severity, Severity::Error);
@@ -1827,7 +1955,10 @@ mod tests {
                 "require_sections",
             ),
         ] {
-            let diags = admissibility(&contract(ClauseSeverity::Required, predicate));
+            let diags = admissibility(
+                &contract(ClauseSeverity::Required, predicate),
+                &Locus::Document,
+            );
             assert_eq!(diags.len(), 1, "{key} with an empty list should fire once");
             assert_eq!(diags[0].rule, key);
             assert_eq!(diags[0].severity, Severity::Error);
@@ -1893,7 +2024,7 @@ mod tests {
             guidance: None,
             clauses,
         };
-        assert!(admissibility(&contract).is_empty());
+        assert!(admissibility(&contract, &Locus::Document).is_empty());
     }
 
     #[test]

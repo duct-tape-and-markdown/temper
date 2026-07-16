@@ -199,7 +199,7 @@ fn the_shipped_built_in_packages_are_admissible() {
         "at least the skill and rule built-ins must be embedded"
     );
     for (name, contract) in &builtins {
-        let diagnostics = engine::admissibility(contract);
+        let diagnostics = engine::admissibility(contract, &engine::Locus::Document);
         assert!(
             diagnostics.is_empty(),
             "{name} should be admissible, got: {diagnostics:?}",
@@ -272,16 +272,22 @@ fn a_named_kind_clause_is_admissible_on_a_kinds_own_contract_and_an_empty_one_is
     };
 
     assert!(
-        engine::admissibility(&bare_contract(Predicate::Kind {
-            kind: "skill".to_string(),
-        }))
+        engine::admissibility(
+            &bare_contract(Predicate::Kind {
+                kind: "skill".to_string(),
+            }),
+            &engine::Locus::Document
+        )
         .is_empty(),
         "a named `kind` is judged over the contract's selection, so nothing indicts it",
     );
 
-    let empty = engine::admissibility(&bare_contract(Predicate::Kind {
-        kind: String::new(),
-    }));
+    let empty = engine::admissibility(
+        &bare_contract(Predicate::Kind {
+            kind: String::new(),
+        }),
+        &engine::Locus::Document,
+    );
     assert!(
         !empty.is_empty(),
         "an empty `kind` is vacuous over every selection",
@@ -348,7 +354,11 @@ fn the_format_places_edges_clause_loads_off_a_bare_predicate_row() {
     assert_eq!(Predicate::FormatPlacesEdges.key(), "format-places-edges");
     assert_eq!(Predicate::FormatPlacesEdges.target(), None);
     assert!(
-        engine::admissibility(&places_edges_contract(Severity::Required)).is_empty(),
+        engine::admissibility(
+            &places_edges_contract(Severity::Required),
+            &engine::Locus::Document
+        )
+        .is_empty(),
         "the predicate carries no list or bound, so nothing about it can be vacuous",
     );
 }

@@ -179,7 +179,7 @@ fn rule_features(paths: &[&str]) -> temper::extract::Features {
 /// returns nothing.
 #[test]
 fn the_rule_builtin_is_admissible() {
-    let diagnostics = engine::admissibility(&rule_builtin());
+    let diagnostics = engine::admissibility(&rule_builtin(), &engine::Locus::Document);
     assert!(
         diagnostics.is_empty(),
         "the rule built-in should be admissible, got: {diagnostics:?}",

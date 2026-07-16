@@ -808,7 +808,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
 
         let features = kind_features(kind, harness_root, &declarations)?;
 
-        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
         diagnostics.extend(engine::validate(&contract, &features));
         member_counts.insert(kind.name.clone(), features.len());
         contracts.insert(kind.name.clone(), contract);
@@ -839,7 +839,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
         let features = kind_features(&custom_kind, harness_root, &declarations)?;
 
-        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
         diagnostics.extend(engine::validate(&contract, &features));
         member_counts.insert(row.name.clone(), features.len());
         contracts.insert(row.name.clone(), contract);
@@ -898,7 +898,10 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     for (kind, features) in &embedded_features {
         let contract = compose::default_contract_from_rows(&declarations.clauses, kind)?;
 
-        diagnostics.extend(engine::admissibility(&contract));
+        diagnostics.extend(engine::admissibility(
+            &contract,
+            &engine::Locus::Embedded(kind.clone()),
+        ));
         diagnostics.extend(engine::validate(&contract, features));
         contracts.insert(kind.clone(), contract);
     }

@@ -259,7 +259,11 @@ fn a_count_floor_bound_to_a_kinds_own_selection_is_judged_not_fenced() {
 /// citation value whose format placed `placed_edges`. The `citation` kind declares a
 /// `source` edge and carries a `format-places-edges` clause, so the value's placement is
 /// the only thing that varies between the two cases below.
-fn write_embedded_citation_harness(root: &Path, placed_edges: Vec<String>) {
+fn write_embedded_citation_harness(
+    root: &Path,
+    placed_edges: Vec<String>,
+    extra_clauses: Vec<temper::drift::ClauseRow>,
+) {
     fs::create_dir_all(root.join("docs").join("standards")).unwrap();
     fs::write(
         root.join("docs").join("standards").join("the-charter.md"),
@@ -294,10 +298,12 @@ fn write_embedded_citation_harness(root: &Path, placed_edges: Vec<String>) {
                 collections: Vec::new(),
                 placed_edges: Some(placed_edges),
             }],
-            clauses: vec![temper::drift::ClauseRow {
+            clauses: std::iter::once(temper::drift::ClauseRow {
                 kind: Some("citation".to_string()),
                 ..common::clause("format-places-edges", "required")
-            }],
+            })
+            .chain(extra_clauses)
+            .collect(),
             ..temper::drift::Declarations::default()
         },
     );
@@ -311,7 +317,7 @@ fn a_clause_bound_to_an_embedded_kind_judges_its_members() {
     // format dropped the `source` edge it carries fails the run loud, naming the field.
     // Bound to a kind nobody judged, the clause would silently decide nothing.
     let root = common::tmpdir("embedded-kind-clause-fires");
-    write_embedded_citation_harness(&root, Vec::new());
+    write_embedded_citation_harness(&root, Vec::new(), Vec::new());
 
     let (findings, success) = check_in(&root, &["."]);
 
@@ -342,7 +348,7 @@ fn an_embedded_kind_clause_that_holds_leaves_the_run_silent() {
     // The same harness with the `source` edge placed: the dispatcher adds a judge, never
     // a finding. A clause reaching a kind it never reached before must not invent one.
     let root = common::tmpdir("embedded-kind-clause-holds");
-    write_embedded_citation_harness(&root, vec!["source".to_string()]);
+    write_embedded_citation_harness(&root, vec!["source".to_string()], Vec::new());
 
     let (findings, success) = check_in(&root, &["."]);
 
@@ -353,6 +359,92 @@ fn an_embedded_kind_clause_that_holds_leaves_the_run_silent() {
     assert!(
         success,
         "a holding embedded-kind clause must exit zero, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
+    // An embedded member owns no document: the lift reads it off its host's declared
+    // surface and every body-derived feature arrives empty. A `max_lines` bound to the
+    // kind therefore measures a zero-line body and passes whatever the value holds —
+    // a clause that decides nothing while reading as a check that ran. Admissibility is
+    // where that dies, naming the predicate and the kind, rather than conformance
+    // inventing a body to judge.
+    let root = common::tmpdir("embedded-kind-body-clause");
+    write_embedded_citation_harness(
+        &root,
+        vec!["source".to_string()],
+        vec![temper::drift::ClauseRow {
+            kind: Some("citation".to_string()),
+            bound: Some(temper::drift::BoundRow {
+                min: None,
+                max: Some(2),
+            }),
+            ..common::clause("max_lines", "required")
+        }],
+    );
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    let fenced = common::findings_for(&findings, "max_lines");
+    assert_eq!(
+        fenced.len(),
+        1,
+        "a body-shaped clause an embedded kind can never decide must fail admissibility, got: {findings:#?}"
+    );
+    assert!(
+        fenced[0].starts_with("::error "),
+        "admissibility carries no advisory severity, got: {}",
+        fenced[0]
+    );
+    assert!(
+        fenced[0].contains("citation"),
+        "the refusal names the kind the clause is bound to, got: {}",
+        fenced[0]
+    );
+    assert!(
+        !success,
+        "an inadmissible contract must exit non-zero, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
+    // The fence's line is the feature read, not the kind. With the same inadmissible
+    // `max_lines` declared, the citation's decidable clauses must still reach their
+    // members: `format-places-edges` fires over the dropped `source` edge exactly as it
+    // does without it. A fence that swallowed the dispatch would trade one silence for
+    // another.
+    let root = common::tmpdir("embedded-kind-fence-keeps-dispatch");
+    write_embedded_citation_harness(
+        &root,
+        Vec::new(),
+        vec![temper::drift::ClauseRow {
+            kind: Some("citation".to_string()),
+            bound: Some(temper::drift::BoundRow {
+                min: None,
+                max: Some(2),
+            }),
+            ..common::clause("max_lines", "required")
+        }],
+    );
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    let omissions = common::findings_for(&findings, "format-places-edges");
+    assert_eq!(
+        omissions.len(),
+        1,
+        "the embedded kind's decidable clause must still judge its member, got: {findings:#?}"
+    );
+    assert!(
+        omissions[0].contains("source"),
+        "the finding must name the omitted edge field, got: {}",
+        omissions[0]
+    );
+    assert!(
+        !success,
+        "both the fence and the finding fail the run, got: {findings:#?}"
     );
 }
 

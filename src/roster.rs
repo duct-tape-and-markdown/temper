@@ -139,7 +139,10 @@ pub fn admissibility(
 
         // (c) Every clause's own predicate must be well-formed.
         for clause in &requirement.clauses {
-            for message in engine::inadmissibilities(&clause.predicate) {
+            // The document locus, decidably: an opt-in selection draws satisfiers, and
+            // an embedded member carries no `satisfies` edge to be drawn by, so every
+            // satisfier owns a document of its own.
+            for message in engine::inadmissibilities(&clause.predicate, &engine::Locus::Document) {
                 diagnostics.push(Diagnostic::error(
                     REQUIREMENT_ADMISSIBILITY_RULE,
                     name,

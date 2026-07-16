@@ -182,7 +182,10 @@ fn agent_builtin_carries_the_decidable_clause_vector() {
 
 #[test]
 fn the_agent_builtin_is_admissible() {
-    let diagnostics = engine::admissibility(&builtin::contract("agent").unwrap());
+    let diagnostics = engine::admissibility(
+        &builtin::contract("agent").unwrap(),
+        &engine::Locus::Document,
+    );
     assert!(diagnostics.is_empty(), "got: {diagnostics:?}");
 }
 
