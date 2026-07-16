@@ -1,32 +1,38 @@
 # Plan state
 
 - Spec derived through: 39a4833
-- Audited through: f632c71
-- Residue swept through: f632c71
-- This tick: RECONCILE the ff7da32..f632c71 window — one src commit in it
-  (c7409f0, CHECK-WORKSPACE-DIR-RESOLVE: main.rs/bundle.rs/gate_fail_loud.rs;
-  f632c71 already drained the entry). **Audit:** read the shipped diff on disk —
-  `harness_diagnostics` (main.rs:658-680) now resolves a path three ways off a new
-  `LOCK_FILE` const, the workspace branch gating against the enclosing root. That
-  discharges the only reason INSTALL-REPRESENTED-SKIPS-THE-QUESTION was `blockedBy`
-  it (both edit main.rs) ⇒ **gate opened**, line cites refreshed past c7409f0's
-  shift (396-410→398-413, 618-630→620-633). Both its premises re-probed live rather
-  than diffed forward: the question is still asked and still defaults No unattended;
-  `--yes` still converges on the 3 notes. PACKAGING-CHANNELS-REMAINDER's park
-  re-tested — no version tag, crate 0.1.0 vs npm 0.0.7, release.yml still defers
-  darwin — still unmet, stays parked. **Sweep:** one finding, folded rather than
-  filed beside — `install` resolves its path as a harness root unconditionally, so
-  `install .temper` (probed) treats the workspace as a raw root and would scaffold
-  `.temper/.claude/settings.json`: the same half-resolve c7409f0 closed for `check`,
-  surviving in a second resolver of one job (`engineering.md`, "One job, one home").
-  Same section and same two files as the install entry, so it folds in as
-  consolidation rather than opening a second blockedBy chain on main.rs. No rider
-  moved: the window touched no file any "rides X" record names, so every line cite
-  in open-questions holds unshifted and that file is unchanged this tick.
-- Queue: 1 pickable (INSTALL-REPRESENTED-SKIPS-THE-QUESTION, gate just opened);
-  PACKAGING-CHANNELS-REMAINDER parked (John's Apple notarizing + the v0.1
-  lockstep tag) — condition re-tested, still unmet.
+- Audited through: 169e62f
+- Residue swept through: 169e62f
+- This tick: RECONCILE the f632c71..169e62f window — one src commit in it
+  (7367c1e, INSTALL-REPRESENTED-SKIPS-THE-QUESTION: install.rs/main.rs/
+  tests/install.rs; 169e62f already drained the entry). **Audit:** both halves
+  verified on disk and re-probed live rather than read off the log —
+  `harness_diagnostics`'s body lifted into `resolve_harness_path` returning a
+  typed `HarnessPath` (main.rs:664-745), read by both `check`'s gate and
+  `install`'s represent decision, so the folded-in half landed as consolidation
+  rather than a second resolver. Probes on this repo: non-interactive
+  `install . --dry-run` asks nothing, reports "already represented —
+  ./.temper/lock.toml answers the represent question", and places exactly the 3
+  managed-by notes `check .` demands; `install .temper` refuses, naming `.`.
+  Nothing left to drop. PACKAGING-CHANNELS-REMAINDER's park re-tested — no
+  version tag (era tags only), crate 0.1.0 vs npm 0.0.7, release.yml still
+  linux-x64+win32-x64 with darwin/notarize/bundle absent — still unmet, stays
+  parked. **Sweep:** one finding, filed as WORKSPACE-DIR-ONE-HOME — 7367c1e
+  consolidated the lock *probe* but left the literals it reads split five ways:
+  `.temper` is a private const in four modules under two names (`TEMPER_DIR` in
+  main.rs/import.rs/coverage_note.rs, `WORKSPACE_DIR` in install.rs, plus
+  main.rs's `DEFAULT_WORKSPACE = "./.temper"`), `lock.toml` in two (`LOCK_FILE`,
+  `LOCK_FILENAME`). One datum, five homes — `engineering.md`, "One job, one
+  home" — and coverage_note.rs:41's own doc comment confesses the mirror. No
+  rider moved: the window touched only install.rs/main.rs/tests/install.rs,
+  which no "rides X" record names, so every line cite in open-questions holds
+  unshifted. One rider gained a carrier — coverage_note.rs:76's `SETTINGS_DOC`
+  date lag now rides WORKSPACE-DIR-ONE-HOME, which opens that file and names the
+  bump in its file description; the record is annotated, not resolved.
+- Queue: 1 pickable (WORKSPACE-DIR-ONE-HOME); PACKAGING-CHANNELS-REMAINDER
+  parked (John's Apple notarizing + the v0.1 lockstep tag) — condition
+  re-tested, still unmet.
 
 Plan continues: no — reconciliation was the last input in the order, and both
-cursors now sit at HEAD. Spec cursor copied forward verbatim (delta empty; 39a4833
-fully derived). Build takes over: the queue has one pickable entry.
+cursors now sit at HEAD. Spec cursor copied forward verbatim (delta empty;
+39a4833 fully derived). Build takes over: the queue has one pickable entry.

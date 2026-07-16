@@ -162,7 +162,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   builtin_kind.rs's `**/CLAUDE.md` glob already covers the new location — so
   this is date-staleness on correct facts: citation staleness, riding
   whichever entry next opens each file, never standalone, never the queue's
-  only new work. Found at reconcile HEAD 794ca2b.
+  only new work. Found at reconcile HEAD 794ca2b. `coverage_note.rs:76` now
+  has a carrier: WORKSPACE-DIR-ONE-HOME opens that file and names the bump in
+  its `files[].description`. The rest (`builtin_kind.rs`, `extract.rs:774`,
+  `graph.rs`) still ride the next entry opening each.
 
 - **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
   one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
