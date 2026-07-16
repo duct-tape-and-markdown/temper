@@ -899,6 +899,118 @@ mod embedded_edge_targets {
     }
 }
 
+/// End-to-end proof of the **source** side of the same grain: an embedded member's own
+/// edge field resolves, and counts for degree exactly as a frontmatter field's does.
+///
+/// The two halves this pins were separately broken. An embedded kind's declared edge
+/// fields reached no assembly `edge` fact, so the edge did not exist; and an embedded
+/// member's edge leaf is the target's full `kind:name` address, not the bare identity a
+/// frontmatter field carries, so the edge resolved to nothing even once declared. Both
+/// failed silently — every `degree({incoming})` over the target simply read 0.
+mod embedded_edge_sources {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    /// The `article` layout host: a lone document under `specs/`, hosting the embedded
+    /// `citation` members its `templates` column admits.
+    fn article_kind() -> KindFactRow {
+        KindFactRow {
+            templates: vec![TemplateRow {
+                kind: "citation".to_string(),
+                path: None,
+            }],
+            ..common::kind_facts("article", "specs", "article.md")
+        }
+    }
+
+    /// One embedded `citation` nested under the `article` host, its `source` edge leaf
+    /// spelled exactly as emit derives it — the target's full `kind:name` address.
+    fn citation_row(source: &str) -> NestedMemberRow {
+        NestedMemberRow {
+            host: "article:article".to_string(),
+            kind: "citation".to_string(),
+            key: "the-standard".to_string(),
+            leaves: BTreeMap::from([("source".to_string(), source.to_string())]),
+            collections: Vec::new(),
+            placed_edges: None,
+        }
+    }
+
+    /// The harness both cases open on: the `article` host document, and the skill
+    /// `data-access` the citation points at, opted into the `gate` requirement so a
+    /// degree bound ranges over it.
+    fn write_cited_harness(root: &Path) {
+        fs::write(root.join("specs/article.md"), "# Article\n\nBody.\n").unwrap();
+        common::write_skill(root, "data-access", &common::clean_skill("data-access"));
+    }
+
+    /// The lock both cases commit: the `citation.source → skill` edge, one citation
+    /// naming `source`, and a `gate` requirement demanding every satisfier be pointed at
+    /// (`incoming = { min = 1 }`).
+    fn cited_lock(root: &Path, source: &str) {
+        common::write_lock(
+            root,
+            Declarations {
+                kinds: vec![article_kind()],
+                assembly: vec![edge("citation", "source", "skill")],
+                nested_members: vec![citation_row(source)],
+                requirements: vec![degree_requirement(
+                    Some("skill"),
+                    DegreeBoundRow {
+                        incoming: Some(edge_bound(Some(1), None)),
+                        outgoing: None,
+                    },
+                )],
+                ..Declarations::default()
+            },
+        );
+        common::author_satisfies(root, "skills", "data-access", &["gate"]);
+    }
+
+    #[test]
+    fn an_address_spelled_embedded_edge_leaf_resolves_and_counts_for_degree() {
+        let root = common::scaffold("embedded-edge-source-resolves");
+        write_cited_harness(&root);
+        // The citation cites `skill:data-access` — the address spelling emit writes. The
+        // edge resolves by identity within `skill`, so `data-access` has incoming degree
+        // 1 and clears its `min = 1` bound: the reach clause a consumer's citations are
+        // judged by, with no leaf-mention shim.
+        cited_lock(&root, "skill:data-access");
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.ok,
+            "an embedded member's address-spelled edge leaf resolves and counts toward \
+             its target's incoming degree, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn an_embedded_edge_leaf_addressing_another_kind_stays_dangling() {
+        let root = common::scaffold("embedded-edge-source-cross-kind");
+        write_cited_harness(&root);
+        // `rule:data-access` names the edge's *target kind* wrong. Normalizing the
+        // spelling is not cross-attribution: the address is not `edge.to`'s, so it
+        // resolves to nothing and dangles under the name its author actually wrote —
+        // never onto the same-named skill next door.
+        cited_lock(&root, "rule:data-access");
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "an edge leaf addressing a kind that is not the edge's target must fail the \
+             run ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("rule:data-access"),
+            "the route finding names the authored spelling, not a normalized identity, got:\n{}",
+            run.output
+        );
+    }
+}
+
 /// Library-level fixture proof of the `reachable` predicate: the pure machinery over
 /// constructed `Features`, including a caller-declared severity threaded into the
 /// finding. The dial that once wired this into the gate retired;

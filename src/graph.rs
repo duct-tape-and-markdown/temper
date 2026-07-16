@@ -131,7 +131,9 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
-                if !targets.contains(target) {
+                // The finding names the *authored* spelling, never the normalized
+                // identity — the author has to find what they wrote.
+                if !targets.contains(target_identity(target, &edge.to)) {
                     diagnostics.push(dangling(edge, source.id.as_str(), target));
                 }
             }
@@ -808,12 +810,13 @@ pub(crate) fn resolved_edges(
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
+                let identity = target_identity(target, &edge.to);
                 // A dangling reference loads nothing — no resolved edge.
-                if targets.contains(target) {
+                if targets.contains(identity) {
                     resolved.push(ResolvedEdge {
                         from: (edge.from.clone(), source.id.clone()),
                         field: edge.field.clone(),
-                        to: (edge.to.clone(), target.to_string()),
+                        to: (edge.to.clone(), identity.to_string()),
                     });
                 }
             }
@@ -1084,6 +1087,23 @@ fn edge_targets<'a>(source: &'a Features, field: &str) -> Vec<&'a str> {
         Some(FeatureValue::List(items)) => items.iter().map(String::as_str).collect(),
         Some(value @ FeatureValue::Scalar { .. }) => value.as_scalar().into_iter().collect(),
     }
+}
+
+/// The identity one authored edge leaf resolves by within the edge's `to` kind — the
+/// single spelling normalizer both [`check`] and [`resolved_edges`] compare through, so
+/// an edge resolves on one path whatever grain declared it.
+///
+/// A field edge is declared at any grain, and the grains spell their leaf differently: a
+/// frontmatter field carries a bare identity, while an embedded member's edge field
+/// carries the target's full `kind:name` address. Both name the same member, so both
+/// resolve by identity within `to_kind`. Any other spelling — an address naming some
+/// other kind — is returned whole, so it dangles under its authored name rather than
+/// being cross-attributed to a same-named member of `to_kind`.
+fn target_identity<'a>(target: &'a str, to_kind: &str) -> &'a str {
+    target
+        .strip_prefix(to_kind)
+        .and_then(|rest| rest.strip_prefix(':'))
+        .unwrap_or(target)
 }
 
 /// A stable identity for an edge in a diagnostic — `<from>.<field>` (e.g.

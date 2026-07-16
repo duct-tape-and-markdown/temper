@@ -255,30 +255,51 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
   };
 }
 
-/** Every kind in play, at any locus — member kinds ∪ expect kinds ∪ their embedded children. */
+/**
+ * Every kind in play, at any locus — member kinds ∪ expect kinds ∪ their embedded
+ * children — name-sorted, so every family derived from it inherits one stable order.
+ *
+ * The embedded children close transitively over both channels a host names one through:
+ * `admit` (the adopting corpus's declaration) and a path-less `templates` entry (the
+ * embedded layer). An embedded kind reaches the lock through its host's `templates`
+ * column rather than a row of its own, so those channels are the only way one is in play
+ * at all — and its declared edge fields are still owed their assembly facts.
+ *
+ * Only *embedded* children are drawn in. A path-carrying template is the nested-file
+ * layer, whose child owns a unit and reaches the lock through `expect` like any other
+ * unit kind; pulling one in here would forge it a kind-fact row it never declared.
+ */
 function kindsInPlay(harness: Harness): KindFacts[] {
   const byName = new Map<string, KindFacts>();
-  for (const member of harness.members) byName.set(member.facts.name, member.facts);
-  for (const binding of harness.expect) byName.set(binding.kind.facts.name, binding.kind.facts);
-  return [...byName.values()];
+  const pending: KindFacts[] = [];
+  const admit = (facts: KindFacts): void => {
+    if (byName.has(facts.name)) return;
+    byName.set(facts.name, facts);
+    pending.push(facts);
+  };
+  for (const member of harness.members) admit(member.facts);
+  for (const binding of harness.expect) admit(binding.kind.facts);
+  for (const { admits } of harness.admit) for (const child of admits) admit(child.facts);
+  for (let facts = pending.pop(); facts !== undefined; facts = pending.pop()) {
+    for (const template of facts.templates ?? []) {
+      if (template.kind.facts.locus.kind === "embedded") admit(template.kind.facts);
+    }
+  }
+  return [...byName.values()].sort((a, b) => compareStrings(a.name, b.name));
 }
 
-/** The distinct discoverable (`at`) kinds in play, name-sorted. */
+/** The distinct discoverable (`at`) kinds in play. */
 function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
-  return allKinds
-    .filter((facts) => facts.locus.kind === "at")
-    .sort((a, b) => compareStrings(a.name, b.name));
+  return allKinds.filter((facts) => facts.locus.kind === "at");
 }
 
 /**
- * The distinct unit-owning kinds in play, name-sorted — every locus but `embedded`. The
- * kinds that take a fact row: a nested-file kind owns a file the engine must place, and
- * places it off its row, though it governs no glob to be discovered at.
+ * The distinct unit-owning kinds in play — every locus but `embedded`. The kinds that
+ * take a fact row: a nested-file kind owns a file the engine must place, and places it
+ * off its row, though it governs no glob to be discovered at.
  */
 function unitKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
-  return allKinds
-    .filter((facts) => facts.locus.kind !== "embedded")
-    .sort((a, b) => compareStrings(a.name, b.name));
+  return allKinds.filter((facts) => facts.locus.kind !== "embedded");
 }
 
 /** The requirement rows — assembly `require` and every member's `requires`, one namespace. */
@@ -315,10 +336,13 @@ function requirementRows(harness: Harness): RequirementRow[] {
 }
 
 /**
- * The assembly-scope facts, in a stable order: the root member's declared
- * `mode` (always present"The root
- * member": harness-wide declarations are root-member fields), then one edge
- * row per kind edge field.
+ * The assembly-scope facts, in a stable order: the root member's declared `mode`, then
+ * one edge row per kind edge field.
+ *
+ * `kinds` is every kind in play at *any* locus, not just the unit-owning ones that take
+ * a kind-fact row: an edge is a declared relationship at any grain, so an embedded
+ * kind's edge fields are owed their rows even though the kind itself reaches the lock
+ * through its host's `templates` column alone.
  */
 function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): AssemblyFactRow[] {
   const facts: AssemblyFactRow[] = [{ fact: "mode", value: harness.mode }];
@@ -693,7 +717,7 @@ export function mentionScope(harness: Harness): MentionScope {
  * alone.
  */
 export function compileDeclarations(harness: Harness, placements?: EdgePlacements): Declarations {
-  const kinds = unitKindsInPlay(kindsInPlay(harness));
+  const allKinds = kindsInPlay(harness);
   const admissions = admissionsByHost(harness);
   const clauses: ClauseRow[] = [];
   for (const binding of [...harness.expect].sort((a, b) => compareStrings(a.kind.key, b.kind.key))) {
@@ -702,10 +726,10 @@ export function compileDeclarations(harness: Harness, placements?: EdgePlacement
  }
  }
   return {
-    kinds: kinds.map((facts) => kindFactRow(facts, admissions)),
+    kinds: unitKindsInPlay(allKinds).map((facts) => kindFactRow(facts, admissions)),
     clauses,
     requirements: requirementRows(harness),
-    assembly: assemblyFactRows(harness, kinds),
+    assembly: assemblyFactRows(harness, allKinds),
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),

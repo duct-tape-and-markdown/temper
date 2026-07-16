@@ -1186,6 +1186,24 @@ function citationHarness(
   });
 }
 
+test("an embedded kind's declared edge field writes its assembly `edge` fact, though the kind itself takes no kind-fact row", () => {
+  const { declarations } = emit(citationHarness((value) => `See \`${value.leaves.source}\`.`));
+
+  // The two halves one kind list once conflated: an embedded kind is filtered out of the
+  // kind-fact rows (it reaches the lock through its host's `templates` column alone) and
+  // must NOT be filtered out of the assembly edge facts (an edge is a declared
+  // relationship at any grain). Pinned apart so a future filter cannot re-merge them and
+  // silently strand every embedded edge at zero.
+  assert.deepEqual(
+    declarations.assembly.filter((fact) => fact.fact === "edge"),
+    [{ fact: "edge", from: "citation", field: "source", to: "rule" }],
+  );
+  assert.ok(
+    !declarations.kinds.some((row) => row.name === "citation"),
+    "an embedded kind still takes no kind-fact row",
+  );
+});
+
 test("emit records which declared edges an embedded format placed — the fact the engine cannot observe for itself", () => {
   const placing = emit(citationHarness((value) => `See [${value.targets.source.name}](${value.targets.source.path}).`));
   assert.deepEqual(placing.declarations.nested_members[0].placed_edges, ["source"]);
