@@ -15,7 +15,13 @@ Seven kinds ship. Five are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. Its
-  bundled reference documents are nested file members of the same skill.
+  template names **supporting-doc**, the shipped kind of its bundled
+  reference documents: fields-free, prose-only, channel-less, identity from
+  the filename — the documented shape of a supporting file
+  (code.claude.com/docs/en/skills, "Add supporting files", retrieved
+  2026-07-16). Like `requirement`, it ships without joining this surface
+  enumeration; an adopting corpus may override the template's child kind by
+  admission where richer typing is wanted.
 - **command** — the skill surface's legacy file placement (Claude Code
   merged commands into skills; code.claude.com/docs/en/skills, retrieved
   2026-07-07): a lone markdown file, the skill's field schema by import,
