@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
-use crate::drift::{KindFactRow, LayoutRow, LockRowError};
+use crate::drift::{KindFactRow, LayoutRow, LockRowError, TemplateRow};
 use crate::extract::{self, Features};
 
 /// The file locus a custom kind reads: the root
@@ -84,7 +84,8 @@ pub struct CustomKind {
     /// decide a member's world edge is live iff any one channel is.
     pub registration: Vec<Registration>,
     /// The kind's declared **templates** — one per inner layer of nested members it
-    /// hosts at the embedded locus: the child kind it nests, a declared fact carried
+    /// hosts: the child kind it nests, plus the path pattern that layer's children sit
+    /// at when they are files, a declared fact carried
     /// through the lock's own [`KindFactRow::templates`]. A host's *actual* embedded
     /// members are resolved independently, off `Declarations::nested_members` by
     /// address (`builtin_kind::features`); any predicate over a nested member's
@@ -556,18 +557,25 @@ pub enum Registration {
     Connection,
 }
 
-/// A **template** a kind declares for one inner layer of nested members it hosts at
-/// the embedded locus: the child kind a fence info string names, serialized whole
-/// into the lock. Any *predicate* over a nested member's interior rides the
-/// assembly's `expect`/`require` clauses, **out of the kind object** — the same
-/// ownership line extraction and contract split on everywhere.
+/// A **template** a kind declares for one inner layer of nested members it hosts: the
+/// child kind, plus the path pattern its children sit at when they are files
+/// (`specs/model/representation.md`, "kind"), serialized whole into the lock. Any
+/// *predicate* over a nested member's interior rides the assembly's `expect`/`require`
+/// clauses, **out of the kind object** — the same ownership line extraction and contract
+/// split on everywhere.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Template {
-    /// The child kind — the `member.<kind>` a fence info string carries
-    /// (`member.decision surface-authority` → `decision`), the kind's own declared
-    /// nesting fact. A host's actual [`EmbeddedMember`](crate::extract::EmbeddedMember)s
-    /// are resolved independently, off `Declarations::nested_members` by address.
+    /// The child kind — for an embedded layer the `member.<kind>` a fence info string
+    /// carries (`member.decision surface-authority` → `decision`); for a file layer the
+    /// kind each child's own unit is read as. Either way the kind's own declared nesting
+    /// fact. A host's actual [`EmbeddedMember`](crate::extract::EmbeddedMember)s are
+    /// resolved independently, off `Declarations::nested_members` by address.
     pub kind: String,
+    /// The path pattern a file child's unit sits at, relative to the parent's unit.
+    /// [`None`] for an embedded layer, whose children live in the host's body and own no
+    /// unit. Declared only: nothing discovers a file child off it, exactly as a host's
+    /// embedded members resolve independently of its templates.
+    pub path: Option<String>,
 }
 
 impl CustomKind {
@@ -601,8 +609,9 @@ impl CustomKind {
     /// already runs through (`crate::builtin_kind::features`), is what actually ranges
     /// over a custom member's declared fields — never a per-kind `Field` primitive list.
     ///
-    /// The row's `templates` column lifts into one [`Template`] per declared
-    /// child-kind name — the kind's own declared nesting fact; a host's actual
+    /// The row's `templates` column lifts into one [`Template`] per declared inner layer
+    /// — child kind plus a file layer's path pattern; the kind's own declared nesting
+    /// fact. A host's actual
     /// embedded members are resolved independently, off `Declarations::nested_members`
     /// by address (`crate::builtin_kind::features`), so the reconstructed extraction
     /// needs no `Fenced` primitive of its own to serve them.
@@ -632,11 +641,7 @@ impl CustomKind {
                 .iter()
                 .map(|label| kind_vocab(label, "registration", registration_from_label(label)))
                 .collect::<Result<Vec<_>, _>>()?,
-            templates: row
-                .templates
-                .iter()
-                .map(|kind| Template { kind: kind.clone() })
-                .collect(),
+            templates: row.templates.iter().map(template_from_row).collect(),
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,
             ..CustomKind::new(
@@ -666,17 +671,14 @@ impl CustomKind {
         self.extraction.extract(unit)
     }
 
-    /// Overlay a lock row's declared `templates` onto this kind: each named child kind
-    /// becomes a [`Template`] — the kind's own declared nesting fact, read back off
+    /// Overlay a lock row's declared `templates` onto this kind: each row becomes a
+    /// [`Template`] — the kind's own declared nesting fact, read back off
     /// the lock. A host's actual embedded members are resolved independently, off
     /// `Declarations::nested_members` by address, so this overlay needs no primitive
     /// of its own to serve them.
     #[must_use]
-    pub fn overlay_templates(mut self, templates: &[String]) -> Self {
-        self.templates = templates
-            .iter()
-            .map(|kind| Template { kind: kind.clone() })
-            .collect();
+    pub fn overlay_templates(mut self, templates: &[TemplateRow]) -> Self {
+        self.templates = templates.iter().map(template_from_row).collect();
         self
     }
 
@@ -842,6 +844,17 @@ pub(crate) fn content_from_row(row: &KindFactRow) -> Result<Content, LockRowErro
     match &row.content {
         None => Ok(Content::File),
         Some(layout) => Ok(Content::Layout(layout_from_row(layout)?)),
+    }
+}
+
+/// Lift one [`TemplateRow`] into a typed [`Template`] — the row→value step shared by
+/// [`CustomKind::from_kind_fact_row`] and [`CustomKind::overlay_templates`], so both read
+/// a declared template by the one lift. Every column is free-form data (a child kind
+/// name, a path pattern), so the lift is total: there is no vocabulary to reject against.
+fn template_from_row(row: &TemplateRow) -> Template {
+    Template {
+        kind: row.kind.clone(),
+        path: row.path.clone(),
     }
 }
 
@@ -1750,8 +1763,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
 
     #[test]
     fn from_kind_fact_row_lifts_declared_templates_by_child_kind() {
-        // Each recorded child-kind name lifts into a `Template`, keyed by
-        // `Template.kind` alone.
+        // Each recorded template lifts into a `Template`: an embedded layer by its child
+        // kind alone, a file layer carrying the path pattern its children sit at.
         let row = KindFactRow {
             name: "spec".to_string(),
             provider: None,
@@ -1760,7 +1773,16 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             format: None,
             unit_shape: None,
             registration: Vec::new(),
-            templates: vec!["decision".to_string(), "law".to_string()],
+            templates: vec![
+                TemplateRow {
+                    kind: "decision".to_string(),
+                    path: None,
+                },
+                TemplateRow {
+                    kind: "note".to_string(),
+                    path: Some("notes/*.md".to_string()),
+                },
+            ],
             content: None,
             shape: None,
             collection_address: None,
@@ -1771,9 +1793,11 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             vec![
                 Template {
                     kind: "decision".to_string(),
+                    path: None,
                 },
                 Template {
-                    kind: "law".to_string(),
+                    kind: "note".to_string(),
+                    path: Some("notes/*.md".to_string()),
                 },
             ]
         );
@@ -1792,12 +1816,16 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             },
             Extraction::new(vec![Primitive::LineCount, Primitive::Headings]),
         )
-        .overlay_templates(&["directive".to_string()]);
+        .overlay_templates(&[TemplateRow {
+            kind: "directive".to_string(),
+            path: None,
+        }]);
 
         assert_eq!(
             kind.templates,
             vec![Template {
                 kind: "directive".to_string(),
+                path: None,
             }]
         );
         assert_eq!(

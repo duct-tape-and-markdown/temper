@@ -24,7 +24,7 @@ use temper::drift::{
     self, AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow,
     CollectionEntryRow, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions,
     KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, Payload, PayloadMember,
-    RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow, SectionContainsRow,
+    RangeBoundRow, RegistrationRow, RequirementRow, SatisfiesRow, SectionContainsRow, TemplateRow,
 };
 use temper::engine;
 use temper::extract::Features;
@@ -36,13 +36,24 @@ use temper::kind::{
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// A host kind declaring one embedded nesting template — the `decision` child kind,
-/// the shape [`tests/nested_member.rs`]'s `decision_kind` declares live.
+/// A host kind declaring both nesting layers a template can name: the embedded
+/// `decision` child kind (the shape [`tests/nested_member.rs`]'s `decision_kind` declares
+/// live), and a file child — the `note` kind at a path pattern relative to the host's own
+/// unit.
 fn spec_kind_facts_with_template() -> KindFactRow {
     KindFactRow {
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
-        templates: vec!["decision".to_string()],
+        templates: vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: Some("notes/*.md".to_string()),
+            },
+        ],
         ..common::kind_facts("spec", "specs", "*.md")
     }
 }
@@ -802,8 +813,8 @@ fn a_bare_harness_lock_still_round_trips() {
     assert!(declarations.mentions.is_empty());
 }
 
-/// A host kind's declared nesting templates — the embedded child kind names it
-/// folds — round-trip through the lock's `kind`
+/// A host kind's declared nesting templates — the embedded child kind it folds, and the
+/// file child's kind plus the path pattern its units sit at — round-trip through the lock's `kind`
 /// row unchanged, and a template-less kind (`rule`, `skill` here) still round-trips
 /// with no `templates` column at all (the empty-array-vanishes tolerance the rest of
 /// the declaration-row family already carries).
@@ -829,7 +840,21 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
         .iter()
         .find(|k| k.name == "spec")
         .expect("the templated kind fact is recorded");
-    assert_eq!(spec.templates, vec!["decision".to_string()]);
+    assert_eq!(
+        spec.templates,
+        vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: Some("notes/*.md".to_string()),
+            },
+        ],
+        "both nesting layers survive the wire: the embedded child by kind alone, the file \
+         child carrying its path pattern"
+    );
 
     let rule = declarations
         .kinds
@@ -1497,7 +1522,7 @@ fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
          provider = \"claude-code\"\n\
          governs_root = \".claude/rules\"\n\
          governs_glob = \"*.md\"\n\
-         templates = [\"directive\"]\n\
+         templates = [{ kind = \"directive\" }]\n\
          \n\
          [[declaration.nested_member]]\n\
          host = \"rule:uses-directive\"\n\

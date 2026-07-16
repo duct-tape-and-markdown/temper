@@ -450,9 +450,52 @@ test("a host kind's fact row carries the embedded kinds the corpus admits over i
  });
   const declarations = compileDeclarations(mixed);
   const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
-  assert.deepEqual(ruleRow.templates, ["decision"]);
+  assert.deepEqual(ruleRow.templates, [{ kind: "decision" }]);
   // The same kind, admitted nowhere else, leaves every other host's column absent.
   assert.equal(declarations.kinds.find((k) => k.name === "memory")?.templates, undefined);
+});
+
+/** A file-locus `supporting-doc` kind — the child a host templates at a path pattern. */
+const supportingDoc = kind<Record<never, never>>({
+  name: "supporting-doc",
+  locus: { kind: "at", root: ".claude/skills", glob: "*.md" },
+  unitShape: "file",
+  registration: [{ via: "always" }],
+});
+
+/** A `guide` host declaring one file-child layer: `supporting-doc` units at `*.md`,
+ * relative to the host's own unit. */
+const guide = kind<Record<never, never>>({
+  name: "guide",
+  locus: { kind: "at", root: ".claude/guides", glob: "GUIDE.md" },
+  format: "yaml-frontmatter",
+  unitShape: "directory",
+  identityField: "name",
+  registration: [{ via: "always" }],
+  templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+test("a kind's declared file-child template reaches its fact row with no admission in play", () => {
+  const h = harness({ members: [guide({ name: "operate-the-gate" })] });
+  const guideRow = compileDeclarations(h).kinds.find((k) => k.name === "guide")!;
+
+  // The template is a kind-side fact: no `admit` declaration exists, and a file child
+  // could not be admitted anyway — admission is over an embedded body.
+  assert.deepEqual(guideRow.templates, [{ kind: "supporting-doc", path: "*.md" }]);
+});
+
+test("an admission over a host overrides the child kind its own template declares", () => {
+  const richDoc = embeddedKind<Record<never, never>>("rich-doc");
+  const h = harness({
+    members: [guide({ name: "operate-the-gate" })],
+    admit: [{ host: guide, admits: [richDoc] }],
+ });
+  const guideRow = compileDeclarations(h).kinds.find((k) => k.name === "guide")!;
+
+  // The adopting corpus wants richer typing than the declared child kind, so its
+  // admission wins. The admitted kind is embedded by construction, so the overriding
+  // layer carries no path — the declared `*.md` pattern goes with the kind it addressed.
+  assert.deepEqual(guideRow.templates, [{ kind: "rich-doc" }]);
 });
 
 test("a built-in kind's composed body admits a corpus-declared embedded kind", () => {
@@ -474,7 +517,7 @@ test("a built-in kind's composed body admits a corpus-declared embedded kind", (
   const result = emit(h);
   const member = result.members.find((m) => m.name === "operate-the-gate")!;
   assert.equal(member.body, '```member.rubric green-bar\ncheck = "every gate passes"\n```\n');
-  assert.deepEqual(compileDeclarations(h).kinds.find((k) => k.name === "skill")!.templates, ["rubric"]);
+  assert.deepEqual(compileDeclarations(h).kinds.find((k) => k.name === "skill")!.templates, [{ kind: "rubric" }]);
   assert.deepEqual(result.declarations.nested_members, [
     { host: "skill:operate-the-gate", kind: "rubric", key: "green-bar", leaves: { check: "every gate passes" }, collections: {} },
   ]);

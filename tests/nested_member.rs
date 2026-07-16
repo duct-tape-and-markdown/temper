@@ -10,8 +10,8 @@
 use std::collections::BTreeMap;
 
 use temper::builtin_kind;
-use temper::drift::{CollectionEntryRow, KindFactRow, NestedMemberRow};
-use temper::kind::{CustomKind, Extraction, Governs};
+use temper::drift::{CollectionEntryRow, KindFactRow, NestedMemberRow, TemplateRow};
+use temper::kind::{CustomKind, Extraction, Governs, Template};
 
 mod common;
 
@@ -211,9 +211,50 @@ fn a_body_fence_naming_a_declared_child_kind_is_never_re_read_for_facts() {
 /// are actually resolved.
 fn decision_kind_fact_row() -> KindFactRow {
     KindFactRow {
-        templates: vec!["decision".to_string()],
+        templates: vec![TemplateRow {
+            kind: "decision".to_string(),
+            path: None,
+        }],
         ..common::kind_facts("decision", "docs/decisions", "*.md")
     }
+}
+
+#[test]
+fn a_declared_file_child_template_round_trips_off_the_lock_with_its_path_pattern() {
+    // TEMPLATE-FILE-CHILD-FACT: a kind's nesting template is a declared kind-side fact —
+    // the child kind, plus the path pattern relative to the parent's unit when the
+    // children are files (`specs/model/representation.md`, "kind"). A file child is
+    // never admitted over a host: admission is over an embedded body, so the lock's
+    // `templates` column is the only surface this fact reaches the engine on.
+    let row = KindFactRow {
+        templates: vec![TemplateRow {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }],
+        ..common::kind_facts("skill", ".claude/skills", "SKILL.md")
+    };
+
+    let reconstructed = CustomKind::from_kind_fact_row(&row).unwrap();
+    assert_eq!(
+        reconstructed.templates,
+        vec![Template {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }]
+    );
+
+    // The same fact overlaid onto a live kind reads back identically — the one lift
+    // serves both the reconstruction and the relocation path.
+    let overlaid = CustomKind::new(
+        "skill",
+        Governs {
+            root: ".claude/skills".to_string(),
+            glob: "SKILL.md".to_string(),
+        },
+        Extraction::new(Vec::new()),
+    )
+    .overlay_templates(&row.templates);
+    assert_eq!(overlaid.templates, reconstructed.templates);
 }
 
 #[test]

@@ -18,7 +18,9 @@ use std::path::Path;
 mod common;
 
 use temper::drift::{AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow};
-use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow};
+use temper::drift::{
+    KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, TemplateRow,
+};
 
 /// A floor-clean rule carrying a `routes_to` reference field — the declared edge
 /// the graph reads. `routes_to` is not a floor-forbidden rule key, so the rule
@@ -711,7 +713,13 @@ mod embedded_edge_targets {
             content: Some(LayoutRow {
                 regions: vec![field_region("purpose"), field_region("serves")],
             }),
-            templates: templates.iter().map(|t| (*t).to_string()).collect(),
+            templates: templates
+                .iter()
+                .map(|t| TemplateRow {
+                    kind: (*t).to_string(),
+                    path: None,
+                })
+                .collect(),
             ..common::kind_facts("service", "specs", "service.md")
         }
     }
@@ -820,6 +828,43 @@ mod embedded_edge_targets {
                 && run.output.contains("billing")
                 && run.output.contains("nested"),
             "the finding names the orphaned kind, the member, and its nested-template class, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_file_child_template_never_admits_an_embedded_row_of_its_kind() {
+        let root = common::scaffold("embedded-nested-member-file-child");
+        // The host templates `domain` as a *file* child — its members own units at the
+        // declared pattern, never a fence in the host's body. So a `domain` nested-member
+        // row is as orphaned as if no template named the kind at all: a file-child
+        // template declares no embedded layer to hang it on.
+        write_service(&root, "billing");
+        let host = KindFactRow {
+            templates: vec![TemplateRow {
+                kind: "domain".to_string(),
+                path: Some("domains/*.md".to_string()),
+            }],
+            ..service_kind(&[])
+        };
+        common::write_lock(
+            &root,
+            Declarations {
+                kinds: vec![host],
+                nested_members: vec![domain_row("billing")],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "a nested-member row of a file-templated kind must fail the run ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("domain") && run.output.contains("nested"),
+            "the finding names the kind and its nested-template class, got:\n{}",
             run.output
         );
     }

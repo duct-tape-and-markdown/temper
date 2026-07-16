@@ -1342,7 +1342,8 @@ fn embedded_features_by_kind(
 }
 
 /// The embedded kinds the lock declares: every child kind a host names, whether through
-/// its `templates` column or a layout member collection's `member_kind`. The set a
+/// its `templates` column — a *path-less* entry, the embedded layer; a `path` templates a
+/// file child, which owns its own unit — or a layout member collection's `member_kind`. The set a
 /// `nested_member` row's kind must belong to — a row of any other kind is an orphan no
 /// host templates ([`nested_member_admissibility`]) — and the keys
 /// [`embedded_features_by_kind`] seeds its corpus with.
@@ -1350,7 +1351,12 @@ fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<Strin
     let mut kinds = BTreeSet::new();
     for row in &declarations.kinds {
         for template in &row.templates {
-            kinds.insert(template.clone());
+            // A template carrying a `path` templates a *file* child — the child owns a
+            // unit at that pattern rather than a fence in the host's body — so its child
+            // kind is no part of the embedded set.
+            if template.path.is_none() {
+                kinds.insert(template.kind.clone());
+            }
         }
         if let Some(content) = &row.content {
             for region in &content.regions {

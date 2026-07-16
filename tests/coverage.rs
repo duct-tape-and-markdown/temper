@@ -19,7 +19,7 @@
 
 use std::fs;
 
-use temper::drift::{Declarations, KindFactRow};
+use temper::drift::{Declarations, KindFactRow, TemplateRow};
 
 mod common;
 
@@ -373,7 +373,10 @@ fn a_kind_row_relocating_a_built_in_with_declared_templates_fires_no_collision_d
         &root,
         Declarations {
             kinds: vec![KindFactRow {
-                templates: vec!["directive".to_string()],
+                templates: vec![TemplateRow {
+                    kind: "directive".to_string(),
+                    path: None,
+                }],
                 ..common::kind_facts("rule", "custom-locus/rules", "*.md")
             }],
             ..Declarations::default()

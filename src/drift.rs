@@ -2195,13 +2195,13 @@ pub struct KindFactRow {
     #[serde(default)]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub registration: Vec<String>,
-    /// The host kind's declared nesting templates — the embedded child kind names it
-    /// folds embedded members of. Empty for
+    /// The kind's declared nesting templates — one [`TemplateRow`] per inner layer of
+    /// nested members it hosts. Empty for
     /// a kind that nests nothing, the tolerant round-trip a lockless/template-less
     /// kind takes.
     #[serde(default)]
-    #[ts(as = "Option<Vec<String>>", optional)]
-    pub templates: Vec<String>,
+    #[ts(as = "Option<Vec<TemplateRow>>", optional)]
+    pub templates: Vec<TemplateRow>,
     /// The declared content: absent for a `file`-content kind (the default the whole
     /// built-in set takes, so those rows stay byte-identical), a [`LayoutRow`] for a
     /// kind whose body is a declared layout over its heading tree.
@@ -2218,6 +2218,28 @@ pub struct KindFactRow {
     /// file-locus kind, so an ordinary row stays byte-identical.
     #[serde(default)]
     pub collection_address: Option<CollectionAddressRow>,
+}
+
+/// A kind's declared **nesting template** row — one inner layer of nested members the
+/// kind hosts: the child kind, plus the `path` pattern (relative to the parent's unit)
+/// when that layer's children are files (`model/representation.md`, "kind"). The child
+/// kind alone means an embedded layer: the children live in the host's own body, so no
+/// path addresses them.
+///
+/// A declared template is the kind's own nesting *fact*, never a resolution rule: a
+/// host's actual embedded members are resolved off [`Declarations::nested_members`] by
+/// address, and nothing discovers a file child off its `path` pattern.
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq, ts_rs::TS)]
+#[ts(optional_fields)]
+pub struct TemplateRow {
+    /// The child kind this layer templates — the `member.<kind>` an embedded child's
+    /// fence info string carries, or the kind a file child's unit is read as.
+    pub kind: String,
+    /// The path pattern a file child's unit sits at, relative to the parent's unit
+    /// (a skill's `*.md`). Absent for an embedded layer, whose children have no unit of
+    /// their own.
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 /// A kind's declared **collection address** row — the manifest a registration member
@@ -2914,7 +2936,7 @@ impl KindFactRow {
             table.insert("registration", value(string_array(&self.registration)));
         }
         if !self.templates.is_empty() {
-            table.insert("templates", value(string_array(&self.templates)));
+            table.insert("templates", value(template_array(&self.templates)));
         }
         if let Some(content) = &self.content {
             table.insert("content", value(content_table(content)));
@@ -2940,7 +2962,7 @@ impl KindFactRow {
             format: opt_str(table, "format")?,
             unit_shape: opt_str(table, "unit_shape")?,
             registration: opt_str_array(table, "registration")?.unwrap_or_default(),
-            templates: opt_str_array(table, "templates")?.unwrap_or_default(),
+            templates: templates_from_table(table)?,
             content: match opt_table(table, "content")? {
                 Some(content) => Some(content_from_table(content)?),
                 None => None,
@@ -2952,6 +2974,47 @@ impl KindFactRow {
             },
         })
     }
+}
+
+/// Build a [`KindFactRow`]'s `templates` column's wire form: an array carrying one
+/// inline table per declared template — the child `kind`, plus a file layer's `path`
+/// pattern when declared — the same array-of-inline-tables discipline the `content`
+/// column's regions take.
+fn template_array(templates: &[TemplateRow]) -> Array {
+    let mut array = Array::new();
+    for template in templates {
+        let mut inline = InlineTable::new();
+        inline.insert("kind", Value::from(template.kind.clone()));
+        if let Some(path) = &template.path {
+            inline.insert("path", Value::from(path.clone()));
+        }
+        array.push(Value::InlineTable(inline));
+    }
+    array
+}
+
+/// Read a `templates` column back off its array — an absent column is an empty set; a
+/// present non-array, a non-inline-table element, or a template missing its required
+/// `kind` is a [`RowError`], the required-column discipline the rest of the row family
+/// holds.
+fn templates_from_table(table: &dyn TableLike) -> Result<Vec<TemplateRow>, RowError> {
+    let Some(item) = table.get("templates") else {
+        return Ok(Vec::new());
+    };
+    let array = item
+        .as_array()
+        .ok_or_else(|| RowError::wrong("templates", "array"))?;
+    let mut out = Vec::with_capacity(array.len());
+    for element in array.iter() {
+        let inline = element
+            .as_inline_table()
+            .ok_or_else(|| RowError::wrong("templates", "array of tables"))?;
+        out.push(TemplateRow {
+            kind: req_str(inline, "kind")?,
+            path: opt_str(inline, "path")?,
+        });
+    }
+    Ok(out)
 }
 
 /// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ manifest =

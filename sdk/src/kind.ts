@@ -1,7 +1,7 @@
 /**
  * Kinds — the engine room. A kind is a plain typed surface — an interface
- * `T` and a constructor `kind<T>()` — plus six facts of runtime residue: label,
- * locus, layout, registration, edge fields, and content. A registration kind (a hook,
+ * `T` and a constructor `kind<T>()` — plus seven facts of runtime residue: label,
+ * locus, projection, registration, edge fields, content, and template. A registration kind (a hook,
  * an MCP server) extends the content fact with a fields-only `shape` and a
  * `collectionAddress` naming the host manifest it surfaces in. `tsc` is the keystroke
  * wall; every type erases at the seam, and what a kind leaves behind rides the lock as
@@ -13,7 +13,7 @@ import type { Prose, Text } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { Requirement } from "./contract.js";
 
-/** The shape of the on-disk artifact a member projects to (fact 3, layout). */
+/** The shape of the on-disk artifact a member projects to (fact 3, projection). */
 export type Format = "yaml-frontmatter";
 
 /**
@@ -98,7 +98,27 @@ export interface CollectionAddress {
   readonly keyPath: "hooks.<Event>" | "mcpServers.*";
 }
 
-/** The six facts of a kind's runtime residue. */
+/**
+ * A kind's **template** for one inner layer of nested members it hosts (fact 7): the
+ * child `kind`, plus the `path` pattern its children sit at — relative to the parent's
+ * own unit — when they are files (a skill's bundled reference documents at `*.md`).
+ * Omit `path` for an embedded layer, whose children live in the host's body and own no
+ * unit of their own.
+ *
+ * The declaration is the kind's own nesting fact, and a declared fact only: nothing
+ * discovers a file child off the pattern, exactly as a host's embedded members resolve
+ * off `nested_members` by address rather than off its templates. An adopting corpus may
+ * override the child kind by admitting its own over the host (`declarations.ts`'s
+ * `templatesFor`).
+ */
+export interface Template {
+  /** The child kind this layer templates — a kind value, since identity travels by import. */
+  readonly kind: KindDefinition<any>;
+  /** Where a file child's unit sits, relative to the parent's unit; absent for an embedded layer. */
+  readonly path?: string;
+}
+
+/** The seven facts of a kind's runtime residue. */
 export interface KindFacts {
   /** Fact 1, label — the compiled debug label findings speak; the kind's name. */
   readonly name: string;
@@ -106,9 +126,9 @@ export interface KindFacts {
   readonly provider?: string;
   /** Fact 2, locus — where members live. */
   readonly locus: Locus;
-  /** Fact 3a, layout — the projection format; omitted for a frontmatterless kind. */
+  /** Fact 3a, projection — the artifact format; omitted for a frontmatterless kind. */
   readonly format?: Format;
-  /** Fact 3b, layout — the on-disk unit shape. */
+  /** Fact 3b, projection — the on-disk unit shape. */
   readonly unitShape: UnitShape;
   /** Fact 4, registration — the declared channel set naming every documented way
    * the world reaches a member (never rivals — a member is live if any one is). */
@@ -133,6 +153,9 @@ export interface KindFacts {
   /** The registration member's {@link CollectionAddress} — which manifest and key path
    * its registration surfaces at; absent for a kind that owns its own file locus. */
   readonly collectionAddress?: CollectionAddress;
+  /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
+   * hosts; absent for a kind that nests nothing. */
+  readonly templates?: readonly Template[];
 }
 
 /**
@@ -144,7 +167,7 @@ export interface KindFacts {
 export interface Member {
   /** The kind's name — its declaration-row and lock identity. */
   readonly kind: string;
-  /** The kind's six facts — carried for projection and the declaration rows. */
+  /** The kind's seven facts — carried for projection and the declaration rows. */
   readonly facts: KindFacts;
   /** Identity within the kind. */
   readonly name: string;
@@ -173,7 +196,7 @@ export type MemberInit<T> = {
 } & T;
 
 /**
- * A kind — a callable constructor carrying its six facts. Calling it builds a
+ * A kind — a callable constructor carrying its seven facts. Calling it builds a
  * member; `key` (its name) keys `expect` and a `kind` reference in a requirement.
  * The value *is* the identity — it travels by import, never by string.
  */
@@ -212,7 +235,7 @@ function orderedFields(facts: KindFacts, init: MemberInit<object>): Array<readon
   return [...head, ...typed];
 }
 
-/** The options `kind()` takes beyond its six facts — today, only the embedded `render` hook. */
+/** The options `kind()` takes beyond its seven facts — today, only the embedded `render` hook. */
 export interface KindOptions {
   readonly render?: (value: ResolvedEmbeddedMemberValue) => string;
 }
@@ -220,7 +243,7 @@ export interface KindOptions {
 /**
  * Define a kind. Returns a constructor over the kind's typed
  * fields `T`; every type erases at the seam, so what the returned member carries
- * into emit is the six facts plus flat field data. `options.render`, when given,
+ * into emit is the seven facts plus flat field data. `options.render`, when given,
  * rides alongside `facts`/`key` on the returned constructor — never on the member
  * it builds, since it is erased before a member reaches emit.
  */
@@ -254,7 +277,7 @@ export interface EmbeddedMemberCollectionEntry {
 }
 
 /**
- * An **embedded member's** composed value (posture 3, passed to `blocks()`):
+ * An **embedded member's** composed value — one child of a composed body, passed to `blocks()`:
  * leaves are authored strings keyed by field name; sibling collections are keyed
  * by collection name, each an authored-order list of entries — leaf addresses
  * are structural and keyed. Its

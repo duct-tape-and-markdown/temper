@@ -34,6 +34,7 @@ import type {
   RequirementRow,
   SatisfiesRow,
   SettingsRow,
+  TemplateRow,
 } from "./generated/index.js";
 
 // The row shapes the authoring API surfaces re-export from here, so `index.ts`'s
@@ -172,13 +173,25 @@ export function compareStrings(a: string, b: string): number {
 }
 
 /**
- * A host kind's declared nesting templates — the embedded kinds the corpus admits over
- * it, name-sorted. `undefined` when the host admits nothing, so the row omits the column
+ * A host kind's nesting templates, from its two declaration loci. The kind's own
+ * declared templates are the default — child kind, plus a file layer's path
+ * pattern. An adopting corpus that admits its own embedded kinds over the host overrides
+ * that default: an admitted child kind is the one the row carries, and it is embedded by
+ * construction (`admissionsByHost` refuses a non-embedded kind), so the overriding layer
+ * has no path.
+ *
+ * The override is layer-blind, since an admission names a host and a child kind but no
+ * layer. `undefined` when neither locus declares anything, so the row omits the column
  * rather than carrying an empty array.
  */
-function templatesFor(hostName: string, admissions: AdmissionsByHost): string[] | undefined {
-  const names = [...(admissions.get(hostName) ?? [])].sort(compareStrings);
-  return names.length > 0 ? names : undefined;
+function templatesFor(facts: KindFacts, admissions: AdmissionsByHost): TemplateRow[] | undefined {
+  const admitted = [...(admissions.get(facts.name) ?? [])].sort(compareStrings);
+  if (admitted.length > 0) return admitted.map((kind) => ({ kind }));
+  const declared = (facts.templates ?? []).map((template): TemplateRow => ({
+    kind: template.kind.key,
+    path: template.path,
+  }));
+  return declared.length > 0 ? declared : undefined;
 }
 
 /**
@@ -232,7 +245,7 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     registration: registrationLabels(facts.registration),
-    templates: templatesFor(facts.name, admissions),
+    templates: templatesFor(facts, admissions),
     content: contentRow(facts.content),
     shape: facts.shape,
     collection_address: collectionAddressRow(facts),
