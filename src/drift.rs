@@ -69,6 +69,20 @@ pub enum DriftError {
         source: std::io::Error,
     },
 
+    /// The reap wave would delete every live projection the lock owns while
+    /// emitting nothing in their place — the `--into` re-root of an adopted
+    /// harness turns the whole projection tree ownerless at once. Refused at the
+    /// cliff (decision 0024) rather than mass-deleted silently; a genuine full
+    /// teardown is the `--teardown` flag the author spells.
+    #[error(
+        "refusing to reap {count} live projections at once: this would delete every projection the lock owns while emitting nothing in their place (an `--into` re-root strands the whole tree). Pass `--teardown` to tear the harness down on purpose."
+    )]
+    #[diagnostic(code(temper::drift::total_reap_wave))]
+    TotalReapWave {
+        /// How many byte-faithful projections the refused wave would have reaped.
+        count: usize,
+    },
+
     /// A projection did not reproduce byte-for-byte across a double-emit: the
     /// authoring surface is nondeterministic (a timestamp, an unordered map surfacing
     /// into a field). Law 5 makes this a loud failure rather than a silent churn the
@@ -369,6 +383,11 @@ pub struct EmitOptions {
     /// `emit` performs no network I/O today (it compiles a materialized
     /// surface), so this changes nothing yet; accepted for CLI-surface / CI parity.
     pub frozen: bool,
+    /// Spell a full teardown: let a reap wave that would delete every live
+    /// projection through instead of refusing it. Off by default, so the cliff
+    /// refusal guards a re-rooted `--into` (or any wholesale ownerless sweep)
+    /// unless the author names the teardown on purpose.
+    pub teardown: bool,
 }
 
 /// One artifact's outcome from an [`emit`].
@@ -826,7 +845,53 @@ pub fn emit(
         }
     }
 
-    let mut entries = Vec::with_capacity(projections.len());
+    // Total runs in reverse too: a member the prior lock knew and the current
+    // payload no longer owns leaves its projection stranded on disk unless emit
+    // reaps it. The owned set the prior rows are diffed against is complete now —
+    // projections, layout sources, and represented manifests — so the reap wave
+    // is decided here, before a byte is written, and the cliff refusal never has
+    // to undo a deletion.
+    let mut owned_paths: BTreeSet<String> = projections
+        .iter()
+        .map(|projection| to_lock_path(&projection.source_path))
+        .collect();
+    // A layout document is a source — never reaped even when no rollup row projects it.
+    owned_paths.extend(layout_paths);
+    // A represented manifest is emit-owned by its path even when no container member gives
+    // it a rollup row, so a re-emit never reaps the file it just wrote.
+    owned_paths.extend(manifests.keys().map(|path| to_lock_path(path)));
+
+    // Classify every prior projection the payload no longer owns without touching
+    // disk. Both sides normalized: `owned_paths` came through `to_lock_path`, and
+    // an older lock's raw row spelling gets the same canonicalization here, so a
+    // `./`-prefixed row still joins its live projection.
+    let mut orphans: Vec<(ProvenanceRow, EmitOutcome)> = Vec::new();
+    let mut any_survivor = false;
+    for row in read_prior_provenance(workspace_dir) {
+        if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
+            any_survivor = true;
+            continue;
+        }
+        if let Some(outcome) = classify_orphan(&row)? {
+            orphans.push((row, outcome));
+        }
+    }
+
+    // The cliff (decision 0024): a reap wave that would delete every live
+    // projection while emitting nothing in its place refuses, unless the author
+    // spells the teardown. A genuine single-orphan reap keeps a survivor, so it
+    // never trips this — the guard fires only when the whole prior tree reads
+    // ownerless at once (the `--into` re-root's signature), never on a spelling
+    // mismatch the normalized join already heals.
+    let reaping = orphans
+        .iter()
+        .filter(|(_, outcome)| *outcome == EmitOutcome::Reaped)
+        .count();
+    if !any_survivor && reaping >= 2 && !options.teardown {
+        return Err(DriftError::TotalReapWave { count: reaping }.into());
+    }
+
+    let mut entries = Vec::with_capacity(projections.len() + orphans.len());
     let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     for projection in &projections {
         let (entry, hash) = emit_one(projection, options.dry_run)?;
@@ -858,30 +923,23 @@ pub fn emit(
         entries.push(entry);
     }
 
-    // Total runs in reverse too: a member the prior lock knew and the current
-    // payload no longer owns leaves its projection stranded on disk unless emit
-    // reaps it here. The new lock is about to be rewritten whole from `rollups`
-    // alone, so this is the one point where a dropped member's row is still on
-    // hand to compare against.
-    let mut owned_paths: BTreeSet<String> = projections
-        .iter()
-        .map(|projection| to_lock_path(&projection.source_path))
-        .collect();
-    // A layout document is a source — never reaped even when no rollup row projects it.
-    owned_paths.extend(layout_paths);
-    // A represented manifest is emit-owned by its path even when no container member gives
-    // it a rollup row, so a re-emit never reaps the file it just wrote.
-    owned_paths.extend(manifests.keys().map(|path| to_lock_path(path)));
-    for row in read_prior_provenance(workspace_dir) {
-        // Both sides normalized: `owned_paths` came through `to_lock_path`, and an
-        // older lock's raw row spelling gets the same canonicalization here, so a
-        // `./`-prefixed row still joins its live projection.
-        if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
-            continue;
+    // Reap the byte-faithful orphans classified above — the deletion deferred past
+    // the cliff check so a refused wave never removed a file. A drifted orphan is
+    // left on disk and only reported: deleting hand-touched bytes is never the safe
+    // default. Under `--dry-run` nothing is removed; the outcome stands regardless.
+    for (row, outcome) in orphans {
+        if outcome == EmitOutcome::Reaped && !options.dry_run {
+            fs::remove_file(&row.source_path).map_err(|source| DriftError::Remove {
+                path: PathBuf::from(&row.source_path),
+                source,
+            })?;
         }
-        if let Some(entry) = reap_or_report_orphan(&row, options.dry_run)? {
-            entries.push(entry);
-        }
+        entries.push(EmitEntry {
+            kind: row.kind,
+            name: row.name,
+            source_path: PathBuf::from(&row.source_path),
+            outcome,
+        });
     }
 
     if !options.dry_run {
@@ -1315,42 +1373,22 @@ fn read_prior_provenance(workspace_dir: &Path) -> Vec<ProvenanceRow> {
     rows
 }
 
-/// Reap or report one lock-known projection whose owning member is gone: the
-/// on-disk bytes are hashed and compared against the row's recorded `emit_hash`
-/// — the safety line that keeps a hand-edited file from ever being silently
-/// deleted (temper wrote every byte of a matching file, so removing it, or under
-/// `--dry-run` reporting that it would be removed, loses nothing authored; a
-/// mismatch leaves the file in place and reports the drift instead). A file
-/// already absent is neither reaped nor reported: there is nothing left to act
-/// on, so this returns `None`.
-fn reap_or_report_orphan(
-    row: &ProvenanceRow,
-    dry_run: bool,
-) -> Result<Option<EmitEntry>, DriftError> {
+/// Classify one lock-known projection whose owning member is gone, touching no
+/// disk state: the on-disk bytes are hashed against the row's recorded
+/// `emit_hash` to tell `Reaped` (byte-faithful — temper wrote every byte, so
+/// deleting it loses nothing authored) from `OrphanDrift` (hand-touched — left
+/// in place and reported, never silently deleted). A file already absent yields
+/// `None`: there is nothing left to act on. The reap wave is decided over this
+/// classification before any deletion runs, so the cliff refusal never has to
+/// undo one.
+fn classify_orphan(row: &ProvenanceRow) -> Result<Option<EmitOutcome>, DriftError> {
     let path = PathBuf::from(&row.source_path);
-    let bytes = match fs::read(&path) {
-        Ok(bytes) => bytes,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(source) => return Err(DriftError::Read { path, source }),
-    };
-
-    let outcome = if sha256_hex(&bytes) == row.emit_hash {
-        if !dry_run {
-            fs::remove_file(&path).map_err(|source| DriftError::Remove {
-                path: path.clone(),
-                source,
-            })?;
-        }
-        EmitOutcome::Reaped
-    } else {
-        EmitOutcome::OrphanDrift
-    };
-    Ok(Some(EmitEntry {
-        kind: row.kind.clone(),
-        name: row.name.clone(),
-        source_path: path,
-        outcome,
-    }))
+    match fs::read(&path) {
+        Ok(bytes) if sha256_hex(&bytes) == row.emit_hash => Ok(Some(EmitOutcome::Reaped)),
+        Ok(_) => Ok(Some(EmitOutcome::OrphanDrift)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(source) => Err(DriftError::Read { path, source }),
+    }
 }
 
 /// Normalize line endings to LF: a CRLF pair collapses to one `\n`, and a lone

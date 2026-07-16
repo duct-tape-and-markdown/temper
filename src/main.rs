@@ -140,6 +140,12 @@ enum Command {
         /// the re-emitted sources, not the updated lock.
         #[arg(long)]
         dry_run: bool,
+        /// Spell a full teardown: let a reap wave that would delete every live
+        /// projection through instead of refusing at the cliff. Off by default, so
+        /// an `--into` re-root that strands the whole projection tree refuses rather
+        /// than mass-deleting silently.
+        #[arg(long)]
+        teardown: bool,
     },
     /// The `PreToolUse` guard: read Claude Code's `PreToolUse` payload from stdin
     /// and, when the write targets a `.claude/` projection, inform-and-route under
@@ -308,12 +314,20 @@ fn main() -> miette::Result<ExitCode> {
             into,
             frozen,
             dry_run,
+            teardown,
         } => {
             // The seam:
             // `node` runs the SDK program at `<into>/harness.ts`, and the engine becomes the
             // sole compiler of every projection and the whole lock from its JSON payload — no
             // harness root is re-supplied here, the payload IS the source.
-            let report = drift::emit_program(&into, drift::EmitOptions { dry_run, frozen })?;
+            let report = drift::emit_program(
+                &into,
+                drift::EmitOptions {
+                    dry_run,
+                    frozen,
+                    teardown,
+                },
+            )?;
             if dry_run {
                 println!("dry run — no files written");
             }

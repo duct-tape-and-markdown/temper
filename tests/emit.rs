@@ -815,6 +815,73 @@ fn the_emit_report_distinguishes_reaped_from_drifted_orphan() {
     );
 }
 
+#[test]
+fn an_into_reroot_that_strands_every_live_projection_refuses_the_total_reap_wave() {
+    // An adopted harness's lock owns its projections at the current root. An
+    // `emit --into <nested>` re-roots the projection tree: the carried lock still
+    // names the old-root files — byte-faithful, every one — while the new pass
+    // owns paths under the nested root, so every prior projection reads ownerless
+    // at once. That whole-tree teardown refuses at the cliff (decision 0024) and
+    // deletes nothing, unless the author spells `--teardown`.
+    let (harness, into) = workspace("reroot-wave");
+    let payload = with_both_members();
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    let rust = harness.join(".claude/rules/rust.md");
+    let skill = harness.join(".claude/skills/coordinate/SKILL.md");
+    assert!(rust.is_file() && skill.is_file());
+
+    // The re-root: a nested workspace carrying the same lock, whose absolute rows
+    // still own the old-root projections while the new pass owns the nested tree.
+    let nested = harness.join("inner").join(".temper");
+    fs::create_dir_all(&nested).unwrap();
+    fs::copy(into.join("lock.toml"), nested.join("lock.toml")).unwrap();
+
+    let err = drift::emit(&payload, &nested, EmitOptions::default()).unwrap_err();
+    assert!(
+        err.to_string().contains("refusing to reap"),
+        "the re-root refuses the total-reap wave with the finding stated: {err}"
+    );
+    assert!(
+        rust.is_file() && skill.is_file(),
+        "the refused wave deletes nothing — every live projection stays intact"
+    );
+    assert!(
+        !harness.join("inner/.claude/rules/rust.md").exists(),
+        "the cliff refusal fires before a byte is written — no re-rooted projection lands"
+    );
+
+    // Spelled teardown: the author names the wave on purpose, and it proceeds —
+    // the stranded old-root projections are reaped and the tree lands anew.
+    let report = drift::emit(
+        &payload,
+        &nested,
+        EmitOptions {
+            teardown: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(
+        report
+            .entries
+            .iter()
+            .filter(|e| e.outcome == EmitOutcome::Reaped)
+            .count()
+            == 2,
+        "the spelled teardown reaps both stranded old-root projections: {:?}",
+        report.entries
+    );
+    assert!(
+        !rust.exists() && !skill.exists(),
+        "the spelled teardown reaps the stranded old-root projections"
+    );
+    assert!(
+        harness.join("inner/.claude/rules/rust.md").is_file(),
+        "the re-rooted tree lands under the nested root"
+    );
+}
+
 /// Serializes any chdir'ing test — cwd is process-global, so a relative-path
 /// emit run must not overlap another test that reads or writes cwd.
 static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());

@@ -437,6 +437,7 @@ fn run_represented(
             drift::EmitOptions {
                 dry_run,
                 frozen: false,
+                teardown: false,
             },
         )?)
     };
@@ -461,6 +462,7 @@ fn run_represented(
             drift::EmitOptions {
                 dry_run: false,
                 frozen: false,
+                teardown: false,
             },
         )?;
     }

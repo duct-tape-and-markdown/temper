@@ -1223,6 +1223,7 @@ fn emit_from_harness(harness: &Path) {
         temper::drift::EmitOptions {
             dry_run: false,
             frozen: false,
+            teardown: false,
         },
     )
     .unwrap();
