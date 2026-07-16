@@ -1849,11 +1849,37 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(mcp_address.manifest, ".mcp.json");
     assert_eq!(mcp_address.key_path, "mcpServers.*");
 
-    // The SDK module sets no `provider` on any of its seven exported kinds yet, so
+    // The `supporting-doc` kind is the only one at the nested-file locus: it governs no
+    // glob at all, because both halves of its locus are the host's — `skill`'s unit and
+    // `skill`'s own template pattern. Frontmatterless, body-bearing, and channel-less.
+    let doc = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "supporting-doc")
+        .expect("the supporting-doc kind fact is embedded");
+    assert_eq!(doc.governs_root, None);
+    assert_eq!(doc.governs_glob, None);
+    assert_eq!(doc.format, None);
+    assert_eq!(doc.unit_shape.as_deref(), Some("file"));
+    assert_eq!(doc.registration, Vec::<String>::new());
+    assert_eq!(doc.shape, None);
+    assert_eq!(doc.collection_address, None);
+
+    // The other half of that locus: `skill`'s row is the one home of the path pattern
+    // its bundled reference documents sit at.
+    assert_eq!(
+        skill.templates,
+        vec![temper::drift::TemplateRow {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }]
+    );
+
+    // The SDK module sets no `provider` on any of its exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 7);
+    assert_eq!(declarations.kinds.len(), 8);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the seven built-in kinds' facts and their default contract clauses, plus the
+# the eight built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,18 +10,25 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`agent`, `command`, `hook`, `mcp-server`, `skill`, `rule`, `memory`)
-# and its seven default contracts (`agentDefaultContract`, `commandDefaultContract`,
-# `hookDefaultContract`, `mcpServerDefaultContract`, `skillDefaultContract`,
-# `ruleDefaultContract`, `memoryAnthropicDefaultContract`) — the identical rows an
+# built-in kinds (`agent`, `command`, `hook`, `mcp-server`, `skill`, `supporting-doc`,
+# `rule`, `memory`) and its eight default contracts (`agentDefaultContract`,
+# `commandDefaultContract`, `hookDefaultContract`, `mcpServerDefaultContract`,
+# `skillDefaultContract`, `supportingDocDefaultContract`, `ruleDefaultContract`,
+# `memoryAnthropicDefaultContract`) — the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration rows
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's seven kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's eight kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
+#
+# `supporting-doc` is the one kind here at the nested-file locus, so its row alone
+# carries no `governs` pair: its members' paths compose from their host skill's unit and
+# `skill`'s own `templates` pattern, the only home that fact has. Its default contract is
+# empty — the format documents no schema to gate — so it contributes a kind fact and no
+# clause row.
 
 [[declaration.kind]]
 name = "agent"
@@ -79,6 +86,11 @@ governs_glob = "*/SKILL.md"
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
+templates = [{ kind = "supporting-doc", path = "*.md" }]
+
+[[declaration.kind]]
+name = "supporting-doc"
+unit_shape = "file"
 
 [[declaration.clause]]
 kind = "agent"

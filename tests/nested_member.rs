@@ -474,3 +474,40 @@ fn a_file_the_hosts_pattern_does_not_match_is_discovered_as_no_member() {
         vec![&unit.join("PLAYBOOK.md")]
     );
 }
+
+#[test]
+fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_doc_child() {
+    // The built-in adoption, off the shipped kinds alone: no test-built host, no
+    // overlaid template. `skill` templates `supporting-doc` at its directory's markdown,
+    // so a real skill's companion doc is that skill's child by the shipped facts —
+    // nesting-is-model-containment on the built-ins, not on a fixture's invention.
+    let harness = common::tmpdir("builtin-supporting-doc");
+    let unit = write_skill_with_companions(&harness, "coordinate");
+
+    let kinds = builtin_kind::definitions().unwrap();
+    let child = kinds
+        .get("supporting-doc")
+        .expect("supporting-doc ships as a built-in kind")
+        .clone();
+
+    let found = temper::import::discover_nested_file(&harness, &child, &kinds).unwrap();
+
+    // `PLAYBOOK.md` is the skill's child, carrying the host unit its path composed under.
+    // The host's own `SKILL.md` is the host member, never its own child, and
+    // `scripts/run.sh` is a supporting file of a type the prose-only kind cannot hold —
+    // it matches the `*.md` pattern nowhere and stays unmodeled rather than mis-typed.
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].file, unit.join("PLAYBOOK.md"));
+    assert_eq!(found[0].host_unit, unit);
+
+    // The child kind carries neither half of its own locus: the pattern is `skill`'s
+    // declared template and the unit is `skill`'s own governs scan.
+    assert_eq!(child.governs, None);
+    assert_eq!(
+        kinds.get("skill").unwrap().templates,
+        vec![Template {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }]
+    );
+}

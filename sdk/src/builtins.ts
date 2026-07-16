@@ -132,12 +132,45 @@ export interface Skill {
 }
 
 /**
+ * A skill's bundled reference document — a supporting file beside its `SKILL.md`,
+ * loaded only when the skill's body points Claude at it. Prose and nothing else:
+ * the documented shape is a markdown file in the skill's directory with no
+ * frontmatter schema of its own (code.claude.com/docs/en/skills, "Add supporting
+ * files", retrieved 2026-07-16).
+ */
+export interface SupportingDoc {
+  readonly prose?: Prose;
+}
+
+/**
+ * `supporting-doc` — a skill's bundled reference document, at the nested-file locus:
+ * its path composes from its host skill's unit and the host's template pattern, so it
+ * governs no glob of its own. Fields-free and frontmatterless (no `format` — the whole
+ * file is body), identity from the filename, and channel-less: a supporting file reaches
+ * the world only through the skill whose body references it, never on a channel of its
+ * own (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16).
+ */
+export const supportingDoc: KindDefinition<SupportingDoc> = kind<SupportingDoc>({
+  name: "supporting-doc",
+  locus: { kind: "nested-file" },
+  unitShape: "file",
+  registration: [],
+});
+
+/**
  * `skill` — `.claude/skills/<name>/SKILL.md`, a directory unit, YAML frontmatter
  * carrying `name` then `description`; registers on both documented invocation
  * channels — user-invoked (`/name`) and description-trigger — modulated per
  * member by the `disable-model-invocation`/`user-invocable` fields
  * (code.claude.com/docs/en/skills, agentskills.io/specification, retrieved
  * 2026-07-15).
+ *
+ * Its one template layer names the bundled reference documents a skill's directory
+ * carries: `supporting-doc` children at the directory's own markdown, the documented
+ * placement (`my-skill/reference.md` beside `SKILL.md`; same source, "Add supporting
+ * files"). The pattern claims the markdown subset the prose-only child kind can hold —
+ * a supporting file of another type (the docs' own `scripts/helper.py`) matches nothing
+ * and stays unmodeled rather than mis-typed.
  */
 export const skill: KindDefinition<Skill> = kind<Skill>({
   name: "skill",
@@ -146,6 +179,7 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
   unitShape: "directory",
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   identityField: "name",
+  templates: [{ kind: supportingDoc, path: "*.md" }],
 });
 
 /**
@@ -509,6 +543,20 @@ export const skillDefaultContract: readonly Clause[] = [
 ];
 
 /**
+ * The default contract for `supporting-doc` — **empty**, because the format is: a
+ * supporting file is documented as prose Claude reads when the skill's body points at
+ * it, with no frontmatter schema, no required field, and no cap of its own
+ * (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16).
+ * Manufacturing a clause would fake a check the format does not carry — an
+ * almost-empty format gets an almost-empty contract, and this one bottoms out at zero.
+ *
+ * What the clauses cannot carry, as guidance: reference the file from `SKILL.md` so
+ * Claude knows what it holds and when to load it — an unreferenced supporting file is
+ * never read, and nothing about the file itself can decide that.
+ */
+export const supportingDocDefaultContract: readonly Clause[] = [];
+
+/**
  * The default contract for `command` — `skillDefaultContract`'s clauses minus `nameMatchesDir`: a
  * command is a lone file with no parent directory to match, so the one clause
  * that ranges over the directory relationship does not apply; every other
@@ -562,8 +610,7 @@ export const agentDefaultContract: readonly Clause[] = [
 /**
  * The default contract for `rule` — Anthropic's documented contract for a Claude Code
  * rules file, sourced from the memory docs (`.claude/rules/` landed in
- * v2.0.64; `packages/rule.anthropic/PACKAGE.md`, the curated authoring
- * reference this migrates verbatim). All sources retrieved 2026-07-15.
+ * v2.0.64). All sources retrieved 2026-07-15.
  *
  * `paths` is the one documented frontmatter key for rules: glob patterns
  * (brace expansion supported) that scope the rule to matching files. Rules
@@ -608,8 +655,7 @@ export const ruleDefaultContract: readonly Clause[] = [
 
 /**
  * The default contract for the qualified `claude-code.memory` kind — Anthropic's
- * documented contract for a project `CLAUDE.md` (`packages/memory.anthropic/PACKAGE.md`,
- * the curated authoring reference this migrates verbatim). Retrieved 2026-07-15.
+ * documented contract for a project `CLAUDE.md`. Retrieved 2026-07-15.
  *
  * Deliberately near-empty, because the format is: `CLAUDE.md` is plain
  * markdown with no documented frontmatter and no required fields

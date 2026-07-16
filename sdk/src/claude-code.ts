@@ -8,7 +8,7 @@
  * too: adoption is `import { skill, skillDefaultContract } from "@dtmd/temper/claude-code"`.
  */
 
-export type { Agent, Hook, McpServer, Memory, Rule, Skill } from "./builtins.js";
+export type { Agent, Hook, McpServer, Memory, Rule, Skill, SupportingDoc } from "./builtins.js";
 export {
   agent,
   agentDefaultContract,
@@ -24,6 +24,8 @@ export {
   ruleDefaultContract,
   skill,
   skillDefaultContract,
+  supportingDoc,
+  supportingDocDefaultContract,
 } from "./builtins.js";
 
 // The prose constructors ride along so a harness author targeting Claude Code

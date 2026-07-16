@@ -14,7 +14,7 @@ use crate::drift::NestedMemberRow;
 use crate::extract::{self, Features};
 use crate::kind::{
     CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Format, Governs,
-    KindError, Primitive, Registration, Unit,
+    KindError, Primitive, Registration, Template, Unit,
 };
 
 /// The skill surface's field schema — the documented frontmatter fields plus the
@@ -61,12 +61,22 @@ fn skill_surface_registration() -> Vec<Registration> {
 /// user-invoked (`/name`) and description-trigger — modulated per member by the
 /// `disable-model-invocation`/`user-invocable` fields
 /// (code.claude.com/docs/en/skills, "Control who invokes a skill", retrieved
-/// 2026-07-07).
+/// 2026-07-16).
+///
+/// Its one template layer names the bundled reference documents a skill's directory
+/// carries — `supporting-doc` children at the directory's own markdown, the documented
+/// placement (same source, "Add supporting files"). The pattern is the host's fact, so
+/// it is what discovery classifies a skill's companion files through; a supporting file
+/// of another type matches nothing and stays unmodeled.
 fn claude_code_skill() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
         unit_shape: Some(crate::kind::UnitShape::Directory),
         registration: skill_surface_registration(),
+        templates: vec![Template {
+            kind: "supporting-doc".to_string(),
+            path: Some("*.md".to_string()),
+        }],
         ..CustomKind::new(
             "skill",
             Governs {
@@ -78,11 +88,33 @@ fn claude_code_skill() -> CustomKind {
     }
 }
 
+/// Anthropic's documented supporting-file kind: a skill's bundled reference document,
+/// at the nested-file locus — its path composes from its host skill's unit and the
+/// host's template pattern, so it governs no glob and nothing discovers it at one
+/// (code.claude.com/docs/en/skills, "Add supporting files", retrieved 2026-07-16). A
+/// lone file, frontmatterless (no `format` — the whole file is body), identity from the
+/// filename, and channel-less: it reaches the world only through the skill whose body
+/// references it.
+fn claude_code_supporting_doc() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(crate::kind::UnitShape::File),
+        ..CustomKind::nested_file(
+            "supporting-doc",
+            Extraction::new(vec![
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]),
+        )
+    }
+}
+
 /// Anthropic's documented `.claude/commands/*.md` kind: the skill surface's legacy
 /// file placement (Claude Code merged commands into skills), a lone file whose
 /// identity is the filename stem, the skill's field schema by import, registered on
 /// the same two documented invocation channels as `skill`
-/// (code.claude.com/docs/en/skills, retrieved 2026-07-07).
+/// (code.claude.com/docs/en/skills, retrieved 2026-07-16).
 fn claude_code_command() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -104,7 +136,7 @@ fn claude_code_command() -> CustomKind {
 /// recursively — any containing subdirectory is purely organizational, per the docs'
 /// own `agents/review/`, `agents/research/` example — registering only on the
 /// description-trigger channel (code.claude.com/docs/en/sub-agents, retrieved
-/// 2026-07-07).
+/// 2026-07-16).
 fn claude_code_agent() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -191,7 +223,7 @@ fn claude_code_memory() -> CustomKind {
 
 /// Anthropic's documented `settings.json` `hooks.<Event>` kind: a hook is a fields-only
 /// registration member surfacing inside the project settings manifest, keyed under its
-/// lifecycle event (`code.claude.com/docs/en/hooks`, retrieved 2026-07-10). It owns no
+/// lifecycle event (`code.claude.com/docs/en/hooks`, retrieved 2026-07-16). It owns no
 /// file of its own — the manifest is discovered off the `.claude/settings.json` locus and
 /// each `hooks.<Event>` entry read as a member — carries no body (`Content::Fields`), and
 /// registers on the `event` channel, its event surfaced as a field off the collection key.
@@ -219,7 +251,7 @@ fn claude_code_hook() -> CustomKind {
 
 /// Anthropic's documented `.mcp.json` `mcpServers.*` kind: an MCP server is a fields-only
 /// registration member surfacing inside the project MCP manifest, keyed by name
-/// (`code.claude.com/docs/en/mcp`, retrieved 2026-07-10). It owns no file of its own — the
+/// (`code.claude.com/docs/en/mcp`, retrieved 2026-07-16). It owns no file of its own — the
 /// manifest is discovered off the `.mcp.json` locus and each `mcpServers.*` entry read as a
 /// member — carries no body (`Content::Fields`), and registers on the `connection` channel.
 /// Unlike a hook (whose event value is an array), a server entry is an object, so its
@@ -253,6 +285,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_hook(),
         claude_code_mcp_server(),
         claude_code_skill(),
+        claude_code_supporting_doc(),
         claude_code_rule(),
         claude_code_memory(),
     ]
@@ -300,8 +333,8 @@ pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
 /// every kind reads, with
 /// **no IR→Unit adapter on the check read**: the caller builds the `Unit` straight
 /// off the imported [`crate::frontmatter::Member`], exactly as any other kind's
-/// members load. `skill` declares no nesting template, so no lock row can ever
-/// address one of its members.
+/// members load. `skill`'s one template is a *file* layer, whose children own units of
+/// their own — no embedded layer, so no lock row addresses a nested member of one.
 #[must_use]
 pub fn skill_features(unit: &Unit) -> Features {
     features(&claude_code_skill(), unit, &[])
@@ -396,6 +429,15 @@ mod tests {
         );
         // The built-in `skill` kind declares no relationships.
         assert_eq!(skill.relationships, Vec::<Edge>::new());
+        // One file-child layer: its bundled reference documents, at the directory's own
+        // markdown. The pattern's one home is the host, so the child governs no glob.
+        assert_eq!(
+            skill.templates,
+            vec![Template {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }]
+        );
         // Registers on both documented invocation channels — a set, not a scalar.
         assert_eq!(
             skill.registration,
@@ -459,9 +501,45 @@ mod tests {
                 "mcp-server",
                 "memory",
                 "rule",
-                "skill"
+                "skill",
+                "supporting-doc"
             ]
         );
+    }
+
+    #[test]
+    fn supporting_doc_is_a_prose_only_nested_file_kind_governing_no_glob() {
+        let doc = definition("supporting-doc")
+            .unwrap()
+            .expect("supporting-doc is embedded");
+
+        assert_eq!(doc.name, "supporting-doc");
+        // The nested-file locus: neither half is the child's — its path composes from
+        // its host skill's unit and `skill`'s own template pattern, so nothing discovers
+        // it at a glob and it owns no surface subdirectory.
+        assert_eq!(doc.governs, None);
+        assert_eq!(doc.surface_subdir(), None);
+        // A lone file, frontmatterless — the whole file is body.
+        assert_eq!(doc.unit_shape, Some(crate::kind::UnitShape::File));
+        assert_eq!(doc.format, None);
+        // Channel-less: it reaches the world only through the skill referencing it.
+        assert_eq!(doc.registration, Vec::<Registration>::new());
+        // Fields-free: the markdown-structure primitives and not one declared field —
+        // the format documents no frontmatter schema for a supporting file.
+        assert_eq!(
+            doc.extraction.primitives(),
+            &[
+                Primitive::LineCount,
+                Primitive::Headings,
+                Primitive::Sections,
+                Primitive::Placement,
+            ]
+        );
+        // Prose-only, and body-bearing — never the fields-only registration shape.
+        assert_eq!(doc.content, Content::File);
+        assert_eq!(doc.collection_address, None);
+        // It hosts nothing: the nesting stops one layer down.
+        assert!(doc.templates.is_empty());
     }
 
     #[test]
@@ -474,6 +552,7 @@ mod tests {
             "hook",
             "mcp-server",
             "skill",
+            "supporting-doc",
             "rule",
             "memory",
         ] {

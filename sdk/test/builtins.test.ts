@@ -22,6 +22,8 @@ import {
   ruleDefaultContract,
   skill,
   skillDefaultContract,
+  supportingDoc,
+  supportingDocDefaultContract,
 } from "../src/claude-code.js";
 
 const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
@@ -32,6 +34,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   mcpServerDefaultContract,
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
+  supportingDocDefaultContract,
 ];
 
 test("every exported default contract is a well-formed clause array", () => {
@@ -147,6 +150,38 @@ test("the default contracts ride alongside their kinds through the claude-code s
   assert.equal(typeof command, "function");
   assert.equal(typeof rule, "function");
   assert.equal(typeof memory, "function");
+  assert.equal(typeof supportingDoc, "function");
+});
+
+test("skill templates one file-child layer of supporting-doc at the directory's markdown", () => {
+  assert.equal(skill.facts.templates?.length, 1);
+  const [reference] = skill.facts.templates ?? [];
+  // The child travels by import, never by string — the template holds the kind value.
+  assert.equal(reference.kind, supportingDoc);
+  assert.equal(reference.kind.key, "supporting-doc");
+  // A file layer, so it carries the path its children sit at relative to the skill's
+  // own unit: the documented `my-skill/reference.md` placement. A supporting file of
+  // another type matches nothing here and stays unmodeled rather than mis-typed.
+  assert.equal(reference.path, "*.md");
+});
+
+test("supporting-doc is a nested-file kind: fields-free, prose-only, channel-less, identity from the filename", () => {
+  assert.deepEqual(supportingDoc.facts.locus, { kind: "nested-file" });
+  // Frontmatterless — no declared format, so the whole file is body.
+  assert.equal(supportingDoc.facts.format, undefined);
+  // A lone file whose identity is its stem: no identityField carries the name.
+  assert.equal(supportingDoc.facts.unitShape, "file");
+  assert.equal(supportingDoc.facts.identityField, undefined);
+  // Channel-less: it reaches the world only through the skill that references it.
+  assert.deepEqual(supportingDoc.facts.registration, []);
+  // Fields-free, but still body-bearing — never the fields-only registration shape.
+  assert.equal(supportingDoc.facts.shape, undefined);
+  const member = supportingDoc({ name: "reference", host: skill({ name: "demo", description: "A host." }) });
+  assert.deepEqual(member.fields, []);
+});
+
+test("supportingDocDefaultContract ships empty — the format documents no schema to gate", () => {
+  assert.deepEqual(supportingDocDefaultContract, []);
 });
 
 test("command is a file-shaped unit with no identityField, unlike the directory-shaped skill", () => {

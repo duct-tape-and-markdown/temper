@@ -42,8 +42,7 @@ mod tests {
         let declarations = declarations();
 
         // Kind facts: the built-in kinds the memberless emit's `expect` bindings
-        // named (`agent`, `command`, `skill`, `rule`, `memory` — no `provider`
-        // column, since the SDK module exports none today).
+        // named — no `provider` column, since the SDK module exports none today.
         let mut names: Vec<&str> = declarations
             .kinds
             .iter()
@@ -59,10 +58,33 @@ mod tests {
                 "mcp-server",
                 "memory",
                 "rule",
-                "skill"
+                "skill",
+                "supporting-doc"
             ]
         );
         assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
+
+        // `supporting-doc` alone rides the nested-file locus: its row carries no governs
+        // pair, and `skill`'s `templates` column is where its path fact actually lives.
+        let doc = declarations
+            .kinds
+            .iter()
+            .find(|row| row.name == "supporting-doc")
+            .expect("supporting-doc ships in the embedded lock");
+        assert_eq!(doc.governs_root, None);
+        assert_eq!(doc.governs_glob, None);
+        let skill = declarations
+            .kinds
+            .iter()
+            .find(|row| row.name == "skill")
+            .expect("skill ships in the embedded lock");
+        assert_eq!(
+            skill.templates,
+            vec![crate::drift::TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }]
+        );
 
         // Floor clauses: every row names one of the built-in kinds, and carries a
         // declared severity — no requirements, no satisfies, no provenance or
@@ -71,7 +93,16 @@ mod tests {
         for clause in &declarations.clauses {
             assert!(matches!(
                 clause.kind.as_deref(),
-                Some("agent" | "command" | "hook" | "mcp-server" | "skill" | "rule" | "memory")
+                Some(
+                    "agent"
+                        | "command"
+                        | "hook"
+                        | "mcp-server"
+                        | "skill"
+                        | "supporting-doc"
+                        | "rule"
+                        | "memory"
+                )
             ));
             assert!(matches!(clause.severity.as_str(), "required" | "advisory"));
         }

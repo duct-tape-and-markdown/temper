@@ -18,8 +18,12 @@ mod common;
 
 /// A memberless harness binding every built-in kind to every built-in default contract via
 /// `expect` — no members, so `compileDeclarations` (`sdk/src/declarations.ts`) emits
-/// only the five kind facts and their default contract clauses, exactly the family
-/// `src/builtin_lock.toml` embeds (`sdk/src/builtins.ts`, the built-in kinds/default contracts).
+/// only the kind facts and their default contract clauses, exactly the family
+/// `src/builtin_lock.toml` embeds (`sdk/src/builtins.ts`, the built-in kinds/default
+/// contracts). `expect` is also the one surface a kind reaches the lock through, so
+/// `supporting-doc` — whose default contract is empty, and whose members compose under a
+/// host rather than at a locus of their own — is bound here like any other, contributing
+/// its kind fact and no clause.
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
 import { emit, harness } from "@dtmd/temper";
 import {
@@ -37,6 +41,8 @@ import {
   ruleDefaultContract,
   skill,
   skillDefaultContract,
+  supportingDoc,
+  supportingDocDefaultContract,
 } from "@dtmd/temper/claude-code";
 
 const program = harness({
@@ -49,6 +55,7 @@ const program = harness({
     { kind: memory, clauses: memoryAnthropicDefaultContract },
     { kind: rule, clauses: ruleDefaultContract },
     { kind: skill, clauses: skillDefaultContract },
+    { kind: supportingDoc, clauses: supportingDocDefaultContract },
   ],
 });
 
