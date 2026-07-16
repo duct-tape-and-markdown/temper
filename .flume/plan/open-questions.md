@@ -45,7 +45,43 @@ tax.
   projection is a verdict or an error. Inherits the AGENTS.md kind question
   (ruled 07-15: not a claude-code kind — Claude Code does not read
   AGENTS.md, docs retrieved 2026-07-15; its consumer is this fork's
-  cross-tool story). No dependents.
+  cross-tool story). Demand side is no longer zero (07-16 war game,
+  simulated): 2/8 personas rate one-member→N projections an adoption-blocker
+  and want a **counterpart-drift check** — a fourth open face beside the
+  three above. Timing unchanged. No dependents.
+
+- `(plugin-surface)` — OPEN. Two corpus sections name **an installed plugin**
+  a registration member — "a fields-only kind surfacing at its declared
+  collection address" (`specs/model/representation.md`, "Reach") and
+  "Installed plugins are registration members surfacing in the harness's
+  manifests" (`specs/builtins.md`, "The coverage bar") — and no such kind
+  ships, while both its named siblings (`hook`, `mcp-server`) do. It does not
+  derive today: builtins.md's own bar makes a kind's registration "the set of
+  documented channels a member reaches the world over", and an installed
+  plugin reaches none — it **contributes members** (skills, agents, hooks,
+  MCP/LSP servers) that do. No shipped kind contributes other members, so the
+  channel is intent to rule, never plan's to invent.
+  The **producer** half (a kind owning `.claude-plugin/plugin.json`, one
+  owning `.claude-plugin/marketplace.json`) is not corpus-carried at all:
+  builtins.md ships seven kinds and grows "by documented capability" through
+  a `specs:` ceremony, and a plugin under authoring is a candidate second
+  corpus — which representation.md/"Reach" calls "a feature, never a founding
+  assumption".
+  Surfaced with it: `CLAUDE.md:9` names "plugin & marketplace manifests"
+  among the kinds temper projects; **`specs/intent.md` does not**, and
+  neither manifest is projected — an identity overclaim in a harness
+  projection, the session's to fix (plan writes neither file).
+  External facts, so the ruling need not re-fetch
+  (code.claude.com/docs/en/{plugins,discover-plugins}, retrieved 2026-07-16):
+  the manifest is `.claude-plugin/plugin.json` (`name` required;
+  `description`, `version`, `author` optional), the catalog
+  `.claude-plugin/marketplace.json`; a project-scope install "adds the plugin
+  to `.claude/settings.json`" under `enabledPlugins`, team marketplaces under
+  `extraKnownMarketplaces`; `claude plugin validate` is the documented
+  external validator. `temper bundle` already writes both manifests at those
+  exact paths (`src/bundle.rs:185,191`) as hard-coded `serde_json` — the
+  delivery channel, correct but unmodeled and ungated. Demand is simulated
+  (war game, 07-16). No dependents.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 

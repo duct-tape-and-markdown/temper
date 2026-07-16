@@ -3,85 +3,63 @@
 - Spec derived through: a571973
 - Audited through: eb2776d
 - Residue swept through: eb2776d
-- This tick: POST-SHIP RECONCILIATION of 8978596..eb2776d — a one-commit
-  window (e5de411, SEAM-EXPORTS-RETRACT), so both motions ran in one tick;
-  no split earned. **Audit:** the retraction is verified on disk, not from
-  the log — `sdk/src/index.ts` no longer names any of the ten (the
-  `declarations.js` re-export block at 80+ is gone whole, `PayloadMember`
-  dropped from the `emit.js` type line), the row family still exports
-  module-side off `declarations.ts`, and all three suite sites reach it at
-  `../src/declarations.js` (contract.test.ts:25-26, emit.test.ts:37). The
-  commit's own two claims re-tested: the `(seam-rows-public-face)` fork
-  record is absent from open-questions.md, and root_exports.test.ts:11-13
-  now states the exclusion at the ruled boundary (the rows reach the face
-  only by inference through `EmitResult`). `rg` over `sdk/` proves nothing
-  reaches the retracted names through the root face. **One stale gate, now
-  flipped:** MENTION-REACHABLE-PREDICATE was `blockedBy`
-  SEAM-EXPORTS-RETRACT — the blocker shipped at e5de411 and the chore
-  dropped it from the queue, so the entry's gate pointed at a tag no longer
-  in pending. It is `open`, and its `sdk/src/index.ts` description no
-  longer claims to serialize behind a shipped entry: the retraction cut
-  lines 80+ and left the contract export block untouched, so `Predicate`
-  (25) and `globValid` (35) still resolve and the closure walk still needs
-  no edit. **One cite drifted, now corrected:** EDGE-TARGET-SET's two
-  `sdk/test/emit.test.ts` fixture sites moved +2 (1085/1173 → 1087/1175)
-  when e5de411 retargeted that file's import; `refusals.test.ts:220` is
-  unmoved. Its `blockedBy` MENTION-REACHABLE-PREDICATE holds on the real
-  reason — the shared `src/graph.rs`, `src/drift.rs`,
-  `sdk/src/declarations.ts` — never the emit.test.ts overlap that is now
-  spent. **One rider routing went stale and is now re-routed** — the audit's
-  own instruction to re-test every "rides X" condition NOW, and the find of
-  this tick: the `compose::effective` straggler (compose.rs:233) recorded "no
-  queued entry opens `compose.rs`, so it has no carrier and waits", but
-  EDGE-TARGET-SET widens `Edge.to` at 52 in that very file. It is the
-  carrier, and the record's own twice-proven precedent says a carrier that
-  merely opens the file discharges nothing — so the rider is named in
-  EDGE-TARGET-SET's `files[].description`, where build reads it. The
-  retirement re-checked clean first: no `fn effective` survives in
-  compose.rs, and the `effective contract` hits in main.rs/drift.rs/install.rs
-  are the ordinary English word, never the retired symbol. The other four
-  riders re-tested the same way and each still has no carrier (read.rs,
-  prose.ts, Cargo.toml, session_start.rs — no queued entry edits any).
-  **Sweep:** the window is one retraction and leaves no residue — no
-  retired symbol survives, no second implementation appears. Spec cursor NOT
-  advanced and the reason is now settled rather than restated: 0c25b2c wears
-  a `specs:` subject claiming the contract.md cite-drop, but that work landed
-  in a571973 itself (its diff drops both `(decision 0029)` and `(decision
-  0028)`), and 0c25b2c's actual one-line diff is a `.temper/lock.toml`
-  re-emit (`templates = [{ kind = "supporting-doc", path = "*.md" }]`,
-  SKILL-NESTED-REFERENCE-DOCS catching up) — a mis-messaged commit, not
-  un-derived intent. `git log a571973..HEAD -- specs/` is empty: the delta is
-  genuinely drained. One corpus-form violation surfaced, NOT filed — plan
-  never writes `specs/` and a `specs:` commit is the session's by ceremony:
-  `specs/model/pipeline.md:102` still carries `(decision 0024)` inline, the
-  exact class a571973's review correction cut from contract.md, against
-  spec-system.md/"Form rules" (body text never references decisions). Both
-  parks re-tested at this HEAD and hold: `MAX_IMPORT_HOPS` reads 5 at
-  graph.rs:62 under a cite claiming five, and the packaging park holds on
-  every clause (four era tags and no version tag, crate 0.1.0 vs npm 0.0.7,
-  release.yml:7-9 states the deferral). Every accepted-debt rider
-  re-verified on disk and unmoved — the window touched none of their files.
-- Queue: 1 pickable (MENTION-REACHABLE-PREDICATE, now unblocked); 2 blocked
+- This tick: INBOX DRAIN — the three war-game notes filed at eb2776d, routed
+  and removed. HEAD moved only by last tick's `plan:` commit, so every
+  premise was re-verified at the tree the reporter saw. **Note 1 (plugin/
+  marketplace kinds) — routed to a new `(plugin-surface)` fork, and its
+  premise is half wrong.** The re-verify: `specs/intent.md` does NOT name
+  plugin or marketplace manifests among the artifact kinds — its only two
+  hits are the marketplaces-distribute positioning (77) and temper's own
+  shipped plugin (92). `CLAUDE.md:9` alone claims them, and CLAUDE.md is a
+  `.temper/` projection, not the corpus — so "identity-stated" reduces to an
+  overclaim in a harness projection, the session's to fix, not a corpus
+  claim plan may derive from. What IS corpus-carried is the half the note
+  never asked for: representation.md/"Reach" and builtins.md/"The coverage
+  bar" both name an **installed plugin** a registration member, and it does
+  not ship while `hook` and `mcp-server` both do. It still does not derive:
+  builtins.md's bar makes registration "the set of documented channels a
+  member reaches", and an installed plugin reaches none — it contributes
+  members that do, a shape no shipped kind has. Inventing that channel is
+  exactly the gap plan surfaces rather than fills, so the fork carries both
+  halves plus the live external facts (fetched this tick) so whoever rules
+  need not re-fetch. The note's "route as an investigation, not straight to
+  build" is over-cautious on one point and recorded as such: build DOES
+  fetch and date cites (the standing ritual MENTION-REACHABLE-RULE-CLAUSE
+  carries) — what blocks this is missing intent, not missing facts. **One
+  claim checked and cleared:** the docs put the manifest at
+  `.claude-plugin/plugin.json`, and `src/bundle.rs:185,191` writes exactly
+  that path — temper's own published plugin is well-formed; no finding.
+  **Note 2 (fork datums) — one record moved, one deliberately not.**
+  `(multi-harness-projection)` gains one clause: demand is no longer zero
+  (simulated) and the counterpart-drift check is a concrete fourth open
+  face. `(eval-capability)` gets NO edit — the note's own datum says
+  "consistent with the record's 07-16 field evidence", and the record
+  already carries it; a restating line is pure per-tick tax against the
+  file's anti-accumulation rule. **Note 3 (long tail) — accepted, filed
+  nowhere, stated in the commit body.** Four predicates each wait for the
+  0022-style ceremony their real consumer triggers; the UX pair is the same
+  class. The lastReviewed-staleness tension is genuinely fork-shaped and is
+  still NOT filed: no corpus sentence settles whether a predicate may read
+  the clock, but with zero real demand and zero dependents a record would be
+  the accumulation the lifecycle rule exists to stop — the collision is
+  named in the commit body so a future routing cannot mistake it for
+  routine. Cursors all copied forward verbatim: this tick shipped no code
+  and derived no spec, and no window opened.
+- Queue: unchanged, 5 entries, disjoint, every gate re-tested at this HEAD
+  and still true — 1 pickable (MENTION-REACHABLE-PREDICATE); 2 blocked
   behind it (MENTION-REACHABLE-RULE-CLAUSE, EDGE-TARGET-SET — disjoint from
   each other, so both run beside each other once it lands); 2 parked on
   human acts (IMPORT-HOP-CAP-CITE: a hop-depth probe.
-  PACKAGING-CHANNELS-REMAINDER: Apple notarizing + the v0.1 tag). No gate is
-  stale — all tested this tick.
+  PACKAGING-CHANNELS-REMAINDER: Apple notarizing + the v0.1 tag). Nothing
+  shipped since eb2776d, so no gate could have gone stale.
 
-Plan continues: yes — **the inbox went live mid-tick and is NOT routed**.
-Three notes landed in the working tree stamped `observed at eb2776d`, after
-the snapshot this tick oriented off (which showed the inbox empty), from a
-simulated consumer war game: (1) the plugin/marketplace manifest kinds are
-identity-stated in CLAUDE.md/intent yet unshipped — needs the live plugin
-docs fetched and cited before anything encodes, so it routes as an
-investigation, never straight to build; (2) evidence-only datums for
-`(multi-harness-projection)` and `(eval-capability)` — neither unparks;
-(3) a vocabulary/UX long tail, all simulated demand, none queue-jumping,
-carrying one genuinely fork-shaped tension: a lastReviewed-staleness clause
-would make the gate read the clock, colliding with deterministic,
-byte-reproducible `check`. They are committed here undrained rather than
-left loose in the working tree, where a checkout would lose them. One tick
-is one job and this tick's job was the reconciliation; the inbox is job 1
-and is the next tick's, and its demand is simulated — every claim re-verifies
-against the tree before it scopes anything. Build can take
-MENTION-REACHABLE-PREDICATE in parallel; nothing in the inbox touches it.
+Plan continues: no — the inbox is drained and empty, no refactor capture is
+live (`.flume/refactor/` holds its README alone), the spec delta is empty
+(`git log a571973..HEAD -- specs/` is dry), and no commit has touched
+`src/`, `tests/`, or `sdk/` past the two reconciliation cursors — the only
+motion since eb2776d is plan's own two commits. Build takes over:
+MENTION-REACHABLE-PREDICATE is pickable and nothing this tick touched it.
+The `(plugin-surface)` fork is a human input, not a plan one — its
+resolution returns through the inbox. The one friction capture on disk
+(`build-import-hop-cap-cite-disagrees-with-live-docs.md`) is already fully
+routed as IMPORT-HOP-CAP-CITE's park reason and is the human's to read.
