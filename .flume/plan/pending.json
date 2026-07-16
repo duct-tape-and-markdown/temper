@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-FORMAT-TARGET-FACTS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -28,7 +27,7 @@
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Lower the format's placement observation into a declaration row at emit — which of a value's declared edge fields the render hook actually selected from the derived target facts (EMBEDDED-FORMAT-TARGET-FACTS is the observation point). The engine never sees the format and never reads a projection back, so this fact reaches the gate as a declaration row or not at all."
+          "description": "Lower the format's placement observation into a declaration row at emit — which of a value's declared edge fields the render hook actually selected from the derived target facts (EMBEDDED-FORMAT-TARGET-FACTS shipped the observation point: the edge-target facts reaching a hook as `value.targets`, `sdk/src/emit.ts`). The engine never sees the format and never reads a projection back, so this fact reaches the gate as a declaration row or not at all."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
@@ -49,7 +48,38 @@
       }
     ],
     "acceptance": "An author can declare the check representation.md names: a format that omits an edge its kind declares renders a contract the prose does not represent. Adding the predicate is the ratified language change; no default contract adopts it unbidden.",
-    "notes": "0025 bullet 3. Two bars build must not paper over: (1) the spec puts this clause in no default contract — do not invent an adoption; the predicate exists, the author declares it. (2) The engine cannot inspect an erased `render` hook and never reads a projection back (invariant 7), so the placement fact must reach the lock as an emit-captured declaration row. If that spelling does not hold, leave the entry and raise an open question. scoped at cac023a."
+    "notes": "0025 bullet 3. Unblocked at 74f4e62 (1ca1f9b shipped EMBEDDED-FORMAT-TARGET-FACTS). Two bars build must not paper over: (1) the spec puts this clause in no default contract — do not invent an adoption; the predicate exists, the author declares it. (2) The engine never sees an erased `render` hook and never reads a projection back (invariant 7), so the placement fact must reach the lock as an emit-captured declaration row. If that spelling fails, leave the entry and fork it. scoped at 74f4e62."
+  },
+  {
+    "tag": "PROJECTION-PATH-SEAM-GATE",
+    "summary": "Gate the two member-projection-path derivations into agreement: an embedded format's rendered target link must resolve to the projection emit actually wrote, across each built-in kind's unit shape",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/projection_path_seam.rs",
+          "description": "A seam-agreement lane on the pattern `tests/builtin_lock_frozen.rs` establishes (a real `node` subprocess running the built SDK, driven through `temper::drift::emit_program` the way `tests/emit.rs` drives it): emit a harness whose embedded member's `render` hook places a link off `value.targets` to a file member of each built-in file kind — `skill` (directory unit), `rule`/`agent`/`command` (single-`*` flat glob), `memory` (`**` glob) — then resolve each rendered relative link against the host's own emitted projection and assert it names the target file emit actually wrote on disk. Ground truth is the engine's own write (`src/drift.rs`'s `member_projection_path`, 579), so the two derivations are compared through the property they must agree on rather than symbol-to-symbol: no `pub` widen on the engine's private fn, no SDK-internal export. Alternative considered, to name in the commit body per this entry's `per` section: extending `tests/emit.rs`, which already drives the seam — a frozen-agreement gate is its own lane, the precedent `builtin_lock_frozen.rs` sets. Why a gate and not a unification: the duplication is forced. `render` is erased at the seam, so the engine never sees the hook and cannot supply the path (`representation.md`, \"kind\": the target's projection path is a fact the format selects). The capture's second option — lowering the path onto the seam as a column the SDK reads back — inverts the one-way pipe (`pipeline.md`, \"The SDK\": the SDK renders before the engine sees a byte), so it is refused, not deferred."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/projection_path_seam.rs",
+        "asserts": "For each built-in file kind's unit shape, the link an embedded format renders off `value.targets` resolves, from the host's own projection, to the exact path emit wrote the target member to; a derivation that disagrees across the seam fails the lane loudly rather than shipping a link that resolves nowhere."
+      }
+    ],
+    "acceptance": "The invariant `sdk/src/emit.ts:119` states in prose — \"the two must agree\" — is held by a test instead of a comment: a change to either derivation that breaks agreement fails `cargo test`, in the language whose CI already crosses the seam.",
+    "notes": "Drains .flume/refactor/build-projection-path-two-homes.md (deleted this tick); claim re-verified at HEAD — `src/drift.rs:579` and `sdk/src/emit.ts:127` derive one path in two languages and nothing compares them (1ca1f9b's SDK tests assert only the SDK side). The duplication is forced, not chosen, so the entry is the gate, never a unification: see the file description for both alternatives and why each is refused. scoped at 74f4e62."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

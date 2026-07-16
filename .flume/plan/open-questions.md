@@ -278,18 +278,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   `src/extract.rs`'s two `"…law 5"` decision-fixture strings are `.to_string()`
   test data, not cites.)
 
-- **`sdk/test/emit.test.ts:980` cites the retired `renderMemberFence`.**
-  EMBED-RENDER-FENCE-FREE (f2d73da) renamed `renderMemberFence` →
-  `renderMemberBlock` (an embedded format is writer-only, the fence cosmetic
-  — `specs/model/representation.md`, "kind") and opened this test file, but
-  left the test comment ("untouched — `renderMemberFence`") naming the gone
-  symbol. Behavior correct; comment staleness only. Seven entries have now
-  opened the file and left the comment as unchanged context — the rider
-  discharges on *reconciliation*, never on the file being opened; the last,
-  TEMPLATE-FILE-CHILD-FACT (794678f), shifted it 937 → 980, re-verified on
-  disk at reconcile HEAD d97a704. Rides EMBEDDED-FORMAT-TARGET-FACTS, the one
-  queued entry reconciling this file's comments; never standalone. Found at
-  reconcile HEAD 99a79ec.
+- **`src/drift.rs:570` calls the SDK `projectionPath` "retired".** It is not:
+  EMBEDDED-FORMAT-TARGET-FACTS (1ca1f9b) re-introduced it
+  (`sdk/src/emit.ts:127`), because `render` is erased at the seam and the SDK
+  must derive a target's path to render it. So the Rust doc's "the Rust port
+  of the retired SDK `projectionPath`" names a live twin as a dead
+  predecessor — the sharper reading of the very duplication
+  PROJECTION-PATH-SEAM-GATE gates. Comment staleness only; behavior correct.
+  That entry adds a test file and opens no Rust file, so this rides whichever
+  entry next opens `drift.rs` (no queued entry does), never standalone. Found
+  draining the projection-path capture at HEAD 74f4e62.
 
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`

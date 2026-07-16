@@ -3,42 +3,42 @@
 - Spec derived through: cc5a9b3
 - Audited through: d97a704
 - Residue swept through: d97a704
-- This tick: POST-SHIP RECONCILIATION — the cac023a..d97a704 window, one build
-  commit (794678f, TEMPLATE-FILE-CHILD-FACT). Audit: verified on disk that the
-  declared fact shipped across all three layers — `KindFacts.templates`
-  (`sdk/src/kind.ts:158`, fact 7), the `TemplateRow` seam binding,
-  `templatesFor`'s two-loci derivation (`declarations.ts:187`), and the Rust
-  `Template` + `overlay_templates` read-back (`src/kind.rs:567/680`). The
-  entry's own chore already dropped it from the queue, so the audit's live
-  action was the gate behind it: **EMBEDDED-FORMAT-TARGET-FACTS unblocks**
-  (`blockedBy` → `open`), cites re-derived against the moved file
-  (`ResolvedEmbeddedMemberValue` 300→323, `KindFacts.edgeFields` 126→146, the
-  `render` hook 159→160; `EdgeField`:43 and emit.ts's 104/158 unmoved).
-  PACKAGING-CHANNELS-REMAINDER re-tested on all three park conditions at HEAD
-  and holds (`git tag -l 'v*'` empty, crate 0.1.0 vs npm 0.0.7, release.yml:7-9
-  still defers darwin). Sweep: the window introduced no new residue — the entry
-  declared its riders and carried two. The **pre-0019 "layout" fact-name record
-  is discharged and deleted**: fact 3 respelled to "projection", the count moved
-  to seven, and the sanctioned `Layout` content type no longer collides in-file.
-  The `kind.ts:257` "posture 3" half of the pre-recut record is discharged too,
-  narrowing that record to `prose.ts` alone. Undischarged, re-verified unmoved:
-  builtins.ts:565/611, session_start.rs:128/133/146, contract.rs:475,
-  compose.rs:233, prose.ts's narration, and emit.test.ts's `renderMemberFence`
-  cite (937→980, riding EMBEDDED-FORMAT-TARGET-FACTS). `(nested-file-child)`
-  **narrowed, not closed**: collision (1) is now half-answered — a kind can
-  declare a file-child layer, but nothing composes or resolves one — so the fork
-  still owes the composition surface, the resolution rule, and the overlap's
-  legality. Four accreted rider records compacted against the file's own
-  anti-accumulation rule; every surviving claim disk-verified at HEAD.
-- Queue: 1 pickable (EMBEDDED-FORMAT-TARGET-FACTS, `open`);
-  FORMAT-OMITS-EDGE-CLAUSE serializes behind it (a semantic gate, not a file
-  overlap: the target facts are its placement observation point);
-  PACKAGING-CHANNELS-REMAINDER
-  parked (John's Apple notarizing + the v0.1 lockstep tag). Fork board:
-  `(nested-file-child)` narrowed, still blocking the supporting-doc adoption;
-  `(guidance-climb)` blocks nothing.
+- This tick: REFACTOR DRAIN — `build-projection-path-two-homes.md`, filed by
+  1ca1f9b, was the tick's first live input (the inbox is empty; a live capture
+  outranks the unreconciled d97a704..74f4e62 window). Claim re-verified at
+  HEAD and it holds exactly as filed: `member_projection_path`
+  (`src/drift.rs:579`) and `projectionPath` (`sdk/src/emit.ts:127`) derive one
+  harness-relative path in two languages, branch for branch, and nothing
+  compares them — `emit.ts:119`'s own doc comment states "the two must agree"
+  as an invariant held by prose alone, and 1ca1f9b's SDK tests assert only the
+  SDK's own side. Filed as **PROJECTION-PATH-SEAM-GATE** (`per`
+  engineering.md, "One job, one home"), capture DELETED. The entry is the
+  *gate*, not the unification that section's priority order would normally
+  demand: the duplication is forced — `render` is erased at the seam, so the
+  engine cannot supply the path — and the capture's own inversion alternative
+  (the SDK reading a path column back) contradicts the one-way pipe
+  (pipeline.md, "The SDK"). Both refusals ride the entry rather than waiting
+  for build to rediscover them. Shape ruled *against* the capture's
+  suggestion: it asked for a symbol-to-symbol comparison, needing a `pub`
+  widen on a private engine fn plus an SDK-internal export; the entry gates
+  the **property** instead (a rendered link resolves to the file emit wrote),
+  which needs neither and covers `relativeProjection` too.
+  Closing checklist: FORMAT-OMITS-EDGE-CLAUSE's `blockedBy` reason went false
+  when 1ca1f9b shipped its blocker, so the gate flips `open` — its cites
+  (contract.rs:81/475, engine.rs:97/114) are unmoved, the window having
+  touched no Rust file. The `renderMemberFence` record is **discharged and
+  deleted** (1ca1f9b carried it as a declared rider; the symbol greps nowhere
+  in the tree). One record added: `drift.rs:570` calls the SDK
+  `projectionPath` "retired" when 1ca1f9b revived it.
+- Queue: 2 pickable and disjoint by file (FORMAT-OMITS-EDGE-CLAUSE, unblocked
+  this tick; PROJECTION-PATH-SEAM-GATE, new — one test file);
+  PACKAGING-CHANNELS-REMAINDER parked (John's Apple notarizing + the v0.1
+  lockstep tag). Fork board unmoved: `(nested-file-child)` still blocks the
+  supporting-doc adoption; `(guidance-climb)` blocks nothing.
 
-Plan continues: no — reconciliation was this tick's one job and both cursors
-advance to d97a704. No input below it is live: the window is closed, the inbox
-and refactor captures are empty. **Build takes over:
-EMBEDDED-FORMAT-TARGET-FACTS is pickable.**
+Plan continues: yes — post-ship reconciliation of the d97a704..74f4e62 window
+(1ca1f9b, EMBEDDED-FORMAT-TARGET-FACTS). This tick verified only what the
+capture's claim touched: `emit.ts`'s path derivation and the entry gates
+behind it. The audit's own motions are unrun — the four target facts against
+`representation.md`'s closed set, the two shipped refusals, and the sweep of
+`emit.ts`/`kind.ts` against the corpus — so both cursors stay at d97a704.
