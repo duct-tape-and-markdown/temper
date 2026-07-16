@@ -30,7 +30,9 @@ view: an extra file in the resolution set can only suppress a finding, while
 pruning one can forge a finding. (Member discovery is the opposite case and
 honors ignore rules — `pipeline.md`.) An edge carries no obligation of its own: whether an
 edge is counted is decided by the clauses that range over it. A mention is
-obligation-free by default — no shipped clause counts it; a contract may.
+obligation-free by default — no shipped clause demands one exist; the
+shipped `mention-reachable` advisory judges only the mentions a member
+authored (decision 0028), and a contract may count them further.
 
 ## clause
 
