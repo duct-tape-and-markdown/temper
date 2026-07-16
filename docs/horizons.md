@@ -47,8 +47,9 @@ that evidence, not preference, is the bite condition.
 ## Entries
 
 - `(impact-verb)` — RATIFIED 2026-07-03; current home `specs/model/contract.md`,
-  "Read verbs" (`impact` is specified there and not yet shipped — the binary's
-  `explain` carries blast radius today).
+  "Read verbs", amended 2026-07-15: `explain` is the one read verb and
+  impact is its strand — the shipped unification is the intent, and the
+  model's old peer-verb spelling was the stale side.
 
 - `(vet)` — **Check what you install, before you install it.** A verb aimed at
   the *consumer*: run the gate over a plugin or marketplace artifact pre-install

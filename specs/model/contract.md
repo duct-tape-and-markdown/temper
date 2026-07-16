@@ -100,6 +100,7 @@ it is a clause, not well-formedness.
 
 ## Read verbs
 
-`explain` narrates a member, requirement, or leaf; `impact` reports the
-deterministic set of members that break if one is removed. Both are
-projections over the same resolved edges the gate uses; they never gate.
+`explain` is the one read verb: it narrates a member, requirement, or leaf,
+and its impact strand reports the deterministic set of members that break
+if one is removed. Every reading is a projection over the same resolved
+edges the gate uses; it never gates.

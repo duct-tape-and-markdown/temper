@@ -35,7 +35,13 @@ The type of a member. A kind declares
   A layout admits no syntax beyond markdown's own and has one
   face — the reader: the document is the authored home, read, never
   regenerated. What does not fit the three primitives is two kinds, or it
-  is prose.
+  is prose. A layout's regions state what may appear, never what must: a
+  document conforms with a region empty, so one kind serves a tree whose
+  documents range from prose-only to fully membered, and any floor — a
+  required section, a minimum member count — is a clause over the
+  selection, dialable per corpus. A document's kind is declared by its
+  position alone: two kinds never share a `governs` glob, because routing
+  a document by its content would be mining.
 - the **edge fields** — which fields are references, and to what,
 - a **format** — a template literal rendering the member's values into its
   artifact: constant text around interpolated fields, prose, and child

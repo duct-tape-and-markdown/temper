@@ -13,47 +13,6 @@ tax.
 
 ## Open forks
 
-- `(layout-kind-heterogeneous-corpus)` — OPEN (registered 2026-07-15). A
-  layout binds the whole kind (`specs/model/representation.md`, "kind": a
-  layout is the kind's content), but a real corpus is heterogeneous — some
-  documents in a governed tree mix prose and members, others don't.
-  0019-content's own answer ("what does not fit the three primitives is two
-  kinds, or it is prose") collides with governance: what **two kinds sharing a
-  `governs` glob** means is unspecified (representation.md's "per-kind
-  precedence" is the runtime artifact-level merge, not this). First question a
-  consumer hits adopting a layout for a built-in kind, or governing any
-  heterogeneous tree. Open: can two kinds share a governs glob (and how is a
-  document routed to one), or is heterogeneity always "declare N kinds over N
-  sub-globs"? (Related but distinct from `(directory-sliced-governance)`, the
-  single-kind path-derivation gap.) Resolution routes back through the inbox.
-
-- `(directory-sliced-governance)` — OPEN (registered 2026-07-15). A single
-  non-nesting **file**-locus kind cannot govern a directory-sliced corpus:
-  `member_projection_path` (`src/drift.rs:519`) derives a projection path by
-  `governs_glob.replacen('*', name, 1)` — the glob's *first* `*` only — so a
-  glob `*/*.md` yields `<name>/*.md`, a literal `*` left in the path. The
-  workaround (one kind per directory, each with a `*`-terminal glob) works but
-  proliferates kinds. The corpus (`specs/model/representation.md`, "kind")
-  gives a kind one `governs` glob and a per-nested-layer path pattern, but says
-  nothing of deriving a leaf file's path through a multi-segment glob. Open:
-  does temper admit nested-glob path derivation, or a **declared path template**
-  on the kind, or is directory-sliced governance always "declare N kinds over N
-  `*`-terminal sub-globs"? (Live: pack-kind field trial, centercode 07-15;
-  related but distinct from `(layout-kind-heterogeneous-corpus)`, which is about
-  two kinds sharing one glob, not one kind spanning many directories.)
-  Resolution routes back through the inbox.
-
-- `(agents-md-builtin-kind)` — OPEN (registered 2026-07-06). The engine's
-  hand-written std-lib ships an `agents-md.memory` built-in kind (glob
-  `**/AGENTS.md`), but the SDK module and the derived built-in lock export only
-  the `CLAUDE.md` `memory` kind (`specs/builtins.md`, "The shipped kinds":
-  memory is a `CLAUDE.md`-family file; `AGENTS.md` at root sources `CLAUDE.md` —
-  `specs/distribution.md`, "The offering"). The spec-faithful default drops the
-  engine's agents-md.memory to match the lock. Open: should temper ship an
-  AGENTS.md built-in kind — and if so under a **distinct label** (never a
-  provider-qualified `memory`; identity travels by import, not string —
-  `specs/builtins.md`)? A feature addition, not a chain blocker.
-
 - `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
   layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
   "The SDK" — the harness is one composed value). Candidates: a local harness
@@ -74,26 +33,10 @@ tax.
   "Positioning"). The engine is corpus-generic (`specs/model/representation.md`,
   "Reach"), but the write face of foreign formats is open: per-harness
   capability mismatch, which harness is authoritative, whether a lossy
-  projection is a verdict or an error. No dependents.
-
-- `(impact-read-verb)` — OPEN (registered 2026-07-10). The model names two
-  read verbs as peers: `explain` narrates, `impact` reports removal fallout
-  (`specs/model/contract.md`, "Read verbs"; `specs/model/pipeline.md`, "Read
-  verbs"). The shipped surface unified them: `src/main.rs`'s clap `Command`
-  has one read variant, `Explain`, and `src/read.rs:190` calls it "the one
-  read verb" — `impact` is an internal strand (`read::impact`) `explain`
-  dispatches into, never a CLI verb (READ-EDGE-UNIFY). CLAUDE.md's own
-  identity enumerates seven shipped verbs with no `impact`, re-cut by a human
-  at 827b2f2 *after* the model text — evidence the unified surface is current
-  intent and the model's peer-verb spelling is the stale side. This session's
-  position: the fix is a `specs:` amendment (respell contract.md/pipeline.md
-  "Read verbs" so `impact`/`why`/`context` read as strands of the one
-  `explain` verb, not peers), not a code entry that re-splits a deliberate
-  unification. But amending the model is a kernel-section change John owns
-  (`specs/process/spec-system.md`, "Change ceremony"), and it collides with
-  standing corpus text — surfaced, not encoded either way. Resolution routes
-  back through the inbox: amend the model, or rule `impact` ships as a
-  distinct verb (then a pending entry, `per` contract.md "Read verbs").
+  projection is a verdict or an error. Inherits the AGENTS.md kind question
+  (ruled 07-15: not a claude-code kind — Claude Code does not read
+  AGENTS.md, docs retrieved 2026-07-15; its consumer is this fork's
+  cross-tool story). No dependents.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 

@@ -163,5 +163,6 @@ verbs target one project's harness at an explicit path.
 
 ## Read verbs
 
-`explain` narrates and `impact` reports removal fallout over the same resolved
-edges the gate uses (`contract.md`); both read the committed pair, never gate.
+`explain` is the one read verb — narration and removal fallout (its impact
+strand) over the same resolved edges the gate uses (`contract.md`); it reads
+the committed pair, never gates.
