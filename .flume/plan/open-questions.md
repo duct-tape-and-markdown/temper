@@ -164,7 +164,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   naming the rider in their own `files[].description` — the only shape that
   discharges one: PREDICATE-SELECTION-ALGEBRA opens `graph.rs`,
   SKILL-NESTED-REFERENCE-DOCS opens `builtin_kind.rs`. Re-verified on disk at
-  reconcile HEAD 9862b2e.
+  reconcile HEAD b745415 (graph.rs 61/689 still @07-02, unmoved; 91c288c
+  touched `builtin_kind.rs` and left its cites as unchanged context).
 
 - **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
   one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
@@ -208,22 +209,6 @@ condition arrives, it is the next break. If work touches one, surface it.
   `src/extract.rs`'s two `"…law 5"` decision-fixture strings are `.to_string()`
   test data, not cites.)
 
-- **`src/drift.rs:570` calls the SDK `projectionPath` "retired".** It is not:
-  EMBEDDED-FORMAT-TARGET-FACTS (1ca1f9b) re-introduced it
-  (`sdk/src/emit.ts:127`), because `render` is erased at the seam and the SDK
-  must derive a target's path to render it. So the Rust doc's "the Rust port
-  of the retired SDK `projectionPath`" names a live twin as a dead
-  predecessor — the sharper reading of the very duplication
-  PROJECTION-PATH-SEAM-GATE gates. Comment staleness only; behavior correct.
-  That entry added a test file and opened no Rust file; FORMAT-OMITS-EDGE-CLAUSE
-  (13c58ed) then opened `drift.rs` (+23: the `placed_edges` column at 2596-2613)
-  and left 570 as unchanged context — undischarged. **Carrier found:**
-  NESTED-FILE-LOCUS opens `drift.rs` (the nested-file case in
-  `member_projection_path`, the very twin the doc miscalls), and its
-  `files[].description` names the rider — so it discharges there, never
-  standalone. Found draining the projection-path capture at HEAD 74f4e62;
-  re-verified on disk (drift.rs:569-571, unmoved) at reconcile HEAD ca4e866.
-
 - **Cargo.toml's schemars dep comment is doubly stale.** It cites
   `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
   dir exists) and assigns ts-rs the interchange-TS role the seam bindings
@@ -251,9 +236,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   record itself named, which discharged nothing. The lesson generalizes to
   every rider here: a carrier named in *this file* is not read at build time;
   only an entry naming the rider in its own `files[].description` discharges
-  one (NESTED-FILE-LOCUS's drift.rs:570 clause is the working shape).
-  compose.rs:233 untouched this window. Re-verified on disk (compose.rs:233,
-  contract.rs:490) at reconcile HEAD ca4e866.
+  one. That shape is now **proven**, not proposed: NESTED-FILE-LOCUS named the
+  `drift.rs:570` rider in its own description and 91c288c discharged it —
+  the record is gone from this file. PREDICATE-SELECTION-ALGEBRA carries
+  `contract.rs:490` the same way. compose.rs:233 has no carrier: no queued
+  entry opens the file. Re-verified on disk (compose.rs:233, contract.rs:490,
+  both unmoved) at reconcile HEAD b745415.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

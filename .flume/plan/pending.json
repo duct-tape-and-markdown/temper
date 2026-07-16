@@ -33,8 +33,7 @@
       "section": "Install"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NESTED-FILE-LOCUS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -42,19 +41,23 @@
       "edit": [
         {
           "path": "src/import.rs",
-          "description": "`discover_kind_units` (145-167) is `governs`-keyed — it scans `<harness>/<governs.root>` for `governs.glob` matches — and `discover_kind_files` (114-131) wraps it. A nested-file kind has no `governs` to key on, so nothing discovers its members: its units are found under each *host* unit at the host template's pattern. Extend the one scanner (its doc names it as serving every kind's locus) rather than adding a second walk beside it (`specs/process/engineering.md`, \"One job, one home\"); the ignore-honoring `discoverable_paths` set (250-252) governs the child walk exactly as it governs a host's."
+          "description": "`discover_builtin` (95-103) is the `governs`-keyed entry point, and 91c288c turned it into the explicit hole this entry fills: `match &kind.governs { Some(governs) => discover_kind_files(..), None => Ok(Vec::new()) }` — a nested-file kind has no `governs` to key on, so its members are discovered at none. Its units sit under each *host* unit at the host template's pattern, so the scan needs two facts one child kind cannot carry: which kind templates it (the host's `templates` column, `src/kind.rs`) and that host's own discovered units — name the signature this forces rather than fabricating a `governs` for the child. Extend the one scanner (`discover_kind_units`, 150, whose doc names it as serving every kind's locus) rather than adding a second walk beside it (`specs/process/engineering.md`, \"One job, one home\"); the ignore-honoring `discoverable_paths` set (255) governs the child walk exactly as it governs a host's. Rider: two doc comments here credit a caller that does not exist — 91 (\"`pub(crate)` so drift re-scans the harness\") and 147-149 (\"`pub(crate)` so the drift engine re-runs the same `governs`-keyed scan against a live harness\"). No `src/drift.rs` caller is on disk; the crate-internal callers are `main.rs` and this module. Reconcile both while here."
         },
         {
           "path": "src/main.rs",
-          "description": "The per-kind discovery wiring that feeds `by_kind`: a nested-file kind's members reach it through their host's units, not a root+glob scan, so the host's discovery must run before its children's."
+          "description": "`kind_features`'s unit dispatch (1139-1143) carries the matching hole and states it: `(_, _, None) => Vec::new()`, commented \"A nested file kind is discovered off its host's template, never a `governs` walk — a locus it does not have — so no file surfaces for it here.\" That arm is what this entry replaces. `builtin_features_by_kind` (1295-1308) loops `builtin_defs.values()` per kind, so the ordering constraint lands here: a nested-file kind's members reach `by_kind` through their host's units, and the host's discovery must run before its children's."
         },
         {
-          "path": "src/drift.rs",
-          "description": "Drift re-runs the same `governs`-keyed scan against a live harness (`import::discover_kind_units` is `pub(crate)` for exactly that) — the nested-file case moves with it, or a discovered child is an ownerless projection to the reaper."
+          "path": "src/install.rs",
+          "description": "`discover` (316-322) — the discovery report the `per` section opens with — loops every built-in kind through `import::discover_builtin`, so a nested-file kind contributes nothing to `DiscoveryReport::members` and its files never convert into member modules on the yes-path. This is the adopted-harness surface the acceptance names; without it the entry's claim is false for the verb that adopts."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`Template::path`'s doc (578-580) states the declared-fact-only bound TEMPLATE-FILE-CHILD-FACT (794678f) shipped under: \"Declared only: nothing discovers a file child off it, exactly as a host's embedded members resolve independently of its templates.\" That sentence is exactly what this entry retires; the doc moves with the behavior."
         },
         {
           "path": "tests/nested_member.rs",
-          "description": "Discovery coverage for the file child: an adopted harness's file matching a host template's pattern classifies as that host's child, of the template's kind."
+          "description": "Discovery coverage for the file child, beside the projection/round-trip proofs 91c288c added (258, 307, 345): an adopted harness's file matching a host template's pattern classifies as that host's child, of the template's kind."
         }
       ],
       "retire": []
@@ -70,8 +73,75 @@
         "asserts": "a file under a host's unit that the pattern does not match is discovered as no member — unmodeled, never mis-classified"
       }
     ],
-    "acceptance": "Discovery classifies an adopted harness's matching files as their host's children through the host template's pattern (representation.md, \"locus\"; the pattern is the host's declared fact) — with no glob of the child kind's own scanned for. `cargo test` green.",
-    "notes": "Routes 0027 (abe5d5d), Consequences half 2 — discovery off the template pattern. The declared-fact-only bound TEMPLATE-FILE-CHILD-FACT (794678f) stated in its own body and in `Template`'s doc (src/kind.rs) retires here; the doc moves with the behavior. Gate names NESTED-FILE-LOCUS (the locus is what a discovered child is classified as); it ALSO shares `src/main.rs` with EMBEDDED-KIND-CONFORMANCE-DISPATCH, so it must not go open while that one is unshipped. scoped at 4ba483f."
+    "acceptance": "Discovery classifies an adopted harness's matching files as their host's children through the host template's pattern (representation.md, \"locus\"; the pattern is the host's declared fact) — with no glob of the child kind's own scanned for, and the install discovery report counting them. `cargo test` green.",
+    "notes": "Routes 0027 (abe5d5d), Consequences half 2. Gate OPENED: both blockers shipped at b745415. Rescoped against 91c288c: `src/drift.rs` DROPPED — it runs no `governs` scan (no caller on disk; it diffs the payload's owned set against the prior lock's rows), so the old \"drift re-runs the scan\" claim was false. `install.rs` + `kind.rs` added; 91c288c turned both holes into explicit commented arms. TEMPLATE-FILE-CHILD-FACT's declared-fact-only bound retires here. rescoped at b745415."
+  },
+  {
+    "tag": "PREDICATE-SELECTION-ALGEBRA",
+    "summary": "The node-set and edge-scope predicates move onto the selection algebra: count/unique/membership/degree/kind judge over any declared selection, not only a requirement's satisfier set",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "selection"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "The five predicates 9f3541c fenced out of the per-artifact facet gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence is `judgeless` (144-172), which returns the \"ranges over a requirement's satisfier set, which a per-artifact contract clause has no judge for\" message for the five under `Facet::Contract` (112-119); its `decide` counterpart is the defensive-floor arm at 537-542. Each fence entry retires as its predicate gains a judge, and `Facet` itself outlives the entry only if some predicate is still facet-split — `dependency-exists` is (judge-less in both), so the split stands. `vacuities` (177+) is untouched: an empty `kind` and an inverted bound are vacuous in every facet. `kind_violation` (553) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot. Rider: the comment at 528-541 names this work as `REQUIREMENT-CLAUSES-RECUT`, a tag no queue carries — reconcile the narration to what lands."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "`roster` judges these five today over a requirement's satisfier set — the *only* selection they reach. The opt-in selection (`contract.md`, \"selection\": the members whose satisfies edge targets a requirement) is one selector among three, so this judging is the algebra's existential instance, never its home. Route it through the generalized judge rather than leaving a second implementation beside it (`specs/process/engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "The reference-graph context `Degree` needs — the context `engine::judgeless` (152-155) names as the reason the per-artifact facet fences it. A by-kind or by-incidence selection needs the same context a requirement's satisfier scan has, so the graph reaches the judge for every selection, not one selector. Rider (open-questions): the narration cites at 61 and 689 are dated @07-02 — the facts hold, the dates are stale; re-verify against the live docs and bump them while here."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "The clause's selection binding: the five carry their selection today only implicitly, via the requirement facet that hosts them. The `Predicate` enum (the closed vocabulary) does not grow — adding one is a deliberate language change and this is not one; what moves is which selections a clause may bind to. Rider (open-questions): the retired-`effective` straggler at 490 (\"when `target` (above) names a field for layering purposes\") keeps the retired severity-flip layer's vocabulary — reconcile it while here."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The author-facing spelling of the five (`count`/`unique`/`membership`/`degree`/`kind`) — sayable outside a requirement's `clauses` array once the engine judges them there, so the SDK type surface stops implying the requirement facet is their only home."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "The existing requirement-facet coverage: the five keep judging a requirement's satisfier set identically — the generalization adds selections, never moves the one that works."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "`a_kind_clause_is_inadmissible_on_a_per_artifact_contract` (262, rewritten by 9f3541c) pins the fence this entry retires: a named `kind` on a kind's own contract inverts back to admissible once the judge lands, while an empty `kind` stays inadmissible on vacuity — the half `vacuities` keeps. The engine.rs test `a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause` (981+) and its `judgeless_predicates` fixture (957) move the same way."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "`a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility` (188, added 9f3541c): a `count` floor clause on `skill` fails the run today because the engine has no judge for it. Once it judges the by-kind selection, the fixture's clause is admissible and the assertion is what the entry inverts — the fail-loud bar itself stands, since `dependency-exists` is still judge-less in both facets and is the honest fixture for it. 5c34ced's embedded-kind dispatch proofs (276, 310) sit below and are untouched."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "count/unique/membership are whole-grain over a by-kind selection, and degree/kind each-grain over it — the same verdicts the requirement facet reaches over its opt-in selection"
+      },
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "a predicate with no judge in any facet still fails loud at admissibility — the fence narrows to `dependency-exists`, it does not lapse"
+      },
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a requirement's satisfier-set clauses are unchanged — the opt-in selection is one selector, not a second machinery"
+      }
+    ],
+    "acceptance": "count/unique/membership/degree/kind judge over any declared selection — by kind, by opt-in, by incidence — with the quantifier the clause's grain and no separate universal/existential machinery (contract.md, \"selection\"), and no per-artifact clause among them is inadmissible for want of a judge. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"); 9f3541c's fence is the placeholder it retires, and that commit's own comments name this work REQUIREMENT-CLAUSES-RECUT. Gate OPENED: EMBEDDED-KIND-CONFORMANCE-DISPATCH shipped (5c34ced, b745415). Every cited line re-verified on disk; 5c34ced added to gate_fail_loud.rs below the fixture. File-disjoint from both open entries. rescoped at b745415."
   },
   {
     "tag": "SKILL-NESTED-REFERENCE-DOCS",
@@ -94,11 +164,11 @@
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "The engine-side reader mirror of the shipped kinds (`CustomKind::new` calls at 70/91/117/148/173/209/236, and `definitions` at 291): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as. Rider (open-questions): the narration cites here are dated @07-07 / @07-10 or undated (85, 194/222, 63/106) — every fact still holds; re-verify against the live docs and bump the dates while here."
+          "description": "The engine-side reader mirror of the shipped kinds (the `CustomKind::new` calls and `definitions`): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as — 91c288c landed the `CustomKind::nested_file` constructor (src/kind.rs:600) this row is the first built-in caller of. Rider (open-questions): the narration cites here are dated @07-07 / @07-10 or undated (85, 194/222, 63/106) — every fact still holds; re-verify against the live docs and bump the dates while here."
         },
         {
           "path": "src/builtin_lock.toml",
-          "description": "The embedded built-in lock re-derives once `skill`'s row carries a template and `supporting-doc` has a row — the first built-in to declare either (TEMPLATE-FILE-CHILD-FACT left every built-in row's `templates` column absent, so this file was byte-identical there and is not here)."
+          "description": "The embedded built-in lock re-derives once `skill`'s row carries a template and `supporting-doc` has a row — the first built-in to declare either (91c288c left this file byte-identical because no built-in declared the locus; that changes here)."
         },
         {
           "path": "tests/builtin_lock_frozen.rs",
@@ -127,7 +197,7 @@
       }
     ],
     "acceptance": "A skill's bundled reference documents are nested file members of the same skill, typed `supporting-doc` (builtins.md, \"The shipped kinds\"), their path the skill template's declared fact — nesting-is-model-containment / locus-is-serialization stops being an unbacked claim. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes 0027 (abe5d5d), Consequences half 3 — the built-in adoption; 0027 says it re-enters buildable, and it does, minus the clause. The template claims the honest markdown subset: supporting files of other types stay unmodeled and named as such (0027's second Rejected bullet), the `settings.json` partial-governance posture. Discharges the `supportingDocs()` factory asymmetry in open-questions. scoped at 4ba483f."
+    "notes": "Routes 0027 (abe5d5d), Consequences half 3 — the built-in adoption; 0027 says it re-enters buildable, and it does, minus the clause. The template claims the honest markdown subset: supporting files of other types stay unmodeled and named as such (0027's second Rejected bullet), the `settings.json` partial-governance posture. Discharges the `supportingDocs()` factory asymmetry in open-questions. Gate re-tested at b745415: NESTED-FILE-DISCOVERY unshipped. scoped at 4ba483f."
   },
   {
     "tag": "SDK-FIXTURE-WIRING-ONE-HOME",
@@ -146,11 +216,11 @@
       "edit": [
         {
           "path": "tests/common/mod.rs",
-          "description": "The declared one home for test scaffolding — its own header (1-4) names \"the SDK vendoring used by tests that drive a real `node` subprocess\" as the copy-per-suite it exists to end. It carries every ingredient (`tmpdir` 31, `scaffold` 44, `vendor_sdk` 96) and not the builder that composes them into a fixture harness, which is exactly the surface the three copies below each re-derive. Add that builder: a label plus the fixture program text, returning `(harness, into)`. `tests/install.rs`'s eleven `vendor_sdk` calls are a different job — the install verb scaffolds its own `harness.ts` under test, rather than wiring an authored fixture program — and are out of scope."
+          "description": "The declared one home for test scaffolding — its own header (1-4) names \"the SDK vendoring used by tests that drive a real `node` subprocess\" as the copy-per-suite it exists to end. It carries every ingredient (`tmpdir` 31, `scaffold` 44, `vendor_sdk` 96) and not the builder that composes them into a fixture harness, which is exactly the surface the three copies below each re-derive. Add that builder: a label plus the fixture program text, returning `(harness, into)`. `tests/install.rs`'s `vendor_sdk` calls are a different job — the install verb scaffolds its own `harness.ts` under test, rather than wiring an authored fixture program — and are out of scope."
         },
         {
           "path": "tests/emit.rs",
-          "description": "`wire_sdk_harness_program` (1220-1230) is the original, and the surface the other two copies' doc comments cite by name as the pattern they follow; `wire_sdk_harness` (1214-1216) binds it to this suite's `HARNESS_PROGRAM`. Retire the local body onto the common home — the `HARNESS_PROGRAM` binding stays suite-local, being this suite's fixture rather than scaffolding."
+          "description": "`wire_sdk_harness_program` (1223) is the original, and the surface the other two copies' doc comments cite by name as the pattern they follow; `wire_sdk_harness` (1217) binds it to this suite's `HARNESS_PROGRAM`. Retire the local body onto the common home — the `HARNESS_PROGRAM` binding stays suite-local, being this suite's fixture rather than scaffolding."
         },
         {
           "path": "tests/builtin_lock_frozen.rs",
@@ -158,7 +228,7 @@
         },
         {
           "path": "tests/projection_path_seam.rs",
-          "description": "`wire_waypoint_harness` (117-123), the third copy (e76ec85), carrying the same doc cite back to emit.rs's builder. Call the common builder with `WAYPOINT_PROGRAM`."
+          "description": "`wire_waypoint_harness` (141, shifted +24 by 91c288c's nested-file-child seam case), the third copy (e76ec85), carrying the same doc cite back to emit.rs's builder. Call the common builder with `WAYPOINT_PROGRAM`."
         }
       ],
       "retire": []
@@ -166,75 +236,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "One builder composes tmpdir → `.temper` → `harness.ts` → `vendor_sdk`, in `tests/common`, and no suite re-derives it (engineering.md, \"One job, one home\": shared fixtures and builders live in one home, never copy-pasted per file). Behavior is unchanged, so the three suites' existing tests are the coverage; `cargo test` green.",
-    "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, its doc citing emit.rs's `wire_sdk_harness` as the pattern it followed rather than the home it should have extended — the copy-per-suite `tests/common`'s own header says it exists to end. Serialized behind the chain: shares projection_path_seam.rs with NESTED-FILE-LOCUS, builtin_lock_frozen.rs with SKILL-NESTED-REFERENCE-DOCS. scoped at 688d8cc."
-  },
-  {
-    "tag": "PREDICATE-SELECTION-ALGEBRA",
-    "summary": "The node-set and edge-scope predicates move onto the selection algebra: count/unique/membership/degree/kind judge over any declared selection, not only a requirement's satisfier set",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "selection"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-KIND-CONFORMANCE-DISPATCH"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "The five predicates 9f3541c fenced out of the per-artifact facet gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence is `judgeless` (144-175), which returns the \"ranges over a requirement's satisfier set, which a per-artifact contract clause has no judge for\" message for the five under `Facet::Contract` (112-121); its `decide` counterpart is the defensive-floor arm at 537-542. Each fence entry retires as its predicate gains a judge, and `Facet` itself outlives the entry only if some predicate is still facet-split — `dependency-exists` is (judge-less in both), so the split stands. `vacuities` (177+) is untouched: an empty `kind` and an inverted bound are vacuous in every facet. `kind_violation` (553) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot. Rider: the comment at 530-536 and the module doc name this work as `REQUIREMENT-CLAUSES-RECUT`, a tag no queue carries — reconcile the narration to what lands."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "`roster` judges these five today over a requirement's satisfier set — the *only* selection they reach. The opt-in selection (`contract.md`, \"selection\": the members whose satisfies edge targets a requirement) is one selector among three, so this judging is the algebra's existential instance, never its home. Route it through the generalized judge rather than leaving a second implementation beside it (`specs/process/engineering.md`, \"One job, one home\")."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "The reference-graph context `Degree` needs — the context `engine::judgeless` (152-155) names as the reason the per-artifact facet fences it. A by-kind or by-incidence selection needs the same context a requirement's satisfier scan has, so the graph reaches the judge for every selection, not one selector. Rider (open-questions): the narration cites at 61 and 689 are dated @07-02 — the facts hold, the dates are stale; bump them against the live docs while here."
-        },
-        {
-          "path": "src/contract.rs",
-          "description": "The clause's selection binding: the five carry their selection today only implicitly, via the requirement facet that hosts them. The `Predicate` enum (the closed vocabulary) does not grow — adding one is a deliberate language change and this is not one; what moves is which selections a clause may bind to. Rider (open-questions): the retired-`effective` straggler at 490 (\"when `target` (above) names a field for layering purposes\") keeps the retired severity-flip layer's vocabulary — reconcile it while here."
-        },
-        {
-          "path": "sdk/src/contract.ts",
-          "description": "The author-facing spelling of the five (`count`/`unique`/`membership`/`degree`/`kind`) — sayable outside a requirement's `clauses` array once the engine judges them there, so the SDK type surface stops implying the requirement facet is their only home."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "The existing requirement-facet coverage: the five keep judging a requirement's satisfier set identically — the generalization adds selections, never moves the one that works."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "`a_kind_clause_is_inadmissible_on_a_per_artifact_contract` (262-294, rewritten by 9f3541c) pins the fence this entry retires: a named `kind` on a kind's own contract inverts back to admissible once the judge lands, while an empty `kind` stays inadmissible on vacuity — the half `vacuities` keeps. The engine.rs test `a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause` (981+) and its `judgeless_predicates` fixture (957) move the same way."
-        },
-        {
-          "path": "tests/gate_fail_loud.rs",
-          "description": "`a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility` (188, added 9f3541c): a `count` floor clause on `skill` fails the run today because the engine has no judge for it. Once it judges the by-kind selection, the fixture's clause is admissible and the assertion is what the entry inverts — the fail-loud bar itself stands, since `dependency-exists` is still judge-less in both facets and is the honest fixture for it."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "count/unique/membership are whole-grain over a by-kind selection, and degree/kind each-grain over it — the same verdicts the requirement facet reaches over its opt-in selection"
-      },
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "a predicate with no judge in any facet still fails loud at admissibility — the fence narrows to `dependency-exists`, it does not lapse"
-      },
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a requirement's satisfier-set clauses are unchanged — the opt-in selection is one selector, not a second machinery"
-      }
-    ],
-    "acceptance": "count/unique/membership/degree/kind judge over any declared selection — by kind, by opt-in, by incidence — with the quantifier the clause's grain and no separate universal/existential machinery (contract.md, \"selection\"), and no per-artifact clause among them is inadmissible for want of a judge. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"); 9f3541c's fence is the placeholder it retires, and that commit's own comments name this work REQUIREMENT-CLAUSES-RECUT. Re-gated onto EMBEDDED-KIND-CONFORMANCE-DISPATCH (old blocker shipped at 8b3b4e9; shares contract_template.rs / gate_fail_loud.rs with it). File-disjoint from the NESTED-FILE chain. rescoped at 9862b2e."
+    "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, its doc citing emit.rs's `wire_sdk_harness` as the pattern it followed rather than the home it should have extended — the copy-per-suite `tests/common`'s own header says it exists to end. Serialized behind the chain: shares projection_path_seam.rs with the nested-file work, builtin_lock_frozen.rs with SKILL-NESTED-REFERENCE-DOCS. Re-verified at b745415: all three copies live. rescoped at b745415."
   },
   {
     "tag": "SUPPORTING-DOC-REACH-CLAUSE",
@@ -301,7 +303,7 @@
       "edit": [
         {
           "path": ".github/workflows/release.yml",
-          "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut, the darwin deferral stated at line 7) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
+          "description": "Extend the existing release.yml (linux-x64 + win32-x64 first cut, the darwin deferral stated at lines 7-9) with the darwin matrix targets (aarch64/x86_64-apple-darwin) + an Apple notarization step, and a channel-3 step producing/publishing the `temper bundle` output with its marketplace.json. Distinct from the standalone tag-asset step, already wired (unexercised until a tag)."
         }
       ],
       "retire": []
@@ -309,6 +311,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at ca4e866: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. scoped at b676656."
+    "notes": "Supersedes retired PACKAGING-CHANNELS (John, 07-11): both its file claims were dead — release.yml now exists (its `new` claim fails the refs gate) and the root-package.json launcher was ruled out (the launcher + optionalDependencies live on the SDK, distribution.md 'What ships'). Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested at b745415: no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 still defers darwin. scoped at b676656."
   }
 ]
