@@ -63,10 +63,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   `.temper/packages/spec/PACKAGE.md` fixtures — live test code asserting stray
   old-format files are ignored — `664a522` touched the file (retargeting two
   unrelated satisfies-fixture tests) without reconciling this one; (2)
-  `sdk/src/builtins.ts:392,432,469` still doc-comment-cites three deleted
+  `sdk/src/builtins.ts:392,432,469` doc-comment-cited three deleted
   `packages/{rule,memory}.anthropic|memory.agents-md/PACKAGE.md` files (a
-  fourth, `skill.anthropic`, was already cut by `dfba26f`) — untouched since
-  `706139a` (2026-07-07). NB the exit clause fires on *reconciliation*, not
+  fourth, `skill.anthropic`, was already cut by `dfba26f`; the third,
+  `memory.agents-md`, was discharged by AGENTS-MD-STDLIB-DROP `955be32`
+  deleting the whole `memoryAgentsMdDefaultContract` block that carried it —
+  so **two** cites now survive, `rule.anthropic` + `memory.anthropic`) —
+  untouched since `706139a` (2026-07-07). NB the exit clause fires on
+  *reconciliation*, not
   on the file being opened: f36c192, HOOK-KIND (76aaa83), then MCP-SERVER-KIND
   (1ffab8f, +83 lines shifting the cites 344/384/421→392/432/469), then
   MANIFEST-WRITE-SDK-ERASURE (8cc0561) each opened builtins.ts and left all
@@ -92,10 +96,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   558/598/635 → 565/611/648. And CHECK-ARG-HALF-GATE (4256274) opened
   `session_start.rs` (+51: the install-wired-command test) yet left the `+++`
   fixtures as unchanged context — undischarged, unmoved at 128/133/146.
-  Re-verified on disk at reconcile HEAD c0bbf3b (builtins.ts cites at
-  565/611/648; session_start.rs `+++` fixtures still 128/133/146). Now rides
-  the next entry opening builtins.ts — no queued entry does — unless it
-  reconciles the cites.
+  Then AGENTS-MD-STDLIB-DROP (955be32) opened builtins.ts a ninth time and
+  *deleted* the `memoryAgentsMdDefaultContract` block (line ~642, below both
+  survivors) — discharging the third cite (`memory.agents-md`, was 648) by
+  removing its host, while leaving the two survivors as unchanged context:
+  the deletion sat below them, so `rule.anthropic`/`memory.anthropic` stay
+  undischarged and *unshifted* at 565/611. Re-verified on disk at reconcile
+  HEAD 525111a (builtins.ts survivors at 565/611; session_start.rs `+++`
+  fixtures still 128/133/146). Now rides the next entry opening builtins.ts —
+  no queued entry does — unless it reconciles the two survivors.
 
 - **Rust engine narration cites lag the SDK clause re-fetch.**
   BUILTINS-CITE-REFRESH (c4b060d) re-fetched every Claude Code source live

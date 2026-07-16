@@ -1,31 +1,35 @@
 # Plan state
 
 - Spec derived through: 39a4833
-- Audited through: cb5da8d
-- Residue swept through: cb5da8d
-- This tick: derived 39a4833's last unrouted slice, advancing the cursor
-  06e0c2c -> 39a4833. "One read verb" (contract.md/pipeline.md "Read verbs")
-  is already shipped: the CLI has one read verb `Explain` (main.rs, doc "The
-  one read verb"); `why`/`impact`/`context`/`requirements` are internal
-  strands of `read::explain`, and read.rs:192 documents the four-spelling ->
-  `explain` unification — verified-moot. Its residue (strand doc comments
-  spelling `temper <verb>` CLI spellings, read.rs:270/470/608/745/1147) is a
-  vocabulary-staleness rider (open-questions), rides next read.rs entry.
-  Filed KIND-GLOB-COLLISION-REFUSE for representation.md's second new claim
-  ("two kinds never share a governs glob"): the "by position, never content"
-  half is already true (glob-positional discovery, no mining), but the
-  disjointness ENFORCEMENT is a real gap — only NAME-collision exists
-  (KIND_COLLISION_RULE, main.rs:1414); two kinds sharing a glob double-route
-  silently today. All five 07-15 rulings now routed: 3 filed be3bd27
-  (AGENTS/LAYOUT/FLAT-GLOB), KIND-GLOB this tick, one-read-verb moot.
-- Queue: 4 pickable (AGENTS-MD-STDLIB-DROP sdk+lock, LAYOUT-EMPTY-REGION
-  kind.rs, FLAT-GLOB-DEPTH drift.rs, KIND-GLOB-COLLISION main.rs+coverage.rs —
-  disjoint files) + PACKAGING-CHANNELS-REMAINDER parked.
+- Audited through: 525111a
+- Residue swept through: 525111a
+- This tick: reconciled the cb5da8d..525111a ship window (four 39a4833 entries:
+  AGENTS-MD-STDLIB-DROP, LAYOUT-EMPTY-REGION-TOLERATE, FLAT-GLOB-DEPTH-REFUSE,
+  KIND-GLOB-COLLISION-REFUSE). AUDIT: all four verified on disk —
+  builtins.ts dropped `memoryAgentsMdDefaultContract` (export + claude-code
+  re-export + test + lock header; lock `[declaration.*]` rows byte-identical);
+  kind.rs reads an unfilled layout region empty; drift.rs refuses a
+  depth-sliced flat glob; main.rs adds the governs-locus collision refusal
+  (sibling of KIND_COLLISION_RULE). All four already out of pending;
+  PACKAGING gate re-verified (release.yml present since 07-11, parked reason
+  still human release actions — Apple notarizing + v0.1 tag). SWEEP: the three
+  code commits' added comments are cited to current vocabulary (invariant 6,
+  representation.md "kind") — no stale/middle-state residue. One rider
+  DISCHARGE: AGENTS-MD-STDLIB-DROP deleted the block carrying the third
+  `packages/…PACKAGE.md` cite (was 648, `memory.agents-md`); the builtins.ts
+  cite rider shrinks three→two, survivors unshifted at 565/611 (deletion sat
+  below them). No file named by another rider was touched (extract.rs,
+  prose.ts, sdk/src/kind.ts, contract.rs, compose.rs, Cargo.toml,
+  emit.test.ts, session_start.rs all untouched — copied forward); kind.rs's
+  15-kinds fixture strings are `.to_string()` test data, absent from 0561e1b's
+  hunks.
+- Queue: 0 pickable — PACKAGING-CHANNELS-REMAINDER parked (human release
+  actions). Nothing for build.
 
-Plan continues: no — spec delta fully routed at 39a4833 (the last spec
-commit); no reconciliation window (37e6844/be3bd27 are plan-only, 39a4833
-specs-only — nothing past cb5da8d touches src/tests/sdk); inbox empty. 4
-pickable disjoint entries hand off to build. NB the SessionStart reporter
-shows the `.temper` dogfood gate red (friction-capture-procedure,
-pending-entry-discipline unfilled) — harness territory, a `chore(harness)`
-fix outside plan's writable paths.
+Plan continues: no — window fully reconciled (both cursors → 525111a = HEAD);
+inbox empty; spec delta empty (39a4833 is the last spec commit, fully
+derived); no live input below reconciliation. The one queue entry (PACKAGING)
+is parked, so the loop hibernates. NB the SessionStart reporter still shows
+the `.temper` dogfood gate red (friction-capture-procedure,
+pending-entry-discipline unfilled) — harness territory, a `chore(harness)` fix
+outside plan's writable paths.
