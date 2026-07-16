@@ -1,43 +1,5 @@
 [
   {
-    "tag": "SDK-FIXTURE-WIRING-ONE-HOME",
-    "summary": "The fixture-harness wiring builder belongs in `tests/common`, not copy-pasted per suite: three copies of tmpdir → `.temper` → `harness.ts` → `vendor_sdk` collapse into one home",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/common/mod.rs",
-          "description": "The declared one home for test scaffolding — its own header (1-4) names \"the SDK vendoring used by tests that drive a real `node` subprocess\" as the copy-per-suite it exists to end. It carries every ingredient (`tmpdir` 31, `scaffold` 44, `vendor_sdk` 96) and not the builder that composes them into a fixture harness, which is exactly the surface the three copies below each re-derive. Add that builder: a label plus the fixture program text, returning `(harness, into)`. `tests/install.rs`'s `vendor_sdk` calls are a different job — the install verb scaffolds its own `harness.ts` under test, rather than wiring an authored fixture program — and are out of scope."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "`wire_sdk_harness_program` (1223) is the original, and the surface the other two copies' doc comments cite by name as the pattern they follow; `wire_sdk_harness` (1217) binds it to this suite's `HARNESS_PROGRAM`. Retire the local body onto the common home — the `HARNESS_PROGRAM` binding stays suite-local, being this suite's fixture rather than scaffolding."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "`wire_memberless_harness` (68-78): a verbatim copy of emit.rs's builder — tmpdir, `.temper`, write `harness.ts`, `vendor_sdk` — whose own doc (65-67) still cites `tests/emit.rs`'s `wire_sdk_harness` as the pattern it follows. Call the common builder with `MEMBERLESS_BUILTIN_PROGRAM` (27). SUPPORTING-DOC-REACH-CLAUSE (6d18073) rewrote this file's frozen-bytes doc comment at 21-27 only; the builder itself is unmoved."
-        },
-        {
-          "path": "tests/projection_path_seam.rs",
-          "description": "`wire_waypoint_harness` (141), the third copy (e76ec85), carrying the same doc cite back to emit.rs's builder. Call the common builder with `WAYPOINT_PROGRAM` (45)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "One builder composes tmpdir → `.temper` → `harness.ts` → `vendor_sdk`, in `tests/common`, and no suite re-derives it (engineering.md, \"One job, one home\": shared fixtures and builders live in one home, never copy-pasted per file). Behavior is unchanged, so the three suites' existing tests are the coverage; `cargo test` green.",
-    "notes": "**Gate LIFTED at 4a33911**: SUPPORTING-DOC-REACH-CLAUSE shipped, ending the builtin_lock_frozen.rs contention that was its one surviving ground. Now the queue's only open entry, so disjointness is trivial. All three copies re-verified live this tick and none moved — the window's touch to builtin_lock_frozen.rs was the doc comment above its fixture const, not the builder. rescoped at 4a33911."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
