@@ -409,25 +409,26 @@ test("needs derive the permission union, deduped and sorted, never authored twic
 // standalone projection.
 // ---------------------------------------------------------------------------
 
-/** An embedded-locus kind, built via `kind()` directly. */
-function embeddedKind<T extends object>(name: string, withinHosts: readonly string[]) {
+/** An embedded-locus kind, built via `kind()` directly — host-free, as every embedded kind is. */
+function embeddedKind<T extends object>(name: string) {
   return kind<T>({
     name,
-    locus: { kind: "embedded", withinHosts },
+    locus: { kind: "embedded" },
     unitShape: "file",
     registration: [{ via: "always" }],
   });
 }
 
 /**
- * The `decision` embedded kind the `blocks()` cases nest under a `memory` host — bound
- * into each harness via `expect` so it is in play and its `withinHosts` admits the
- * nesting (`emit` refuses a value its host never templates).
+ * The `decision` embedded kind the `blocks()` cases nest under a `memory` host, plus the
+ * admission each harness declares to let it compose one (`emit` refuses a value the
+ * corpus never admitted over the host kind).
  */
-const memoryDecision = embeddedKind<Record<never, never>>("decision", ["memory"]);
+const memoryDecision = embeddedKind<Record<never, never>>("decision");
+const admitDecision = { host: memory, admits: [memoryDecision] };
 
 test("an embedded member neither projects nor takes a kind-fact row", () => {
-  const decisionBlock = embeddedKind<Record<never, never>>("decision-block", ["spec"]);
+  const decisionBlock = embeddedKind<Record<never, never>>("decision-block");
   const mixed = harness({
  members: [
       rule({ name: "rust", prose: text`# Rust` }),
@@ -441,14 +442,42 @@ test("an embedded member neither projects nor takes a kind-fact row", () => {
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
 });
 
-test("a host kind's fact row carries its declared embedded children as templates", () => {
-  const decisionBlock = embeddedKind<Record<never, never>>("decision", ["rule"]);
+test("a host kind's fact row carries the embedded kinds the corpus admits over it as templates", () => {
+  const decisionBlock = embeddedKind<Record<never, never>>("decision");
   const mixed = harness({
     members: [rule({ name: "rust", prose: text`# Rust` }), decisionBlock({ name: "surface-authority" })],
+    admit: [{ host: rule, admits: [decisionBlock] }],
  });
   const declarations = compileDeclarations(mixed);
   const ruleRow = declarations.kinds.find((k) => k.name === "rule")!;
   assert.deepEqual(ruleRow.templates, ["decision"]);
+  // The same kind, admitted nowhere else, leaves every other host's column absent.
+  assert.equal(declarations.kinds.find((k) => k.name === "memory")?.templates, undefined);
+});
+
+test("a built-in kind's composed body admits a corpus-declared embedded kind", () => {
+  // The built-in `skill` names no child kind — admission is the adopting corpus's
+  // declaration, so a locally-declared embedded kind composes a shipped kind's body.
+  const rubric = embeddedKind<Record<never, never>>("rubric");
+  const h = harness({
+    members: [
+      skill({
+        name: "operate-the-gate",
+        description: "Use when operating the gate.",
+        prose: blocks(
+          embeddedMemberValue({ kind: rubric, key: "green-bar", leaves: { check: "every gate passes" } }),
+        ),
+      }),
+    ],
+    admit: [{ host: skill, admits: [rubric] }],
+ });
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "operate-the-gate")!;
+  assert.equal(member.body, '```member.rubric green-bar\ncheck = "every gate passes"\n```\n');
+  assert.deepEqual(compileDeclarations(h).kinds.find((k) => k.name === "skill")!.templates, ["rubric"]);
+  assert.deepEqual(result.declarations.nested_members, [
+    { host: "skill:operate-the-gate", kind: "rubric", key: "green-bar", leaves: { check: "every gate passes" }, collections: {} },
+  ]);
 });
 
 test("a kind's declared layout lowers into its content row; a file-content kind omits it", () => {
@@ -604,7 +633,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -616,7 +645,7 @@ test("a blocks() body renders an embedded member as a member.<kind> <key> TOML f
 
 test("a kind()'s render hook projects fence-free in place of the default TOML view; a kind() without one keeps its member fence byte-identical", () => {
   const embeddedFacts = {
-    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    locus: { kind: "embedded" as const },
     unitShape: "file" as const,
     registration: [],
   };
@@ -644,7 +673,7 @@ test("a kind()'s render hook projects fence-free in place of the default TOML vi
         ),
       }),
     ],
-    expect: [{ kind: decisionWithRender, clauses: [] }],
+    admit: [{ host: memory, admits: [decisionWithRender, decisionWithoutRender] }],
   });
 
   const result = emit(h);
@@ -661,7 +690,7 @@ test("a kind()'s render hook projects fence-free in place of the default TOML vi
 
 test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, the same as the hook-less default TOML view", () => {
   const embeddedFacts = {
-    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    locus: { kind: "embedded" as const },
     unitShape: "file" as const,
     registration: [],
   };
@@ -683,6 +712,7 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
         ),
       }),
     ],
+    admit: [{ host: memory, admits: [decisionWithRender] }],
   });
 
   assert.throws(() => emit(h), /a mention cannot dangle/);
@@ -690,7 +720,7 @@ test("a kind()'s render hook refuses on a dangling embedded-kind leaf mention, t
 
 test("a kind()'s render hook receives a resolvable leaf mention already rendered to a plain string, not a Text object", () => {
   const embeddedFacts = {
-    locus: { kind: "embedded" as const, withinHosts: ["memory"] },
+    locus: { kind: "embedded" as const },
     unitShape: "file" as const,
     registration: [],
   };
@@ -713,7 +743,7 @@ test("a kind()'s render hook receives a resolvable leaf mention already rendered
         ),
       }),
     ],
-    expect: [{ kind: decisionWithRender, clauses: [] }],
+    admit: [{ host: memory, admits: [decisionWithRender] }],
   });
 
   const result = emit(h);
@@ -741,7 +771,7 @@ test("a blocks() body renders a keyed collection entry as its own [collection.en
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -776,7 +806,7 @@ test("multiple blocks() values render as sibling fences, and a leaf's quotes/new
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -815,7 +845,7 @@ test("a Text-valued leaf's mention resolves and renders inline — in the fence 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   const result = emit(h);
   const member = result.members.find((m) => m.name === "CLAUDE")!;
@@ -875,7 +905,7 @@ test("a leaf's mention contributes a mention row keyed to the leaf's own structu
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   assert.deepEqual(compileDeclarations(h).mentions, [
     { member: "CLAUDE/decision/surface-authority/chosen", target: "rule:rust" },
@@ -897,7 +927,7 @@ test("a bare-string leaf is unchanged — no mention row, no resolution check", 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
   assert.deepEqual(compileDeclarations(h).mentions, []);
 });
@@ -925,7 +955,7 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   const result = emit(h);
@@ -965,7 +995,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
   // A passage-style wrapper: an embedded kind whose render hook projects a leaf
   // verbatim, fence-free — the exhibit the native interleave retires.
   const passage = kind<object>(
-    { name: "passage", locus: { kind: "embedded", withinHosts: ["memory"] }, unitShape: "file", registration: [] },
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
     { render: (value) => value.leaves.body },
   );
   const decisionValue = embeddedMemberValue({
@@ -986,7 +1016,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
         ),
       }),
     ],
-    expect: [{ kind: memoryDecision, clauses: [] }],
+    admit: [admitDecision],
   });
 
   // The same narrative carried by wrapper passages minted to hold it.
@@ -1001,10 +1031,7 @@ test("a composed body interleaves prose spans and embedded values in authored or
         ),
       }),
     ],
-    expect: [
-      { kind: memoryDecision, clauses: [] },
-      { kind: passage, clauses: [] },
-    ],
+    admit: [{ host: memory, admits: [memoryDecision, passage] }],
   });
 
   const nativeBody = emit(native).members.find((m) => m.name === "CLAUDE")!.body;

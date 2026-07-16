@@ -19,11 +19,11 @@ import { test } from "node:test";
 import { blocks, embeddedMemberValue, emit, harness, kind, text } from "../src/index.js";
 import { memory, rule, skill } from "../src/claude-code.js";
 
-/** An embedded-locus kind named `decision`, templating within `withinHosts`. */
-function decisionKind(withinHosts: readonly string[]) {
+/** An embedded-locus kind named `decision` — host-free; the corpus's `admit` names its hosts. */
+function decisionKind() {
   return kind<object>({
     name: "decision",
-    locus: { kind: "embedded", withinHosts },
+    locus: { kind: "embedded" },
     unitShape: "file",
     registration: [],
   });
@@ -139,13 +139,14 @@ test("emit does not refuse a member-published requirement marked required with n
 });
 
 // ---------------------------------------------------------------------------
-// (3) Untemplated nesting — a `blocks()` value of a kind the host never templates.
+// (3) Unadmitted nesting — a `blocks()` value of a kind the corpus never admitted
+//     over the host kind.
 // ---------------------------------------------------------------------------
 
-test("emit refuses a blocks() value whose kind does not template within the host kind", () => {
-  // `decision` templates within `skill`, but the value is attached to a `memory` host —
-  // an untemplated nesting that would reach the lock as a row no `templates` admits.
-  const decision = decisionKind(["skill"]);
+test("emit refuses a blocks() value whose kind the corpus never admitted over the host kind", () => {
+  // The corpus admits `decision` over `skill`, but the value is attached to a `memory`
+  // host — an unadmitted nesting that would reach the lock as a row no `templates` admits.
+  const decision = decisionKind();
   const h = harness({
     members: [
       memory({
@@ -155,14 +156,14 @@ test("emit refuses a blocks() value whose kind does not template within the host
         ),
       }),
     ],
-    expect: [{ kind: decision, clauses: [] }],
+    admit: [{ host: skill, admits: [decision] }],
   });
   assert.throws(() => emit(h), /surface-authority.*does not nest within host kind `memory`/s);
 });
 
-test("emit refuses a blocks() value whose kind is no in-play embedded kind", () => {
-  // No `decision` kind is registered at all — a bare-string value name that ties to no
-  // declared nesting refuses just as a host-mismatch does.
+test("emit refuses a blocks() value whose kind the corpus admits nowhere", () => {
+  // No admission at all — a bare-string value name that ties to no declared nesting
+  // refuses just as a host mismatch does. Absent `admit`, a host admits nothing.
   const h = harness({
     members: [
       memory({
@@ -174,10 +175,20 @@ test("emit refuses a blocks() value whose kind is no in-play embedded kind", () 
   assert.throws(() => emit(h), /does not nest within host kind/);
 });
 
+test("emit refuses an admission naming a kind that is not embedded", () => {
+  // A file-locus kind owns a file; admitting one over a host declares a nesting no
+  // locus backs.
+  const h = harness({
+    members: [memory({ name: "CLAUDE", prose: text`# Memory` })],
+    admit: [{ host: memory, admits: [rule] }],
+  });
+  assert.throws(() => emit(h), /admits `rule`, which is not an embedded kind/);
+});
+
 test("a host-admitted blocks() value compiles without throwing", () => {
-  // `decision` templates within `memory` and is attached to a `memory` host — an
-  // admitted nesting, so emit produces output exactly as before.
-  const decision = decisionKind(["memory"]);
+  // The corpus admits `decision` over `memory` and the value is attached to a `memory`
+  // host — an admitted nesting, so emit produces output.
+  const decision = decisionKind();
   const h = harness({
     members: [
       memory({
@@ -187,7 +198,7 @@ test("a host-admitted blocks() value compiles without throwing", () => {
         ),
       }),
     ],
-    expect: [{ kind: decision, clauses: [] }],
+    admit: [{ host: memory, admits: [decision] }],
   });
   assert.doesNotThrow(() => emit(h));
 });

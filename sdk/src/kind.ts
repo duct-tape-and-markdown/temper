@@ -49,11 +49,14 @@ export interface EdgeField {
 /**
  * A kind's **locus** (fact 2): members live at path globs (`at`) or as typed
  * fenced blocks inside host documents (`embedded`). An `at` locus is split root +
- * glob so the kind fact row carries `governs_root`/`governs_glob` directly.
+ * glob so the kind fact row carries `governs_root`/`governs_glob` directly. An
+ * `embedded` locus names no host: which types may compose a kind's body is the
+ * adopting corpus's `admit` declaration over the host kind (`assembly.ts`), so one
+ * embedded type means the same thing in every body that admits it.
  */
 export type Locus =
   | { readonly kind: "at"; readonly root: string; readonly glob: string }
-  | { readonly kind: "embedded"; readonly withinHosts: readonly string[] };
+  | { readonly kind: "embedded" };
 
 /**
  * One region of a kind's **layout** — one of the three corpus primitives over the

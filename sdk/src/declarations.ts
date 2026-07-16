@@ -172,15 +172,12 @@ export function compareStrings(a: string, b: string): number {
 }
 
 /**
- * A host kind's declared nesting templates — the embedded kinds among `allKinds`
- * whose `withinHosts` names it, name-sorted. `undefined` when the host nests nothing, so the row omits the column
+ * A host kind's declared nesting templates — the embedded kinds the corpus admits over
+ * it, name-sorted. `undefined` when the host admits nothing, so the row omits the column
  * rather than carrying an empty array.
  */
-function templatesFor(hostName: string, allKinds: readonly KindFacts[]): string[] | undefined {
-  const names = allKinds
-    .filter((facts) => facts.locus.kind === "embedded" && facts.locus.withinHosts.includes(hostName))
-    .map((facts) => facts.name)
-    .sort(compareStrings);
+function templatesFor(hostName: string, admissions: AdmissionsByHost): string[] | undefined {
+  const names = [...(admissions.get(hostName) ?? [])].sort(compareStrings);
   return names.length > 0 ? names : undefined;
 }
 
@@ -217,11 +214,11 @@ function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefine
 
 /**
  * One kind's fact row — the `at` locus supplies `governs_root`/`governs_glob`,
- * `templates` names the embedded kinds (among `allKinds`) declared within it, and
+ * `templates` names the embedded kinds the corpus admits over it, and
  * `content` lowers a declared layout (absent for a `file`-content kind). A registration
  * kind extends the row with its `shape` marker and `collection_address`.
  */
-function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFactRow {
+function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRow {
   if (facts.locus.kind !== "at") {
     // An embedded kind inherits its world residue through its host; it carries no
  // `at` locus, so it takes no kind-fact row. Callers filter these out before this point.
@@ -235,7 +232,7 @@ function kindFactRow(facts: KindFacts, allKinds: readonly KindFacts[]): KindFact
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     registration: registrationLabels(facts.registration),
-    templates: templatesFor(facts.name, allKinds),
+    templates: templatesFor(facts.name, admissions),
     content: contentRow(facts.content),
     shape: facts.shape,
     collection_address: collectionAddressRow(facts),
@@ -444,19 +441,33 @@ function nestedMemberRow(host: string, value: EmbeddedMemberValue, scope: Mentio
   return { host, kind: value.kind, key: value.key, leaves, collections };
 }
 
+/** Each host kind's admitted embedded kinds, by host kind name — the corpus's `admit`, indexed. */
+type AdmissionsByHost = ReadonlyMap<string, ReadonlySet<string>>;
+
 /**
- * Every in-play embedded kind's declared host kinds, keyed by kind name — the map
- * {@link nestedMemberRows} checks a `blocks()` value's kind against. An embedded kind
- * reaches this map through `kindsInPlay` (a member of it, or an `expect` binding), and
- * its `withinHosts` is the set of host kinds it templates within; a value whose kind is
- * absent here, or whose hosts miss the hosting member's kind, is untemplated nesting.
+ * The corpus's `admit` declarations, indexed by host kind name — the one source both
+ * {@link templatesFor} and {@link nestedMemberRows} read. Admission carries kind values,
+ * so an admitted kind is imported and thereby in play; repeated hosts union.
+ *
+ * # Throws
+ * If an admission names a non-embedded kind: a body composes embedded members, and a
+ * file-locus kind owns a file instead — admitting one declares a nesting no locus backs.
  */
-function embeddedHostsByKind(harness: Harness): Map<string, ReadonlySet<string>> {
-  const map = new Map<string, ReadonlySet<string>>();
-  for (const facts of kindsInPlay(harness)) {
-    if (facts.locus.kind === "embedded") {
-      map.set(facts.name, new Set(facts.locus.withinHosts));
+function admissionsByHost(harness: Harness): AdmissionsByHost {
+  const map = new Map<string, Set<string>>();
+  for (const { host, admits } of harness.admit) {
+    const admitted = map.get(host.key) ?? new Set<string>();
+    for (const child of admits) {
+      if (child.facts.locus.kind !== "embedded") {
+        throw new Error(
+          `host kind \`${host.key}\` admits \`${child.key}\`, which is not an embedded kind — ` +
+            `a composed body admits embedded members only ` +
+            `(specs/model/representation.md, "nesting").`,
+        );
+      }
+      admitted.add(child.key);
     }
+    map.set(host.key, admitted);
   }
   return map;
 }
@@ -469,28 +480,26 @@ function embeddedHostsByKind(harness: Harness): Map<string, ReadonlySet<string>>
  * (`emit.ts`'s `resolveBody`) — this row is a second *read* of the same authored
  * value, never a second copy the engine reads back (0018).
  *
- * Refuses an untemplated nesting before a byte is written: a value's kind must be an
- * in-play embedded kind whose `withinHosts` names the hosting member's kind. `templates`
- * derives solely from `withinHosts` ({@link templatesFor}), so a value the host never
- * templates would reach the lock as a `nested_member` row no `templates` column admits,
- * to be unmodeled without a word — nesting is the host template's own declaration, so an
- * unadmitted nested member is an unresolved input, not output to write over.
+ * Refuses an unadmitted nesting before a byte is written: the corpus must admit the
+ * value's kind over the hosting member's kind. `templates` derives from that same
+ * admission ({@link templatesFor}), so an unadmitted value would reach the lock as a
+ * `nested_member` row no `templates` column admits, to be unmodeled without a word —
+ * admission is the adopting corpus's own declaration, so an unadmitted nested member is
+ * an unresolved input, not output to write over.
  */
-function nestedMemberRows(harness: Harness, scope: MentionScope): NestedMemberRow[] {
-  const hostsByKind = embeddedHostsByKind(harness);
+function nestedMemberRows(harness: Harness, admissions: AdmissionsByHost, scope: MentionScope): NestedMemberRow[] {
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
     const host = `${member.kind}:${member.name}`;
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
-      const hosts = hostsByKind.get(value.kind);
-      if (hosts === undefined || !hosts.has(member.kind)) {
+      if (!admissions.get(member.kind)?.has(value.kind)) {
         throw new Error(
           `member \`${member.name}\`: embedded value \`${value.key}\` is of kind ` +
             `\`${value.kind}\`, which does not nest within host kind \`${member.kind}\` — a ` +
-            `\`blocks()\` value's kind must be an in-play embedded kind whose \`withinHosts\` ` +
-            `names the host (specs/model/representation.md, "nesting").`,
+            `\`blocks()\` value's kind must be one the harness \`admit\`s over the host kind ` +
+            `(specs/model/representation.md, "nesting").`,
         );
       }
       rows.push(nestedMemberRow(host, value, scope));
@@ -607,8 +616,8 @@ export function mentionScope(harness: Harness): MentionScope {
 
 /** Compile a harness into its seven declaration families — the erased program. */
 export function compileDeclarations(harness: Harness): Declarations {
-  const allKinds = kindsInPlay(harness);
-  const kinds = atLocusKindsInPlay(allKinds);
+  const kinds = atLocusKindsInPlay(kindsInPlay(harness));
+  const admissions = admissionsByHost(harness);
   const clauses: ClauseRow[] = [];
   for (const binding of [...harness.expect].sort((a, b) => compareStrings(a.kind.key, b.kind.key))) {
     for (const clause of binding.clauses) {
@@ -616,14 +625,14 @@ export function compileDeclarations(harness: Harness): Declarations {
  }
  }
   return {
-    kinds: kinds.map((facts) => kindFactRow(facts, allKinds)),
+    kinds: kinds.map((facts) => kindFactRow(facts, admissions)),
     clauses,
     requirements: requirementRows(harness),
     assembly: assemblyFactRows(harness, kinds),
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),
-    nested_members: nestedMemberRows(harness, mentionScope(harness)),
+    nested_members: nestedMemberRows(harness, admissions, mentionScope(harness)),
     registrations: registrationRows(harness),
     settings: settingsRows(harness),
   };

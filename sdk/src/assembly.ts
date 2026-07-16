@@ -21,6 +21,18 @@ export interface ExpectBinding {
 }
 
 /**
+ * One `admit` declaration — the adopting corpus naming, for one `host` kind, the
+ * embedded kinds its composed body admits. An embedded kind declares no host, so
+ * admission is the corpus's call, not the child's: a shipped kind's composed body
+ * admits corpus-declared types by this declaration alone. Keyed by kind **value**
+ * the way {@link ExpectBinding} keys `expect`; absent, a host admits nothing.
+ */
+export interface Admission {
+  readonly host: KindDefinition<never>;
+  readonly admits: readonly KindDefinition<never>[];
+}
+
+/**
  * The declared enforcement-mode vocabulary — how firmly the `PreToolUse` guard
  * binds a tool call, split by where the finding goes.
  * `block`: denies the call.
@@ -36,6 +48,8 @@ export interface Harness {
   readonly members: readonly Member[];
   /** Universal clause bindings, keyed by kind value. */
   readonly expect: readonly ExpectBinding[];
+  /** The embedded kinds each host kind's composed body admits, keyed by kind value. */
+  readonly admit: readonly Admission[];
   /** Existential obligations the harness must contain a fill for, keyed by name. */
   readonly require: Readonly<Record<string, Requirement>>;
   /** The residual harness-level settings with no member home (a shrinking list). */
@@ -49,7 +63,7 @@ export interface Harness {
 }
 
 /**
- * Compose the harness from its five fields — ordinary code, Turing-completeness
+ * Compose the harness from its six fields — ordinary code, Turing-completeness
  * quarantined at authoring time. Absent
  * fields default empty (`mode` defaults `warn`); the member list is the
  * only required part.
@@ -57,6 +71,7 @@ export interface Harness {
 export function harness(init: {
   members: readonly Member[];
   expect?: readonly ExpectBinding[];
+  admit?: readonly Admission[];
   require?: Readonly<Record<string, Requirement>>;
   settings?: Readonly<Record<string, unknown>>;
   mode?: EnforcementMode;
@@ -64,6 +79,7 @@ export function harness(init: {
   return {
     members: init.members,
     expect: init.expect ?? [],
+    admit: init.admit ?? [],
     require: init.require ?? {},
     settings: init.settings ?? {},
     mode: init.mode ?? "warn",
