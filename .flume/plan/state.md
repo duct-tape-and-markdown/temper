@@ -1,76 +1,67 @@
 # Plan state
 
 - Spec derived through: abe5d5d
-- Audited through: cc12ed0
-- Residue swept through: cc12ed0
-- This tick: RECONCILED the ca4e866..cc12ed0 window — one code commit
-  (9f3541c, INDETERMINATE-NEVER-SILENT; cc12ed0 is its `chore(flume)` ship).
-  **Audit — verified on disk, not off the log.** The fence landed as the entry
-  named it: `Facet` (`src/engine.rs:112-121`) splits `inadmissibilities`
-  (132) into `judgeless` (144-175) + `vacuities` (177+), so the five
-  node-set/edge-scope predicates are inadmissible on a kind's per-artifact
-  contract and stay admissible on a requirement's — `roster::admissibility`
-  passes `Facet::Requirement` at `src/roster.rs:224`, so the half that works
-  is intact. The trap the entry flagged (a naive push onto the shared list)
-  was avoided. Coverage is real: `gate_fail_loud.rs` (a `count` floor clause
-  on `skill` fails the run, error-severity, non-zero exit) and the engine
-  test at 1095-1110 pinning that no admissible predicate reaches conformance
-  undecided. Entry already dropped from the queue by the ship commit; nothing
-  to drop here. **Stale gate re-tested:** UNFILLED-EDGE-FIELD-NO-EDGE's
-  blocker shipped → re-gated `blockedBy` → **open**. It is now the queue's one
-  pickable.
-  **Sweep — the window's one residue, and it was declared, not hidden.**
-  9f3541c's commit body states a deferral NOT covered by its acceptance:
-  `evaluate` (`src/engine.rs:256-268`) still maps `Outcome::Indeterminate`
-  onto the empty violation vec, and `decide`'s `FormatPlacesEdges` arm
-  (513-516) produces exactly that whenever `features.edge_placements` is
-  empty — the sole `Indeterminate` an admissible run still reaches, so one
-  clause still reads as the green pass invariant 6 forbids. The build's
-  argument is sound and I did not overturn it: `Features::edge_placements`
-  (`src/extract.rs:341`) is a `BTreeMap` that is empty for two different
-  reasons — "the kind declares no edge" and "no format rendered this member"
-  (a layout host's document is source) — and only `main.rs`'s construction
-  (1480-1516) can tell them apart, so a finding forged in the engine would be
-  fabricated. It handed the fix to UNFILLED-EDGE-FIELD-NO-EDGE **by name**,
-  and that entry did not carry it — a deferral pointed at an entry that does
-  not operationalize it is a silent gap on the next tick. Scoped in now:
-  `src/engine.rs` and `src/extract.rs` join its `files`, with a
-  `gate_fail_loud.rs` test, and the acceptance names the residual. No fork
-  owed — whether the formatless member reads as excluded from the selection
-  or as a vacuous hold is mechanism (spec-system.md, "Depth rule"): both
-  spell the same verdict, no finding.
-  **Two entries rewritten, not patched** (9f3541c rewrote 449 lines of
-  engine.rs, so every line cite into it was stale): UNFILLED-EDGE-FIELD-NO-EDGE
-  (re-gated, main.rs anchors corrected, the deferral scoped) and
-  PREDICATE-SELECTION-ALGEBRA (its engine.rs/graph.rs descriptions now cite
-  `judgeless`/`Facet`/`kind_violation` at live anchors, and the two fence-test
-  surfaces 9f3541c added — `contract_template.rs`'s inverted named-`kind` case,
-  `gate_fail_loud.rs`'s new fixture — enter its ripple, since the fence is what
-  it retires; the fail-loud bar itself stands on `dependency-exists`,
-  judge-less in both facets). Its notes claimed a shared `src/main.rs` with
-  UNFILLED-EDGE-FIELD-NO-EDGE — false, the file is not in its `files`; the real
-  overlap is engine.rs / contract_template.rs / gate_fail_loud.rs, and the
-  `blockedBy` was already correct.
-  **Three riders found carriers**, each named in the carrying entry's own
-  `files[].description` — the only shape that discharges one (the lesson this
-  board records): `extract.rs:196-198`'s resolved-to-never floor-mention
-  comment and `extract.rs:774`'s @07-02 cite ride UNFILLED-EDGE-FIELD-NO-EDGE;
-  `graph.rs:61/689`'s @07-02 cites ride PREDICATE-SELECTION-ALGEBRA.
-  Closing checklist: the queue is disjoint — one chain of five
-  (UNFILLED-EDGE-FIELD-NO-EDGE → NESTED-FILE-LOCUS → NESTED-FILE-DISCOVERY →
-  SKILL-NESTED-REFERENCE-DOCS → SDK-FIXTURE-WIRING-ONE-HOME), a second forking
-  off it (PREDICATE-SELECTION-ALGEBRA → SUPPORTING-DOC-REACH-CLAUSE,
-  file-disjoint from the NESTED-FILE chain so the two run in parallel), plus
-  the park. Fork board: four open, none blocking a queued entry. The
-  SUPPORTING-DOC-REACH-CLAUSE two-blocker gap stands as last tick recorded it
-  — one `gate` tag, the second blocker in `notes`; unchanged this tick, and it
-  is the queue tail either way. This tick wrote no `src/`, `tests/`, or `sdk/`
-  file.
-- Queue: 1 pickable (UNFILLED-EDGE-FIELD-NO-EDGE); six serialized behind it as
-  two chains forking after it; PACKAGING-CHANNELS-REMAINDER parked (John's
-  Apple notarizing + the v0.1 lockstep tag).
+- Audited through: 9862b2e
+- Residue swept through: 9862b2e
+- This tick: RECONCILED the cc12ed0..9862b2e window — one code commit
+  (8b3b4e9, UNFILLED-EDGE-FIELD-NO-EDGE; 9862b2e is its `chore(flume)` ship).
+  **Audit — verified on disk, not off the log.** The entry landed: refusal
+  retreated to a filled-yet-unresolvable reference, and the obligation now
+  ranges over the edges a value fills. The declared deferral 9f3541c handed
+  it **closed**: `Features::edge_placements` (`src/extract.rs:345`) is an
+  `Option`, the lift (`src/main.rs:1512`) carries apart "no format rendered
+  this member" (`None`) from "nothing to place" (`Some`, empty), and
+  `decide`'s `FormatPlacesEdges` arm (`src/engine.rs:510-528`) decides both —
+  no `Indeterminate`. Invariant 6 is now *pinned*, not excepted by comment:
+  the vocabulary sweep (`engine.rs:1087-1104`) asserts no admissible
+  predicate reaches conformance undecided, and `FormatPlacesEdges` is in its
+  list. `contract_template.rs` (400/416) pins both halves. Entry already
+  dropped by the ship commit. Its two extract.rs riders discharged as the
+  entry named them — 196-198 now states the leaf's `String` as permanent
+  (0020), and the memory-doc cite re-retrieved @07-16; both re-verified on
+  disk, so **both records leave open-questions**.
+  **Stale gates re-tested — the blocker shipped, so two entries re-gate.**
+  NESTED-FILE-LOCUS and PREDICATE-SELECTION-ALGEBRA both named
+  UNFILLED-EDGE-FIELD-NO-EDGE. Both **rewritten, not patched**: 8b3b4e9
+  rewrote emit.ts/kind.ts/engine.rs/contract_template.rs, so every line cite
+  into them was stale (`Locus` 49-59 → 57-59, `Template` 102-118 → 114-119,
+  `projectionPath` 114-140 → 128-149, `kind_violation` 557 → 553, the
+  defensive arm 541-546 → 537-542, the fence test 254-285 → 262-294).
+  NESTED-FILE-LOCUS → **open**; PREDICATE-SELECTION-ALGEBRA → re-gated onto
+  the new entry below (it shares contract_template.rs / gate_fail_loud.rs
+  with it, so the two cannot both be open).
+  **Sweep — the window's residue is the build's own stated cut corner, and it
+  is wider than the build could see.** 8b3b4e9 omitted its planned
+  `gate_fail_loud.rs` proof and said why: `format-places-edges` ranges only
+  over embedded members, and no dispatcher hands the engine one, so the test
+  would have passed vacuously. Verified on disk, and the honest scope is
+  larger than that one clause: `compileDeclarations`
+  (`sdk/src/declarations.ts:681`) fills `kinds` from `atLocusKindsInPlay`
+  while emitting a `ClauseRow` for **every** `expect` binding unfiltered, and
+  `KindFactRow` carries `governs_root`/`governs_glob` unconditionally — so an
+  author binds a clause to an embedded kind today, emit writes it to the
+  lock, and neither dispatch loop (`src/main.rs:804`/`834`) ever judges it.
+  `embedded_features_by_kind` (1324) reaches only `assemble_by_kind` (1287),
+  the *graph* tier. That is a clause silently no-op'ing — invariant 6 — and
+  the by-kind universal binding failing to reach members that
+  representation.md ("nesting") calls full members. Filed as
+  EMBEDDED-KIND-CONFORMANCE-DISPATCH, `per` contract.md "selection", **open**
+  and first: it is what makes FORMAT-OMITS-EDGE-CLAUSE's shipped clause
+  reachable in the real binary at all. No fork owed — the spec text is
+  explicit; code lags it.
+  Closing checklist: queue disjoint — the two `open` entries
+  (EMBEDDED-KIND-CONFORMANCE-DISPATCH, NESTED-FILE-LOCUS) share no path,
+  mechanically checked. NESTED-FILE-DISCOVERY shares `src/main.rs` with the
+  new entry; its single `gate` tag names NESTED-FILE-LOCUS, so the second
+  blocker is stated in its `notes` — the convention this board already runs
+  for SUPPORTING-DOC-REACH-CLAUSE's two-blocker gap, unchanged this tick.
+  Fork board: four open, none blocking a queued entry; two rider records
+  deleted as discharged. This tick wrote no `src/`, `tests/`, or `sdk/` file.
+- Queue: 2 pickable (EMBEDDED-KIND-CONFORMANCE-DISPATCH, NESTED-FILE-LOCUS —
+  file-disjoint, so the wave may fan out); five serialized behind them as two
+  chains; PACKAGING-CHANNELS-REMAINDER parked (Apple notarizing + v0.1 tag).
 
 Plan continues: no — reconciliation was the last live input and it is done.
 The inbox is empty, no refactor capture is live, and the spec delta is empty
 (cursor abe5d5d is the last `specs:` commit). Both code cursors now sit at
-cc12ed0 = HEAD. Build takes over with UNFILLED-EDGE-FIELD-NO-EDGE.
+9862b2e = HEAD. Build takes over with the two pickables.

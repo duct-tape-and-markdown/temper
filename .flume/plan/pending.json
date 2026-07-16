@@ -1,5 +1,52 @@
 [
   {
+    "tag": "EMBEDDED-KIND-CONFORMANCE-DISPATCH",
+    "summary": "An embedded kind's members reach the conformance dispatcher: a clause bound to an embedded kind is judged, never silently dropped — the seam that makes `format-places-edges` reachable",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "selection"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The two conformance dispatchers — the built-in loop (795-808) and the custom-row loop (826-838) — each run the two greens (`engine::admissibility` + `engine::validate`) per kind, and both key off a kind-fact row. An embedded kind has none by construction: `compileDeclarations` (`sdk/src/declarations.ts`:681) fills `kinds` from `atLocusKindsInPlay`, and `KindFactRow` (`sdk/src/generated/KindFactRow.ts`) carries `governs_root`/`governs_glob` unconditionally. So `embedded_features_by_kind` (1324) — its doc naming itself \"the sole seam it enters the corpus through\" — is computed at 509/877 and folded only into `assemble_by_kind` (1287), the by-kind map the *graph* tier ranges over, never into `validate`. Fold the embedded corpus into the same two greens as a third dispatcher, ordered after its features exist; its contract is `compose::default_contract_from_rows` off the lock's clause rows keyed by the kind name (an embedded kind carries no embedded default, the custom-kind precedent at 833). Extend the existing dispatch rather than add a fourth judging path (`specs/process/engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "The end-to-end proof 8b3b4e9 declared as its cut corner and omitted rather than ship vacuous coverage — writable once the dispatcher hands an embedded kind's members to `validate`. `check_in` (29) is the existing in-process `check` driver every case here rides; `a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility` (188) is the fixture shape to follow."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "The `format-places-edges` judge is already pinned at engine grain — the placement fixtures (296-322), `a_format_omitting_a_declared_edge_is_a_finding_naming_the_field` (367), `an_edge_the_value_never_carried_is_no_omission` (400), `a_member_with_nothing_to_place_holds_rather_than_going_undecided` (416). What no test reaches is the clause firing through the binary; `no_built_in_contract_adopts_the_format_places_edges_clause` (429) states why no built-in carries it, and stands."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "a clause bound to an embedded kind whose format omits a declared edge fails the run loud through `check`, naming the field — the judge reaching conformance in the real binary"
+      },
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "an embedded kind's clause that holds leaves the run silent — the dispatcher adds a judge, never a finding"
+      },
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "the engine-grain placement verdicts are unchanged — the dispatcher carries them into the binary, it does not re-decide them"
+      }
+    ],
+    "acceptance": "A clause bound to an embedded kind is judged at conformance over that kind's members — the by-kind universal binding reaching every member of a kind, embedded ones included (contract.md, \"selection\"; a nested member is a full member, representation.md \"nesting\") — so no authored clause silently no-ops (intent.md, invariant 6). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Routes 8b3b4e9's stated cut corner. Verified on disk: `compileDeclarations` emits a clause row for every `expect` binding unfiltered while `kinds` takes `atLocusKindsInPlay` — so an author binds a clause to an embedded kind today, emit writes it to the lock, and no dispatcher judges it. Wider than `format-places-edges`, which is only the first shipped clause that can live nowhere else. No SDK change: the authoring surface already admits the binding. scoped at 9862b2e."
+  },
+  {
     "tag": "NESTED-FILE-LOCUS",
     "summary": "Locus goes ternary: a nested file child owns a file whose path composes from its host's unit and the host template's pattern, and governs no glob of its own",
     "per": {
@@ -7,8 +54,7 @@
       "section": "locus"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "UNFILLED-EDGE-FIELD-NO-EDGE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,15 +62,15 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`Locus` (49-59) is binary — `{kind:\"at\", root, glob}` or `{kind:\"embedded\"}` — and its doc (50-56) states that binary as the whole story. Grow the third spelling: a nested-file child owns a unit whose path composes from its host's unit plus the host template's `path` pattern (`Template`, 102-118, already carries the pattern), so the child kind declares no `root`/`glob` and cannot collide with its host's governs glob."
+          "description": "`Locus` (57-59) is binary — `{kind:\"at\", root, glob}` or `{kind:\"embedded\"}` — and its doc (50-56) states that binary as the whole story. Grow the third spelling: a nested-file child owns a unit whose path composes from its host's unit plus the host template's `path` pattern (`Template`, 114-119, already carries the optional pattern), so the child kind declares no `root`/`glob` and cannot collide with its host's governs glob."
         },
         {
           "path": "sdk/src/emit.ts",
-          "description": "`projectionPath` (114-140) refuses every non-`at` locus (129-133, the `is embedded` arm) — the floor that makes a standalone projection an `at`-locus privilege. A nested-file child projects at its host's unit joined with the template's pattern; the `# Throws` doc (123-127) states the retired floor and moves with it. `joinSlash` (110-112) is the existing path composer — extend it, never a second joiner (`specs/process/engineering.md`, \"One job, one home\")."
+          "description": "`projectionPath` (128-149) refuses every non-`at` locus (129-134, the embedded arm) — the floor that makes a standalone projection an `at`-locus privilege. A nested-file child projects at its host's unit joined with the template's pattern; the `# Throws` doc (123-127) states the retired floor and moves with it. `joinSlash` (110-112) is the existing path composer — extend it, never a second joiner (`specs/process/engineering.md`, \"One job, one home\")."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "The kind fact row's locus columns: `governs_root`/`governs_glob` are unconditional today, and a nested-file kind fills neither. The row carries the third spelling instead of a root+glob pair the kind does not have."
+          "description": "The kind fact row's locus columns: `governs_root`/`governs_glob` are unconditional today, and a nested-file kind fills neither. `compileDeclarations` (681) fills `kinds` from `atLocusKindsInPlay`, which a nested-file kind is not — so the row carries the third spelling instead of a root+glob pair the kind does not have. (Note: this file carries a NUL byte in `placementKey`, so plain `grep`/`rg` treat it as binary and print no matches — pass `-a`.)"
         },
         {
           "path": "sdk/src/generated/KindFactRow.ts",
@@ -32,7 +78,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "`Governs` (29-37) is a required root+glob pair every `CustomKind` carries (`CustomKind::new`, 587-600, takes it by value); `from_kind_fact_row` (644-651) rebuilds it from the row's two columns. A nested-file kind governs no glob, so the locus must admit the host-composed spelling rather than a fabricated root+glob."
+          "description": "`Governs` is a required root+glob pair every `CustomKind` carries (`CustomKind::new` takes it by value); `from_kind_fact_row` rebuilds it from the row's two columns. A nested-file kind governs no glob, so the locus must admit the host-composed spelling rather than a fabricated root+glob."
         },
         {
           "path": "src/drift.rs",
@@ -40,7 +86,7 @@
         },
         {
           "path": "sdk/test/emit.test.ts",
-          "description": "The `supportingDoc` fixture (459-465) spells the locus 0027's first Rejected bullet forbids: a self-governing `{at, .claude/skills, *.md}` glob overlapping `skill`'s own `*/SKILL.md`. Respell it as a nested-file child of its `guide` host (467-476); the template-fact assertions (478-487) stand."
+          "description": "The `supportingDoc` fixture (460-466) spells the locus 0027's first Rejected bullet forbids: a self-governing `{at, .claude/skills, *.md}` glob overlapping `skill`'s own `*/SKILL.md`. Respell it as a nested-file child of its `guide` host (the `templates` entry at 476); the template-fact assertions below it stand."
         },
         {
           "path": "tests/nested_member.rs",
@@ -69,7 +115,7 @@
       }
     ],
     "acceptance": "A nested file member owns a file whose path composes from its host's unit and the host template's path pattern, the child kind governing no glob (representation.md, \"locus\"); two kinds still never share a governs glob. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes 0027 (abe5d5d), Consequences half 1 — the composition surface. TEMPLATE-FILE-CHILD-FACT (794678f) landed the declared fact; the locus under it was unspellable, which is what forked. Serialized behind UNFILLED-EDGE-FIELD-NO-EDGE (shared kind.ts, emit.ts, emit.test.ts). Discharges the drift.rs:570 \"retired projectionPath\" rider. scoped at 4ba483f."
+    "notes": "Routes 0027 (abe5d5d), Consequences half 1 — the composition surface. TEMPLATE-FILE-CHILD-FACT (794678f) landed the declared fact; the locus under it was unspellable, which is what forked. Its blocker UNFILLED-EDGE-FIELD-NO-EDGE shipped (8b3b4e9), so this re-gates open; the kind.ts / emit.ts / emit.test.ts anchors are re-pinned against that commit's rewrite. Discharges the drift.rs:570 \"retired projectionPath\" rider. rescoped at 9862b2e."
   },
   {
     "tag": "NESTED-FILE-DISCOVERY",
@@ -117,7 +163,7 @@
       }
     ],
     "acceptance": "Discovery classifies an adopted harness's matching files as their host's children through the host template's pattern (representation.md, \"locus\"; the pattern is the host's declared fact) — with no glob of the child kind's own scanned for. `cargo test` green.",
-    "notes": "Routes 0027 (abe5d5d), Consequences half 2 — discovery off the template pattern. The declared-fact-only bound TEMPLATE-FILE-CHILD-FACT (794678f) stated in its own body (\"Nothing resolves a file child's discovery off the pattern\") and in `Template`'s doc (src/kind.rs:576-579) retires here; the doc moves with the behavior. Serialized behind NESTED-FILE-LOCUS: the locus is what a discovered child is classified as. scoped at 4ba483f."
+    "notes": "Routes 0027 (abe5d5d), Consequences half 2 — discovery off the template pattern. The declared-fact-only bound TEMPLATE-FILE-CHILD-FACT (794678f) stated in its own body and in `Template`'s doc (src/kind.rs) retires here; the doc moves with the behavior. Gate names NESTED-FILE-LOCUS (the locus is what a discovered child is classified as); it ALSO shares `src/main.rs` with EMBEDDED-KIND-CONFORMANCE-DISPATCH, so it must not go open while that one is unshipped. scoped at 4ba483f."
   },
   {
     "tag": "SKILL-NESTED-REFERENCE-DOCS",
@@ -136,11 +182,11 @@
       "edit": [
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships **empty** per the standing bar (\"Default contracts\") — the exported clause array exists so adoption is an import; its one clause is SUPPORTING-DOC-REACH-CLAUSE's to add once an incidence clause outside a requirement is admissible, never this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent."
+          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships **empty** per the standing bar (\"Default contracts\"); its one clause is SUPPORTING-DOC-REACH-CLAUSE's to add once an incidence clause outside a requirement is admissible, never this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent. Rider (open-questions): the doc-comment cites at 565/611 name two deleted `packages/{rule,memory}.anthropic/PACKAGE.md` files — discharge them while here."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "The engine-side reader mirror of the shipped kinds (`CustomKind::new` calls at 70/91/117/148/173/209/236, and `definitions` at 291): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as."
+          "description": "The engine-side reader mirror of the shipped kinds (`CustomKind::new` calls at 70/91/117/148/173/209/236, and `definitions` at 291): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as. Rider (open-questions): the narration cites here are dated @07-07 / @07-10 or undated (85, 194/222, 63/106) — every fact still holds; re-verify against the live docs and bump the dates while here."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -223,7 +269,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "UNFILLED-EDGE-FIELD-NO-EDGE"
+      "tag": "EMBEDDED-KIND-CONFORMANCE-DISPATCH"
     },
     "dependsOnForks": [],
     "files": {
@@ -231,7 +277,7 @@
       "edit": [
         {
           "path": "src/engine.rs",
-          "description": "The five predicates 9f3541c fenced out of the per-artifact facet gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence is `judgeless` (144-175), which returns the \"ranges over a requirement's satisfier set, which a per-artifact contract clause has no judge for\" message for the five under `Facet::Contract` (112-121); its `decide` counterpart is the defensive-floor arm at 541-546. Each fence entry retires as its predicate gains a judge, and `Facet` itself outlives the entry only if some predicate is still facet-split — `dependency-exists` is (judge-less in both), so the split stands. `vacuities` (177+) is untouched: an empty `kind` and an inverted bound are vacuous in every facet. `kind_violation` (557) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot. Rider: the comments at 538-540 and the module doc name this work as `REQUIREMENT-CLAUSES-RECUT`, a tag no queue carries — reconcile the narration to what lands."
+          "description": "The five predicates 9f3541c fenced out of the per-artifact facet gain the judge the fence stands in for: `contract.md`, \"selection\" states one algebra over selections with the quantifier as the clause's grain — no separate universal/existential machinery — so `Count`/`Unique`/`Membership` are whole-grain over any selection and `Degree`/`Kind` are each-grain over it. The fence is `judgeless` (144-175), which returns the \"ranges over a requirement's satisfier set, which a per-artifact contract clause has no judge for\" message for the five under `Facet::Contract` (112-121); its `decide` counterpart is the defensive-floor arm at 537-542. Each fence entry retires as its predicate gains a judge, and `Facet` itself outlives the entry only if some predicate is still facet-split — `dependency-exists` is (judge-less in both), so the split stands. `vacuities` (177+) is untouched: an empty `kind` and an inverted bound are vacuous in every facet. `kind_violation` (553) is the existing each-grain entry point, pulled out because a satisfier's actual kind is roster context — the generalization is what lets it rejoin `decide`, or states why it cannot. Rider: the comment at 530-536 and the module doc name this work as `REQUIREMENT-CLAUSES-RECUT`, a tag no queue carries — reconcile the narration to what lands."
         },
         {
           "path": "src/roster.rs",
@@ -243,7 +289,7 @@
         },
         {
           "path": "src/contract.rs",
-          "description": "The clause's selection binding: the five carry their selection today only implicitly, via the requirement facet that hosts them. The `Predicate` enum (the closed vocabulary) does not grow — adding one is a deliberate language change and this is not one; what moves is which selections a clause may bind to."
+          "description": "The clause's selection binding: the five carry their selection today only implicitly, via the requirement facet that hosts them. The `Predicate` enum (the closed vocabulary) does not grow — adding one is a deliberate language change and this is not one; what moves is which selections a clause may bind to. Rider (open-questions): the retired-`effective` straggler at 490 (\"when `target` (above) names a field for layering purposes\") keeps the retired severity-flip layer's vocabulary — reconcile it while here."
         },
         {
           "path": "sdk/src/contract.ts",
@@ -255,11 +301,11 @@
         },
         {
           "path": "tests/contract_template.rs",
-          "description": "`a_kind_clause_is_inadmissible_on_a_per_artifact_contract` (254-285, rewritten by 9f3541c) pins the fence this entry retires: a named `kind` on a kind's own contract inverts back to admissible once the judge lands, while an empty `kind` stays inadmissible on vacuity — the half `vacuities` keeps. The engine.rs test `a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause` (985+) and its `judgeless_predicates` fixture (961) move the same way."
+          "description": "`a_kind_clause_is_inadmissible_on_a_per_artifact_contract` (262-294, rewritten by 9f3541c) pins the fence this entry retires: a named `kind` on a kind's own contract inverts back to admissible once the judge lands, while an empty `kind` stays inadmissible on vacuity — the half `vacuities` keeps. The engine.rs test `a_predicate_this_facet_cannot_judge_is_inadmissible_as_a_contract_clause` (981+) and its `judgeless_predicates` fixture (957) move the same way."
         },
         {
           "path": "tests/gate_fail_loud.rs",
-          "description": "`a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility` (added 9f3541c): a `count` floor clause on `skill` fails the run today because the engine has no judge for it. Once it judges the by-kind selection, the fixture's clause is admissible and the assertion is what the entry inverts — the fail-loud bar itself stands, since `dependency-exists` is still judge-less in both facets and is the honest fixture for it."
+          "description": "`a_kind_contract_naming_a_judge_less_predicate_fails_loud_at_admissibility` (188, added 9f3541c): a `count` floor clause on `skill` fails the run today because the engine has no judge for it. Once it judges the by-kind selection, the fixture's clause is admissible and the assertion is what the entry inverts — the fail-loud bar itself stands, since `dependency-exists` is still judge-less in both facets and is the honest fixture for it."
         }
       ],
       "retire": []
@@ -280,7 +326,7 @@
       }
     ],
     "acceptance": "count/unique/membership/degree/kind judge over any declared selection — by kind, by opt-in, by incidence — with the quantifier the clause's grain and no separate universal/existential machinery (contract.md, \"selection\"), and no per-artifact clause among them is inadmissible for want of a judge. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"), which the ruling states; 9f3541c's fence is the placeholder it retires, and that commit's own comments name this work REQUIREMENT-CLAUSES-RECUT. Serialized behind UNFILLED-EDGE-FIELD-NO-EDGE (shares engine.rs, contract_template.rs, gate_fail_loud.rs); file-disjoint from the NESTED-FILE chain, so the two run in parallel after it. rescoped at cc12ed0."
+    "notes": "Routes the 07-16 inbox ruling, entry 2. No decision owed: the vocabulary does not grow — code lags explicit spec text (`contract.md`, \"selection\"); 9f3541c's fence is the placeholder it retires, and that commit's own comments name this work REQUIREMENT-CLAUSES-RECUT. Re-gated onto EMBEDDED-KIND-CONFORMANCE-DISPATCH (old blocker shipped at 8b3b4e9; shares contract_template.rs / gate_fail_loud.rs with it). File-disjoint from the NESTED-FILE chain. rescoped at 9862b2e."
   },
   {
     "tag": "SUPPORTING-DOC-REACH-CLAUSE",

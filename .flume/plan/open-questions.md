@@ -148,7 +148,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   2026-07-15 and bumped the SDK clause cites plus doc-comment dates to match;
   the engine's own reader-side narration cites mirror the same facts at their
   older retrieval dates — `src/builtin_kind.rs` (85 @07-07; 194/222 @07-10;
-  63/106 undated skills/sub-agents mentions), `src/extract.rs:774` (@07-02),
+  63/106 undated skills/sub-agents mentions) and
   `src/graph.rs` (61/689 @07-02). The build entry's `per` targeted the SDK
   clause-enforcement point (`specs/builtins.md`, "The clauses live in code"),
   not this parallel surface, so it flagged them for routing rather than
@@ -158,18 +158,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   builtin_kind.rs's `**/CLAUDE.md` glob already covers the new location — so
   this is date-staleness on correct facts: citation staleness, riding
   whichever entry next opens each file, never standalone, never the queue's
-  only new work. Found at reconcile HEAD 794ca2b. **Two carriers found at
-  cc12ed0**, each naming its rider in its own `files[].description`:
-  UNFILLED-EDGE-FIELD-NO-EDGE opens `extract.rs` (774 @07-02), and
-  PREDICATE-SELECTION-ALGEBRA opens `graph.rs` (61/689 @07-02).
-  `builtin_kind.rs` still rides the next entry opening it — SKILL-NESTED-
-  REFERENCE-DOCS, which does. The `coverage_note.rs:76`
-  rider is **discharged**: WORKSPACE-DIR-ONE-HOME (23c31c4) carried it —
-  `SETTINGS_DOC` re-verified live against code.claude.com/docs/en/settings (it
-  still documents every surface cited off it) and the retrieval date bumped
-  @07-02 → @07-16, verified on disk at coverage_note.rs:70-72. The rest
-  (`builtin_kind.rs`, `extract.rs:774`, `graph.rs`) still ride the next entry
-  opening each; no queued entry opens any.
+  only new work. Found at reconcile HEAD 794ca2b; the `extract.rs` and
+  `coverage_note.rs` halves discharged (evidence in the 9862b2e and 23c31c4
+  reconcile commit bodies), leaving the two surfaces above. Both have carriers
+  naming the rider in their own `files[].description` — the only shape that
+  discharges one: PREDICATE-SELECTION-ALGEBRA opens `graph.rs`,
+  SKILL-NESTED-REFERENCE-DOCS opens `builtin_kind.rs`. Re-verified on disk at
+  reconcile HEAD 9862b2e.
 
 - **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
   one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
@@ -189,27 +184,6 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
   495/633/770/1172. Re-verified on disk at reconcile HEAD ff7da32.
-
-- **`src/extract.rs`'s floor-mention deferral comment is resolved-to-never.**
-  The `EmbeddedMember` doc (extract.rs:196-198) still says floor-leaf
-  interpolation "stays deferred until a floor mention syntax is separately
-  ratified" — 0020 ratified the opposite: a declaration types a position,
-  never a pattern within prose, so no floor mention syntax will ever exist
-  and the plain `String` leaf is the permanent shape, not a middle. Behavior
-  is correct; only the comment names a replacement that will never come.
-  Rides whichever entry next opens `src/extract.rs` (0020's own exit
-  clause), never standalone. Found routing 0020 at HEAD a0fccaf. 3611335,
-  then MCP-SERVER-KIND (1ffab8f, hunks at 913/938/1148/1167), then HOOK-SHAPE
-  (5fc3e9f, +135 lines: the `hook_matcher_group` write/read pair at 928-1015),
-  then SATISFIES-LABEL-QUALIFY (3d08a4a, the `host_address`
-  `pub(crate)`→`pub` widen at line 640, net-zero), then FORMAT-OMITS-EDGE-CLAUSE
-  (13c58ed, +11: the `Features::edge_placements` field at 329), each opened
-  extract.rs but left 196-198 as unchanged context, so —
-  reconciliation-not-opening — undischarged. **Carrier found:**
-  UNFILLED-EDGE-FIELD-NO-EDGE now opens `extract.rs` (the `edge_placements`
-  feature must carry apart the two facts its empty map conflates), and its
-  `files[].description` names this rider — the only shape that discharges one.
-  Re-verified on disk (extract.rs:196-198, unshifted) at reconcile HEAD cc12ed0.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,
