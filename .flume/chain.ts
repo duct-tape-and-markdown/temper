@@ -190,7 +190,7 @@ const testGate = shellGate({
 // No self-hosting gate in the chain: the recursive dogfood is live at the
 // session layer (.claude/settings.json wires temper's SessionStart reporter
 // and guard; the harness is authored in .temper/), and its gate — `temper
-// check .temper` — rides sessions, not ticks. Build never edits the
+// check .` — rides sessions, not ticks. Build never edits the
 // projections, so a per-tick check would only re-verify human territory.
 
 /**
