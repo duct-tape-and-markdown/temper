@@ -111,7 +111,7 @@
         },
         {
           "path": "src/engine.rs",
-          "description": "The fence. `Predicate::MaxLines` judges `features.body_lines <= *max` (672) — `0 <= 2` over a 15-line value, silent. The same zeroed lift makes `RequireSections` (678), `MustDefine` (693), `SectionContains` (701) and `NameMatchesDir` (721) undecidable over an embedded member. `vacuities` (159) takes the predicate ALONE — its doc says so: \"a predicate that can never decide anything over *any* selection\" — and a body-shaped predicate IS decidable over an at-locus selection, so the existing fence cannot see this. Widen it to take the bound kind's locus alongside the predicate, and fence a body-shaped predicate bound to an embedded kind as inadmissible, naming the predicate and the kind. The judge-less fence at 145 (`judgeless`) is the shape precedent, and 28ad61f's `Facet` retirement is the caution: the parameter earns its place only if nothing else re-splits on it."
+          "description": "The fence, and the carrier for one rider (28ad61f retired the `Facet` type — the split over which predicates carry a judge — and left its vocabulary narrating this file at three sites: `vacuities`'s own doc (157, \"the rules that hold identically in every facet\"), 534, and 1096-1097; the widened doc is written in the live vocabulary, never re-spelling the retired split. The `facet` uses in `roster.rs`/`builtin.rs`/`compose.rs` are a requirement template's own facets — live, out of scope). `Predicate::MaxLines` judges `features.body_lines <= *max` (672) — `0 <= 2` over a 15-line value, silent. The same zeroed lift makes `RequireSections` (678), `MustDefine` (693), `SectionContains` (701) and `NameMatchesDir` (721) undecidable over an embedded member. `vacuities` (159) takes the predicate ALONE — its doc says so: \"a predicate that can never decide anything over *any* selection\" — and a body-shaped predicate IS decidable over an at-locus selection, so the existing fence cannot see this. Widen it to take the bound kind's locus alongside the predicate, and fence a body-shaped predicate bound to an embedded kind as inadmissible, naming the predicate and the kind. The judge-less fence at 145 (`judgeless`) is the shape precedent, and 28ad61f's `Facet` retirement is the caution: the parameter earns its place only if nothing else re-splits on it."
         },
         {
           "path": "tests/gate_fail_loud.rs",
@@ -138,8 +138,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NESTED-FILE-DISCOVERY"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -147,11 +146,11 @@
       "edit": [
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships **empty** per the standing bar (\"Default contracts\"); its one clause is SUPPORTING-DOC-REACH-CLAUSE's to add once an incidence clause outside a requirement is admissible, never this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent. Rider (open-questions): the doc-comment cites at 565/611 name two deleted `packages/{rule,memory}.anthropic/PACKAGE.md` files — discharge them while here."
+          "description": "`skill` (142-158) declares no template. Give it its bundled reference documents as one file-child layer — `supporting-doc` at the directory's markdown pattern, cited to code.claude.com/docs/en/skills \"Add supporting files\" (retrieved 2026-07-16). New `supporting-doc` kind beside it: fields-free, prose-only, channel-less, identity from the filename, nested-file locus. Its default contract ships **empty** per the standing bar (\"Default contracts\"); its one clause is SUPPORTING-DOC-REACH-CLAUSE's to add once an incidence clause outside a requirement is admissible, never this entry's to invent. The kind ships without joining the surface enumeration, the `requirement` precedent. The template claims the honest markdown subset: supporting files of other types stay unmodeled and are named as such (0027's second Rejected bullet), the `settings.json` partial-governance posture. Rider (open-questions): the doc-comment cites at 565/611 name two deleted `packages/{rule,memory}.anthropic/PACKAGE.md` files — discharge them while here."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "The engine-side reader mirror of the shipped kinds (the `CustomKind::new` calls and `definitions`): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as — 91c288c landed the `CustomKind::nested_file` constructor (src/kind.rs:600) this row is the first built-in caller of. Rider (open-questions): the narration cites here are dated @07-07 / @07-10 or undated (85, 194/222, 63/106) — every fact still holds; re-verify against the live docs and bump the dates while here."
+          "description": "The engine-side reader mirror of the shipped kinds (the `CustomKind::new` calls and `definitions`): `skill`'s row grows its template, and `supporting-doc` enters as the child kind a discovered document is read as — 91c288c landed the `CustomKind::nested_file` constructor (src/kind.rs:602) and 2722ca2 landed its read half — `discover_builtin` dispatches on the locus and walks a child under each host unit — so this row is the first built-in caller of a wiring that is proven end to end and counts nobody today. Rider (open-questions): the narration cites here are dated @07-07 / @07-10 or undated (85, 194/222, 63/106) — every fact still holds; re-verify against the live docs and bump the dates while here."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -184,7 +183,7 @@
       }
     ],
     "acceptance": "A skill's bundled reference documents are nested file members of the same skill, typed `supporting-doc` (builtins.md, \"The shipped kinds\"), their path the skill template's declared fact — nesting-is-model-containment / locus-is-serialization stops being an unbacked claim. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes 0027 (abe5d5d), Consequences half 3 — the built-in adoption; 0027 says it re-enters buildable, and it does, minus the clause. The template claims the honest markdown subset: supporting files of other types stay unmodeled and named as such (0027's second Rejected bullet), the `settings.json` partial-governance posture. Discharges the `supportingDocs()` factory asymmetry in open-questions. Gate re-tested at b745415: NESTED-FILE-DISCOVERY unshipped. scoped at 4ba483f."
+    "notes": "Routes 0027 (abe5d5d), Consequences half 3 — the built-in adoption; 0027 says it re-enters buildable, and it does, minus the clause. Discharges the `supportingDocs()` factory asymmetry in open-questions. **Gate OPENED: NESTED-FILE-DISCOVERY shipped at 2722ca2**, verified on disk at `discover_builtin`. No built-in declares a file template yet, so install's report counts children only once this lands. scoped at 4ba483f, re-gated at 420da04."
   },
   {
     "tag": "SDK-FIXTURE-WIRING-ONE-HOME",
@@ -223,7 +222,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "One builder composes tmpdir → `.temper` → `harness.ts` → `vendor_sdk`, in `tests/common`, and no suite re-derives it (engineering.md, \"One job, one home\": shared fixtures and builders live in one home, never copy-pasted per file). Behavior is unchanged, so the three suites' existing tests are the coverage; `cargo test` green.",
-    "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, its doc citing emit.rs's `wire_sdk_harness` as the pattern it followed rather than the home it should have extended — the copy-per-suite `tests/common`'s own header says it exists to end. Serialized behind the chain: shares projection_path_seam.rs with the nested-file work, builtin_lock_frozen.rs with SKILL-NESTED-REFERENCE-DOCS. Re-verified at b745415: all three copies live. rescoped at b745415."
+    "notes": "Found sweeping 74f4e62..ca4e866: e76ec85 added the third copy, citing emit.rs's builder as the pattern it followed rather than the home it should have extended. Gate re-tested at 420da04, **kept on one ground not two**: projection_path_seam.rs is no longer contended (2722ca2 never touched it), but builtin_lock_frozen.rs is still shared with SKILL-NESTED-REFERENCE-DOCS, which alone serializes this. All three copies re-verified live at their cited lines. rescoped at b745415."
   },
   {
     "tag": "SUPPORTING-DOC-REACH-CLAUSE",
@@ -234,7 +233,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "PREDICATE-SELECTION-ALGEBRA"
+      "tag": "SKILL-NESTED-REFERENCE-DOCS"
     },
     "dependsOnForks": [],
     "files": {
@@ -271,7 +270,43 @@
       }
     ],
     "acceptance": "A supporting document no edge from its host skill reaches is an advisory finding naming the vendor fact (builtins.md, \"Default contracts\"; the clause is decidable, severity-declared, guided, cited and dated) — and reach counts any resolved edge, locus-agnostic. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Routes the 07-16 ruling's clause itself (25e9317 resolved the fork). The single-tag gate names PREDICATE-SELECTION-ALGEBRA — without it an incidence clause outside a requirement is inadmissible, so the clause cannot ship. It ALSO requires SKILL-NESTED-REFERENCE-DOCS: that entry mints the kind and its empty contract, and shares builtins.ts / builtin_lock.toml / builtin_lock_frozen.rs — so this is the queue tail, behind both chains. scoped at d572827."
+    "notes": "Routes the 07-16 ruling's clause itself (25e9317 resolved the fork). **Gate re-pointed: PREDICATE-SELECTION-ALGEBRA shipped at 28ad61f** — `graph::degree` takes `&[Selection]`, so a by-kind degree clause is admissible outside a requirement. The surviving blocker is SKILL-NESTED-REFERENCE-DOCS: it mints the kind and its empty contract, and shares three files with this. Still the queue tail. scoped at d572827, re-gated at 420da04."
+  },
+  {
+    "tag": "IMPORT-HOP-CAP-CITE",
+    "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
+    "per": {
+      "path": "specs/process/spec-system.md",
+      "section": "Form rules"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "A human probe rules the hop semantics — the doc text cannot. Re-fetched live this tick (code.claude.com/docs/en/memory, retrieved 2026-07-16, wording unchanged): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (⇒ 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (⇒ 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence — never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (62) sits under a doc (58-62) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (484-523) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds, one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 382-383 and 481-483, both 'as the format documents' / 'the `at-import` recursion depth the format documents' — carry the same claim and move with it."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "`the_import_closure_is_hop_capped` (1126) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1129-1130) spells 'the format's five-hop import recursion' and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper — the boundary hop pinned at the ruled number, in the ruled counting"
+      }
+    ],
+    "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
+    "notes": "Found sweeping b745415..420da04. 28ad61f carried a rider to re-verify graph.rs's two memory cites, bumped the verified one (689 → 677) and declined this rather than flip a live gate inside an unrelated entry — the right call, captured at `.flume/friction/build-import-hop-cap-cite-disagrees-with-live-docs.md`. NOT citation staleness, so it does not ride: staleness rides because the fact holds; here the constant may be wrong. Sentence re-fetched this tick, unchanged. scoped at 420da04."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",

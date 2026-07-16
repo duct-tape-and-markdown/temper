@@ -221,8 +221,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   2026-07-15 and bumped the SDK clause cites plus doc-comment dates to match;
   the engine's own reader-side narration cites mirror the same facts at their
   older retrieval dates — `src/builtin_kind.rs` (85 @07-07; 194/222 @07-10;
-  63/106 undated skills/sub-agents mentions) and
-  `src/graph.rs` (61/689 @07-02). The build entry's `per` targeted the SDK
+  63/106 undated skills/sub-agents mentions). The build entry's `per` targeted the SDK
   clause-enforcement point (`specs/builtins.md`, "The clauses live in code"),
   not this parallel surface, so it flagged them for routing rather than
   silently bumping. Every fact still holds — the two that moved (memory's
@@ -230,15 +229,25 @@ condition arrives, it is the next break. If work touches one, surface it.
   redirect) are SDK-only cites, absent from these Rust files, and
   builtin_kind.rs's `**/CLAUDE.md` glob already covers the new location — so
   this is date-staleness on correct facts: citation staleness, riding
-  whichever entry next opens each file, never standalone, never the queue's
+  whichever entry next opens the file, never standalone, never the queue's
   only new work. Found at reconcile HEAD 794ca2b; the `extract.rs` and
   `coverage_note.rs` halves discharged (evidence in the 9862b2e and 23c31c4
-  reconcile commit bodies), leaving the two surfaces above. Both have carriers
-  naming the rider in their own `files[].description` — the only shape that
-  discharges one: PREDICATE-SELECTION-ALGEBRA opens `graph.rs`,
-  SKILL-NESTED-REFERENCE-DOCS opens `builtin_kind.rs`. Re-verified on disk at
-  reconcile HEAD b745415 (graph.rs 61/689 still @07-02, unmoved; 91c288c
-  touched `builtin_kind.rs` and left its cites as unchanged context).
+  reconcile commit bodies). **The `graph.rs` half is gone from this record,
+  and it is the one that taught the class its boundary:** its carrier
+  PREDICATE-SELECTION-ALGEBRA (28ad61f) re-fetched both cites and found the
+  premise this record rests on — "every fact still holds" — false for one.
+  The absolute-path cite verified and bumped (689 → 677, discharged); the
+  `MAX_IMPORT_HOPS = 5` cite is **contradicted on its face** by the live page
+  and left alone, correctly — a wrong constant is behavior, not narration, so
+  it leaves the rides-along class entirely and is now the parked
+  IMPORT-HOP-CAP-CITE entry. The lesson binds every rider filed here: this
+  class is only ever *date*-staleness on a *verified* fact, and the carrier
+  re-verifies rather than bumps. `builtin_kind.rs` remains, carried by
+  SKILL-NESTED-REFERENCE-DOCS, which names the rider in its own
+  `files[].description` — the only shape that discharges one. Re-verified on
+  disk at reconcile HEAD 420da04 (63/85/106 @07-07, 194/222 @07-10, unmoved;
+  91c288c and 2722ca2 both touched `builtin_kind.rs`-adjacent code and left
+  its cites as unchanged context).
 
 - **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
   one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
@@ -291,30 +300,24 @@ condition arrives, it is the next break. If work touches one, surface it.
   at residue sweep HEAD a932bb0; re-verified on disk (lines 42-43) at sweep
   HEAD c5df845.
 
-- **4144b20's retirement of `compose::effective` left two one-line
-  comment stragglers in files that commit itself opened.**
-  `src/compose.rs:233` ("Unlike `effective`, …") cites the retired symbol
-  by name inside `default_contract_from_rows`'s test doc comment;
-  `src/contract.rs:475` ("when `target` (above) names a field for layering
-  purposes") keeps the retired severity-flip layer's vocabulary one hunk
-  from the corrected `Predicate::target` doc — the layer is gone, so
-  `target`'s live job is array-surgery identity, never layering. Behavior
-  and symbols correct; doc-comment staleness only. Each rides whichever
-  entry next opens its file; no queued entry opens either — never standalone.
-  Found at residue sweep HEAD d029d4b. Two entries have now opened
-  `src/contract.rs` and left the straggler as unchanged context:
-  GLOB-VALIDITY-PREDICATE (46b8cd1, +20: the glob-validity predicate, shifting
-  it 459 → 475), then FORMAT-OMITS-EDGE-CLAUSE (13c58ed, +20: the
-  `format-places-edges` variant, shifting it 475 → 490) — the carrier this
-  record itself named, which discharged nothing. The lesson generalizes to
-  every rider here: a carrier named in *this file* is not read at build time;
-  only an entry naming the rider in its own `files[].description` discharges
-  one. That shape is now **proven**, not proposed: NESTED-FILE-LOCUS named the
-  `drift.rs:570` rider in its own description and 91c288c discharged it —
-  the record is gone from this file. PREDICATE-SELECTION-ALGEBRA carries
-  `contract.rs:490` the same way. compose.rs:233 has no carrier: no queued
-  entry opens the file. Re-verified on disk (compose.rs:233, contract.rs:490,
-  both unmoved) at reconcile HEAD b745415.
+- **4144b20's retirement of `compose::effective` left one surviving one-line
+  comment straggler.** `src/compose.rs:233` ("Unlike `effective`, …") cites
+  the retired symbol by name inside `default_contract_from_rows`'s test doc
+  comment. Behavior and symbols correct; doc-comment staleness only. It rides
+  whichever entry next opens `compose.rs`; **no queued entry does, so it has
+  no carrier and waits** — never standalone. Found at residue sweep HEAD
+  d029d4b; re-verified on disk, unmoved, at reconcile HEAD 420da04.
+  **The `src/contract.rs` half is discharged** — 28ad61f rewrote
+  `Predicate::target`'s doc (now `documented_field`, contract.rs:494) and the
+  retired severity-flip layer's "for layering purposes" vocabulary is gone
+  from the file. It discharged on the shape this record spent two entries
+  learning: a carrier named in *this file* is not read at build time, and only
+  an entry naming the rider in its own `files[].description` discharges one —
+  GLOB-VALIDITY-PREDICATE (46b8cd1) and FORMAT-OMITS-EDGE-CLAUSE (13c58ed)
+  each opened contract.rs under no such naming and left the straggler, while
+  PREDICATE-SELECTION-ALGEBRA carried it named and closed it. Twice proven
+  now, with NESTED-FILE-LOCUS/91c288c (the `drift.rs:570` rider): name the
+  rider in the entry, or it does not discharge.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

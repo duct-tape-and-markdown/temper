@@ -1,66 +1,61 @@
 # Plan state
 
 - Spec derived through: abe5d5d
-- Audited through: b745415
-- Residue swept through: b745415
-- This tick: DRAINED the inbox — four 07-16 notes (filed 7c1a50a, 3fdebb8).
-  Two entries, one fork, one already-routed duplicate; the file is back to its
-  header. Every note diffed forward from its `observed at 8b43293` stamp over
-  the three code commits since (5c3a618, 2722ca2, 28ad61f): all premises
-  unmoved, both mechanisms **narrower than reported** and scoped to the
-  verified gap, per job 1.
-  **The embedded-edge regression is one list reused for two jobs.** Not
-  "0025's degree semantics hasn't landed": `declarations.ts:696` computes
-  `unitKindsInPlay(kindsInPlay(harness))` once and spends it on BOTH the kind
-  fact rows (705 — correct, an embedded kind takes no row) and
-  `assemblyFactRows` (708 — wrong), so an embedded kind's `edgeFields` write
-  no assembly `edge` fact and the edge never exists to resolve. Reader half:
-  `graph.rs:792-820` matches bare ids while an embedded leaf authors a full
-  `kind:name` address (`kind.ts:370`). Filed EMBEDDED-EDGE-DEGREE-SEAM.
-  **The silent clause is vacuity, not a missing judge** — the report's
-  diagnosis is wrong and the entry says so. 5c34ced's dispatch DOES reach
-  composed nested members (`main.rs:898`); the clause is judged against a body
-  `embedded_member_features` zeroed at the lift (`main.rs:1611-1613`), so
-  `max_lines` reads `0 <= 2` and passes. That is contract.md's "no vacuous
-  clause", so the fence is admissibility-side: EMBEDDED-CLAUSE-BODY-VACUITY-FENCE.
-  **Both entries indict 5c34ced's fence test as the reason neither was caught:**
-  `gate_fail_loud.rs:279` HAND-WRITES the embedded edge fact, pinning the engine
-  and never the emit seam — so `format-places-edges` is itself unreachable
-  through real emit today, and the first entry restores it.
-  **The export note carried a datum I nearly lost.** c6de9b0 rewrote it under
-  this tick's snapshot into an addendum — the types are unnameable from the
-  `claude-code` subpath too, not the root alone — and the first drain
-  overwrote it. Restored and routed: the duplicate half is real
-  (SDK-ROOT-EXPORT-CLOSURE already names both types), but the subpath half was
-  new and no entry names `sdk/src/claude-code.ts`. **Declined on the merits,
-  recorded in the entry's acceptance:** distribution.md splits root (kernel
-  nouns) from subpath (the provider face), and `kind()` is root-only — the
-  subpath exports no constructor — so a consumer declaring the kind whose
-  `render` hook this types already imports the root. The trap cannot form.
-  **One fork registered:** `(edge-field-target-openness)` — `EdgeField.to` is
-  required (`kind.ts:43-47`) yet emit resolves address-based and `to`-blind
-  (`emit.ts:248-274`) while corpus and engine both say "identity within the
-  target kind". `to`'s arity is a model-file change, so it is ruled, never
-  derived; plan's position (widen `to` to a declared set) rejects both
-  spellings the report offered and carries the objection that must answer it.
-  Closing checklist: `per` cites verified in-file (contract.md "edge",
-  "well-formedness"); every symbol/line claim re-verified on disk; field
-  lengths validated. Queue disjoint — EMBEDDED-EDGE-DEGREE-SEAM serializes
-  behind SDK-ROOT-EXPORT-CLOSURE (shares `sdk/test/emit.test.ts`, the one home
-  where `declarations.assembly` is asserted); the fence entry is file-disjoint
-  from all six and ships `open`. No built-in declares `edgeFields`, so
-  `builtin_lock.toml` does not move and neither entry collides with the
-  built-in chain. Cursors copied forward verbatim — this tick derived no spec
-  and audited no window.
-- Queue: 2 pickable (SDK-ROOT-EXPORT-CLOSURE, EMBEDDED-CLAUSE-BODY-VACUITY-FENCE);
-  four gated. **Two gates are stale and untested by design** — this tick was
-  the inbox's; SKILL-NESTED-REFERENCE-DOCS and SUPPORTING-DOC-REACH-CLAUSE name
-  NESTED-FILE-DISCOVERY / PREDICATE-SELECTION-ALGEBRA, both shipped at 420da04.
-  The refs gate does not read `blockedBy`, so nothing reverts and no build wave
-  can pick a stale-gated entry. PACKAGING-CHANNELS-REMAINDER parked (Apple
-  notarizing + v0.1 tag).
+- Audited through: 420da04
+- Residue swept through: 420da04
+- This tick: RECONCILED the b745415..420da04 window (5c3a618, 2722ca2,
+  28ad61f), both motions, on disk — never the log. Nothing dropped: the three
+  shipped entries left pending at 420da04 already. **Both stale gates re-tested
+  and both moved**, the audit's whole point: SKILL-NESTED-REFERENCE-DOCS is
+  **OPEN** — NESTED-FILE-DISCOVERY shipped at 2722ca2, verified at
+  `discover_builtin` (dispatches on the absent `governs`, walks each child
+  under its host's unit, one scanner still) — and SUPPORTING-DOC-REACH-CLAUSE
+  **re-points** to it: PREDICATE-SELECTION-ALGEBRA shipped at 28ad61f
+  (`graph::degree` takes `&[Selection]`, so a by-kind degree clause is judged
+  and admissible outside a requirement — the exact fence that held it), leaving
+  the built-in chain as its one real blocker. Queue is 3 pickable, up from 2.
+  **The sweep found one gap and it is not the class it looks like.** 28ad61f
+  carried a rider to re-verify graph.rs's two memory cites on the standing
+  premise "every fact still holds" — and that premise is FALSE for one:
+  `MAX_IMPORT_HOPS = 5` cites a page that reads *"a maximum depth of four
+  hops"* (re-fetched live this tick, wording unchanged). Build bumped the
+  verified cite (689 → 677) and declined this one rather than flip a live gate
+  inside an unrelated entry — the right call, and its friction capture is the
+  reason the datum survived. Filed **IMPORT-HOP-CAP-CITE, parked**: not
+  citation staleness, so it does not ride — staleness rides *because the fact
+  holds*, and here the constant itself may be wrong. Parked, not open, because
+  the doc sentence does not decide it: temper's indexing is decidable on disk
+  (`live_members` counts one import edge per BFS round from a live seed), but
+  whether the doc's "four hops" counts those same edges or a recursion atop the
+  first import is not, and both readings survive the sentence. Only a runtime
+  probe rules it; guessing forges or suppresses a dead-member finding
+  (invariant 2). Plan does not guess an external fact.
+  **Rider bookkeeping, three records reconciled:** contract.rs:490 discharged
+  (28ad61f rewrote the doc, now `documented_field` at 494) — the *named*
+  carrier worked where two unnamed ones failed, so the "name the rider in the
+  entry" shape is twice proven and the record now says so; graph.rs left the
+  rides-along class entirely (see above), leaving builtin_kind.rs as its one
+  surviving surface; compose.rs:233 lives with **no carrier** — no queued entry
+  opens the file. One new rider named at its carrier rather than filed here:
+  28ad61f retired the `Facet` type and left its vocabulary narrating engine.rs
+  at 157/534/1096-97, so EMBEDDED-CLAUSE-BODY-VACUITY-FENCE — which rewrites
+  `vacuities`'s signature and that very doc — names it in its own description.
+  Closing checklist: queue disjoint over the three open entries
+  (SDK-ROOT-EXPORT-CLOSURE sdk-only, EMBEDDED-CLAUSE-BODY-VACUITY-FENCE
+  engine/main/gate_fail_loud, SKILL-NESTED-REFERENCE-DOCS builtins/lock — no
+  shared path); IMPORT-HOP-CAP-CITE shares graph.rs with
+  EMBEDDED-EDGE-DEGREE-SEAM but is parked, so no wave can pick both; every gate
+  reason re-tested against disk, not restated; `kind.rs:600` corrected to 602
+  in SKILL-NESTED-REFERENCE-DOCS; field lengths validated. Spec cursor copied
+  forward verbatim — this tick derived no spec.
+- Queue: 3 pickable (SDK-ROOT-EXPORT-CLOSURE, EMBEDDED-CLAUSE-BODY-VACUITY-FENCE,
+  SKILL-NESTED-REFERENCE-DOCS); 3 gated behind them (EMBEDDED-EDGE-DEGREE-SEAM,
+  SDK-FIXTURE-WIRING-ONE-HOME, SUPPORTING-DOC-REACH-CLAUSE — the built-in tail);
+  2 parked on human acts (IMPORT-HOP-CAP-CITE: a hop-depth probe.
+  PACKAGING-CHANNELS-REMAINDER: Apple notarizing + the v0.1 tag). No gate is
+  stale — every one was tested this tick.
 
-Plan continues: yes — post-ship reconciliation of the b745415..420da04 window
-(5c3a618, 2722ca2, 28ad61f: PLACEMENT-KEY-NUL-DELIMITER, NESTED-FILE-DISCOVERY,
-PREDICATE-SELECTION-ALGEBRA), both code cursors trailing it. The audit owes the
-two stale gates above a re-test and the work behind them a derivation.
+Plan continues: no — the window is reconciled on both motions, the inbox is at
+its header, and the spec delta is empty. Build takes over on three pickable
+entries. The two parked entries need John, and IMPORT-HOP-CAP-CITE is the one
+worth surfacing: a live gate constant whose own cited source contradicts it.
