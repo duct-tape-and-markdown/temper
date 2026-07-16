@@ -71,6 +71,7 @@ governs_glob = "*/SKILL.md"
 format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
+templates = [{ kind = "supporting-doc", path = "*.md" }]
 
 [[declaration.requirement]]
 name = "friction-capture-procedure"
