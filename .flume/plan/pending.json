@@ -1,31 +1,5 @@
 [
   {
-    "tag": "SETTINGS-PATH-ONE-HOME",
-    "summary": "install.rs spells the settings write's path inline at two sites — route both through one private helper, minting no second home for the harness's format facts",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`place_settings_only` (559) and `evaluate_placements` (583) each spell `root.join(\".claude\").join(\"settings.json\")` — one job (where install's settings write lands), two spellings, no home. Route both through one new private helper over `root`. Pure refactor: no behavior moves, so the existing suites are the regression net. Out of scope — each a different job, not a re-spelling of this one: coverage_note.rs:240 (the unclaimed-entry scan's `.claude` dir), builtin_kind.rs + builtin_lock.toml (the built-in kind's `governs` data), and test fixtures (test data, per a330b56's precedent)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`rg 'join\\(\"\\.claude\"\\)\\.join\\(\"settings\\.json\"\\)' src/install.rs` returns nothing — both call sites read the one helper; `cargo test` stays green (behavior unmoved).",
-    "notes": "Third sibling of WORKSPACE-DIR-ONE-HOME (23c31c4) / LOCK-FILENAME-ONE-HOME (a330b56); swept from 27a2e28..b3327fb. NOT a lib.rs const like those two: `.claude`/`settings.json` are harness format facts homed in the kind's own source (builtins.md, 'The shipped kinds'), so a const there would mint a second home for what builtin_kind.rs already declares — the residue class this entry is fixing. scoped at b3327fb."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
