@@ -19,3 +19,6 @@ is its input. To confirm a change actually works:
    output to match broken behavior.
 4. Finish with `temper check .temper`: the structural gate must be green
    before the change is done.
+
+
+The entrypoint under test is src/main.js.

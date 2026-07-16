@@ -1,6 +1,16 @@
+import { blocks, text } from "@dtmd/temper";
 import { skill } from "@dtmd/temper/claude-code";
 import { span } from "../kinds.ts";
 import { GATE_COMMAND, VERIFY_COMMAND, VERIFY_EXPECTED } from "../facts.ts";
+
+/**
+ * The entrypoint under test, addressed as the discovered `source` member.
+ * The SDK defers a discovery-locus mention to the gate (the kind is
+ * declared; the member is the engine's to resolve), so this skill's claim
+ * about where the toy lives dangles loudly at `check` if `src/main.js`
+ * moves.
+ */
+const srcMain = { address: "source:main", display: "src/main.js" };
 
 /**
  * The Operations exemplar: the end-to-end check for the governed toy, as an
@@ -15,8 +25,9 @@ export const skill_verifySummary = skill({
     "Verifies the checklist summarizer end to end: runs it against TODO.md and compares the printed count with the file's items. Use after changing anything under src/ or TODO.md.",
   paths: ["src/**", "TODO.md"],
   satisfies: ["operations"],
-  prose: span(
-    `# Verify the summary
+  prose: blocks(
+    span(
+      `# Verify the summary
 
 The implementation under \`src/\` is a checklist summarizer and \`TODO.md\`
 is its input. To confirm a change actually works:
@@ -32,5 +43,7 @@ is its input. To confirm a change actually works:
 4. Finish with \`${GATE_COMMAND}\`: the structural gate must be green
    before the change is done.
 `,
+    ),
+    text`The entrypoint under test is ${srcMain}.`,
   ),
 });

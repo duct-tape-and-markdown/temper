@@ -221,12 +221,14 @@ cross-surface contradiction is unrepresentable, not linted; verified live,
 one constant edit moving three projections in one emit); a `paths`-scoped
 skill exercising the channel gate (`specs/builtins.md`, registration); and
 the required-domain floor verified falsifiable (removing the conduct
-member fails `check` with `requirement.unfilled`). **Blocked, finding
-filed:** the skill→script reference edge — a composed mention cannot
-target a discovered member (the SDK resolves mentions against program
-values, not the corpus; inbox 07-15). The hook→script edge stays future
-work with it (the example's hooks target the `temper` binary, so no
-dangling risk exists today).
+member fails `check` with `requirement.unfilled`). **The skill→script reference edge** landed in two waves: the emit-side
+deferral shipped (a mention addressing a declared discovery-locus kind
+defers to the gate — the example's verify skill now mentions
+`source:main`), and the gate-side verdict is the follow-up finding (check
+inherited a pre-deferral assumption that every lock mention row is
+emit-resolved; inbox 07-15). The falsifiability claim completes when that
+lands. The hook→script edge stays future work (the example's hooks target
+the `temper` binary, so no dangling risk exists today).
 
 ## What the dogfood must exercise
 

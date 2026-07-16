@@ -37,8 +37,8 @@ emit_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
 [[skill]]
 name = "verify-summary"
 source_path = ".claude/skills/verify-summary/SKILL.md"
-source_hash = "30c7e1c1502a1d9ba7ba02eaeb3b15bb277129cee6b840a0dc4912e7eac48efe"
-emit_hash = "30c7e1c1502a1d9ba7ba02eaeb3b15bb277129cee6b840a0dc4912e7eac48efe"
+source_hash = "9c1a4a7e7267c4ed6081c4b54c5f0a11bbaad0ca63f3cd8684c54f670bd587f6"
+emit_hash = "9c1a4a7e7267c4ed6081c4b54c5f0a11bbaad0ca63f3cd8684c54f670bd587f6"
 
 [[superseded-decision]]
 name = "per-change-doc-duty"
@@ -325,40 +325,44 @@ field = "implemented-by"
 to = "source"
 
 [[declaration.satisfies]]
-member = "CLAUDE"
+member = "hook:PreToolUse"
+requirement = "governance"
+
+[[declaration.satisfies]]
+member = "hook:SessionStart"
+requirement = "governance"
+
+[[declaration.satisfies]]
+member = "memory:CLAUDE"
 requirement = "orientation"
 
 [[declaration.satisfies]]
-member = "PreToolUse"
-requirement = "governance"
-
-[[declaration.satisfies]]
-member = "SessionStart"
-requirement = "governance"
-
-[[declaration.satisfies]]
-member = "conduct"
+member = "rule:conduct"
 requirement = "conduct"
 
 [[declaration.satisfies]]
-member = "docs-discipline"
+member = "rule:docs-discipline"
 requirement = "standards"
 
 [[declaration.satisfies]]
-member = "grow-harness"
+member = "skill:grow-harness"
 requirement = "governance"
 
 [[declaration.satisfies]]
-member = "renderer"
-requirement = "documented-spine"
-
-[[declaration.satisfies]]
-member = "scanner"
-requirement = "documented-spine"
-
-[[declaration.satisfies]]
-member = "verify-summary"
+member = "skill:verify-summary"
 requirement = "operations"
+
+[[declaration.satisfies]]
+member = "system:renderer"
+requirement = "documented-spine"
+
+[[declaration.satisfies]]
+member = "system:scanner"
+requirement = "documented-spine"
+
+[[declaration.mention]]
+member = "skill:verify-summary"
+target = "source:main"
 
 [[declaration.mention]]
 member = "summarize/step/scan/in"
