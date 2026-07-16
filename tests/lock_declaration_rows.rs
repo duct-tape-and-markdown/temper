@@ -867,6 +867,135 @@ fn a_host_kinds_declared_templates_round_trip_through_the_lock() {
     );
 }
 
+/// A host kind whose templates are all path-less — the shape an admitted embedded kind
+/// mints, and the only shape the legacy bare-string spelling could shape.
+fn spec_kind_facts_with_embedded_templates() -> KindFactRow {
+    KindFactRow {
+        format: Some("yaml-frontmatter".to_string()),
+        unit_shape: Some("directory".to_string()),
+        templates: vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: None,
+            },
+        ],
+        ..common::kind_facts("spec", "specs", "*.md")
+    }
+}
+
+/// Rewrite the one `templates` column in `text` to `spelling`, standing in for the lock
+/// an older engine really committed. Panics unless exactly one column matched — a silent
+/// no-op would leave the case asserting nothing.
+fn respell_templates_column(text: &str, spelling: &str) -> String {
+    let mut hits = 0;
+    let out = text
+        .lines()
+        .map(|line| {
+            if line.starts_with("templates = ") {
+                hits += 1;
+                format!("templates = {spelling}")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(hits, 1, "expected exactly one templates column in:\n{text}");
+    format!("{out}\n")
+}
+
+/// A committed lock carrying the legacy bare-string `templates` spelling loads: each
+/// string lifts to the same path-less [`TemplateRow`] the canonical inline table yields,
+/// the read never patches the committed file, and the next emit rewrites the column whole
+/// in canonical form.
+#[test]
+fn a_locks_legacy_bare_string_templates_read_as_kinds_and_re_emit_canonically() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_embedded_templates(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("legacy-templates", &payload);
+    let lock = into.join("lock.toml");
+    let canonical = fs::read_to_string(&lock).unwrap();
+    assert!(
+        canonical.contains(r#"templates = [{ kind = "decision" }, { kind = "note" }]"#),
+        "today's emit writes the canonical inline-table spelling, got:\n{canonical}"
+    );
+
+    // The lock an older engine committed: the same fact, spelled as bare strings.
+    let legacy = respell_templates_column(&canonical, r#"["decision", "note"]"#);
+    fs::write(&lock, &legacy).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+    let spec = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the templated kind fact is recorded");
+    assert_eq!(
+        spec.templates,
+        spec_kind_facts_with_embedded_templates().templates,
+        "a bare string is a spelling of the path-less template, never a lossy one"
+    );
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        legacy,
+        "the read normalizes the spelling; the committed file is never patched in place"
+    );
+
+    // The rewrite is the next emit's, and it writes the lock whole in canonical form.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        canonical,
+        "the next emit rewrites the legacy column canonically"
+    );
+}
+
+/// The refusal that survives the legacy read: an element that is neither the canonical
+/// inline table nor the legacy string is a row no SDK version could have emitted — a
+/// corrupt lock, rejected loud rather than shrugged off as a dropped row.
+#[test]
+fn a_templates_element_outside_both_spellings_still_refuses_loud() {
+    let payload = golden_payload(Declarations {
+        kinds: vec![
+            common::rule_kind_facts(Some("claude-code"), &["paths-match(paths)"]),
+            common::skill_kind_facts(
+                Some("claude-code"),
+                &["user-invoked", "description-trigger(description)"],
+            ),
+            spec_kind_facts_with_embedded_templates(),
+        ],
+        clauses: rich_declarations().clauses,
+        ..Declarations::default()
+    });
+    let (_harness, into) = emitted("corrupt-templates", &payload);
+    let lock = into.join("lock.toml");
+
+    let corrupt = respell_templates_column(&fs::read_to_string(&lock).unwrap(), "[17]");
+    fs::write(&lock, &corrupt).unwrap();
+
+    let err = drift::read_declarations(&into).unwrap_err();
+    // miette wraps the rendered message, so match on the code plus the column it names.
+    let rendered = format!("{err:?}");
+    assert!(
+        rendered.contains("temper::drift::lock_row") && rendered.contains("`templates`"),
+        "expected a loud corrupt-lock refusal naming the templates column, got:\n{rendered}"
+    );
+}
+
 /// A kind's `layout`-content fact round-trips SDK emit → lock kind row → engine
 /// `CustomKind` (`KIND-CONTENT-FACT`): the declared regions survive the lock byte-stably
 /// and reach `CustomKind::from_kind_fact_row`'s `content`, while a kind declaring no

@@ -3133,9 +3133,16 @@ fn template_array(templates: &[TemplateRow]) -> Array {
 }
 
 /// Read a `templates` column back off its array — an absent column is an empty set; a
-/// present non-array, a non-inline-table element, or a template missing its required
-/// `kind` is a [`RowError`], the required-column discipline the rest of the row family
-/// holds.
+/// present non-array, an element outside both spellings, or a template missing its
+/// required `kind` is a [`RowError`], the required-column discipline the rest of the row
+/// family holds.
+///
+/// Two spellings read: the canonical `{ kind = "…", path = "…" }` inline table, and a
+/// bare `"…"` string an older engine wrote for a path-less template. The string is the
+/// same fact, losslessly — a path-less template is exactly what an admitted embedded
+/// kind mints — so it normalizes at read and the next emit rewrites the column
+/// canonically; the committed file is never patched in place. An element that is
+/// neither is a row no SDK version could have emitted, and still refuses loud.
 fn templates_from_table(table: &dyn TableLike) -> Result<Vec<TemplateRow>, RowError> {
     let Some(item) = table.get("templates") else {
         return Ok(Vec::new());
@@ -3145,9 +3152,16 @@ fn templates_from_table(table: &dyn TableLike) -> Result<Vec<TemplateRow>, RowEr
         .ok_or_else(|| RowError::wrong("templates", "array"))?;
     let mut out = Vec::with_capacity(array.len());
     for element in array.iter() {
+        if let Some(kind) = element.as_str() {
+            out.push(TemplateRow {
+                kind: kind.to_string(),
+                path: None,
+            });
+            continue;
+        }
         let inline = element
             .as_inline_table()
-            .ok_or_else(|| RowError::wrong("templates", "array of tables"))?;
+            .ok_or_else(|| RowError::wrong("templates", "array of tables or strings"))?;
         out.push(TemplateRow {
             kind: req_str(inline, "kind")?,
             path: opt_str(inline, "path")?,
