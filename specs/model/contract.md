@@ -15,7 +15,7 @@ of three loci:
   authored address naming which member of the declared set. A one-element
   set resolves a bare name within its one kind; a multi-element set
   requires the kind-qualified address always — resolution depends on the
-  written text, never the member population (decision 0029),
+  written text, never the member population,
 - an **import directive** — a reference the target format itself executes
   (a memory file's `@path` import), resolved by path,
 - a **satisfies entry** — an edge whose target is a requirement member.
@@ -37,7 +37,7 @@ honors ignore rules — `pipeline.md`.) An edge carries no obligation of its own
 edge is counted is decided by the clauses that range over it. A mention is
 obligation-free by default — no shipped clause demands one exist; the
 shipped `mention-reachable` advisory judges only the mentions a member
-authored (decision 0028), and a contract may count them further.
+authored, and a contract may count them further.
 
 ## clause
 
