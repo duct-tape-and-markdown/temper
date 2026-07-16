@@ -19,7 +19,6 @@ import {
   bash,
   blocks,
   clause,
-  compileDeclarations,
   embeddedMemberValue,
   emit,
   file,
@@ -35,6 +34,7 @@ import {
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
 import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
+import { compileDeclarations } from "../src/declarations.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
@@ -620,9 +620,11 @@ test("embeddedMemberValue() composes an author-declared child kind, no built-in 
  });
 });
 
-test("the prescribed child-kind constructors are gone from the SDK's exports", () => {
+test("the names the root must not carry are absent from the SDK's exports", () => {
   const exports = sdk as Record<string, unknown>;
-  for (const removed of ["decision", "law", "bound", "genre", "genreValue"]) {
+  // The prescribed child-kind constructors, plus the seam's value half: the payload is
+  // internal, so its compiler and its version reach a caller only through `emit()`.
+  for (const removed of ["decision", "law", "bound", "genre", "genreValue", "compileDeclarations", "SEAM_VERSION"]) {
     assert.equal(exports[removed], undefined, `${removed} should no longer be exported`);
  }
 });

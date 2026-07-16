@@ -9,7 +9,6 @@ import { test } from "node:test";
 
 import {
   clause,
-  compileDeclarations,
   count,
   degree,
   enumOf,
@@ -22,7 +21,9 @@ import {
   text,
   unique,
 } from "../src/index.js";
-import type { ClauseRow, Predicate, Requirement, RequirementRow } from "../src/index.js";
+import type { Predicate, Requirement } from "../src/index.js";
+import { compileDeclarations } from "../src/declarations.js";
+import type { ClauseRow, RequirementRow } from "../src/declarations.js";
 import { skill } from "../src/claude-code.js";
 
 test("count composes a satisfier-set-size bound as an ordinary predicate", () => {

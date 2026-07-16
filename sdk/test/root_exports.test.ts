@@ -9,9 +9,10 @@
  * so the `.d.ts` is on disk by the time this file runs.
  *
  * The seam's generated row family is out of scope here and excluded by declaration
- * file: `Declarations` and `PayloadMember` are root-exported aliases of types
- * declared under `src/generated/`, whose own public face is the
- * `(seam-rows-public-face)` fork's question, not this walk's.
+ * file. The rows are internal, versioned in lockstep with the engine, and reach the
+ * face only by inference through `EmitResult` — nameability was never the boundary,
+ * the stability promise the root never made is. A row an author can infer is not a
+ * row the root owes an export.
  */
 import assert from "node:assert/strict";
 import { dirname, resolve } from "node:path";
@@ -85,7 +86,6 @@ test("every type a root-exported declaration names is itself root-exported", () 
   const holes: string[] = [];
   for (const entry of exported) {
     for (const declaration of target(checker, entry).getDeclarations() ?? []) {
-      if (resolve(declaration.getSourceFile().fileName).startsWith(`${GENERATED}/`)) continue;
       for (const named of referencedTypes(checker, declaration)) {
         if (!isAuthoringNoun(named) || face.has(named)) continue;
         holes.push(`\`${entry.getName()}\` names \`${named.getName()}\`, which the root never exports`);

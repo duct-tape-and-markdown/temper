@@ -80,19 +80,7 @@ export { embeddedMemberValue, kind } from "./kind.js";
 export type { Admission, EnforcementMode, ExpectBinding, Harness } from "./assembly.js";
 export { harness } from "./assembly.js";
 
-// Declaration rows — the erased program the seam carries.
-export type {
-  AssemblyFactRow,
-  ClauseRow,
-  Declarations,
-  EdgePlacements,
-  KindFactRow,
-  RequirementRow,
-  SatisfiesRow,
-} from "./declarations.js";
-export { SEAM_VERSION, compileDeclarations } from "./declarations.js";
-
 // Emit — the compile to the seam's JSON pipe; the engine is the sole compiler
 // of every projection and the whole lock.
-export type { EmitResult, PayloadMember, RegistrationFact, ResolveOptions, SettingsResidue } from "./emit.js";
+export type { EmitResult, RegistrationFact, ResolveOptions, SettingsResidue } from "./emit.js";
 export { emit } from "./emit.js";
