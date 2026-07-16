@@ -1,36 +1,5 @@
 [
   {
-    "tag": "LOCK-LAYER-DROP-REFUSE",
-    "summary": "A re-read dropping a whole declared layer the committed lock still carries — a pre-0018 harness's ~57 embedded members gone on re-emit — refuses with the finding stated, not silent loss",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "The second cliff refusal (0024): a re-read (`emit_program` drift.rs:566) that produces zero members for a whole layer the committed lock still declares — declaration rows present in the prior lock, derived rows empty — refuses with the finding stated. Compare this emit's derived declaration rows against `read_prior_provenance`/the prior lock's declared collections; a whole declared collection dropping to zero refuses. The disappearance is loud because the lock still declares it, never because prose was mined (invariant 1). Reuses EMIT-INTO's teardown flag as the spelled opt-out for a genuine layer removal."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a lock declaring an embedded-member layer whose source re-reads to zero members refuses with the finding stated; the teardown flag lets the removal through; a layer that legitimately loses one of many members still emits"
-      }
-    ],
-    "acceptance": "A re-read that drops a whole declared layer the committed lock still carries refuses with the finding stated — no silent layer loss on an upgrade — unless the author spells the teardown flag; a partial member change still emits.",
-    "notes": "0024's fourth incident: a harness green pre-0018 re-emitted with its ~57 embedded members silently gone (`explain`: 'carries no nested member'). The `(member-fence-dead-text)` loss repro folded in — the prose-scan alternative is rejected (0024 'Rejected': matching-is-mining; a quoted fence false-positives); the loss is the cliff refusal's job. Serialized after EMIT-INTO (shared drift.rs refusal path + teardown flag). observed d26b3ce; scoped 06e0c2c."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
