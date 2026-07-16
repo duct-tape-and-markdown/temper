@@ -26,7 +26,7 @@
       {
         "hooks": [
           {
-            "command": "temper check .temper --reporter session-start",
+            "command": "temper check . --reporter session-start",
             "type": "command"
           }
         ]

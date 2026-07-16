@@ -39,7 +39,7 @@ The **recursive dogfood is live**: this harness is represented at `.temper/`
 (member modules with module-adjacent prose documents, riding the workspace
 SDK via `file:../sdk`; `harness.ts`; the committed `lock.toml`), the
 `SessionStart` reporter and the guard are wired in `settings.json`, and the
-gate is `temper check .temper`. `CLAUDE.md` and the `.claude/` member files
+gate is `temper check .`. `CLAUDE.md` and the `.claude/` member files
 are **projections**: edit the owning `.temper/` module or document and
 re-run `temper emit` — a direct edit is drift. A fresh clone builds the SDK
 once (`pnpm -C sdk install && pnpm -C sdk build`) and installs the

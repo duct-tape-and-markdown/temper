@@ -11,9 +11,5 @@ export const VERIFY_COMMAND = "node src/main.js TODO.md";
 /** What the toy prints when TODO.md carries its committed contents. */
 export const VERIFY_EXPECTED = "2/3 done";
 
-/**
- * The structural gate over this corpus. The workspace argument is the
- * `.temper/` program directory — `temper check .` at the harness root
- * resolves no lock declarations and silently checks built-in kinds alone.
- */
-export const GATE_COMMAND = "temper check .temper";
+/** The structural gate over this corpus; the argument is the harness root. */
+export const GATE_COMMAND = "temper check .";

@@ -1,8 +1,8 @@
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "691c50a4365d525735299a42dbb046b9b8b708ecef7551d57e930c69cae493b4"
-emit_hash = "691c50a4365d525735299a42dbb046b9b8b708ecef7551d57e930c69cae493b4"
+source_hash = "1386b1d52c536f5fe11aa0631ee491fe342a1cb0108c88a50215a5e88b596569"
+emit_hash = "1386b1d52c536f5fe11aa0631ee491fe342a1cb0108c88a50215a5e88b596569"
 
 [[rule]]
 name = "collaboration"
@@ -88,12 +88,12 @@ fact = "mode"
 value = "warn"
 
 [[declaration.satisfies]]
-member = "capture-friction"
-requirement = "friction-capture-procedure"
+member = "rule:pending-entry"
+requirement = "pending-entry-discipline"
 
 [[declaration.satisfies]]
-member = "pending-entry"
-requirement = "pending-entry-discipline"
+member = "skill:capture-friction"
+requirement = "friction-capture-procedure"
 
 [[declaration.registration]]
 kind = "hook"

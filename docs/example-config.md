@@ -2,7 +2,7 @@
 
 The best worked example of a temper surface is the live one in this
 repository. The harness you are reading about is authored at
-[`.temper/`](../.temper/) and gated by `temper check .temper` on every
+[`.temper/`](../.temper/) and gated by `temper check .` on every
 session start. Every path on this page is real. The excerpts are copies
 made for reading flow, and nothing gates this page against the tree, so if
 a quote and its file ever disagree, the file is right and this page has a

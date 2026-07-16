@@ -1,4 +1,5 @@
 import { hook } from "@dtmd/temper/claude-code";
+import { GATE_COMMAND } from "./facts.ts";
 
 // The two gate placements, authored as fields-only registration members —
 // each folds into its `hooks.<Event>` entry in the settings.json projection.
@@ -7,7 +8,7 @@ import { hook } from "@dtmd/temper/claude-code";
 export const hook_sessionStart = hook({
   name: "SessionStart",
   type: "command",
-  command: "temper check .temper --reporter session-start",
+  command: `${GATE_COMMAND} --reporter session-start`,
   satisfies: ["governance"],
 });
 

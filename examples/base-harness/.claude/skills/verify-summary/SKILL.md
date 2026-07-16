@@ -17,7 +17,7 @@ is its input. To confirm a change actually works:
    `docs/systems/scanner.md` and `docs/systems/renderer.md` and decide
    whether the code or the document has the bug — never adjust the expected
    output to match broken behavior.
-4. Finish with `temper check .temper`: the structural gate must be green
+4. Finish with `temper check .`: the structural gate must be green
    before the change is done.
 
 

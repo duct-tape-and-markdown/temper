@@ -33,7 +33,7 @@ tells you where to look and how to work; `docs/` holds the intent, and
 - After changing `src/` or `TODO.md`, verify end to end: run
   `node src/main.js TODO.md` (the committed input prints `2/3 done`);
   the `verify-summary` skill walks the full procedure.
-- Structural verdicts come from `temper check .temper`; do not re-derive them
+- Structural verdicts come from `temper check .`; do not re-derive them
   by reading files. `temper explain <member>` narrates any member's
   edges, coverage, and blast radius.
 

@@ -13,8 +13,8 @@ emit_hash = "8c1344296318e108ea8b1281e91d2e381a99c7881c3ffac065213ee82d893f33"
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "1f1a14ba6d3dacfae8862d6abfc01a7eaca0e6a77b84717be66f3e9d2736b8de"
-emit_hash = "1f1a14ba6d3dacfae8862d6abfc01a7eaca0e6a77b84717be66f3e9d2736b8de"
+source_hash = "74fb4d803db5de8e0f3cc1ddd473045740aefa034388303365b4643824307cab"
+emit_hash = "74fb4d803db5de8e0f3cc1ddd473045740aefa034388303365b4643824307cab"
 
 [[rule]]
 name = "conduct"
@@ -37,8 +37,8 @@ emit_hash = "56f40527068b867a2ab87e93bb88f4a596b971352c3ddbcdfad1c4aeaee6ad5c"
 [[skill]]
 name = "verify-summary"
 source_path = ".claude/skills/verify-summary/SKILL.md"
-source_hash = "9c1a4a7e7267c4ed6081c4b54c5f0a11bbaad0ca63f3cd8684c54f670bd587f6"
-emit_hash = "9c1a4a7e7267c4ed6081c4b54c5f0a11bbaad0ca63f3cd8684c54f670bd587f6"
+source_hash = "c2243d727ec7d3569541dd5213795f5e3e5cc2a5f6ed58a66c1ca8b0fce6bb1c"
+emit_hash = "c2243d727ec7d3569541dd5213795f5e3e5cc2a5f6ed58a66c1ca8b0fce6bb1c"
 
 [[superseded-decision]]
 name = "per-change-doc-duty"
