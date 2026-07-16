@@ -27,9 +27,16 @@
   `gate_fail_loud.rs:279` HAND-WRITES the embedded edge fact, pinning the engine
   and never the emit seam — so `format-places-edges` is itself unreachable
   through real emit today, and the first entry restores it.
-  **The export note is a duplicate, drained not re-filed:** SDK-ROOT-EXPORT-CLOSURE
-  (5b6d17b) already names both `ResolvedEmbeddedMemberValue` and
-  `EdgeTargetFacts` in its own `files[].description`. Nothing re-scoped.
+  **The export note carried a datum I nearly lost.** c6de9b0 rewrote it under
+  this tick's snapshot into an addendum — the types are unnameable from the
+  `claude-code` subpath too, not the root alone — and the first drain
+  overwrote it. Restored and routed: the duplicate half is real
+  (SDK-ROOT-EXPORT-CLOSURE already names both types), but the subpath half was
+  new and no entry names `sdk/src/claude-code.ts`. **Declined on the merits,
+  recorded in the entry's acceptance:** distribution.md splits root (kernel
+  nouns) from subpath (the provider face), and `kind()` is root-only — the
+  subpath exports no constructor — so a consumer declaring the kind whose
+  `render` hook this types already imports the root. The trap cannot form.
   **One fork registered:** `(edge-field-target-openness)` — `EdgeField.to` is
   required (`kind.ts:43-47`) yet emit resolves address-based and `to`-blind
   (`emit.ts:248-274`) while corpus and engine both say "identity within the
