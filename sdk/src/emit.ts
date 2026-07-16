@@ -14,14 +14,15 @@ import { readFileSync } from "node:fs";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, Member, ResolvedEmbeddedMemberCollectionEntry, ResolvedEmbeddedMemberValue } from "./kind.js";
-import type { Text } from "./prose.js";
-import { isTextSpan, renderText, resolveLeaf } from "./prose.js";
+import type { MentionScope, Text } from "./prose.js";
+import { checkMentions, isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
 import type { Declarations } from "./declarations.js";
 import {
   compareStrings,
   compileDeclarations,
   declaredAddresses,
+  declaredAtLocusKinds,
   declaredRequirements,
   encodeSeam,
   registrationRows,
@@ -38,6 +39,19 @@ export type { PayloadMember } from "./generated/index.js";
 export interface ResolveOptions {
   /** The addresses a mention may name — resolution-checked; a mention cannot dangle. */
   readonly mentionable?: ReadonlySet<string>;
+  /**
+   * The discoverable (`at`-locus) kinds the program declares. A mention naming one of
+   * these whose member is not composed defers to `check` rather than refusing at emit.
+   */
+  readonly deferrableKinds?: ReadonlySet<string>;
+}
+
+/** The {@link MentionScope} a set of {@link ResolveOptions} names — its two sets, each defaulting to empty. */
+function scopeOf(options: ResolveOptions): MentionScope {
+  return {
+    mentionable: options.mentionable ?? new Set<string>(),
+    deferrableKinds: options.deferrableKinds ?? new Set<string>(),
+  };
 }
 
 /**
@@ -87,18 +101,18 @@ function tomlString(text: string): string {
  * embedded-kind leaf mention never depends on whether the kind declares
  * `render` (`pipeline.md`, "Emit", the "Refusing" bullet).
  */
-function resolveMemberLeaves(value: EmbeddedMemberValue, mentionable: ReadonlySet<string>): ResolvedEmbeddedMemberValue {
+function resolveMemberLeaves(value: EmbeddedMemberValue, scope: MentionScope): ResolvedEmbeddedMemberValue {
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const leaves: Record<string, string> = {};
   for (const [key, leaf] of Object.entries(value.leaves)) {
-    leaves[key] = resolveLeaf(leaf, mentionable, context(key));
+    leaves[key] = resolveLeaf(leaf, scope, context(key));
   }
   const collections: Record<string, ResolvedEmbeddedMemberCollectionEntry[]> = {};
   for (const [collection, entries] of Object.entries(value.collections)) {
     collections[collection] = entries.map((entry) => {
       const entryLeaves: Record<string, string> = {};
       for (const [leaf, text] of Object.entries(entry.leaves)) {
-        entryLeaves[leaf] = resolveLeaf(text, mentionable, context(`${collection}.${entry.key}.${leaf}`));
+        entryLeaves[leaf] = resolveLeaf(text, scope, context(`${collection}.${entry.key}.${leaf}`));
       }
       return { key: entry.key, leaves: entryLeaves };
     });
@@ -142,32 +156,24 @@ function renderMemberToml(value: ResolvedEmbeddedMemberValue): string {
  * hook receives plain strings, never a raw `Text` leaf.
  */
 function renderMemberBlock(value: EmbeddedMemberValue, options: ResolveOptions): string {
-  const mentionable = options.mentionable ?? new Set<string>();
-  const resolved = resolveMemberLeaves(value, mentionable);
+  const resolved = resolveMemberLeaves(value, scopeOf(options));
   if (value.render !== undefined) return value.render(resolved);
   return `\`\`\`member.${value.kind} ${value.key}\n${renderMemberToml(resolved)}\n\`\`\``;
 }
 
 /**
  * Render a member-level `Text` body to its final bytes: its mentions are
- * resolution-checked against `mentionable` (loud on a dangling address, `context`
- * naming the host) and the display rule applied, each include slot left standing
- * for the engine to splice. Shared by a `text` body and a composed body's prose
- * spans, so a narrative span resolves the identical way a member-level `text`
- * body does.
+ * resolution-checked against `scope` ({@link checkMentions}: loud on a dangling
+ * address, a discovery-locus one deferred; `context` naming the host) and the
+ * display rule applied, each include slot left standing for the engine to splice.
+ * Shared by a `text` body and a composed body's prose spans, so a narrative span
+ * resolves the identical way a member-level `text` body does.
  *
  * # Throws
- * If a mention names no declared value.
+ * If a mention names no declared value and has no discovery locus.
  */
-function renderTextBody(prose: Text, mentionable: ReadonlySet<string>, context: string): string {
-  for (const mention of prose.mentions) {
-    if (!mentionable.has(mention.target.address)) {
-      throw new Error(
-        `${context}: mention of \`${mention.target.address}\` resolves to no ` +
-          `declared value — a mention cannot dangle (specs/model/contract.md).`,
-      );
-    }
-  }
+function renderTextBody(prose: Text, scope: MentionScope, context: string): string {
+  checkMentions(prose.mentions, scope, context);
   return renderText(prose);
 }
 
@@ -198,16 +204,16 @@ function resolveBody(member: Member, options: ResolveOptions): string {
       );
     }
   }
-  const mentionable = options.mentionable ?? new Set<string>();
+  const scope = scopeOf(options);
   if (prose.kind === "blocks") {
     const context = `member \`${member.name}\``;
     return (
       prose.values
-        .map((value) => (isTextSpan(value) ? renderTextBody(value, mentionable, context) : renderMemberBlock(value, options)))
+        .map((value) => (isTextSpan(value) ? renderTextBody(value, scope, context) : renderMemberBlock(value, options)))
         .join("\n\n") + "\n"
     );
   }
-  return renderTextBody(prose, mentionable, `member \`${member.name}\``);
+  return renderTextBody(prose, scope, `member \`${member.name}\``);
 }
 
 /**
@@ -398,6 +404,7 @@ export function emit(harness: Harness): EmitResult {
   refuseBrokenSource(harness);
   const resolve: ResolveOptions = {
     mentionable: declaredAddresses(harness),
+    deferrableKinds: declaredAtLocusKinds(harness),
   };
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);

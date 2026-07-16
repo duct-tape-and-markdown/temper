@@ -579,10 +579,13 @@ test("a resolved mention renders to its declared value's display form", () => {
   assert.match(member.body, /A rust is declared\./);
 });
 
-test("an unresolved mention is a loud emit error", () => {
+test("an unresolved mention naming no declared kind is a loud emit error", () => {
+  // `widget` is nowhere declared in this harness, so the mention names no discovery
+  // locus to defer to — a dangling refusal at emit. (A mention naming a *declared* kind
+  // with no composed member defers instead; see `mention.test.ts`.)
   const citer = rule({
     name: "citations",
-    prose: text`A ${{ address: "rule:ghost", display: "ghost" }} is declared.`,
+    prose: text`A ${{ address: "widget:ghost", display: "ghost" }} is declared.`,
  });
   assert.throws(() => emit(harness({ members: [citer] })), /a mention cannot dangle/);
 });

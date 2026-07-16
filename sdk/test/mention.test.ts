@@ -20,6 +20,17 @@ const memoryDecision = kind<Record<never, never>>({
   registration: [{ via: "always" }],
 });
 
+/**
+ * A `source`-shaped `at`-locus kind whose members live on disk under `src/`, never
+ * composed in the program — the discovery-locus a deferred mention names.
+ */
+const sourceKind = kind<Record<never, never>>({
+  name: "source",
+  locus: { kind: "at", root: "src", glob: "*.js" },
+  unitShape: "file",
+  registration: [{ via: "always" }],
+});
+
 /** A host carrying one embedded `decision` member keyed `done-is-exact`. */
 function hostWithEmbeddedMember() {
   return memory({
@@ -76,6 +87,37 @@ test("a dangling mention in a composed-body prose span refuses at emit, like a m
       }),
     ],
   });
+
+  assert.throws(() => emit(h), /a mention cannot dangle/);
+});
+
+test("a mention naming a declared at-locus kind with no composed member defers to check, riding the lock", () => {
+  // `source` is declared (bound via `expect`) but has no composed member: its members
+  // are discovered on disk. `source:main` names that discovery locus, so emit defers
+  // rather than refusing — the row rides the lock for `check` to resolve.
+  const citer = rule({
+    name: "citations",
+    prose: text`It rests on ${{ address: "source:main", display: "main" }}.`,
+  });
+  const h = harness({
+    members: [citer],
+    expect: [{ kind: sourceKind, clauses: [] }],
+  });
+
+  const result = emit(h);
+  const member = result.members.find((m) => m.name === "citations")!;
+  assert.match(member.body, /It rests on main\./);
+  assert.deepEqual(result.declarations.mentions, [{ member: "rule:citations", target: "source:main" }]);
+});
+
+test("a mention naming no declared kind still refuses at emit — no discovery locus to defer to", () => {
+  // `source` is nowhere declared here (no member of it, no `expect` binding), so the
+  // mention names an undeclared kind: dangling with no discovery locus, refused at emit.
+  const citer = rule({
+    name: "citations",
+    prose: text`It rests on ${{ address: "source:main", display: "main" }}.`,
+  });
+  const h = harness({ members: [citer] });
 
   assert.throws(() => emit(h), /a mention cannot dangle/);
 });

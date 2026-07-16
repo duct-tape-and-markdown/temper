@@ -53,6 +53,54 @@ export interface Include {
 /** A `` text`…` `` interpolation — a mention (moves no content) or an include (moves content). */
 export type Reference = Mentionable | Include;
 
+/**
+ * The resolution universe a mention is checked against at emit: the addresses that
+ * resolve here and now ({@link mentionable}), and the kinds whose members the program
+ * declares but does not compose ({@link deferrableKinds}) — a mention naming one of
+ * those defers to `check` rather than refusing at emit.
+ */
+export interface MentionScope {
+  /** Every address a mention may resolve against in the program's own universe. */
+  readonly mentionable: ReadonlySet<string>;
+  /** The discoverable (`at`-locus) kinds the program declares — the deferral signal. */
+  readonly deferrableKinds: ReadonlySet<string>;
+}
+
+/**
+ * Whether a mention's unresolved address **defers to the gate** rather than refusing at
+ * emit: a top-level `kind:name` address whose kind is one the program declares at a
+ * discovery locus (an `at`-locus kind) may name a member discovered on disk, so `check`
+ * owns the verdict. An embedded leaf address (a `<host>/<kind>/<key>` form, carrying a
+ * `/`), a bare requirement name (no `:`), or a kind the program does not declare has no
+ * discovery locus and stays a dangling refusal.
+ */
+export function defersToGate(address: string, deferrableKinds: ReadonlySet<string>): boolean {
+  if (address.includes("/")) return false;
+  const colon = address.indexOf(":");
+  return colon > 0 && deferrableKinds.has(address.slice(0, colon));
+}
+
+/**
+ * Refuse a mention whose address neither resolves against the scope's `mentionable`
+ * set nor defers to the gate ({@link defersToGate}) — the one dangling-mention refusal,
+ * shared by a member-level `Text` body, a composed body's prose span, and an embedded
+ * `Text` leaf. `context` prefixes the error so it names the host.
+ *
+ * # Throws
+ * If a mention names no declared value and its address has no discovery locus.
+ */
+export function checkMentions(mentions: readonly Mention[], scope: MentionScope, context: string): void {
+  for (const mention of mentions) {
+    const { address } = mention.target;
+    if (!scope.mentionable.has(address) && !defersToGate(address, scope.deferrableKinds)) {
+      throw new Error(
+        `${context}: mention of \`${address}\` resolves to no declared value — ` +
+          `a mention cannot dangle (specs/model/contract.md).`,
+      );
+    }
+  }
+}
+
 /** Whether an interpolation target is an include rather than a mention. */
 function isInclude(reference: Reference): reference is Include {
   return (reference as Include).kind === "include";
@@ -221,15 +269,16 @@ export function renderText(prose: Text): string {
 
 /**
  * Resolve a leaf's authored value to its stored/rendered string: a bare string
- * is unchanged; a `Text` leaf is mention-resolution-checked against
- * `mentionable` (loud on a dangling address) and rendered by {@link renderText}
- * — the same rule a member-level `Text` body resolves by. `context` prefixes
- * the dangling-mention error so it names the leaf, not just the mention.
+ * is unchanged; a `Text` leaf is mention-resolution-checked against `scope`
+ * ({@link checkMentions}: loud on a dangling address, a discovery-locus one
+ * deferred) and rendered by {@link renderText} — the same rule a member-level
+ * `Text` body resolves by. `context` prefixes the dangling-mention error so it
+ * names the leaf, not just the mention.
  *
  * # Throws
- * If a mention names no declared value.
+ * If a mention names no declared value and has no discovery locus.
  */
-export function resolveLeaf(value: string | Text, mentionable: ReadonlySet<string>, context: string): string {
+export function resolveLeaf(value: string | Text, scope: MentionScope, context: string): string {
   if (typeof value === "string") return value;
   if (value.includes.length > 0) {
     throw new Error(
@@ -237,13 +286,6 @@ export function resolveLeaf(value: string | Text, mentionable: ReadonlySet<strin
         `member-body intent, not a fenced-value one (specs/model/pipeline.md, "The SDK").`,
     );
   }
-  for (const mention of value.mentions) {
-    if (!mentionable.has(mention.target.address)) {
-      throw new Error(
-        `${context}: mention of \`${mention.target.address}\` resolves to no declared value — ` +
-          `a mention cannot dangle (specs/model/contract.md).`,
-      );
-    }
-  }
+  checkMentions(value.mentions, scope, context);
   return renderText(value);
 }

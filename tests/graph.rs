@@ -18,7 +18,7 @@ use std::path::Path;
 mod common;
 
 use temper::drift::{AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow};
-use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, NestedMemberRow};
+use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow};
 
 /// A floor-clean rule carrying a `routes_to` reference field — the declared edge
 /// the graph reads. `routes_to` is not a floor-forbidden rule key, so the rule
@@ -479,6 +479,101 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
             && run.output.contains("incoming")
             && run.output.contains("style"),
         "the finding names the degree bound, the direction, and the unreachable satisfier, got:\n{}",
+        run.output
+    );
+}
+
+/// A `mention` declaration row — the lock family a deferred discovery-locus mention
+/// rides. `emit` writes it whether or not the target is a composed value; `check` folds
+/// it into the resolved-edge set and resolves it against the discovered corpus.
+fn mention(member: &str, target: &str) -> MentionRow {
+    MentionRow {
+        member: member.to_string(),
+        target: target.to_string(),
+    }
+}
+
+#[test]
+fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
+    let root = common::tmpdir("mention-resolves");
+    // The rule `style` cites the skill `standards` through a mention riding the lock —
+    // the shape a discovery-locus mention takes: emit deferred it, and check resolves it
+    // against the discovered corpus. `standards` opts into a routed `incoming = { min = 1 }`
+    // bound, so the mention counting toward its degree proves the edge resolved to the
+    // real, discovered member — the run is clean.
+    write_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![mention("rule:style", "skill:standards")],
+            requirements: vec![degree_requirement(
+                Some("skill"),
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a mention resolving against a discovered member reaches it ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
+    let root = common::tmpdir("mention-dangles");
+    // The same routed `incoming = { min = 1 }` bound on the discovered `standards`, but the
+    // rule's mention names `skill:ghost` — no such skill is discovered. The mention resolves
+    // by identity against the discovered corpus, so it reaches the phantom `ghost`, never
+    // the real `standards`, whose incoming degree stays zero: the gate refuses, the same
+    // verdict a dangling declared edge earns.
+    write_harness(
+        &root,
+        "style",
+        &routing_rule("standards"),
+        "standards",
+        &common::clean_skill("standards"),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![mention("rule:style", "skill:ghost")],
+            requirements: vec![degree_requirement(
+                Some("skill"),
+                DegreeBoundRow {
+                    incoming: Some(edge_bound(Some(1), None)),
+                    outgoing: None,
+                },
+            )],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "skills", "standards", &["gate"]);
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a mention naming no discovered member reaches the real target never ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("degree")
+            && run.output.contains("incoming")
+            && run.output.contains("standards"),
+        "the finding names the unreached discovered member and the bound it misses, got:\n{}",
         run.output
     );
 }

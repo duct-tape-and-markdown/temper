@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
 import type { Clause, Predicate, Requirement } from "./contract.js";
-import type { Include } from "./prose.js";
+import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
 
 import type {
@@ -421,22 +421,22 @@ function includeRows(harness: Harness): IncludeRow[] {
 /**
  * One host member's declared embedded-member value as its declaration row —
  * each `Text`-authored leaf resolved to its final stored string
- * ([`NestedMemberRow`]), mention-resolution-checked against `mentionable` the
- * identical way `emit.ts`'s `renderMemberToml` checks the same leaf on its way
- * into the rendered fence.
+ * ([`NestedMemberRow`]), mention-resolution-checked against `scope` the identical
+ * way `emit.ts`'s `renderMemberToml` checks the same leaf on its way into the
+ * rendered fence.
  */
-function nestedMemberRow(host: string, value: EmbeddedMemberValue, mentionable: ReadonlySet<string>): NestedMemberRow {
+function nestedMemberRow(host: string, value: EmbeddedMemberValue, scope: MentionScope): NestedMemberRow {
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const leaves: Record<string, string> = {};
   for (const [field, leaf] of Object.entries(value.leaves)) {
-    leaves[field] = resolveLeaf(leaf, mentionable, context(field));
+    leaves[field] = resolveLeaf(leaf, scope, context(field));
  }
   const collections: Record<string, CollectionEntryWire[]> = {};
   for (const [collection, entries] of Object.entries(value.collections)) {
     collections[collection] = entries.map((entry) => {
       const entryLeaves: Record<string, string> = {};
       for (const [field, leaf] of Object.entries(entry.leaves)) {
-        entryLeaves[field] = resolveLeaf(leaf, mentionable, context(`${collection}.${entry.key}.${field}`));
+        entryLeaves[field] = resolveLeaf(leaf, scope, context(`${collection}.${entry.key}.${field}`));
  }
       return { key: entry.key, leaves: entryLeaves };
  });
@@ -476,7 +476,7 @@ function embeddedHostsByKind(harness: Harness): Map<string, ReadonlySet<string>>
  * to be unmodeled without a word — nesting is the host template's own declaration, so an
  * unadmitted nested member is an unresolved input, not output to write over.
  */
-function nestedMemberRows(harness: Harness, mentionable: ReadonlySet<string>): NestedMemberRow[] {
+function nestedMemberRows(harness: Harness, scope: MentionScope): NestedMemberRow[] {
   const hostsByKind = embeddedHostsByKind(harness);
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
@@ -493,7 +493,7 @@ function nestedMemberRows(harness: Harness, mentionable: ReadonlySet<string>): N
             `names the host (specs/model/representation.md, "nesting").`,
         );
       }
-      rows.push(nestedMemberRow(host, value, mentionable));
+      rows.push(nestedMemberRow(host, value, scope));
  }
  }
   return rows.sort(
@@ -588,6 +588,23 @@ export function declaredAddresses(harness: Harness): Set<string> {
   return set;
 }
 
+/**
+ * Every discoverable (`at`-locus) kind the program declares — the deferral signal a
+ * dangling mention is measured against (`prose.ts`'s `defersToGate`): a mention naming
+ * one of these whose member is not a composed value defers to `check`, while a mention
+ * naming no declared kind refuses at emit. Member kinds ∪ `expect` kinds; an embedded
+ * kind is excluded — its members are composed within a host, never discovered, so a
+ * flat `kind:name` mention of one has no discovery locus to defer to.
+ */
+export function declaredAtLocusKinds(harness: Harness): Set<string> {
+  return new Set(atLocusKindsInPlay(kindsInPlay(harness)).map((facts) => facts.name));
+}
+
+/** The full {@link MentionScope} the program resolves a mention against — its addresses and its deferral kinds. */
+export function mentionScope(harness: Harness): MentionScope {
+  return { mentionable: declaredAddresses(harness), deferrableKinds: declaredAtLocusKinds(harness) };
+}
+
 /** Compile a harness into its seven declaration families — the erased program. */
 export function compileDeclarations(harness: Harness): Declarations {
   const allKinds = kindsInPlay(harness);
@@ -606,7 +623,7 @@ export function compileDeclarations(harness: Harness): Declarations {
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),
-    nested_members: nestedMemberRows(harness, declaredAddresses(harness)),
+    nested_members: nestedMemberRows(harness, mentionScope(harness)),
     registrations: registrationRows(harness),
     settings: settingsRows(harness),
   };

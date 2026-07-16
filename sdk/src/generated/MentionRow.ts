@@ -3,9 +3,11 @@
 /**
  * One authored `n` mention edge's declaration row — the citing member's own
  * `kind:name` address and the address its mention names (another member's
- * `kind:name`, or a bare requirement name), already resolved at emit. Recorded
- * unconditionally: a dangling mention never reaches the lock (`emit` refuses
- * first), so this row carries no resolution state of its own.
+ * `kind:name`, or a bare requirement name). Recorded unconditionally, carrying no
+ * resolution state of its own: `emit` refuses a mention naming no declared kind
+ * before a byte is written, while a mention naming a declared kind with no composed
+ * member defers — its row rides the lock for `check` to resolve against the
+ * discovered corpus.
  */
 export type MentionRow = { 
 /**
