@@ -1,5 +1,40 @@
 [
   {
+    "tag": "LOCK-LEGACY-TEMPLATES-READ",
+    "summary": "Legacy `templates = [\"name\"]` string rows in a committed lock refuse at `check` instead of normalizing at read — 0024 owes a robust read and a canonical rewrite",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`templates_from_table` (3139-3157) lifts the `templates` column, and an element that is not an inline table raises `RowError::wrong(\"templates\", \"array of tables\")` (3150) — surfaced as `LockRowError::WrongType` (351-359), which refuses the whole lock load before `emit` can rewrite anything. Normalize instead: a bare-string element reads as `TemplateRow { kind: <s>, path: None }` — the exact shape the SDK's own `templatesFor` mints for an admitted embedded kind (`sdk/src/declarations.ts:189`, `admitted.map((kind) => ({ kind }))`), so the string form is a spelling of the same fact, never a lossy one. **The line to hold:** `LockRowError`'s own doc (333-337) rejects `a row the SDK could not have emitted` as a corrupt lock, and that stays — the honest discriminator is a row NO SDK version could have emitted, not one today's could not. A legacy bare string is a spelling an older engine really wrote, so it is 0024's robust-read case; an element that is neither string nor table (an integer, an array) is still corrupt and still refuses loud (`intent.md`, invariant 6). Do not weaken the refusal wholesale — that would narrow the gate against genuinely corrupt locks. The sibling array-of-tables lifts — `regions` (3220), `clauses` (3355), `collections` (3713) — share the discipline but never carried a string spelling, so they do not move."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "`a_host_kinds_declared_templates_round_trip_through_the_lock` (822) pins the canonical inline-table round trip and stays green unchanged — it is the regression fence proving normalization did not disturb today's spelling. Add the legacy-read case beside it: a lock whose `templates` column carries bare strings loads, lifts to the same `TemplateRow` set the inline-table form yields, and the next emit rewrites the column canonically with the committed file never patched in place. Pin the refusal that survives too, so the fix cannot silently broaden into a dropped-row shrug: an element neither string nor table still raises `LockRowError`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a lock's legacy bare-string `templates` elements read as `{ kind }` templates and re-emit canonically, while an element outside both spellings still refuses loud"
+      }
+    ],
+    "acceptance": "A committed lock carrying `templates = [\"name\"]` passes `check` — the row lifts to the same `TemplateRow` the canonical `{ kind = \"name\" }` yields — and the next `emit` rewrites the column in canonical form, the file itself never patched (pipeline.md, \"The lock\": an upgraded engine owes a committed lock a robust read and a canonical rewrite; the next emit rewrites it whole in canonical form). A row no SDK version could have emitted still refuses loud. `cargo test` green.",
+    "notes": "Routed from the inbox; the field-hit is real, not speculative. f19f49b's diff of the example lock rewrote four bare-string `templates` rows to inline tables — an older SDK really emitted the spelling this reader now refuses. Verified at HEAD: no other lock column ever carried a string form, so `templates_from_table` is the whole scope. The `withinHosts` source migration the note pairs with it is the author's own act, not this entry. scoped at 65994fa"
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -33,7 +68,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 4a33911 and holds — nothing in the window ruled the hop semantics. EMBEDDED-EDGE-DEGREE-SEAM (c607fad) opened both cited files without naming this rider, so it did not discharge — the law three ticks have now proven. Its edits moved every cite: graph.rs 382-383→384-385, 481-483→483-484, live_members 484-523→486-527; tests/graph.rs 1126→1238, 1129-1130→1241-1243. All corrected above, re-verified live. rescoped at 4a33911."
+    "notes": "Park re-tested at 65994fa and holds — nothing in the window ruled the hop semantics, and both cited files are untouched since 4a33911, so every line cite above still resolves. EMBEDDED-EDGE-DEGREE-SEAM (c607fad) opened both files without naming this rider, so it did not discharge — the law three ticks have now proven. The entry stays parked: the constant may still be wrong, the one thing that keeps it out of the staleness-rider class. rescoped at 4a33911."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +95,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 4a33911 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 65994fa and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
   }
 ]
