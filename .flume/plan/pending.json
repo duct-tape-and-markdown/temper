@@ -1,40 +1,5 @@
 [
   {
-    "tag": "EMIT-INTO-REROOT-REAP",
-    "summary": "`emit --into <dir>` inside an adopted harness re-roots the projection tree, orphaning every live projection — emit refuses the total-reap wave unless the author spells an explicit teardown flag",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "In the emit reap path (`reap_or_report_orphan` drift.rs:1326, driven by `emit_program` drift.rs:547, over the orphan sweep at 875-882, joining on `normalize_lock_path(&row.source_path)` at 879) add the cliff refusal (0024): a reap wave that would delete every live projection while emitting nothing refuses with the finding stated, never deletes byte-faithfully. The `--into` re-root of an adopted harness is the motivating instance (every prior projection reads ownerless). The explicit teardown flag is threaded here as the spelled opt-out. Sits on the LOCK-SPELLING-corrected join so the refusal fires only on a genuine wave, not a spelling-induced false one."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Add the teardown flag to Emit and carry it to the reap guard (the `--into` arg already exists: `into: PathBuf` main.rs:134, emit handler main.rs:308-316); with the flag set, a total-reap wave is the author's spelled intent and proceeds. Shares the arg/workspace resolution CHECK-ARG-HALF-GATE reworked (shipped 4256274)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "`emit --into <nested-dir>` inside an adopted harness refuses the total-reap wave (finding stated, projections intact); the explicit teardown flag lets the wave through; plain `emit` still reaps a genuinely single ownerless projection"
-      }
-    ],
-    "acceptance": "A reap wave that would delete every live projection while emitting nothing refuses with the finding stated — no silent mass-reap on an `--into` re-root — unless the author spells the explicit teardown flag; a genuine single-orphan reap still works.",
-    "notes": "Observed at aba7e47: `emit --into .temper` reaped 7 live root projections (CLAUDE.md, five rules, a skill); restored via git. 0024's 'refuse at the cliff' — total-reap refusal + explicit teardown flag (PR #20's bare refusal adopted with the spelled escape) — dependsOnForks dropped. Carries the reap-wave half of 0024's 'emit gains the cliff refusals and the teardown flag'; LOCK-LAYER-DROP carries the dropped-layer half. scoped 06e0c2c (re-verified vs 01625fb)."
-  },
-  {
     "tag": "LOCK-LAYER-DROP-REFUSE",
     "summary": "A re-read dropping a whole declared layer the committed lock still carries — a pre-0018 harness's ~57 embedded members gone on re-emit — refuses with the finding stated, not silent loss",
     "per": {
