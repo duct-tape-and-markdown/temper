@@ -1,31 +1,5 @@
 [
   {
-    "tag": "LOCK-FILENAME-ONE-HOME",
-    "summary": "`drift.rs` re-spells the lock filename at five sites while `LOCK_FILENAME` now holds its one home — finish the consolidation the workspace-dir pass left short",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "Read `crate::LOCK_FILENAME` at the five `workspace_dir.join(\"lock.toml\")` sites — `read_prior_provenance` (1436), `config_stale` (1812), `source_deps` (1939), `emit_owned_targets` (2075), `read_declarations` (2738) — the same use-site read `import.rs` already takes. The module's `//!` header and the `./.temper`/`parent()` comment at 716 name the concept in prose, not as literals; leave them."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "One home spells the lock filename: `rg 'lock\\.toml' src/` returns, outside comments, `src/lib.rs`'s const and `builtin_lock.rs`'s distinct `src/builtin_lock.toml` embed alone. Behavior unchanged — `cargo test` green with no test edited, `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "Sweep finding, 169e62f..27a2e28. 23c31c4 homed `.temper` and `lock.toml` in lib.rs, converting the four modules that held *consts*; drift.rs holds none, so both that scope and the entry's const-shaped acceptance missed its five inline `join(\"lock.toml\")` calls. Pure refactor — no behavior moves, so no new test; the existing suites are the regression net. Test fixtures spell the literal inline: out of scope, test data rather than a const surface. scoped at 27a2e28."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
