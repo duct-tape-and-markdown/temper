@@ -1433,7 +1433,7 @@ struct ProvenanceRow {
 /// rows — the same tolerant-read absence [`config_stale`]/[`emit_owned_targets`]
 /// take: nothing to compare against forges no reap, no drift finding.
 fn read_prior_provenance(workspace_dir: &Path) -> Vec<ProvenanceRow> {
-    let path = workspace_dir.join("lock.toml");
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
     let Ok(text) = fs::read_to_string(&path) else {
         return Vec::new();
     };
@@ -1809,7 +1809,7 @@ const CONFIG_STALE_RULE: &str = "config.stale";
 /// in-place member cannot drift.
 #[must_use]
 pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
-    let path = workspace_dir.join("lock.toml");
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
     let Ok(text) = fs::read_to_string(&path) else {
         return Vec::new();
     };
@@ -1936,7 +1936,7 @@ fn source_dep_row(row: &Table) -> Result<LayoutImportRow, RowError> {
 /// Returns a [`DriftError`] if the lock exists but cannot be read or parsed, or if a
 /// present dependency row is malformed.
 fn source_deps(workspace_dir: &Path, family_key: &str) -> Result<Vec<LayoutImportRow>, DriftError> {
-    let path = workspace_dir.join("lock.toml");
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -2072,7 +2072,7 @@ pub struct EmitOwnedEntry {
 /// bind" absence [`config_stale`] treats identically.
 #[must_use]
 pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
-    let path = workspace_dir.join("lock.toml");
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
     let Ok(text) = fs::read_to_string(&path) else {
         return Vec::new();
     };
@@ -2735,7 +2735,7 @@ impl Declarations {
 ///
 /// Returns a [`DriftError`] if the lock exists but cannot be read or parsed as TOML.
 pub fn read_declarations(workspace_dir: &Path) -> miette::Result<Declarations> {
-    let path = workspace_dir.join("lock.toml");
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
     let text = match fs::read_to_string(&path) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
