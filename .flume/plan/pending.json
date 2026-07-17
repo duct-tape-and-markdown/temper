@@ -1,57 +1,5 @@
 [
   {
-    "tag": "PLUGIN-JSON-DOCUMENT-FORMAT",
-    "summary": "The format inventory gains `json-document` — a file member whose whole artifact is one JSON object, the mechanic both producer kinds need",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/json_document_format.rs",
-          "description": "The format's acceptance, proven over a custom kind fixture rather than a built-in (no built-in declares it until PLUGIN-MANIFEST-KIND lands): a declared `json-document` kind reads its artifact's top-level keys as the member's fields, takes its identity from the declared identity field, and emit renders the member back byte-identically. The read↔write round-trip and double-emit determinism are the two properties (`specs/model/pipeline.md`, 'Emit')."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "`Format` (the enum at 503, re-cited at 63e5b97 — 9f22de2 moved this file) carries exactly one variant today, and its doc (496-501) calls `YamlFrontmatter` 'the first and only harvested entry' (498-499). `JsonDocument` is the second, and that sentence is rewritten to state what stays true rather than left narrating a retired count. `format_from_label` (858-863) gains the `\"json-document\"` label; an unknown label stays a load error. Identity reuses `UnitShape::NamedField { field }` (the third variant, 526-530) — a JSON document's identity is read from a declared top-level key, not the filename stem — so its doc, which says 'frontmatter field' at both 523-525 and 528, re-words to the fact that survives both formats: the identity is read from a declared field, whichever format carries it. No new unit shape. The `Format::YamlFrontmatter` doc-link at 73 rides along if its sentence stops being true."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "**The dispatch that makes `format` load-bearing, and the heart of this entry.** Re-verified at 63e5b97: nothing in the tree branches on `Format` — `rg 'Format::YamlFrontmatter'` finds only four constructions (`src/builtin_kind.rs:73/120/142/175`), the label parse (`src/kind.rs:860`), two doc-links (73/499), and one test assert (1576). Today's adapter dispatch is the 3-arm match at 1160 (unmoved by the window) over `(content, collection_address, governs)`: a fields-only kind with a collection address reads through `manifest_units`, a nested-file kind through `discover_nested_file`, and **every other file kind falls through to `read_file_unit` unconditionally** — the frontmatter/layout adapter, whatever the kind's declared format says. `json-document` is the first format that makes the declared fact decide anything, so a file kind declaring it must route to the JSON adapter here. Keep it one dispatch: a per-call-site match on format is the second-implementation residue class (`specs/process/engineering.md`, 'One job, one home'). The comment at 1155-1159, which narrates the two-way split as the whole story, moves with the code."
-        },
-        {
-          "path": "src/json_manifest.rs",
-          "description": "The one home for JSON mechanics: the module is already 'the generic JSON-manifest adapter — `frontmatter.rs`'s peer for structured config', with a read face (`read` at 163, `read_kind` at 251 — re-cited at 63e5b97) and a canonical whole-manifest write face (`write_manifest`, 288). A second JSON reader beside it is the duplicate-surface disease — extend this module. The new case is a **container-as-member** read: no collection address, so every top-level key is the member's own field rather than opaque residue, and identity comes from the declared identity field. The write face renders one member's fields back as the whole document, LF-terminated (`specs/model/pipeline.md`: line endings are layout). Both faces stay pure, holding the header's idempotence keystone."
-        },
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "`export type Format = \"yaml-frontmatter\"` (17, unmoved) becomes the two-label union. The `format` field's doc (144-145, 'omitted for a frontmatterless kind' — re-cited at 63e5b97) narrates the retired one-format world and re-words. `tsc` rejects an unknown label at the keystroke, the same closed vocabulary the engine's load guard holds."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`KindFactRow.format` is string-typed (`sdk/src/generated/KindFactRow.ts`), so the new label round-trips with no row-shape change and `tests/seam_bindings_current.rs` stays green untouched. If it goes red the shape moved — bless the bindings, never hand-edit `sdk/src/generated/`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/json_document_format.rs",
-        "asserts": "a `json-document` kind's artifact reads as one member — top-level keys its fields, identity from the declared field — and re-emits byte-identically; double-emit is stable; an unknown format label is a load error, never a skip"
-      }
-    ],
-    "acceptance": "`json-document` is the format inventory's second entry, in the closed vocabulary on both sides of the seam (Rust `Format`, SDK `Format`), implemented once and generically in the engine (`specs/model/representation.md`, 'kind': a kind is data, its extractor composed from that data). A kind's declared format now decides which adapter reads it, at the one dispatch — the fact stops being decorative. The JSON mechanics live in `src/json_manifest.rs`, extended, not re-implemented beside it. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), which names it: plugin-manifest is 'JSON document format (a deliberate format-inventory addition — format mechanics are engine code)'. Ships ahead of its two consumers because one entry is one gate-sized commit; the fixture-only proof is the shape the nested-file locus took before `supporting-doc` counted it. Blocker INSTALLED-PLUGIN-KIND shipped (9f22de2); gate released. scoped at e81c758; every cite above re-derived on disk at 63e5b97."
-  },
-  {
     "tag": "PLUGIN-MANIFEST-KIND",
     "summary": "`plugin-manifest` ships: `.claude-plugin/plugin.json` as a typed file member, identity from `name`, its default contract the `claude plugin validate --strict` profile",
     "per": {
