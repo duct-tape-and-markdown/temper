@@ -1,55 +1,73 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: 80685db
-- Residue swept through: 80685db
-- This tick: RECONCILE `af2a1f1..80685db` — both motions over b753358's ship,
-  the window's only commit touching `src/`/`tests/`.
-  **Audit: the join shipped as scoped, and it opens the head of the chain.**
-  Verified on disk, not off the log: `with_joined_clauses` (`src/compose.rs`:149)
-  appends a layer's rows to the host contract and never replaces one, which is
-  what makes hardening unbounded and softening structurally impossible;
-  `read_layer_clauses` (`main.rs`:1514) refuses a named-but-unreadable layer
-  fail-closed, and `joined_kind_admissibility` (1560) catches the clause naming
-  a kind no dispatcher would lift. `cargo test` green on disk (0 failed).
-  **The head entry's gate re-tested and opened.** TYPE-ACCEPTS-A-SET rested on
-  CHECK-JOINS-INVOCATION-LOCKS alone; the ship commit (80685db) removed that
-  entry, leaving the gate pointing at a tag no longer in the queue. It is now
-  `open`, and the queue's one pickable entry.
-  **Cites re-stamped — and my own were the finding.** The window moved
-  `src/compose.rs` (+29 at 131), but the deeper miss predates it: 6d145fa
-  shifted `src/contract.rs` ~+37 and `src/engine.rs` ~-16 *after* the wave's
-  four entries were last stamped at 399d8e3, and no tick since re-read them.
-  So four entries carried false addresses for six ships. All re-read on disk at
-  80685db: contract.rs (enum 118, `Type` 134-139, `kind` 138,
-  `predicate_from_row` 358), engine.rs (`Type` 610, `Optional` 605,
-  `ForbiddenKeys` 679, empty-`forbidden_keys` 216, `AllowedChars` 692),
-  compose.rs (`clause_from_row` 216; the three `value_type: None` sites 273/301/
-  324, all inside `mod tests` — recorded, since the entries called them
-  row-build sites without saying they are fixtures). Verified *unmoved* rather
-  than assumed: schema.rs (62-67, 110-120, 176), drift.rs (2704, 2760,
-  3602-3603, 3647), the oracle (34, 135, 141, 181, 217), reporter.rs (65, 141,
-  172), builtins.ts (606-620, 802-818, 887-894, 914), kind.rs. Two builtins.ts
-  cites corrected: `required("owner")`/`required("plugins")` were stamped at
-  their closing braces (866/872), not their clause heads (861/867).
+- Audited through: db85b0f
+- Residue swept through: db85b0f
+- This tick: RECONCILE `80685db..db85b0f` — both motions over eccea26's ship,
+  the window's only commit touching `src/`/`tests/`/`sdk/`.
+  **Audit: the set widening shipped as scoped, and it opens the wave's head.**
+  Verified on disk, not off the log: `Predicate::Type` carries
+  `kinds: BTreeSet<ValueType>` (`src/contract.rs`:142-148), so a field the docs
+  spell `string|array` is gated as the union it is rather than false-positived
+  against half of it; the empty set joins the vacuous-clause refusals at
+  `src/engine.rs`:222, beside the empty-`forbidden_keys` one at 216; the lock
+  column widened to `Option<Vec<String>>` (`src/drift.rs`:2767) with a
+  read-side bare-string tolerance (`opt_str_or_str_array`, 3355) — a skew the
+  next emit rewrites whole, never a second spelling temper emits. `cargo test`
+  green on disk (47 result lines, 0 failed).
+  **The head entry's gate re-tested and opened.**
+  FIELD-ADDRESSING-RFC-9535-SUBSET rested on TYPE-ACCEPTS-A-SET alone; the ship
+  commit (db85b0f) removed that entry, leaving the gate pointing at a tag no
+  longer in the queue. It is now `open`, and the queue's one pickable entry —
+  the same shape last tick found, and the second wave head in a row to open
+  this way.
+  **Cites re-stamped the same tick the window moved them** — the six-ship lag
+  last tick reported did not recur. eccea26 moved every file the chain cites
+  but five: `src/contract.rs` (decoder 358→368, enum head unmoved),
+  `src/engine.rs` (~+8: `Type` 618, `Optional` 611, `ForbiddenKeys` 687,
+  `AllowedChars` 700), `src/schema.rs` (match 64, no-op list 110-120→111-130 as
+  its commentary grew), `src/extract.rs` (~+5: `FeatureValue` 107, `List` 118,
+  `Map` 121, `kind` 113), `sdk/src/builtins.ts` (~+36: marketplace header
+  838-855, its three bullets 842-851, `required("owner")` 897,
+  `required("plugins")` 903; plugin-manifest hold 609-614; skill header
+  923-929), `sdk/src/contract.ts` (~+2), `src/drift.rs` (`value_type` 2767,
+  written 3628-3629, read 3673), and the oracle (`covered_rule` 142, no-op list
+  161-180, the strict-bar test 244, `EXPECTED_LAG` 40 unmoved but six rows
+  lighter). Verified *unmoved* rather than assumed, by empty `git diff`:
+  `src/compose.rs`, `src/main.rs`, `src/reporter.rs`, `src/kind.rs`,
+  `src/builtin_kind.rs`, `src/graph.rs`, `src/roster.rs`, `Cargo.toml`,
+  `sdk/src/index.ts`, `tests/graph.rs`, `.github/`.
   **Two entries gained a rider from the window, neither rescoped.**
-  `with_joined_clauses` is a second consumer of `clause_from_row`, so
-  CLOSED-KEYS-CLAUSE's and SHAPE-PREDICATE's new predicates reach a joined
-  layer for free; and `assemble_lock_family` (1457) / `LockFamily` (1427-1436)
-  is the one assembled read DIAL-KIND and CHECK-ANNOUNCES-THE-LOCK-FAMILY must
-  ride rather than mint a second seam beside.
-  **Sweep: clean.** No second implementation — `read_layer_clauses` reuses
-  `drift::parse_declarations`, and `with_joined_clauses` reuses
-  `clause_from_row`; neither a second lock reader nor a second clause lift was
-  minted. Nothing filed. Both parks re-tested and hold: the window touches
-  neither `src/graph.rs` nor `.github/` (`git diff` over both is empty). The
-  `src/roster.rs`:470 orphan cite still waits for a carrier — re-read on disk,
-  still 470. No fork record moved: the audit resolved none.
-- Queue: 8 entries, **1 pickable** — TYPE-ACCEPTS-A-SET. Five chain behind it,
-  serialized on shared files; no entry rests on a fork. Two parked.
+  CLOSED-KEYS-CLAUSE's plugin-manifest hold is now that contract's **only**
+  hold, not its first — eccea26 discharged the six component-path fields, so
+  the header's own count sentence (606-607) retires with the bullet, and its
+  cross-reference to `skillDefaultContract`'s two holds is what SHAPE-PREDICATE
+  retires from the other end; whichever lands second carries the sentence.
+  SHAPE-PREDICATE's `value_type` precedent sharpened rather than moved: the
+  `"type"` decode arm (381-389) now spells the entry's own rule in its comment
+  (376-380) — an unknown name is no predicate at all, a vacuous-but-decodable
+  argument fails admissibility — while the column's new arity is *not* the half
+  to copy, since a shape is one name.
+  **Sweep: clean.** No second implementation — `declared_kinds`
+  (`engine.rs`:855, `|`-joined lattice names for a finding's prose) and
+  `json_types` (`schema.rs`:180, JSON Schema's own type vocabulary) are two
+  codomains of one spelling home, `ValueType::name`/`from_name` in
+  `extract.rs`; neither a second lattice spelling nor a second decoder was
+  minted. Nothing filed. Both parks re-tested on disk and hold: no version tag
+  (`git tag -l` carries the four era tags alone), crate 0.1.0 vs npm 0.0.7,
+  release.yml:7-9 states the darwin + channel-3 deferral verbatim; the window
+  touches neither `src/graph.rs` nor `tests/graph.rs`, so `MAX_IMPORT_HOPS` is
+  still 5 and still uncited by its own source. The `src/roster.rs`:470 orphan
+  cite still waits for a carrier — re-read, still 470. No fork record moved:
+  the audit resolved none; `(source-union-predicate)`'s cite re-stamped
+  813-816→849-851, and the widening it names is still unratified.
+- Queue: 7 entries, **1 pickable** — FIELD-ADDRESSING-RFC-9535-SUBSET. Four
+  chain behind it, serialized on shared files; no entry rests on a fork. Two
+  parked.
 
 Plan continues: no — every input is drained. Inbox and refactor captures are
 empty, the spec delta is empty (nothing past 832f015), and both reconciliation
-cursors now sit at 80685db with the window's audit and sweep complete. Build
-takes over: TYPE-ACCEPTS-A-SET is pickable, opening 0033's four-widening wave,
-with five entries queued behind it carrying no unbuilt upstream.
+cursors now sit at db85b0f with the window's audit and sweep complete. Build
+takes over: FIELD-ADDRESSING-RFC-9535-SUBSET is pickable, carrying 0033's
+second widening, with three wave entries and the dial chain behind it, none
+carrying unbuilt upstream.

@@ -16,7 +16,7 @@ tax.
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:813-816, read at 15b7a3a) names the `source` union as
+  (`sdk/src/builtins.ts`:849-851, re-read at db85b0f) names the `source` union as
   needing "both of the above **plus a discriminated-union predicate**": the
   relative-path form's leading `./`, the four object forms' `source`
   discriminator and their required fields. 0033's widening 2 makes
@@ -175,7 +175,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   ten pre-recut narration lines — `rg` over the file for `law N` / `posture N`
   / `15-kinds` / `20-surface` now returns nothing. That closes the class the
   record tracked. Sweeping the same class across `src/` + `sdk/src/` still
-  leaves exactly two lines, both re-read on disk at 399d8e3 — but **one now
+  leaves exactly two lines, both re-read on disk at db85b0f — but **one now
   has a carrier**, which is the ride-only rule working rather than a gap:
   - `Cargo.toml`:37-39 and 42-45 — **carried, no longer orphaned.** 37-39
     sells `regex` as "the `pattern` primitive", a predicate that does not
@@ -193,7 +193,7 @@ condition arrives, it is the next break. If work touches one, surface it.
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
     file. No queued entry opens `src/roster.rs`; it waits for one, and never
-    becomes an entry of its own. Cite re-read on disk at 80685db, still 470 —
+    becomes an entry of its own. Cite re-read on disk at db85b0f, still 470 —
     but re-read rather than carried, because an orphan's address drifts under
     the ride-only rule (6d145fa moved it 465→470 while this record slept).
   Fixture body text inside tests stays a separate class, excluded — it is
