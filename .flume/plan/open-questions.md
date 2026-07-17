@@ -35,13 +35,14 @@ tax.
     capture `build-clause-algebra-cannot-address-nested-fields.md`). Every
     `Predicate` carries a flat `field: String` (`Features::field` →
     `fields.get(name)`), and `extract::json_to_feature`
-    (`src/extract.rs:921`, re-verified 8036900) flattens on the way in: an
+    (`src/extract.rs:921`, re-verified ec2b848) flattens on the way in: an
     object becomes an opaque `FeatureValue::Map`, inner keys discarded. So
     `owner.name` required and each `plugins[]` entry's `name`+`source` have no
     clause; `required("owner")`/`required("plugins")` is the shipped slice,
     held in `marketplaceDefaultContract`'s header (806) and pinned by
     `the_rules_below_the_top_level_are_not_gateable_today`
-    (`tests/marketplace_kind.rs:267`, unmoved at 8036900). A field-path spelling may round-trip
+    (`tests/marketplace_kind.rs:252` — this record carried 267, wrong since
+    written; re-read on disk at ec2b848, unmoved since 3593ab6). A field-path spelling may round-trip
     with no schema delta (`field` is a `String` on both faces); un-flattening
     `FeatureValue` instead touches the `type` predicate's kind-preservation
     contract and every consumer.
@@ -104,7 +105,7 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 8036900: no
+  dir by `temper bundle` on every run? Re-verified at ec2b848: no
   `.claude-plugin/` exists here, so both kinds govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
@@ -174,7 +175,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   `.temper/packages/spec/PACKAGE.md` fixtures. **Reclassified 07-16 — this
   record had it wrong, and the misfiling is why it never discharged.** It was
   filed as narration staleness riding a reconcile; it is not. Read on disk at
-  8036900: the fixtures sit inside
+  ec2b848: the fixtures sit inside
   `stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start`
   (113), whose *subject* is that files in the retired format are inert — the
   vocabulary is the assertion, not a comment beside it. So no hygiene pass can
@@ -186,7 +187,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   standing — the third entry to open it and correctly not touch it (after
   664a522 and CHECK-ARG-HALF-GATE 4256274). That fold shifted the cites two
   lines (121/140 → 122/141, fn 111 → 113); the numbers above are re-read on
-  disk at 8036900, not carried forward. Not a rider awaiting a carrier; a
+  disk at ec2b848, not carried forward. Not a rider awaiting a carrier; a
   question awaiting a human.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -209,8 +210,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. All ten
-  lines re-verified on disk at reconcile HEAD 8036900 (unmoved; the
-  3593ab6..8036900 window is tests-only, so `prose.ts` went untouched again,
+  lines re-verified on disk at reconcile HEAD ec2b848 (unmoved; the
+  8036900..ec2b848 window is tests-only, so `prose.ts` went untouched again,
   and no queued entry edits it — still no carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
@@ -227,7 +228,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the cite still sits at
-  42) at reconcile HEAD 8036900 — no queued entry edits `Cargo.toml`, so it
+  42) at reconcile HEAD ec2b848 — no queued entry edits `Cargo.toml`, so it
   still has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
