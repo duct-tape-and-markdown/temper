@@ -7,8 +7,11 @@
 //!   curated clause embeds (`bundle` delivers the gate, never clauses — clauses
 //!   publish through the SDK, channel 1);
 //! - **marketplace** — a well-formed `marketplace.json` listing the plugin;
+//! - **kinded manifests** — both `.claude-plugin` manifests are members of the kinds that
+//!   type them, rendered by their kind's write face and passing their kind's contract when
+//!   the real gate reads the published tree back;
 //! - **determinism** — a second run reproduces an identical tree, byte for byte
-//!   (an `insta` snapshot pins the shape);
+//!   (an `insta` snapshot pins the shape, and the two manifests' bytes are pinned whole);
 //! - **CLI** — the real `temper bundle` binary composes the plugin across the process
 //!   boundary (where `main`'s dispatch and the default `--out` are observable).
 
@@ -172,36 +175,104 @@ fn bundle_report_names_shipped_artifacts_over_an_empty_surface() {
     );
 }
 
+/// The on-disk manifest's top-level keys, as the fields one member of its kind carries.
+fn manifest_fields(path: &std::path::Path) -> BTreeMap<String, serde_json::Value> {
+    let written = fs::read_to_string(path).unwrap();
+    let value: serde_json::Value = serde_json::from_str(&written).unwrap();
+    value
+        .as_object()
+        .expect("a manifest top level is an object")
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
 #[test]
-fn bundle_manifests_ride_the_canonical_manifest_write() {
-    // Consolidation: the three structured manifests route through the canonical
-    // whole-manifest write face, not a bespoke serde_json path. Their top-level keys
-    // carry no declared collection, so re-rendering the on-disk bytes through that face
-    // as pure residue must reproduce them exactly — proving one write surface produced
-    // them and no second encoder survives to drift.
-    let surface = imported_surface("canonical-write");
-    let out = common::tmpdir("canonical-write-out");
+fn the_kinded_manifests_are_rendered_by_their_kinds_write_face() {
+    // Consolidation: `plugin.json` and `marketplace.json` are members of the kinds that
+    // type them, so their bytes are their kind's `json-document` write face's output —
+    // never a serde_json path spelled beside the kind. Re-rendering the on-disk fields
+    // through that face must reproduce them exactly, proving no second encoder survives
+    // here to drift from the one `check` reads them back through.
+    let surface = imported_surface("kinded-write");
+    let out = common::tmpdir("kinded-write-out");
 
     bundle::run(&surface, &out).unwrap();
 
     for relative in [
         ".claude-plugin/plugin.json",
         ".claude-plugin/marketplace.json",
-        "hooks/hooks.json",
     ] {
         let written = fs::read_to_string(out.join(relative)).unwrap();
-        let value: serde_json::Value = serde_json::from_str(&written).unwrap();
-        let residue: BTreeMap<String, serde_json::Value> = value
-            .as_object()
-            .expect("a manifest top level is an object")
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        let canonical = temper::json_manifest::write_manifest(&[], &residue);
+        let rendered = temper::json_manifest::write_document(&manifest_fields(&out.join(relative)));
         assert_eq!(
-            written, canonical,
-            "{relative} must be byte-identical to the canonical manifest write"
+            written, rendered,
+            "{relative} must be byte-identical to its kind's document write face"
         );
+    }
+
+    // `hooks.json` is a plugin-cache artifact of neither kind, so it keeps riding the
+    // canonical whole-manifest write as pure residue — the one encoder for what no kind
+    // types, never a hand-rolled pretty-printer.
+    let hooks = out.join("hooks/hooks.json");
+    let written = fs::read_to_string(&hooks).unwrap();
+    assert_eq!(
+        written,
+        temper::json_manifest::write_manifest(&[], &manifest_fields(&hooks)),
+        "hooks.json must be byte-identical to the canonical manifest write"
+    );
+}
+
+#[test]
+fn the_published_manifests_pass_the_contracts_temper_ships_for_them() {
+    // The gap decision 0031 named: the product wrote these two files and refused to check
+    // them. Now they are members of shipped kinds at the loci those kinds govern, so the
+    // real gate reads them off the bundled tree — temper checks what it publishes.
+    let surface = imported_surface("gated");
+    let out = common::tmpdir("gated-out");
+
+    bundle::run(&surface, &out).unwrap();
+
+    let run = common::check_in(&out, &["--harness", out.to_str().unwrap()], Some("github"));
+    let findings: Vec<String> = run
+        .output
+        .lines()
+        .filter(|line| line.starts_with("::"))
+        .map(str::to_string)
+        .collect();
+
+    assert!(
+        run.ok,
+        "the bundle temper publishes must pass the contract temper ships for it: {findings:?}"
+    );
+    // And both manifests are really being read and checked, not silently skipped past —
+    // a clean run over a tree the gate never looked at would prove nothing.
+    for counted in ["plugin-manifest (1)", "marketplace (1)"] {
+        assert!(
+            findings.iter().any(|f| f.contains(counted)),
+            "the gate must count the published manifest as a member: {findings:?}"
+        );
+    }
+}
+
+#[test]
+fn the_published_manifests_bytes_are_pinned() {
+    // The two `.claude-plugin` manifests are what a user installs temper by, so their
+    // exact bytes are the reviewable artifact — pinned here rather than left to whichever
+    // write face happens to render them. `version` tracks the crate, so it is elided to a
+    // placeholder: a release bump is not a change to the manifest's shape.
+    let surface = imported_surface("manifest-bytes");
+    let out = common::tmpdir("manifest-bytes-out");
+
+    bundle::run(&surface, &out).unwrap();
+
+    for relative in [
+        ".claude-plugin/plugin.json",
+        ".claude-plugin/marketplace.json",
+    ] {
+        let written = fs::read_to_string(out.join(relative)).unwrap();
+        let pinned = written.replace(temper::VERSION, "<version>");
+        insta::assert_snapshot!(relative, pinned);
     }
 }
 

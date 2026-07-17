@@ -20,10 +20,12 @@
 //! The plugin is a **vendored, generated surface** — itself an instance of what
 //! `temper` projects, so it is **byte-faithful where it carries prose**:
 //! the skill body is copied verbatim from its
-//! embedded source, never re-rendered. The structured manifests (`plugin.json`,
-//! `marketplace.json`, `hooks.json`) are `serde_json` values written through the canonical
-//! whole-manifest write face ([`crate::json_manifest::write_manifest`]) — one encoder,
-//! well-formed by construction, no hand-escaping (mirroring [`crate::reporter`]).
+//! embedded source, never re-rendered. `plugin.json` and `marketplace.json` are members of
+//! the `plugin-manifest` and `marketplace` kinds, rendered by the one write dispatch their
+//! declared format names ([`crate::drift::project_bytes`]) — so what `bundle` publishes is
+//! what `temper check` reads back off the same kinds, and no encoder is chosen here.
+//! `hooks.json` is a plugin-cache artifact of neither kind; it stays on the canonical
+//! whole-manifest write ([`crate::json_manifest::write_manifest`]).
 //!
 //! `bundle` ships channel 3's assets — the operate-the-gate skill and the
 //! `SessionStart` hook — unconditionally: it never reads the surface it composes
@@ -148,6 +150,17 @@ pub enum BundleError {
         #[source]
         source: std::io::Error,
     },
+
+    /// A manifest names a kind the embedded roster does not carry, so there is no declared
+    /// format to render it through. Refused loud rather than falling back to an encoder
+    /// picked here — a bundle written past its kind is exactly the ungated output this
+    /// verb no longer produces.
+    #[error("no embedded kind named `{kind}` to render a bundled manifest through")]
+    #[diagnostic(code(temper::bundle::missing_kind))]
+    MissingKind {
+        /// The kind the roster does not carry.
+        kind: &'static str,
+    },
 }
 
 /// The typed result of a [`run`]: every file the plugin tree carries (relative to
@@ -178,17 +191,19 @@ pub struct BundleReport {
 pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     let mut files = Vec::new();
 
-    // The plugin manifest and the marketplace listing it — structured values written
-    // through the canonical whole-manifest write face, well-formed by construction.
-    write_json(
+    // The plugin manifest and the marketplace listing it — each one member of the kind
+    // that types it, rendered by that kind's declared format.
+    write_member(
         out,
         Path::new(".claude-plugin/plugin.json"),
+        "plugin-manifest",
         &plugin_manifest(),
         &mut files,
     )?;
-    write_json(
+    write_member(
         out,
         Path::new(".claude-plugin/marketplace.json"),
+        "marketplace",
         &marketplace_manifest(),
         &mut files,
     )?;
@@ -269,6 +284,32 @@ fn hooks_manifest() -> BTreeMap<String, JsonValue> {
             ]
         }),
     )])
+}
+
+/// Write `fields` as one member of the embedded `kind` under `<out>/<relative>`, recording
+/// the relative path in `files`. The bytes are whatever the kind's declared format renders
+/// through the one write dispatch — `bundle` names the kind and never picks an encoder, so
+/// the manifest it publishes is byte-for-byte the artifact `check` reads back off that same
+/// kind. A manifest carries no body and no install metadata, so both ride empty.
+///
+/// # Errors
+///
+/// Returns [`BundleError::MissingKind`] if the embedded roster carries no such kind, and
+/// [`BundleError::Write`] if the file cannot be written.
+fn write_member(
+    out: &Path,
+    relative: &Path,
+    kind: &'static str,
+    fields: &BTreeMap<String, JsonValue>,
+    files: &mut Vec<PathBuf>,
+) -> Result<(), BundleError> {
+    // `definition`'s error is uninhabited, so a miss is the only failure to distinguish.
+    let Ok(Some(definition)) = crate::builtin_kind::definition(kind) else {
+        return Err(BundleError::MissingKind { kind });
+    };
+    let fields: Vec<(String, JsonValue)> = fields.clone().into_iter().collect();
+    let rendered = crate::drift::project_bytes(definition.format, &fields, "", &[]);
+    write_text(out, relative, &rendered, files)
 }
 
 /// Write a structured manifest as canonical pretty JSON under `<out>/<relative>`,

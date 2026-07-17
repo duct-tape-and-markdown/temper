@@ -1,0 +1,16 @@
+---
+source: tests/bundle.rs
+expression: pinned
+---
+{
+  "description": "The temper gate for a Claude Code harness: install it, check it against the active contract, and run the advisory session-start gate — with the std-lib default contracts embedded.",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "harness",
+    "linter",
+    "gate"
+  ],
+  "name": "temper",
+  "version": "<version>"
+}

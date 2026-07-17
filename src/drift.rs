@@ -1766,7 +1766,8 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
 /// carries no `paths`/unknown keys, a memory `CLAUDE.md`) projects to its body alone —
 /// no frontmatter block, so install's metadata there is a block-level HTML-comment
 /// banner heading the body, round-tripped the same way.
-fn project_bytes(
+#[must_use]
+pub fn project_bytes(
     format: Option<Format>,
     fields: &[(String, JsonValue)],
     body: &str,

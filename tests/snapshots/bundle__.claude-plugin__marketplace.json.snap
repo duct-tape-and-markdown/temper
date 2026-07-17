@@ -1,0 +1,17 @@
+---
+source: tests/bundle.rs
+expression: pinned
+---
+{
+  "name": "temper",
+  "owner": {
+    "name": "temper"
+  },
+  "plugins": [
+    {
+      "description": "The temper gate for a Claude Code harness: install it, check it against the active contract, and run the advisory session-start gate — with the std-lib default contracts embedded.",
+      "name": "temper",
+      "source": "."
+    }
+  ]
+}
