@@ -3,14 +3,15 @@
 //!
 //! Three faces of the one class:
 //!
-//! - **check** reads a local member's document under the declared layout and gates it,
-//!   deriving the rows the lock never carries — its collection members and its
-//!   `satisfies` fills — at read time, under the kind the committed lock declares.
+//! - **check** reads a local member's document in place under whatever format its kind
+//!   declares and gates it, deriving the rows the lock never carries — a layout's
+//!   collection members and `satisfies` fills — at read time, under the kind the
+//!   committed lock declares.
 //! - **emit** writes nothing at a local member's path, rows none of it, and never reaps
 //!   it — including across the transition from a committed kind to a local one, where a
 //!   prior rollup row would otherwise read the live document as an orphan.
-//! - **admissibility** fences the class to layout content: a local locus is layout-only,
-//!   so a `file`-content kind declaring it refuses loud rather than governing nothing.
+//! - **admissibility** fences the class to a *file* locus and nothing else: the class
+//!   rules the read side, so every declared format serves it.
 //!
 //! The fixture kind is a `dial` governing `.claude/local/*.md`. No shipped kind declares
 //! the class yet — the first one's face is an open fork — so the locus here is the
@@ -308,32 +309,49 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
 }
 
 #[test]
-fn a_local_kind_that_is_not_layout_content_is_inadmissible() {
-    // The layout-only fence: `file` content under a local locus names a body emit will
-    // not write and check cannot read as a governed source.
+fn a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_derive() {
+    // The class rules the read side, so it fences no format out: a `file`-content local
+    // kind reads through the frontmatter face exactly as a layout kind reads through the
+    // layout one. The `enum` clause below is what proves the read reached the corpus —
+    // the lock declares the kind and nothing about its member's fields, so a clause
+    // firing on `mode` is the document's own value having derived at read time. Silence
+    // here would be a member gated against nothing while looking governed.
     let harness = scaffold(
-        "local-not-layout",
+        "local-frontmatter",
         Declarations {
             kinds: vec![KindFactRow {
                 commitment: Some("local".to_string()),
+                format: Some("yaml-frontmatter".to_string()),
                 ..common::kind_facts("dial", ".claude/local", "*.md")
+            }],
+            clauses: vec![drift::ClauseRow {
+                kind: Some("dial".to_string()),
+                field: Some("mode".to_string()),
+                values: Some(vec!["block".to_string()]),
+                ..common::clause("enum", "required")
             }],
             ..Default::default()
         },
+    );
+    common::write_sibling(
+        &harness,
+        ".claude/local/dial.md",
+        "---\nmode: advisory\n---\n\nThe machine's own dial, uncommitted.\n",
     );
 
     let (findings, ok) = common::check_harness(&harness);
 
     assert!(
-        !ok,
-        "an inadmissible local kind fails the gate: {findings:?}"
+        common::findings_for(&findings, "kind.local-locus").is_empty(),
+        "a local locus is admissible under any declared format: {findings:?}"
     );
-    let fenced = common::findings_for(&findings, "kind.local-locus");
-    assert_eq!(fenced.len(), 1, "one finding names the fence: {findings:?}");
     assert!(
-        fenced[0].contains("layout-only"),
-        "the finding states the fence: {:?}",
-        fenced[0]
+        !ok,
+        "the document's `mode` breaches the clause: {findings:?}"
+    );
+    assert!(
+        findings.iter().any(|f| f.contains("advisory")),
+        "the finding carries the value read off the document: {findings:?}"
     );
 }
 

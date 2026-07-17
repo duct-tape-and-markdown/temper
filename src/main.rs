@@ -852,9 +852,9 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         &custom_rows,
         &declarations,
     )?);
-    // A declared commitment class the locus cannot carry — the layout-only fence — is
-    // decided here, beside the locus's other coherence check, before any member is read
-    // under a kind whose own declaration does not hold together.
+    // A declared commitment class the locus cannot carry is decided here, beside the
+    // locus's other coherence check, before any member is read under a kind whose own
+    // declaration does not hold together.
     diagnostics.extend(local_locus_admissibility(
         &builtin_defs,
         &custom_rows,
@@ -1390,10 +1390,15 @@ fn kind_features(
 ///
 /// The rows go through the same reader `emit` lowers a committed layout host's source
 /// with ([`drift::read_layout_document`]), so a local member's rows are the rows its
-/// document declares, not a second interpretation of it. A kind whose content is not a
-/// layout yields none: the layout-only fence is
-/// [`local_locus_admissibility`]'s to state loudly, and deriving silence here is what
-/// lets it.
+/// document declares, not a second interpretation of it.
+///
+/// The dispatch mirrors [`read_file_unit`]'s arm for arm, over the same declared format:
+/// a layout's regions declare a member collection and an edge slot, so those two families
+/// are read off the document here; the frontmatter and json-document read faces declare
+/// neither, so a member of theirs has no row in either family and its fields and prose
+/// reach the corpus through `read_file_unit` alone. Matching both facts exhaustively is
+/// the point — a read face that *does* declare rows must answer here, and a catch-all
+/// would instead let it gate against silence.
 ///
 /// # Errors
 ///
@@ -1404,8 +1409,12 @@ fn local_document_rows(
     units: &[Unit],
     declarations: &drift::Declarations,
 ) -> miette::Result<drift::LayoutDocumentRows> {
-    let kind::Content::Layout(layout) = &kind.content else {
-        return Ok(drift::LayoutDocumentRows::default());
+    let layout = match (&kind.content, &kind.format) {
+        (kind::Content::Layout(layout), _) => layout,
+        (
+            kind::Content::File | kind::Content::Fields,
+            Some(kind::Format::YamlFrontmatter | kind::Format::JsonDocument) | None,
+        ) => return Ok(drift::LayoutDocumentRows::default()),
     };
     let mut edge_fields = kind.edge_field_slots();
     edge_fields.extend(drift::layout_edge_fields(
@@ -1922,13 +1931,8 @@ fn clause_collision_diagnostics(declarations: &drift::Declarations) -> Vec<check
 const LOCAL_LOCUS_RULE: &str = "kind.local-locus";
 
 /// A [`LOCAL_LOCUS_RULE`] finding per kind whose declared `local` commitment class is
-/// inadmissible — the layout-only fence ([`CustomKind::local_locus_fault`]), raised over
-/// every kind in play before their members are read.
-///
-/// The fence is what makes a local locus's check-side-ness structural rather than a
-/// convention: emit writes nothing at a local member's path, so a local kind that
-/// declared `file` content would name a body no face on either side ever reads or
-/// writes, and every member of it would be governed by nothing while looking governed.
+/// inadmissible — the locus fence ([`CustomKind::local_locus_fault`]), raised over every
+/// kind in play before their members are read.
 fn local_locus_admissibility(
     builtin_defs: &BTreeMap<String, CustomKind>,
     custom_rows: &[&drift::KindFactRow],

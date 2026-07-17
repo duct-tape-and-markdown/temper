@@ -47,9 +47,9 @@ pub enum Commitment {
     /// `local` — per-machine and uncommitted: the kind is declared and reviewed, its
     /// members' documents are not. Two consequences ride the class:
     ///
-    /// - the locus is **layout-only** — the document is the governed source, read at
-    ///   check under the declared layout, and `emit` writes nothing there
-    ///   ([`CustomKind::local_locus_fault`] is the fence);
+    /// - the locus is **read-side only** — the document is the governed source, read at
+    ///   check in place under whatever format the kind declares, and never an `emit`
+    ///   input or target, because emit's codomain is the committed tree;
     /// - its members' rows never enter the lock, deriving at read time instead, so the
     ///   committed bytes stay layer-invariant by construction rather than by a rule
     ///   something has to remember to enforce.
@@ -139,10 +139,9 @@ pub struct CustomKind {
     pub collection_address: Option<CollectionAddress>,
     /// The file locus's declared **commitment class** — [`Commitment::Local`] for a
     /// per-machine, uncommitted locus; absent ⇒ committed, the class every shipped kind
-    /// takes. Meaningless without a [`governs`](CustomKind::governs) locus and
-    /// inadmissible over content that is not a [`Layout`], both fenced by
-    /// [`local_locus_fault`](CustomKind::local_locus_fault). Read back off the row's
-    /// `commitment` column.
+    /// takes. Meaningless without a [`governs`](CustomKind::governs) locus, the one fence
+    /// [`local_locus_fault`](CustomKind::local_locus_fault) states; admissible over any
+    /// declared content and format. Read back off the row's `commitment` column.
     pub commitment: Option<Commitment>,
 }
 
@@ -732,16 +731,14 @@ impl CustomKind {
     }
 
     /// Why this kind's declared commitment class is inadmissible, or [`None`] when it is
-    /// sound — the **layout-only** fence, and the coupling that makes a local locus's
-    /// check-side-ness true by construction rather than a rule spread across the verbs.
+    /// sound — the class is a *file* locus's fact, and a nested-file kind governs no glob
+    /// of its own, so it has no locus to class.
     ///
-    /// A local locus is layout-only: its document is
-    /// the governed source, read at check under the declared layout. A local kind whose
-    /// content is not a declared [`Layout`] therefore declares a source `emit` will not
-    /// write and `check` cannot read as one — no member of it could ever be governed, so
-    /// the declaration is refused rather than left to project silence. The class is also a
-    /// *file* locus's fact: a nested-file kind governs no glob of its own, so it has no
-    /// locus to class.
+    /// That locus fence is the whole of it. The class rules the *read* side — the document
+    /// is the governed source, read in place under whatever format the kind declares, and
+    /// never an emit input or target — so no content or format is inadmissible under it:
+    /// the property carrying the trust story is read-never-written, and every declared
+    /// read face serves it.
     #[must_use]
     pub fn local_locus_fault(&self) -> Option<String> {
         if self.commitment != Some(Commitment::Local) {
@@ -755,15 +752,7 @@ impl CustomKind {
                     .to_string(),
             );
         }
-        match &self.content {
-            Content::Layout(_) => None,
-            Content::File | Content::Fields => Some(format!(
-                "its content is `{}` — a local locus is layout-only: its document is the \
-                 governed source, read at check under the declared layout, and `emit` \
-                 writes nothing there",
-                self.content.label()
-            )),
-        }
+        None
     }
 
     /// Reconstruct a kind's declared definition from the committed lock's own

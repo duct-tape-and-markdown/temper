@@ -36,9 +36,9 @@ governs_glob?: string,
  * shipped kind takes, so an ordinary row stays byte-identical — the same tolerant
  * round-trip the rest of the optional facts take.
  *
- * A local locus is layout-only and its members' rows never enter the lock, so this
- * column is the *whole* of a local kind's residue here: the row declares the kind,
- * and the documents it governs derive at read time under it.
+ * A local member's rows never enter the lock, so this column is the *whole* of a
+ * local kind's residue here: the row declares the kind, and the documents it governs
+ * derive at read time under it.
  */
 commitment?: string, 
 /**

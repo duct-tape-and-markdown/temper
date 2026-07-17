@@ -75,8 +75,9 @@ export interface EdgeField {
  * An `at` locus may declare a `commitment` class of `local`: per-machine and
  * uncommitted — the kind is declared and reviewed, its members' documents are not. The
  * class is a *file* locus's own fact, which is why only `at` spells it. A local locus is
- * layout-only (the document is the governed source, read at check under the declared
- * layout; `emit` writes nothing there), and its members' rows never enter the lock —
+ * read-side only (the document is the governed source, read at check in place under
+ * whatever format the kind declares, and never an `emit` input or target), and its
+ * members' rows never enter the lock —
  * they derive at read time under the kind the lock declares. Absent is the other class
  * and the default: committed, where the kind and its members' documents are reviewed
  * together and `emit` owns the bytes.
