@@ -27,6 +27,20 @@ tax.
   and want a **counterpart-drift check** — a fourth open face beside the
   three above. Timing unchanged. No dependents.
 
+- `(lazy-grounds)` — OPEN, no live driver. Field demand (centercode, observed
+  at 4cc3081): an eager read-only ground (`src`, `**/*.{cs,vb}`) materialized
+  2250 members to resolve seven mention addresses (+45s). The wants: **lazy
+  grounds** (on-demand address resolution — a stat per cited address, not a
+  full materialization) and an optional content **needle** the gate asserts
+  the resolved file still contains (the citation's meaning, where a content
+  hash is alarm-fatigue and line numbers rot). Driver withdrawn in the same
+  report (the consumer ruled their standards exemplar-free — no live-tree
+  citations), so it waits under the 0035 evidence bar: lazy grounds change
+  coverage/narration semantics (2250 members vs 7 resolved addresses is a
+  model choice, not an optimization) — ratified against a real driver or it
+  waits. Latent driver: a base-harness-style implemented-by mapping. The
+  needle's design taste rides this record for that day. No dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

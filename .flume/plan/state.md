@@ -1,42 +1,37 @@
 # Plan state
 
-- Spec derived through: 684dfec
+- Spec derived through: 7739b91
 - Audited through: 7cf9ff0
 - Residue swept through: 7cf9ff0
-- This tick: POST-SHIP RECONCILIATION of 585066b..HEAD. One build commit
-  shipped (chore(flume) 7cf9ff0): EMBEDDED-EXTENT-CAPTURE (build e8e7a3b) —
-  captures a composed embedded member's rendered span at emit so `extent`
-  budgets it. AUDIT (on disk): `NestedMemberRow` now carries
-  `rendered_lines`/`rendered_chars: Option<usize>` beside `placed_edges`
-  (drift.rs:43-49); `main.rs` lifts the captured span (2079-81, hardcoded
-  zero gone); `engine.rs` dropped `extent` from the `bodyless` fence (248-256,
-  Extent now judged with Indeterminate for an unrendered/layout-source span);
-  the extent suite passes including
-  `an_extent_clause_bound_to_an_embedded_kind_judges_the_captured_span`.
-  Already dropped from pending by the ship (7cf9ff0, -91 lines). Refreshed the
-  one stale coexistence note (VERIFIER-TYPED's drift.rs description) naming
-  now-shipped EMBEDDED-EXTENT-CAPTURE as "open" -> shipped 7cf9ff0; regions
-  stay struct-disjoint (RequirementRow vs NestedMemberRow), line drift left to
-  build's `scoped at`. The three open entries re-verified and HOLD as
-  unbuilt: TAP-VERB (no src/tap.rs, no `Tap` command), SETTINGS-LOCAL (no
-  settings_local/settingsLocal symbol), VERIFIER-TYPED (verified_by/verifiedBy
-  still live in compose.rs:100/drift.rs:3048/contract.ts:300). SWEEP:
-  EMBEDDED-EXTENT introduced no residue — `renderedExtents` reuses
-  `renderMemberBlock` (one home), `Features` extent fields widened as one
-  `Option<usize>` type (shared concept, one type), no `_` arm, no TODO; the
-  two documented deviations (reused `opt_usize`, migrated gate_fail_loud
-  exemplars extent->name-matches-dir) both toward one-job-one-home. Parks
-  re-tested on disk and hold: IMPORT-HOP-CAP-CITE (MAX_IMPORT_HOPS still 5 at
-  graph.rs:59, no hop-semantics ruling; window's graph.rs edit was the
-  Features fixture ripple), PACKAGING (crate 0.1.0, no version tag,
-  release.yml:7-9 deferral verbatim).
-- Queue: 7 entries — 3 pickable (open): TAP-VERB-EVENT-RECORD,
-  SETTINGS-LOCAL-KIND, VERIFIER-TYPED. 2 blockedBy (TELEMETRY-FIELD-STRAND ->
-  TAP-VERB; TELEMETRY-HOOK-PROJECTION -> VERIFIER-TYPED); 2 parked
-  (IMPORT-HOP-CAP-CITE, PACKAGING). Open set shares drift.rs/main.rs/
-  declarations.ts region-disjointly (distinct structs/fns, documented per
-  file) — the accepted coexistence pattern; build's singleton serializes picks.
+- This tick: DRAINED INBOX (4 lines). Two centercode field defects → open
+  entries: DISCOVERY-WALK-SHARE (the ignore-honoring walk recomputes per kind
+  + per nested host, ~40s at 16k-file scale — compute once per local-governs
+  flavor and share; engineering.md 'One job, one home') and
+  COVERAGE-SEGMENT-PRESENCE (the unmodeled-surface advisory classifies the
+  static segment registry not the manifest's real keys — asserts absent
+  segments, omits present residue; classify present keys; representation.md
+  'Reach'). Decision 0039 (ruled 7739b91; the inbox demand note pointed here)
+  derived: KNOWN-MARKETPLACE-KIND (the fourth registration member; blockedBy
+  VERIFIER-TYPED — its new `Registration` variant ripples to kind.rs+graph.rs,
+  and VERIFIER-TYPED holds graph.rs open) + KNOWN-MARKETPLACE-EDGE
+  (plugin→marketplace, blockedBy the kind); the KnownSurface segment (0039c)
+  folded into COVERAGE-SEGMENT-PRESENCE 'beside the coverage fix'. 0039
+  Consequences all routed (builtins.md=the spec change; kind/edge/segment=the
+  three entries; demand-note=drained) → spec cursor to 7739b91. Lazy-grounds
+  demand (driver withdrawn) → open fork (lazy-grounds). Both defects
+  re-verified live on disk (discoverable_paths recomputes at import.rs:182/311;
+  segment_coverage classifies KNOWN_SURFACES not present keys at
+  coverage_note.rs:410). Line 1's falsified CLAUDE.md premise already
+  discharged by eb58934 → routed the code half only.
+- Queue: 9 entries — 3 pickable (open): DISCOVERY-WALK-SHARE, VERIFIER-TYPED,
+  COVERAGE-SEGMENT-PRESENCE (pairwise disjoint: import.rs / the verifier set /
+  coverage_note.rs). 4 blockedBy (KNOWN-MARKETPLACE-KIND→VERIFIER-TYPED,
+  KNOWN-MARKETPLACE-EDGE→its kind, TELEMETRY-FIELD-STRAND→TAP-VERB [shipped
+  152526c], TELEMETRY-HOOK-PROJECTION→VERIFIER-TYPED); 2 parked
+  (IMPORT-HOP-CAP-CITE, PACKAGING).
 
-Plan continues: no — inbox empty, no spec delta past 684dfec, window
-reconciled and both audit/sweep cursors at HEAD; no live input remains. 3
-pickable entries — build takes over.
+Plan continues: yes — post-ship reconciliation of 7cf9ff0..HEAD owed (TAP-VERB
++ SETTINGS-LOCAL shipped at 152526c; the tap/settings-local builds + eb58934
+need audit/sweep). Reconciliation must unblock TELEMETRY-FIELD-STRAND but
+re-gate it blockedBy VERIFIER-TYPED if that is still open — they share
+read.rs/main.rs/read_verbs.rs (disjoint regions, but never both open).
