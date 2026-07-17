@@ -2206,12 +2206,33 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     // Channel-less: a dial is read by temper's own gate, never surfaced to the model.
     assert_eq!(dial.registration, Vec::<String>::new());
 
+    // The `settings-local` kind is the third `json-document` built-in and the second `local`
+    // kind: `.claude/settings.local.json` read in place, identity the fixed `file`-shape stem
+    // (no declared key names it), never an emit input or target.
+    let settings_local = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "settings-local")
+        .expect("the settings-local kind fact is embedded");
+    assert_eq!(settings_local.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(
+        settings_local.governs_glob.as_deref(),
+        Some("settings.local.json")
+    );
+    assert_eq!(settings_local.format.as_deref(), Some("json-document"));
+    assert_eq!(settings_local.unit_shape.as_deref(), Some("file"));
+    assert_eq!(settings_local.commitment.as_deref(), Some("local"));
+    assert_eq!(settings_local.shape, None);
+    assert_eq!(settings_local.collection_address, None);
+    // Channel-less: machine configuration read by the harness, never surfaced to the model.
+    assert_eq!(settings_local.registration, Vec::<String>::new());
+
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    // Twelve, not the ten `specs/builtins.md` enumerates: `supporting-doc` ships beside
+    // Thirteen, not the eleven `specs/builtins.md` enumerates: `supporting-doc` ships beside
     // that roster without joining it (as `requirement` does), and `dial` is temper's own
     // rather than a provider's, so the engine's kind set runs two above the corpus's
     // count. Every number is right; none checks another.
-    assert_eq!(declarations.kinds.len(), 12);
+    assert_eq!(declarations.kinds.len(), 13);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

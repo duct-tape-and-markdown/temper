@@ -62,6 +62,7 @@ mod tests {
                 "memory",
                 "plugin-manifest",
                 "rule",
+                "settings-local",
                 "skill",
                 "supporting-doc"
             ]
@@ -105,6 +106,7 @@ mod tests {
                         | "marketplace"
                         | "mcp-server"
                         | "plugin-manifest"
+                        | "settings-local"
                         | "skill"
                         | "supporting-doc"
                         | "rule"

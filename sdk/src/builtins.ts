@@ -1041,6 +1041,97 @@ export const marketplaceDefaultContract: readonly Clause[] = [
 ];
 
 /**
+ * A Claude Code local settings overlay — `.claude/settings.local.json`, the machine's own
+ * per-project settings at the **local** scope: personal overrides not checked in. Claude
+ * Code gitignores the file when it creates it, and one written by hand belongs in
+ * `.gitignore` too (code.claude.com/docs/en/settings, "Settings files", retrieved
+ * 2026-07-16).
+ *
+ * Only the documented top-level keys a local overlay commonly carries are typed here; the
+ * settings schema is large and version-evolving, and every key not named below survives as
+ * opaque residue named as such — the partial-governance posture 0036 settles. This is
+ * *fields*, not members: a hook registered under `hooks` or a plugin enablement under
+ * `enabledPlugins` here stays part of that field's opaque value, never a modeled `hook`/
+ * `installed-plugin` member of its own (those kinds read the committed `settings.json`,
+ * not this uncommitted overlay).
+ */
+export interface SettingsLocal {
+  /** JSON Schema URL for editor autocomplete; Claude Code ignores it at load time. */
+  readonly $schema?: string;
+  /** Tool-permission rules: `{ allow, ask, deny }`, each an array of rule strings. */
+  readonly permissions?: Readonly<Record<string, unknown>>;
+  /** Environment variables applied to every session, a map of string to string. */
+  readonly env?: Readonly<Record<string, string>>;
+  /** Event hook handlers, keyed by lifecycle event — the hooks-configuration object. */
+  readonly hooks?: Readonly<Record<string, unknown>>;
+  /** The model this project runs as. */
+  readonly model?: string;
+  /** Whether project MCP servers from `.mcp.json` are auto-approved. */
+  readonly enableAllProjectMcpServers?: boolean;
+  /** MCP servers from `.mcp.json` to approve. */
+  readonly enabledMcpjsonServers?: readonly string[];
+  /** MCP servers from `.mcp.json` to reject. */
+  readonly disabledMcpjsonServers?: readonly string[];
+  /** Whether to add a Claude co-author trailer to git commits. */
+  readonly includeCoAuthoredBy?: boolean;
+  /** The output rendering style. */
+  readonly outputStyle?: string;
+}
+
+/**
+ * `settings-local` — `.claude/settings.local.json`, a whole-file JSON document at the
+ * **local** commitment class: read in place at check and gated, never an `emit` input or
+ * target, its rows derived at read time and no row of it ever landing in the lock. Its
+ * top-level keys are its fields; identity is the fixed singleton stem `settings.local` (the
+ * `file` unit shape — every machine's overlay is the one file at this path, so no declared
+ * key names it). Channel-less: machine configuration read by the harness, never surfaced to
+ * the model (code.claude.com/docs/en/settings, retrieved 2026-07-16; decisions
+ * 0032/0034/0036).
+ */
+export const settingsLocal: KindDefinition<SettingsLocal> = kind<SettingsLocal>({
+  name: "settings-local",
+  locus: { kind: "at", root: ".claude", glob: "settings.local.json", commitment: "local" },
+  format: "json-document",
+  unitShape: "file",
+  registration: [],
+});
+
+/**
+ * The default contract for `settings-local` — deliberately near-empty. The settings format
+ * documents a large, version-evolving key set (many keys managed-scope-only, most of them
+ * scalar preferences), so a `closedKeys()` allow-list would strand every valid local
+ * overlay the moment upstream adds a key: 0036 settles the residue *opaque*, not indicted.
+ * What stays decidable is the shape of the few structural container keys a local overlay
+ * carries — `permissions`, `env`, and `hooks` are each a documented JSON *object*, and a
+ * value that is not one cannot be applied — so each is gated as a `map` and everything else
+ * rides opaque. (All facts code.claude.com/docs/en/settings, retrieved 2026-07-16.)
+ *
+ * Deliberately absent as undecidable: whether a permission rule reads correctly, whether an
+ * env var is one this machine needs, whether the chosen `model` exists — semantic judgment,
+ * never a gate clause.
+ */
+export const settingsLocalDefaultContract: readonly Clause[] = [
+  clause(type("permissions", ["map"]), {
+    severity: "required",
+    guidance:
+      "`permissions` is the tool-permission object — `{ allow, ask, deny }`, each an array of rule strings. A value that is not an object carries no rules Claude Code can read, so the permission overlay this file exists to hold silently applies nothing.",
+    cite: "https://code.claude.com/docs/en/settings#permission-settings (retrieved 2026-07-16)",
+  }),
+  clause(type("env", ["map"]), {
+    severity: "required",
+    guidance:
+      "`env` is a map of environment variables — string keys to string values — applied to every session. A non-object value is not a shorter spelling of one variable; it is a shape the loader cannot expand, so none of the variables take effect.",
+    cite: "https://code.claude.com/docs/en/settings#available-settings (retrieved 2026-07-16)",
+  }),
+  clause(type("hooks", ["map"]), {
+    severity: "required",
+    guidance:
+      "`hooks` is the hooks-configuration object, keyed by lifecycle event. A locally-registered hook lives inside this object as opaque residue — it is not modeled as a `hook` member of its own, since that kind reads the committed `settings.json`. A value that is not an object registers no hooks at all.",
+    cite: "https://code.claude.com/docs/en/settings#available-settings (retrieved 2026-07-16)",
+  }),
+];
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.

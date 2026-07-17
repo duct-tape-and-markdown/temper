@@ -19,6 +19,7 @@ export type {
   Memory,
   PluginManifest,
   Rule,
+  SettingsLocal,
   Skill,
   SupportingDoc,
 } from "./builtins.js";
@@ -41,6 +42,8 @@ export {
   pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
+  settingsLocal,
+  settingsLocalDefaultContract,
   skill,
   skillDefaultContract,
   supportingDoc,

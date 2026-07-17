@@ -369,6 +369,33 @@ fn claude_code_marketplace() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `.claude/settings.local.json` kind: the machine's own per-project
+/// settings overlay, the whole file one JSON document at the **local** commitment class
+/// (`code.claude.com/docs/en/settings`, retrieved 2026-07-16). Read in place at check and
+/// gated, never an emit input or target, and no row of its members' ever lands in a lock.
+///
+/// Identity is the fixed singleton stem `settings.local` (the `file` unit shape): every
+/// machine's overlay is the one file at this path, so no declared key names it. Its
+/// documented top-level keys are its fields and the unschematized residue stays opaque —
+/// a locally-registered hook or plugin enablement is one such opaque field, never a modeled
+/// member (those kinds read the committed `settings.json`). Channel-less: machine
+/// configuration read by the harness, never surfaced to the model.
+fn claude_code_settings_local() -> CustomKind {
+    CustomKind {
+        format: Some(Format::JsonDocument),
+        unit_shape: Some(crate::kind::UnitShape::File),
+        ..CustomKind::new(
+            "settings-local",
+            Governs {
+                root: ".claude".to_string(),
+                glob: "settings.local.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+    .local()
+}
+
 /// temper's own **dial** kind: `.temper/dial.toml`, a local file locus whose entries name
 /// a clause by its compiled address and declare the severity this machine reads it at.
 ///
@@ -417,6 +444,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_marketplace(),
         claude_code_mcp_server(),
         claude_code_plugin_manifest(),
+        claude_code_settings_local(),
         claude_code_skill(),
         claude_code_supporting_doc(),
         claude_code_rule(),
@@ -638,6 +666,7 @@ mod tests {
                 "memory",
                 "plugin-manifest",
                 "rule",
+                "settings-local",
                 "skill",
                 "supporting-doc"
             ]

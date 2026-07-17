@@ -140,17 +140,35 @@ fn a_document_missing_its_declared_identity_key_refuses_loud() {
 }
 
 #[test]
-fn a_json_document_kind_declaring_no_identity_field_refuses_loud() {
+fn a_file_shaped_json_document_names_itself_by_its_stem() {
+    let dir = common::tmpdir("json-document-file-shape");
+    write_plugin_json(&dir, PLUGIN_JSON);
+
+    // A `file`-shaped json-document is a singleton at a fixed path (a `settings.local.json`),
+    // so its identity is the file stem — read straight off the path, never a declared key.
+    let mut kind = plugin_kind();
+    kind.unit_shape = Some(UnitShape::File);
+    let member = DocumentMember::read(&kind, &dir.join(".claude-plugin/plugin.json")).unwrap();
+    assert_eq!(member.id, "plugin");
+    // The document's top-level keys are still the member's fields, exactly as the named-field
+    // read yields — only the identity source differs.
+    assert!(member.fields.contains_key("name"));
+}
+
+#[test]
+fn a_json_document_kind_declaring_a_path_shaped_identity_refuses_loud() {
     let dir = common::tmpdir("json-document-undeclared-identity");
     write_plugin_json(&dir, PLUGIN_JSON);
 
-    // A `json-document` identity is read from a declared key; a kind naming none leaves the
-    // engine nothing to read, so the read refuses rather than inventing a rule.
+    // A whole-JSON document carries no directory or glob segment, so a kind declaring one of
+    // those identity shapes leaves the engine nothing to read: the read refuses rather than
+    // inventing a rule. (The two shapes a document *can* serve — named-field and file — read
+    // above.)
     let mut kind = plugin_kind();
-    kind.unit_shape = Some(UnitShape::File);
+    kind.unit_shape = Some(UnitShape::Directory);
     let err = DocumentMember::read(&kind, &dir.join(".claude-plugin/plugin.json")).unwrap_err();
     assert!(
-        err.to_string().contains("no `named-field` identity"),
+        err.to_string().contains("identity shape it cannot serve"),
         "{err}"
     );
 }

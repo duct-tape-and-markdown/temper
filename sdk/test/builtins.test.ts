@@ -26,6 +26,8 @@ import {
   pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
+  settingsLocal,
+  settingsLocalDefaultContract,
   skill,
   skillDefaultContract,
   supportingDoc,
@@ -44,6 +46,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   pluginManifestDefaultContract,
   marketplaceDefaultContract,
   supportingDocDefaultContract,
+  settingsLocalDefaultContract,
 ];
 
 test("every exported default contract is a well-formed clause array", () => {
@@ -461,6 +464,50 @@ test("marketplaceDefaultContract gates the reserved-names deny list and reaches 
       entry.cite ?? "",
       /^https:\/\/code\.claude\.com\/docs\/en\/plugin-marketplaces#.* \(retrieved 2026-07-1[67]\)$/,
     );
+  }
+});
+
+test("settings-local is a local-locus json-document file kind owning .claude/settings.local.json", () => {
+  assert.deepEqual(settingsLocal.facts.locus, {
+    kind: "at",
+    root: ".claude",
+    glob: "settings.local.json",
+    commitment: "local",
+  });
+  // The whole-file JSON format routes it to the document reader, like plugin-manifest.
+  assert.equal(settingsLocal.facts.format, "json-document");
+  // A singleton at a fixed path: identity is the file stem, so no declared key names it.
+  assert.equal(settingsLocal.facts.unitShape, "file");
+  assert.equal(settingsLocal.facts.identityField, undefined);
+  // It owns its file rather than surfacing inside a manifest, and reaches the model on no
+  // channel of its own — machine configuration read by the harness.
+  assert.equal(settingsLocal.facts.collectionAddress, undefined);
+  assert.equal(settingsLocal.facts.shape, undefined);
+  assert.deepEqual(settingsLocal.facts.registration, []);
+});
+
+test("settingsLocalDefaultContract types the structural container keys and leaves the rest opaque", () => {
+  // Near-empty by design: the residue stays opaque (0036), so no closed-keys clause — only
+  // the three documented object-valued keys are gated, each as a `map`.
+  assert.deepEqual(
+    settingsLocalDefaultContract.map((c) => c.predicate.key),
+    ["type", "type", "type"],
+  );
+  assert.deepEqual(
+    settingsLocalDefaultContract.map((c) => [c.predicate.field, c.predicate.value_type]),
+    [
+      ["permissions", ["map"]],
+      ["env", ["map"]],
+      ["hooks", ["map"]],
+    ],
+  );
+  assert.ok(settingsLocalDefaultContract.every((c) => c.severity === "required"));
+  // A hook registered here is opaque residue, never a modeled member — the guidance says so.
+  const hooks = settingsLocalDefaultContract.find((c) => c.predicate.field === "hooks");
+  assert.match(hooks?.guidance ?? "", /opaque residue/);
+  // Cited and dated, every one — to the live settings docs.
+  for (const entry of settingsLocalDefaultContract) {
+    assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/settings#\S+ \(retrieved 2026-07-16\)$/);
   }
 });
 

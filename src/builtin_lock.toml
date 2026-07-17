@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the twelve built-in kinds' facts and their default contract clauses, plus the
+# the thirteen built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,13 +10,14 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s eleven
+# `@dtmd/temper/claude-code`'s twelve
 # built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `marketplace`,
-# `mcp-server`, `plugin-manifest`, `skill`, `supporting-doc`, `rule`, `memory`) and their
+# `mcp-server`, `plugin-manifest`, `settings-local`, `skill`, `supporting-doc`, `rule`,
+# `memory`) and their
 # default contracts (`agentDefaultContract`, `commandDefaultContract`,
 # `hookDefaultContract`, `installedPluginDefaultContract`, `marketplaceDefaultContract`,
 # `mcpServerDefaultContract`,
-# `pluginManifestDefaultContract`, `skillDefaultContract`,
+# `pluginManifestDefaultContract`, `settingsLocalDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
 # `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
 # *root* — temper's own kind, whose entries re-read these very clauses at a machine's
@@ -26,14 +27,16 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's twelve kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's thirteen kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
-# `dial` is the one kind here declaring a `local` commitment class, and the one whose
-# `toml-document` format has no write twin: emit never reads or writes a machine's dial
-# document, and no row of it ever lands in a lock — the rows below declare the kind, which
-# is the committed, reviewed half.
+# `dial` and `settings-local` are the two kinds here declaring a `local` commitment class:
+# read in place at check, never an emit input or target, and no row of their members' ever
+# lands in a lock — the rows below declare each kind, which is the committed, reviewed half.
+# `dial`'s `toml-document` format additionally has no write twin at all; `settings-local`'s
+# `json-document` does have one, but the local class keeps emit away from the machine's own
+# overlay just the same.
 #
 # `supporting-doc` is the one kind here at the nested-file locus, so its row alone
 # carries no `governs` pair: its members' paths compose from their host skill's unit and
@@ -42,13 +45,14 @@
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
 # `installed-plugin` is the one kind here contributing a kind fact and no clause row at
-# all: its default contract is empty, so twelve kinds carry eleven contracts' clauses. The
+# all: its default contract is empty, so thirteen kinds carry twelve contracts' clauses. The
 # format documents no gateable schema — an entry is one scalar under a key that is the
 # member's identity rather than a declared field — and the absence is the honest encoding,
 # not a row lost in regeneration.
 #
-# `plugin-manifest` is the one kind here at the `json-document` format: the whole artifact
-# is one JSON object, so its top-level keys are the fields its clauses range over. Its
+# `plugin-manifest` is one of three kinds here at the `json-document` format — `marketplace`
+# and the `local`-class `settings-local` are the others: the whole artifact is one JSON
+# object, so a kind's top-level keys are the fields its clauses range over. Its
 # contract is five rows against `name`'s presence, emptiness, and charset, the top-level
 # `themes`/`monitors` spelling the experimental migration retires, and `keywords`'s
 # declared `list` type. The rest of the `claude plugin validate --strict` profile —
@@ -58,6 +62,13 @@
 # second an alternation, since `commands`/`agents` are documented `string|array` while
 # `type` declares one lattice kind. `keywords`'s single declared kind is what makes it the
 # expressible slice, so the row below lifts no part of the hold on the union-typed fields.
+#
+# `settings-local` carries the opposite `json-document` posture: three `type` rows gate the
+# structural container keys (`permissions`/`env`/`hooks` as `map`s) and every other key
+# stays opaque residue — no `closed-keys` row, because the settings schema is large and
+# version-evolving and an allow-list would indict a valid overlay the moment upstream adds a
+# key (decision 0036). A locally-registered hook or plugin enablement lives inside that
+# residue as a field, never a modeled member.
 
 [[declaration.kind]]
 name = "agent"
@@ -138,6 +149,14 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
+
+[[declaration.kind]]
+name = "settings-local"
+governs_root = ".claude"
+governs_glob = "settings.local.json"
+commitment = "local"
+format = "json-document"
+unit_shape = "file"
 
 [[declaration.kind]]
 name = "skill"
@@ -848,6 +867,36 @@ severity = "advisory"
 guidance = "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a rule that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this rule's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does."
 cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)"
 gate = "paths"
+
+[[declaration.clause]]
+label = "settings-local.type.permissions"
+kind = "settings-local"
+predicate = "type"
+field = "permissions"
+severity = "required"
+guidance = "`permissions` is the tool-permission object — `{ allow, ask, deny }`, each an array of rule strings. A value that is not an object carries no rules Claude Code can read, so the permission overlay this file exists to hold silently applies nothing."
+cite = "https://code.claude.com/docs/en/settings#permission-settings (retrieved 2026-07-16)"
+value_type = ["map"]
+
+[[declaration.clause]]
+label = "settings-local.type.env"
+kind = "settings-local"
+predicate = "type"
+field = "env"
+severity = "required"
+guidance = "`env` is a map of environment variables — string keys to string values — applied to every session. A non-object value is not a shorter spelling of one variable; it is a shape the loader cannot expand, so none of the variables take effect."
+cite = "https://code.claude.com/docs/en/settings#available-settings (retrieved 2026-07-16)"
+value_type = ["map"]
+
+[[declaration.clause]]
+label = "settings-local.type.hooks"
+kind = "settings-local"
+predicate = "type"
+field = "hooks"
+severity = "required"
+guidance = "`hooks` is the hooks-configuration object, keyed by lifecycle event. A locally-registered hook lives inside this object as opaque residue — it is not modeled as a `hook` member of its own, since that kind reads the committed `settings.json`. A value that is not an object registers no hooks at all."
+cite = "https://code.claude.com/docs/en/settings#available-settings (retrieved 2026-07-16)"
+value_type = ["map"]
 
 [[declaration.clause]]
 label = "skill.required.name"

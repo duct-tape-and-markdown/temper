@@ -24,6 +24,7 @@
 //! the frontmatter face also holds.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -123,14 +124,15 @@ pub struct DocumentMember {
 
 impl DocumentMember {
     /// Read the JSON document at `source_file` as one member of `kind`, its identity taken
-    /// from the top-level key the kind's [`UnitShape::NamedField`] declares.
+    /// from the top-level key the kind's [`UnitShape::NamedField`] declares, or from the
+    /// file stem for a singleton [`UnitShape::File`] document (a `settings.local.json`).
     ///
     /// # Errors
     ///
     /// Returns a [`JsonManifestError`] if the file cannot be read, is not UTF-8, is not a
     /// top-level JSON object, or carries no string value at the declared identity key; and
-    /// [`JsonManifestError::NoDeclaredIdentity`] if `kind` declares no identity field for
-    /// its document to be named by.
+    /// [`JsonManifestError::NoDeclaredIdentity`] if `kind` declares an identity mode a JSON
+    /// document cannot serve (`directory`/`starred-segment`).
     pub fn read(kind: &CustomKind, source_file: &Path) -> Result<Self, JsonManifestError> {
         let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io {
             path: source_file.to_path_buf(),
@@ -156,13 +158,6 @@ impl DocumentMember {
         source_file: &Path,
         raw: &str,
     ) -> Result<Self, JsonManifestError> {
-        let Some(UnitShape::NamedField { field }) = &kind.unit_shape else {
-            return Err(JsonManifestError::NoDeclaredIdentity {
-                path: source_file.to_path_buf(),
-                kind: kind.name.clone(),
-            });
-        };
-
         let source_hash = crate::hash::sha256_hex(raw.as_bytes());
         let value: JsonValue =
             serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
@@ -176,14 +171,33 @@ impl DocumentMember {
             });
         };
 
-        let id = document
-            .get(field)
-            .and_then(JsonValue::as_str)
-            .map(str::to_string)
-            .ok_or_else(|| JsonManifestError::NoIdentityValue {
-                path: source_file.to_path_buf(),
-                field: field.clone(),
-            })?;
+        // A named-field document reads its id from a declared top-level key (a manifest's
+        // `name`); a `file`-shaped one is a singleton at a fixed path, so its identity is
+        // the file stem (`settings.local`) — the same source a frontmatter `file` member
+        // takes. Every other shape names no identity a whole-JSON document can carry.
+        let id = match &kind.unit_shape {
+            Some(UnitShape::NamedField { field }) => document
+                .get(field)
+                .and_then(JsonValue::as_str)
+                .map(str::to_string)
+                .ok_or_else(|| JsonManifestError::NoIdentityValue {
+                    path: source_file.to_path_buf(),
+                    field: field.clone(),
+                })?,
+            Some(UnitShape::File) | None => source_file
+                .file_stem()
+                .and_then(OsStr::to_str)
+                .map(str::to_string)
+                .ok_or_else(|| JsonManifestError::NoStemIdentity {
+                    path: source_file.to_path_buf(),
+                })?,
+            Some(_) => {
+                return Err(JsonManifestError::NoDeclaredIdentity {
+                    path: source_file.to_path_buf(),
+                    kind: kind.name.clone(),
+                });
+            }
+        };
 
         Ok(Self {
             id,
@@ -254,16 +268,26 @@ pub enum JsonManifestError {
         detail: String,
     },
 
-    /// A `json-document` kind declares no `named-field` unit shape, so its documents have
-    /// no declared key to be named by — a JSON document's identity is read from a declared
-    /// field, never derived from the path. Refused at load rather than guessed.
-    #[error("kind `{kind}` declares `json-document` with no `named-field` identity")]
+    /// A `json-document` kind declares a `directory`/`starred-segment` unit shape, which a
+    /// whole-JSON document cannot serve — its identity is a declared top-level key
+    /// (`named-field`) or the file stem (`file`), never a directory or a glob segment.
+    /// Refused at load rather than guessed.
+    #[error("kind `{kind}` declares `json-document` with an identity shape it cannot serve")]
     #[diagnostic(code(temper::json_manifest::no_declared_identity))]
     NoDeclaredIdentity {
         /// The document whose kind names no identity field.
         path: PathBuf,
         /// The kind missing the declaration.
         kind: String,
+    },
+
+    /// A `file`-shaped JSON document's path yields no stem to name it — the [`DocumentMember`]
+    /// peer of [`crate::frontmatter::FrontmatterError::NoId`] for a singleton document.
+    #[error("{path} has no file stem to name the document")]
+    #[diagnostic(code(temper::json_manifest::no_stem_identity))]
+    NoStemIdentity {
+        /// The document whose path yields no stem.
+        path: PathBuf,
     },
 
     /// A JSON document carries no string value at its kind's declared identity key — the
