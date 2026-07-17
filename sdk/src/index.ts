@@ -26,6 +26,7 @@ export type { Charset, Clause, Predicate, Requirement, Severity } from "./contra
 export {
   allowedChars,
   clause,
+  closedKeys,
   count,
   degree,
   deny,

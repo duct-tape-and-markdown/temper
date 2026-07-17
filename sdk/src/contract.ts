@@ -35,7 +35,8 @@ export interface Predicate {
    * subset is the whole surface on purpose: a clause names *where* a value lives, never
    * a pattern that matches it.
    *
-   * `forbidden_keys` and `must_define` name a top-level **key**, not a path.
+   * `forbidden_keys` and `must_define` name a top-level **key**, not a path, and
+   * `closed-keys` names neither — it reads the key set its sibling clauses declare.
    */
   readonly field?: string;
   /** The predicate's scalar bounds, keyed per predicate (`min`/`max`,
@@ -80,8 +81,9 @@ export interface Charset {
   readonly chars?: string;
 }
 
-// Node-scope predicates. Each takes an addressing path as its `field` — see
-// `Predicate.field` for the subset an author may spell.
+// Node-scope predicates. A value predicate takes an addressing path as its `field` — see
+// `Predicate.field` for the subset an author may spell, and for the key-naming and
+// fieldless exceptions that sit here too.
 /**
  * A field or marker is present. Presence is asked of the path's trailing name segment,
  * so `required("plugins[*].source")` fires once per entry that omits it — and a path
@@ -112,6 +114,17 @@ export const allowedChars = (field: string, charset: Charset): Predicate => ({
 export const maxLines = (n: number): Predicate => ({ key: "max_lines", args: { max: n } });
 /** The forbidden keys (e.g. the Cursor `globs`/`alwaysApply` keys) are absent. */
 export const forbiddenKeys = (keys: readonly string[]): Predicate => ({ key: "forbidden_keys", keys });
+/**
+ * The kind's declared key set is exhaustive — a member carrying any other top-level key
+ * is a finding. `forbiddenKeys`' complement: a deny-list names a finite set over an open
+ * key space, this closes the space.
+ *
+ * It takes no arguments, and that is the point: the allow-list is the contract's own
+ * `required`/`optional` clauses, so the key set is declared once. Adding `optional("x")`
+ * admits `x` with no second edit here — and a contract declaring no key at all fails
+ * admissibility rather than indicting every key of every member.
+ */
+export const closedKeys = (): Predicate => ({ key: "closed-keys" });
 /** The field's value is none of `values` (forbidden values). */
 export const deny = (field: string, values: readonly string[]): Predicate => ({
   key: "deny",

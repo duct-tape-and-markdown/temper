@@ -84,6 +84,20 @@ impl FieldPath {
         &self.spelling
     }
 
+    /// The **top-level key** this path is rooted at — `owner` for `owner.name`, `plugins`
+    /// for `plugins[*].source`, the name itself for a bare name.
+    ///
+    /// Every admissible path opens on a name segment (a bracket selector with nothing
+    /// before it is refused), so this is always `Some` for a parsed path; the `Option` is
+    /// the grammar's own shape rather than a case a caller can hit.
+    #[must_use]
+    pub fn head_name(&self) -> Option<&str> {
+        match self.steps.first()? {
+            Step::Name(name) => Some(name),
+            Step::EachElement => None,
+        }
+    }
+
     /// The path's trailing name segment paired with the path to its **parent** — the
     /// decomposition a presence check needs, since a key that is absent locates no node
     /// to ask about.

@@ -30,7 +30,9 @@
 //! and `map` spelled `array`/`object` as JSON Schema names them), `min_len`/
 //! `max_len`→`minLength`/`maxLength`, `enum`→`enum`, `deny`→`not`/`enum`,
 //! `range`→`minimum`/`maximum`, `allowed_chars`→a generated `pattern` charclass,
-//! and `forbidden_keys`→a `not`/`required` combinator per key. The remaining
+//! `forbidden_keys`→a `not`/`required` combinator per key, and `closed-keys`→the whole
+//! object's `additionalProperties: false`, the one clause whose face is the object's
+//! rather than a property's. The remaining
 //! predicates name no frontmatter JSON-Schema keyword — a body budget
 //! (`max_lines`), a section requirement (`require_sections`), a body marker
 //! (`must_define`), the `optional` documentation clause, and the cross-artifact
@@ -49,7 +51,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{Map, Value};
 
-use crate::contract::{Charset, Contract, Predicate};
+use crate::contract::{self, Charset, Contract, Predicate};
 use crate::extract::ValueType;
 
 /// Project `contract` into a JSON Schema [`Value`] over an artifact's frontmatter.
@@ -65,6 +67,7 @@ pub fn emit(contract: &Contract) -> Value {
     let mut properties: Map<String, Value> = Map::new();
     let mut required: Vec<String> = Vec::new();
     let mut forbidden: Vec<String> = Vec::new();
+    let mut closed = false;
 
     for clause in &contract.clauses {
         // A clause whose `field` addresses past the top level names no property of this
@@ -112,6 +115,11 @@ pub fn emit(contract: &Contract) -> Value {
                     push_unique(&mut forbidden, key);
                 }
             }
+            // The one clause whose schema face is the whole object's rather than a
+            // property's — the editor's `additionalProperties: false` is exactly "the
+            // declared key set is exhaustive". Emitted after the loop, where the declared
+            // set is known whichever order the clauses were authored in.
+            Predicate::ClosedKeys => closed = true,
             // The remaining predicates name no frontmatter JSON-Schema keyword —
             // `optional` is documentation, `max_lines`/`require_sections`/
             // `must_define`/`section_contains` are body/structural, the
@@ -166,12 +174,27 @@ pub fn emit(contract: &Contract) -> Value {
         }
     }
 
+    // A closed key set only reads correctly once every declared key is a named property:
+    // `additionalProperties: false` rejects whatever `properties` does not list, and a key
+    // whose only clause has no schema face (`optional`, and any clause the property gate
+    // above skipped) would otherwise be squiggled as unrecognized — a forged error over a
+    // key the contract declares. An empty subschema names the key while asserting nothing
+    // about its value, which is exactly what `optional` says.
+    if closed {
+        for key in contract::declared_keys(&contract.clauses) {
+            property(&mut properties, &key);
+        }
+    }
+
     let mut schema = Map::new();
     schema.insert(
         "$schema".to_string(),
         Value::from("http://json-schema.org/draft-07/schema#"),
     );
     schema.insert("type".to_string(), Value::from("object"));
+    if closed {
+        schema.insert("additionalProperties".to_string(), Value::from(false));
+    }
     if !properties.is_empty() {
         schema.insert("properties".to_string(), Value::Object(properties));
     }
@@ -651,5 +674,73 @@ mod tests {
         assert!(schema.get("properties").is_none());
         let text = serde_json::to_string(&schema).unwrap();
         assert!(!text.contains("Cursor keys"));
+    }
+
+    /// A contract closing the key set over three declared keys, one of them declared by a
+    /// nested path and one carrying a refinement of its own.
+    fn closed() -> Contract {
+        Contract {
+            name: "plugin-manifest".to_string(),
+            guidance: None,
+            clauses: vec![
+                clause(Predicate::Required {
+                    field: "name".to_string(),
+                }),
+                clause(Predicate::MinLen {
+                    field: "name".to_string(),
+                    min: 1,
+                }),
+                clause(Predicate::Optional {
+                    field: "keywords".to_string(),
+                }),
+                clause(Predicate::Required {
+                    field: "author.name".to_string(),
+                }),
+                clause(Predicate::ClosedKeys),
+            ],
+        }
+    }
+
+    #[test]
+    fn closed_keys_projects_the_objects_own_additional_properties_keyword() {
+        // The one clause whose schema face is the whole object's: `additionalProperties:
+        // false` *is* "the declared key set is exhaustive", so the editor squiggles an
+        // unrecognized key at the keystroke rather than at the gate.
+        let schema = emit(&closed());
+        assert_eq!(schema["additionalProperties"], json!(false));
+        assert_eq!(schema["type"], json!("object"));
+    }
+
+    #[test]
+    fn a_closed_schema_names_every_declared_key_as_a_property() {
+        // `additionalProperties: false` rejects whatever `properties` does not list, so a
+        // key whose only clause has no schema face — `optional`, and the `author.name` path
+        // the property gate skips — has to be named anyway. An empty subschema names it
+        // while asserting nothing, which is what `optional` says. Leaving it out would
+        // forge a squiggle over a key the contract declares.
+        let schema = emit(&closed());
+        let properties = schema["properties"].as_object().unwrap();
+        assert_eq!(
+            properties.keys().map(String::as_str).collect::<Vec<&str>>(),
+            vec!["author", "keywords", "name"]
+        );
+        assert_eq!(properties["keywords"], json!({}));
+        // The path declares its top-level key, and says nothing about the object's shape:
+        // `author.name` is no property of *this* object.
+        assert_eq!(properties["author"], json!({}));
+        // A declared key with a refinement keeps it — naming the key does not blank it.
+        assert_eq!(properties["name"], json!({"minLength": 1}));
+    }
+
+    #[test]
+    fn an_open_contract_emits_no_additional_properties_keyword() {
+        // The keyword is a clause's, never a default: a contract with no `closed-keys`
+        // says nothing about keys it did not declare, and a schema that volunteered
+        // `additionalProperties: false` would gate what no author asked to gate.
+        assert!(
+            emit(&representative())
+                .get("additionalProperties")
+                .is_none()
+        );
     }
 }

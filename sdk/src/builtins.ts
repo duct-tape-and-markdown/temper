@@ -16,6 +16,7 @@ import type { Prose } from "./prose.js";
 import {
   allowedChars,
   clause,
+  closedKeys,
   degree,
   deny,
   enumOf,
@@ -26,6 +27,7 @@ import {
   mentionReachable,
   minLen,
   nameMatchesDir,
+  optional,
   required,
   type,
   uniqueName,
@@ -603,15 +605,16 @@ export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifes
  * the two diverge each clause's guidance says so (all facts
  * code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
  *
- * One decidable documented rule is absent, **pending a vocabulary addition** — the same
- * hold `skillDefaultContract` names for its own two:
+ * The whole profile ships: every documented rule the vocabulary can decide is a clause
+ * below, and nothing decidable is held.
  *
- * - **Unrecognized top-level fields**, the substance of `--strict`. The check is an
- *   allow-list over the manifest's closed key set, and the algebra has only
- *   `forbidden_keys`, a deny-list — the complement of a finite set over an open key space
- *   is not expressible. (`optional` records a key as part of a declared closed schema but
- *   is always satisfied; nothing consumes the record.) The one deny-list slice that *is*
- *   decidable ships below. The `closed-keys` widening closes this.
+ * **Unrecognized top-level fields** — the substance of `--strict` — are the `closedKeys()`
+ * clause at the end, over the `required`/`optional` rows above it: Claude Code ignores a
+ * key it does not recognize so a manifest doubling as a `package.json` still loads, and
+ * `claude plugin validate` warns rather than fails, but `--strict` turns those warnings
+ * into the CI errors this contract is the profile of. The declared key set is the union of
+ * the two documented sources — the reference's own field tables and the published schema
+ * — because a key *either* one recognizes is a key no clause may indict.
  *
  * The component-path fields are gated below rather than held: `type` declares a *set* of
  * lattice kinds, so a field documented `string|array` is checked as the union it is. Each
@@ -693,6 +696,123 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
     guidance:
       "`lspServers` is a path to an LSP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.lsp.json` carries. These drive code intelligence (go to definition, find references), so a wrong-typed value costs the capability silently rather than loudly.",
     cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+
+  // Every documented top-level key the manifest recognizes, `name` (required, above)
+  // aside — the allow-list `closedKeys()` reads, declared here once and consumed there
+  // rather than restated as a second list that could disagree with this one. The clauses
+  // above refine some of these keys' values; a refinement never declares its key, so a key
+  // absent from this block is one `closedKeys()` indicts.
+  clause(optional("$schema"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("displayName"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("version"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("description"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("author"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("homepage"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("repository"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("license"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("keywords"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("defaultEnabled"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("skills"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("commands"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("agents"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("hooks"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("mcpServers"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("outputStyles"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("lspServers"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("experimental"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("userConfig"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("channels"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(optional("dependencies"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  // Recognized at the top level, and separately denied there by the `forbiddenKeys` clause
+  // above: the migration is where they are declared, not whether the key is known. Leaving
+  // them out of the allow-list would have `closedKeys()` call them unrecognized — false of
+  // the format, and a second finding for one mistake.
+  clause(optional("themes"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-17)",
+  }),
+  clause(optional("monitors"), {
+    severity: "required",
+    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-17)",
+  }),
+  // The published schema's own property, absent from the reference's field tables. The
+  // allow-list spans both sources: this contract already treats the schema as documentation
+  // (the `commands` object form is cited to it), so indicting a key it declares would be a
+  // false positive.
+  clause(optional("settings"), {
+    severity: "required",
+    cite: "https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)",
+  }),
+
+  clause(closedKeys(), {
+    severity: "required",
+    guidance:
+      "This key is not one the manifest format documents. Claude Code ignores an unrecognized top-level field, so the plugin still loads — that is deliberate, and it is what lets one `plugin.json` double as a VS Code or Cursor extension manifest, an npm `package.json`, or an MCPB/DXT bundle manifest. `claude plugin validate` reports it as a warning; `--strict` fails it, which is the CI bar this contract holds, so the usual cause is a typo or a field left over from another tool. If the key is deliberate foreign metadata, this clause is the one to drop from your adopted contract.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-17)",
   }),
 ];
 

@@ -157,11 +157,16 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         // The rest state rules the published schema does not: `allowed_chars` holds the
         // kebab-case bar the schema leaves to a `description`, `forbidden_keys` holds the
         // `--strict` experimental-component migration the schema still permits outright,
-        // and the body/selection predicates range over surfaces a manifest has none of.
+        // `closed-keys` holds the `--strict` unrecognized-field bar the schema declares no
+        // `additionalProperties` for, and the body/selection predicates range over surfaces
+        // a manifest has none of. `optional` declares a key the schema's `properties` also
+        // names, but a *declared* key is no rule either side gates on — the schema states
+        // rules about values, and this oracle measures rules.
         Predicate::Optional { .. }
         | Predicate::Range { .. }
         | Predicate::Deny { .. }
         | Predicate::ForbiddenKeys { .. }
+        | Predicate::ClosedKeys
         | Predicate::AllowedChars { .. }
         | Predicate::MaxLines { .. }
         | Predicate::RequireSections { .. }

@@ -509,6 +509,206 @@ cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields 
 value_type = ["string", "list", "map"]
 
 [[declaration.clause]]
+label = "plugin-manifest.optional.$schema"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "$schema"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.displayName"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "displayName"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.version"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "version"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.description"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "description"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.author"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "author"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.homepage"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "homepage"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.repository"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "repository"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.license"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "license"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.keywords"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "keywords"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.defaultEnabled"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "defaultEnabled"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#metadata-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.skills"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "skills"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.commands"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "commands"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.agents"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "agents"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.hooks"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "hooks"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.mcpServers"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "mcpServers"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.outputStyles"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "outputStyles"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.lspServers"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "lspServers"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.experimental"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "experimental"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.userConfig"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "userConfig"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.channels"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "channels"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.dependencies"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "dependencies"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.themes"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "themes"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.monitors"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "monitors"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "plugin-manifest.optional.settings"
+kind = "plugin-manifest"
+predicate = "optional"
+field = "settings"
+severity = "required"
+cite = "https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+label = "plugin-manifest.closed-keys"
+kind = "plugin-manifest"
+predicate = "closed-keys"
+severity = "required"
+guidance = "This key is not one the manifest format documents. Claude Code ignores an unrecognized top-level field, so the plugin still loads — that is deliberate, and it is what lets one `plugin.json` double as a VS Code or Cursor extension manifest, an npm `package.json`, or an MCPB/DXT bundle manifest. `claude plugin validate` reports it as a warning; `--strict` fails it, which is the CI bar this contract holds, so the usual cause is a typo or a field left over from another tool. If the key is deliberate foreign metadata, this clause is the one to drop from your adopted contract."
+cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
 label = "rule.forbidden_keys"
 kind = "rule"
 predicate = "forbidden_keys"

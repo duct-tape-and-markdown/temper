@@ -63,7 +63,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
             if clause.predicate.ranges_over_selection() {
                 continue;
             }
-            for message in evaluate(&clause.predicate, features, artifacts) {
+            for message in evaluate(contract, &clause.predicate, features, artifacts) {
                 diagnostics.push(
                     Diagnostic::new(
                         severity_of(clause.severity),
@@ -110,7 +110,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 pub fn admissibility(contract: &Contract, locus: &Locus) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
-        for message in inadmissibilities(&clause.predicate, locus) {
+        for message in inadmissibilities(&clause.predicate, locus, &contract.clauses) {
             diagnostics.push(Diagnostic::error(&clause.label, &contract.name, message));
         }
     }
@@ -143,14 +143,22 @@ pub enum Locus {
 /// kinds admits no value the lattice can carry), which the author cannot have meant; and
 /// (3) the predicate reads a feature the bound locus carries ([`bodyless`]).
 ///
+/// `siblings` is the clause set this predicate's own clause sits in — the wider context
+/// `closed-keys` needs, whose allow-list is those siblings' declared keys and which is
+/// therefore vacuous or not depending on them rather than on itself.
+///
 /// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate rules
 /// for a requirement's own `clauses` — one definition of "vacuous", never a second copy
 /// drifting beside it.
-pub(crate) fn inadmissibilities(predicate: &Predicate, locus: &Locus) -> Vec<String> {
+pub(crate) fn inadmissibilities(
+    predicate: &Predicate,
+    locus: &Locus,
+    siblings: &[Clause],
+) -> Vec<String> {
     let mut messages: Vec<String> = judgeless(predicate).into_iter().collect();
     messages.extend(bodyless(predicate, locus));
     messages.extend(unaddressable(predicate));
-    messages.extend(vacuities(predicate));
+    messages.extend(vacuities(predicate, siblings));
     messages
 }
 
@@ -254,8 +262,23 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
 /// *any* selection, at any locus: an empty `enum` admits nothing and an inverted bound
 /// excludes everything, whatever the clause binds to. The locus-dependent half of
 /// vacuity is [`bodyless`]'s.
-fn vacuities(predicate: &Predicate) -> Vec<String> {
+///
+/// `siblings` is the clause's own clause set, which one predicate's vacuity is a fact
+/// about: `closed-keys` reads its allow-list there, so a contract declaring no key at all
+/// spells "every key is undeclared" rather than a closed schema.
+fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
     match predicate {
+        // `closed-keys` declares the kind's own key set exhaustive; over no declared key
+        // that is not a closed schema but a clause indicting every member's every key —
+        // the empty-`forbidden_keys` refusal's mirror image, and as surely unmeant.
+        Predicate::ClosedKeys if contract::declared_keys(siblings).is_empty() => {
+            vec![
+                "`closed-keys` clause declares the key set exhaustive on a contract that \
+                 declares no `required` or `optional` key, so every key of every member \
+                 would be undeclared"
+                    .to_string(),
+            ]
+        }
         Predicate::Enum { field, values } if values.is_empty() => {
             vec![format!("`enum` clause on field `{field}` lists no values")]
         }
@@ -601,8 +624,13 @@ fn finding(selection: &Selection, clause: &Clause, message: String) -> Diagnosti
 
 /// Evaluate one predicate over one artifact's features, returning a message per
 /// violation (empty ⇒ the clause holds — see [`Outcome`]).
-fn evaluate(predicate: &Predicate, features: &Features, all: &[Features]) -> Vec<String> {
-    match decide(predicate, features, all) {
+fn evaluate(
+    contract: &Contract,
+    predicate: &Predicate,
+    features: &Features,
+    all: &[Features],
+) -> Vec<String> {
+    match decide(contract, predicate, features, all) {
         Outcome::Holds => Vec::new(),
         Outcome::Violated(messages) => messages,
         // Unreachable on an admissible run: [`admissibility`] fences every producer
@@ -646,7 +674,17 @@ impl Outcome {
 /// feature it names*; the predicates ranging over a whole selection rather than one
 /// member ([`Predicate::ranges_over_selection`]) return [`Outcome::Indeterminate`] here
 /// rather than a fabricated pass, since their judges live elsewhere.
-fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outcome {
+///
+/// `contract` is the clause set the predicate was drawn from — the wider read `closed-keys`
+/// needs, whose allow-list is its own siblings' declared keys. Reading past the one field
+/// is evaluation cost, never a second category: the verdict is still one member's own, the
+/// grain `validate` judges at.
+fn decide(
+    contract: &Contract,
+    predicate: &Predicate,
+    features: &Features,
+    all: &[Features],
+) -> Outcome {
     match predicate {
         // A value/presence predicate is the *only* owner of its field's
         // presence; the other field predicates stay silent when the field is
@@ -746,6 +784,29 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
                 Outcome::Holds
             } else {
                 Outcome::Violated(present)
+            }
+        }
+
+        // The deny-list's complement: every key the contract's own `required`/`optional`
+        // siblings declare is the allow-list, and anything else on the member is a
+        // finding — one per undeclared key, so each points at itself.
+        Predicate::ClosedKeys => {
+            let declared = contract::declared_keys(&contract.clauses);
+            let undeclared: Vec<String> = features
+                .fields
+                .keys()
+                .filter(|key| !declared.contains(key.as_str()))
+                .map(|key| {
+                    format!(
+                        "key `{key}` is not one of the keys this contract declares, and the \
+                         declared set is exhaustive"
+                    )
+                })
+                .collect();
+            if undeclared.is_empty() {
+                Outcome::Holds
+            } else {
+                Outcome::Violated(undeclared)
             }
         }
 
@@ -1300,14 +1361,15 @@ mod tests {
     fn an_inverted_count_bound_is_inadmissible() {
         // `count`'s `min > max` is the same vacuous-bound rule as `range`, over the
         // satisfier-set's cardinality.
-        let messages = inadmissibilities(&Predicate::Count { min: 3, max: 1 }, &Locus::Document);
+        let messages =
+            inadmissibilities(&Predicate::Count { min: 3, max: 1 }, &Locus::Document, &[]);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("min 3 greater than max 1"));
 
         // Equal endpoints included: a well-ordered bound is admissible.
         for (min, max) in [(0, 5), (2, 2)] {
             assert!(
-                inadmissibilities(&Predicate::Count { min, max }, &Locus::Document).is_empty(),
+                inadmissibilities(&Predicate::Count { min, max }, &Locus::Document, &[]).is_empty(),
                 "[{min}, {max}] is admissible"
             );
         }
@@ -1319,7 +1381,7 @@ mod tests {
             field: "model".to_string(),
             target: String::new(),
         };
-        let messages = inadmissibilities(&empty_target, &Locus::Document);
+        let messages = inadmissibilities(&empty_target, &Locus::Document, &[]);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("empty target"));
 
@@ -1327,7 +1389,7 @@ mod tests {
             field: "model".to_string(),
             target: "approved-models".to_string(),
         };
-        assert!(inadmissibilities(&named, &Locus::Document).is_empty());
+        assert!(inadmissibilities(&named, &Locus::Document, &[]).is_empty());
     }
 
     #[test]
@@ -1338,7 +1400,7 @@ mod tests {
             incoming: None,
             outgoing: None,
         };
-        let messages = inadmissibilities(&no_direction, &Locus::Document);
+        let messages = inadmissibilities(&no_direction, &Locus::Document, &[]);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("no incoming or outgoing bound"));
 
@@ -1351,7 +1413,7 @@ mod tests {
             }),
             outgoing: None,
         };
-        assert!(inadmissibilities(&routed, &Locus::Document).is_empty());
+        assert!(inadmissibilities(&routed, &Locus::Document, &[]).is_empty());
     }
 
     #[test]
@@ -1363,7 +1425,7 @@ mod tests {
             }),
             outgoing: None,
         };
-        let messages = inadmissibilities(&inverted, &Locus::Document);
+        let messages = inadmissibilities(&inverted, &Locus::Document, &[]);
         assert_eq!(messages.len(), 1);
         assert!(messages[0].contains("incoming"));
     }
@@ -1748,7 +1810,12 @@ mod tests {
             );
             assert!(
                 matches!(
-                    decide(&predicate, &demo, std::slice::from_ref(&demo)),
+                    decide(
+                        &contract(ClauseSeverity::Required, predicate.clone()),
+                        &predicate,
+                        &demo,
+                        std::slice::from_ref(&demo),
+                    ),
                     Outcome::Indeterminate
                 ),
                 "`{}` must not answer at the member grain — its selection is not one member",
@@ -1820,17 +1887,31 @@ mod tests {
                 field: "model".to_string(),
             },
             Predicate::FormatPlacesEdges,
+            Predicate::ClosedKeys,
         ];
 
+        // Each predicate is judged inside a contract that also declares `model` — the demo's
+        // one key. It is inert for every predicate but `closed-keys`, whose allow-list is
+        // its siblings: alone it would be the vacuous clause admissibility refuses, which is
+        // a fact about the contract rather than the verdict this test is after.
+        let declares_model = clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::Required {
+                field: "model".to_string(),
+            },
+        );
         for predicate in vocabulary {
+            let mut carrier = contract(ClauseSeverity::Required, predicate.clone());
+            carrier.clauses.push(declares_model.clone());
             assert!(
-                inadmissibilities(&predicate, &Locus::Document).is_empty(),
+                inadmissibilities(&predicate, &Locus::Document, &carrier.clauses).is_empty(),
                 "`{}` is admissible here — the fenced set is tested above",
                 predicate.key()
             );
             assert!(
                 !matches!(
-                    decide(&predicate, &demo, std::slice::from_ref(&demo)),
+                    decide(&carrier, &predicate, &demo, std::slice::from_ref(&demo)),
                     Outcome::Indeterminate
                 ),
                 "`{}` reached conformance undecided — it would read as a green pass",

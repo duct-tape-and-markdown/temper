@@ -247,16 +247,15 @@ test("plugin-manifest is a json-document file kind identified by its name key, o
   assert.deepEqual(pluginManifest.facts.registration, []);
 });
 
-test("pluginManifestDefaultContract gates the decidable slice of the --strict profile", () => {
-  // `name`'s presence, emptiness and charset, the one deny-list slice of the
-  // unrecognized-field bar the algebra can express, and every wrong-typed field —
-  // `keywords`' single kind and the six component paths' documented unions, which a
-  // `type` over a set reaches. The rest of `--strict` — an allow-list over the closed
-  // key set — needs a predicate that does not exist, and the contract's own header
-  // names that hold rather than forging a clause for it.
+test("pluginManifestDefaultContract gates the --strict profile", () => {
+  // `name`'s presence, emptiness and charset; the experimental deny-list slice; every
+  // wrong-typed field — `keywords`' single kind and the six component paths' documented
+  // unions, which a `type` over a set reaches; and the closed key set, which is the rest
+  // of `--strict`: the `optional` rows declare every other documented key and
+  // `closedKeys()` reads them as the allow-list.
   assert.deepEqual(
-    pluginManifestDefaultContract.map((entry) => entry.predicate.key),
-    ["required", "min_len", "allowed_chars", "forbidden_keys", "type", "type", "type", "type", "type", "type", "type"],
+    [...new Set(pluginManifestDefaultContract.map((entry) => entry.predicate.key))],
+    ["required", "min_len", "allowed_chars", "forbidden_keys", "type", "optional", "closed-keys"],
   );
   // Every clause is an error: `--strict` is the portable bar, so nothing here is a note.
   assert.ok(pluginManifestDefaultContract.every((entry) => entry.severity === "required"));
@@ -301,14 +300,70 @@ test("pluginManifestDefaultContract gates the decidable slice of the --strict pr
   assert.match(keywordsType.guidance ?? "", /load error/);
 
   // Cited and dated, every one — the audit trail a maintained default contract exists
-  // for. `commands` is the one clause citing a second source alongside the reference
-  // page: the published schema carries an object form the reference table omits, and a
-  // clause admitting that form says where it read it.
+  // for. Two sources appear: the reference page, and the published schema wherever it
+  // documents what the reference's tables do not — the `commands` object form, and the
+  // `settings` key, which is declared by the schema alone.
   for (const entry of pluginManifestDefaultContract) {
-    assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/plugins-reference#\S+ \(retrieved 2026-07-\d\d\)/);
+    assert.match(
+      entry.cite ?? "",
+      /^https:\/\/(code\.claude\.com\/docs\/en\/plugins-reference#\S+|json\.schemastore\.org\/claude-code-plugin-manifest\.json) \(retrieved 2026-07-\d\d\)/,
+    );
   }
-  const commandsType = pluginManifestDefaultContract.find((entry) => entry.predicate.field === "commands");
+  const commandsType = pluginManifestDefaultContract.find(
+    (entry) => entry.predicate.key === "type" && entry.predicate.field === "commands",
+  );
   assert.match(commandsType?.cite ?? "", /json\.schemastore\.org\/claude-code-plugin-manifest\.json \(retrieved 2026-07-16\)$/);
+});
+
+test("pluginManifestDefaultContract's closed key set is the union of both documented sources", () => {
+  // The allow-list `closedKeys()` consumes, stated here as the key set rather than read
+  // back from the clause order: a documented key dropped from the rows above becomes a
+  // finding against every manifest that carries it, which is the one failure this
+  // widening can produce.
+  const declared = pluginManifestDefaultContract
+    .map((entry) => entry.predicate)
+    .filter((predicate) => predicate.key === "required" || predicate.key === "optional")
+    .map((predicate) => predicate.field);
+
+  assert.deepEqual(
+    [...declared].sort(),
+    [
+      "$schema",
+      "agents",
+      "author",
+      "channels",
+      "commands",
+      "defaultEnabled",
+      "dependencies",
+      "description",
+      "displayName",
+      "experimental",
+      "homepage",
+      "hooks",
+      "keywords",
+      "license",
+      "lspServers",
+      "mcpServers",
+      "monitors",
+      "name",
+      "outputStyles",
+      "repository",
+      "settings",
+      "skills",
+      "themes",
+      "userConfig",
+      "version",
+    ],
+  );
+
+  // `themes`/`monitors` are declared *and* denied: the format recognizes them at the top
+  // level and warns about the placement, so the deny-list clause carries that migration
+  // and `closedKeys()` stays silent. Dropping them from the allow-list would have it call
+  // a documented key unrecognized — a second finding, and a false one.
+  const denied = pluginManifestDefaultContract.find((entry) => entry.predicate.key === "forbidden_keys");
+  for (const key of denied?.predicate.keys ?? []) {
+    assert.ok(declared.includes(key), `\`${key}\` is denied at the top level but still a recognized key`);
+  }
 });
 
 test("marketplace is a json-document file kind at a glob its plugin-manifest sibling never contends for", () => {

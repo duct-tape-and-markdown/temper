@@ -8,11 +8,11 @@
 //! manifest into one member named by its `name`, and the default contract's clauses
 //! firing through the real gate.
 //!
-//! The `--strict` bar the kind's contract mirrors is only partly expressible today: the
-//! unrecognized-top-level-field check needs an allow-list predicate the algebra does not
-//! carry, so the clause proven here is the decidable slice of it — the top-level
-//! `themes`/`monitors` spelling the experimental migration retires
-//! (`sdk/src/builtins.ts`, `pluginManifestDefaultContract`, names the whole hold).
+//! The `--strict` bar the kind's contract mirrors lands whole here, in its two halves: an
+//! *undocumented* top-level key, which `closed-keys` decides against the key set the
+//! contract's own rows declare, and a *documented* key at the wrong level — the top-level
+//! `themes`/`monitors` spelling the experimental migration retires, which stays the
+//! `forbidden_keys` clause's, since the key is recognized and only its placement is not.
 
 use std::fs;
 
@@ -193,6 +193,91 @@ fn a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_deci
         "{}",
         run.output
     );
+
+    // The key is documented — the migration is about *where* it is declared — so the
+    // closed key set holds over it. The two clauses split the `--strict` bar rather than
+    // both indicting one mistake.
+    assert!(
+        common::findings_for(&findings, "plugin-manifest.closed-keys").is_empty(),
+        "a recognized key is not an unrecognized one: {findings:?}"
+    );
+}
+
+#[test]
+fn an_undocumented_top_level_key_fails_the_gate_as_the_strict_bar() {
+    let harness = common::tmpdir("plugin-manifest-unrecognized");
+    // The substance of `--strict`. Claude Code ignores this key and the plugin loads —
+    // deliberately, so one `plugin.json` can double as another ecosystem's manifest — and
+    // `claude plugin validate` calls it a warning. `--strict` is the CI bar that fails it,
+    // and the strictest documented profile is the one this kind's contract mirrors.
+    write_plugin_json(
+        &harness,
+        "{\n  \"name\": \"deployment-tools\",\n  \"contributes\": {}\n}\n",
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(
+        !ok,
+        "an undocumented top-level key fails the gate: {findings:?}"
+    );
+    let undeclared = common::findings_for(&findings, "plugin-manifest.closed-keys");
+    assert_eq!(undeclared.len(), 1, "{findings:?}");
+    assert!(
+        undeclared[0].starts_with("::error") && undeclared[0].contains("contributes"),
+        "the finding names the offending key, at the --strict severity: {findings:?}"
+    );
+
+    // The guidance is where the forgiving runtime is stated — the clause decides the key,
+    // never which world the reader is validating in.
+    let run = common::check_harness_in(&harness, None);
+    assert!(
+        run.output
+            .contains("ignores an unrecognized top-level field"),
+        "{}",
+        run.output
+    );
+}
+
+#[test]
+fn every_documented_key_of_a_full_manifest_passes_the_closed_key_set() {
+    let harness = common::tmpdir("plugin-manifest-full");
+    // The failure this widening can produce is a documented key left out of the contract's
+    // own rows, which would indict every manifest carrying it. So the fixture is the
+    // reference's complete-schema example — every documented key at once — and it gates
+    // clean (code.claude.com/docs/en/plugins-reference, "Complete schema", retrieved
+    // 2026-07-17).
+    write_plugin_json(
+        &harness,
+        r#"{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "plugin-name",
+  "displayName": "Plugin Name",
+  "version": "1.2.0",
+  "description": "Brief plugin description",
+  "author": { "name": "Author Name", "email": "author@example.com" },
+  "homepage": "https://docs.example.com/plugin",
+  "repository": "https://github.com/author/plugin",
+  "license": "MIT",
+  "keywords": ["keyword1", "keyword2"],
+  "defaultEnabled": false,
+  "skills": "./custom/skills/",
+  "commands": ["./custom/commands/special.md"],
+  "agents": ["./custom/agents/reviewer.md"],
+  "hooks": "./config/hooks.json",
+  "mcpServers": "./mcp-config.json",
+  "outputStyles": "./styles/",
+  "lspServers": "./.lsp.json",
+  "settings": {},
+  "userConfig": {},
+  "channels": [],
+  "experimental": { "themes": "./themes/", "monitors": "./monitors.json" },
+  "dependencies": ["helper-lib"]
+}
+"#,
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(ok, "every documented key is a declared key: {findings:?}");
 }
 
 #[test]

@@ -124,8 +124,8 @@ pub enum Severity {
 /// it, and the RFC engine underneath stays mechanics.
 ///
 /// [`Predicate::ForbiddenKeys`] and [`Predicate::MustDefine`] name a top-level **key**
-/// instead, and the set predicates' `field` is read by their own judges over a
-/// selection.
+/// instead; [`Predicate::ClosedKeys`] names the key *set*, reading it off its sibling
+/// clauses; and the set predicates' `field` is read by their own judges over a selection.
 ///
 /// Not `Eq`: [`Predicate::Range`] carries `f64` bounds (only `PartialEq`).
 #[derive(Debug, Clone, PartialEq)]
@@ -211,6 +211,15 @@ pub enum Predicate {
         /// The keys that must be absent.
         keys: Vec<String>,
     },
+    /// `closed-keys`: the kind's declared top-level key set is **exhaustive** — a member
+    /// carrying a key no clause declares is a finding. The deny-list complement of
+    /// [`Predicate::ForbiddenKeys`], which names a finite set over an open key space.
+    ///
+    /// It carries no argument of its own: the allow-list is [`declared_keys`] over the
+    /// contract's *sibling* clauses — every `required`/`optional` row's top-level key —
+    /// so a kind's key set is declared once and never authored a second time beside
+    /// itself, where the two copies could disagree.
+    ClosedKeys,
     /// `allowed_chars`: every character of the field's value is permitted by the
     /// declared [`Charset`] — the in-crate stand-in for the `[a-z0-9-]` case,
     /// short of the full `pattern` (regex) primitive.
@@ -445,6 +454,8 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "forbidden_keys" => Predicate::ForbiddenKeys {
             keys: row.keys.clone()?,
         },
+        // No argument column to decode: the allow-list is the kind's own sibling rows.
+        "closed-keys" => Predicate::ClosedKeys,
         "deny" => Predicate::Deny {
             field: row.field.clone()?,
             values: row.values.clone()?,
@@ -531,6 +542,7 @@ impl Predicate {
             Predicate::Enum { .. } => "enum",
             Predicate::Deny { .. } => "deny",
             Predicate::ForbiddenKeys { .. } => "forbidden_keys",
+            Predicate::ClosedKeys => "closed-keys",
             Predicate::AllowedChars { .. } => "allowed_chars",
             Predicate::MaxLines { .. } => "max_lines",
             Predicate::RequireSections { .. } => "require_sections",
@@ -598,6 +610,7 @@ impl Predicate {
             Predicate::SectionContains { heading, .. } => Some(heading),
             Predicate::Unique { field } | Predicate::Membership { field, .. } => Some(field),
             Predicate::ForbiddenKeys { .. }
+            | Predicate::ClosedKeys
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
             | Predicate::NameMatchesDir
@@ -639,6 +652,7 @@ impl Predicate {
             // [`Predicate::target`] names a field.
             Predicate::MustDefine { .. }
             | Predicate::ForbiddenKeys { .. }
+            | Predicate::ClosedKeys
             | Predicate::MaxLines { .. }
             | Predicate::RequireSections { .. }
             | Predicate::SectionContains { .. }
@@ -657,6 +671,29 @@ impl Predicate {
             | Predicate::FormatPlacesEdges => None,
         }
     }
+}
+
+/// The top-level keys `clauses` declare — the allow-list a [`Predicate::ClosedKeys`]
+/// clause consumes, read off its own siblings rather than authored a second time.
+///
+/// A key is declared by a `required` or `optional` row, the two rows that say a key is
+/// part of the kind's schema; every other predicate refines a value whose key one of them
+/// already names. What a path declares is its **head segment**: `required("owner.name")`
+/// says the member carries an `owner` key, never that it carries an `owner.name` one.
+///
+/// An out-of-subset path declares nothing here — [`crate::engine::admissibility`] refuses
+/// the clause that spelled it, so no contract reaching evaluation carries one.
+#[must_use]
+pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
+    clauses
+        .iter()
+        .filter_map(|clause| match &clause.predicate {
+            Predicate::Required { field } | Predicate::Optional { field } => Some(field),
+            _ => None,
+        })
+        .filter_map(|field| crate::address::FieldPath::parse(field).ok())
+        .filter_map(|path| path.head_name().map(str::to_string))
+        .collect()
 }
 
 /// The in-crate character set for [`Predicate::AllowedChars`]. A character is
