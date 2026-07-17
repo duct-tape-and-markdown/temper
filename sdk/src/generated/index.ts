@@ -30,5 +30,6 @@ export type { SatisfiesRow } from "./SatisfiesRow.js";
 export type { Section } from "./Section.js";
 export type { SectionContainsRow } from "./SectionContainsRow.js";
 export type { SettingsRow } from "./SettingsRow.js";
+export type { Shape } from "./Shape.js";
 export type { TemplateRow } from "./TemplateRow.js";
 export type { ValueType } from "./ValueType.js";

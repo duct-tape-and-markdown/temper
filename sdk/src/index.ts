@@ -47,6 +47,7 @@ export {
   requireSections,
   requirement,
   sectionContains,
+  shape,
   type,
   unique,
   uniqueName,

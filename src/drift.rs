@@ -2765,6 +2765,16 @@ pub struct ClauseRow {
     /// lock is re-emitted from its source, never patched in place.
     #[serde(default)]
     pub value_type: Option<Vec<String>>,
+    /// The `shape` clause's declared shape, when the predicate is `shape` — the closed
+    /// set's own spelling (`hyphen-placement`/`no-xml-tags`) that
+    /// [`crate::contract::Shape::from_name`] decodes. Carried as a name rather than as a
+    /// [`crate::contract::Shape`], the trade `value_type` already makes: the row family
+    /// carries its arguments as names and decodes them at the boundary.
+    ///
+    /// One name, never a set — a clause names exactly one shape — so this is a plain
+    /// string column, and no read-side skew tolerance answers it.
+    #[serde(default)]
+    pub shape: Option<String>,
     /// The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
     /// is one of those three.
     #[serde(default)]
@@ -3628,6 +3638,9 @@ impl ClauseRow {
         if let Some(value_type) = &self.value_type {
             table.insert("value_type", value(string_array(value_type)));
         }
+        if let Some(shape) = &self.shape {
+            table.insert("shape", value(shape.clone()));
+        }
         if let Some(bound) = &self.bound {
             table.insert("bound", value(bound_table(bound)));
         }
@@ -3671,6 +3684,7 @@ impl ClauseRow {
             },
             gate: opt_str(table, "gate")?,
             value_type: opt_str_or_str_array(table, "value_type")?,
+            shape: opt_str(table, "shape")?,
             bound: match opt_table(table, "bound")? {
                 Some(bound) => Some(bound_from_table(bound)?),
                 None => None,

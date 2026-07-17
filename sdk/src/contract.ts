@@ -7,7 +7,7 @@
  * outside it is a squiggle, not a runtime rejection.
  */
 
-import type { ValueType } from "./generated/index.js";
+import type { Shape, ValueType } from "./generated/index.js";
 import type { KindDefinition } from "./kind.js";
 
 /** A clause's delivery posture: `required` gate-blocks, `advisory` reports. */
@@ -59,6 +59,11 @@ export interface Predicate {
    * column.
    */
   readonly value_type?: readonly ValueType[];
+  /**
+   * `shape`'s declared shape — one member of the closed set, spelled to match the lock's
+   * own `shape` column.
+   */
+  readonly shape?: Shape;
   /** `allowed_chars`'s declared character class. */
   readonly charset?: Charset;
   /** `forbidden_keys`'s forbidden key list. */
@@ -110,6 +115,18 @@ export const allowedChars = (field: string, charset: Charset): Predicate => ({
   field,
   charset,
 });
+/**
+ * The field's value holds one named `Shape` from the closed set the engine generates
+ * across the seam — the union *is* the vocabulary, so an author picks a member and can
+ * spell nothing else. There is no escape to a hand-written pattern, which is the point.
+ *
+ * - `hyphen-placement` — a hyphen neither leads, trails, nor doubles (`pdf-processing`,
+ *   never `-pdf`, `pdf-`, or `pdf--processing`). Says nothing about the alphabet; pair it
+ *   with `allowedChars` where the character set matters.
+ * - `no-xml-tags` — the value carries no XML tag (`<br/>`, `</note>`, `<a href="x">`).
+ *   Prose spelling a comparison (`use when x < y`) is not a tag and does not fire.
+ */
+export const shape = (field: string, shape: Shape): Predicate => ({ key: "shape", field, shape });
 /** The member's body is at most `n` lines. */
 export const maxLines = (n: number): Predicate => ({ key: "max_lines", args: { max: n } });
 /** The forbidden keys (e.g. the Cursor `globs`/`alwaysApply` keys) are absent. */

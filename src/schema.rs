@@ -30,6 +30,7 @@
 //! and `map` spelled `array`/`object` as JSON Schema names them), `min_len`/
 //! `max_len`→`minLength`/`maxLength`, `enum`→`enum`, `deny`→`not`/`enum`,
 //! `range`→`minimum`/`maximum`, `allowed_chars`→a generated `pattern` charclass,
+//! `shape`→the named shape's own expression, composed into the property's `allOf`,
 //! `forbidden_keys`→a `not`/`required` combinator per key, and `closed-keys`→the whole
 //! object's `additionalProperties: false`, the one clause whose face is the object's
 //! rather than a property's. The remaining
@@ -51,7 +52,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{Map, Value};
 
-use crate::contract::{self, Charset, Contract, Predicate};
+use crate::contract::{self, Charset, Contract, Predicate, Shape};
 use crate::extract::ValueType;
 
 /// Project `contract` into a JSON Schema [`Value`] over an artifact's frontmatter.
@@ -109,6 +110,15 @@ pub fn emit(contract: &Contract) -> Value {
             Predicate::AllowedChars { field, charset } => {
                 property(&mut properties, field)
                     .insert("pattern".to_string(), Value::from(charclass(charset)));
+            }
+            // A shape is decidable against the flat object in front of the editor, so it
+            // rides the validation channel like any other decidable field clause: the
+            // engine's own expression, projected. That is not the author-facing `pattern`
+            // clause arriving by the back door — the author named a shape, this is machine
+            // output, and the same [`Shape::pattern`] the gate judges by is what lands
+            // here, so the squiggle cannot say more or less than the gate does.
+            Predicate::Shape { field, shape } => {
+                push_subschema(property(&mut properties, field), shape_subschema(*shape));
             }
             Predicate::ForbiddenKeys { keys } => {
                 for key in keys {
@@ -282,6 +292,37 @@ fn forbid_key(key: &str) -> Value {
     let mut not = Map::new();
     not.insert("not".to_string(), Value::Object(required));
     Value::Object(not)
+}
+
+/// The JSON-Schema face of one declared [`Shape`]: the engine's own expression as a
+/// `pattern`, wrapped in `not` where matching it is the violation — the spelling `deny`
+/// already uses to say "none of these".
+fn shape_subschema(shape: Shape) -> Value {
+    let mut pattern = Map::new();
+    pattern.insert("pattern".to_string(), Value::from(shape.pattern()));
+    if shape.match_holds() {
+        return Value::Object(pattern);
+    }
+    let mut negated = Map::new();
+    negated.insert("not".to_string(), Value::Object(pattern));
+    Value::Object(negated)
+}
+
+/// Add `subschema` to a property's `allOf`, the composition keyword.
+///
+/// A shape's keywords compose rather than overwrite: `allowed_chars` already writes the
+/// property's own `pattern` and `deny` its `not`, and a skill's `name` carries both plus a
+/// shape. Writing a second `pattern` straight onto the property would leave only the last
+/// clause's standing — silently dropping the other from the schema, with nothing to catch
+/// it. `allOf` accumulates, so every clause on a field is asserted.
+fn push_subschema(property: &mut Map<String, Value>, subschema: Value) {
+    if let Some(entries) = property
+        .entry("allOf")
+        .or_insert_with(|| Value::Array(Vec::new()))
+        .as_array_mut()
+    {
+        entries.push(subschema);
+    }
 }
 
 /// The generated `^[<ranges><chars>]*$` character-class pattern for a [`Charset`]

@@ -29,6 +29,7 @@ import {
   nameMatchesDir,
   optional,
   required,
+  shape,
   type,
   uniqueName,
 } from "./contract.js";
@@ -956,8 +957,7 @@ const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
  * who already added it. That is the one clause here worth more than a lint.
  *
  * **One documented rule below the top level is still absent, pending a vocabulary
- * addition** — the same shape of hold `pluginManifestDefaultContract` names for its own
- * two:
+ * addition** — a discriminated-union predicate, the widening this hold waits on:
  *
  * - **The `source` union.** The docs type `source` as `string|object` and give the object
  *   four forms; deciding *which* — the relative-path form's leading `./`, each object
@@ -1054,11 +1054,9 @@ export const marketplaceDefaultContract: readonly Clause[] = [
  *
  * Deliberately absent — undecidable, so never gate clauses: whether the
  * description actually triggers well or reads third-person (semantic);
- * vagueness/no-op detection (semantic); gerund naming (judgment). Two
- * decidable spec rules are also absent, pending a vocabulary addition (a
- * narrow shape predicate governs additions): the name
- * must not start/end with a hyphen or contain consecutive hyphens; likewise
- * the platform's "no XML tags in the description."
+ * vagueness/no-op detection (semantic); gerund naming (judgment). Nothing
+ * decidable is held: the name's hyphen placement and the platform's "no XML
+ * tags in the description" are the two `shape` clauses below.
  *
  * Authoring notes the clauses cannot carry: prefer gerund or noun-phrase
  * names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`,
@@ -1090,6 +1088,12 @@ export const skillDefaultContract: readonly Clause[] = [
     guidance: "Keep the name short and slug-like; it becomes a directory and an id.",
     cite: "https://agentskills.io/specification#name-field (retrieved 2026-07-15)",
   }),
+  clause(shape("name", "hyphen-placement"), {
+    severity: "required",
+    guidance:
+      "A hyphen separates segments, so it may not lead, trail, or double — `-pdf`, `pdf-`, and `pdf--processing` are the spec's own counter-examples. The charset clause above admits the hyphen; this places it.",
+    cite: "https://agentskills.io/specification#name-field (retrieved 2026-07-17)",
+  }),
   clause(deny("name", ["anthropic", "claude"]), {
     severity: "required",
     guidance:
@@ -1119,6 +1123,12 @@ export const skillDefaultContract: readonly Clause[] = [
     guidance:
       "The spec's cap. Claude Code additionally truncates the skill listing at 1,536 combined characters (description + when_to_use) — truncation, not rejection, but text past the fold cannot help the model choose.",
     cite: "https://agentskills.io/specification#description-field (retrieved 2026-07-15)",
+  }),
+  clause(shape("description", "no-xml-tags"), {
+    severity: "required",
+    guidance:
+      "Anthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire.",
+    cite: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-17)",
   }),
   clause(maxLen("compatibility", 500), {
     severity: "required",

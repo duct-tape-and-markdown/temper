@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use temper::check;
-use temper::contract::{Charset, Contract, Predicate, Severity};
+use temper::contract::{Charset, Contract, Predicate, Severity, Shape};
 use temper::engine;
 use temper::extract::Features;
 
@@ -81,6 +81,13 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
         ),
         (
             Severity::Required,
+            Predicate::Shape {
+                field: "name".to_string(),
+                shape: Shape::HyphenPlacement,
+            },
+        ),
+        (
+            Severity::Required,
             Predicate::Deny {
                 field: "name".to_string(),
                 values: vec!["anthropic".to_string(), "claude".to_string()],
@@ -105,6 +112,13 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
             Predicate::MaxLen {
                 field: "description".to_string(),
                 max: 1024,
+            },
+        ),
+        (
+            Severity::Required,
+            Predicate::Shape {
+                field: "description".to_string(),
+                shape: Shape::NoXmlTags,
             },
         ),
         (
@@ -179,6 +193,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
             "max_len",
             "deny",
             "allowed_chars",
+            "shape",
             "max_lines",
             "name-matches-dir",
             "forbidden_keys",

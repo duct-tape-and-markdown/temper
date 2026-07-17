@@ -205,6 +205,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::Enum { field, .. }
         | Predicate::Deny { field, .. }
         | Predicate::AllowedChars { field, .. }
+        | Predicate::Shape { field, .. }
         | Predicate::GlobValid { field } => Some(field),
         _ => None,
     }
@@ -823,6 +824,19 @@ fn decide(
                 })
             })
         }
+
+        // The shape owns both its mechanics and its prose: the finding names the shape
+        // and quotes what it demands, and the clause's guidance teaches past that.
+        Predicate::Shape { field, shape } => addressed(features, field, |address, value| {
+            let value = value.as_scalar()?;
+            (!shape.admits(value)).then(|| {
+                format!(
+                    "field `{address}` does not hold the `{}` shape: {}",
+                    shape.name(),
+                    shape.demand()
+                )
+            })
+        }),
 
         // `glob-valid` checks every glob the field carries parses under the one
         // shared `globset` surface (`crate::kind::compile_glob`, brace-aware). An

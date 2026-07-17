@@ -65,7 +65,7 @@ test("every default contract clause carries a non-empty cite", () => {
 });
 
 test("skillDefaultContract carries the skill kind's decidable clauses, name-first", () => {
-  assert.equal(skillDefaultContract.length, 13);
+  assert.equal(skillDefaultContract.length, 15);
   assert.equal(skillDefaultContract[0].predicate.key, "required");
   assert.equal(skillDefaultContract[0].predicate.field, "name");
   assert.deepEqual(
@@ -75,11 +75,13 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
       "min_len",
       "allowed_chars",
       "max_len",
+      "shape",
       "deny",
       "name-matches-dir",
       "required",
       "min_len",
       "max_len",
+      "shape",
       "max_len",
       "max_lines",
       "forbidden_keys",
@@ -87,8 +89,8 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
     ],
   );
   // The `glob-valid` clause ranges over the `paths` scope.
-  assert.equal(skillDefaultContract[12].predicate.key, "glob-valid");
-  assert.equal(skillDefaultContract[12].predicate.field, "paths");
+  assert.equal(skillDefaultContract[14].predicate.key, "glob-valid");
+  assert.equal(skillDefaultContract[14].predicate.field, "paths");
 });
 
 test("commandDefaultContract is skillDefaultContract minus the directory-name clause", () => {

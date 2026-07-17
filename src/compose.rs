@@ -271,6 +271,7 @@ mod tests {
             degree: None,
             gate: None,
             value_type: None,
+            shape: None,
             bound: None,
             charset: None,
             keys: None,
@@ -299,6 +300,7 @@ mod tests {
                 degree: None,
                 gate: None,
                 value_type: None,
+                shape: None,
                 bound: Some(crate::drift::BoundRow {
                     min: None,
                     max: Some(150),
@@ -322,6 +324,7 @@ mod tests {
                 degree: None,
                 gate: None,
                 value_type: None,
+                shape: None,
                 bound: Some(crate::drift::BoundRow {
                     min: None,
                     max: Some(10),

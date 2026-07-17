@@ -229,6 +229,21 @@ pub enum Predicate {
         /// The permitted character set.
         charset: Charset,
     },
+    /// `shape`: the field's value holds the named [`Shape`] — one member of a closed set
+    /// of engine-implemented forms, each backed by an external document that states it.
+    ///
+    /// The author names a shape and can spell nothing else. Its mechanics are a regex the
+    /// engine owns ([`Shape::pattern`]), hidden exactly as [`Charset`] hides the
+    /// character class it stands for: naming a shape is not authoring a pattern, and the
+    /// closure is what keeps the two apart. Growing the set is a deliberate language
+    /// change — a new member ships with its implementation and its cite, or it does not
+    /// ship — so this door cannot widen into an open lint.
+    Shape {
+        /// The field constrained.
+        field: String,
+        /// The declared shape its value must hold.
+        shape: Shape,
+    },
     /// `max_lines`: the artifact body is at most `max` lines.
     MaxLines {
         /// The inclusive upper bound, in lines.
@@ -451,6 +466,14 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             field: row.field.clone()?,
             charset: charset_from_row(row.charset.as_ref()?)?,
         },
+        // The same rule the declared kinds cross under: the shape crosses the lock as its
+        // name, and a name outside the closed set is no predicate at all — the row is
+        // rejected at load rather than skipped into a contract that silently checks less
+        // than it says.
+        "shape" => Predicate::Shape {
+            field: row.field.clone()?,
+            shape: Shape::from_name(row.shape.as_deref()?)?,
+        },
         "forbidden_keys" => Predicate::ForbiddenKeys {
             keys: row.keys.clone()?,
         },
@@ -544,6 +567,7 @@ impl Predicate {
             Predicate::ForbiddenKeys { .. } => "forbidden_keys",
             Predicate::ClosedKeys => "closed-keys",
             Predicate::AllowedChars { .. } => "allowed_chars",
+            Predicate::Shape { .. } => "shape",
             Predicate::MaxLines { .. } => "max_lines",
             Predicate::RequireSections { .. } => "require_sections",
             Predicate::MustDefine { .. } => "must_define",
@@ -603,6 +627,7 @@ impl Predicate {
             | Predicate::Enum { field, .. }
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. }
+            | Predicate::Shape { field, .. }
             | Predicate::GlobValid { field } => Some(field),
             Predicate::MustDefine { marker } => Some(marker),
             // A `section_contains` constrains the content under one heading, so the
@@ -646,6 +671,7 @@ impl Predicate {
             | Predicate::Enum { field, .. }
             | Predicate::Deny { field, .. }
             | Predicate::AllowedChars { field, .. }
+            | Predicate::Shape { field, .. }
             | Predicate::GlobValid { field } => Some(field),
             // The set predicates range over a selection, not a single member's
             // frontmatter — they document no schema property here even when
@@ -714,5 +740,138 @@ impl Charset {
     #[must_use]
     pub fn allows(&self, c: char) -> bool {
         self.chars.contains(&c) || self.ranges.iter().any(|&(lo, hi)| (lo..=hi).contains(&c))
+    }
+}
+
+/// The closed set of value forms a [`Predicate::Shape`] clause may name.
+///
+/// A member exists only where an external document states the rule and this engine
+/// implements it, so the set is closed by construction and an author extends it with
+/// nothing: the enum *is* the vocabulary, and [`from_name`](Shape::from_name) rejects
+/// anything outside it at load. That closure is the whole safety property — it is what
+/// separates a shape from an open lint, which no clause may become.
+///
+/// Each member's mechanics are one regex plus a polarity: [`pattern`](Shape::pattern) is
+/// the expression, [`match_holds`](Shape::match_holds) says whether matching it means the
+/// shape holds or is violated. One definition serves both the gate and the emitted
+/// schema, so the two channels cannot decide the same shape differently.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ts_rs::TS)]
+#[ts(rename_all = "kebab-case")]
+pub enum Shape {
+    /// `hyphen-placement`: a hyphen neither leads, trails, nor doubles — the value is
+    /// non-empty segments joined by single hyphens (`pdf-processing`, never `-pdf`,
+    /// `pdf-`, or `pdf--processing`). Says nothing about the alphabet: an
+    /// [`AllowedChars`](Predicate::AllowedChars) clause is where a value's character set
+    /// is declared, and the two compose on one field without either restating the other.
+    ///
+    /// The empty value holds it — there is no hyphen to misplace — because emptiness is
+    /// [`MinLen`](Predicate::MinLen)'s to indict, and a shape that fired there would
+    /// duplicate that clause's finding under a worse name.
+    HyphenPlacement,
+    /// `no-xml-tags`: the value carries no XML tag.
+    ///
+    /// **Declared leniency:** a *tag* is read as well-formed — an element name, then
+    /// quoted attributes if any — so `<br/>`, `</note>`, and `<a href="x">` are tags
+    /// while prose like `use when x < y and y > z` is not. A malformed near-tag
+    /// therefore passes. That direction is deliberate: the reading is the narrow one, so
+    /// every finding is a true positive and the clause can gate, where a loose reading
+    /// would fire on ordinary prose that spells a comparison.
+    NoXmlTags,
+}
+
+/// `hyphen-placement`'s expression: optional non-empty segments joined by single
+/// hyphens. Anchored, so it decides the whole value.
+const HYPHEN_PLACEMENT_PATTERN: &str = r"^([^-]+(-[^-]+)*)?$";
+
+/// `no-xml-tags`' expression: one well-formed start, end, or empty-element tag —
+/// `<name>`, `</name>`, `<name/>`, `<name attr="v">`. Unanchored: a tag anywhere in the
+/// value is the violation.
+const NO_XML_TAGS_PATTERN: &str = r#"</?[A-Za-z_:][-A-Za-z0-9._:]*(\s+[A-Za-z_:][-A-Za-z0-9._:]*\s*=\s*("[^"]*"|'[^']*'))*\s*/?>"#;
+
+/// Every shape's compiled expression, built once. Compilation cannot fail — the patterns
+/// are crate constants, covered by [`crate::contract::tests`] — so the shape's own judge
+/// never reaches for a fallible path at check time.
+static SHAPE_PATTERNS: std::sync::LazyLock<[(Shape, regex::Regex); 2]> =
+    std::sync::LazyLock::new(|| {
+        [
+            (
+                Shape::HyphenPlacement,
+                regex::Regex::new(HYPHEN_PLACEMENT_PATTERN)
+                    .expect("HYPHEN_PLACEMENT_PATTERN is a valid regex"),
+            ),
+            (
+                Shape::NoXmlTags,
+                regex::Regex::new(NO_XML_TAGS_PATTERN)
+                    .expect("NO_XML_TAGS_PATTERN is a valid regex"),
+            ),
+        ]
+    });
+
+impl Shape {
+    /// This shape's declared name — the spelling the lock's `shape` column carries and
+    /// the author names in the SDK.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Shape::HyphenPlacement => "hyphen-placement",
+            Shape::NoXmlTags => "no-xml-tags",
+        }
+    }
+
+    /// Parse a declared shape name into its [`Shape`], or `None` when it names no member
+    /// of the closed set. The single home of the shape name table.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Shape> {
+        match name {
+            "hyphen-placement" => Some(Shape::HyphenPlacement),
+            "no-xml-tags" => Some(Shape::NoXmlTags),
+            _ => None,
+        }
+    }
+
+    /// The regex this shape is decided by, paired with [`match_holds`](Shape::match_holds).
+    /// The engine judges by it and [`crate::schema`] projects it, so the gate and the
+    /// keystroke check one expression rather than two that could drift.
+    #[must_use]
+    pub fn pattern(self) -> &'static str {
+        match self {
+            Shape::HyphenPlacement => HYPHEN_PLACEMENT_PATTERN,
+            Shape::NoXmlTags => NO_XML_TAGS_PATTERN,
+        }
+    }
+
+    /// Whether matching [`pattern`](Shape::pattern) means the shape **holds** (`true`) or
+    /// is **violated** (`false`) — a shape stating what a value must be reads positively,
+    /// one stating what it must not carry reads negatively, and the regex crate spells no
+    /// lookaround to collapse the two.
+    #[must_use]
+    pub fn match_holds(self) -> bool {
+        match self {
+            Shape::HyphenPlacement => true,
+            Shape::NoXmlTags => false,
+        }
+    }
+
+    /// Whether `value` holds this shape.
+    #[must_use]
+    pub fn admits(self, value: &str) -> bool {
+        let matched = SHAPE_PATTERNS
+            .iter()
+            .find(|(shape, _)| *shape == self)
+            .is_some_and(|(_, pattern)| pattern.is_match(value));
+        matched == self.match_holds()
+    }
+
+    /// What this shape demands, in the prose a finding quotes — the teaching a clause's
+    /// own guidance then widens on.
+    #[must_use]
+    pub fn demand(self) -> &'static str {
+        match self {
+            Shape::HyphenPlacement => {
+                "a hyphen may not lead, trail, or double — the value is segments joined \
+                 by single hyphens"
+            }
+            Shape::NoXmlTags => "the value carries no XML tag",
+        }
     }
 }

@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use ts_rs::{Config, TS};
 
+use temper::contract::Shape;
 use temper::drift::{
     AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow, CollectionEntryRow,
     CollectionEntryWire, CountBoundRow, Declarations, DegreeBoundRow, EdgeBoundRow, IncludeRow,
@@ -67,6 +68,9 @@ fn fresh_bindings() -> BTreeMap<String, String> {
     }
 
     collect!(
+        // The clause vocabulary's own closed argument sets (`src/contract.rs`) — declared
+        // once in Rust and generated across, so a member cannot be added on one side.
+        Shape,
         // Extraction feature family (`src/extract.rs`).
         ValueType,
         FeatureValue,

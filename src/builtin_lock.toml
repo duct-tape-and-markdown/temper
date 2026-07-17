@@ -212,6 +212,16 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
+label = "command.shape.name"
+kind = "command"
+predicate = "shape"
+field = "name"
+severity = "required"
+guidance = "A hyphen separates segments, so it may not lead, trail, or double — `-pdf`, `pdf-`, and `pdf--processing` are the spec's own counter-examples. The charset clause above admits the hyphen; this places it."
+cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-17)"
+shape = "hyphen-placement"
+
+[[declaration.clause]]
 label = "command.deny.name"
 kind = "command"
 predicate = "deny"
@@ -249,6 +259,16 @@ severity = "required"
 guidance = "The spec's cap. Claude Code additionally truncates the skill listing at 1,536 combined characters (description + when_to_use) — truncation, not rejection, but text past the fold cannot help the model choose."
 cite = "https://agentskills.io/specification#description-field (retrieved 2026-07-15)"
 bound = { max = 1024 }
+
+[[declaration.clause]]
+label = "command.shape.description"
+kind = "command"
+predicate = "shape"
+field = "description"
+severity = "required"
+guidance = "Anthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire."
+cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-17)"
+shape = "no-xml-tags"
 
 [[declaration.clause]]
 label = "command.max_len.compatibility"
@@ -785,6 +805,16 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
+label = "skill.shape.name"
+kind = "skill"
+predicate = "shape"
+field = "name"
+severity = "required"
+guidance = "A hyphen separates segments, so it may not lead, trail, or double — `-pdf`, `pdf-`, and `pdf--processing` are the spec's own counter-examples. The charset clause above admits the hyphen; this places it."
+cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-17)"
+shape = "hyphen-placement"
+
+[[declaration.clause]]
 label = "skill.deny.name"
 kind = "skill"
 predicate = "deny"
@@ -830,6 +860,16 @@ severity = "required"
 guidance = "The spec's cap. Claude Code additionally truncates the skill listing at 1,536 combined characters (description + when_to_use) — truncation, not rejection, but text past the fold cannot help the model choose."
 cite = "https://agentskills.io/specification#description-field (retrieved 2026-07-15)"
 bound = { max = 1024 }
+
+[[declaration.clause]]
+label = "skill.shape.description"
+kind = "skill"
+predicate = "shape"
+field = "description"
+severity = "required"
+guidance = "Anthropic's platform upload validation rejects a description carrying an XML tag — the description is injected into the system prompt, where a tag is markup rather than text. Neither the open spec nor Claude Code's runtime enforces it, so this is the clause that keeps a skill portable through the API and claude.ai. Prose spelling a comparison (`use when x < y`) is not a tag and does not fire."
+cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview#skill-structure (retrieved 2026-07-17)"
+shape = "no-xml-tags"
 
 [[declaration.clause]]
 label = "skill.max_len.compatibility"

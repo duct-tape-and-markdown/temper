@@ -105,6 +105,17 @@ gate?: string,
  */
 value_type?: Array<string>, 
 /**
+ * The `shape` clause's declared shape, when the predicate is `shape` — the closed
+ * set's own spelling (`hyphen-placement`/`no-xml-tags`) that
+ * [`crate::contract::Shape::from_name`] decodes. Carried as a name rather than as a
+ * [`crate::contract::Shape`], the trade `value_type` already makes: the row family
+ * carries its arguments as names and decodes them at the boundary.
+ *
+ * One name, never a set — a clause names exactly one shape — so this is a plain
+ * string column, and no read-side skew tolerance answers it.
+ */
+shape?: string, 
+/**
  * The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
  * is one of those three.
  */
