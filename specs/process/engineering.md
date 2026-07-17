@@ -30,3 +30,39 @@ becomes a pending entry.
   (byte-fidelity round-trips, charset mechanics), the implementation
   follows the corpus, and a library is adopted only where its semantics
   match the pinned contract.
+
+## A shared concept is one type
+
+Grounded in the field: every cross-feature defect the first consumer
+harvest surfaced was a consumer iterating a **partial enumeration of a
+shared concept** after a producer widened it — a parallel vec beside
+the canonical edge set, an XOR branch where template layers are a
+union, a deletable class the ledger never learned. The treatment is
+shape, so it lives here:
+
+- A new fact-shape enters a shared concept as a **variant of the one
+  shared type, never a parallel structure**. The engine's shared
+  enumerations — edges, members, template layers, lock rows, deletable
+  things, discoverable paths — each have exactly one type, and a
+  private partial copy of one is residue fileable against this section.
+- Consumers of a shared enumeration hold **exhaustive matches**, so a
+  new variant refuses to compile until every judge answers it — the
+  `Format`/`project_bytes` precedent: the next variant answers the
+  match by construction. A `_` arm over a shared concept is a seam
+  defect waiting for its field report.
+- An entry that widens a shared enumeration names that enumeration's
+  **other consumers** in its own files[] — "who else reads this set?"
+  is derivation's question, never the consumer's bug report.
+
+## The gauntlet corpus
+
+Single-feature fixtures cannot find composition seams; the field
+harvests that surfaced them came from a real corpus using feature
+*combinations*. One in-tree kitchen-sink fixture harness holds every
+composition the model claims legal — composed bodies over templated
+hosts, embedded edges with scopes on both endpoints, partially-declared
+manifests, local members under ignore rules — with `check` and `emit`
+snapshot-tested over it. A feature entry that adds a composable surface
+extends the gauntlet where its feature meets the existing ones: each
+addition pays its composition cost once, at ship time, instead of in a
+consumer's repo later.

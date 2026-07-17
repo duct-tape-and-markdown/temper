@@ -31,6 +31,14 @@ rewriting an entry, and any interactive session hand-editing the queue.
   importing that helper, invisibly to a source-only grep. Include those
   fan-out files in `files.edit` up front rather than letting build discover
   them one `cargo test` failure at a time.
+- **Widening a shared enumeration names its other consumers.** An entry
+  that adds a variant, row shape, or member class to a shared concept —
+  edges, members, template layers, lock rows, deletable things,
+  discoverable paths — lists that enumeration's other consumers in its
+  own `files[]` (`rg` the type's match sites), per
+  `specs/process/engineering.md`, "A shared concept is one type": "who
+  else reads this set?" is derivation's question, never the consumer's
+  bug report.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in

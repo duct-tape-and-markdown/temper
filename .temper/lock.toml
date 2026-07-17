@@ -13,8 +13,8 @@ emit_hash = "a8bb717defb4eb8743165841966293d60b9d267622647d112df25da8291c8207"
 [[rule]]
 name = "pending-entry"
 source_path = ".claude/rules/pending-entry.md"
-source_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
-emit_hash = "7ae02d95b6b94d4a081735317aa568f2e54f418e322ddce9ea0af7689ebb08e4"
+source_hash = "a2f1a5383db49bd0a1ec048d9910a8ec98fad26c8b93f5390214dc2b9d674ac3"
+emit_hash = "a2f1a5383db49bd0a1ec048d9910a8ec98fad26c8b93f5390214dc2b9d674ac3"
 
 [[rule]]
 name = "public-prose"
