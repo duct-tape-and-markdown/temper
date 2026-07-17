@@ -7,8 +7,7 @@
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCAL-LOCUS-COMMITMENT-CLASS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow` (2548) carries kind/predicate/field/severity/guidance/cite and per-predicate argument columns — **no label column exists**. It gains one, written once at emit (840) as the row's identity. This is the entry's core: the label is not a spelling widened but a column added."
+          "description": "`ClauseRow` (2627) carries kind/predicate/field/severity/guidance/cite and per-predicate argument columns — **no label column exists**, re-verified on disk at 399d8e3. It gains one, written once at emit (843) as the row's identity. This is the entry's core: the label is not a spelling widened but a column added."
         },
         {
           "path": "src/engine.rs",
@@ -36,7 +35,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Admissibility refuses two rows wearing one label — a malformed lock, rejected before it judges anything (`contract.md`, \"well-formedness\"). Sibling of the shipped `KIND_COLLISION_RULE` (1713) and `GOVERNS_COLLISION_RULE` (1787), which guard kind-name and governs-glob collisions; neither covers clause rows."
+          "description": "Admissibility refuses two rows wearing one label — a malformed lock, rejected before it judges anything (`contract.md`, \"well-formedness\"). Sibling of three shipped coherence rules, none covering clause rows: `KIND_COLLISION_RULE` (1786), `LOCAL_LOCUS_RULE` (1860, new at 40619a0), `GOVERNS_COLLISION_RULE` (1902). The `engine::admissibility` calls at 811/850 are the path."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
@@ -57,7 +56,7 @@
       }
     ],
     "acceptance": "Every clause declaration row has a documented, deterministic, human-legible address; every finding and `explain` print it; a colliding lock is refused (contract.md, \"clause\"; pipeline.md, \"The lock\"). `cargo test` green.",
-    "notes": "0032 assumed this shipped ('the lock already writes one per row and refuses collisions'); on disk it does not — the founding corpus claimed the label at e842a32 and no entry ever built it. So the work is the column plus the grammar plus the refusal, not a spelling change. Serialized behind the locus class: both edit `src/drift.rs` and `src/main.rs`. The dial cannot name a clause until this lands. scoped at f1d97e4."
+    "notes": "0032 assumed this shipped ('the lock already writes one per row and refuses collisions'); on disk it does not — the founding corpus claimed the label at e842a32 and no entry ever built it. So the work is the column plus the grammar plus the refusal, not a spelling change. **Ungated 07-16**: LOCAL-LOCUS-COMMITMENT-CLASS shipped (40619a0), and it was the sole blocker. The dial cannot name a clause until this lands. scoped at f1d97e4; cites re-read at 399d8e3."
   },
   {
     "tag": "CHECK-JOINS-INVOCATION-LOCKS",
@@ -76,11 +75,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The `Check` command (105-119: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `admissibility` path (811/826). 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
+          "description": "The `Check` command (105-122: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `engine::admissibility` path (811/850). 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
         },
         {
           "path": "src/drift.rs",
-          "description": "`read_declarations` (3025) / `parse_declarations` (3048) read one lock today; the join reads the invocation's locks the same way — the lock stays the one interchange, and no second parser is minted beside this one."
+          "description": "`read_declarations` (3104) / `parse_declarations` (3127) read one lock today; the join reads the invocation's locks the same way — the lock stays the one interchange, and no second parser is minted beside this one."
         },
         {
           "path": "src/compose.rs",
@@ -97,7 +96,7 @@
       }
     ],
     "acceptance": "An org authors an ordinary temper corpus, emits its lock, and distributes it; a consumer joins it at check and is gated by it, fail-closed (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Serialized behind the label entry: both edit `src/main.rs`, `src/compose.rs`, `src/drift.rs`. scoped at f1d97e4."
+    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Serialized behind the label entry: both edit `src/main.rs`, `src/compose.rs`, `src/drift.rs`. scoped at f1d97e4; cites re-read at 399d8e3."
   },
   {
     "tag": "TYPE-ACCEPTS-A-SET",
@@ -124,7 +123,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow::value_type` (2586-2593) is `Option<String>` — one lattice name — written at 3428-3429 and read at 3470; it carries the set. An older lock's bare string reads as a one-element set and the next emit rewrites the file whole in canonical form: the robust read plus canonical rewrite an upgraded engine owes a committed lock (`pipeline.md`, \"The lock\"), never a patch of the file."
+          "description": "`ClauseRow::value_type` (2672) is `Option<String>` — one lattice name — written at 3511-3512 and read at 3553; it carries the set. An older lock's bare string reads as a one-element set and the next emit rewrites the file whole in canonical form: the robust read plus canonical rewrite an upgraded engine owes a committed lock (`pipeline.md`, \"The lock\"), never a patch of the file."
         },
         {
           "path": "src/compose.rs",
@@ -149,6 +148,10 @@
         {
           "path": "src/builtin_lock.toml",
           "description": "Generated data, never transcribed — re-derived from the SDK module by the frozen lane (`tests/builtin_lock_frozen.rs`), which byte-compares it."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "The coverage oracle shipped at 97e84a1, after this entry was scoped — it makes this the entry that moves the measured lag, in two places. (1) `covered_rule` (135) destructures `Predicate::Type { field, kind }` and calls `json_schema_type(*kind)` (141): the set breaks that arm, which re-spells as the `type in {a|b}` form `schema_rules` already emits; its doc (132-134) calls a union-typed property \"deliberately unreachable here\" because a single-kind clause \"would reject the documented string form\" — that sentence retires with the widening. (2) `EXPECTED_LAG` (34) drops exactly the six rows this closes — `agents`, `commands`, `hooks`, `lspServers`, `mcpServers`, `skills` — and the header's \"six union-typed component fields awaiting a `type` that accepts a set\" (31-32) retires with them. `monitors`/`outputStyles`/`themes` are union-typed too and stay in the lag: they are components no clause types at all, outside builtins.md's six. `the_lag_behind_the_published_schema_is_the_named_expected_set` (181) fails loud with \"re-state EXPECTED_LAG\" if this is skipped, so the diff is reviewable by construction, never silent."
         }
       ],
       "retire": []
@@ -160,12 +163,16 @@
         "asserts": "a `type` clause over a set holds when the field carries any member kind and fails naming the whole declared set; a one-element set behaves exactly as today's single kind; an empty set is inadmissible; a lock row spelling a bare string reads as a one-element set"
       },
       {
+        "path": "tests/manifest_schema_oracle.rs",
+        "asserts": "the measured lag behind the published schema shrinks by exactly the six union-typed component rules this closes, and the restated `EXPECTED_LAG` is what the oracle now holds"
+      },
+      {
         "path": "tests/plugin_manifest_kind.rs",
         "asserts": "a manifest whose `skills` key carries a documented `string|array` value passes, and one carrying a number fails through the real gate"
       }
     ],
     "acceptance": "The six documented union-typed manifest fields are gated rather than held (builtins.md, \"Default contracts\": a hold is named with the widening that closes it, and discharges when it ships). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "First of 0033's four widenings (0029's move). Serialized behind CHECK-JOINS-INVOCATION-LOCKS: both edit `src/drift.rs` and `src/compose.rs`. The wave's four entries each edit `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts` and the generated seam, so they chain rather than fan out. scoped at 15b7a3a."
+    "notes": "First of 0033's four widenings (0029's move). Serialized behind CHECK-JOINS-INVOCATION-LOCKS: both edit `src/drift.rs` and `src/compose.rs`. The wave's four entries each edit `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts` and the generated seam, so they chain rather than fan out. The oracle rider is an audit finding, not a rescope: it shipped after this was scoped and now measures exactly this widening. scoped at 15b7a3a; cites re-read at 399d8e3."
   },
   {
     "tag": "FIELD-ADDRESSING-RFC-9535-SUBSET",
@@ -184,7 +191,7 @@
       "edit": [
         {
           "path": "Cargo.toml",
-          "description": "`serde_json_path` joins the sanctioned dependency set (0033, human-ruled; re-verify the crate live at encode time). It is hidden mechanics exactly as `regex` (40) hides under `allowed_chars` and `globset` (36) under the governs glob — never a hand-rolled path walker (`specs/process/engineering.md`, \"Libraries before hand-rolls\"). Two stale-cite riders discharge while the file is open, neither having a carrier of its own: 38-39 sells `regex` as \"the `pattern` primitive\", a predicate that does not exist (`rg Pattern src/contract.rs src/engine.rs` is empty) and that the corpus refuses outright — its live job is the charset mechanics behind `allowed_chars`; and 42-45 cites `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/` dir exists) and assigns ts-rs the interchange-TS role the `sdk/src/generated/` seam bindings superseded (36a7662)."
+          "description": "`serde_json_path` joins the sanctioned dependency set (0033, human-ruled; re-verify the crate live at encode time). It is hidden mechanics exactly as `regex` (40) hides under `allowed_chars` and `globset` (36) under the governs glob — never a hand-rolled path walker (`specs/process/engineering.md`, \"Libraries before hand-rolls\"). Two stale-cite riders discharge while the file is open, neither having a carrier of its own: 37-39 sells `regex` as \"the `pattern` primitive\", a predicate that does not exist (`rg Pattern src/contract.rs src/engine.rs` is empty) and that the corpus refuses outright — its live job is the charset mechanics behind `allowed_chars`; and 42-45 cites `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/` dir exists) and assigns ts-rs the interchange-TS role the `sdk/src/generated/` seam bindings superseded (36a7662). Both re-read on disk at 399d8e3."
         },
         {
           "path": "src/extract.rs",
@@ -256,7 +263,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow` (2548) needs no argument column for it — the allow-list derives from the kind's sibling rows, so the row is predicate/severity/guidance/cite alone."
+          "description": "`ClauseRow` (2627) needs no argument column for it — the allow-list derives from the kind's sibling rows, so the row is predicate/severity/guidance/cite alone."
         },
         {
           "path": "src/compose.rs",
@@ -281,6 +288,10 @@
         {
           "path": "src/builtin_lock.toml",
           "description": "Generated data — re-derived and byte-compared by `tests/builtin_lock_frozen.rs`."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "`covered_rule` (135) matches `Predicate` exhaustively, so a new variant is a compile error until it lands in an arm; `ClosedKeys` joins the no-op list (147-165), whose comment already reasons about the `--strict` bar. `EXPECTED_LAG` must NOT move, and that is pinned rather than asserted here: the shipped `the_published_schema_states_no_closed_key_rule_so_the_strict_bar_is_outside_this_diff` (217) reads the vendored schema's absent `additionalProperties` and states this widening \"closes that hold against the *docs*, and this oracle will not move when it lands\". If the lag test fires anyway, the arm is wrong, not the list."
         }
       ],
       "retire": []
@@ -297,7 +308,7 @@
       }
     ],
     "acceptance": "`plugin-manifest`'s contract checks the strictest documented profile it claims — `claude plugin validate --strict` — rather than naming the gap as a hold (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0033's third widening. `optional` has been a row nothing reads since it shipped; this is the consumer that makes it load-bearing, so the first `closed-keys` clause is also the first real test that a kind's declared rows are complete. Serialized behind FIELD-ADDRESSING-RFC-9535-SUBSET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a."
+    "notes": "0033's third widening. `optional` has been a row nothing reads since it shipped; this is the consumer that makes it load-bearing, so the first `closed-keys` clause is also the first real test that a kind's declared rows are complete. Serialized behind FIELD-ADDRESSING-RFC-9535-SUBSET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a; cites re-read at 399d8e3."
   },
   {
     "tag": "SHAPE-PREDICATE",
@@ -324,7 +335,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow` (2548) gains a `shape` column carrying the enum member's name, following the `value_type` precedent (2586-2593, written at 3428 and read at 3470): the row family carries the argument as its name and decodes it at the boundary rather than carrying an engine type."
+          "description": "`ClauseRow` (2627) gains a `shape` column carrying the enum member's name, following the `value_type` precedent (2672, written at 3511-3512 and read at 3553): the row family carries the argument as its name and decodes it at the boundary rather than carrying an engine type."
         },
         {
           "path": "src/compose.rs",
@@ -349,6 +360,10 @@
         {
           "path": "src/builtin_lock.toml",
           "description": "Generated data — re-derived and byte-compared by `tests/builtin_lock_frozen.rs`."
+        },
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "`covered_rule` (135) matches `Predicate` exhaustively, so `Shape` is a compile error until it lands in an arm. It belongs in the no-op list (147-165) — the oracle measures the plugin-manifest floor against the published schema, this widening ships clauses on `skill` alone, and the schema states no shape rule for a `type`/`minLength`-vocabulary diff to count. `EXPECTED_LAG` must not move; if it does, the arm is wrong."
         }
       ],
       "retire": []
@@ -361,7 +376,7 @@
       }
     ],
     "acceptance": "The two documented decidable spec rules the skill contract has named as a hold since it shipped are gated, over a closed enum no author can extend (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0033's fourth widening — the \"later wave under their own design\" 0022 reserved. The enum's closure is the whole safety property: it is what separates a shape from the open lint `intent.md` invariant 2 exists to prevent, so a shape lands with its doc cite or it does not land. Serialized behind CLOSED-KEYS-CLAUSE over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a."
+    "notes": "0033's fourth widening — the \"later wave under their own design\" 0022 reserved. The enum's closure is the whole safety property: it is what separates a shape from the open lint `intent.md` invariant 2 exists to prevent, so a shape lands with its doc cite or it does not land. Serialized behind CLOSED-KEYS-CLAUSE over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a; cites re-read at 399d8e3."
   },
   {
     "tag": "DIAL-KIND",
@@ -394,7 +409,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "`Format` (507-522) spells `yaml-frontmatter` and `json-document` — no TOML face exists. What the dial's document face becomes is exactly the fork this entry waits on."
+          "description": "`Format` (555-564) spells `yaml-frontmatter` and `json-document` — no TOML face exists, re-verified at 399d8e3. What the dial's document face becomes is exactly the fork this entry waits on. The locus half is no longer hypothetical: `Commitment::Local` (46-56) and `CustomKind::declare_local` (730) ship, and `local_locus_fault` (746) refuses a local kind that is not layout content — so a `toml-document` dial trips that fence as written, which is the fork's stake stated in code rather than in prose."
         },
         {
           "path": "src/main.rs",
@@ -411,7 +426,7 @@
       }
     ],
     "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Fork-gated, not merely serialized: `contract.md` calls the dial a local-locus **TOML** document while `representation.md` declares a local locus layout-only, and a layout is markdown's heading tree. Build must not pick between those sentences. Re-gated 07-16 behind 0033's wave (shares `sdk/src/builtins.ts`) rather than the wave behind it: this entry cannot ship until a human rules the fork, and 0033's widenings must not wait on that. scoped at f1d97e4."
+    "notes": "Fork-gated, not merely serialized: `contract.md` calls the dial a local-locus **TOML** document while `representation.md` declares a local locus layout-only, and a layout is markdown's heading tree. Build must not pick between those sentences. Gated behind 0033's wave (shares `sdk/src/builtins.ts`): this waits on a human either way, and four ratified widenings must not wait with it. The fork is enforced code now — see the `src/kind.rs` note. scoped f1d97e4; re-read 399d8e3."
   },
   {
     "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
@@ -483,7 +498,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 15b7a3a and holds — nothing ruled the hop semantics, and the window since f1d97e4 is plan-only, touching no import mechanics. Every cite re-read on disk, all unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified f1d97e4."
+    "notes": "Park re-tested at 399d8e3 and holds — nothing ruled the hop semantics, and `git diff 9409a6c..HEAD -- src/graph.rs tests/graph.rs` is empty, so every cite stands unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 399d8e3."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -510,6 +525,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at f1d97e4, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The window since touched no release surface. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 399d8e3, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. `git diff 9409a6c..HEAD -- .github/` is empty. scoped at b676656."
   }
 ]

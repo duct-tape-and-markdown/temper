@@ -22,12 +22,17 @@ tax.
   primitives and "admits no syntax beyond markdown's own"
   (`representation.md`, "kind") — a TOML file has no heading tree, so the dial
   as specified cannot be a layout-content member, and the first local-locus
-  kind cannot satisfy the local locus's own rule. Verified on disk at f1d97e4:
-  `Format` is `yaml-frontmatter | json-document` (`src/kind.rs`:507-522,
+  kind cannot satisfy the local locus's own rule. Verified on disk at 399d8e3:
+  `Format` is `yaml-frontmatter | json-document` (`src/kind.rs`:555-564,
   `sdk/src/kind.ts`:22) — no TOML face exists; a `json-document` kind is
-  `Content::File | Content::Fields`, never layout (`src/main.rs`:1245), which
-  is the precedent a `toml-document` format would follow (`toml_edit` is
-  already sanctioned). Three candidate readings, each amending a different
+  `Content::File | Content::Fields`, never layout (`src/main.rs`:1263-1266),
+  which is the precedent a `toml-document` format would follow (`toml_edit` is
+  already sanctioned). **The collision is enforced code as of 40619a0, not two
+  readings of prose:** `local_locus_fault` (`src/kind.rs`:746) refuses a local
+  kind that is not layout content, surfaced at the gate as `kind.local-locus`
+  (`src/main.rs`:1860). So the dial as `contract.md` spells it now trips a
+  shipped fence — the fork's cost moved from latent to a refusal a build tick
+  would hit on contact. Three candidate readings, each amending a different
   ratified sentence: a `toml-document` format joins the inventory and
   "layout-only" widens to source-only (the property that carries the trust
   story is read-never-written, not markdown); or the dial is markdown with a
@@ -35,8 +40,11 @@ tax.
   "layout-only" stays literal and the dial is not a local-locus member,
   against 0032's own "no special mechanisms". Plan does not pick between two
   ratified sentences, and build must not either. Blocks DIAL-KIND and, through
-  it, CHECK-ANNOUNCES-THE-LOCK-FAMILY; LOCAL-LOCUS-COMMITMENT-CLASS ships the
-  fence as written and re-cuts if the ruling widens it.
+  it, CHECK-ANNOUNCES-THE-LOCK-FAMILY. LOCAL-LOCUS-COMMITMENT-CLASS **shipped**
+  (40619a0) with the fence as written, as its entry said it would; the ruling
+  re-cuts `local_locus_fault` if it widens the class. Its fixture kind governs
+  `.claude/local/*.md`, never `.temper/dial.md` — the first real local kind's
+  face is exactly what this fork owes.
 
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
@@ -184,27 +192,33 @@ condition arrives, it is the next break. If work touches one, surface it.
   the record below spent two entries learning, proven a third time: the rider
   discharges when an entry names it, and not when a file is merely opened.
 
-- **Two stale cites survive with no carrier — ride-only, never an entry.**
+- **Two stale cites, one now carried — ride-only, never an entry.**
   Comment and citation staleness never files a standalone entry; it rides
   whichever entry next opens the file. The `sdk/src/prose.ts` record that sat
   here for four entries is **retired, discharged on disk at 9409a6c**:
   SDK-BLOCKS-FILE-REFUSAL (42a2dd1) carried the rider it was given and cut all
   ten pre-recut narration lines — `rg` over the file for `law N` / `posture N`
   / `15-kinds` / `20-surface` now returns nothing. That closes the class the
-  record tracked; sweeping the same class across `src/` + `sdk/src/` at
-  9409a6c leaves exactly two lines, and no queued entry opens either file (the
-  queue is two parked entries, in `src/graph.rs`+`tests/graph.rs` and
-  `release.yml`):
-  - `Cargo.toml`:42-43 — doubly stale: cites `src/schema/interchange.rs` (the
-    module is `src/schema.rs`; no `schema/` dir exists) and assigns ts-rs the
-    interchange-TS role the seam bindings superseded (ts-rs's live job is the
-    `sdk/src/generated/` seam home, 36a7662; `src/schema.rs` is
-    schemars-only). Found at sweep HEAD a932bb0; re-verified at 9409a6c.
-  - `src/roster.rs`:465 — **swept this tick, and the last of its class**: the
-    doc comment on the `membership_roster` test helper cites
-    `` `10-contracts.md` ``, a file 0001 deleted. The sentence's claim is
-    live — a `target` names a declared requirement — so the cite comes out,
-    never gets re-pointed at a surviving file.
+  record tracked. Sweeping the same class across `src/` + `sdk/src/` still
+  leaves exactly two lines, both re-read on disk at 399d8e3 — but **one now
+  has a carrier**, which is the ride-only rule working rather than a gap:
+  - `Cargo.toml`:37-39 and 42-45 — **carried, no longer orphaned.** 37-39
+    sells `regex` as "the `pattern` primitive", a predicate that does not
+    exist and that the corpus refuses outright; 42-45 cites
+    `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
+    dir exists) and assigns ts-rs the interchange-TS role the seam bindings
+    superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
+    36a7662; `src/schema.rs` is schemars-only).
+    FIELD-ADDRESSING-RFC-9535-SUBSET adds `serde_json_path` to this file and
+    names both riders in its first edit — filed at 6f72a3b, which is what
+    retired this record's old "no queued entry opens either file" claim.
+    Found at sweep HEAD a932bb0.
+  - `src/roster.rs`:465 — **the last orphan of its class**: the doc comment on
+    the `membership_roster` test helper cites `` `10-contracts.md` ``, a file
+    0001 deleted. The sentence's claim is live — a `target` names a declared
+    requirement — so the cite comes out, never gets re-pointed at a surviving
+    file. No queued entry opens `src/roster.rs`; it waits for one, and never
+    becomes an entry of its own.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
   `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"

@@ -1,53 +1,46 @@
 # Plan state
 
 - Spec derived through: f1d97e4
-- Audited through: 9409a6c
-- Residue swept through: 9409a6c
-- This tick: SPEC DELTA — routed 0033 (`f1d97e4`, a hold is named debt) whole;
-  the cursor advances to it and the delta is now empty. **0033's Consequences,
-  bullet by bullet.** (1) "`builtins.md` gains the hold sentence — same commit,
-  this record" — moot, read in the diff: `f1d97e4` adds it to "Default
-  contracts" itself. (2) "the four widenings land as plan-derived entries with
-  fresh raw cites at encode time" — four entries filed, one per widening:
-  TYPE-ACCEPTS-A-SET, FIELD-ADDRESSING-RFC-9535-SUBSET, CLOSED-KEYS-CLAUSE,
-  SHAPE-PREDICATE, each naming the hold-note lines it discharges in
-  `sdk/src/builtins.ts` and each re-citing at encode time, never re-encoding a
-  cite from the entry's own text. (3) "`serde_json_path` enters `Cargo.toml`'s
-  sanctioned set (the CLAUDE.md stack list is a `.temper` projection — its
-  update is a `chore(harness)` act riding the entry)" — the `Cargo.toml` half
-  is FIELD-ADDRESSING's first edit; the projection half is named in that
-  entry's notes as the human act it is, never filed as build work. (4) "the
-  oracle test lands beside the plugin-manifest contract" —
-  MANIFEST-SCHEMA-COVERAGE-ORACLE, vendored fixture, offline. (5) "the four
-  contract-header hold notes discharge as each widening ships" — carried by the
-  four entries; see the exception below. (6) "the `(clause-vocabulary-holds)`
-  fork resolves whole; its record deletes" — moot: `rg` over
-  `open-questions.md` finds no such record; `ae9810f`'s sweep already took it.
-  **The wave does not close everything it touches, and the remainder is not
-  papered over.** `marketplaceDefaultContract`'s header names three bullets as
-  "one gap"; widening 2 discharges two and leaves the third — the `source`
-  union needs a discriminated-union predicate 0033 neither ratifies nor
-  mentions. Addressable is not decidable: `required("plugins[*].source")`
-  becomes spellable while *which* of the five documented forms a value is stays
-  unsayable. Registered `(source-union-predicate)`, non-blocking — that bullet
-  stays a named hold rather than discharging, which the corpus admits because
-  it already names its own closing widening.
-- Queue: 12 entries, **2 pickable** — LOCAL-LOCUS-COMMITMENT-CLASS and
-  MANIFEST-SCHEMA-COVERAGE-ORACLE are `open` and verified disjoint (the oracle
-  edits no existing file: one new test, one vendored fixture). The other eight
-  are one `blockedBy` chain: 0032's label and join entries, then 0033's four
-  widenings, then DIAL-KIND and its announcement. Every widening edits
-  `src/contract.rs`, `src/engine.rs`, `src/schema.rs` and `sdk/src/builtins.ts`,
-  so none may be `open` beside another. **DIAL-KIND re-gated** from
-  `blockedBy CHECK-JOINS` to `blockedBy SHAPE-PREDICATE`: it shares
-  `sdk/src/builtins.ts` with all four widenings, so one wave had to go behind
-  the other, and the dial is the one that cannot ship anyway until a human
-  rules `(local-locus-toml-face)` — putting 0033 behind it would have stalled
-  four ratified widenings on an unrelated fork. IMPORT-HOP-CAP-CITE and
-  PACKAGING-CHANNELS-REMAINDER stay parked on human acts, both re-tested at
-  HEAD and holding.
+- Audited through: 399d8e3
+- Residue swept through: 399d8e3
+- This tick: POST-SHIP RECONCILIATION of `9409a6c..399d8e3`. Both entries
+  shipped and the ship commit already dropped them, so the substance is the
+  gates the window falsified. **Audit.** (1) LOCAL-LOCUS-COMMITMENT-CLASS
+  shipped (40619a0), verified on disk — `Commitment::Local`
+  (`src/kind.rs`:46-56), `declare_local` (730), `local_locus_fault` (746),
+  `LOCAL_LOCUS_RULE` = `kind.local-locus` (`src/main.rs`:1860). It was
+  CLAUSE-LABEL-IS-AN-ADDRESS's **sole** blocker, leaving a **dangling
+  `blockedBy`** the reference gate would reject: re-gated `open`. Its premise
+  re-tested and holds — `ClauseRow` (`src/drift.rs`:2627) still carries **no
+  label column**. (2) MANIFEST-SCHEMA-COVERAGE-ORACLE shipped (97e84a1) and
+  **created a rider for three entries scoped before it existed**:
+  `covered_rule` (`tests/manifest_schema_oracle.rs`:135) matches `Predicate`
+  exhaustively, so CLOSED-KEYS-CLAUSE and SHAPE-PREDICATE cannot compile until
+  their variant lands in an arm, and TYPE-ACCEPTS-A-SET breaks the `Type` arm
+  outright (it destructures a single `kind`) while dropping six rows from
+  `EXPECTED_LAG`. All three gained the file; the oracle's own third test
+  already pins that closed-keys must *not* move the lag, so that entry states
+  it rather than guessing. (3) Both parks hold: `git diff 9409a6c..HEAD` is
+  empty over `src/graph.rs`, `tests/graph.rs`, `.github/`. (4) The window moved
+  cites under six entries (`src/drift.rs` 2548→2627, emit 840→843, `value_type`
+  2586→2672 / 3428→3511 / 3470→3553; `src/main.rs` 1713→1786, 1787→1902, Check
+  105-119→105-122; `src/kind.rs` `Format` 507-522→555-564) — all re-read on
+  disk, none carried forward. **Sweep.** Two records corrected, no new entry
+  earned. `(local-locus-toml-face)` **strengthens**: its collision is shipped
+  code now, not two readings of prose — a TOML dial trips `local_locus_fault`
+  on contact. The stale-cite record's "no queued entry opens either file" claim
+  is **falsified** — FIELD-ADDRESSING-RFC-9535-SUBSET (filed 6f72a3b) opens
+  `Cargo.toml` and names both riders, so only `src/roster.rs`:465 stays
+  orphaned. **Considered, not filed:** 40619a0's self-declared
+  `local_document_rows` double-read — one reader called twice, not two
+  implementations, so "One job, one home" does not reach it, and CLAUDE.md
+  forbids trading clarity for a micro-opt over kilobyte files. That same commit
+  *consolidated* `read_layout_document` into one reader across emit and check.
+- Queue: 10 entries, **1 pickable** — CLAUSE-LABEL-IS-AN-ADDRESS, ungated this
+  tick. Seven form one `blockedBy` chain behind it (join → 0033's four
+  widenings → dial → announcement), serialized on shared files; DIAL-KIND also
+  waits on `(local-locus-toml-face)`. Two parked on human acts.
 
-Plan continues: no — the spec delta is drained (`f1d97e4` was the last
-un-routed `specs/` commit) and the post-ship window is empty: `9409a6c..HEAD`
-carries no `src/`, `tests/`, or `sdk/` commit, so both reconciliation cursors
-are current at HEAD's last code commit. Two pickable entries; build takes over.
+Plan continues: no — inbox and refactor captures are empty, the spec delta is
+drained (`f1d97e4` is still the last `specs/` commit), and both reconciliation
+cursors are current at HEAD. One pickable entry; build takes over.
