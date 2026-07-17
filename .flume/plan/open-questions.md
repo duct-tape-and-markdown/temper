@@ -37,7 +37,7 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 63e5b97: no
+  dir by `temper bundle` on every run? Re-verified at 14c5de4: no
   `.claude-plugin/` exists here, so both kinds will govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
@@ -88,11 +88,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   so a lockless harness is still fully gated (`specs/model/pipeline.md`, "The
   lock"). Data, not code.
 
-- **Format implementations are engine code** (the generic frontmatter adapter)
-  — kept because an external format's mechanics are temper's to implement once;
-  the kind that selects them is data (`specs/model/representation.md`, "kind":
-  a kind is data, its extractor composed from that data). Grows only by
-  deliberate addition.
+- **Format implementations are engine code** (the frontmatter adapter, and
+  since 3ed8d2b the `json-document` reader beside it) — kept because an
+  external format's mechanics are temper's to implement once; the kind that
+  selects them is data (`specs/model/representation.md`, "kind": a kind is
+  data, its extractor composed from that data). Grows only by deliberate
+  addition, and the inventory's second entry was exactly that.
 
 - **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
   drained and the physical trees were deleted (`chore(harness)` 68f187d).
@@ -103,7 +104,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  63e5b97: both dead trees still spelled (121/140), in a file this window never
+  14c5de4: both dead trees still spelled (121/140), in a file this window never
   touched either and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -126,7 +127,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. All ten
-  lines re-verified exact on disk at reconcile HEAD 63e5b97 (unmoved;
+  lines re-verified exact on disk at reconcile HEAD 14c5de4 (unmoved;
   `prose.ts` untouched in this window too and edited by no queued entry —
   still no carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
@@ -144,7 +145,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45,
-  unmoved) at reconcile HEAD 63e5b97 — no queued entry edits `Cargo.toml`, so
+  unmoved) at reconcile HEAD 14c5de4 — no queued entry edits `Cargo.toml`, so
   it still has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not

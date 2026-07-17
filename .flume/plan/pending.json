@@ -1,5 +1,40 @@
 [
   {
+    "tag": "EMIT-JSON-DOCUMENT-WRITE-FACE",
+    "summary": "`emit`'s projection writer never reads a kind's declared `format`: a `json-document` member projects a YAML frontmatter block at its `.json` path",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`project_bytes` (1723) renders a `---`-fenced frontmatter block over every file member unconditionally — nothing in the emit path reads `format`. `Projection` (562) carries `kind: String` and no format; the double-emit determinism pair calls `project_bytes` at 1667/1677. Dispatch there on the composed member's kind's declared format, routing `Format::JsonDocument` (`src/kind.rs:511`) to `json_manifest::write_document` (`src/json_manifest.rs:451`) — the canonical write face 3ed8d2b shipped whose only consumer today is `tests/json_document_format.rs`. Keep ONE dispatch, mirroring the read side's single `read_file_unit` match (`src/main.rs:1237-1247`): a per-call-site match is the second dispatch free to disagree with it, which is the build commit's own stated reason for siting the read branch there. `None` and `Some(YamlFrontmatter)` keep today's path byte-for-byte — memory and the registration kinds declare no format and must still project body-only. Verified on disk this tick: `install::placement_lines` (`src/install.rs:1652`) reads either a `---\\n` prefix or a leading banner marker, so over JSON bytes it returns empty by construction — a json-document projection carries no install placements, and nothing is silently dropped."
+        },
+        {
+          "path": "tests/json_document_format.rs",
+          "description": "The format's acceptance home: it already builds the `.claude-plugin/plugin.json` custom-kind fixture (57, `format: Some(Format::JsonDocument)`) and drives `write_document` directly (158-177). Gains the emit-path case — the same fixture composed as a member and emitted lands canonical JSON, never a frontmatter block. Today's coverage proves the library face and the read dispatch; nothing proves emit reaches the face. Verify the new case fails with the dispatch reverted — the pair proof 3ed8d2b held its own read branch to, since a clean run alone is satisfied by a face nobody calls."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/json_document_format.rs",
+        "asserts": "a composed `json-document` member emits its fields as canonical JSON at its governed path — never a `---` frontmatter block — and a re-emit is byte-identical; a `yaml-frontmatter` member and a formatless one project exactly as they do today"
+      }
+    ],
+    "acceptance": "A kind's declared `format` is load-bearing on both faces, as `specs/model/representation.md` ('kind') declares it: a file-locus kind's format derives two one-way faces — the canonical writer for projections, the lenient reader for sources. Only the reader branches today, so a `json-document` member — declarable from the SDK right now (`sdk/src/kind.ts:22`) — projects silently wrong bytes instead of failing loud (`specs/intent.md`, invariant 6: no path silently emits over an unresolved input). `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
+    "notes": "Sweep find at 14c5de4, not something the audit predicted: 3ed8d2b made `format` load-bearing on the read side and named that half in its commit body, leaving the write half undispatched without stating it. No queued entry carries it — the two kind entries declare kinds with zero members here, and BUNDLE-EMIT-THROUGH-KINDS consumes this dispatch rather than building it. Disjoint from every open entry. scoped at 14c5de4."
+  },
+  {
     "tag": "PLUGIN-MANIFEST-KIND",
     "summary": "`plugin-manifest` ships: `.claude-plugin/plugin.json` as a typed file member, identity from `name`, its default contract the `claude plugin validate --strict` profile",
     "per": {
@@ -7,8 +42,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "PLUGIN-JSON-DOCUMENT-FORMAT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,11 +55,11 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "`claude_code_plugin_manifest()` joins `all_kinds()` (315, re-cited at 63e5b97 — 9f22de2 moved it): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"plugin.json\" }`, and no collection address — it owns its file. A distinct glob from every sibling's, so `governs_collision_diagnostics` (`src/main.rs:1801`) is satisfied by construction. Cite `code.claude.com/docs/en/plugins-reference` with the retrieval date at encode time."
+          "description": "`claude_code_plugin_manifest()` joins `all_kinds()` (315, re-verified unmoved at 14c5de4): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"plugin.json\" }`, and no collection address — it owns its file. A distinct glob from every sibling's, so `governs_collision_diagnostics` (`src/main.rs:1808` — 3ed8d2b moved it from the 1801 this entry last cited) is satisfied by construction. Cite `code.claude.com/docs/en/plugins-reference` with the retrieval date at encode time."
         },
         {
           "path": "src/builtin_lock.toml",
-          "description": "Generated data, never hand-edited (`src/builtin_lock.rs:17-19`) — gains the kind row and its default-contract clause rows. Regenerate per the file's header."
+          "description": "Generated data, never hand-edited (`src/builtin_lock.rs:16-18`) — gains the kind row and its default-contract clause rows. Regenerate per the file's header. Its header narration counts the roster — line 34 reads 'nine kinds carry eight contracts' clauses', accurate at HEAD and moving with this entry."
         },
         {
           "path": "src/builtin_lock.rs",
@@ -33,7 +67,7 @@
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "The `PluginManifest` type, the `plugin-manifest` kind value, and `pluginManifestDefaultContract` — modelled on `skillDefaultContract`, which already holds this exact stance and states it in its own header. **Fetch the facts fresh at encode time and cite per clause** (`specs/builtins.md`, 'The clauses live in code': cited and dated, carried as data). Verified this tick against `code.claude.com/docs/en/plugins-reference` (retrieved 2026-07-16) and re-verifiable at pick-up: `name` is the ONE required field — 'Unique identifier (kebab-case, no spaces)' — and when a marketplace entry lists the plugin under a different name, the marketplace entry's name is what `enabledPlugins` keys. The metadata fields (`$schema`, `displayName`, `version`, `description`, …) and the component path fields (`skills`, `commands`, `agents` as `string|array`; `hooks` as `string|array|object`) are optional and typed — a wrong-typed field ('a string instead of an array is a load error, and `claude plugin validate` reports it as one') is decidable and fails everywhere, so it is clause territory. An unrecognized top-level field is `--strict`'s warning-as-error: the runtime deliberately ignores it ('Claude Code ignores top-level fields it does not recognize'), and `--strict` is the portable bar decision 0031 ruled — exactly the runtime-diverges case the guidance channel carries. `version` in `plugin.json` beats the marketplace entry's; per-field precedence is clause-and-cite territory here, never a spec enumeration (0031). What stays out: anything undecidable, per the same section."
+          "description": "The `PluginManifest` type, the `plugin-manifest` kind value, and `pluginManifestDefaultContract` — modelled on `skillDefaultContract`, which already holds this exact stance and states it in its own header. **Fetch the facts fresh at encode time and cite per clause** (`specs/builtins.md`, 'The clauses live in code': cited and dated, carried as data). Verified 2026-07-16 against `code.claude.com/docs/en/plugins-reference` and re-verifiable at pick-up: `name` is the ONE required field — 'Unique identifier (kebab-case, no spaces)' — and when a marketplace entry lists the plugin under a different name, the marketplace entry's name is what `enabledPlugins` keys. The metadata fields (`$schema`, `displayName`, `version`, `description`, …) and the component path fields (`skills`, `commands`, `agents` as `string|array`; `hooks` as `string|array|object`) are optional and typed — a wrong-typed field ('a string instead of an array is a load error, and `claude plugin validate` reports it as one') is decidable and fails everywhere, so it is clause territory. An unrecognized top-level field is `--strict`'s warning-as-error: the runtime deliberately ignores it ('Claude Code ignores top-level fields it does not recognize'), and `--strict` is the portable bar decision 0031 ruled — exactly the runtime-diverges case the guidance channel carries. `version` in `plugin.json` beats the marketplace entry's; per-field precedence is clause-and-cite territory here, never a spec enumeration (0031). What stays out: anything undecidable, per the same section."
         },
         {
           "path": "sdk/src/claude-code.ts",
@@ -49,7 +83,7 @@
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "The row-count-exact kind-fact walk: the new row and its `json-document` format label. `the_embedded_lock_kind_facts_match_todays_hand_written_kinds` asserts `declarations.kinds.len()` — **9 at 63e5b97** (2093; 9f22de2 moved it 8 → 9), so it moves to 10 here. The engine roster and `specs/builtins.md`'s 'Ten kinds ship' count different sets and are not each other's check: `supporting-doc` ships without joining that enumeration (as `requirement` does), so the walk's number is always the corpus's plus one. Read the assert, never the arithmetic."
+          "description": "The row-count-exact kind-fact walk: the new row and its `json-document` format label. `the_embedded_lock_kind_facts_match_todays_hand_written_kinds` (1927) asserts `declarations.kinds.len()` — **9 at 2093**, re-verified unmoved on disk at 14c5de4 — so it moves to 10 here. The engine roster and `specs/builtins.md`'s 'Ten kinds ship' count different sets and are not each other's check: `supporting-doc` ships without joining that enumeration (as `requirement` does), so the walk's number is always the corpus's plus one. Read the assert, never the arithmetic."
         }
       ],
       "retire": []
@@ -62,7 +96,7 @@
       }
     ],
     "acceptance": "`plugin-manifest` ships as `specs/builtins.md`'s roster declares it — the pack's identity at `.claude-plugin/plugin.json`, a JSON document, identity from `name`, the one required field, kebab-case — with a default contract mirroring the strictest documented profile (`claude plugin validate --strict`), every clause decidable, severity-declared, guided, cited and dated. This repo authors no `.claude-plugin/` today, so the kind counts zero members here and that is honest, not a gap (the `supporting-doc (0)` precedent). `temper check .` exits 0; `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), the producer half. Its warrant is not speculative demand: `temper bundle` already writes this exact file ungated (`src/bundle.rs:185`), so the product emits a format it refuses to check — temper's own bar failing in temper. Serialized behind PLUGIN-JSON-DOCUMENT-FORMAT (needs the format) and ahead of MARKETPLACE-KIND (both edit `builtin_kind.rs`, `builtins.ts`, `builtin_lock.toml`, and the two lock tests). scoped at e81c758; re-cited 63e5b97."
+    "notes": "Derived from decision 0031 (16ce347), the producer half. Warrant is not speculative demand: `temper bundle` already writes this exact file ungated (`src/bundle.rs:185`), so the product emits a format it refuses to check. Its blocker PLUGIN-JSON-DOCUMENT-FORMAT shipped (3ed8d2b) and is verified on disk, so the gate opens. Ahead of MARKETPLACE-KIND — both edit `builtin_kind.rs`, `builtins.ts`, `builtin_lock.toml`, and the two lock tests. scoped at e81c758; re-cited 14c5de4."
   },
   {
     "tag": "MARKETPLACE-KIND",
@@ -86,7 +120,7 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "`claude_code_marketplace()` joins `all_kinds()` (315, re-cited at 63e5b97 — 9f22de2 moved it): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"marketplace.json\" }` — a distinct glob from `plugin-manifest`'s, so the two file kinds never contend. Cite `code.claude.com/docs/en/plugin-marketplaces` with the retrieval date at encode time."
+          "description": "`claude_code_marketplace()` joins `all_kinds()` (315, re-verified unmoved at 14c5de4): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"marketplace.json\" }` — a distinct glob from `plugin-manifest`'s, so the two file kinds never contend. Cite `code.claude.com/docs/en/plugin-marketplaces` with the retrieval date at encode time."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -98,7 +132,7 @@
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "The `Marketplace` type, the kind value, and `marketplaceDefaultContract`. **Re-fetch and cite per clause at encode time.** Verified this tick against `code.claude.com/docs/en/plugin-marketplaces` (retrieved 2026-07-16), every fact below decidable: `name` is kebab-case and checked against a documented **reserved-names deny list** — `claude-code-marketplace`, `claude-code-plugins`, `claude-plugins-official`, `claude-plugins-community`, `claude-community`, `anthropic-marketplace`, `anthropic-plugins`, `agent-skills`, `anthropic-agent-skills`, `knowledge-work-plugins`, `life-sciences`, `claude-for-legal`, `claude-for-financial-services`, `financial-services-plugins`, `first-party-plugins`, `healthcare` — re-read the list at encode time rather than trusting this transcription, since the page itself records the list growing (before v2.1.205, `first-party-plugins` and `healthcare` were not reserved). The honest bound: the docs ALSO block names that 'impersonate official marketplaces' (`official-claude-plugins`, `anthropic-plugins-v2`), and impersonation is semantic judgment — so the enumerated deny list is the decidable subset and the impersonation rule is guidance, never a clause (intent.md, invariant 2). `owner.name` required, `owner.email` optional. Each `plugins[]` entry requires `name` plus `source`, the documented union: a relative-path string (must start with `./`, resolved relative to the marketplace root, NOT `.claude-plugin/`), or an object — `github` (`repo`, `ref?`, `sha?`), `url` (`url`, `ref?`, `sha?`), `git-subdir` (`url`, `path`, `ref?`, `sha?`), `npm` (`package`, `version?`, `registry?`). Where both `ref` and `sha` are set on a git-based source, `sha` is the effective pin; a marketplace entry's `defaultEnabled` beats `plugin.json`'s. Per-field precedence is clause-and-cite territory here (decision 0031)."
+          "description": "The `Marketplace` type, the kind value, and `marketplaceDefaultContract`. **Re-fetch and cite per clause at encode time.** Verified 2026-07-16 against `code.claude.com/docs/en/plugin-marketplaces`, every fact below decidable: `name` is kebab-case and checked against a documented **reserved-names deny list** — `claude-code-marketplace`, `claude-code-plugins`, `claude-plugins-official`, `claude-plugins-community`, `claude-community`, `anthropic-marketplace`, `anthropic-plugins`, `agent-skills`, `anthropic-agent-skills`, `knowledge-work-plugins`, `life-sciences`, `claude-for-legal`, `claude-for-financial-services`, `financial-services-plugins`, `first-party-plugins`, `healthcare` — re-read the list at encode time rather than trusting this transcription, since the page itself records the list growing (before v2.1.205, `first-party-plugins` and `healthcare` were not reserved). The honest bound: the docs ALSO block names that 'impersonate official marketplaces' (`official-claude-plugins`, `anthropic-plugins-v2`), and impersonation is semantic judgment — so the enumerated deny list is the decidable subset and the impersonation rule is guidance, never a clause (intent.md, invariant 2). `owner.name` required, `owner.email` optional. Each `plugins[]` entry requires `name` plus `source`, the documented union: a relative-path string (must start with `./`, resolved relative to the marketplace root, NOT `.claude-plugin/`), or an object — `github` (`repo`, `ref?`, `sha?`), `url` (`url`, `ref?`, `sha?`), `git-subdir` (`url`, `path`, `ref?`, `sha?`), `npm` (`package`, `version?`, `registry?`). Where both `ref` and `sha` are set on a git-based source, `sha` is the effective pin; a marketplace entry's `defaultEnabled` beats `plugin.json`'s. Per-field precedence is clause-and-cite territory here (decision 0031)."
         },
         {
           "path": "sdk/src/claude-code.ts",
@@ -114,7 +148,7 @@
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "The row-count-exact kind-fact walk: the `kinds.len()` assert (2093 at 63e5b97) moves to **eleven**, not ten — `supporting-doc` ships without joining `specs/builtins.md`'s enumeration (as `requirement` does), so the engine roster runs one above the corpus's ten. Read the assert on disk at pick-up; do not trust this number sight-unseen."
+          "description": "The row-count-exact kind-fact walk: the `kinds.len()` assert (9 at 2093, re-verified unmoved at 14c5de4) moves to **eleven**, not ten — `supporting-doc` ships without joining `specs/builtins.md`'s enumeration (as `requirement` does), so the engine roster runs one above the corpus's ten. Read the assert on disk at pick-up; do not trust this number sight-unseen."
         }
       ],
       "retire": []
@@ -127,7 +161,7 @@
       }
     ],
     "acceptance": "`marketplace` ships as `specs/builtins.md`'s roster declares it, completing the ten-kind roster decision 0031 ratified — the seven file kinds and three registration kinds that page enumerates, `supporting-doc` shipping beside them outside the count. `temper check .` exits 0. Its default contract holds the strictest documented profile with every clause decidable, severity-declared, guided, cited and dated; the impersonation rule ships as guidance, never a clause. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), the producer half's second kind. Same warrant as its sibling: `temper bundle` writes this file ungated today (`src/bundle.rs:191`). Serialized behind PLUGIN-MANIFEST-KIND — both edit `builtin_kind.rs`, `builtins.ts`, `claude-code.ts`, `builtin_lock.toml`, `builtin_lock.rs`, and the two lock tests. scoped at e81c758; cites re-derived 63e5b97, and the stale 'ten kind rows' arithmetic this entry carried corrected against the assert on disk."
+    "notes": "Derived from decision 0031 (16ce347), the producer half's second kind. Same warrant as its sibling: `temper bundle` writes this file ungated today (`src/bundle.rs:191`). Serialized behind PLUGIN-MANIFEST-KIND — both edit `builtin_kind.rs`, `builtins.ts`, `claude-code.ts`, `builtin_lock.toml`, `builtin_lock.rs`, and the two lock tests. scoped at e81c758; cites re-verified 14c5de4 (`all_kinds()` 315 and the `kinds.len()` assert 2093 both unmoved)."
   },
   {
     "tag": "BUNDLE-EMIT-THROUGH-KINDS",
@@ -146,7 +180,7 @@
       "edit": [
         {
           "path": "src/bundle.rs",
-          "description": "`run()` (178) writes `.claude-plugin/plugin.json` (185) and `.claude-plugin/marketplace.json` (191) through `write_json` over the hand-built `plugin_manifest()` and `marketplace_manifest()` values — all cites re-verified by reading at e81c758. Both are a second implementation of a job the kind system owns once `plugin-manifest` and `marketplace` ship: the manifests become members of their kinds, rendered by the kind's format, so `bundle` stops hand-spelling a shape the engine can now type and gate. This is the consolidation decision 0031 names ('bundle's hard-coded writers reconcile onto the kinds — emit through the kind system, one home; the entry names the unification'), and `specs/process/engineering.md` makes it the entry rather than scope creep — name the unification in the commit body. NOT in scope: the `SessionStart` hook's `hooks/hooks.json` (`hooks_manifest()`) and the skill's `SKILL.md` — `hooks.json` is a plugin-cache artifact of neither kind, and widening to it is the creep the same page forbids. If any part of either manifest's shape cannot route through a kind, say so plainly rather than leaving a silent hand-rolled remainder."
+          "description": "`run()` (178) writes `.claude-plugin/plugin.json` (185) and `.claude-plugin/marketplace.json` (191) through `write_json` (278) over the hand-built `plugin_manifest()` (223) and `marketplace_manifest()` (238) values — every cite re-verified unmoved on disk at 14c5de4. Both are a second implementation of a job the kind system owns once `plugin-manifest` and `marketplace` ship: the manifests become members of their kinds, rendered by the kind's format, so `bundle` stops hand-spelling a shape the engine can now type and gate. This is the consolidation decision 0031 names ('bundle's hard-coded writers reconcile onto the kinds — emit through the kind system, one home; the entry names the unification'), and `specs/process/engineering.md` makes it the entry rather than scope creep — name the unification in the commit body. NOT in scope: the `SessionStart` hook's `hooks/hooks.json` (`hooks_manifest()`, 259) and the skill's `SKILL.md` — `hooks.json` is a plugin-cache artifact of neither kind, and widening to it is the creep the same page forbids. If any part of either manifest's shape cannot route through a kind, say so plainly rather than leaving a silent hand-rolled remainder."
         },
         {
           "path": "tests/bundle.rs",
@@ -163,7 +197,7 @@
       }
     ],
     "acceptance": "The two manifest writers have one home: `bundle`'s output is its members rendered by their kinds' formats, not hand-built `serde_json` beside a kind that types the same shape (`specs/process/engineering.md`, 'One job, one home': a job the tree already performs is extended where it lives, never reimplemented beside itself). The bundle temper publishes passes the contract temper ships for it, closing the gap decision 0031 named — the product wrote files it refused to check. `cargo test`, `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Derived from decision 0031 (16ce347), the third derivation item. Blocked until both kinds exist — there is nothing to reconcile onto before then. Distinct from making this repo a plugin-author corpus (the `(plugin-author-dogfood)` fork): `bundle` still assembles the tree it emits into an output dir, and no `.claude-plugin/` is committed here (verified absent at e81c758). scoped at e81c758."
+    "notes": "Derived from decision 0031 (16ce347), the third derivation item. Blocked until both kinds exist — nothing to reconcile onto before then. It consumes EMIT-JSON-DOCUMENT-WRITE-FACE's dispatch rather than building it: verify that entry shipped at pick-up. Distinct from the `(plugin-author-dogfood)` fork: `bundle` still assembles its tree into an output dir, and no `.claude-plugin/` is committed here. scoped at e81c758; cites re-verified 14c5de4."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -182,11 +216,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-derived at 53519b9, which moved this file again. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525-526 ('hop-capped at [`MAX_IMPORT_HOPS`] as the format documents') and 624-625 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 14c5de4. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525-526 ('hop-capped at [`MAX_IMPORT_HOPS`] as the format documents') and 624-625 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-derived at 53519b9 from the 1402 it was last scoped at — 1b9a6af lifted this file's private harness helpers into `tests/common` and rewired it, moving the region) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding (1386-1388) — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 14c5de4) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding (1386-1388) — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -199,7 +233,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 63e5b97 and holds — nothing ruled the hop semantics (b8396d4, the 0028 errata, touches no import mechanics; inbox empty). INSTALLED-PLUGIN-KIND edited `src/graph.rs` only at 690+ (`dead_registration`'s enablement arm): every cite above is disjoint and unmoved, verified this tick. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 63e5b97."
+    "notes": "Park re-tested at 14c5de4 and holds — nothing ruled the hop semantics; the inbox is empty and the window (3ed8d2b, `json-document`) touched no import mechanics. `src/graph.rs` untouched this window: `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are all unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 14c5de4."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -226,6 +260,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 63e5b97, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 14c5de4, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
   }
 ]
