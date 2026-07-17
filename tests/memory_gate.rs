@@ -74,12 +74,7 @@ fn write_sibling(root: &Path, rel: &str, body: &str) {
 /// built-in kind members live off harness disk and enumerates the whole repo for
 /// directive backing — no scratch import needed. Returns the emitted finding lines.
 fn check_two_step(harness: &Path) -> Vec<String> {
-    common::check_in(harness, &["."], Some("github"))
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect()
+    common::check_in(harness, &["."], Some("github")).findings()
 }
 
 #[test]

@@ -152,13 +152,25 @@ pub struct CheckRun {
     pub stdout: String,
 }
 
+impl CheckRun {
+    /// Returns the github-reporter finding lines — each one `::error`/`::warning …`.
+    pub fn findings(&self) -> Vec<String> {
+        self.output
+            .lines()
+            .filter(|line| line.starts_with("::"))
+            .map(str::to_string)
+            .collect()
+    }
+}
+
 /// Run `temper check <args…>` from `root`, optionally selecting `reporter`
 /// (e.g. `"github"`), capturing the result. Every `check` run reaches the binary
 /// here — whatever its reporter, arg shape, or working directory — never a
-/// re-spelled `Command`; the GitHub-reporter harness shape composes one step
-/// further through [`check_harness`]. The one run this cannot express is a
-/// caller driving a command string that carries the verb itself, since `check`
-/// is prepended here.
+/// re-spelled `Command`, and every reader of a github run's finding lines
+/// reaches [`CheckRun::findings`] rather than re-spelling the filter; the
+/// GitHub-reporter harness shape composes both one step further through
+/// [`check_harness`]. The one run this cannot express is a caller driving a
+/// command string that carries the verb itself, since `check` is prepended here.
 pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
     cmd.current_dir(root).arg("check").args(args);
@@ -184,13 +196,7 @@ pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
         &["--harness", harness.to_str().unwrap()],
         Some("github"),
     );
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
+    (run.findings(), run.ok)
 }
 
 /// Read `root`'s current lock declarations (empty if none), apply `patch`, and

@@ -28,13 +28,7 @@ Drive the team through the playbook.\n";
 /// miette's graphical rendering.
 fn check_in(root: &Path, args: &[&str]) -> (Vec<String>, bool) {
     let run = common::check_in(root, args, Some("github"));
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
+    (run.findings(), run.ok)
 }
 
 #[test]
@@ -173,11 +167,7 @@ fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
         run.output
     );
     // The block aborts loud; no field-level finding is emitted over the emptied fields.
-    let findings: Vec<&str> = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .collect();
+    let findings = run.findings();
     assert!(
         findings.is_empty(),
         "a malformed block aborts loud; it must not emit field findings, got:\n{findings:#?}"

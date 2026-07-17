@@ -233,16 +233,10 @@ fn the_published_manifests_pass_the_contracts_temper_ships_for_them() {
 
     bundle::run(&surface, &out).unwrap();
 
-    let run = common::check_in(&out, &["--harness", out.to_str().unwrap()], Some("github"));
-    let findings: Vec<String> = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
+    let (findings, ok) = common::check_harness(&out);
 
     assert!(
-        run.ok,
+        ok,
         "the bundle temper publishes must pass the contract temper ships for it: {findings:?}"
     );
     // And both manifests are really being read and checked, not silently skipped past —
