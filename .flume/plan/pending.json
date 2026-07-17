@@ -1,5 +1,238 @@
 [
   {
+    "tag": "LOCAL-LOCUS-COMMITMENT-CLASS",
+    "summary": "The file locus gains the `local` commitment class: layout-only, emit writes nothing there, and its members' rows never enter the lock — they derive at read time under the kind the lock declares",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "The `Locus` union (75-78) spells three cases today — `at` / `embedded` / `nested-file` — and carries no commitment class. The `at` spelling gains the optional `local` commitment (the corpus's **file** locus is the SDK's `at`); its prose (63-69) and the `locus` field doc (147-148) state the class: per-machine and uncommitted, the kind declared and reviewed, the members' documents not."
+        },
+        {
+          "path": "sdk/src/generated/KindFactRow.ts",
+          "description": "The ts-rs seam row, regenerated from the Rust struct — do not hand-edit; `tests/seam_bindings_current.rs` holds it current."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`Governs` (30-38) carries root+glob only; the commitment class rides it or `CustomKind` (`governs` at 62, `with_locus` at 652, the row lift at 714-717). A local locus is **layout-only**: a local-locus kind whose content is not a declared layout is inadmissible — the corpus's own words, and the coupling that makes check-side-ness true by construction rather than a rule to enforce."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`KindFactRow` (2406) gains the commitment column. `emit` (840) / `emit_one` (1712) write nothing at a local member's path and record no provenance or emit-hash row for it — the lock captures the committed harness alone, so committed bytes stay layer-invariant by construction. The reap must not treat a local path as an ownerless projection (`emit_owned_targets`, 2304)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Check derives a local member's declaration rows at read time under the kind the committed lock declares, rather than reading them from the lock (the `admissibility` call sites at 811/826/903 are the seam). The engine-side `Locus` (`src/engine.rs`:133) is a different noun — a clause's binding grain, Document vs Embedded — and is not what this entry touches."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "KindFactRow gains an optional commitment column (`local`); a local-locus member contributes no provenance/emit-hash row to the lock.",
+    "tests": [
+      {
+        "path": "tests/local_locus.rs",
+        "asserts": "a local-locus member's document is read at check under the declared layout and gates; emit writes nothing at its path, records no row for it, and never reaps it; a local-locus kind that is not layout-content is inadmissible"
+      }
+    ],
+    "acceptance": "A local-locus kind is declarable, its members' documents govern at check and are invisible to emit and to the lock (representation.md, \"locus\"). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "First of 0032's five derivations; the class the other four rest on. Its `layout-only` fence is ratified text, but the dial — the first local-locus kind — is specified as TOML, which no layout can hold: see `(local-locus-toml-face)`. That fork rules the dial's face, not this class; if it widens `layout-only`, the fence re-cuts here. scoped at f1d97e4."
+  },
+  {
+    "tag": "CLAUSE-LABEL-IS-AN-ADDRESS",
+    "summary": "A clause's compiled label becomes its address — deterministic, human-legible, written once at emit, printed by every finding and by `explain`; two rows under one label are a malformed lock",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LOCAL-LOCUS-COMMITMENT-CLASS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow` (2548) carries kind/predicate/field/severity/guidance/cite and per-predicate argument columns — **no label column exists**. It gains one, written once at emit (840) as the row's identity. This is the entry's core: the label is not a spelling widened but a column added."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`Selector::rule` (348-353) is today's printed clause id and returns the bare predicate key (`max_len`) or `requirement.<key>` — not unique per row, since two clauses of one predicate over different fields of one kind collide. Widen it to the deterministic per-row address the lock writes; `finding` (548) already routes it onto every diagnostic. One identity per row: the label IS the rule id, never a second human-facing name beside it (0032's rejected alternative; `specs/process/engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "`Diagnostic::rule` (39-40, doc'd `skill.name-format` — stable, the diagnostic `code`) is the one home for the printed id; its doc states the label grammar."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "The clause-row read-back (`clause_from_row`, 166-190) lifts the label off the row; the engine treats it as opaque and never resolves a collision."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`explain` (208) prints each clause's label — see the annoying finding, read its label, dial it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Admissibility refuses two rows wearing one label — a malformed lock, rejected before it judges anything (`contract.md`, \"well-formedness\"). Sibling of the shipped `KIND_COLLISION_RULE` (1713) and `GOVERNS_COLLISION_RULE` (1787), which guard kind-name and governs-glob collisions; neither covers clause rows."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "The ts-rs seam row, regenerated — do not hand-edit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "ClauseRow gains a `label` column — the compiled address, written once at emit.",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "every emitted clause row carries a deterministic, human-legible label; the same program emits the same labels; a lock carrying two rows under one label fails admissibility loud"
+      },
+      {
+        "path": "tests/reporters.rs",
+        "asserts": "a clause finding prints its label as the diagnostic code, and `explain` narrates the same label for the same clause"
+      }
+    ],
+    "acceptance": "Every clause declaration row has a documented, deterministic, human-legible address; every finding and `explain` print it; a colliding lock is refused (contract.md, \"clause\"; pipeline.md, \"The lock\"). `cargo test` green.",
+    "notes": "0032 assumed this shipped ('the lock already writes one per row and refuses collisions'); on disk it does not — the founding corpus claimed the label at e842a32 and no entry ever built it. So the work is the column plus the grammar plus the refusal, not a spelling change. Serialized behind the locus class: both edit `src/drift.rs` and `src/main.rs`. The dial cannot name a clause until this lands. scoped at f1d97e4."
+  },
+  {
+    "tag": "CHECK-JOINS-INVOCATION-LOCKS",
+    "summary": "A policy layer is a lock the invocation joins: `check --layer <path>` joins named locks' rows over this corpus, kinds travel by name, and a joined lock failing admissibility fails the check",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Layers"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CLAUSE-LABEL-IS-AN-ADDRESS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The `Check` command (105-119: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `admissibility` path (811/826). 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`read_declarations` (3025) / `parse_declarations` (3048) read one lock today; the join reads the invocation's locks the same way — the lock stays the one interchange, and no second parser is minted beside this one."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Clause rows compose into the host's selections whatever lock carried them; a joined row is an ordinary row."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/layer_join.rs",
+        "asserts": "`check --layer <lock>` joins the named lock's clauses over the host corpus and gates on them; a joined lock that fails admissibility fails the check loud; a joined clause that would soften the host's gate is inert in block mode while a hardening one binds"
+      }
+    ],
+    "acceptance": "An org authors an ordinary temper corpus, emits its lock, and distributes it; a consumer joins it at check and is gated by it, fail-closed (pipeline.md, \"Layers\"). `cargo test` green.",
+    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Serialized behind the label entry: both edit `src/main.rs`, `src/compose.rs`, `src/drift.rs`. scoped at f1d97e4."
+  },
+  {
+    "tag": "DIAL-KIND",
+    "summary": "Ship the temper-owned `dial` kind: a local-locus document naming clauses by label and declaring the severity this machine reads them at — deletion unspellable, softening inert in block mode",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CHECK-JOINS-INVOCATION-LOCKS"
+    },
+    "dependsOnForks": [
+      "local-locus-toml-face"
+    ],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "`all_kinds` (374-388) ships eleven claude-code kinds; the dial joins as temper's own — its schema IS 0030's envelope: an entry names a clause by its compiled label and declares a severity, and the schema cannot spell deletion, so a dialed clause still reports."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "The provider face. The dial is **temper-owned, not a claude-code kind**, so it exports from the root, never the `claude-code` subpath (`specs/builtins.md`: the shipped claude-code kinds export from that subpath alone)."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "The root export carries the dial."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`Format` (507-522) spells `yaml-frontmatter` and `json-document` — no TOML face exists. What the dial's document face becomes is exactly the fork this entry waits on."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Check applies the dial's severities to the labelled clauses it names, and its softening is inert in block mode — so a block-mode pass on any machine implies the shared gate's pass."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "Pending the fork — the dial's document face is what `(local-locus-toml-face)` rules.",
+    "tests": [
+      {
+        "path": "tests/dial_kind.rs",
+        "asserts": "a dial entry re-reads a clause at the declared severity and the clause still reports; a dial cannot spell deletion; dialed softening is inert in block mode while dialed hardening binds in every mode"
+      }
+    ],
+    "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Fork-gated, not merely serialized: `contract.md` calls the dial a local-locus **TOML** document while `representation.md` declares a local locus layout-only, and a layout is markdown's heading tree. Build must not pick between those sentences. Also serialized behind the join (shares `src/main.rs`) and needs the label to name a clause at all. scoped at f1d97e4."
+  },
+  {
+    "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
+    "summary": "`check` announces every active local member, every dialed clause, and every joined lock — the gate says out loud which inputs judged this run",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Layers"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DIAL-KIND"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict."
+        },
+        {
+          "path": "src/reporter.rs",
+          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/reporters.rs",
+        "asserts": "a check run with a local member, a dialed clause, and a joined lock announces all three; a run with none announces nothing extra"
+      }
+    ],
+    "acceptance": "`check` announces every active local member, every dialed clause, and every joined lock (pipeline.md, \"Layers\"). `cargo test` green.",
+    "notes": "Last of 0032's five — it announces what the other four introduce, so it is honest only once they exist. Serialized behind the dial (shares `src/main.rs`) and inherits its fork through the chain. scoped at f1d97e4."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -16,11 +249,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 9409a6c. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at f1d97e4. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 9409a6c) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at f1d97e4) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -33,7 +266,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 9409a6c and holds — nothing ruled the hop semantics; the window touches no import mechanics (`git log c370924..HEAD -- src/graph.rs tests/graph.rs` is empty). Every cite re-read on disk, all unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 9409a6c."
+    "notes": "Park re-tested at f1d97e4 and holds — nothing ruled the hop semantics; the window touches no import mechanics (`git log 9409a6c..HEAD -- src/ tests/` is empty). Every cite re-read on disk, all unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified f1d97e4."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +293,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 9409a6c, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The c370924..HEAD window touched no release surface. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at f1d97e4, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The 9409a6c..HEAD window touched no release surface. scoped at b676656."
   }
 ]

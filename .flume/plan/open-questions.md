@@ -13,6 +13,42 @@ tax.
 
 ## Open forks
 
+- `(local-locus-toml-face)` — OPEN, blocking, registered 07-16 routing 0032.
+  Two ratified sentences of one commit collide. `representation.md` ("locus"):
+  a local locus **is layout-only** — "the document is the governed source,
+  read at check under the declared layout". `contract.md` ("clause"): the dial
+  is "a temper-owned, local-locus **TOML** document (`.temper/dial.toml`)".
+  But a layout is a template over **the body's heading tree** in three
+  primitives and "admits no syntax beyond markdown's own"
+  (`representation.md`, "kind") — a TOML file has no heading tree, so the dial
+  as specified cannot be a layout-content member, and the first local-locus
+  kind cannot satisfy the local locus's own rule. Verified on disk at f1d97e4:
+  `Format` is `yaml-frontmatter | json-document` (`src/kind.rs`:507-522,
+  `sdk/src/kind.ts`:22) — no TOML face exists; a `json-document` kind is
+  `Content::File | Content::Fields`, never layout (`src/main.rs`:1245), which
+  is the precedent a `toml-document` format would follow (`toml_edit` is
+  already sanctioned). Three candidate readings, each amending a different
+  ratified sentence: a `toml-document` format joins the inventory and
+  "layout-only" widens to source-only (the property that carries the trust
+  story is read-never-written, not markdown); or the dial is markdown with a
+  declared layout, against contract.md's explicit `.temper/dial.toml`; or
+  "layout-only" stays literal and the dial is not a local-locus member,
+  against 0032's own "no special mechanisms". Plan does not pick between two
+  ratified sentences, and build must not either. Blocks DIAL-KIND and, through
+  it, CHECK-ANNOUNCES-THE-LOCK-FAMILY; LOCAL-LOCUS-COMMITMENT-CLASS ships the
+  fence as written and re-cuts if the ruling widens it.
+
+- `(settings-local-kind)` — OPEN, human's call, registered 07-16 from 0032's
+  own Consequences: "The claude-code face's `settings.local.json` is the first
+  candidate local-locus layout kind beyond the dial itself." A candidate is not
+  a requirement, and plan does not promote one — the `(plugin-author-dogfood)`
+  precedent. The question: does the claude-code face ship a
+  `settings.local.json` kind, and can it, given the file is JSON and a local
+  locus is layout-only? That second half is `(local-locus-toml-face)`'s
+  question wearing another format, so this fork's shape depends on that
+  ruling and is not independent of it. Nothing is broken by leaving it open:
+  the file is ungoverned today and no member declares it. No dependents.
+
 - `(eval-capability)` — OPEN, strategic, parked past launch. Harness evals: a
   requirement carries prose intent and a verifier edge
   (`specs/model/contract.md`, "requirement"), and the graph gives eval
