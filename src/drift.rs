@@ -1245,6 +1245,7 @@ pub fn emit(
         let mut declarations = payload.declarations.clone();
         declarations.nested_members.extend(layout_rows);
         declarations.satisfies.extend(layout_satisfies);
+        stamp_clause_labels(&mut declarations);
         write_rollup(
             workspace_dir,
             &rollups,
@@ -1256,6 +1257,35 @@ pub fn emit(
     }
 
     Ok(EmitReport { entries })
+}
+
+/// Write every clause row's [`label`](ClauseRow::label) — its address — over the whole
+/// declaration set, kinds' own clauses and requirements' nested ones alike. The single
+/// write: the seam ships no label, so an authored one cannot disagree with the emitted
+/// one, and a re-emit of the same program lands the same labels.
+///
+/// A requirement's nested row names no kind of its own, so its owner comes from the
+/// requirement it hangs off — the one place that name is in scope.
+fn stamp_clause_labels(declarations: &mut Declarations) {
+    for row in &mut declarations.clauses {
+        let owner = row.kind.clone();
+        stamp_clause_label(row, owner.as_deref());
+    }
+    for requirement in &mut declarations.requirements {
+        let owner = crate::contract::requirement_owner(&requirement.name);
+        for row in &mut requirement.clauses {
+            stamp_clause_label(row, Some(&owner));
+        }
+    }
+}
+
+/// Write one clause row's address, derived from the row's own identity columns.
+fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
+    row.label = Some(crate::contract::clause_label(
+        owner,
+        &row.predicate,
+        row.field.as_deref(),
+    ));
 }
 
 /// One represented manifest under construction during [`emit`]: its declared collection
@@ -2625,6 +2655,17 @@ pub struct LayoutRegionRow {
 #[derive(Debug, Clone, Deserialize, PartialEq, ts_rs::TS)]
 #[ts(optional_fields)]
 pub struct ClauseRow {
+    /// The clause's **address** — the deterministic, human-legible label
+    /// [`crate::contract::clause_label`] derives from the row's identity columns, and
+    /// the row's identity in the lock: every finding this clause produces prints it as
+    /// the diagnostic `rule` id, `explain` narrates it, and the dial names a clause by
+    /// it.
+    ///
+    /// `None` on a payload row and `Some` on a lock row: emit is the one writer
+    /// ([`emit`]), stamping every row as it composes the lock, so the seam has no label
+    /// to author and no way to author a wrong one.
+    #[serde(default)]
+    pub label: Option<String>,
     /// The kind whose contract carries the clause. `None` when this row is nested
     /// inside a [`RequirementRow`]'s own [`clauses`](RequirementRow::clauses) — a
     /// requirement's set-scope demand names no kind of its own; it ranges over
@@ -3482,6 +3523,9 @@ fn content_from_table(table: &dyn TableLike) -> Result<LayoutRow, RowError> {
 impl ClauseRow {
     fn to_table(&self) -> Table {
         let mut table = Table::new();
+        if let Some(label) = &self.label {
+            table.insert("label", value(label.clone()));
+        }
         if let Some(kind) = &self.kind {
             table.insert("kind", value(kind.clone()));
         }
@@ -3534,6 +3578,9 @@ impl ClauseRow {
 
     fn from_table(table: &Table) -> Result<Self, RowError> {
         Ok(Self {
+            // Required on the way in: emit stamps every row it writes, so a committed
+            // row with no label is a corrupt lock, never a row to judge unaddressably.
+            label: Some(req_str(table, "label")?),
             kind: opt_str(table, "kind")?,
             predicate: req_str(table, "predicate")?,
             field: opt_str(table, "field")?,

@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use crate::builtin_lock;
 use crate::compose;
-use crate::contract::{Clause, Contract, Predicate, Severity};
+use crate::contract::{self, Clause, Contract, Predicate, Severity};
 use crate::drift::ClauseRow;
 
 /// Lift one embedded clause row into its typed [`Clause`] — predicate, severity,
@@ -53,13 +53,23 @@ fn contract_for_kind(kind: &str) -> Contract {
 /// per-requirement author data, so [`crate::roster::selections`] calls this to
 /// synthesize the clause fresh from [`compose::Requirement::kind`] every run
 /// rather than storing it on the requirement.
+///
+/// Synthesized rather than lifted, so its address is derived here from the same grammar
+/// emit stamps a written row with — `requirement` is the owner, since the clause is the
+/// requirement's demand and not the narrowed kind's.
 #[must_use]
-pub fn kind_narrowing_clause(kind: &str) -> Clause {
+pub fn kind_narrowing_clause(requirement: &str, kind: &str) -> Clause {
+    let predicate = Predicate::Kind {
+        kind: kind.to_string(),
+    };
     Clause {
+        label: contract::clause_label(
+            Some(&contract::requirement_owner(requirement)),
+            predicate.key(),
+            None,
+        ),
         severity: Severity::Required,
-        predicate: Predicate::Kind {
-            kind: kind.to_string(),
-        },
+        predicate,
         guidance: None,
         source: None,
     }

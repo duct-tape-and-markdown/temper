@@ -203,7 +203,9 @@ fn an_uppercase_name_trips_the_charset_clause() {
     let diagnostics = engine::validate(&contract, &[features]);
 
     assert!(
-        diagnostics.iter().any(|d| d.rule == "allowed_chars"),
+        diagnostics
+            .iter()
+            .any(|d| d.rule == "agent.allowed_chars.name"),
         "an uppercase name must trip the charset clause, got: {diagnostics:#?}"
     );
 }
@@ -269,7 +271,7 @@ fn two_agents_sharing_a_name_in_one_scope_trip_the_uniqueness_clause() {
 
     let collisions: Vec<_> = diagnostics
         .iter()
-        .filter(|d| d.rule == "unique-name")
+        .filter(|d| d.rule == "agent.unique-name")
         .collect();
     assert_eq!(
         collisions.len(),

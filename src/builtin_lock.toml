@@ -137,6 +137,7 @@ name = "supporting-doc"
 unit_shape = "file"
 
 [[declaration.clause]]
+label = "agent.required.name"
 kind = "agent"
 predicate = "required"
 field = "name"
@@ -145,6 +146,7 @@ guidance = "Every subagent declares a `name` — its unique identifier. Claude C
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "agent.allowed_chars.name"
 kind = "agent"
 predicate = "allowed_chars"
 field = "name"
@@ -154,6 +156,7 @@ cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)"
 charset = { ranges = ["a-z"], chars = "-" }
 
 [[declaration.clause]]
+label = "agent.unique-name"
 kind = "agent"
 predicate = "unique-name"
 severity = "required"
@@ -161,6 +164,7 @@ guidance = "Keep `name` values unique across the whole tree — when two files i
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "agent.required.description"
 kind = "agent"
 predicate = "required"
 field = "description"
@@ -169,6 +173,7 @@ guidance = "The description is how Claude decides when to delegate to this subag
 cite = "https://code.claude.com/docs/en/sub-agents (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "command.required.name"
 kind = "command"
 predicate = "required"
 field = "name"
@@ -177,6 +182,7 @@ guidance = "Every skill declares a `name` — the slug the harness binds to. Cla
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "command.min_len.name"
 kind = "command"
 predicate = "min_len"
 field = "name"
@@ -186,6 +192,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "command.allowed_chars.name"
 kind = "command"
 predicate = "allowed_chars"
 field = "name"
@@ -195,6 +202,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
+label = "command.max_len.name"
 kind = "command"
 predicate = "max_len"
 field = "name"
@@ -204,6 +212,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
+label = "command.deny.name"
 kind = "command"
 predicate = "deny"
 field = "name"
@@ -213,6 +222,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 values = ["anthropic", "claude"]
 
 [[declaration.clause]]
+label = "command.required.description"
 kind = "command"
 predicate = "required"
 field = "description"
@@ -221,6 +231,7 @@ guidance = "The description is how the model chooses this skill from potentially
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "command.min_len.description"
 kind = "command"
 predicate = "min_len"
 field = "description"
@@ -230,6 +241,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "command.max_len.description"
 kind = "command"
 predicate = "max_len"
 field = "description"
@@ -239,6 +251,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { max = 1024 }
 
 [[declaration.clause]]
+label = "command.max_len.compatibility"
 kind = "command"
 predicate = "max_len"
 field = "compatibility"
@@ -248,6 +261,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
+label = "command.max_lines"
 kind = "command"
 predicate = "max_lines"
 severity = "advisory"
@@ -256,6 +270,7 @@ cite = "https://agentskills.io/specification#progressive-disclosure (retrieved 2
 bound = { max = 500 }
 
 [[declaration.clause]]
+label = "command.forbidden_keys"
 kind = "command"
 predicate = "forbidden_keys"
 severity = "required"
@@ -264,6 +279,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
+label = "command.glob-valid.paths"
 kind = "command"
 predicate = "glob-valid"
 field = "paths"
@@ -272,6 +288,7 @@ guidance = "The optional `paths` scope gates every invocation channel until Clau
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "hook.enum.event"
 kind = "hook"
 predicate = "enum"
 field = "event"
@@ -281,6 +298,7 @@ cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-07-15)"
 values = ["SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay", "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded", "ConfigChange", "CwdChanged", "FileChanged", "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact", "Elicitation", "ElicitationResult", "SessionEnd"]
 
 [[declaration.clause]]
+label = "marketplace.required.name"
 kind = "marketplace"
 predicate = "required"
 field = "name"
@@ -289,6 +307,7 @@ guidance = "A marketplace declares a `name` — the identity users type when ins
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
+label = "marketplace.min_len.name"
 kind = "marketplace"
 predicate = "min_len"
 field = "name"
@@ -298,6 +317,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "marketplace.allowed_chars.name"
 kind = "marketplace"
 predicate = "allowed_chars"
 field = "name"
@@ -307,6 +327,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
+label = "marketplace.deny.name"
 kind = "marketplace"
 predicate = "deny"
 field = "name"
@@ -316,6 +337,7 @@ cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (ret
 values = ["claude-code-marketplace", "claude-code-plugins", "claude-plugins-official", "claude-plugins-community", "claude-community", "anthropic-marketplace", "anthropic-plugins", "agent-skills", "anthropic-agent-skills", "knowledge-work-plugins", "life-sciences", "claude-for-legal", "claude-for-financial-services", "financial-services-plugins", "first-party-plugins", "healthcare"]
 
 [[declaration.clause]]
+label = "marketplace.required.owner"
 kind = "marketplace"
 predicate = "required"
 field = "owner"
@@ -324,6 +346,7 @@ guidance = "A marketplace names its maintainer: `owner.name` is required and `ow
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
+label = "marketplace.required.plugins"
 kind = "marketplace"
 predicate = "required"
 field = "plugins"
@@ -332,6 +355,7 @@ guidance = "The `plugins` array is the catalog — a marketplace without it list
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
+label = "mcp-server.enum.type"
 kind = "mcp-server"
 predicate = "enum"
 field = "type"
@@ -341,6 +365,7 @@ cite = "https://code.claude.com/docs/en/mcp (retrieved 2026-07-15)"
 values = ["stdio", "http", "streamable-http", "sse", "ws"]
 
 [[declaration.clause]]
+label = "memory.max_lines"
 kind = "memory"
 predicate = "max_lines"
 severity = "advisory"
@@ -349,6 +374,7 @@ cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (ret
 bound = { max = 200 }
 
 [[declaration.clause]]
+label = "plugin-manifest.required.name"
 kind = "plugin-manifest"
 predicate = "required"
 field = "name"
@@ -357,6 +383,7 @@ guidance = "A manifest declares a `name` — the pack's identity and the namespa
 cite = "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
+label = "plugin-manifest.min_len.name"
 kind = "plugin-manifest"
 predicate = "min_len"
 field = "name"
@@ -366,6 +393,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#required-fields (retri
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "plugin-manifest.allowed_chars.name"
 kind = "plugin-manifest"
 predicate = "allowed_chars"
 field = "name"
@@ -375,6 +403,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#required-fields (retri
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
+label = "plugin-manifest.forbidden_keys"
 kind = "plugin-manifest"
 predicate = "forbidden_keys"
 severity = "required"
@@ -383,6 +412,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#experimental-component
 keys = ["themes", "monitors"]
 
 [[declaration.clause]]
+label = "plugin-manifest.type.keywords"
 kind = "plugin-manifest"
 predicate = "type"
 field = "keywords"
@@ -392,6 +422,7 @@ cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (r
 value_type = "list"
 
 [[declaration.clause]]
+label = "rule.forbidden_keys"
 kind = "rule"
 predicate = "forbidden_keys"
 severity = "required"
@@ -400,6 +431,7 @@ cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 20
 keys = ["description", "globs", "alwaysApply"]
 
 [[declaration.clause]]
+label = "rule.glob-valid.paths"
 kind = "rule"
 predicate = "glob-valid"
 field = "paths"
@@ -408,6 +440,7 @@ guidance = "`paths` is the one documented rules key: globs (brace expansion supp
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "rule.max_lines"
 kind = "rule"
 predicate = "max_lines"
 severity = "advisory"
@@ -416,6 +449,7 @@ cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (ret
 bound = { max = 200 }
 
 [[declaration.clause]]
+label = "rule.mention-reachable.paths"
 kind = "rule"
 predicate = "mention-reachable"
 field = "paths"
@@ -425,6 +459,7 @@ cite = "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating har
 gate = "paths"
 
 [[declaration.clause]]
+label = "skill.required.name"
 kind = "skill"
 predicate = "required"
 field = "name"
@@ -433,6 +468,7 @@ guidance = "Every skill declares a `name` — the slug the harness binds to. Cla
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.min_len.name"
 kind = "skill"
 predicate = "min_len"
 field = "name"
@@ -442,6 +478,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "skill.allowed_chars.name"
 kind = "skill"
 predicate = "allowed_chars"
 field = "name"
@@ -451,6 +488,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 charset = { ranges = ["a-z", "0-9"], chars = "-" }
 
 [[declaration.clause]]
+label = "skill.max_len.name"
 kind = "skill"
 predicate = "max_len"
 field = "name"
@@ -460,6 +498,7 @@ cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 bound = { max = 64 }
 
 [[declaration.clause]]
+label = "skill.deny.name"
 kind = "skill"
 predicate = "deny"
 field = "name"
@@ -469,6 +508,7 @@ cite = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overvi
 values = ["anthropic", "claude"]
 
 [[declaration.clause]]
+label = "skill.name-matches-dir"
 kind = "skill"
 predicate = "name-matches-dir"
 severity = "required"
@@ -476,6 +516,7 @@ guidance = "The spec requires the name to match its parent directory. Claude Cod
 cite = "https://agentskills.io/specification#name-field (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.required.description"
 kind = "skill"
 predicate = "required"
 field = "description"
@@ -484,6 +525,7 @@ guidance = "The description is how the model chooses this skill from potentially
 cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "skill.min_len.description"
 kind = "skill"
 predicate = "min_len"
 field = "description"
@@ -493,6 +535,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { min = 1 }
 
 [[declaration.clause]]
+label = "skill.max_len.description"
 kind = "skill"
 predicate = "max_len"
 field = "description"
@@ -502,6 +545,7 @@ cite = "https://agentskills.io/specification#description-field (retrieved 2026-0
 bound = { max = 1024 }
 
 [[declaration.clause]]
+label = "skill.max_len.compatibility"
 kind = "skill"
 predicate = "max_len"
 field = "compatibility"
@@ -511,6 +555,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
+label = "skill.max_lines"
 kind = "skill"
 predicate = "max_lines"
 severity = "advisory"
@@ -519,6 +564,7 @@ cite = "https://agentskills.io/specification#progressive-disclosure (retrieved 2
 bound = { max = 500 }
 
 [[declaration.clause]]
+label = "skill.forbidden_keys"
 kind = "skill"
 predicate = "forbidden_keys"
 severity = "required"
@@ -527,6 +573,7 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 keys = ["globs", "alwaysApply"]
 
 [[declaration.clause]]
+label = "skill.glob-valid.paths"
 kind = "skill"
 predicate = "glob-valid"
 field = "paths"
@@ -535,6 +582,7 @@ guidance = "The optional `paths` scope gates every invocation channel until Clau
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
+label = "supporting-doc.degree"
 kind = "supporting-doc"
 predicate = "degree"
 severity = "advisory"

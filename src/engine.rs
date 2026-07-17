@@ -67,7 +67,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
                 diagnostics.push(
                     Diagnostic::new(
                         severity_of(clause.severity),
-                        clause.predicate.key(),
+                        &clause.label,
                         &features.id,
                         message,
                     )
@@ -111,11 +111,7 @@ pub fn admissibility(contract: &Contract, locus: &Locus) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for clause in &contract.clauses {
         for message in inadmissibilities(&clause.predicate, locus) {
-            diagnostics.push(Diagnostic::error(
-                clause.predicate.key(),
-                &contract.name,
-                message,
-            ));
+            diagnostics.push(Diagnostic::error(&clause.label, &contract.name, message));
         }
     }
     diagnostics
@@ -340,17 +336,6 @@ impl Selector {
             Selector::OptIn(requirement) => format!("requirement `{requirement}`"),
         }
     }
-
-    /// The diagnostic `rule` id a `predicate` finding over this selection reports
-    /// under. A kind's own clauses report under the bare clause key, exactly as the
-    /// member-grain findings [`validate`] emits for the same contract do; a
-    /// requirement's report under the `requirement.` namespace its other findings share.
-    fn rule(&self, predicate: &Predicate) -> String {
-        match self {
-            Selector::Kind(_) => predicate.key().to_string(),
-            Selector::OptIn(_) => format!("requirement.{}", predicate.key()),
-        }
-    }
 }
 
 /// The set a contract binds to: the [`Selector`] that picked it, the members it
@@ -547,13 +532,12 @@ fn wrong_kind(selection: &Selection, clause: &Clause, kind: &str) -> Vec<Diagnos
         .collect()
 }
 
-/// One selection-grain finding: the clause's own declared severity, the rule id the
-/// selector namespaces, the selection as the indicted artifact, and the clause's
-/// colocated guidance.
+/// One selection-grain finding: the clause's own declared severity, its address as the
+/// rule id, the selection as the indicted artifact, and the clause's colocated guidance.
 fn finding(selection: &Selection, clause: &Clause, message: String) -> Diagnostic {
     Diagnostic::new(
         severity_of(clause.severity),
-        selection.selector.rule(&clause.predicate),
+        &clause.label,
         selection.selector.label(),
         message,
     )
@@ -936,17 +920,25 @@ mod tests {
         FeatureValue::scalar(ValueType::String, text)
     }
 
+    /// A [`Clause`] over `predicate` at `severity`, addressed under `owner` — the
+    /// `<owner>.<predicate>` spelling emit stamps a fieldless row with. The engine
+    /// never derives a label, so a fixture supplies it exactly as a lifted row would.
+    fn clause(owner: &str, severity: ClauseSeverity, predicate: Predicate) -> Clause {
+        Clause {
+            label: crate::contract::clause_label(Some(owner), predicate.key(), None),
+            source: None,
+            severity,
+            predicate,
+            guidance: None,
+        }
+    }
+
     /// A one-clause contract carrying `predicate` at `severity`.
     fn contract(severity: ClauseSeverity, predicate: Predicate) -> Contract {
         Contract {
             name: "skill".to_string(),
             guidance: None,
-            clauses: vec![Clause {
-                source: None,
-                severity,
-                predicate,
-                guidance: None,
-            }],
+            clauses: vec![clause("skill", severity, predicate)],
         }
     }
 
@@ -977,7 +969,7 @@ mod tests {
             absent,
         );
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "required");
+        assert_eq!(diags[0].rule, "skill.required");
         assert_eq!(diags[0].artifact, "demo");
 
         let present = features("demo", &[("name", scalar("demo"))], 1, None);
@@ -1022,7 +1014,7 @@ mod tests {
         );
         let diags = run(predicate(), mismatch);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "type");
+        assert_eq!(diags[0].rule, "skill.type");
         // The message names both the actual and the declared lattice kind.
         assert!(diags[0].message.contains("string"));
         assert!(diags[0].message.contains("integer"));
@@ -1064,7 +1056,7 @@ mod tests {
         let over = features("demo", &[("name", scalar("toolong"))], 1, None);
         let diags = run(predicate(), over);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "max_len");
+        assert_eq!(diags[0].rule, "skill.max_len");
 
         let within = features("demo", &[("name", scalar("ok"))], 1, None);
         assert!(run(predicate(), within).is_empty());
@@ -1090,7 +1082,7 @@ mod tests {
         );
         let diags = run(predicate(), over);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "range");
+        assert_eq!(diags[0].rule, "skill.range");
 
         // Below the lower bound fires too — a fractional `number` is in scope.
         let under = features(
@@ -1148,7 +1140,7 @@ mod tests {
         );
         let diags = admissibility(&inverted, &Locus::Document);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "range");
+        assert_eq!(diags[0].rule, "skill.range");
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].artifact, "skill");
         assert!(any_error(&diags));
@@ -1282,7 +1274,7 @@ mod tests {
         );
         assert_eq!(diags.len(), 1, "got: {diags:?}");
         assert_eq!(
-            diags[0].rule, "dependency-exists",
+            diags[0].rule, "skill.dependency-exists",
             "the finding must name the predicate"
         );
         assert_eq!(
@@ -1338,7 +1330,11 @@ mod tests {
                 &embedded,
             );
             assert_eq!(diags.len(), 1, "`{key}` must be fenced, got: {diags:?}");
-            assert_eq!(diags[0].rule, key, "the finding names the predicate");
+            assert_eq!(
+                diags[0].rule,
+                format!("skill.{key}"),
+                "the finding names the predicate"
+            );
             assert!(
                 diags[0].message.contains("citation"),
                 "the finding names the kind it is bound to, got: {}",
@@ -1402,12 +1398,7 @@ mod tests {
     ) -> Selection<'a> {
         Selection {
             selector: Selector::Kind(kind.to_string()),
-            clauses: vec![Clause {
-                severity: ClauseSeverity::Required,
-                predicate,
-                guidance: None,
-                source: None,
-            }],
+            clauses: vec![clause(kind, ClauseSeverity::Required, predicate)],
             members: members.iter().map(|features| (kind, features)).collect(),
         }
     }
@@ -1437,7 +1428,7 @@ mod tests {
         )]);
         assert_eq!(diags.len(), 1, "one finding for the set, got: {diags:?}");
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, "count");
+        assert_eq!(diags[0].rule, "skill.count");
         assert_eq!(diags[0].artifact, "skill");
         assert!(diags[0].message.contains("kind `skill`"));
         assert!(diags[0].message.contains("[1, 1]"));
@@ -1455,7 +1446,7 @@ mod tests {
             Predicate::Count { min: 1, max: 9 },
         )]);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "count");
+        assert_eq!(diags[0].rule, "skill.count");
         assert!(diags[0].message.contains("selects 0 member(s)"));
     }
 
@@ -1473,7 +1464,7 @@ mod tests {
             },
         )]);
         assert_eq!(diags.len(), 1, "one finding per shared value");
-        assert_eq!(diags[0].rule, "unique");
+        assert_eq!(diags[0].rule, "skill.unique");
         assert!(diags[0].message.contains("opus"));
         assert!(diags[0].message.contains("plan") && diags[0].message.contains("ship"));
 
@@ -1526,7 +1517,7 @@ mod tests {
         ];
         let diags = judge(&selections);
         assert_eq!(diags.len(), 1, "only `gpt` is outside the derived set");
-        assert_eq!(diags[0].rule, "membership");
+        assert_eq!(diags[0].rule, "skill.membership");
         assert_eq!(diags[0].artifact, "skill");
         assert!(diags[0].message.contains("ship") && diags[0].message.contains("gpt"));
     }
@@ -1559,7 +1550,7 @@ mod tests {
             },
         )]);
         assert_eq!(diags.len(), 2, "each grain: one finding per member");
-        assert!(diags.iter().all(|d| d.rule == "kind"));
+        assert!(diags.iter().all(|d| d.rule == "skill.kind"));
         assert!(diags[0].message.contains("`plan` is kind `skill`"));
     }
 
@@ -1772,7 +1763,7 @@ mod tests {
         );
         let diags = run(predicate(), legacy);
         assert_eq!(diags.len(), 2);
-        assert!(diags.iter().all(|d| d.rule == "forbidden_keys"));
+        assert!(diags.iter().all(|d| d.rule == "skill.forbidden_keys"));
 
         let clean = features("clean", &[("name", scalar("clean"))], 1, None);
         assert!(run(predicate(), clean).is_empty());
@@ -1787,7 +1778,7 @@ mod tests {
         let shouty = features("Demo_1", &[("name", scalar("Demo_1"))], 1, None);
         let diags = run(predicate(), shouty);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "allowed_chars");
+        assert_eq!(diags[0].rule, "skill.allowed_chars");
         // The offending characters, deduped and sorted, ride in the message.
         assert!(diags[0].message.contains('D'));
         assert!(diags[0].message.contains('_'));
@@ -1819,7 +1810,7 @@ mod tests {
         );
         let diags = run(predicate(), broken);
         assert_eq!(diags.len(), 2, "one finding per unparseable glob");
-        assert!(diags.iter().all(|d| d.rule == "glob-valid"));
+        assert!(diags.iter().all(|d| d.rule == "skill.glob-valid"));
 
         // Brace expansion is in scope — a valid `{a,b}` alternation passes.
         let valid = features(
@@ -1878,7 +1869,7 @@ mod tests {
         let mismatch = features("demo", &[("name", scalar("demo"))], 1, Some("other"));
         let diags = run(Predicate::NameMatchesDir, mismatch);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "name-matches-dir");
+        assert_eq!(diags[0].rule, "skill.name-matches-dir");
 
         let aligned = features("demo", &[("name", scalar("demo"))], 1, Some("demo"));
         assert!(run(Predicate::NameMatchesDir, aligned).is_empty());
@@ -1908,7 +1899,7 @@ mod tests {
         let missing = features_with_headings("demo", &["Usage"]);
         let diags = run(predicate(), missing);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "require_sections");
+        assert_eq!(diags[0].rule, "skill.require_sections");
         assert_eq!(diags[0].artifact, "demo");
         assert!(diags[0].message.contains("Examples"));
 
@@ -1925,7 +1916,7 @@ mod tests {
         let held = contract(ClauseSeverity::Required, Predicate::DependencyExists);
         let diags = admissibility(&held, &Locus::Document);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "dependency-exists");
+        assert_eq!(diags[0].rule, "skill.dependency-exists");
         assert_eq!(diags[0].severity, Severity::Error);
         // The finding names the contract it indicts.
         assert_eq!(diags[0].artifact, "skill");
@@ -1950,7 +1941,7 @@ mod tests {
         );
         let diags = admissibility(&empty_enum, &Locus::Document);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "enum");
+        assert_eq!(diags[0].rule, "skill.enum");
         assert_eq!(diags[0].severity, Severity::Error);
         // The finding names the contract it indicts.
         assert_eq!(diags[0].artifact, "skill");
@@ -1985,7 +1976,7 @@ mod tests {
                 &Locus::Document,
             );
             assert_eq!(diags.len(), 1, "{key} with an empty list should fire once");
-            assert_eq!(diags[0].rule, key);
+            assert_eq!(diags[0].rule, format!("skill.{key}"));
             assert_eq!(diags[0].severity, Severity::Error);
         }
     }
@@ -1995,54 +1986,44 @@ mod tests {
         // Non-empty lists, and the non-list primitives, carry nothing for
         // admissibility to reject — the multi-clause representative is admissible.
         let clauses = vec![
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::Enum {
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::Enum {
                     field: "status".to_string(),
                     values: vec!["draft".to_string(), "active".to_string()],
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::Deny {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::Deny {
                     field: "name".to_string(),
                     values: vec!["claude".to_string()],
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::ForbiddenKeys {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::ForbiddenKeys {
                     keys: vec!["globs".to_string()],
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Advisory,
-                guidance: None,
-                predicate: Predicate::RequireSections {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Advisory,
+                Predicate::RequireSections {
                     sections: vec!["Usage".to_string()],
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::Required {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::Required {
                     field: "name".to_string(),
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::NameMatchesDir,
-            },
+            ),
+            clause("skill", ClauseSeverity::Required, Predicate::NameMatchesDir),
         ];
         let contract = Contract {
             name: "skill".to_string(),
@@ -2076,20 +2057,18 @@ mod tests {
     fn an_all_advisory_run_yields_no_error() {
         // Every clause advisory; the artifact violates all of them.
         let clauses = vec![
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Advisory,
-                guidance: None,
-                predicate: Predicate::Required {
+            clause(
+                "skill",
+                ClauseSeverity::Advisory,
+                Predicate::Required {
                     field: "name".to_string(),
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Advisory,
-                guidance: None,
-                predicate: Predicate::MaxLines { max: 10 },
-            },
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Advisory,
+                Predicate::MaxLines { max: 10 },
+            ),
         ];
         let contract = Contract {
             name: "skill".to_string(),
@@ -2108,52 +2087,42 @@ mod tests {
     #[test]
     fn a_conforming_artifact_against_a_multi_clause_contract_is_clean() {
         let clauses = vec![
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::Required {
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::Required {
                     field: "name".to_string(),
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::MaxLen {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::MaxLen {
                     field: "name".to_string(),
                     max: 64,
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::AllowedChars {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::AllowedChars {
                     field: "name".to_string(),
                     charset: slug_charset(),
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::ForbiddenKeys {
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Required,
+                Predicate::ForbiddenKeys {
                     keys: vec!["globs".to_string()],
                 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Advisory,
-                guidance: None,
-                predicate: Predicate::MaxLines { max: 500 },
-            },
-            Clause {
-                source: None,
-                severity: ClauseSeverity::Required,
-                guidance: None,
-                predicate: Predicate::NameMatchesDir,
-            },
+            ),
+            clause(
+                "skill",
+                ClauseSeverity::Advisory,
+                Predicate::MaxLines { max: 500 },
+            ),
+            clause("skill", ClauseSeverity::Required, Predicate::NameMatchesDir),
         ];
         let contract = Contract {
             name: "skill".to_string(),

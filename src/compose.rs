@@ -159,10 +159,20 @@ pub enum ClauseRowError {
         /// The unrecognized severity label.
         severity: String,
     },
+    /// The row carries no address. Emit stamps one onto every row it writes, so a row
+    /// without one never came from an emit.
+    #[error(
+        "lock clause row for predicate `{predicate}` carries no `label` — every emitted \
+         clause row is stamped with its address, so a row without one is not a row emit wrote"
+    )]
+    Label {
+        /// The offending row's predicate key.
+        predicate: String,
+    },
 }
 
-/// Lift one clause row into its typed [`contract::Clause`] — predicate, severity,
-/// guidance, and cite, the clause's full four channels.
+/// Lift one clause row into its typed [`contract::Clause`] — its address, predicate,
+/// severity, guidance, and cite.
 /// `pub` (not `pub(crate)`, same reasoning as [`severity_from_label`]): the `main`
 /// binary is a separate crate from this library, so its requirement-nested lift
 /// needs this visible across the crate boundary to wrap it, as `crate::builtin`'s
@@ -171,8 +181,9 @@ pub enum ClauseRowError {
 /// # Errors
 ///
 /// A row naming a predicate outside the closed vocabulary, missing a required
-/// argument, or declaring an out-of-vocabulary severity is a [`ClauseRowError`] —
-/// rejected loud, never a silently dropped clause (see [`default_contract_from_rows`]).
+/// argument, carrying no address, or declaring an out-of-vocabulary severity is a
+/// [`ClauseRowError`] — rejected loud, never a silently dropped clause (see
+/// [`default_contract_from_rows`]).
 pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, ClauseRowError> {
     let severity = severity_from_label(&row.severity).ok_or_else(|| ClauseRowError::Severity {
         predicate: row.predicate.clone(),
@@ -181,7 +192,13 @@ pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, ClauseRowErr
     let predicate = contract::predicate_from_row(row).ok_or_else(|| ClauseRowError::Predicate {
         predicate: row.predicate.clone(),
     })?;
+    // Lifted verbatim, never re-derived: the label the lock committed is the label
+    // every finding prints, so the two cannot drift apart on a grammar change.
+    let label = row.label.clone().ok_or_else(|| ClauseRowError::Label {
+        predicate: row.predicate.clone(),
+    })?;
     Ok(contract::Clause {
+        label,
         severity,
         predicate,
         guidance: row.guidance.clone(),
@@ -213,6 +230,7 @@ mod tests {
     /// argument column the case exercises.
     fn clause_row(severity: &str) -> ClauseRow {
         ClauseRow {
+            label: Some("fixture.clause".to_string()),
             kind: None,
             predicate: String::new(),
             field: None,
@@ -240,6 +258,7 @@ mod tests {
         // than only flipping an existing one's severity.
         let rows = vec![
             ClauseRow {
+                label: Some("spec.max_lines".to_string()),
                 kind: Some("spec".to_string()),
                 predicate: "max_lines".to_string(),
                 field: None,
@@ -262,6 +281,7 @@ mod tests {
                 section: None,
             },
             ClauseRow {
+                label: Some("rule.max_lines".to_string()),
                 kind: Some("rule".to_string()),
                 predicate: "max_lines".to_string(),
                 field: None,
@@ -290,6 +310,7 @@ mod tests {
         assert_eq!(
             contract.clauses,
             vec![Clause {
+                label: "spec.max_lines".to_string(),
                 severity: Severity::Advisory,
                 predicate: Predicate::MaxLines { max: 150 },
                 guidance: None,
@@ -304,6 +325,7 @@ mod tests {
         // cannot admit is corruption rejected loud, never a clause silently dropped.
         // An unknown predicate names nothing in the vocabulary.
         let unknown = vec![ClauseRow {
+            label: None,
             kind: Some("spec".to_string()),
             predicate: "not_a_predicate".to_string(),
             ..clause_row("advisory")
@@ -316,6 +338,7 @@ mod tests {
         // A known predicate missing its required argument (`section_contains` with no
         // `section` column) cannot be built either — the same loud rejection.
         let missing_arg = vec![ClauseRow {
+            label: None,
             kind: Some("spec".to_string()),
             predicate: "section_contains".to_string(),
             ..clause_row("advisory")
@@ -328,6 +351,7 @@ mod tests {
         // A severity outside the closed `required`/`advisory` vocabulary is rejected
         // on the severity channel.
         let bad_severity = vec![ClauseRow {
+            label: None,
             kind: Some("spec".to_string()),
             predicate: "max_lines".to_string(),
             bound: Some(crate::drift::BoundRow {

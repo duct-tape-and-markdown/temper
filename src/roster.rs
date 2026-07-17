@@ -62,7 +62,7 @@ pub fn selections<'a>(
             let mut clauses: Vec<_> = requirement
                 .kind
                 .iter()
-                .map(|kind| builtin::kind_narrowing_clause(kind))
+                .map(|kind| builtin::kind_narrowing_clause(&requirement.name, kind))
                 .collect();
             clauses.extend(requirement.clauses.iter().cloned());
             Selection {
@@ -176,6 +176,11 @@ mod tests {
     /// test case below attaches to a requirement's `clauses`.
     fn required_clause(predicate: Predicate) -> Clause {
         Clause {
+            label: crate::contract::clause_label(
+                Some(&crate::contract::requirement_owner("gate")),
+                predicate.key(),
+                None,
+            ),
             severity: ClauseSeverity::Required,
             predicate,
             guidance: None,
@@ -294,7 +299,7 @@ mod tests {
         let diags = run_multi_kind(req, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, "requirement.kind");
+        assert_eq!(diags[0].rule, "requirement.agents.kind");
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("agent-rule"));
         assert!(diags[0].message.contains("skill"));
@@ -338,7 +343,7 @@ mod tests {
         let below = run(req.clone(), &[features("lint-rust", &[])]);
         assert_eq!(below.len(), 1);
         assert_eq!(below[0].severity, Severity::Error);
-        assert_eq!(below[0].rule, "requirement.count");
+        assert_eq!(below[0].rule, "requirement.gate.count");
         assert_eq!(below[0].artifact, "agents");
         assert!(below[0].message.contains("[1, 2]"));
 
@@ -360,7 +365,7 @@ mod tests {
             &[features("agent-1", &["agents"])],
         );
         assert_eq!(one.len(), 1);
-        assert_eq!(one[0].rule, "requirement.count");
+        assert_eq!(one[0].rule, "requirement.gate.count");
     }
 
     /// A requirement declaring `unique = ["model"]` over the `skill` kind — the
@@ -409,7 +414,7 @@ mod tests {
         );
         assert_eq!(collide.len(), 1);
         assert_eq!(collide[0].severity, Severity::Error);
-        assert_eq!(collide[0].rule, "requirement.unique");
+        assert_eq!(collide[0].rule, "requirement.gate.unique");
         assert_eq!(collide[0].artifact, "agents");
         assert!(collide[0].message.contains("model"));
         assert!(collide[0].message.contains("opus"));
@@ -499,7 +504,7 @@ mod tests {
         let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, "requirement.membership");
+        assert_eq!(diags[0].rule, "requirement.gate.membership");
         assert_eq!(diags[0].artifact, "agents");
         assert!(diags[0].message.contains("agent-2"));
         assert!(diags[0].message.contains("gpt"));
@@ -535,7 +540,7 @@ mod tests {
         let diags = judge_roster(&requirements, &by_kind);
         // Only `agent-2` (`gpt`) is outside the manifest-derived { opus, sonnet }.
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "requirement.membership");
+        assert_eq!(diags[0].rule, "requirement.gate.membership");
         assert!(diags[0].message.contains("agent-2"));
         assert!(diags[0].message.contains("approved-model"));
     }
@@ -568,7 +573,11 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 2);
-        assert!(diags.iter().all(|d| d.rule == "requirement.membership"));
+        assert!(
+            diags
+                .iter()
+                .all(|d| d.rule == "requirement.gate.membership")
+        );
     }
 
     #[test]
@@ -590,7 +599,7 @@ mod tests {
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let diags = judge_roster(&requirements, &by_kind);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, "requirement.membership");
+        assert_eq!(diags[0].rule, "requirement.gate.membership");
     }
 
     // ---- admissibility ----------------------------------------------------

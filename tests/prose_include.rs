@@ -168,7 +168,15 @@ fn an_include_edge_joins_the_resolved_enumeration_and_narrates() {
     let host_features = [feature("host")];
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &host_features[..])]);
     let no_edges: Vec<Edge> = Vec::new();
-    let narration = read::why(&[], &BTreeMap::new(), &by_kind, &no_edges, &edges, "host");
+    let narration = read::why(
+        &[],
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &by_kind,
+        &no_edges,
+        &edges,
+        "host",
+    );
     assert!(
         narration.contains("shared") && narration.contains("import"),
         "the include edge is narrated: {narration}"

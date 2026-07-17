@@ -139,11 +139,13 @@ fn rich_declarations() -> Declarations {
         ],
         clauses: vec![
             ClauseRow {
+                label: None,
                 kind: Some("skill".to_string()),
                 field: Some("description".to_string()),
                 ..common::clause("required", "required")
             },
             ClauseRow {
+                label: None,
                 kind: Some("rule".to_string()),
                 field: Some("paths".to_string()),
                 ..common::clause("required", "advisory")
@@ -164,6 +166,7 @@ fn rich_declarations() -> Declarations {
                         None,
                     ),
                     ClauseRow {
+                        label: None,
                         field: Some("name".to_string()),
                         ..common::clause("unique", "advisory")
                     },
@@ -458,22 +461,26 @@ fn a_requirements_prose_reaches_explains_narration_through_the_engine() {
 fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         count: Some(CountBoundRow { min: 1, max: 3 }),
         ..common::clause("count", "required")
     });
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         field: Some("name".to_string()),
         ..common::clause("unique", "advisory")
     });
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         field: Some("model".to_string()),
         target: Some("approved-models".to_string()),
         ..common::clause("membership", "required")
     });
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         degree: Some(DegreeBoundRow {
             incoming: Some(EdgeBoundRow {
@@ -543,6 +550,7 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
 fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("rule".to_string()),
         field: Some("paths".to_string()),
         gate: Some("paths".to_string()),
@@ -590,6 +598,7 @@ fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
 fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         field: Some("name".to_string()),
         bound: Some(BoundRow {
@@ -599,11 +608,13 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
         ..common::clause("max_len", "required")
     });
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
         ..common::clause("forbidden_keys", "required")
     });
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         field: Some("name".to_string()),
         charset: Some(CharsetRow {
@@ -656,12 +667,14 @@ fn a_floor_clause_row_round_trips_its_node_scope_predicate_argument() {
 fn a_range_and_section_clause_row_round_trip_the_lock() {
     let mut declarations = rich_declarations();
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         field: Some("priority".to_string()),
         range: Some(RangeBoundRow { min: 1.0, max: 5.5 }),
         ..common::clause("range", "advisory")
     });
     declarations.clauses.push(ClauseRow {
+        label: None,
         kind: Some("skill".to_string()),
         section: Some(SectionContainsRow {
             heading: "Decision".to_string(),
@@ -714,6 +727,7 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
 #[test]
 fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     let optional = ClauseRow {
+        label: None,
         field: Some("model".to_string()),
         ..common::clause("optional", "required")
     };
@@ -725,6 +739,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     );
 
     let range = ClauseRow {
+        label: None,
         field: Some("priority".to_string()),
         range: Some(RangeBoundRow { min: 1.0, max: 5.0 }),
         ..common::clause("range", "required")
@@ -739,6 +754,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     );
 
     let enumerated = ClauseRow {
+        label: None,
         field: Some("status".to_string()),
         values: Some(vec!["draft".to_string(), "final".to_string()]),
         ..common::clause("enum", "required")
@@ -752,6 +768,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     );
 
     let must_define = ClauseRow {
+        label: None,
         field: Some("disable-model-invocation".to_string()),
         ..common::clause("must_define", "required")
     };
@@ -763,6 +780,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     );
 
     let section = ClauseRow {
+        label: None,
         section: Some(SectionContainsRow {
             heading: "Decision".to_string(),
             marker: "Rejected".to_string(),
@@ -784,6 +802,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
         name: "spec".to_string(),
         guidance: None,
         clauses: vec![Clause {
+            label: "spec.section_contains".to_string(),
             severity: Severity::Required,
             predicate,
             guidance: None,
@@ -799,7 +818,7 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     let features: Features = Extraction::new(vec![Primitive::Sections]).extract(&unit);
     let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
     assert_eq!(diagnostics.len(), 1, "the bare Decision section fires once");
-    assert_eq!(diagnostics[0].rule, "section_contains");
+    assert_eq!(diagnostics[0].rule, "spec.section_contains");
 }
 
 /// A lock clause row the closed vocabulary cannot admit fails the run loud, never a
@@ -815,6 +834,7 @@ fn check_rejects_a_lock_clause_row_the_closed_vocabulary_cannot_admit() {
         Declarations {
             kinds: vec![common::kind_facts("spec", "specs", "*.md")],
             clauses: vec![ClauseRow {
+                label: None,
                 kind: Some("spec".to_string()),
                 ..common::clause("not_a_predicate", "advisory")
             }],
@@ -1854,7 +1874,7 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
         "a wrong-kind opt-in the row's `kind` narrows against must fail the run ⇒ non-zero, got:\n{output}"
     );
     assert!(
-        output.contains("requirement.kind") && output.contains("style"),
+        output.contains("requirement.gate.kind") && output.contains("style"),
         "the finding names the sourced kind clause and the wrong-kind satisfier, got:\n{output}"
     );
 }
@@ -2488,5 +2508,178 @@ fn an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_l
     assert!(
         output.contains("to"),
         "the load error names the offending column rather than dropping the row, got:\n{output}"
+    );
+}
+
+// ---- CLAUSE-LABEL-IS-AN-ADDRESS: the clause's compiled address ---------------
+//
+// A clause's label is its identity. Emit writes it once, off the row's own
+// identity columns; every finding and `explain` print it; and two rows reducing to
+// one label are a malformed lock, refused before it judges anything.
+
+#[test]
+fn every_emitted_clause_row_carries_a_deterministic_human_legible_label() {
+    let root = common::tmpdir("clause-label-emitted");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            clauses: vec![
+                ClauseRow {
+                    kind: Some("spec".to_string()),
+                    field: Some("owner".to_string()),
+                    ..common::clause("required", "required")
+                },
+                // The collision the bare predicate key could not tell apart: two clauses
+                // of one predicate over *different* fields of one kind.
+                ClauseRow {
+                    kind: Some("spec".to_string()),
+                    field: Some("title".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(80),
+                    }),
+                    ..common::clause("max_len", "required")
+                },
+                ClauseRow {
+                    kind: Some("spec".to_string()),
+                    field: Some("owner".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(40),
+                    }),
+                    ..common::clause("max_len", "required")
+                },
+                // A fieldless predicate addresses on its owner and key alone.
+                ClauseRow {
+                    kind: Some("spec".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(150),
+                    }),
+                    ..common::clause("max_lines", "advisory")
+                },
+            ],
+            requirements: vec![RequirementRow {
+                clauses: vec![ClauseRow {
+                    count: Some(CountBoundRow { min: 1, max: 9 }),
+                    ..common::clause("count", "required")
+                }],
+                ..common::requirement("spec-coverage", true, Some("spec"))
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    let labels: Vec<String> = drift::read_declarations(&root.join(".temper"))
+        .unwrap()
+        .clauses
+        .iter()
+        .map(|row| row.label.clone().expect("emit stamps every clause row"))
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            "spec.required.owner",
+            "spec.max_len.title",
+            "spec.max_len.owner",
+            "spec.max_lines",
+        ],
+        "each row addresses as `<kind>.<predicate>[.<field>]` — the two `max_len` \
+         clauses over different fields are distinct addresses, not one colliding key"
+    );
+
+    // A requirement's own clause names no kind, so it addresses under the requirement
+    // it hangs off — the one place that name is in scope.
+    let requirement_labels: Vec<String> = drift::read_declarations(&root.join(".temper"))
+        .unwrap()
+        .requirements
+        .iter()
+        .flat_map(|row| row.clauses.clone())
+        .map(|row| row.label.expect("emit stamps a nested clause row too"))
+        .collect();
+    assert_eq!(requirement_labels, ["requirement.spec-coverage.count"]);
+}
+
+#[test]
+fn the_same_program_emits_the_same_clause_labels() {
+    // Determinism is what makes the label an address an author can write down: the
+    // same program re-emitted must address every clause identically, never renumber.
+    let declarations = || Declarations {
+        kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+        clauses: vec![
+            ClauseRow {
+                kind: Some("spec".to_string()),
+                field: Some("owner".to_string()),
+                ..common::clause("required", "required")
+            },
+            ClauseRow {
+                kind: Some("spec".to_string()),
+                bound: Some(BoundRow {
+                    min: None,
+                    max: Some(150),
+                }),
+                ..common::clause("max_lines", "advisory")
+            },
+        ],
+        ..Declarations::default()
+    };
+    let labels_of = |slug: &str| -> Vec<String> {
+        let root = common::tmpdir(slug);
+        common::write_lock(&root, declarations());
+        drift::read_declarations(&root.join(".temper"))
+            .unwrap()
+            .clauses
+            .iter()
+            .filter_map(|row| row.label.clone())
+            .collect()
+    };
+
+    assert_eq!(
+        labels_of("clause-label-run-a"),
+        labels_of("clause-label-run-b")
+    );
+}
+
+#[test]
+fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
+    // Two rows of one predicate over one field of one kind reduce to one address, so
+    // neither can be named — a malformed lock, refused before it judges anything,
+    // never a collision quietly resolved to whichever row was read first.
+    let root = common::tmpdir("clause-label-collision");
+    common::write_skill(&root, "coordinate", &common::clean_skill("coordinate"));
+    common::write_lock(
+        &root,
+        Declarations {
+            clauses: vec![
+                ClauseRow {
+                    kind: Some("skill".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(150),
+                    }),
+                    ..common::clause("max_lines", "advisory")
+                },
+                ClauseRow {
+                    kind: Some("skill".to_string()),
+                    bound: Some(BoundRow {
+                        min: None,
+                        max: Some(500),
+                    }),
+                    ..common::clause("max_lines", "required")
+                },
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "two clause rows under one address must fail the run, got:\n{output}"
+    );
+    assert!(
+        output.contains("clause.label-collision") && output.contains("skill.max_lines"),
+        "the refusal names the coherence rule and the colliding address, got:\n{output}"
     );
 }

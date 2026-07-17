@@ -141,7 +141,7 @@ fn a_reserved_name_is_a_finding_even_though_it_is_well_formed_kebab_case() {
 
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a reserved name fails the gate");
-    let denied = common::findings_for(&findings, "deny");
+    let denied = common::findings_for(&findings, "marketplace.deny.name");
     assert!(!denied.is_empty(), "{findings:?}");
     assert!(
         denied.iter().all(|f| f.starts_with("::error")),
@@ -150,7 +150,7 @@ fn a_reserved_name_is_a_finding_even_though_it_is_well_formed_kebab_case() {
     // The charset clause has nothing to say about it — proof the deny list is load-bearing
     // rather than incidentally shadowed by the kebab-case rule.
     assert!(
-        common::findings_for(&findings, "allowed_chars").is_empty(),
+        common::findings_for(&findings, "marketplace.allowed_chars.name").is_empty(),
         "{findings:?}"
     );
 }
@@ -175,7 +175,7 @@ fn a_name_that_merely_resembles_an_official_one_is_no_finding_because_no_clause_
         "impersonation is undecidable, so no clause fires: {findings:?}"
     );
     assert!(
-        common::findings_for(&findings, "deny").is_empty(),
+        common::findings_for(&findings, "marketplace.deny.name").is_empty(),
         "{findings:?}"
     );
 }
@@ -213,7 +213,7 @@ fn a_name_outside_the_kebab_case_charset_is_a_finding() {
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a non-kebab-case name fails the gate");
     assert!(
-        !common::findings_for(&findings, "allowed_chars").is_empty(),
+        !common::findings_for(&findings, "marketplace.allowed_chars.name").is_empty(),
         "{findings:?}"
     );
 }
@@ -226,7 +226,10 @@ fn a_catalog_missing_owner_or_plugins_is_a_finding() {
 
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a catalog missing owner and plugins fails the gate");
-    let required = common::findings_for(&findings, "required");
+    let required = ["marketplace.required.owner", "marketplace.required.plugins"]
+        .iter()
+        .flat_map(|rule| common::findings_for(&findings, rule))
+        .collect::<Vec<_>>();
     assert_eq!(
         required.len(),
         2,
@@ -295,7 +298,8 @@ fn this_repo_authors_no_marketplace_so_the_kind_counts_zero_members() {
     let (findings, ok) = check_harness(&harness);
     assert!(ok, "no catalog is no finding: {findings:?}");
     assert!(
-        common::findings_for(&findings, "required").is_empty(),
+        common::findings_for(&findings, "marketplace.required.owner").is_empty()
+            && common::findings_for(&findings, "marketplace.required.plugins").is_empty(),
         "{findings:?}"
     );
 }

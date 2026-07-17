@@ -31,14 +31,8 @@ const GRAPH_ADMISSIBILITY_RULE: &str = "graph.admissibility";
 /// The diagnostic `rule` id the acyclicity finding reports under.
 const GRAPH_ACYCLIC_RULE: &str = "graph.acyclic";
 
-/// The diagnostic `rule` id every degree finding reports under.
-const GRAPH_DEGREE_RULE: &str = "graph.degree";
-
 /// The diagnostic `rule` id every reachability finding reports under.
 const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
-
-/// The diagnostic `rule` id every `mention-reachable` clause finding reports under.
-const GRAPH_MENTION_REACHABLE_RULE: &str = "graph.mention-reachable";
 
 /// The diagnostic `rule` id every unbacked-pointer directive finding reports under.
 const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
@@ -410,7 +404,7 @@ pub fn mention_reachable(
                     diagnostics.push(
                         Diagnostic::new(
                             engine::severity_of(clause.severity),
-                            GRAPH_MENTION_REACHABLE_RULE,
+                            &clause.label,
                             &features.id,
                             message,
                         )
@@ -489,7 +483,7 @@ fn out_of_degree(
     let max = bound.max.map_or_else(|| "∞".to_string(), |n| n.to_string());
     Diagnostic::new(
         engine::severity_of(clause.severity),
-        GRAPH_DEGREE_RULE,
+        &clause.label,
         artifact,
         format!(
             "{} bounds {} degree to [{min}, {max}], but `{artifact}` has {actual}",
@@ -1670,6 +1664,11 @@ mod tests {
         let clauses = degree
             .into_iter()
             .map(|predicate| Clause {
+                label: crate::contract::clause_label(
+                    Some(&crate::contract::requirement_owner("gate")),
+                    predicate.key(),
+                    None,
+                ),
                 severity: ClauseSeverity::Required,
                 predicate,
                 guidance: None,
@@ -1755,7 +1754,7 @@ mod tests {
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
-        assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
+        assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "standards");
         assert!(diags[0].message.contains("gate"));
         assert!(diags[0].message.contains("incoming"));
@@ -1818,7 +1817,7 @@ mod tests {
             &by_kind,
         );
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
+        assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "standards");
         assert!(diags[0].message.contains("incoming"));
     }
@@ -1850,7 +1849,7 @@ mod tests {
             &by_kind,
         );
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].rule, GRAPH_DEGREE_RULE);
+        assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("incoming"));
     }

@@ -36,7 +36,22 @@ pub enum Severity {
 pub struct Diagnostic {
     /// Whether this finding fails the run or is merely advisory.
     pub severity: Severity,
-    /// The rule id, e.g. `skill.name-format` — stable, the diagnostic `code`.
+    /// The rule id — stable, the diagnostic `code`, and the one name this finding is
+    /// addressed by.
+    ///
+    /// A finding a clause produced prints that clause's **address**: the label emit
+    /// stamped on its lock row, dot-joined `<owner>.<predicate>[.<field>]` — the kind
+    /// whose contract carries it (or `requirement.<name>` for a requirement's own
+    /// demand), the predicate key, and the field it names when it names one:
+    /// `skill.max_len.description`, `requirement.approved-model.count`. It is the whole
+    /// identity — there is no second, friendlier name beside it — so an author who reads
+    /// a finding can spell the clause back to the dial without a lookup, and the
+    /// clause's own guidance is what teaches the *why*.
+    ///
+    /// A finding no clause produced — well-formedness, the graph's fixed checks — reports
+    /// under its own `<area>.<check>` id (`kind.governs-collision`, `graph.acyclic`)
+    /// instead: those are preconditions of judging, never dialable, so they have no
+    /// clause to be addressed by.
     pub rule: String,
     /// The artifact the finding is about, e.g. the skill name or its path.
     pub artifact: String,

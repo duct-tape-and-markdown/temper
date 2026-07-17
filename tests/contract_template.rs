@@ -219,7 +219,7 @@ fn the_shipped_built_in_packages_are_admissible() {
 /// closed-vocabulary `Predicate::Kind` shape with no guidance/cite of its own.
 #[test]
 fn the_kind_narrowing_clause_loads_at_required_severity() {
-    let clause = temper::builtin::kind_narrowing_clause("skill");
+    let clause = temper::builtin::kind_narrowing_clause("approved-model", "skill");
     assert_eq!(clause.severity, Severity::Required);
     assert_eq!(
         clause.predicate,
@@ -236,7 +236,7 @@ fn the_kind_narrowing_clause_loads_at_required_severity() {
 /// kind-blind satisfier set.
 #[test]
 fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
-    let clause = temper::builtin::kind_narrowing_clause("skill");
+    let clause = temper::builtin::kind_narrowing_clause("approved-model", "skill");
     let requirement = temper::compose::Requirement {
         name: "planner".to_string(),
         prose: None,
@@ -263,6 +263,11 @@ fn a_named_kind_clause_is_admissible_on_a_kinds_own_contract_and_an_empty_one_is
     let bare_contract = |predicate: Predicate| Contract {
         name: "kind-clause-fixture".to_string(),
         clauses: vec![temper::contract::Clause {
+            label: temper::contract::clause_label(
+                Some("kind-clause-fixture"),
+                predicate.key(),
+                None,
+            ),
             severity: Severity::Required,
             predicate,
             guidance: None,
@@ -292,7 +297,7 @@ fn a_named_kind_clause_is_admissible_on_a_kinds_own_contract_and_an_empty_one_is
         !empty.is_empty(),
         "an empty `kind` is vacuous over every selection",
     );
-    assert!(empty.iter().all(|d| d.rule == "kind"));
+    assert!(empty.iter().all(|d| d.rule == "kind-clause-fixture.kind"));
 }
 
 // ---- the each-grain `format-places-edges` predicate -------------------------
@@ -337,6 +342,7 @@ fn places_edges_contract(severity: Severity) -> Contract {
     Contract {
         name: "citation".to_string(),
         clauses: vec![temper::contract::Clause {
+            label: "citation.format-places-edges".to_string(),
             severity,
             predicate: Predicate::FormatPlacesEdges,
             guidance: None,
@@ -386,7 +392,7 @@ fn a_format_omitting_a_declared_edge_is_a_finding_naming_the_field() {
         &[cited(&[("source", true), ("supersedes", false)])],
     );
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].rule, "format-places-edges");
+    assert_eq!(diagnostics[0].rule, "citation.format-places-edges");
     assert_eq!(diagnostics[0].artifact, "the-standard");
     assert!(
         diagnostics[0].message.contains("supersedes"),

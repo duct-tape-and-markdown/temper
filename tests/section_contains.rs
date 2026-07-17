@@ -32,6 +32,7 @@ fn decision_contract() -> Contract {
         name: "spec".to_string(),
         guidance: None,
         clauses: vec![Clause {
+            label: "spec.section_contains".to_string(),
             severity: Severity::Required,
             predicate: Predicate::SectionContains {
                 heading: "Decision".to_string(),
@@ -98,7 +99,7 @@ Chosen: author-declared severity — but this section names no alternative.\n";
 
     let diags = check(bare);
     assert_eq!(diags.len(), 1, "exactly one bare Decision section fires");
-    assert_eq!(diags[0].rule, "section_contains");
+    assert_eq!(diags[0].rule, "spec.section_contains");
     assert_eq!(diags[0].artifact, "10-contracts");
     assert_eq!(diags[0].severity, DiagnosticSeverity::Error);
     // The finding names the offending section, not the one that carried the marker.

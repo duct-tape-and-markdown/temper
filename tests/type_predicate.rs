@@ -63,6 +63,7 @@ fn findings(predicate: Predicate, features: &Features) -> Vec<temper::check::Dia
         name: "pack".to_string(),
         guidance: None,
         clauses: vec![Clause {
+            label: contract::clause_label(Some("pack"), predicate.key(), None),
             severity: Severity::Required,
             predicate,
             guidance: None,
@@ -114,7 +115,7 @@ fn an_sdk_authored_type_clause_reaches_the_engine_through_the_lock() {
         &pack_features(serde_json::json!("review")),
     );
     assert_eq!(wrong.len(), 1, "a string `keywords` violates the clause");
-    assert_eq!(wrong[0].rule, "type");
+    assert_eq!(wrong[0].rule, "pack.type");
 
     assert!(
         findings(

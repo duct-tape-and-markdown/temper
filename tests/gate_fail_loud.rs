@@ -188,6 +188,7 @@ fn a_kind_contract_naming_a_judge_less_predicate_fails_loud() {
         &root,
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
+                label: None,
                 kind: Some("skill".to_string()),
                 ..common::clause("dependency-exists", "required")
             }],
@@ -221,6 +222,7 @@ fn a_count_floor_bound_to_a_kinds_own_selection_is_judged_not_fenced() {
         &root,
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
+                label: None,
                 kind: Some("skill".to_string()),
                 count: Some(temper::drift::CountBoundRow { min: 2, max: 3 }),
                 ..common::clause("count", "required")
@@ -231,7 +233,7 @@ fn a_count_floor_bound_to_a_kinds_own_selection_is_judged_not_fenced() {
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let counted = common::findings_for(&findings, "count");
+    let counted = common::findings_for(&findings, "skill.count");
     assert_eq!(
         counted.len(),
         1,
@@ -289,6 +291,7 @@ fn write_embedded_citation_harness(
                 placed_edges: Some(placed_edges),
             }],
             clauses: std::iter::once(temper::drift::ClauseRow {
+                label: None,
                 kind: Some("citation".to_string()),
                 ..common::clause("format-places-edges", "required")
             })
@@ -311,7 +314,7 @@ fn a_clause_bound_to_an_embedded_kind_judges_its_members() {
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let omissions = common::findings_for(&findings, "format-places-edges");
+    let omissions = common::findings_for(&findings, "citation.format-places-edges");
     assert_eq!(
         omissions.len(),
         1,
@@ -343,7 +346,7 @@ fn an_embedded_kind_clause_that_holds_leaves_the_run_silent() {
     let (findings, success) = check_in(&root, &["."]);
 
     assert!(
-        common::findings_for(&findings, "format-places-edges").is_empty(),
+        common::findings_for(&findings, "citation.format-places-edges").is_empty(),
         "the format placed every edge the value carries, got: {findings:#?}"
     );
     assert!(
@@ -365,6 +368,7 @@ fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
         &root,
         vec!["source".to_string()],
         vec![temper::drift::ClauseRow {
+            label: None,
             kind: Some("citation".to_string()),
             bound: Some(temper::drift::BoundRow {
                 min: None,
@@ -376,7 +380,7 @@ fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let fenced = common::findings_for(&findings, "max_lines");
+    let fenced = common::findings_for(&findings, "citation.max_lines");
     assert_eq!(
         fenced.len(),
         1,
@@ -410,6 +414,7 @@ fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
         &root,
         Vec::new(),
         vec![temper::drift::ClauseRow {
+            label: None,
             kind: Some("citation".to_string()),
             bound: Some(temper::drift::BoundRow {
                 min: None,
@@ -421,7 +426,7 @@ fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let omissions = common::findings_for(&findings, "format-places-edges");
+    let omissions = common::findings_for(&findings, "citation.format-places-edges");
     assert_eq!(
         omissions.len(),
         1,

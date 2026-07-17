@@ -212,7 +212,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     write_claude_md(&harness, 251);
 
     let findings = check_harness(&harness).0;
-    let max_lines = common::findings_for(&findings, "max_lines");
+    let max_lines = common::findings_for(&findings, "memory.max_lines");
 
     // Exactly one `max_lines` advisory — the memory member dispatched to
     // memory.anthropic, not silently skipped.
@@ -238,7 +238,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
 
     // No regression: the clean skill still trips no finding under its own kind.
     assert!(
-        common::findings_for(&findings, "allowed_chars").is_empty(),
+        common::findings_for(&findings, "skill.allowed_chars.name").is_empty(),
         "the clean skill must not trip allowed_chars, got: {findings:#?}"
     );
 }
@@ -255,7 +255,7 @@ fn an_under_length_claude_md_fires_no_memory_advisory() {
     // The memory member is still dispatched to memory.anthropic — it simply conforms, so
     // the body-size budget fires nothing.
     assert!(
-        common::findings_for(&findings, "max_lines").is_empty(),
+        common::findings_for(&findings, "memory.max_lines").is_empty(),
         "an under-length CLAUDE.md must fire no max_lines advisory, got: {findings:#?}"
     );
 }
@@ -271,7 +271,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
     let findings = check_harness(&harness).0;
 
     // The skill finding still fires, exactly as before the gate generalized.
-    let allowed_chars = common::findings_for(&findings, "allowed_chars");
+    let allowed_chars = common::findings_for(&findings, "skill.allowed_chars.name");
     assert_eq!(
         allowed_chars.len(),
         1,
@@ -285,7 +285,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
 
     // And the memory advisory fires beside it — the two kinds are judged in one run.
     assert_eq!(
-        common::findings_for(&findings, "max_lines").len(),
+        common::findings_for(&findings, "memory.max_lines").len(),
         1,
         "the memory advisory fires beside the skill finding, got: {findings:#?}"
     );

@@ -28,6 +28,18 @@ import type { SectionContainsRow } from "./SectionContainsRow.js";
  */
 export type ClauseRow = { 
 /**
+ * The clause's **address** — the deterministic, human-legible label
+ * [`crate::contract::clause_label`] derives from the row's identity columns, and
+ * the row's identity in the lock: every finding this clause produces prints it as
+ * the diagnostic `rule` id, `explain` narrates it, and the dial names a clause by
+ * it.
+ *
+ * `None` on a payload row and `Some` on a lock row: emit is the one writer
+ * ([`emit`]), stamping every row as it composes the lock, so the seam has no label
+ * to author and no way to author a wrong one.
+ */
+label?: string, 
+/**
  * The kind whose contract carries the clause. `None` when this row is nested
  * inside a [`RequirementRow`]'s own [`clauses`](RequirementRow::clauses) — a
  * requirement's set-scope demand names no kind of its own; it ranges over

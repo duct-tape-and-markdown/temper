@@ -212,12 +212,14 @@ fn builtin_skill_declared_rows_are_the_whole_contract() {
     write_lock(
         &corpus,
         "[[declaration.clause]]\n\
+         label = \"skill.required.description\"\n\
          kind = \"skill\"\n\
          predicate = \"required\"\n\
          field = \"description\"\n\
          severity = \"required\"\n\
          \n\
          [[declaration.clause]]\n\
+         label = \"skill.enum.tier\"\n\
          kind = \"skill\"\n\
          predicate = \"enum\"\n\
          field = \"tier\"\n\
@@ -254,6 +256,7 @@ fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
     write_lock(
         &corpus,
         "[[declaration.clause]]\n\
+         label = \"skill.not_a_predicate\"\n\
          kind = \"skill\"\n\
          predicate = \"not_a_predicate\"\n\
          severity = \"required\"\n",
@@ -291,6 +294,7 @@ fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
              governs_glob = \"*.md\"\n\
              \n\
              [[declaration.clause]]\n\
+             label = \"{name}.max_lines\"\n\
              kind = \"{name}\"\n\
              predicate = \"max_lines\"\n\
              severity = \"advisory\"\n\

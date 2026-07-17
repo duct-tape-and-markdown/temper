@@ -70,6 +70,7 @@ fn explain(
     read::explain(
         custom,
         roster,
+        &BTreeMap::new(),
         by_kind,
         &[],
         &[],
@@ -328,7 +329,7 @@ mod default_contract_binding {
         }];
         let roster: BTreeMap<String, Requirement> = BTreeMap::new();
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
-        read::why(&custom, &roster, &by_kind, &[], &[], id)
+        read::why(&custom, &roster, &BTreeMap::new(), &by_kind, &[], &[], id)
     }
 
     #[test]
@@ -403,7 +404,15 @@ mod mention_narration {
         let roster: BTreeMap<String, Requirement> = BTreeMap::new();
         let mentions = mention_edges("rule:style", "skill:standards");
 
-        let out = read::why(&[], &roster, &by_kind, &[], &mentions, "style");
+        let out = read::why(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &by_kind,
+            &[],
+            &mentions,
+            "style",
+        );
         assert!(
             out.contains("it points at `standards` (skill) via its `mention` field"),
             "a mention to a discovered member narrates as a resolved edge: {out}"
@@ -424,7 +433,15 @@ mod mention_narration {
         let roster: BTreeMap<String, Requirement> = BTreeMap::new();
         let mentions = mention_edges("rule:style", "skill:ghost");
 
-        let out = read::why(&[], &roster, &by_kind, &[], &mentions, "style");
+        let out = read::why(
+            &[],
+            &roster,
+            &BTreeMap::new(),
+            &by_kind,
+            &[],
+            &mentions,
+            "style",
+        );
         assert!(
             out.contains("dangling mention") && out.contains("ghost"),
             "a mention to an absent target narrates as a dangling mention naming its target: {out}"

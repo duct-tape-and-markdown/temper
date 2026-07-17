@@ -486,6 +486,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
 fn mention_reachable_requirement() -> RequirementRow {
     RequirementRow {
         clauses: vec![ClauseRow {
+            label: None,
             field: Some("paths".to_string()),
             gate: Some("paths".to_string()),
             ..common::clause("mention-reachable", "advisory")

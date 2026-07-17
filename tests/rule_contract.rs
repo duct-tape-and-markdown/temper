@@ -142,7 +142,7 @@ fn the_rule_floor_glob_valid_clause_fires_on_an_unparseable_paths_glob() {
     let diagnostics = engine::validate(&rule_builtin(), std::slice::from_ref(&broken));
     let glob_findings: Vec<&temper::check::Diagnostic> = diagnostics
         .iter()
-        .filter(|diagnostic| diagnostic.rule == "glob-valid")
+        .filter(|diagnostic| diagnostic.rule == "rule.glob-valid.paths")
         .collect();
     assert_eq!(
         glob_findings.len(),

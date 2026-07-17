@@ -43,6 +43,12 @@ pub struct Contract {
 /// Not `Eq` — its [`Predicate`] may carry `f64` `range` bounds; see [`Contract`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Clause {
+    /// The clause's **address** — the label emit wrote onto its lock row
+    /// ([`clause_label`]), lifted back here verbatim and printed as the `rule` id of
+    /// every finding this clause produces. Opaque to the engine: nothing here parses
+    /// it, derives it, or disambiguates two clauses that wear the same one — a
+    /// collision is a malformed lock, refused before the contract judges anything.
+    pub label: String,
     /// Whether a violation of this clause blocks the gate or is merely reported.
     pub severity: Severity,
     /// The decidable predicate this clause asserts over the surface.
@@ -59,6 +65,37 @@ pub struct Clause {
     /// it neither adds nor relaxes any check. Absent ⇒ the clause is uncited (every
     /// clause on disk today).
     pub source: Option<String>,
+}
+
+/// A clause's compiled **address**, from the columns that identify its row: dot-joined
+/// `<owner>.<predicate>[.<field>]`, where `owner` is the kind whose contract carries the
+/// clause (a requirement's own clause passes [`requirement_owner`] instead) and `field`
+/// is present exactly when the predicate names one.
+///
+/// Deterministic — a pure function of the row, so the same program emits the same
+/// labels — and human-legible, because the author who reads a finding's `rule` id must
+/// be able to spell it back into a dial entry. Uniqueness is *not* enforced here: two
+/// rows reducing to one label are a malformed lock, refused by admissibility rather
+/// than disambiguated with a counter that would renumber every sibling on an insert.
+///
+/// `owner` is `None` only for a row that names no kind and hangs off no requirement — a
+/// shape no producer writes and no consumer reads; its label simply omits the segment.
+#[must_use]
+pub fn clause_label(owner: Option<&str>, predicate: &str, field: Option<&str>) -> String {
+    owner
+        .into_iter()
+        .chain(std::iter::once(predicate))
+        .chain(field)
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+/// The [`clause_label`] owner segment for a clause attached to a requirement rather
+/// than to a kind: `requirement.<name>`, keeping a requirement's demands in the same
+/// namespace its other findings already report under.
+#[must_use]
+pub fn requirement_owner(name: &str) -> String {
+    format!("requirement.{name}")
 }
 
 /// The author-declared weight of a clause. Replaces the tool-baked error/warn

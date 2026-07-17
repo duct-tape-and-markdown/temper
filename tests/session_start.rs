@@ -247,6 +247,7 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
          governs_glob = \"*.md\"\n\
  \n\
          [[declaration.clause]]\n\
+         label = \"spec.max_lines\"\n\
          kind = \"spec\"\n\
          predicate = \"max_lines\"\n\
          severity = \"advisory\"\n\
@@ -301,6 +302,7 @@ fn a_custom_kinds_required_floor_clause_blocks_a_violating_member() {
          governs_glob = \"*.md\"\n\
  \n\
          [[declaration.clause]]\n\
+         label = \"spec.required.owner\"\n\
          kind = \"spec\"\n\
          predicate = \"required\"\n\
          field = \"owner\"\n\

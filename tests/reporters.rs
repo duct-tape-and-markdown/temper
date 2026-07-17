@@ -15,6 +15,8 @@
 
 mod common;
 
+use std::process::Command;
+
 use temper::check::Diagnostic;
 use temper::reporter;
 
@@ -184,5 +186,45 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
     assert!(
         !run.ok,
         "check --reporter sarif on a failing surface must still exit non-zero"
+    );
+}
+
+// ---- CLAUSE-LABEL-IS-AN-ADDRESS: one identity, printed on both faces ---------
+
+/// The `temper` binary, located by Cargo at compile time — `explain` has no
+/// library-level driver here, so this suite reaches it over the process boundary the
+/// way `tests/cli.rs` does.
+const BIN: &str = env!("CARGO_BIN_EXE_temper");
+
+#[test]
+fn a_clause_finding_prints_its_label_and_explain_narrates_the_same_one() {
+    // The whole point of the address: read the annoying finding, read its label, and
+    // find that exact label on the member's contract in `explain` — with no lookup
+    // table in between. So the two faces must print one string, not two spellings.
+    let harness = common::tmpdir("clause-label-faces");
+    common::write_skill(&harness, "coordinate", ERROR_SKILL);
+    common::write_lock(&harness, temper::drift::Declarations::default());
+
+    let findings = common::check_in(&harness, &[], Some("github")).findings();
+    let charset = findings
+        .iter()
+        .find(|line| line.contains("characters outside"))
+        .expect("the uppercase name trips the skill floor's charset clause");
+    assert!(
+        charset.starts_with("::error title=skill.allowed_chars.name::"),
+        "the finding's diagnostic code is the clause's address, not the bare \
+         predicate key, got: {charset}"
+    );
+
+    let explained = Command::new(BIN)
+        .current_dir(&harness)
+        .args(["explain", "coordinate"])
+        .output()
+        .unwrap();
+    let narration = String::from_utf8_lossy(&explained.stdout).into_owned();
+    assert!(
+        narration.contains("skill.allowed_chars.name"),
+        "`explain` narrates the governing contract's clauses by the same address the \
+         finding printed, got:\n{narration}"
     );
 }

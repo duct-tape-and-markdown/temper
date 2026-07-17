@@ -484,6 +484,16 @@ fn explain(target: &str) -> miette::Result<String> {
     let builtin_defs = builtin_kind::definitions()?;
     let builtin_features = builtin_features_by_kind(&builtin_defs, harness_root, &declarations)?;
 
+    // Each kind's resolved contract, lifted exactly as `gate` lifts it, so the clause
+    // addresses `explain` narrates are the ones a finding prints (READ-EDGE-UNIFY).
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        contracts.insert(
+            kind.name.clone(),
+            builtin_contract(&declarations.clauses, &kind.name)?,
+        );
+    }
+
     // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs
     // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
     // members exist.
@@ -492,6 +502,10 @@ fn explain(target: &str) -> miette::Result<String> {
     let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
+        contracts.insert(
+            row.name.clone(),
+            compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
+        );
         let units = resolve_kind_units(&custom_kind, harness_root, &declarations)?;
         let features: Vec<extract::Features> = units
             .iter()
@@ -545,6 +559,7 @@ fn explain(target: &str) -> miette::Result<String> {
     Ok(read::explain(
         &custom_members,
         &roster,
+        &contracts,
         &by_kind,
         &assembly_edges,
         &mention_edges,
@@ -798,6 +813,9 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // bind to the kind's *whole* by-kind selection, which only exists once every
     // dispatcher has run and `by_kind` is assembled below.
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    // Every clause's address is unique across the lock, decided before a single contract
+    // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
+    diagnostics.extend(clause_collision_diagnostics(&declarations));
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
@@ -1851,6 +1869,50 @@ fn kind_collision_diagnostic(row: &drift::KindFactRow) -> check::Diagnostic {
             row.name
         ),
     )
+}
+
+/// The diagnostic `rule` id two clause rows sharing one address report under. Sibling of
+/// [`KIND_COLLISION_RULE`] and [`GOVERNS_COLLISION_RULE`], one namespace down: those guard
+/// the kind's bare name and its locus, this one guards the clause's own address.
+const CLAUSE_COLLISION_RULE: &str = "clause.label-collision";
+
+/// A [`CLAUSE_COLLISION_RULE`] finding per address worn by more than one clause row —
+/// the whole declaration set at once, kinds' own clauses and requirements' nested ones
+/// alike, since a requirement's address shares the namespace.
+///
+/// A clause's label is its identity: the name every one of its findings prints and the
+/// only name a dial can reach it by. Two rows under one label leave both unaddressable —
+/// a dial entry would silently hit whichever the reader resolved first, and a finding
+/// would name a clause the author cannot tell apart from its twin. That is a malformed
+/// lock, refused before it judges anything, never a collision resolved with a counter
+/// that would renumber a clause's siblings every time one is inserted above it.
+fn clause_collision_diagnostics(declarations: &drift::Declarations) -> Vec<check::Diagnostic> {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    let rows = declarations
+        .clauses
+        .iter()
+        .chain(declarations.requirements.iter().flat_map(|r| &r.clauses));
+    for row in rows {
+        if let Some(label) = &row.label {
+            *counts.entry(label.as_str()).or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .filter(|(_, count)| *count > 1)
+        .map(|(label, count)| {
+            check::Diagnostic::error(
+                CLAUSE_COLLISION_RULE,
+                label,
+                format!(
+                    "{count} clause rows share the address `{label}`, so neither can be \
+                     named: a clause's label is its identity — the id its findings print \
+                     and the only name a dial reaches it by — and one address can address \
+                     one clause"
+                ),
+            )
+        })
+        .collect()
 }
 
 /// The diagnostic `rule` id a kind declaring an inadmissible commitment class reports

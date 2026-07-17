@@ -158,7 +158,7 @@ fn a_name_outside_the_kebab_case_charset_is_a_finding() {
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a non-kebab-case name fails the gate");
     assert!(
-        !common::findings_for(&findings, "allowed_chars").is_empty(),
+        !common::findings_for(&findings, "plugin-manifest.allowed_chars.name").is_empty(),
         "{findings:?}"
     );
 }
@@ -176,7 +176,7 @@ fn a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_deci
 
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a top-level experimental key fails the gate");
-    let forbidden = common::findings_for(&findings, "forbidden_keys");
+    let forbidden = common::findings_for(&findings, "plugin-manifest.forbidden_keys");
     assert!(!forbidden.is_empty(), "{findings:?}");
     assert!(
         forbidden.iter().all(|f| f.starts_with("::error")),
@@ -208,7 +208,7 @@ fn a_string_keywords_is_the_wrong_typed_field_the_declared_kind_decides() {
 
     let (findings, ok) = check_harness(&harness);
     assert!(!ok, "a string-valued keywords fails the gate");
-    let typed = common::findings_for(&findings, "type");
+    let typed = common::findings_for(&findings, "plugin-manifest.type.keywords");
     assert!(!typed.is_empty(), "{findings:?}");
     assert!(
         typed.iter().all(|f| f.starts_with("::error")),
@@ -227,7 +227,7 @@ fn an_absent_keywords_is_silent_because_the_field_is_optional() {
     let (findings, ok) = check_harness(&harness);
     assert!(ok, "an absent optional field is no finding: {findings:?}");
     assert!(
-        common::findings_for(&findings, "type").is_empty(),
+        common::findings_for(&findings, "plugin-manifest.type.keywords").is_empty(),
         "{findings:?}"
     );
 }
@@ -242,7 +242,7 @@ fn this_repo_authors_no_plugin_manifest_so_the_kind_counts_zero_members() {
     let (findings, ok) = check_harness(&harness);
     assert!(ok, "no manifest is no finding: {findings:?}");
     assert!(
-        common::findings_for(&findings, "required").is_empty(),
+        common::findings_for(&findings, "plugin-manifest.required.name").is_empty(),
         "{findings:?}"
     );
 }

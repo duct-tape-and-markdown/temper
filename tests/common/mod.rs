@@ -595,8 +595,12 @@ pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> Requiremen
 /// home for the family. Call sites override the columns they diverge on via
 /// struct-update: a kind-carrying floor clause sets `kind`, a predicate with an
 /// argument sets its own column (`count`/`bound`/`charset`/…).
+///
+/// Payload-shaped: `label` is `None`, the state emit's own stamp overwrites. A test
+/// that wants a *lock*-shaped row spells the label it is asserting about.
 pub fn clause(predicate: &str, severity: &str) -> ClauseRow {
     ClauseRow {
+        label: None,
         kind: None,
         predicate: predicate.to_string(),
         field: None,

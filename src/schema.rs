@@ -264,6 +264,7 @@ mod tests {
     /// squiggle), so every clause here is `Required`.
     fn clause(predicate: Predicate) -> Clause {
         Clause {
+            label: crate::contract::clause_label(Some("skill"), predicate.key(), None),
             source: None,
             severity: Severity::Required,
             guidance: None,
@@ -475,6 +476,7 @@ mod tests {
     /// A field clause carrying `guidance` — the docs (hover) channel.
     fn guided(predicate: Predicate, guidance: &str) -> Clause {
         Clause {
+            label: crate::contract::clause_label(Some("skill"), predicate.key(), None),
             source: None,
             severity: Severity::Advisory,
             guidance: Some(guidance.to_string()),

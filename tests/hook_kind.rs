@@ -130,7 +130,7 @@ fn the_hook_default_contract_fires_on_an_undocumented_event() {
 
     // The strictest-documented-profile clause fires exactly once — on the undocumented
     // `NotARealEvent` hook, never on the documented `PreToolUse` one.
-    let fired = common::findings_for(&findings, "enum");
+    let fired = common::findings_for(&findings, "hook.enum.event");
     assert_eq!(
         fired.len(),
         1,
@@ -155,7 +155,7 @@ fn the_hook_default_contract_passes_documented_events() {
     let (findings, _ok) = check_harness(&harness);
 
     assert!(
-        common::findings_for(&findings, "enum").is_empty(),
+        common::findings_for(&findings, "hook.enum.event").is_empty(),
         "every documented event passes the clause, got: {findings:#?}"
     );
 }

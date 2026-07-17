@@ -290,6 +290,7 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
         Declarations {
             kinds: vec![dial_kind_facts()],
             clauses: vec![drift::ClauseRow {
+                label: None,
                 kind: Some("override".to_string()),
                 count: Some(drift::CountBoundRow { min: 0, max: 1 }),
                 ..common::clause("count", "error")

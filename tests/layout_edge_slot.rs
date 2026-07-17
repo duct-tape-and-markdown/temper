@@ -176,7 +176,15 @@ fn a_satisfies_edge_slot_derives_fill_rows_the_gate_and_read_verbs_range_over() 
     // A read verb narrates them: `why` folds the host's fills into the requirements it
     // reports, off the same corpus the gate ranges over.
     let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("guide", &features[..])]);
-    let narration = read::why(&[], &requirements, &by_kind, &[], &[], "guide");
+    let narration = read::why(
+        &[],
+        &requirements,
+        &BTreeMap::new(),
+        &by_kind,
+        &[],
+        &[],
+        "guide",
+    );
     assert!(
         narration.contains("dev-standards") && narration.contains("layout-edge-slot"),
         "the fills are narrated: {narration}"

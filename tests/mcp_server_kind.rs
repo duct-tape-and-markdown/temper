@@ -99,7 +99,7 @@ fn the_mcp_server_default_contract_fires_on_an_undocumented_transport() {
 
     // The strictest-documented-profile clause fires exactly once — on the `grpc` server,
     // never on the documented `http` one.
-    let fired = common::findings_for(&findings, "enum");
+    let fired = common::findings_for(&findings, "mcp-server.enum.type");
     assert_eq!(
         fired.len(),
         1,
@@ -126,7 +126,7 @@ fn the_mcp_server_default_contract_passes_documented_and_absent_transports() {
     // A documented `http` and a `type`-less stdio server (absent reads as the documented
     // `stdio` default) both pass the clause.
     assert!(
-        common::findings_for(&findings, "enum").is_empty(),
+        common::findings_for(&findings, "mcp-server.enum.type").is_empty(),
         "every documented transport passes the clause, got: {findings:#?}"
     );
 }

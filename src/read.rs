@@ -46,6 +46,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use crate::compose::{Edge, Requirement};
+use crate::contract::Contract;
 use crate::document::Satisfies;
 use crate::extract::{Features, MemberAddress};
 use crate::graph::{self, ResolvedEdge};
@@ -193,7 +194,9 @@ fn resolve<'a>(
 /// read, never a gate — the caller prints this and exits zero on every input, an
 /// ambiguous or unrecognized target included.
 ///
-/// `roster` is the requirement namespace `check` gates; `edges` is the
+/// `roster` is the requirement namespace `check` gates; `contracts` are the resolved
+/// contracts the gate judges with, keyed by kind, so [`why`] can name a member's
+/// clauses by the addresses their findings print; `edges` is the
 /// declared relationship set [`why`]'s edge walk resolves; `mention_edges` is the
 /// already-resolved mention edge set the same walk folds in, so a member's only
 /// outgoing reference being a mention still narrates rather than reading "it points at
@@ -208,6 +211,7 @@ fn resolve<'a>(
 pub fn explain(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
+    contracts: &BTreeMap<String, Contract>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
@@ -219,7 +223,15 @@ pub fn explain(
 ) -> String {
     match resolve(by_kind, roster, target) {
         Species::Member(name) => {
-            let mut out = why(custom, roster, by_kind, edges, mention_edges, name);
+            let mut out = why(
+                custom,
+                roster,
+                contracts,
+                by_kind,
+                edges,
+                mention_edges,
+                name,
+            );
             out.push('\n');
             out.push_str(&impact(
                 roster,
@@ -291,6 +303,7 @@ pub fn explain(
 pub fn why(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
+    contracts: &BTreeMap<String, Contract>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
@@ -351,9 +364,55 @@ pub fn why(
         if index > 0 {
             out.push('\n');
         }
-        why_one(&mut out, member, roster, &resolved, &dangling_mentions);
+        why_one(
+            &mut out,
+            member,
+            roster,
+            contracts,
+            &resolved,
+            &dangling_mentions,
+        );
     }
     out
+}
+
+/// Narrate the default contract `kind` binds, and every clause in it **by address** —
+/// the same label each clause's findings print, so the author who wants to dial one
+/// reads its name here and spells it straight into the dial rather than guessing at it.
+///
+/// The clause is named, never explained: its predicate and severity are the finding's to
+/// state and its guidance's to teach. A kind the caller threaded no contract for narrates
+/// the binding alone — a read never gates, so an unmodeled kind is silence, not a finding.
+fn narrate_governing_contract(
+    out: &mut String,
+    contracts: &BTreeMap<String, Contract>,
+    kind: &str,
+) {
+    let _ = writeln!(
+        out,
+        "Governing default contract: its `{kind}` kind binds the `{kind}` default \
+         contract, whose clauses check it.",
+    );
+    let Some(contract) = contracts.get(kind) else {
+        out.push('\n');
+        return;
+    };
+    if contract.clauses.is_empty() {
+        let _ = writeln!(
+            out,
+            "That contract declares no clauses, so nothing about this member's own \
+             surface is checked.\n"
+        );
+        return;
+    }
+    let _ = writeln!(
+        out,
+        "Its clauses, by the address each one's findings report under:"
+    );
+    for clause in &contract.clauses {
+        let _ = writeln!(out, "  • `{}`", clause.label);
+    }
+    out.push('\n');
 }
 
 /// Narrate one matched member into `out` — the full forward walk for a single
@@ -362,6 +421,7 @@ fn why_one(
     out: &mut String,
     member: &Member,
     roster: &BTreeMap<String, Requirement>,
+    contracts: &BTreeMap<String, Contract>,
     resolved: &[ResolvedEdge],
     dangling_mentions: &[ResolvedEdge],
 ) {
@@ -387,14 +447,7 @@ fn why_one(
         out.push('\n');
     }
 
-    // The default contract the member's kind binds — the governing contract its
-    // conformance is checked against. A default contract is named for its kind, so
-    // this is always the kind's own bare label.
-    let _ = writeln!(
-        out,
-        "Governing default contract: its `{}` kind binds the `{}` default contract, whose clauses check it.\n",
-        member.kind, member.kind,
-    );
+    narrate_governing_contract(out, contracts, &member.kind);
 
     // The edges in and out — the member's node in the **gate's resolved edge set**
     // (`crate::graph::resolved_edges`), not a private re-derivation (READ-EDGE-UNIFY).

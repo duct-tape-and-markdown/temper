@@ -109,6 +109,7 @@ fn a_lock_declared_clause_row_is_the_kinds_whole_contract_a_temper_toml_only_one
     write_clauses(
         &root,
         vec![ClauseRow {
+            label: None,
             kind: Some("skill".to_string()),
             keys: Some(vec!["globs".to_string(), "alwaysApply".to_string()]),
             ..common::clause("forbidden_keys", "advisory")

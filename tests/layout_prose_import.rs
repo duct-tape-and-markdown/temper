@@ -240,6 +240,7 @@ fn an_import_edge_joins_the_resolved_enumeration_and_narrates() {
     let narration = read::why(
         &[],
         &BTreeMap::new(),
+        &BTreeMap::new(),
         &by_kind,
         &no_edges,
         &import_edges,

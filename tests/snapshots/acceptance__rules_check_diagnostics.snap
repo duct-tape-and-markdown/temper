@@ -3,19 +3,19 @@ source: tests/acceptance.rs
 expression: report
 ---
 ## Name-Format
-error allowed_chars: field `name` has characters outside the allowed set: FN
+error skill.allowed_chars.name: field `name` has characters outside the allowed set: FN
 
 ## body-length
-warn max_lines: body is 505 lines (max 500)
+warn skill.max_lines: body is 505 lines (max 500)
 
 ## clean
 (no diagnostics)
 
 ## description-length
-error max_len: field `description` is 1199 characters (max 1024)
+error skill.max_len.description: field `description` is 1199 characters (max 1024)
 
 ## frontmatter-valid
-error min_len: field `description` is 0 characters (min 1)
+error skill.min_len.description: field `description` is 0 characters (min 1)
 
 ## name-matches-dir
-error name-matches-dir: name `mismatched` does not match its directory `name-matches-dir`
+error skill.name-matches-dir: name `mismatched` does not match its directory `name-matches-dir`
