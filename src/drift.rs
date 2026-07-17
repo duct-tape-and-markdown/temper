@@ -904,6 +904,15 @@ pub fn emit(
             {
                 groups.push(group);
             }
+        } else if collection == crate::kind::CollectionKeyPath::EnabledPlugins.collection_key() {
+            // An enablement entry's value is the bare scalar its `enabled` field carries,
+            // not an entry object: render it back through the read face's inverse, so the
+            // map Claude Code loads round-trips rather than an `{enabled: …}` object it
+            // does not document.
+            segment.insert(
+                registration.key.clone(),
+                crate::extract::enablement_entry_value(&registration.fields),
+            );
         } else {
             let entry_value: JsonValue = registration
                 .fields

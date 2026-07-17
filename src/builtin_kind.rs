@@ -276,6 +276,40 @@ fn claude_code_mcp_server() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `settings.json` `enabledPlugins` kind: an installed plugin is a
+/// fields-only registration member surfacing inside the project settings manifest, keyed by
+/// its `<plugin>@<marketplace>` identity (`code.claude.com/docs/en/plugins-reference`,
+/// retrieved 2026-07-16). It owns no file of its own — the manifest is discovered off the
+/// `.claude/settings.json` locus and each `enabledPlugins` entry read as a member — carries
+/// no body (`Content::Fields`), and registers on the `enablement` channel: the entry's own
+/// presence is the registration.
+///
+/// Unlike a hook (array value) or an MCP server (object value), an entry's value is a bare
+/// scalar, so the member carries exactly one declared field (`enabled`) and folds no object.
+///
+/// The members a plugin *contributes* — its skills, agents, hooks, MCP servers — live in the
+/// plugin cache, outside the corpus. Their reach is unmodeled and named as such: this kind
+/// types the enablement entry, never the plugin's own surface.
+fn claude_code_installed_plugin() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(crate::kind::UnitShape::File),
+        registration: vec![Registration::Enablement],
+        content: Content::Fields,
+        collection_address: Some(CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: CollectionKeyPath::EnabledPlugins,
+        }),
+        ..CustomKind::new(
+            "installed-plugin",
+            Governs {
+                root: ".claude".to_string(),
+                glob: "settings.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
@@ -283,6 +317,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_agent(),
         claude_code_command(),
         claude_code_hook(),
+        claude_code_installed_plugin(),
         claude_code_mcp_server(),
         claude_code_skill(),
         claude_code_supporting_doc(),
@@ -498,6 +533,7 @@ mod tests {
                 "agent",
                 "command",
                 "hook",
+                "installed-plugin",
                 "mcp-server",
                 "memory",
                 "rule",

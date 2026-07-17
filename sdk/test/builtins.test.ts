@@ -14,6 +14,8 @@ import {
   command,
   commandDefaultContract,
   hookDefaultContract,
+  installedPlugin,
+  installedPluginDefaultContract,
   mcpServer,
   mcpServerDefaultContract,
   memory,
@@ -31,6 +33,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   skillDefaultContract,
   commandDefaultContract,
   hookDefaultContract,
+  installedPluginDefaultContract,
   mcpServerDefaultContract,
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
@@ -132,6 +135,26 @@ test("mcpServer is a fields-only manifest kind at the mcpServers.* collection ad
     manifest: ".mcp.json",
     keyPath: "mcpServers.*",
   });
+});
+
+test("installedPlugin is a fields-only manifest kind at the enabledPlugins.* collection address", () => {
+  assert.equal(installedPlugin.facts.shape, "fields");
+  assert.equal(installedPlugin.facts.unitShape, "file");
+  assert.equal(installedPlugin.facts.format, undefined);
+  assert.deepEqual(installedPlugin.facts.locus, { kind: "at", root: ".claude", glob: "settings.json" });
+  // The entry's own presence is the channel — fieldless, as a connection's is.
+  assert.deepEqual(installedPlugin.facts.registration, [{ via: "enablement" }]);
+  assert.deepEqual(installedPlugin.facts.collectionAddress, {
+    manifest: "settings.json",
+    keyPath: "enabledPlugins.*",
+  });
+});
+
+test("installedPluginDefaultContract ships empty — an assertion, not an omission", () => {
+  // The format documents no gateable schema: an entry is one scalar under a key that is
+  // the member's identity rather than a declared field, so an almost-empty format earns
+  // an almost-empty contract rather than a clause resting on an unsettled fact.
+  assert.deepEqual(installedPluginDefaultContract, []);
 });
 
 test("mcpServerDefaultContract gates the transport type against the documented set", () => {

@@ -267,7 +267,7 @@ pub fn explain(
     }
 }
 
-/// `temper why <member>` — narrate everything that holds `member` in place: the
+/// `explain`'s **why** strand — narrate everything that holds `member` in place: the
 /// requirements it `satisfies` (each with its authored rationale and the requirement's
 /// own `prose`), the default contract its kind binds, and its resolved edges in and out.
 /// A read, never a
@@ -492,7 +492,7 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
     }
 }
 
-/// `temper impact <member>` — narrate the deterministic **blast radius** of removing or
+/// `explain`'s **impact** strand — narrate the deterministic **blast radius** of removing or
 /// renaming `member`: the graph
 /// payoff promised, given a verb. Three strands, each read off the graph
 /// data `check` already carries — no second build, no new engine semantics:
@@ -630,7 +630,8 @@ fn resolve_leaf<'a>(
     None
 }
 
-/// `temper impact <leaf-address>` — narrate a nested member's leaf at **leaf grain**:
+/// `explain`'s **impact** strand at a leaf address — narrate a nested member's leaf at
+/// **leaf grain**:
 /// resolve the
 /// leaf against the lock's serialized nested-member leaves, then report its **citations separately
 /// from fallout**. A leaf is obligation-free — its
@@ -767,7 +768,7 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
     );
 }
 
-/// `temper context <address>` — emit the **declared neighborhood** of a member or a
+/// `explain`'s **context** strand — emit the **declared neighborhood** of a member or a
 /// nested member's leaf:
 /// its nested-member slot, its siblings, the members that cite it, and the requirements
 /// its member satisfies — the pre-edit context bundle for the primary author. Consumes
@@ -1169,7 +1170,7 @@ fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize 
         .count()
 }
 
-/// `temper requirements [<name>]` — narrate the requirement roster. Without a name it
+/// `explain`'s **requirements** strand — narrate the requirement roster. Without a name it
 /// is the forward roster view: each requirement with its satisfier set and coverage
 /// state. With a name it is the reverse walk over that one requirement: its satisfiers
 /// and the blast radius a removal would strand.

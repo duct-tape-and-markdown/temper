@@ -690,11 +690,12 @@ fn dead_channel_set(
 
 /// Whether one declared registration **channel** is **provably dead** on its own, and
 /// why — `Some(reason)` names the dead channel for the finding, `None` leaves it live.
-/// Only two channels the spec makes decidable can die here: a blank
-/// `description-trigger` field and a `paths-match` field whose *present* globs match no
-/// file (an absent/blank `paths` field is unconditional loading, never dead).
-/// `always`/`user-invoked` (unconditionally live), `event`, and `connection` (no
-/// repo-decidable criterion) never do.
+/// Only three channels the spec makes decidable can die here: a blank
+/// `description-trigger` field, a `paths-match` field whose *present* globs match no
+/// file (an absent/blank `paths` field is unconditional loading, never dead), and an
+/// `enablement` entry the harness is documented not to load. `always`/`user-invoked`
+/// (unconditionally live), `event`, and `connection` (no repo-decidable criterion) never
+/// do.
 fn dead_registration(
     registration: &Registration,
     member: &Features,
@@ -705,6 +706,23 @@ fn dead_registration(
         | Registration::UserInvoked
         | Registration::Event { .. }
         | Registration::Connection => None,
+        // The gate rides the member's declared enablement field, never a channel of its
+        // own: only the documented `false` is dead. Any other value — the enablement the
+        // harness writes, or a shape whose semantics no source documents — stays live, so
+        // an entry the format admits is never called dead on a guess.
+        Registration::Enablement => matches!(
+            member.field(crate::kind::ENABLEMENT_FIELD),
+            Some(FeatureValue::Scalar {
+                kind: crate::extract::ValueType::Boolean,
+                text,
+            }) if text == "false"
+        )
+        .then(|| {
+            format!(
+                "its `{}` field is `false`, so the harness does not load the plugin",
+                crate::kind::ENABLEMENT_FIELD
+            )
+        }),
         Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {
             format!("its `{field}` description-trigger field is blank, so the harness has nothing to load")
  }),

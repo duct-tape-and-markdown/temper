@@ -2038,6 +2038,28 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(mcp_address.manifest, ".mcp.json");
     assert_eq!(mcp_address.key_path, "mcpServers.*");
 
+    // The `installed-plugin` kind is the third manifest kind, and the second addressing a
+    // collection inside `settings.json`: the `enablement` channel — the entry's own
+    // presence — and the `enabledPlugins.*` address. It keys at a different address than
+    // `hook`, so the two share a governs pair without contending for a collection.
+    let plugin = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "installed-plugin")
+        .expect("the installed-plugin kind fact is embedded");
+    assert_eq!(plugin.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(plugin.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(plugin.format, None);
+    assert_eq!(plugin.unit_shape.as_deref(), Some("file"));
+    assert_eq!(plugin.registration, vec!["enablement".to_string()]);
+    assert_eq!(plugin.shape.as_deref(), Some("fields"));
+    let plugin_address = plugin
+        .collection_address
+        .as_ref()
+        .expect("the installed-plugin kind carries its collection address");
+    assert_eq!(plugin_address.manifest, "settings.json");
+    assert_eq!(plugin_address.key_path, "enabledPlugins.*");
+
     // The `supporting-doc` kind is the only one at the nested-file locus: it governs no
     // glob at all, because both halves of its locus are the host's — `skill`'s unit and
     // `skill`'s own template pattern. Frontmatterless, body-bearing, and channel-less.
@@ -2068,7 +2090,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 8);
+    assert_eq!(declarations.kinds.len(), 9);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

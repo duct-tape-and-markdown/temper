@@ -37,7 +37,8 @@ export type Registration =
   | { readonly via: "description-trigger"; readonly field: string }
   | { readonly via: "paths-match"; readonly field: string }
   | { readonly via: "event"; readonly field: string }
-  | { readonly via: "connection" };
+  | { readonly via: "connection" }
+  | { readonly via: "enablement" };
 
 /** One of a kind's fields that is a reference to another member — a graph edge (fact 5). */
 export interface EdgeField {
@@ -103,12 +104,13 @@ export type Shape = "fields";
 /**
  * A registration member's **collection address** — where inside a host manifest its
  * registration surfaces: which `manifest` (`settings.json`, `.mcp.json`) and which
- * `keyPath` (`hooks.<Event>`, `mcpServers.*`) it keys at. Carried by a fields-only
- * registration kind; absent for a kind that owns its own file locus.
+ * `keyPath` it keys at — one of the three addresses the shipped kinds surface at.
+ * Carried by a fields-only registration kind; absent for a kind that owns its own file
+ * locus.
  */
 export interface CollectionAddress {
   readonly manifest: string;
-  readonly keyPath: "hooks.<Event>" | "mcpServers.*";
+  readonly keyPath: "hooks.<Event>" | "mcpServers.*" | "enabledPlugins.*";
 }
 
 /**

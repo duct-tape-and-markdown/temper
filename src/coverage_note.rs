@@ -88,7 +88,7 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
     KnownSurface {
         path: ".claude/settings.json",
         is_dir: false,
-        holds: "Claude Code project settings — permissions, env, and hooks",
+        holds: "Claude Code project settings — permissions, env, hooks, and enabled plugins",
         source: SETTINGS_DOC,
         segments: &[
             Segment {
@@ -102,6 +102,10 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
             Segment {
                 name: "hooks",
                 collection_key: Some("hooks"),
+            },
+            Segment {
+                name: "enabledPlugins",
+                collection_key: Some("enabledPlugins"),
             },
         ],
     },

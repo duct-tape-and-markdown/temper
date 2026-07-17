@@ -440,6 +440,63 @@ export const mcpServer: KindDefinition<McpServer> = kind<McpServer>({
 });
 
 /**
+ * A Claude Code installed plugin — a fields-only registration member surfacing inside
+ * `.claude/settings.json`, keyed by its `<plugin>@<marketplace>` identity
+ * (`formatter@my-marketplace`). It owns no artifact of its own, and unlike a hook (array
+ * value) or an MCP server (object value) its entry's value is a bare scalar, so the
+ * member carries exactly one field (code.claude.com/docs/en/plugins-reference, retrieved
+ * 2026-07-16).
+ *
+ * The members a plugin *contributes* — its skills, agents, hooks, MCP servers — live in
+ * the plugin cache, outside the corpus. Their reach is unmodeled and named as such: this
+ * kind types the enablement entry, never the plugin's own surface.
+ */
+export interface InstalledPlugin {
+  /**
+   * Whether the harness loads the plugin. Claude Code writes `true` at install or enable
+   * time; `false` is a plugin left installed but not loaded, and its documented semantics
+   * gate the member off its one channel — the gate rides this field, never a second
+   * registration entry.
+   */
+  readonly enabled: boolean;
+}
+
+/**
+ * `installedPlugin` — a `settings.json` `enabledPlugins` registration member: a
+ * fields-only kind (no body slot), its members discovered off the `.claude/settings.json`
+ * manifest at the `enabledPlugins.*` collection address, keyed by plugin identity;
+ * registers on the `enablement` channel — the entry's own presence is the registration
+ * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16). The third manifest
+ * kind temper ships, and the first whose entries are scalars.
+ */
+export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPlugin>({
+  name: "installed-plugin",
+  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  unitShape: "file",
+  registration: [{ via: "enablement" }],
+  shape: "fields",
+  collectionAddress: { manifest: "settings.json", keyPath: "enabledPlugins.*" },
+});
+
+/**
+ * The default contract for `installed-plugin` — **deliberately empty**. The format
+ * documents almost no contract, so it earns an almost-empty default: the honest encoding,
+ * not a gap.
+ *
+ * The one clause a reader would reach for — a shape check on the
+ * `<plugin>@<marketplace>` key — has nothing decidable to range over. The key is the
+ * member's identity, not a declared field, and the two sources that describe it do not
+ * settle a charset: the plugins-reference documents the identity as
+ * `formatter@my-marketplace` and schemastore's `claude-code-settings.json` constrains its
+ * `enabledPlugins` keys with no `propertyNames` pattern at all (both retrieved
+ * 2026-07-16). A clause against either spelling would forge findings on valid harnesses.
+ *
+ * `enabled` needs no `required` clause: the type already holds it, and a member that
+ * omits it projects the `true` Claude Code itself writes.
+ */
+export const installedPluginDefaultContract: readonly Clause[] = [];
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.

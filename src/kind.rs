@@ -149,7 +149,20 @@ pub enum CollectionKeyPath {
     /// `mcpServers.*` — an MCP server keys by name under the manifest's `mcpServers` map
     /// (`.mcp.json`).
     McpServers,
+    /// `enabledPlugins.*` — an installed plugin keys by its `<plugin>@<marketplace>`
+    /// identity under the manifest's `enabledPlugins` map (`settings.json`).
+    EnabledPlugins,
 }
+
+/// The declared field an `enabledPlugins` entry's **scalar value** surfaces under — the
+/// one home the synthesized name lives at, so the read face that names it
+/// ([`crate::extract::manifest_members`]) and the liveness gate that reads it
+/// ([`crate::graph`]) cannot drift apart. The wire carries the value bare (`"foo@bar":
+/// true`), so unlike a hook's `event` this field names no key of the manifest's own; it
+/// is the member's one declared field, and its documented semantics — `false` is a plugin
+/// the harness does not load — gate the member's channel outright
+/// (`code.claude.com/docs/en/plugins-reference`, retrieved 2026-07-16).
+pub(crate) const ENABLEMENT_FIELD: &str = "enabled";
 
 impl CollectionKeyPath {
     /// The manifest's **top-level collection key** this key path walks into — the object
@@ -162,20 +175,22 @@ impl CollectionKeyPath {
         match self {
             CollectionKeyPath::HooksEvent => "hooks",
             CollectionKeyPath::McpServers => "mcpServers",
+            CollectionKeyPath::EnabledPlugins => "enabledPlugins",
         }
     }
 
     /// The field a member's own **collection key** surfaces under, when the key path names
     /// one — the `<Event>` in `hooks.<Event>` is the member's lifecycle-event *field*
     /// (`event`), so a member read at that address carries its event as a checkable field a
-    /// clause can range over. `mcpServers.*` names no such field: a server's key is its
-    /// identity, read off its entry's own object fields, not a synthesized one. `None`
+    /// clause can range over. `mcpServers.*` and `enabledPlugins.*` name no such field:
+    /// each key is its member's identity — a server's name, a plugin's
+    /// `<plugin>@<marketplace>` — not a field the member carries alongside one. `None`
     /// leaves the read surfacing only the entry's own fields.
     #[must_use]
     pub fn key_field(self) -> Option<&'static str> {
         match self {
             CollectionKeyPath::HooksEvent => Some("event"),
-            CollectionKeyPath::McpServers => None,
+            CollectionKeyPath::McpServers | CollectionKeyPath::EnabledPlugins => None,
         }
     }
 
@@ -191,7 +206,7 @@ impl CollectionKeyPath {
     pub fn spans_whole_manifest(self) -> bool {
         match self {
             CollectionKeyPath::McpServers => true,
-            CollectionKeyPath::HooksEvent => false,
+            CollectionKeyPath::HooksEvent | CollectionKeyPath::EnabledPlugins => false,
         }
     }
 }
@@ -558,6 +573,14 @@ pub enum Registration {
     /// succeeds is a runtime fact temper cannot decide, so like [`Always`](Registration::Always)
     /// the channel is never provably dead.
     Connection,
+    /// `enablement` — the member reaches the world by the harness *enabling* it: an entry
+    /// in `settings.json`'s `enabledPlugins` map (an installed plugin). Carries no field —
+    /// the entry's own presence IS the channel, exactly as [`Connection`](Registration::Connection)'s
+    /// is. Unlike a connection, this channel is repo-decidable: the member's declared
+    /// [`ENABLEMENT_FIELD`] carries the entry's documented `false`, which gates the
+    /// member outright (`builtins.md`, "The shipped kinds"). The gate rides that field,
+    /// never a second channel entry.
+    Enablement,
 }
 
 /// A **template** a kind declares for one inner layer of nested members it hosts: the
@@ -941,11 +964,12 @@ fn collection_address_from_row(
 
 /// Parse a [`CollectionAddressRow::key_path`](crate::drift::CollectionAddressRow::key_path)
 /// label into its typed [`CollectionKeyPath`] — `None` for any label outside the closed
-/// vocabulary (`hooks.<Event>`, `mcpServers.*`).
+/// vocabulary (`hooks.<Event>`, `mcpServers.*`, `enabledPlugins.*`).
 fn collection_key_path_from_label(label: &str) -> Option<CollectionKeyPath> {
     match label {
         "hooks.<Event>" => Some(CollectionKeyPath::HooksEvent),
         "mcpServers.*" => Some(CollectionKeyPath::McpServers),
+        "enabledPlugins.*" => Some(CollectionKeyPath::EnabledPlugins),
         _ => None,
     }
 }
@@ -1006,6 +1030,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
         "always" => return Some(Registration::Always),
         "user-invoked" => return Some(Registration::UserInvoked),
         "connection" => return Some(Registration::Connection),
+        "enablement" => return Some(Registration::Enablement),
         _ => {}
     }
     let (name, field) = label.strip_suffix(')')?.split_once('(')?;

@@ -159,6 +159,8 @@ function registrationLabel(registration: Registration): string {
       return `event(${registration.field})`;
     case "connection":
       return "connection";
+    case "enablement":
+      return "enablement";
  }
 }
 

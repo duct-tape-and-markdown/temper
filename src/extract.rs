@@ -961,6 +961,12 @@ pub(crate) fn manifest_members(
             })
             .collect();
     }
+    if collection_key == crate::kind::CollectionKeyPath::EnabledPlugins.collection_key() {
+        return collection
+            .iter()
+            .map(|(plugin, value)| (plugin.clone(), enablement_member_fields(value)))
+            .collect();
+    }
     collection
         .iter()
         .map(|(key, value)| (key.clone(), entry_fields(value)))
@@ -979,6 +985,47 @@ fn entry_fields(value: &JsonValue) -> BTreeMap<String, JsonValue> {
             .collect(),
         _ => BTreeMap::new(),
     }
+}
+
+/// Decompose one `enabledPlugins` entry value into the fields its member carries. The
+/// third collection-entry shape, and the only **scalar** one: where a hook's event value
+/// is an array of matcher groups and an MCP server's entry an object whose keys fold in,
+/// an enablement entry's value is a bare boolean — Claude Code "writes `true` for it" at
+/// install or enable time (`code.claude.com/docs/en/plugins-reference`, "Default
+/// enablement", retrieved 2026-07-16), and schemastore's `claude-code-settings.json`
+/// types `enabledPlugins` an object whose values `anyOf` a boolean, a string array, or
+/// nothing (retrieved 2026-07-16). So the member has no object to fold: it carries the
+/// entry's whole value as its one declared [`ENABLEMENT_FIELD`].
+///
+/// The value is carried **whatever its JSON type** — the same permissive read the
+/// frontmatter face gives an unknown key. Only the documented boolean has documented
+/// semantics; schemastore's string-array alternative is admitted by the schema and
+/// explained by no prose, so surfacing it as a field infers nothing, where rejecting it
+/// would forge a finding on a manifest the format admits. The inverse of
+/// [`enablement_entry_value`], so an entry read off `settings.json` re-renders to the
+/// identical bytes on write.
+pub(crate) fn enablement_member_fields(entry_value: &JsonValue) -> BTreeMap<String, JsonValue> {
+    BTreeMap::from([(
+        crate::kind::ENABLEMENT_FIELD.to_string(),
+        entry_value.clone(),
+    )])
+}
+
+/// Render one enablement member's fields back to its `enabledPlugins` entry value — the
+/// bare scalar the wire carries, read straight off [`ENABLEMENT_FIELD`]. The inverse of
+/// [`enablement_member_fields`], and the reason emit writes the scalar Claude Code loads
+/// rather than the `{enabled: …}` object a naive entry-object write would land.
+///
+/// A member declaring no `enabled` field renders `true`: the documented value Claude Code
+/// itself writes when it enables a plugin (same source), so an entry authored at all reads
+/// as the enablement it spells. Any other field a member carries has no home on the wire —
+/// the entry's value is one scalar — and is dropped rather than invented into a shape the
+/// format does not document.
+pub(crate) fn enablement_entry_value(fields: &[(String, JsonValue)]) -> JsonValue {
+    fields
+        .iter()
+        .find(|(key, _)| key == crate::kind::ENABLEMENT_FIELD)
+        .map_or(JsonValue::Bool(true), |(_, value)| value.clone())
 }
 
 /// Decompose one `hooks.<Event>` value — Claude Code's array of matcher groups
@@ -1270,6 +1317,52 @@ prose below\n";
 
         // An absent collection key yields no members — absent, never errored.
         assert!(manifest_members(manifest, "hooks").is_empty());
+    }
+
+    #[test]
+    fn enablement_members_carry_the_scalar_value_and_re_render_identically() {
+        // An `enabledPlugins` entry is a bare scalar, not an array or an entry object: the
+        // member carries the value as its one declared field, and rendering it back
+        // reproduces the scalar the manifest held.
+        let manifest = serde_json::json!({
+            "enabledPlugins": {
+                "formatter@my-marketplace": true,
+                "legacy@my-marketplace": false
+            }
+        });
+        let manifest = manifest.as_object().unwrap();
+
+        let members = manifest_members(manifest, "enabledPlugins");
+        let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
+        assert_eq!(
+            keys,
+            vec!["formatter@my-marketplace", "legacy@my-marketplace"]
+        );
+
+        for (index, expected) in [true, false].into_iter().enumerate() {
+            let fields = &members[index].1;
+            assert_eq!(fields.len(), 1, "one field, off the scalar value");
+            assert_eq!(fields.get("enabled"), Some(&JsonValue::Bool(expected)));
+
+            // Re-rendering the member's fields reproduces the entry value byte-for-byte —
+            // the inverse the write face rides.
+            let round_tripped: Vec<(String, JsonValue)> =
+                fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+            assert_eq!(
+                enablement_entry_value(&round_tripped),
+                JsonValue::Bool(expected)
+            );
+        }
+
+        // An absent collection key yields no members — absent, never errored.
+        assert!(manifest_members(manifest, "hooks").is_empty());
+    }
+
+    #[test]
+    fn an_enablement_member_with_no_enabled_field_renders_the_documented_true() {
+        // Claude Code writes `true` when it enables a plugin, so a member that declares no
+        // `enabled` field renders as the enablement it spells rather than an invented shape.
+        assert_eq!(enablement_entry_value(&[]), JsonValue::Bool(true));
     }
 
     #[test]

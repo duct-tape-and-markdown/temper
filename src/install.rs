@@ -750,7 +750,8 @@ pub struct GuardedManifest {
     pub kind: CustomKind,
     /// The kind's effective contract — its lock-declared clauses, else the embedded default.
     pub contract: Contract,
-    /// The collection address the members key at (`mcpServers.*`, `hooks.<Event>`).
+    /// The collection address the members key at (`mcpServers.*`, `hooks.<Event>`,
+    /// `enabledPlugins.*`).
     pub address: CollectionAddress,
 }
 

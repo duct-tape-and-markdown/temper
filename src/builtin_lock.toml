@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the eight built-in kinds' facts and their default contract clauses, plus the
+# the nine built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,17 +10,17 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`agent`, `command`, `hook`, `mcp-server`, `skill`, `supporting-doc`,
-# `rule`, `memory`) and its eight default contracts (`agentDefaultContract`,
-# `commandDefaultContract`, `hookDefaultContract`, `mcpServerDefaultContract`,
-# `skillDefaultContract`, `supportingDocDefaultContract`, `ruleDefaultContract`,
-# `memoryAnthropicDefaultContract`) — the identical rows an
+# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `mcp-server`, `skill`,
+# `supporting-doc`, `rule`, `memory`) and its nine default contracts (`agentDefaultContract`,
+# `commandDefaultContract`, `hookDefaultContract`, `installedPluginDefaultContract`,
+# `mcpServerDefaultContract`, `skillDefaultContract`, `supportingDocDefaultContract`,
+# `ruleDefaultContract`, `memoryAnthropicDefaultContract`) — the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration rows
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's eight kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's nine kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -29,6 +29,12 @@
 # `skill`'s own `templates` pattern, the only home that fact has. Its default contract is
 # one clause — the format documents no schema to gate, so the only decidable fact left is
 # the graph one: a supporting file no edge from its host skill reaches is never read.
+#
+# `installed-plugin` is the one kind here contributing a kind fact and no clause row at
+# all: its default contract is empty, so nine kinds carry eight contracts' clauses. The
+# format documents no gateable schema — an entry is one scalar under a key that is the
+# member's identity rather than a declared field — and the absence is the honest encoding,
+# not a row lost in regeneration.
 
 [[declaration.kind]]
 name = "agent"
@@ -54,6 +60,15 @@ unit_shape = "file"
 registration = ["event(event)"]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+
+[[declaration.kind]]
+name = "installed-plugin"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["enablement"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
 
 [[declaration.kind]]
 name = "mcp-server"

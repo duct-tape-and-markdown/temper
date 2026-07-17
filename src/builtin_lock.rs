@@ -55,6 +55,7 @@ mod tests {
                 "agent",
                 "command",
                 "hook",
+                "installed-plugin",
                 "mcp-server",
                 "memory",
                 "rule",

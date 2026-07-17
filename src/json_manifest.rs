@@ -4,7 +4,9 @@
 //! a structured manifest (`settings.json`, `.mcp.json`): a real JSON parser owns the
 //! grammar, and a kind's declared collection address selects which key paths walk into
 //! the generic surface extractor (`crate::extract`). Each entry at a declared address
-//! reads as a fields-only registration member (a hook, an MCP server); every top-level
+//! reads as a fields-only registration member (a hook, an MCP server, an installed
+//! plugin) — three entry shapes: an array of matcher groups, an entry object whose keys
+//! fold in, and a bare scalar carried as one declared field. Every top-level
 //! key no address consumed survives as an opaque field of the container. Reading an
 //! unrepresented manifest still infers its registration members off the addresses handed
 //! in — the file need not be modelled as a member for its members to surface.
@@ -63,7 +65,8 @@ pub struct RegistrationMember {
     /// Declared and opaque keys alike surface here: a fields-only member keeps every entry
     /// key, the same permissive read the frontmatter face gives unknown keys. A hook's
     /// event value is an array, so its member carries no fields; an MCP server's entry is
-    /// an object, so its fields fold in.
+    /// an object, so its fields fold in; an installed plugin's entry is a bare scalar, so
+    /// its member carries that one value as its declared `enabled` field.
     pub fields: BTreeMap<String, JsonValue>,
 }
 

@@ -8,7 +8,16 @@
  * too: adoption is `import { skill, skillDefaultContract } from "@dtmd/temper/claude-code"`.
  */
 
-export type { Agent, Hook, McpServer, Memory, Rule, Skill, SupportingDoc } from "./builtins.js";
+export type {
+  Agent,
+  Hook,
+  InstalledPlugin,
+  McpServer,
+  Memory,
+  Rule,
+  Skill,
+  SupportingDoc,
+} from "./builtins.js";
 export {
   agent,
   agentDefaultContract,
@@ -16,6 +25,8 @@ export {
   commandDefaultContract,
   hook,
   hookDefaultContract,
+  installedPlugin,
+  installedPluginDefaultContract,
   mcpServer,
   mcpServerDefaultContract,
   memory,
