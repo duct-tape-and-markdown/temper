@@ -56,5 +56,8 @@ routing.
   advisory posture budgets are unsayable (orientation ~12 rendered lines,
   directive ~4, step ~3 — declared, then withdrawn). The want: a
   value-extent predicate (lines/characters of the resolved render),
-  each-grain, decidable. First real-consumer vocabulary demand on record;
-  parked for the design session, do not derive. observed at d359782
+  each-grain, decidable. First real-consumer vocabulary demand on record.
+  **Ruled while this note was in flight: decision 0035** — `extent` joins
+  the vocabulary, render-side, lines/characters, riding the existing
+  grain and selection axes. Derive from the record, not from this note.
+  observed at d359782
