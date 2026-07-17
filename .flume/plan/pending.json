@@ -51,7 +51,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "`Format` (555-564) carries two members; a third joins, cited to the format it reads. `label` (571-576) and `format_from_label` (975-981) are the closed-vocabulary boundary the doc (551-554) promises — a value outside it stays a load error."
+          "description": "`Format` (554-563) carries two members; a third joins, cited to the format it reads. `label` (570-575) and `format_from_label` (964-970) are the closed-vocabulary boundary the doc (548-552) promises — a value outside it stays a load error. Every cite here re-read on disk at da31f82: bce89b7 moved all four (enum 555→554, `label` 571→570, `format_from_label` 975→964), so these are the current numbers, not the scoped ones."
         },
         {
           "path": "src/json_manifest.rs",
@@ -59,7 +59,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "`read_file_unit`'s format dispatch (1280-1281) routes a kind's declared format to its adapter; its doc (1262-1268) states why this is the one dispatch — \"a per-call-site format match would be a second dispatch to disagree with\" — so the TOML face lands here and nowhere else."
+          "description": "Two exhaustive `(content, format)` matches answer, and the second is a compile error until it does. (1) `read_file_unit`'s format dispatch (1279-1291) routes a kind's declared format to its adapter; its doc (1262-1267) states why this is the one dispatch — \"a per-call-site format match would be a second dispatch to disagree with this one\" — so the read face lands here and nowhere else. (2) `local_document_rows`'s match (1412-1418) enumerates `Some(YamlFrontmatter | JsonDocument) | None` with no catch-all, so a third `Format` member fails to compile until this entry decides its arm; its doc (1392-1399, written by bce89b7) states the decision rule — a read face declaring a member collection or an edge slot must answer here, and one declaring neither returns no rows. A TOML document declares neither, so it joins the return-default arm exactly as `json-document` does; the doc's own reason is that a catch-all \"would instead let it gate against silence\"."
         },
         {
           "path": "src/drift.rs",
@@ -80,7 +80,7 @@
       }
     ],
     "acceptance": "A kind may declare `toml-document` and its members read and gate; nothing writes one (representation.md, \"kind\": format implementations are engine code, grown by deliberate addition — 0034 ratifies this one). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Its old blocker (the fence re-cut) shipped at bce89b7, leaving a dangling tag; re-gated behind the lock-family join, which subsumes the `local_document_rows` format match this face answers. scoped at 832f015; re-gated da31f82."
+    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Gate holds on serialization alone — both edit `src/main.rs`; last tick's \"subsumes the format match\" reason is false and retired (the match sits inside `local_document_rows`, which the join keeps). scoped 832f015; re-read da31f82."
   },
   {
     "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY",
@@ -471,7 +471,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. Both halves are upstream code by the time this is picked — `Commitment::Local` (46-56) and `CustomKind::local` (729) shipped at 40619a0, and the `local_locus_fault` layout-only arm that would otherwise refuse this kind on contact is already retired (bce89b7): the fault (743) now fences the `governs`-less locus alone, verified on disk at da31f82. TOML-DOCUMENT-READ-FACE puts `toml-document` in `Format` (555-564). This entry declares the kind; it mints no format and no locus mechanics of its own."
+          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. Both halves are upstream code by the time this is picked — `Commitment::Local` (46-56) and `CustomKind::local` (728) shipped at 40619a0, and the `local_locus_fault` layout-only arm that would otherwise refuse this kind on contact is already retired (bce89b7): the fault (743) now fences the `governs`-less locus alone, verified on disk at da31f82. TOML-DOCUMENT-READ-FACE puts `toml-document` in `Format` (554-563). This entry declares the kind; it mints no format and no locus mechanics of its own."
         },
         {
           "path": "src/main.rs",

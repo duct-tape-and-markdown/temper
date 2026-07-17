@@ -1,40 +1,46 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: 832f015
-- Residue swept through: 832f015
-- This tick: INBOX (refactor channel) — drained the one live capture,
-  `build-local-rows-miss-the-embedded-corpus.md`, filed by
-  LOCAL-LOCUS-IS-READ-SIDE-ONLY's own build tick, observed at 732dbcd. All
-  three claims re-verified on disk at HEAD rather than trusted from the
-  capture's line numbers (bce89b7 moved them): (1) `embedded_features_by_kind`
-  (`src/main.rs`:1555) folds `declarations.nested_members` alone — the
-  committed lock — and both call sites (523, 913) pass only `&declarations`;
-  (2) `kind_features` (1364) lands `local_document_rows`' `nested` half only in
-  the host's own `Features` (1384), so a clause over an embedded kind selects
-  **zero** members for a local host, while `satisfies` (1228-1233) has no such
-  gap; (3) the test that should pin this (`tests/local_locus.rs`:285) is
-  false-green — `common::clause("count", "error")` (297) declares a severity
-  outside the closed `required`/`advisory` vocabulary (`src/compose.rs`:214-219,
-  `severity_from_label`), so the lock refuses at load and `!ok` (305) passes on
-  the refusal while the count clause never fires. Filed whole as
-  **LOCK-FAMILY-ASSEMBLED-ONCE** per `engineering.md`, "One job, one home": two
-  row sources, one job, never joined — and the fail-open is what the split buys.
-  Capture deleted; git is the archive.
-  **Gates re-tested (closing checklist, not the audit motion):**
-  TOML-DOCUMENT-READ-FACE's `blockedBy` dangled — LOCAL-LOCUS-IS-READ-SIDE-ONLY
-  shipped at bce89b7 and was dropped by its own ship commit. Retirement verified
-  on disk, not from the log: `local_locus_fault` (`src/kind.rs`:743) now fences
-  the `governs`-less locus alone, the layout-only arm gone. Re-gated behind
-  LOCK-FAMILY-ASSEMBLED-ONCE, which subsumes the `local_document_rows` format
-  match (1412-1418) that face must answer — engineering.md's own
-  subsume-before-extend priority. DIAL-KIND's `src/kind.rs` description
-  re-stamped for the same ship. Both parks re-read and hold.
+- Audited through: da31f82
+- Residue swept through: da31f82
+- This tick: RECONCILE `832f015..da31f82` — both motions over bce89b7's ship,
+  the window's only commit touching `src/`/`tests/`/`sdk/`.
+  **Sweep: clean.** 0034's named demolition drained whole — `rg "layout-only"`
+  over `src/`, `tests/`, `sdk/src/` returns nothing, and the fence's narration
+  went with the arm (`local_locus_fault`'s doc, `local_locus_admissibility`'s
+  doc, the `gate` call-site comment, `tests/local_locus.rs`'s module header).
+  Nothing filed; no second implementation surfaced.
+  **Audit: one finding, and it was a gate reason, not code.**
+  LOCK-FAMILY-ASSEMBLED-ONCE re-verified on disk — all three claims hold
+  (`embedded_features_by_kind` 1555 folding `declarations.nested_members`
+  alone, call sites 523/913, `kind_features` 1364 landing the `nested` half
+  only at 1384, the false-green severity at `tests/local_locus.rs`:297). It
+  stays pickable.
+  TOML-DOCUMENT-READ-FACE's gate reason was **false and is retired**: last tick
+  wrote that the lock-family join "subsumes the `local_document_rows` format
+  match this face answers". It does not — the match sits *inside*
+  `local_document_rows` (1412-1418), which the join keeps; the join retires the
+  two *commitment* branches at that function's call sites (1229, 1377), a
+  different surface. The gate stands on serialization alone (both edit
+  `src/main.rs`), so the reason is re-stated, not the gate dropped. The
+  correction became scope the entry lacked: bce89b7 left that
+  `(content, format)` match exhaustive with **no catch-all**, so
+  `Format::TomlDocument` is a compile error until the entry picks its arm —
+  now named in its `src/main.rs` description with the doc's own decision rule.
+  **Cites re-stamped, re-read on disk, never carried:** bce89b7 moved four
+  `src/kind.rs` addresses under two entries citing them —
+  TOML-DOCUMENT-READ-FACE (`Format` 555→554, `label` 571→570,
+  `format_from_label` 975→964, doc 551-554→548-552) and DIAL-KIND
+  (`CustomKind::local` 729→728, which last tick's own re-stamp missed).
+  Both parks re-tested and hold — the window touches neither `src/graph.rs` nor
+  `.github/`; `MAX_IMPORT_HOPS` is still 5, `git tag -l` carries only the four
+  era tags, release.yml:7-9 states the deferral verbatim. The
+  `src/roster.rs`:470 orphan cite still waits for a carrier, unmoved.
 - Queue: 12 entries, **1 pickable** — LOCK-FAMILY-ASSEMBLED-ONCE. Nine chain
   behind it, serialized on shared files; no entry rests on a fork. Two parked.
 
-Plan continues: yes — post-ship reconciliation of `832f015..da31f82` (bce89b7's
-ship across `src/kind.rs`, `src/main.rs`, `src/drift.rs`, `sdk/`,
-`tests/local_locus.rs`) is untaken. This tick verified only what the capture and
-the dangling gate touched; the window's audit and residue sweep are both still
-owed, so all three cursors are copied forward unmoved.
+Plan continues: no — every input is drained. Inbox and refactor captures are
+empty, the spec delta is empty (nothing past 832f015), and both reconciliation
+cursors now sit at da31f82 with the window's audit and sweep complete. Build
+takes over: LOCK-FAMILY-ASSEMBLED-ONCE is pickable, and nine entries queue
+behind a derivation that today fails open.
