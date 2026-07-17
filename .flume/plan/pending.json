@@ -16,11 +16,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 8913b59. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 9409a6c. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 8913b59) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 9409a6c) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -33,7 +33,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 8913b59 and holds — nothing ruled the hop semantics; the 8913b59..c370924 window touches no import mechanics (`git diff 8913b59..c370924 -- src/` is empty). `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 8913b59."
+    "notes": "Park re-tested at 9409a6c and holds — nothing ruled the hop semantics; the window touches no import mechanics (`git log c370924..HEAD -- src/graph.rs tests/graph.rs` is empty). Every cite re-read on disk, all unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 9409a6c."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +60,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8913b59, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The 8913b59..c370924 window touched no release surface. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 9409a6c, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The c370924..HEAD window touched no release surface. scoped at b676656."
   }
 ]

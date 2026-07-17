@@ -55,7 +55,7 @@ tax.
   "Change ceremony"), never a build tick's to invent nor plan's to guess.
   Nothing is broken by leaving it open: no layer surface exists at all (`rg`
   for `--layer`/`layers`/`LayerSlot` over `src/main.rs`, `sdk/src/assembly.ts`,
-  `sdk/src/builtins.ts` is empty at f70cd03), so today's gate is exactly the
+  `sdk/src/builtins.ts` is empty, re-run at 9409a6c), so today's gate is exactly the
   committed harness's — what every placement already assumes. What it costs is
   the capability 0030 ruled important. **Dependents: all four of 0030's
   derivations** — the stack and envelope in engine and SDK, the claude-code
@@ -157,7 +157,7 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 8913b59: no
+  dir by `temper bundle` on every run? Re-verified at 9409a6c: no
   `.claude-plugin/` exists here, so both kinds govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
@@ -248,41 +248,32 @@ condition arrives, it is the next break. If work touches one, surface it.
   the record below spent two entries learning, proven a third time: the rider
   discharges when an entry names it, and not when a file is merely opened.
 
-- **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
-  0001's retirement map (law → invariant/spine rule, posture → retired,
-  decisions renamed `NNNN-*.md`) still narrates the file: "law 5" at
-  6/141/258, "law 8" at 11, "posture N" at 126/156/161/188/238, and the
-  pre-recut decision cites `` `15-kinds.md` ``:126 / `` `20-surface.md` ``:200
-  — neither file exists. Doc-comment staleness only; behavior and symbols are
-  correct. The narration **self-propagates**: a8562b5 wrote line 10 fresh in
-  the retired vocabulary, and PROSE-INTERLEAVE-SDK (6450ba6) rewrote the two
-  "posture 3" comments fresh — the very lines this record names — so each
-  entry that opens the file without reconciling it deepens the rider. Four
-  entries have now opened `prose.ts` and left every narration line as
-  unchanged context (the precedent: the rider discharges on *reconciliation*,
-  never on the file being opened). **The rider has a carrier as of 07-16:**
-  SDK-BLOCKS-FILE-REFUSAL edits `blocks()` (242) — whose own doc comment at
-  238 is one of the ten lines — and names the reconciliation in its
-  `files.edit` description, so this discharges when that entry ships and not
-  before. All ten lines re-verified on disk at c370924 (unmoved: `git log
-  8913b59..c370924 -- sdk/src/prose.ts` is empty). The
-  `sdk/src/kind.ts:257` "posture 3" half of this record is
-  **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
-  "posture" a consumer-declared member type, not a body-authoring mode number,
-  and the cite is gone from the file. (Fixture body text inside tests is a
-  separate class, excluded — `src/kind.rs`'s `15-kinds.md` strings and
-  `src/extract.rs`'s two `"…law 5"` decision-fixture strings are `.to_string()`
-  test data, not cites.)
-
-- **Cargo.toml's schemars dep comment is doubly stale.** It cites
-  `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
-  dir exists) and assigns ts-rs the interchange-TS role the seam bindings
-  superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
-  36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
-  whichever entry next opens `Cargo.toml`, never a standalone entry. Found
-  at residue sweep HEAD a932bb0; re-verified on disk (the cite still sits at
-  42) at reconcile HEAD 8913b59 — no queued entry edits `Cargo.toml`, so it
-  still has no carrier.
+- **Two stale cites survive with no carrier — ride-only, never an entry.**
+  Comment and citation staleness never files a standalone entry; it rides
+  whichever entry next opens the file. The `sdk/src/prose.ts` record that sat
+  here for four entries is **retired, discharged on disk at 9409a6c**:
+  SDK-BLOCKS-FILE-REFUSAL (42a2dd1) carried the rider it was given and cut all
+  ten pre-recut narration lines — `rg` over the file for `law N` / `posture N`
+  / `15-kinds` / `20-surface` now returns nothing. That closes the class the
+  record tracked; sweeping the same class across `src/` + `sdk/src/` at
+  9409a6c leaves exactly two lines, and no queued entry opens either file (the
+  queue is two parked entries, in `src/graph.rs`+`tests/graph.rs` and
+  `release.yml`):
+  - `Cargo.toml`:42-43 — doubly stale: cites `src/schema/interchange.rs` (the
+    module is `src/schema.rs`; no `schema/` dir exists) and assigns ts-rs the
+    interchange-TS role the seam bindings superseded (ts-rs's live job is the
+    `sdk/src/generated/` seam home, 36a7662; `src/schema.rs` is
+    schemars-only). Found at sweep HEAD a932bb0; re-verified at 9409a6c.
+  - `src/roster.rs`:465 — **swept this tick, and the last of its class**: the
+    doc comment on the `membership_roster` test helper cites
+    `` `10-contracts.md` ``, a file 0001 deleted. The sentence's claim is
+    live — a `target` names a declared requirement — so the cite comes out,
+    never gets re-pointed at a surviving file.
+  Fixture body text inside tests stays a separate class, excluded — it is
+  `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
+  `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"
+  and "law 7" rejected-entry bodies, and `src/extract.rs`'s two `"…law 5"`
+  decision-fixture strings.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

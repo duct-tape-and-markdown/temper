@@ -1,57 +1,47 @@
 # Plan state
 
 - Spec derived through: 3c1a58c
-- Audited through: c370924
-- Residue swept through: c370924
-- This tick: RECONCILE 8913b59..c370924 — one code commit in the window
-  (eb9674c, the fixture fold), audited and swept in one pass; both cursors
-  advance. The spec cursor is copied forward verbatim: 3c1a58c was fully
-  routed last tick and `<spec-delta>` is empty.
-  **Audit.** eb9674c verified on disk, not off the log: `write_sibling`
-  (`tests/common/mod.rs`:141) is the generalized create-parents-then-write
-  primitive, and `write_skill` (150), `write_plugin_json` (157),
-  `write_marketplace_json` (164), `write_settings` (170) each compose it —
-  the fold shipped as scoped, and TEST-FIXTURE-WRITERS-ONE-HOME is already
-  off the queue (96bff16). Its two stated non-folds hold: `coverage_note`'s
-  `write_skill` (36) composes `common::write_skill` and only builds a body;
-  `requirement_roster::write_clauses` (43) no longer names `Payload` or
-  `drift::emit`. **All four gates re-tested and true** — `git log
-  c370924..HEAD -- src/ sdk/ tests/ specs/ .github/` is empty, so no gate
-  could have moved: `MAX_IMPORT_HOPS = 5` still reads 5 at `src/graph.rs`:65
-  under a cite claiming five (IMPORT-HOP-CAP-CITE parked, unruled); `git tag
-  -l` carries only the four era tags, crate 0.1.0 vs npm 0.0.7, and
-  release.yml:7-9 states the darwin + channel-3 deferral verbatim
-  (PACKAGING parked); both pickable entries' cites are unmoved.
-  **Sweep.** One find, filed as TEST-MCP-FIXTURE-WRITER-ONE-HOME: the fold
-  homed three manifest-locus writers and left `.mcp.json` — the fourth
-  shipped manifest locus — with no home and two private copies,
-  `mcp_server_kind::write_mcp` (49, body-passthrough, 4 callers) and
-  `coverage_note::write_mcp_json` (52, `{}`-hardwired, 3 callers). That is
-  `settings.json`'s pair-shape exactly, one locus over, and the
-  `{}`-hardwired half is the direct sibling of the `write_settings_json`
-  the same pass folded.
-  **The CLAUDE.md axis was NOT re-filed.** 8913b59's entry ruled it out by
-  name — `memory_gate::write_claude_md` (45, pads to N lines) vs
-  `requirement_roster::write_claude_md` (749, verbatim body) are different
-  jobs behind a colliding name — and the ruling holds on re-read: they share
-  one `fs::write` line, no create-parents, no nesting. A prior tick's
-  deliberate exclusion is not re-opened without evidence, and none moved.
-- Queue: 5 entries — 3 pickable (LOCK-ROW-PATHS-HARNESS-RELATIVE,
-  SDK-BLOCKS-FILE-REFUSAL, TEST-MCP-FIXTURE-WRITER-ONE-HOME), 2 parked on
-  human acts. All three pickable are disjoint: `src/drift.rs`+`tests/emit.rs`
-  vs `sdk/src/prose.ts`+`sdk/test/refusals.test.ts` vs `tests/common/mod.rs`+
-  `tests/{mcp_server_kind,coverage_note,manifest_adapter}.rs`.
+- Audited through: 9409a6c
+- Residue swept through: 9409a6c
+- This tick: RECONCILE c370924..9409a6c — the three-entry wave shipped, audited
+  and swept in one pass; both cursors advance. The spec cursor is copied
+  forward verbatim: 3c1a58c was fully routed and `<spec-delta>` is empty.
+  **Audit.** All three verified on disk, not off the log. cf270d3:
+  `harness_root_of` (`src/drift.rs`:624) floors to `.` and every row is spelled
+  through `harness_relative` (1544), the root joined back on only where disk is
+  touched (emit_one 1291, emit_manifest 1420, the reap). 42a2dd1: `blocks()`
+  (`sdk/src/prose.ts`:246) refuses a `file()` block, discriminating on shape —
+  `isFile` (267) tests `moduleUrl`, not the free-form `kind` tag. 9c25b6d:
+  `write_mcp_json` (`tests/common/mod.rs`:170) composes `write_sibling` (141)
+  and both private copies are gone (`grep` for `fn write_mcp*` outside
+  `common/mod.rs` is empty; three callers compose it). cf270d3's commit body
+  names the `.` floor as *found while wiring* — read on disk, it was **fixed,
+  not deferred**, so no corner is unfiled. **Both parks re-tested and hold**:
+  `MAX_IMPORT_HOPS` still reads 5 at `src/graph.rs`:65 under a cite claiming
+  five, every cite unmoved (`git log c370924..HEAD -- src/graph.rs
+  tests/graph.rs` is empty); `git tag -l` carries only the four era tags, crate
+  0.1.0 vs npm 0.0.7, release.yml:7-9 states the darwin + channel-3 deferral
+  verbatim.
+  **Sweep.** One find, and it is ride-only — no entry: `src/roster.rs`:465's
+  doc comment cites `10-contracts.md`, a file 0001 deleted. It is the last of
+  the class the retired `prose.ts` record tracked, which 42a2dd1 discharged in
+  full (all ten narration lines cut; `rg` finds none). Filed to open-questions
+  beside the `Cargo.toml`:42-43 cite — neither has a carrier, since the queue's
+  two parked entries open neither file. **The CLAUDE.md fixture axis was again
+  NOT filed**: 8913b59 ruled it out by name and 5aa8348 re-affirmed it; the
+  writers are different jobs (pad-to-N vs verbatim) sharing one `fs::write`
+  line, and install.rs's four are one-liners at varied paths, not a locus
+  writer's job. A deliberate exclusion is not re-opened without evidence, and
+  none moved. The four shipped manifest loci now each have exactly one home.
+- Queue: 2 entries, **0 pickable** — IMPORT-HOP-CAP-CITE and
+  PACKAGING-CHANNELS-REMAINDER, both parked on human acts. Disjoint
+  (`src/graph.rs`+`tests/graph.rs` vs `.github/workflows/release.yml`).
 
-Plan continues: no — every input is drained. Inbox empty, no refactor
-captures, `<spec-delta>` empty at 3c1a58c, and both reconciliation cursors
-now sit at c370924 with no code commit past them. Build takes over on the
-three pickable entries.
-
-**Waiting on a ruling:** two forks gate real capability.
-`(layer-delivery-format)` holds all four of 0030's derivations — nothing says
-what artifact `--layer` names on disk. `(clause-vocabulary-holds)` is unmoved
-— four shipped contracts hold decidable, documented rules the algebra cannot
-spell, and the corpus sanctions only "undecidable" as a reason a clause is
-absent. Nothing is broken by either; what they cost is the capability 0030
-ruled important, and a gate whose reach is thinner than `specs/builtins.md`'s
-"Strictest documented profile" stance reads.
+Plan continues: no — every input is drained and the queue has no pickable
+work. Inbox empty, no refactor captures, `<spec-delta>` empty at 3c1a58c, both
+reconciliation cursors at HEAD. **The loop hibernates: it cannot self-start.**
+Both parked entries need John (the hop-semantics probe; Apple notarizing + the
+v0.1 tag), and the two forks that gate real capability — `(layer-delivery-format)`
+holding all four of 0030's derivations, `(clause-vocabulary-holds)` holding four
+decidable-but-unexpressible gaps — need rulings. Nothing is broken; what is
+stalled is new work.
