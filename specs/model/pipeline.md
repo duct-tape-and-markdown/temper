@@ -32,6 +32,40 @@ declared edges (`contract.md`), and a path reference resolves relative to
 the module that states it, never the workspace; every other word is just a
 word.
 
+## Layers
+
+The harness value composes from an **ordered stack of layers** under the
+same merge the SDK already speaks — later layers win by array surgery, one
+algebra for every layer, no layer a special species (decision 0030). Which
+slots exist and their order is the **provider's documented fact**, carried
+as cited data on the provider face, never chosen here; the claude-code
+face emulates the product's own precedence — user < project < local <
+invocation — with the user slot named and reserved, ungoverned today.
+Temper adopts the provider's ordering, not its override semantics: the
+bounds below are this gate's own rules.
+
+Two rules attach to any **uncommitted** layer — one review never saw —
+never to a layer's name:
+
+- **Check-side only.** Committed bytes are layer-invariant: emit with and
+  without an uncommitted layer is byte-identical over committed
+  artifacts, and an uncommitted member projects only to natively-local
+  targets. The lock captures the committed harness alone; uncommitted
+  layers compose over the locked declarations at check time.
+- **Review is the price of softening.** The committed harness may soften
+  anything — that is a reviewed diff. An uncommitted layer hardens
+  without bound, in every mode; it softens only visibly — a dialed
+  clause still reports, never deletes — and its softening is inert in
+  block mode, so a block-mode pass on any machine implies the shared
+  gate's pass.
+
+A policy layer arrives with the invocation: `check` composes additional
+layers its invocation names, whoever owns the invocation owns the top of
+the stack, and org authority is the org's pipeline definition — no trust
+model here. A layer that fails to parse fails the check, fail-closed.
+`check` announces every active uncommitted layer and every softened
+clause.
+
 ## Emit
 
 The deterministic compile of the harness value into artifacts plus the lock.
