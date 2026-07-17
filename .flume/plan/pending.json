@@ -1,44 +1,5 @@
 [
   {
-    "tag": "LOCAL-LOCUS-IS-READ-SIDE-ONLY",
-    "summary": "The layout-only fence retires: a local locus is read-side only under any declared format, and its members' rows derive at read time rather than silently emptying",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "locus"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "`local_locus_fault` (746) refuses `Content::File | Content::Fields` with \"a local locus is layout-only\" (766-771); that arm retires — the property carrying the trust story is read-never-written, and markdown was smuggled in by the word (0034). The `governs` fence (735-742) stays whole and untouched: the class is a *file* locus's fact, and a nested-file kind has no locus to class. `Commitment::Local`'s doc (46-56) states \"the locus is **layout-only**\" as the first of two consequences, and `CustomKind::commitment`'s doc (140-145) states \"inadmissible over content that is not a [`Layout`]\" — both re-cut to read-side-only, any declared format. The second consequence (rows never enter the lock) stands, now derived rather than ruled: the lock is a committed artifact."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`local_document_rows` (1402) returns `LayoutDocumentRows::default()` for any non-layout kind (1407-1409), and its own doc (1389-1396) names the layout-only fence as what licenses that silence: \"deriving silence here is what lets it\". The fence is gone, so the silence is the fail-open invariant 6 forbids — 0034's errata names this coupling by name and requires it re-cut in this same entry, or a JSON local kind passes admissibility and silently yields zero rows. A local member's rows derive under whatever format its kind declares (`pipeline.md`, \"Layers\"); the two call sites (1229 satisfies, 1377 nested members) already route every local kind here. `local_locus_admissibility`'s doc (1924-1925) names \"the layout-only fence\" and moves with it."
-        },
-        {
-          "path": "tests/local_locus.rs",
-          "description": "`a_local_kind_that_is_not_layout_content_is_inadmissible` (311-338) asserts the retired fence and greps the finding for \"layout-only\" (334) — it inverts: non-layout content is now admissible and its rows derive. The module doc's third bullet (12) states the fence and re-cuts. `a_local_class_on_a_kind_governing_no_glob_is_inadmissible` (341) survives untouched — that fence stands. The four layout-kind tests (127, 187, 223, 252, 284) pin behavior this entry must not move."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none — the `commitment` column is unchanged; what re-cuts is which content it is admissible over.",
-    "tests": [
-      {
-        "path": "tests/local_locus.rs",
-        "asserts": "a local kind declaring non-layout content is admissible and its member's document rows derive at read time under the kind's declared format rather than yielding none; a local layout kind's rows derive exactly as today; the `governs` fence still refuses a local class on a kind governing no glob"
-      }
-    ],
-    "acceptance": "A local-locus kind is admissible under any declared format and no local member's rows silently empty (representation.md, \"locus\": read-side only — never an emit input or target, any declared format). `cargo test` green.",
-    "notes": "0034's first derivation; 40619a0 shipped the fence as written and pre-declared exactly this re-cut. The codomain rule needs no new emit guard — verified on disk: `emit_program` already skips a local member before any content/format branch and books its path owned (`src/drift.rs`:992-995), so \"emit writes no uncommitted path\" holds structurally today. Say so in the commit body rather than adding a second guard. scoped at 832f015."
-  },
-  {
     "tag": "TOML-DOCUMENT-READ-FACE",
     "summary": "`toml-document` joins the format inventory as an honestly read-only face — the engine reads a member's fields off a TOML document, and no emit round-trip exists",
     "per": {
