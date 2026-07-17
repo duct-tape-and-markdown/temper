@@ -15,7 +15,10 @@
 //!    `hook` and `installed-plugin` beside opaque residue the harness models as no
 //!    member;
 //! 4. a local-locus member under ignore rules — a `local` kind whose gitignored
-//!    document the reviewed `governs` discovers all the same (the dial precedent).
+//!    document the reviewed `governs` discovers all the same (the dial precedent);
+//! 5. a starred-segment lone file inside a directory-owning host — a `handbook`
+//!    keyed by the directory segment its `*/conventions.md` glob stars, seated in a
+//!    `guide`'s directory and carved out of that host's template discovery.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -133,10 +136,28 @@ const machine = kind({
   registration: [],
 });
 
+// Composition 5 — a starred-segment lone file inside a directory-owning host.
+//
+// `handbook` is a starred-segment kind: a lone `conventions.md` keyed by the
+// directory segment its `*/conventions.md` glob stars, not the shared stem. It sits
+// inside the `guide`'s own directory — the guide owns the directory and templates its
+// `*.md` companions, and this file coexists there, borrowing the segment for identity.
+// The declared locus carves it out of the guide's template discovery, so it is the
+// path's sole home and no phantom `spec` twin forms.
+const handbook = kind({
+  name: "handbook",
+  locus: { kind: "at", root: "docs/guides", glob: "*/conventions.md" },
+  format: "yaml-frontmatter",
+  unitShape: "starred-segment",
+  registration: [],
+});
+
+const gateHandbook = handbook({ name: "operate-the-gate", prose: text`# Conventions` });
+
 process.stdout.write(
   emit(
     harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin],
+      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin, gateHandbook],
       admit: [{ host: rule, admits: [citation] }],
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },

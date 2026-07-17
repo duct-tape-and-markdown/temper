@@ -25,11 +25,14 @@ export type Format = "yaml-frontmatter" | "json-document" | "toml-document";
 
 /**
  * Whether a member is a lone file (identity from the stem), a directory with an
- * entry file (identity from the directory name), or a lone file whose identity is
+ * entry file (identity from the directory name), a lone file whose identity is
  * read from a declared field (`identityField`) instead of derived from the path (an
- * agent's `name`) — on whichever surface the kind's `format` carries its fields.
+ * agent's `name`) — on whichever surface the kind's `format` carries its fields — or a
+ * lone file keyed by the directory segment its single-`*` segment glob stars
+ * (`"starred-segment"`), coexisting inside another kind's directory rather than owning
+ * one. The identity source is this spelled fact, never inferred from the glob.
  */
-export type UnitShape = "file" | "directory" | "named-field";
+export type UnitShape = "file" | "directory" | "named-field" | "starred-segment";
 
 /**
  * One **channel** a kind's registration declares — a documented way a member
@@ -178,7 +181,9 @@ export interface KindFacts {
    * identity is read from (an agent's `name`), never the filename or directory.
    * For `"directory"` it is a projection-order detail only (a skill's `name`
    * still writes into frontmatter, but identity is the directory name); absent
-   * when identity is the file stem and no field carries it (a rule).
+   * when identity is the file stem and no field carries it (a rule), or the
+   * starred directory segment (`"starred-segment"`) — both path-derived, never a
+   * field.
  */
   readonly identityField?: string;
   /** Fact 5, edge fields — the kind's fields that are references to other members. */

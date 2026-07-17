@@ -5,6 +5,7 @@ expression: "projection_tree(&harness, &report)"
 # emit report
 
 guide:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/GUIDE.md
+handbook:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/conventions.md
 manifest:settings.json -> Emitted @ .claude/settings.json
 rule:authoring -> Emitted @ .claude/rules/authoring.md
 rule:conventions -> Emitted @ .claude/rules/conventions.md
@@ -72,6 +73,12 @@ source_path = "docs/guides/operate-the-gate/GUIDE.md"
 source_hash = "f06595500ae92b2e960659a7a138f2044ebd8f3a982243db2f59d7dacc090fc0"
 emit_hash = "f06595500ae92b2e960659a7a138f2044ebd8f3a982243db2f59d7dacc090fc0"
 
+[[handbook]]
+name = "operate-the-gate"
+source_path = "docs/guides/operate-the-gate/conventions.md"
+source_hash = "33d450cf8ac48bf66bbabd06863a8808505d98c853851b26df7ae3f3378e2baa"
+emit_hash = "33d450cf8ac48bf66bbabd06863a8808505d98c853851b26df7ae3f3378e2baa"
+
 [[rule]]
 name = "authoring"
 source_path = ".claude/rules/authoring.md"
@@ -90,6 +97,13 @@ governs_root = "docs/guides"
 governs_glob = "*/GUIDE.md"
 unit_shape = "directory"
 templates = [{ kind = "spec", path = "*.md" }]
+
+[[declaration.kind]]
+name = "handbook"
+governs_root = "docs/guides"
+governs_glob = "*/conventions.md"
+format = "yaml-frontmatter"
+unit_shape = "starred-segment"
 
 [[declaration.kind]]
 name = "hook"
@@ -180,6 +194,9 @@ key_path = "enabledPlugins.*"
 
 === docs/guides/operate-the-gate/GUIDE.md ===
 # Operate the gate
+
+=== docs/guides/operate-the-gate/conventions.md ===
+# Conventions
 
 === docs/guides/operate-the-gate/representation.md ===
 The representation model, authored in prose.

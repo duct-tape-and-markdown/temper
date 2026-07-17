@@ -220,6 +220,18 @@ impl Member {
                     })?;
                 (id, Vec::new())
             }
+            Some(UnitShape::StarredSegment) => {
+                // A lone file keyed by its starred directory segment, coexisting inside
+                // another kind's directory: it borrows the segment for identity and scans
+                // no companions of its own (those belong to the kind that owns the dir).
+                let id = crate::extract::source_dir_name(source_file).ok_or_else(|| {
+                    FrontmatterError::NoId {
+                        path: source_file.to_path_buf(),
+                        shape: "starred-segment",
+                    }
+                })?;
+                (id, Vec::new())
+            }
             // `file` shape, or an undeclared shape defaulting to a lone file.
             Some(UnitShape::File) | None => (fold_file_id(base, source_file)?, Vec::new()),
         };

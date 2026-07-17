@@ -689,13 +689,25 @@ fn join_locus(root: &str, relative: &str) -> PathBuf {
 /// by a flat `governs` glob and a host template's path pattern. A `*`-free pattern is a
 /// fixed path (a manifest container's `settings.json`), spliced nowhere and left verbatim.
 ///
+/// `starred_segment` admits a `*/<file>` glob whose single `*` stars a whole leading
+/// directory segment (a starred-segment kind's locus), landing `<name>/<file>`; every other
+/// caller passes `false`, where a `/` beside the `*` is a stray directory the splice cannot
+/// place.
+///
 /// # Errors
 /// Returns [`DriftError::FlatGlobDepth`] when `pattern` carries a `*` but is neither
-/// single-star nor single-segment: the splice would leave a stray literal `*` (multi-star)
-/// or a literal directory segment (multi-segment) in the path.
-fn splice_name(kind: &str, pattern: &str, name: &str) -> Result<String, DriftError> {
+/// single-star nor single-segment (and not the admitted leading-segment case): the splice
+/// would leave a stray literal `*` (multi-star) or a literal directory segment
+/// (multi-segment) in the path.
+fn splice_name(
+    kind: &str,
+    pattern: &str,
+    name: &str,
+    starred_segment: bool,
+) -> Result<String, DriftError> {
     let stars = pattern.matches('*').count();
-    if stars > 0 && (stars > 1 || pattern.contains('/')) {
+    let leading_segment = starred_segment && stars == 1 && pattern.starts_with("*/");
+    if stars > 0 && !leading_segment && (stars > 1 || pattern.contains('/')) {
         return Err(DriftError::FlatGlobDepth {
             kind: kind.to_string(),
             glob: pattern.to_string(),
@@ -751,14 +763,15 @@ fn nested_file_path(
             "its host `{address}` owns no directory unit to compose under"
         )));
     };
-    let leaf = splice_name(&facts.name, pattern, name)?;
+    let leaf = splice_name(&facts.name, pattern, name, false)?;
     Ok(join_locus(host_root, &format!("{host_name}/{leaf}")))
 }
 
 /// The harness-relative locus a member of `facts` named `name` projects onto: a directory
 /// unit lands its entry file under `<root>/<name>/`; a lone file replaces the glob's `*`
 /// with the name (an any-depth glob, a memory kind's `**/CLAUDE.md`, lands the root
-/// `<name>.md`); a nested file child — one governing no glob — composes its path under
+/// `<name>.md`; a starred-segment kind's `*/<file>` lands `<root>/<name>/<file>`); a nested
+/// file child — one governing no glob — composes its path under
 /// `host`'s own unit ([`nested_file_path`]). The SDK's `projectionPath`
 /// (`sdk/src/emit.ts`) derives the same locus from the same facts, and
 /// `tests/projection_path_seam.rs` gates the two into agreement.
@@ -785,7 +798,8 @@ fn member_projection_path(
     } else if glob.contains("**") {
         format!("{name}.md")
     } else {
-        splice_name(&facts.name, glob, name)?
+        let starred_segment = facts.unit_shape.as_deref() == Some("starred-segment");
+        splice_name(&facts.name, glob, name, starred_segment)?
     };
     Ok(join_locus(root, &relative))
 }

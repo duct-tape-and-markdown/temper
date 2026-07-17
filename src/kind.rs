@@ -604,6 +604,13 @@ pub enum UnitShape {
         /// The declared field the id is read from.
         field: String,
     },
+    /// `starred-segment` — a lone file whose id is the directory segment its `*/<file>`
+    /// glob stars, not its filename stem (a `conventions.md` keyed by its parent folder).
+    /// Distinct from [`Directory`](UnitShape::Directory): that shape owns the directory and
+    /// hosts its templated companions, whereas this file borrows the segment for identity
+    /// only, so it coexists inside another kind's directory (a `conventions.md` sitting in a
+    /// skill's directory, which `skill` owns).
+    StarredSegment,
 }
 
 /// A kind's declared registration — one **channel** among the inbound boundary edges
@@ -985,6 +992,7 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     match label {
         "file" => return Some(UnitShape::File),
         "directory" => return Some(UnitShape::Directory),
+        "starred-segment" => return Some(UnitShape::StarredSegment),
         _ => {}
     }
     let (name, field) = label.strip_suffix(')')?.split_once('(')?;

@@ -113,15 +113,25 @@ function joinSlash(...parts: string[]): string {
 /**
  * `name` spliced through `pattern`'s single `*` — the one name-through-a-glob map, shared
  * by a flat `at` glob and a host template's path pattern. A `*`-free pattern is a fixed
- * path, left verbatim.
+ * path, left verbatim. `starredSegment` admits a single-`*` segment glob whose one `*` stars
+ * a whole leading directory segment (a starred-segment kind's locus), landing `<name>/<file>`;
+ * every other caller passes `false`, where a `/` beside the `*` is a stray directory the
+ * splice cannot place.
  *
  * # Throws
- * If `pattern` carries a `*` yet is neither single-star nor single-segment: the splice
- * would leave a stray literal `*` or directory segment behind.
+ * If `pattern` carries a `*` yet is neither single-star nor single-segment (and not the
+ * admitted leading-segment case): the splice would leave a stray literal `*` or directory
+ * segment behind.
  */
-function spliceName(kindName: string, pattern: string, name: string): string {
+function spliceName(
+  kindName: string,
+  pattern: string,
+  name: string,
+  starredSegment: boolean,
+): string {
   const stars = pattern.split("*").length - 1;
-  if (stars > 0 && (stars > 1 || pattern.includes("/"))) {
+  const leadingSegment = starredSegment && stars === 1 && pattern.startsWith("*/");
+  if (stars > 0 && !leadingSegment && (stars > 1 || pattern.includes("/"))) {
     throw new Error(
       `kind \`${kindName}\`: glob \`${pattern}\` is neither a single-segment single-\`*\` ` +
         `pattern nor an any-depth \`**\` glob — a member name splices through neither.`,
@@ -174,7 +184,7 @@ function nestedFilePath(member: Member): string {
         `none to compose against (specs/model/representation.md, "locus").`,
     );
   }
-  return joinSlash(hostUnit(host, context), spliceName(member.kind, template.path, member.name));
+  return joinSlash(hostUnit(host, context), spliceName(member.kind, template.path, member.name, false));
 }
 
 /**
@@ -206,7 +216,8 @@ function projectionPath(member: Member): string {
     return joinSlash(root, member.name, slash < 0 ? glob : glob.slice(slash + 1));
   }
   if (glob.includes("**")) return joinSlash(root, `${member.name}.md`);
-  return joinSlash(root, spliceName(facts.name, glob, member.name));
+  const starredSegment = facts.unitShape === "starred-segment";
+  return joinSlash(root, spliceName(facts.name, glob, member.name, starredSegment));
 }
 
 /**

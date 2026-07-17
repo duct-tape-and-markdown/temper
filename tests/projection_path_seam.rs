@@ -35,9 +35,11 @@ mod common;
 /// every unit shape a member can project at: `skill` (a directory unit), `rule` and
 /// `command` (a single-segment single-`*` flat glob), `agent` and `memory` (an any-depth
 /// `**` glob — `agent`'s locus is `.claude/agents/**\/*.md`, so it splices through the
-/// any-depth branch, not the flat one), and `supporting-doc` (a nested file child, whose
+/// any-depth branch, not the flat one), `supporting-doc` (a nested file child, whose
 /// path composes from its `guide` host's unit and that host's template pattern rather
-/// than from a glob of its own).
+/// than from a glob of its own), and `conventions` (a starred-segment lone file, keyed by
+/// the directory segment its `*/conventions.md` glob stars and seated inside the skill's
+/// own directory).
 ///
 /// The host is itself a `skill`, so its own projection lands two directories deep and
 /// every rendered link must climb out of it — a host at the root would let a broken
@@ -50,6 +52,13 @@ const supportingDoc = kind<object>({
   name: "supporting-doc",
   locus: { kind: "nested-file" },
   unitShape: "file",
+  registration: [],
+});
+
+const conventions = kind<object>({
+  name: "conventions",
+  locus: { kind: "at", root: ".claude/skills", glob: "*/conventions.md" },
+  unitShape: "starred-segment",
   registration: [],
 });
 
@@ -76,6 +85,7 @@ const waypoint = kind<object>(
       { field: "to_command", to: ["command"] },
       { field: "to_memory", to: ["memory"] },
       { field: "to_doc", to: ["supporting-doc"] },
+      { field: "to_conventions", to: ["conventions"] },
     ],
   },
   {
@@ -102,6 +112,7 @@ const program = harness({
             to_command: "command:review",
             to_memory: "memory:CLAUDE",
             to_doc: "supporting-doc:checklist",
+            to_conventions: "conventions:coordinate",
           },
         }),
       ),
@@ -113,6 +124,7 @@ const program = harness({
       description: "Use when driving a complex task across a team of agents.",
       prose: text`# Coordinate`,
     }),
+    conventions({ name: "coordinate", prose: text`# Conventions` }),
     rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
     agent({ name: "explore", description: "Use when a broad read-only sweep is the task.", prose: text`# Explore` }),
     command({ name: "review", description: "Use when reviewing the working diff.", prose: text`# Review` }),
@@ -133,6 +145,7 @@ const EDGES: &[(&str, &str, &str)] = &[
     ("to_command", "command", "review"),
     ("to_memory", "memory", "CLAUDE"),
     ("to_doc", "supporting-doc", "checklist"),
+    ("to_conventions", "conventions", "coordinate"),
 ];
 
 /// The path `emit` wrote the `kind`/`name` member to, as the engine itself reported it —

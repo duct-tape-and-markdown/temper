@@ -627,6 +627,68 @@ fn a_declared_kinds_exact_path_carves_its_path_out_of_a_host_template() {
     );
 }
 
+/// A starred-segment `conventions` kind: a lone file per matching directory at
+/// `*/conventions.md`, keyed by the directory segment its glob stars rather than the shared
+/// `conventions` stem. It coexists inside a skill's directory — the skill owns the
+/// directory, this file only borrows the segment for identity.
+fn conventions_kind() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(temper::kind::UnitShape::StarredSegment),
+        ..CustomKind::new(
+            "conventions",
+            Governs {
+                root: ".claude/skills".to_string(),
+                glob: "*/conventions.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
+#[test]
+fn a_starred_segment_kind_keys_one_member_per_directory_by_its_segment() {
+    // The lone-file starred-segment locus: two `conventions.md` files, one per skill
+    // directory, each keyed by its own directory segment rather than collapsing onto the
+    // shared `conventions` stem. The skill owns each directory; the `conventions` file
+    // coexists inside it, borrowing the segment for identity alone.
+    let harness = common::tmpdir("starred-segment-discovery");
+    let alpha = write_skill_with_companions(&harness, "alpha");
+    let beta = write_skill_with_companions(&harness, "beta");
+    std::fs::write(alpha.join("conventions.md"), "# Alpha conventions\n").unwrap();
+    std::fs::write(beta.join("conventions.md"), "# Beta conventions\n").unwrap();
+
+    let kind = conventions_kind();
+    let governs = kind.governs.clone().unwrap();
+    let files = temper::import::discover_kind_files(
+        &harness,
+        &kind,
+        &governs,
+        temper::import::LocalOverride::Honored,
+    )
+    .unwrap();
+
+    // One member per matching directory — the skills' own `SKILL.md` and companions match
+    // `*/conventions.md` nowhere and stay this kind's non-members.
+    assert_eq!(
+        files,
+        vec![alpha.join("conventions.md"), beta.join("conventions.md")]
+    );
+
+    let base = harness.join(&governs.root);
+    let ids: Vec<String> = files
+        .iter()
+        .map(|file| {
+            temper::frontmatter::Member::from_source_rooted(&kind, file, &base)
+                .unwrap()
+                .id
+        })
+        .collect();
+
+    // Identity is the starred directory segment, never the stem — two same-stemmed files
+    // carry distinct ids rather than both keying `conventions`.
+    assert_eq!(ids, vec!["alpha".to_string(), "beta".to_string()]);
+}
+
 #[test]
 fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_doc_child() {
     // The built-in adoption, off the shipped kinds alone: no test-built host, no
