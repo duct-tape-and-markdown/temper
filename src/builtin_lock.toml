@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the nine built-in kinds' facts and their default contract clauses, plus the
+# the ten built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,17 +10,19 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `mcp-server`, `skill`,
-# `supporting-doc`, `rule`, `memory`) and its nine default contracts (`agentDefaultContract`,
-# `commandDefaultContract`, `hookDefaultContract`, `installedPluginDefaultContract`,
-# `mcpServerDefaultContract`, `skillDefaultContract`, `supportingDocDefaultContract`,
-# `ruleDefaultContract`, `memoryAnthropicDefaultContract`) — the identical rows an
+# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `mcp-server`,
+# `plugin-manifest`, `skill`, `supporting-doc`, `rule`, `memory`) and its ten default
+# contracts (`agentDefaultContract`, `commandDefaultContract`, `hookDefaultContract`,
+# `installedPluginDefaultContract`, `mcpServerDefaultContract`,
+# `pluginManifestDefaultContract`, `skillDefaultContract`,
+# `supportingDocDefaultContract`, `ruleDefaultContract`,
+# `memoryAnthropicDefaultContract`) — the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration rows
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's nine kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's ten kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -31,10 +33,18 @@
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
 # `installed-plugin` is the one kind here contributing a kind fact and no clause row at
-# all: its default contract is empty, so nine kinds carry eight contracts' clauses. The
+# all: its default contract is empty, so ten kinds carry nine contracts' clauses. The
 # format documents no gateable schema — an entry is one scalar under a key that is the
 # member's identity rather than a declared field — and the absence is the honest encoding,
 # not a row lost in regeneration.
+#
+# `plugin-manifest` is the one kind here at the `json-document` format: the whole artifact
+# is one JSON object, so its top-level keys are the fields its clauses range over. Its
+# contract is four rows against `name`'s presence, emptiness, and charset, plus the
+# top-level `themes`/`monitors` spelling the experimental migration retires. The rest of
+# the `claude plugin validate --strict` profile — unrecognized top-level fields, and
+# wrong-typed component paths — needs predicates the algebra does not carry yet
+# (`sdk/src/builtins.ts`, `pluginManifestDefaultContract`), so no row here forges them.
 
 [[declaration.kind]]
 name = "agent"
@@ -85,6 +95,13 @@ governs_root = "."
 governs_glob = "**/CLAUDE.md"
 unit_shape = "file"
 registration = ["always"]
+
+[[declaration.kind]]
+name = "plugin-manifest"
+governs_root = ".claude-plugin"
+governs_glob = "plugin.json"
+format = "json-document"
+unit_shape = "named-field(name)"
 
 [[declaration.kind]]
 name = "rule"
@@ -267,6 +284,40 @@ severity = "advisory"
 guidance = "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)"
 cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)"
 bound = { max = 200 }
+
+[[declaration.clause]]
+kind = "plugin-manifest"
+predicate = "required"
+field = "name"
+severity = "required"
+guidance = "A manifest declares a `name` — the pack's identity and the namespace its components surface under (`plugin-dev:agent-creator`). Omitting the manifest entirely is supported and Claude Code then derives the name from the directory; a manifest that exists and has no `name` is the one case the loader rejects outright: `name: Invalid input: expected string, received undefined`."
+cite = "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+kind = "plugin-manifest"
+predicate = "min_len"
+field = "name"
+severity = "required"
+guidance = "A present-but-empty name cannot namespace a component or key an install. Drop the field to let Claude Code derive the name from the directory, or give it a real one."
+cite = "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)"
+bound = { min = 1 }
+
+[[declaration.clause]]
+kind = "plugin-manifest"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+guidance = "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is a namespace prefix and an install key, so a space or a capital makes it unquotable in the places it is typed. Use `displayName` for the human-readable label: it may carry spaces and any casing, and is never used for lookup."
+cite = "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)"
+charset = { ranges = ["a-z", "0-9"], chars = "-" }
+
+[[declaration.clause]]
+kind = "plugin-manifest"
+predicate = "forbidden_keys"
+severity = "required"
+guidance = "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you."
+cite = "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-16)"
+keys = ["themes", "monitors"]
 
 [[declaration.clause]]
 kind = "rule"

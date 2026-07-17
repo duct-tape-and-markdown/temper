@@ -2089,8 +2089,28 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     // The SDK module sets no `provider` on any of its exported kinds yet, so
     // the derived rows carry none either — a real gap `BUILTIN-LOCK-ROW-DRIVEN`
     // reconciles (`(builtin-workspace-qualified-key)`), not this link.
+    // The `plugin-manifest` kind is the first `json-document` built-in: the whole artifact
+    // is one JSON object, so the format label — not the file locus — is what routes it to
+    // the document reader. It owns its file rather than surfacing inside one, so unlike the
+    // three manifest kinds above it carries no collection address and no `fields` shape,
+    // and its identity is the document's own `name` key: every plugin manifest ever written
+    // has the stem `plugin`, so the named-field mode is the only one that tells two apart.
+    let manifest = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "plugin-manifest")
+        .expect("the plugin-manifest kind fact is embedded");
+    assert_eq!(manifest.governs_root.as_deref(), Some(".claude-plugin"));
+    assert_eq!(manifest.governs_glob.as_deref(), Some("plugin.json"));
+    assert_eq!(manifest.format.as_deref(), Some("json-document"));
+    assert_eq!(manifest.unit_shape.as_deref(), Some("named-field(name)"));
+    assert_eq!(manifest.shape, None);
+    assert_eq!(manifest.collection_address, None);
+    // Channel-less: distribution metadata reaches the installer, never the model.
+    assert_eq!(manifest.registration, Vec::<String>::new());
+
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 9);
+    assert_eq!(declarations.kinds.len(), 10);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

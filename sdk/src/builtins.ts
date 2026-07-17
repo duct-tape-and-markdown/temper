@@ -497,6 +497,162 @@ export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPl
 export const installedPluginDefaultContract: readonly Clause[] = [];
 
 /**
+ * A Claude Code plugin manifest — `.claude-plugin/plugin.json`, the pack's identity and
+ * the metadata a marketplace lists it by. The manifest itself is optional (Claude Code
+ * auto-discovers components in their default locations and derives the name from the
+ * directory); once written, `name` is the only field it must carry
+ * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
+ *
+ * Every other field is optional and typed. The component path fields do not describe the
+ * plugin — they *relocate* its components, adding to or replacing the default scan, so a
+ * wrong type on one is a load error rather than bad metadata (same source).
+ */
+export interface PluginManifest {
+  /**
+   * The pack's unique identifier — kebab-case, no spaces — and the namespace its
+   * components surface under (`plugin-dev:agent-creator`). When a marketplace entry lists
+   * the plugin under a different name, the marketplace entry's name is what `enabledPlugins`
+   * keys and `/plugin` shows.
+   */
+  readonly name: string;
+  /** JSON Schema URL for editor autocomplete; Claude Code ignores it at load time. */
+  readonly $schema?: string;
+  /**
+   * Human-readable name for the `/plugin` picker, falling back to `name`. May carry spaces
+   * and any casing; never used for namespacing or lookup. Requires Claude Code v2.1.143+.
+   */
+  readonly displayName?: string;
+  /**
+   * Semantic version. Setting it pins the plugin to that string, so users see an update
+   * only when it is bumped; omitting it falls back to the git commit SHA, making every
+   * commit a new version. Set in both places, `plugin.json` wins over the marketplace entry.
+   */
+  readonly version?: string;
+  /** Brief explanation of the plugin's purpose. */
+  readonly description?: string;
+  readonly author?: Readonly<{ name?: string; email?: string; url?: string }>;
+  /** Documentation URL. */
+  readonly homepage?: string;
+  /** Source code URL. */
+  readonly repository?: string;
+  /** License identifier (`MIT`, `Apache-2.0`). */
+  readonly license?: string;
+  /** Discovery tags. */
+  readonly keywords?: readonly string[];
+  /**
+   * Whether the plugin starts enabled when the user has not set a state; defaults to
+   * `true`. A `enabledPlugins` entry at any settings scope and a dependency requirement
+   * each take precedence over it, as does the marketplace entry's own copy of the field.
+   * Requires Claude Code v2.1.154+.
+   */
+  readonly defaultEnabled?: boolean;
+  /** Custom skill directories holding `<name>/SKILL.md`; adds to the default `skills/` scan. */
+  readonly skills?: readonly string[] | string;
+  /** Custom flat `.md` skill files or directories; replaces the default `commands/` scan. */
+  readonly commands?: readonly string[] | string;
+  /** Custom agent files; replaces the default `agents/` scan. */
+  readonly agents?: readonly string[] | string;
+  /** Hook config paths, or the hook config inline. */
+  readonly hooks?: readonly string[] | string | Readonly<Record<string, unknown>>;
+  /** MCP config paths, or the server config inline. */
+  readonly mcpServers?: readonly string[] | string | Readonly<Record<string, unknown>>;
+  /** Custom output style files/directories; replaces the default `output-styles/` scan. */
+  readonly outputStyles?: readonly string[] | string;
+  /** Language Server Protocol configs powering code intelligence. */
+  readonly lspServers?: readonly string[] | string | Readonly<Record<string, unknown>>;
+  /**
+   * The components whose manifest schema may still change between releases. Declaring
+   * `themes`/`monitors` at the top level instead still works today, but `claude plugin
+   * validate` warns and a future release will require them here.
+   */
+  readonly experimental?: Readonly<{
+    themes?: readonly string[] | string;
+    monitors?: readonly string[] | string;
+  }>;
+  /** User-configurable values Claude Code prompts for when the plugin is enabled. */
+  readonly userConfig?: Readonly<Record<string, unknown>>;
+  /** Channel declarations for message injection. */
+  readonly channels?: readonly unknown[];
+  /** Other plugins this one requires, optionally with semver constraints. */
+  readonly dependencies?: readonly (string | Readonly<{ name: string; version?: string }>)[];
+}
+
+/**
+ * `plugin-manifest` — `.claude-plugin/plugin.json`, a whole-file JSON document (never
+ * frontmatter) whose top-level keys are its fields; identity is read from `name`, the
+ * named-field mode, because the file's stem is `plugin` for every manifest ever written.
+ * It owns its file, so it carries no collection address, and it is channel-less: a
+ * manifest carries distribution metadata rather than session content, so it reaches the
+ * model on no channel of its own — what it reaches is the installer
+ * (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
+ */
+export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifest>({
+  name: "plugin-manifest",
+  locus: { kind: "at", root: ".claude-plugin", glob: "plugin.json" },
+  format: "json-document",
+  unitShape: "named-field",
+  registration: [],
+  identityField: "name",
+});
+
+/**
+ * The default contract for `plugin-manifest` — the documented profile of `claude plugin
+ * validate --strict`, which is the portable bar: Claude Code's own runtime is deliberately
+ * forgiving of unrecognized fields, `--strict` is the CI bar that catches them, and where
+ * the two diverge each clause's guidance says so (all facts
+ * code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
+ *
+ * Two decidable documented rules are absent, **pending a vocabulary addition** — the same
+ * hold `skillDefaultContract` names for its own two:
+ *
+ * - **Unrecognized top-level fields**, the substance of `--strict`. The check is an
+ *   allow-list over the manifest's closed key set, and the algebra has only
+ *   `forbidden_keys`, a deny-list — the complement of a finite set over an open key space
+ *   is not expressible. (`optional` records a key as part of a declared closed schema but
+ *   is always satisfied; nothing consumes the record.) The one deny-list slice that *is*
+ *   decidable ships below.
+ * - **Wrong-typed fields** (`keywords` a string instead of an array — a load error
+ *   everywhere, not merely under `--strict`). The `type` predicate exists and the engine
+ *   decides it, but it cannot cross the lock: `type()` here takes no declared kind, and
+ *   the clause row carries no column for one. The TypeScript types above hold this bar for
+ *   an SDK author; a hand-written manifest is unguarded until the predicate round-trips.
+ *
+ * Deliberately absent as undecidable: whether the `description` reads well, whether
+ * `keywords` aid discovery, whether `name` names the pack aptly.
+ *
+ * Authoring notes the clauses cannot carry: leave `version` unset while iterating, so the
+ * commit SHA drives updates and users are not stranded on a stale pin; set it once the
+ * plugin has a release cycle, and bump it every time — pushing commits without bumping is
+ * a no-op. Reach for `defaultEnabled: false` when the plugin costs money or scope on load.
+ */
+export const pluginManifestDefaultContract: readonly Clause[] = [
+  clause(required("name"), {
+    severity: "required",
+    guidance:
+      "A manifest declares a `name` — the pack's identity and the namespace its components surface under (`plugin-dev:agent-creator`). Omitting the manifest entirely is supported and Claude Code then derives the name from the directory; a manifest that exists and has no `name` is the one case the loader rejects outright: `name: Invalid input: expected string, received undefined`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(minLen("name", 1), {
+    severity: "required",
+    guidance:
+      "A present-but-empty name cannot namespace a component or key an install. Drop the field to let Claude Code derive the name from the directory, or give it a real one.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(allowedChars("name", { ranges: ["a-z", "0-9"], chars: "-" }), {
+    severity: "required",
+    guidance:
+      "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is a namespace prefix and an install key, so a space or a capital makes it unquotable in the places it is typed. Use `displayName` for the human-readable label: it may carry spaces and any casing, and is never used for lookup.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(forbiddenKeys(["themes", "monitors"]), {
+    severity: "required",
+    guidance:
+      "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-16)",
+  }),
+];
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.

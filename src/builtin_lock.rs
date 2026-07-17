@@ -58,6 +58,7 @@ mod tests {
                 "installed-plugin",
                 "mcp-server",
                 "memory",
+                "plugin-manifest",
                 "rule",
                 "skill",
                 "supporting-doc"
@@ -99,6 +100,7 @@ mod tests {
                         | "command"
                         | "hook"
                         | "mcp-server"
+                        | "plugin-manifest"
                         | "skill"
                         | "supporting-doc"
                         | "rule"

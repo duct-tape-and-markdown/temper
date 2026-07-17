@@ -310,6 +310,35 @@ fn claude_code_installed_plugin() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `.claude-plugin/plugin.json` kind: a plugin pack's identity and
+/// metadata, the whole file one JSON document rather than frontmatter over a body
+/// (`code.claude.com/docs/en/plugins-reference`, retrieved 2026-07-16). Identity reads from
+/// the top-level `name` — the file's stem is `plugin` for every manifest ever written, so
+/// the named-field mode is the only one that distinguishes two.
+///
+/// It owns its file, so it carries no collection address — unlike the registration members
+/// that surface *inside* a manifest, this kind is the manifest. Channel-less: it carries
+/// distribution metadata rather than session content, so it reaches the model on no channel
+/// of its own; what reads it is the installer.
+fn claude_code_plugin_manifest() -> CustomKind {
+    CustomKind {
+        format: Some(Format::JsonDocument),
+        unit_shape: Some(crate::kind::UnitShape::NamedField {
+            field: "name".to_string(),
+        }),
+        ..CustomKind::new(
+            "plugin-manifest",
+            Governs {
+                root: ".claude-plugin".to_string(),
+                glob: "plugin.json".to_string(),
+            },
+            Extraction::new(vec![Primitive::Field {
+                key: "name".to_string(),
+            }]),
+        )
+    }
+}
+
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
@@ -319,6 +348,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_hook(),
         claude_code_installed_plugin(),
         claude_code_mcp_server(),
+        claude_code_plugin_manifest(),
         claude_code_skill(),
         claude_code_supporting_doc(),
         claude_code_rule(),
@@ -536,6 +566,7 @@ mod tests {
                 "installed-plugin",
                 "mcp-server",
                 "memory",
+                "plugin-manifest",
                 "rule",
                 "skill",
                 "supporting-doc"

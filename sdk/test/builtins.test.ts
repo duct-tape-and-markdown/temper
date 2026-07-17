@@ -20,6 +20,8 @@ import {
   mcpServerDefaultContract,
   memory,
   memoryAnthropicDefaultContract,
+  pluginManifest,
+  pluginManifestDefaultContract,
   rule,
   ruleDefaultContract,
   skill,
@@ -37,6 +39,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   mcpServerDefaultContract,
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
+  pluginManifestDefaultContract,
   supportingDocDefaultContract,
 ];
 
@@ -223,6 +226,55 @@ test("supportingDocDefaultContract is one advisory reach clause — the format's
   assert.equal(reach.severity, "advisory");
   assert.match(reach.guidance ?? "", /never points at/);
   assert.equal(reach.cite, "https://code.claude.com/docs/en/skills (retrieved 2026-07-16)");
+});
+
+test("plugin-manifest is a json-document file kind identified by its name key, owning its file", () => {
+  assert.deepEqual(pluginManifest.facts.locus, { kind: "at", root: ".claude-plugin", glob: "plugin.json" });
+  // The one built-in at the whole-artifact JSON format — never frontmatter over a body.
+  assert.equal(pluginManifest.facts.format, "json-document");
+  // Identity from the document's own key: every manifest's stem is `plugin`, so the
+  // named-field mode is the only one that tells two apart.
+  assert.equal(pluginManifest.facts.unitShape, "named-field");
+  assert.equal(pluginManifest.facts.identityField, "name");
+  // It *is* the manifest rather than surfacing inside one, so it owns its file: no
+  // collection address, and never the fields-only registration shape.
+  assert.equal(pluginManifest.facts.collectionAddress, undefined);
+  assert.equal(pluginManifest.facts.shape, undefined);
+  // Channel-less: distribution metadata reaches the installer, never the model.
+  assert.deepEqual(pluginManifest.facts.registration, []);
+});
+
+test("pluginManifestDefaultContract gates the decidable slice of the --strict profile", () => {
+  // `name`'s presence, emptiness and charset, plus the one deny-list slice of the
+  // unrecognized-field bar the algebra can express. The rest of `--strict` — an
+  // allow-list over the closed key set — needs a predicate that does not exist, and the
+  // contract's own header names the hold rather than forging a clause for it.
+  assert.deepEqual(
+    pluginManifestDefaultContract.map((entry) => entry.predicate.key),
+    ["required", "min_len", "allowed_chars", "forbidden_keys"],
+  );
+  // Every clause is an error: `--strict` is the portable bar, so nothing here is a note.
+  assert.ok(pluginManifestDefaultContract.every((entry) => entry.severity === "required"));
+
+  const [presence, empty, charset, experimental] = pluginManifestDefaultContract;
+  assert.deepEqual(presence.predicate, { key: "required", field: "name" });
+  assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
+  // Kebab-case, no spaces — the charset is the whole rule the docs state.
+  assert.deepEqual(charset.predicate, {
+    key: "allowed_chars",
+    field: "name",
+    charset: { ranges: ["a-z", "0-9"], chars: "-" },
+  });
+  assert.deepEqual(experimental.predicate, { key: "forbidden_keys", keys: ["themes", "monitors"] });
+  // The runtime divergence rides the guidance, the one channel that can carry it: the
+  // clause decides the key's presence, never which world the reader is validating in.
+  assert.match(experimental.guidance ?? "", /--strict/);
+  assert.match(charset.guidance ?? "", /displayName/);
+
+  // Cited and dated, every one — the audit trail a maintained default contract exists for.
+  for (const entry of pluginManifestDefaultContract) {
+    assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/plugins-reference#.* \(retrieved 2026-07-16\)$/);
+  }
 });
 
 test("command is a file-shaped unit with no identityField, unlike the directory-shaped skill", () => {

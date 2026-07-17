@@ -1,11 +1,15 @@
 //! The `json-document` format — a file member whose whole artifact is one JSON object.
 //!
-//! The format inventory's second entry, proven over a custom kind fixture: no built-in
-//! declares it yet, so the kind is declared on the lock exactly as a corpus would declare
-//! one. Its top-level keys are the member's own fields (no collection address, so nothing
-//! is opaque residue), its identity is read from the declared key, and the write face
-//! renders the member back byte-identically — the read↔write round trip and the
-//! double-emit determinism the pipeline's "Emit" requires of every face.
+//! The format's own faces, held apart from any roster: the read and write functions are
+//! driven over a kind value built here, so what they prove is the format rather than the
+//! kind that happens to declare it. `plugin-manifest` ships at this format and locus now
+//! (`tests/plugin_manifest_kind.rs` drives that kind), so the fixture is the real
+//! artifact, and the lock row the gate test writes restates the built-in's own facts.
+//!
+//! Its top-level keys are the member's own fields (no collection address, so nothing is
+//! opaque residue), its identity is read from the declared key, and the write face renders
+//! the member back byte-identically — the read↔write round trip and the double-emit
+//! determinism the pipeline's "Emit" requires of every face.
 //!
 //! The dispatch is what makes the declared format load-bearing: a `.json` artifact read
 //! through the frontmatter adapter would carry no fields at all, so a `required` clause
