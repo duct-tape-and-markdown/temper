@@ -193,7 +193,7 @@ condition arrives, it is the next break. If work touches one, surface it.
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
     file. No queued entry opens `src/roster.rs`; it waits for one, and never
-    becomes an entry of its own. Cite re-read on disk at af2a1f1, still 470 —
+    becomes an entry of its own. Cite re-read on disk at 80685db, still 470 —
     but re-read rather than carried, because an orphan's address drifts under
     the ride-only rule (6d145fa moved it 465→470 while this record slept).
   Fixture body text inside tests stays a separate class, excluded — it is

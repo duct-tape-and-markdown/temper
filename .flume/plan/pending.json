@@ -7,8 +7,7 @@
       "section": "Default contracts"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CHECK-JOINS-INVOCATION-LOCKS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,23 +15,23 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`Predicate::Type` (97-102) carries one `kind: ValueType` (101); it becomes a set, satisfied when the field's preserved kind is any member. The variant's doc (93-96) states the widening. `predicate_from_row` (321) decodes the column. An empty set admits nothing and is inadmissible — the inverted-bound precedent `range` and `count` already set."
+          "description": "`Predicate::Type` (134-139) carries one `kind: ValueType` (138); it becomes a set, satisfied when the field's preserved kind is any member. The variant's doc (130-133) states the widening. `predicate_from_row` (358) decodes the column at its `\"type\"` arm (369-372). An empty set admits nothing and is inadmissible — the inverted-bound precedent `range` and `count` already set. Every address here re-read on disk at 80685db: 6d145fa shifted this file ~+37 lines after the entry's last stamp, so these are the current numbers, not the scoped ones."
         },
         {
           "path": "src/engine.rs",
-          "description": "The `Type` arm (626) matches the feature's preserved kind against one declared kind; it becomes set membership, and the violation message names the declared set. `admissibility` (110) rejects the empty set beside the existing vacuous-clause refusals — the empty `forbidden_keys` case (220) is the shape to follow."
+          "description": "The `Type` arm (610) matches the feature's preserved kind against one declared kind; it becomes set membership, and the violation message names the declared set. `admissibility` (110) rejects the empty set beside the existing vacuous-clause refusals — the empty `forbidden_keys` case (216) is the shape to follow. Re-read on disk at 80685db; 6d145fa moved the evaluation arms ~-16 lines after the entry's last stamp."
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow::value_type` (2760) is `Option<String>` — one lattice name — written at 3602-3603 and read at 3647; it carries the set. (All three re-read at 15e5924; 09ef5ea moved them 2672→2760, 3511-3512→3602-3603, 3553→3647.) An older lock's bare string reads as a one-element set and the next emit rewrites the file whole in canonical form: the robust read plus canonical rewrite an upgraded engine owes a committed lock (`pipeline.md`, \"The lock\"), never a patch of the file."
+          "description": "`ClauseRow::value_type` (2760) is `Option<String>` — one lattice name — written at 3602-3603 and read at 3647; it carries the set. (All three re-read on disk at 80685db, unmoved since 15e5924.) An older lock's bare string reads as a one-element set and the next emit rewrites the file whole in canonical form: the robust read plus canonical rewrite an upgraded engine owes a committed lock (`pipeline.md`, \"The lock\"), never a patch of the file."
         },
         {
           "path": "src/compose.rs",
-          "description": "The three row-build sites carrying `value_type: None` (226, 253, 275) move with the column."
+          "description": "The three row-build sites carrying `value_type: None` (273, 301, 324) move with the column; all three sit inside the file's own `mod tests` (252), so this edit is fixture upkeep rather than a production seam. `clause_from_row` (216) is the one lift, and it gained a second consumer at b753358 — `with_joined_clauses` (149) — so the widened column reaches a joined layer's rows for free, with no edit of its own."
         },
         {
           "path": "src/schema.rs",
-          "description": "The `Type` arm (64-67) writes JSON Schema's `type` from one lattice kind via `json_type`; a set is JSON Schema's own type-array, so the `schema` verb keeps saying exactly what the clause says and nothing more."
+          "description": "The `Type` arm (64-67) writes JSON Schema's `type` from one lattice kind via `json_type` (176); a set is JSON Schema's own type-array, so the `schema` verb keeps saying exactly what the clause says and nothing more. Re-read on disk at 80685db, unmoved."
         },
         {
           "path": "sdk/src/contract.ts",
@@ -40,7 +39,7 @@
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`pluginManifestDefaultContract`'s header (606-620) names two holds; the second (615-620, \"Wrong-typed component paths\") discharges — `skills`, `commands`, `agents`, `hooks`, `mcpServers`, `lspServers` gain `type` clauses over their documented unions, each carrying a fresh raw cite retrieved at encode time, never re-encoded from this description. The first hold (609-614) survives and stays named: `closed-keys` is the widening that closes it."
+          "description": "`pluginManifestDefaultContract`'s header (606-620) names two holds; the second (615-620, \"Wrong-typed component paths\") discharges — `skills`, `commands`, `agents`, `hooks`, `mcpServers`, `lspServers` gain `type` clauses over their documented unions, each carrying a fresh raw cite retrieved at encode time, never re-encoded from this description. The first hold (609-614) survives and stays named: `closed-keys` is the widening that closes it. Both ranges re-read on disk at 80685db."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
@@ -52,7 +51,7 @@
         },
         {
           "path": "tests/manifest_schema_oracle.rs",
-          "description": "The coverage oracle shipped at 97e84a1, after this entry was scoped — it makes this the entry that moves the measured lag, in two places. (1) `covered_rule` (135) destructures `Predicate::Type { field, kind }` and calls `json_schema_type(*kind)` (141): the set breaks that arm, which re-spells as the `type in {a|b}` form `schema_rules` already emits; its doc (132-134) calls a union-typed property \"deliberately unreachable here\" because a single-kind clause \"would reject the documented string form\" — that sentence retires with the widening. (2) `EXPECTED_LAG` (34) drops exactly the six rows this closes — `agents`, `commands`, `hooks`, `lspServers`, `mcpServers`, `skills` — and the header's \"six union-typed component fields awaiting a `type` that accepts a set\" (31-32) retires with them. `monitors`/`outputStyles`/`themes` are union-typed too and stay in the lag: they are components no clause types at all, outside builtins.md's six. `the_lag_behind_the_published_schema_is_the_named_expected_set` (181) fails loud with \"re-state EXPECTED_LAG\" if this is skipped, so the diff is reviewable by construction, never silent."
+          "description": "The coverage oracle shipped at 97e84a1, after this entry was scoped — it makes this the entry that moves the measured lag, in two places. (1) `covered_rule` (135) destructures `Predicate::Type { field, kind }` and calls `json_schema_type(*kind)` (141): the set breaks that arm, which re-spells as the `type in {a|b}` form `schema_rules` already emits; its doc (132-134) calls a union-typed property \"deliberately unreachable here\" because a single-kind clause \"would reject the documented string form\" — that sentence retires with the widening. (2) `EXPECTED_LAG` (34) drops exactly the six rows this closes — `agents`, `commands`, `hooks`, `lspServers`, `mcpServers`, `skills` — and the header's \"six union-typed component fields awaiting a `type` that accepts a set\" (31-32) retires with them. `monitors`/`outputStyles`/`themes` are union-typed too and stay in the lag: they are components no clause types at all, outside builtins.md's six. `the_lag_behind_the_published_schema_is_the_named_expected_set` (181) fails loud with \"re-state EXPECTED_LAG\" if this is skipped, so the diff is reviewable by construction, never silent. All addresses re-read on disk at 80685db, unmoved."
         }
       ],
       "retire": []
@@ -73,7 +72,7 @@
       }
     ],
     "acceptance": "The six documented union-typed manifest fields are gated rather than held (builtins.md, \"Default contracts\": a hold is named with the widening that closes it, and discharges when it ships). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "First of 0033's four widenings (0029's move). Serialized behind CHECK-JOINS-INVOCATION-LOCKS: both edit `src/drift.rs` and `src/compose.rs`. The wave's four entries each edit `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts` and the generated seam, so they chain rather than fan out. The oracle rider is an audit finding, not a rescope: it shipped after this was scoped and now measures exactly this widening. scoped at 15b7a3a; cites re-read at 399d8e3."
+    "notes": "First of 0033's four widenings (0029's move). **Gate opened at 80685db**: CHECK-JOINS-INVOCATION-LOCKS shipped (b753358), so nothing blocks this. The wave's four entries each edit `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts` and the generated seam, so they chain rather than fan out. The oracle rider is an audit finding, not a rescope. scoped 15b7a3a; cites re-read on disk at 80685db."
   },
   {
     "tag": "FIELD-ADDRESSING-RFC-9535-SUBSET",
@@ -100,7 +99,7 @@
         },
         {
           "path": "src/engine.rs",
-          "description": "Path evaluation replaces bare-key lookup at the field-reading seam (`features.field(...)`, e.g. the `Type` arm at 626 and `scalar(features, field)` at 708); `[*]` is the each-grain over elements. `admissibility` (110) rejects a path using anything beyond the declared subset — filters, slices, recursive descent — so the RFC engine stays hidden and never surfaces as an author-facing pattern language (`intent.md`, invariant 1; 0033 refuses author-facing JSONPath for the third time on the record)."
+          "description": "Path evaluation replaces bare-key lookup at the field-reading seam (`features.field(...)`, e.g. the `Type` arm at 610; `scalar(features, field)`, e.g. the `AllowedChars` arm at 692); `[*]` is the each-grain over elements. `admissibility` (110) rejects a path using anything beyond the declared subset — filters, slices, recursive descent — so the RFC engine stays hidden and never surfaces as an author-facing pattern language (`intent.md`, invariant 1; 0033 refuses author-facing JSONPath for the third time on the record). Addresses re-read on disk at 80685db; 6d145fa moved the arms ~-16 lines after this entry's last stamp."
         },
         {
           "path": "src/contract.rs",
@@ -116,7 +115,7 @@
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`marketplaceDefaultContract`'s header (802-818) names one gap behind three bullets. Two discharge: `owner.name` required (806-809) and each `plugins[]` entry's `name`/`source` (810-812) become clauses, with fresh raw cites retrieved at encode time. The third (813-816, the `source` union) **survives and stays named**: it needs a discriminated-union predicate 0033 does not ratify, and the bullet already names that widening, which is what keeps it a hold rather than a silent absence (`builtins.md`, \"Default contracts\"). The `required(\"owner\")` (866) and `required(\"plugins\")` (872) guidance says the per-entry bar is unreachable; that sentence retires with the reach."
+          "description": "`marketplaceDefaultContract`'s header (802-818) names one gap behind three bullets. Two discharge: `owner.name` required (806-809) and each `plugins[]` entry's `name`/`source` (810-812) become clauses, with fresh raw cites retrieved at encode time. The third (813-816, the `source` union) **survives and stays named**: it needs a discriminated-union predicate 0033 does not ratify, and the bullet already names that widening, which is what keeps it a hold rather than a silent absence (`builtins.md`, \"Default contracts\"). The `required(\"owner\")` clause (861, its guidance sentence at 864) and `required(\"plugins\")` (867, guidance at 870) each say the per-entry bar is unreachable; those sentences retire with the reach. Re-read on disk at 80685db — the two clause addresses were previously stamped at their closing braces (866/872)."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -137,7 +136,7 @@
       }
     ],
     "acceptance": "`owner.name` and `plugins[*].source` are spellable and gated; the RFC engine is hidden mechanics and a path beyond the declared subset is refused (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0033's second widening. Its human half rides but is not this entry's to write: CLAUDE.md's stack list is a `.temper` projection, so adding `serde_json_path` there is a `chore(harness)` act (CLAUDE.md, \"The two harnesses\") — name it in the commit body rather than editing the projection. Serialized behind TYPE-ACCEPTS-A-SET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a."
+    "notes": "0033's second widening. Its human half rides but is not this entry's to write: CLAUDE.md's stack list is a `.temper` projection, so adding `serde_json_path` there is a `chore(harness)` act (CLAUDE.md, \"The two harnesses\") — name it in the commit body rather than editing the projection. Serialized behind TYPE-ACCEPTS-A-SET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped 15b7a3a; cites re-read at 80685db."
   },
   {
     "tag": "CLOSED-KEYS-CLAUSE",
@@ -156,19 +155,19 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "The `Predicate` enum (81) gains `ClosedKeys` — a variant naming no field of its own: it consumes the kind's already-declared `Required` (83-88) and `Optional` (89-94) rows as the allow-list, so the key set is never authored twice (0033). `predicate_from_row` (321) decodes it."
+          "description": "The `Predicate` enum (118) gains `ClosedKeys` — a variant naming no field of its own: it consumes the kind's already-declared `Required` (120-123) and `Optional` (126-129) rows as the allow-list, so the key set is never authored twice (0033). `predicate_from_row` (358) decodes it. Re-read on disk at 80685db; 6d145fa shifted this file ~+37 lines after the entry's last stamp."
         },
         {
           "path": "src/engine.rs",
-          "description": "Evaluation reads the contract's own sibling rows rather than one field's value — a predicate needing wider context is evaluation cost, never a category (`contract.md`, \"clause\": the degree/reachability precedent). `Predicate::Optional` returns `Outcome::Holds` (621) and nothing consumes the record today; `closed-keys` is what consumes it. `admissibility` (110) rejects a `closed-keys` clause on a kind declaring no keys — vacuous, the shape the empty `forbidden_keys` refusal (220) already sets. The `ForbiddenKeys` arm (695) is the deny-list complement this does not replace."
+          "description": "Evaluation reads the contract's own sibling rows rather than one field's value — a predicate needing wider context is evaluation cost, never a category (`contract.md`, \"clause\": the degree/reachability precedent). `Predicate::Optional` returns `Outcome::Holds` (605) and nothing consumes the record today; `closed-keys` is what consumes it. `admissibility` (110) rejects a `closed-keys` clause on a kind declaring no keys — vacuous, the shape the empty `forbidden_keys` refusal (216) already sets. The `ForbiddenKeys` arm (679) is the deny-list complement this does not replace. Re-read on disk at 80685db."
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow` (2704, re-read at 15e5924 — 09ef5ea moved it from 2627) needs no argument column for it — the allow-list derives from the kind's sibling rows, so the row is predicate/severity/guidance/cite alone."
+          "description": "`ClauseRow` (2704, re-read on disk at 80685db) needs no argument column for it — the allow-list derives from the kind's sibling rows, so the row is predicate/severity/guidance/cite alone."
         },
         {
           "path": "src/compose.rs",
-          "description": "`clause_from_row` (176-190) lifts it; the row-build sites carry no new column."
+          "description": "`clause_from_row` (216) lifts it; the row-build sites carry no new column. Note the second lift consumer that shipped at b753358 — `with_joined_clauses` (149) — so a joined policy layer may spell `closed-keys` over this corpus's kinds the moment the predicate exists, with no edit of its own."
         },
         {
           "path": "src/schema.rs",
@@ -180,7 +179,7 @@
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`pluginManifestDefaultContract`'s first hold (609-614) — unrecognized top-level fields, \"the substance of `--strict`\" — discharges: the manifest's documented keys already ride as `required`/`optional` rows, and one `closedKeys()` clause declares them exhaustive, with a fresh raw cite retrieved at encode time. The header's parenthetical that nothing consumes `optional` (612-613) retires with it. The shipped `forbiddenKeys` deny-list slice (\"the one deny-list slice that *is* decidable\") stays unless it is now subsumed — check on disk and say which in the commit body (`engineering.md`, \"One job, one home\")."
+          "description": "`pluginManifestDefaultContract`'s first hold (609-614) — unrecognized top-level fields, \"the substance of `--strict`\" — discharges: the manifest's documented keys already ride as `required`/`optional` rows, and one `closedKeys()` clause declares them exhaustive, with a fresh raw cite retrieved at encode time. The header's parenthetical that nothing consumes `optional` (612-613) retires with it. The shipped `forbiddenKeys` deny-list slice (\"the one deny-list slice that *is* decidable\") stays unless it is now subsumed — check on disk and say which in the commit body (`engineering.md`, \"One job, one home\"). Ranges re-read on disk at 80685db."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
@@ -192,7 +191,7 @@
         },
         {
           "path": "tests/manifest_schema_oracle.rs",
-          "description": "`covered_rule` (135) matches `Predicate` exhaustively, so a new variant is a compile error until it lands in an arm; `ClosedKeys` joins the no-op list (147-165), whose comment already reasons about the `--strict` bar. `EXPECTED_LAG` must NOT move, and that is pinned rather than asserted here: the shipped `the_published_schema_states_no_closed_key_rule_so_the_strict_bar_is_outside_this_diff` (217) reads the vendored schema's absent `additionalProperties` and states this widening \"closes that hold against the *docs*, and this oracle will not move when it lands\". If the lag test fires anyway, the arm is wrong, not the list."
+          "description": "`covered_rule` (135) matches `Predicate` exhaustively, so a new variant is a compile error until it lands in an arm; `ClosedKeys` joins the no-op list (147-165), whose comment already reasons about the `--strict` bar. `EXPECTED_LAG` must NOT move, and that is pinned rather than asserted here: the shipped `the_published_schema_states_no_closed_key_rule_so_the_strict_bar_is_outside_this_diff` (217) reads the vendored schema's absent `additionalProperties` and states this widening \"closes that hold against the *docs*, and this oracle will not move when it lands\". If the lag test fires anyway, the arm is wrong, not the list. Re-read on disk at 80685db, unmoved."
         }
       ],
       "retire": []
@@ -209,7 +208,7 @@
       }
     ],
     "acceptance": "`plugin-manifest`'s contract checks the strictest documented profile it claims — `claude plugin validate --strict` — rather than naming the gap as a hold (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0033's third widening. `optional` has been a row nothing reads since it shipped; this is the consumer that makes it load-bearing, so the first `closed-keys` clause is also the first real test that a kind's declared rows are complete. Serialized behind FIELD-ADDRESSING-RFC-9535-SUBSET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a; cites re-read at 399d8e3."
+    "notes": "0033's third widening. `optional` has been a row nothing reads since it shipped; this is the consumer that makes it load-bearing, so the first `closed-keys` clause is also the first real test that a kind's declared rows are complete. Serialized behind FIELD-ADDRESSING-RFC-9535-SUBSET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped 15b7a3a; cites re-read at 80685db."
   },
   {
     "tag": "SHAPE-PREDICATE",
@@ -228,19 +227,19 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "The `Predicate` enum (81) gains `Shape { field, shape }` over a new closed `Shape` enum whose members are engine-implemented and doc-cited, opening with exactly two: the skill name's hyphen rules (no leading, trailing, or consecutive hyphen) and no-XML-tags-in-description. An unknown shape is rejected at load exactly as an unknown predicate is, never skipped (`contract.md`, \"clause\": the vocabulary is closed and growing it is a deliberate language change) — `predicate_from_row` (321) is that boundary. No author ever writes a pattern: 0033 refuses the author-facing pattern clause for the third time on the record."
+          "description": "The `Predicate` enum (118) gains `Shape { field, shape }` over a new closed `Shape` enum whose members are engine-implemented and doc-cited, opening with exactly two: the skill name's hyphen rules (no leading, trailing, or consecutive hyphen) and no-XML-tags-in-description. An unknown shape is rejected at load exactly as an unknown predicate is, never skipped (`contract.md`, \"clause\": the vocabulary is closed and growing it is a deliberate language change) — `predicate_from_row` (358) is that boundary, and its `\"type\"` arm (369-372) is the standing precedent for decoding a named argument into an engine enum, an unknown name yielding no predicate at all. No author ever writes a pattern: 0033 refuses the author-facing pattern clause for the third time on the record. Re-read on disk at 80685db."
         },
         {
           "path": "src/engine.rs",
-          "description": "Each shape's mechanics are `regex`, hidden exactly as it hides under `allowed_chars` (708). The violation message names the shape and the clause's guidance teaches it. `admissibility` (110) needs no new refusal — an unknown shape never decodes into a clause at all."
+          "description": "Each shape's mechanics are `regex`, hidden exactly as it hides under `allowed_chars` (692). The violation message names the shape and the clause's guidance teaches it. `admissibility` (110) needs no new refusal — an unknown shape never decodes into a clause at all. Re-read on disk at 80685db."
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow` (2704) gains a `shape` column carrying the enum member's name, following the `value_type` precedent (2760, written at 3602-3603 and read at 3647): the row family carries the argument as its name and decodes it at the boundary rather than carrying an engine type. Every address re-read at 15e5924 — 09ef5ea's toml module shifted the whole row family ~78 lines down."
+          "description": "`ClauseRow` (2704) gains a `shape` column carrying the enum member's name, following the `value_type` precedent (2760, written at 3602-3603 and read at 3647): the row family carries the argument as its name and decodes it at the boundary rather than carrying an engine type. Every address re-read on disk at 80685db."
         },
         {
           "path": "src/compose.rs",
-          "description": "`clause_from_row` (176-190) and the three row-build sites (226, 253, 275) carry the column."
+          "description": "`clause_from_row` (216) and the three `value_type: None` row-build sites (273, 301, 324, all inside the file's own `mod tests` at 252) carry the column."
         },
         {
           "path": "src/schema.rs",
@@ -252,7 +251,7 @@
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "`skillDefaultContract`'s header (889-894) names both holds and already names this widening (\"a narrow shape predicate governs additions\"); both discharge — the name's hyphen rules and the platform's \"no XML tags in the description\" become clauses with fresh raw cites retrieved at encode time. The `allowedChars` name clause (914) already keeps XML out of the *name* and its guidance says so; this is the description's own bar, and the two must not double-cover the name."
+          "description": "`skillDefaultContract`'s header (887-894) names both holds and already names this widening (\"a narrow shape predicate governs additions\"); both discharge — the name's hyphen rules and the platform's \"no XML tags in the description\" become clauses with fresh raw cites retrieved at encode time. The `allowedChars` name clause (914) already keeps XML out of the *name* and its guidance says so; this is the description's own bar, and the two must not double-cover the name. Both addresses re-read on disk at 80685db."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
@@ -264,7 +263,7 @@
         },
         {
           "path": "tests/manifest_schema_oracle.rs",
-          "description": "`covered_rule` (135) matches `Predicate` exhaustively, so `Shape` is a compile error until it lands in an arm. It belongs in the no-op list (147-165) — the oracle measures the plugin-manifest floor against the published schema, this widening ships clauses on `skill` alone, and the schema states no shape rule for a `type`/`minLength`-vocabulary diff to count. `EXPECTED_LAG` must not move; if it does, the arm is wrong."
+          "description": "`covered_rule` (135) matches `Predicate` exhaustively, so `Shape` is a compile error until it lands in an arm. It belongs in the no-op list (147-165) — the oracle measures the plugin-manifest floor against the published schema, this widening ships clauses on `skill` alone, and the schema states no shape rule for a `type`/`minLength`-vocabulary diff to count. `EXPECTED_LAG` must not move; if it does, the arm is wrong. Re-read on disk at 80685db, unmoved."
         }
       ],
       "retire": []
@@ -277,7 +276,7 @@
       }
     ],
     "acceptance": "The two documented decidable spec rules the skill contract has named as a hold since it shipped are gated, over a closed enum no author can extend (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0033's fourth widening — the \"later wave under their own design\" 0022 reserved. The enum's closure is the whole safety property: it is what separates a shape from the open lint `intent.md` invariant 2 exists to prevent, so a shape lands with its doc cite or it does not land. Serialized behind CLOSED-KEYS-CLAUSE over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a; cites re-read at 399d8e3."
+    "notes": "0033's fourth widening — the \"later wave under their own design\" 0022 reserved. The enum's closure is the whole safety property: it is what separates a shape from the open lint `intent.md` invariant 2 exists to prevent, so a shape lands with its doc cite or it does not land. Serialized behind CLOSED-KEYS-CLAUSE over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped 15b7a3a; cites re-read at 80685db."
   },
   {
     "tag": "DIAL-KIND",
@@ -308,11 +307,11 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. **Every half is upstream code on disk by the time this is picked** — `Commitment::Local` (46-56) and `CustomKind::local` (735) shipped at 40619a0, the layout-only arm that would otherwise refuse this kind on contact is retired (bce89b7, the fault at 750 now fencing the `governs`-less locus alone), `Format::TomlDocument` (563-568) shipped at 09ef5ea as a read face with no write twin — exactly what a never-projected local document needs — and 6e7b958 made the walk find the dial's own `.temper/dial.toml` at all, which is what keeps this kind's rows from deriving over an empty set. All four kind.rs addresses re-read on disk at af2a1f1. This entry declares the kind; it mints no format and no locus mechanics of its own."
+          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. **Every half is upstream code on disk by the time this is picked** — `Commitment::Local` (46-56) and `CustomKind::local` (735) shipped at 40619a0, the layout-only arm that would otherwise refuse this kind on contact is retired (bce89b7, the fault at 750 now fencing the `governs`-less locus alone), `Format::TomlDocument` (563-568) shipped at 09ef5ea as a read face with no write twin — exactly what a never-projected local document needs — and 6e7b958 made the walk find the dial's own `.temper/dial.toml` at all, which is what keeps this kind's rows from deriving over an empty set. All four kind.rs addresses re-read on disk at 80685db. This entry declares the kind; it mints no format and no locus mechanics of its own."
         },
         {
           "path": "src/main.rs",
-          "description": "Check applies the dial's severities to the labelled clauses it names, and its softening is inert in block mode — so a block-mode pass on any machine implies the shared gate's pass."
+          "description": "Check applies the dial's severities to the labelled clauses it names, and its softening is inert in block mode — so a block-mode pass on any machine implies the shared gate's pass. b753358 reshaped this file around the lock family, and the dial rides that shape rather than minting a second one: `assemble_lock_family` (1457) is the one read of every layered input, before any consumer, and returns the `LockFamily` (1427-1436) whose `joined_clauses` field is where a policy layer's clauses already sit. Read it before adding a severity-application seam. Addresses re-read on disk at 80685db."
         }
       ],
       "retire": []
@@ -325,7 +324,7 @@
       }
     ],
     "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole — the dial stays local-locus TOML, and \"layout-only\" retires as the wrong fence rather than the dial bending to it. Serialized only, behind SHAPE-PREDICATE over `sdk/src/builtins.ts`. **All three 0034 derivations have now shipped** (bce89b7, 09ef5ea, 6e7b958), so nothing upstream of this kind is unbuilt — only the chain's file serialization holds it. scoped f1d97e4; cites re-read af2a1f1."
+    "notes": "Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole — the dial stays local-locus TOML, and \"layout-only\" retires as the wrong fence. Serialized only, behind SHAPE-PREDICATE over `sdk/src/builtins.ts`. All three 0034 derivations have shipped (bce89b7, 09ef5ea, 6e7b958), so nothing upstream is unbuilt — only the chain's file serialization holds it. scoped f1d97e4; cites re-read at 80685db."
   },
   {
     "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
@@ -344,11 +343,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict."
+          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict. Two of the three are already assembled and need no re-derivation: `assemble_lock_family` (1457) returns the `LockFamily` (1427-1436) carrying both the local-locus read-time rows and `joined_clauses`, read once before any consumer. The joined third is the live gap b753358 named and deferred here by name: it shipped the join with every finding carrying its layer in the address (`<label>@<layer>`, `qualify_layer_label` at 1540), so a layer that produces no finding gates silently today — exactly what this closes. Addresses re-read on disk at 80685db."
         },
         {
           "path": "src/reporter.rs",
-          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line."
+          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line. All three re-read on disk at 80685db, unmoved."
         }
       ],
       "retire": []
@@ -361,7 +360,7 @@
       }
     ],
     "acceptance": "`check` announces every active local member, every dialed clause, and every joined lock (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "Last of 0032's five — it announces what the other four introduce, so it is honest only once they exist. Serialized behind the dial (shares `src/main.rs`) and inherits its fork through the chain. scoped at f1d97e4."
+    "notes": "Last of 0032's five — it announces what the other four introduce, so it is honest only once they exist. The joined-lock third is now **built and unannounced** (b753358), the first of the three to reach that state; scope is unchanged, and the commit body should say so. Serialized behind the dial (shares `src/main.rs`). scoped f1d97e4; cites re-read at 80685db."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -380,11 +379,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. Every cite below re-read on disk at a94cfb5 — 6d145fa moved them all ~6 lines up, so the numbers here are the current ones, not the scoped ones. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (621) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (648), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 519 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 618-620 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 643-646 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. Every cite below re-read on disk at a94cfb5 and re-tested at 80685db — the file is untouched since (`git diff a94cfb5..HEAD -- src/graph.rs` is empty), so these addresses are current. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (621) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (648), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 519 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 618-620 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 643-646 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1357, re-read at a94cfb5) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1358-1362) spells 'capped at the format's five-hop import recursion' (1360) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1357, re-read at a94cfb5 and re-tested at 80685db) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1358-1362) spells 'capped at the format's five-hop import recursion' (1360) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -397,7 +396,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at a94cfb5 and holds — nothing ruled the hop semantics. The prior 'every cite stands unmoved' claim is retired as false: 6d145fa moved all of them ~6 lines (constant 65→59, narration 525→519 and 624→618, BFS 654→648, test 1356→1357), each re-read on disk and re-stamped above. The constant is still 5, so the park's subject is untouched — and may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified a94cfb5."
+    "notes": "Park re-tested at 80685db and holds — nothing ruled the hop semantics, and the window touched neither `src/graph.rs` nor `tests/graph.rs`, so every address stamped at a94cfb5 is still current. The constant is still 5, so the park's subject is untouched — and may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified a94cfb5; park re-tested 80685db."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -424,6 +423,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 399d8e3, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. `git diff 9409a6c..HEAD -- .github/` is empty. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 80685db, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. `git diff 9409a6c..HEAD -- .github/` is empty. scoped b676656."
   }
 ]

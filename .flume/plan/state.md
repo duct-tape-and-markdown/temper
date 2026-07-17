@@ -1,51 +1,55 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: af2a1f1
-- Residue swept through: af2a1f1
-- This tick: RECONCILE `15e5924..af2a1f1` — both motions over 6e7b958's ship,
+- Audited through: 80685db
+- Residue swept through: 80685db
+- This tick: RECONCILE `af2a1f1..80685db` — both motions over b753358's ship,
   the window's only commit touching `src/`/`tests/`.
-  **Audit: the override shipped as scoped, and it drains the queue's last
-  blocker.** Verified on disk, not off the log: `LocalOverride`
-  (`src/import.rs`:25-42) is the two-value enum, and `discoverable_paths` (395)
-  hangs both waivers off it — `.git_ignore`/`.git_exclude` negated by
-  `local_governs` (402-403) and the `WORKSPACE_DIR` skip fenced at 409 — while
-  `.git/` and the nested-governed-root stop (412) stay whole for every walk,
-  exactly the scoping 0034 names. The class is threaded, not re-derived:
-  `local_governs` (256) reads the kind's own column, every read-side caller
-  passes `Honored` (`main.rs`:1200/1218, `json_manifest.rs`:395), and only
-  `install::discover` (329) withholds it. `cargo test` green on disk.
-  **The head entry's gate re-tested and opened.** CHECK-JOINS-INVOCATION-LOCKS
-  rested on LOCAL-GOVERNS-OVERRIDES-DISCOVERY alone; the ship commit (af2a1f1)
-  removed that entry, so the gate is now `open`. It is the queue's one pickable
-  entry.
-  **Cites re-stamped, re-read on disk, never carried.** 6e7b958 threaded the
-  override through `resolve_kind_units`'s two discovery calls, moving
-  `src/main.rs`'s `assemble_lock_family` 1385→1395 — reaching the head entry.
-  The `Check` command (106-123) and the admissibility pair (830/869) sit
-  unmoved, re-read rather than assumed. `src/drift.rs` (3192/3215, 2760,
-  3602-3603, 3647), `src/compose.rs`, and `src/kind.rs` (46-56, 563-568, 735,
-  750) are outside the window and re-read where an entry cites them.
-  **DIAL-KIND's upstream is now whole.** Its notes claimed two of 0034's three
-  derivations had shipped; the third is 6e7b958, so nothing upstream of the dial
-  is unbuilt — only the chain's file serialization holds it. Its `src/kind.rs`
-  note gains the discovery half: without 6e7b958 the dial's own
-  `.temper/dial.toml` sits under the skipped workspace, and the kind's rows
-  would derive over an empty set.
-  **Sweep: clean.** No second implementation — the override threads through the
-  one existing walk (`discover_kind_files` already carried the `kind`), no
-  parallel local-discovery path was minted, and `discoverable_paths` stays the
-  sole home of both presumptions. Nothing filed. Both parks re-tested and hold:
-  the window touches neither `src/graph.rs` nor `.github/` (`git diff` over both
-  is empty). The `src/roster.rs`:470 orphan cite still waits for a carrier —
-  re-read on disk rather than carried, still 470. One fork record restamped:
-  `(settings-local-kind)`'s "can it" half is now built rather than merely ruled,
-  so its ship-or-not ruling costs no upstream work.
-- Queue: 9 entries, **1 pickable** — CHECK-JOINS-INVOCATION-LOCKS. Six chain
-  behind it, serialized on shared files; no entry rests on a fork. Two parked.
+  **Audit: the join shipped as scoped, and it opens the head of the chain.**
+  Verified on disk, not off the log: `with_joined_clauses` (`src/compose.rs`:149)
+  appends a layer's rows to the host contract and never replaces one, which is
+  what makes hardening unbounded and softening structurally impossible;
+  `read_layer_clauses` (`main.rs`:1514) refuses a named-but-unreadable layer
+  fail-closed, and `joined_kind_admissibility` (1560) catches the clause naming
+  a kind no dispatcher would lift. `cargo test` green on disk (0 failed).
+  **The head entry's gate re-tested and opened.** TYPE-ACCEPTS-A-SET rested on
+  CHECK-JOINS-INVOCATION-LOCKS alone; the ship commit (80685db) removed that
+  entry, leaving the gate pointing at a tag no longer in the queue. It is now
+  `open`, and the queue's one pickable entry.
+  **Cites re-stamped — and my own were the finding.** The window moved
+  `src/compose.rs` (+29 at 131), but the deeper miss predates it: 6d145fa
+  shifted `src/contract.rs` ~+37 and `src/engine.rs` ~-16 *after* the wave's
+  four entries were last stamped at 399d8e3, and no tick since re-read them.
+  So four entries carried false addresses for six ships. All re-read on disk at
+  80685db: contract.rs (enum 118, `Type` 134-139, `kind` 138,
+  `predicate_from_row` 358), engine.rs (`Type` 610, `Optional` 605,
+  `ForbiddenKeys` 679, empty-`forbidden_keys` 216, `AllowedChars` 692),
+  compose.rs (`clause_from_row` 216; the three `value_type: None` sites 273/301/
+  324, all inside `mod tests` — recorded, since the entries called them
+  row-build sites without saying they are fixtures). Verified *unmoved* rather
+  than assumed: schema.rs (62-67, 110-120, 176), drift.rs (2704, 2760,
+  3602-3603, 3647), the oracle (34, 135, 141, 181, 217), reporter.rs (65, 141,
+  172), builtins.ts (606-620, 802-818, 887-894, 914), kind.rs. Two builtins.ts
+  cites corrected: `required("owner")`/`required("plugins")` were stamped at
+  their closing braces (866/872), not their clause heads (861/867).
+  **Two entries gained a rider from the window, neither rescoped.**
+  `with_joined_clauses` is a second consumer of `clause_from_row`, so
+  CLOSED-KEYS-CLAUSE's and SHAPE-PREDICATE's new predicates reach a joined
+  layer for free; and `assemble_lock_family` (1457) / `LockFamily` (1427-1436)
+  is the one assembled read DIAL-KIND and CHECK-ANNOUNCES-THE-LOCK-FAMILY must
+  ride rather than mint a second seam beside.
+  **Sweep: clean.** No second implementation — `read_layer_clauses` reuses
+  `drift::parse_declarations`, and `with_joined_clauses` reuses
+  `clause_from_row`; neither a second lock reader nor a second clause lift was
+  minted. Nothing filed. Both parks re-tested and hold: the window touches
+  neither `src/graph.rs` nor `.github/` (`git diff` over both is empty). The
+  `src/roster.rs`:470 orphan cite still waits for a carrier — re-read on disk,
+  still 470. No fork record moved: the audit resolved none.
+- Queue: 8 entries, **1 pickable** — TYPE-ACCEPTS-A-SET. Five chain behind it,
+  serialized on shared files; no entry rests on a fork. Two parked.
 
 Plan continues: no — every input is drained. Inbox and refactor captures are
 empty, the spec delta is empty (nothing past 832f015), and both reconciliation
-cursors now sit at af2a1f1 with the window's audit and sweep complete. Build
-takes over: CHECK-JOINS-INVOCATION-LOCKS is pickable, and with 0034's last
-derivation shipped, six entries queue behind it carrying no unbuilt upstream.
+cursors now sit at 80685db with the window's audit and sweep complete. Build
+takes over: TYPE-ACCEPTS-A-SET is pickable, opening 0033's four-widening wave,
+with five entries queued behind it carrying no unbuilt upstream.
