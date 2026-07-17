@@ -83,7 +83,7 @@ temper makes it correct — downstream of both, checking what you installed.
 provable is conformance to a declared contract, so that is all temper
 asserts. The undecidable remainder — does this skill trigger well, does this
 tool work — is delegated: a requirement's prose carries the intent, its
-verifier edge names the test; execution (CI, evals) judges it, never temper.
+verifier names the test; execution (CI, evals) judges it, never temper.
 
 ## Self-hosting
 

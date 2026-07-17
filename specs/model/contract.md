@@ -97,15 +97,22 @@ the assembly and the lock). Its template:
 - **identity** — the name satisfies edges target,
 - **prose** — the authored intent the requirement exists to carry; never
   interpreted,
-- a **verifier edge** — a path-resolved reference to the test or eval that
-  judges the behavioral remainder; the gate checks the edge resolves, never
-  runs the target,
+- a **verifier** — the typed delegate that judges the behavioral remainder,
+  one of three declared species: a **script** (a path-resolved reference
+  to the test or CI job that executes the judgment), a **telemetry**
+  declaration (named, documented harness events the emitted tap records
+  to a local-locus log, judged by reading the field record), or a
+  **probe** (a fixture harness plus a headless session, judged over the
+  run's own record). The gate checks the declaration resolves — a
+  script's path, a telemetry event's documented name, a probe's fixture —
+  and never runs, records into, or aggregates over it: sessions execute
+  elsewhere, and no verifier's verdict enters `check`'s exit code,
 - **attached clauses** over its opt-in selection. "This must be filled" is
   the shipped default: a whole-grain cardinality clause (at least one
   satisfier) at error severity — overridable, so an advisory requirement
   ("warn until something fills this") is expressible.
 
-The requirement's prose and verifier edge are the model's declared boundary
+The requirement's prose and verifier are the model's declared boundary
 with the undecidable: the two slots that stay human.
 
 ## well-formedness
@@ -114,7 +121,7 @@ The only fixed checks — preconditions of judging, never opinions:
 
 - **admissibility** — the contract is coherent before it judges anything:
   predicates in the vocabulary, no vacuous clause, no unfillable selection,
-  no dangling verifier edge. Every finding is an error.
+  no dangling verifier. Every finding is an error.
 - **acyclicity** — the import relation is well-founded; a cyclic graph makes
   evaluation itself ill-defined.
 
@@ -123,7 +130,10 @@ it is a clause, not well-formedness.
 
 ## Read verbs
 
-`explain` is the one read verb: it narrates a member, requirement, or leaf,
-and its impact strand reports the deterministic set of members that break
-if one is removed. Every reading is a projection over the same resolved
-edges the gate uses; it never gates.
+`explain` is the one read verb: it narrates a member, requirement, or leaf;
+its impact strand reports the deterministic set of members that break if
+one is removed, and its field strand narrates the local telemetry record —
+counts and denominators joined to members through the same lock
+declarations the gate reads: evidence narrated, never judged. Every
+reading is a projection over the same resolved edges the gate uses; it
+never gates.

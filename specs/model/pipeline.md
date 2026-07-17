@@ -74,6 +74,20 @@ pipeline definition — no trust model here. A joined lock that fails
 admissibility fails the check, fail-closed. `check` announces every
 active local member, every dialed clause, and every joined lock.
 
+## Telemetry
+
+A telemetry declaration projects as tap hook registrations in the emitted
+manifest — the same rows any hook rides. The tap appends event records to
+a local-locus log (`representation.md`, "locus"): per-machine,
+uncommitted, never an emit input or target. A record is an event's
+identity and its minimal discriminant — the member or path the event
+names, the load reason, the session id — and never captured prose: no
+tool output, no prompt text, no message bodies. The bound is the tap's
+contract, not its configuration. Interpretation happens at read time
+alone: the reader joins raw events to members through the lock's own
+declarations, so the tap stays dumb and the record stays honest — a fact
+about what fired, read for narration, never mined for model structure.
+
 ## Emit
 
 The deterministic compile of the harness value into artifacts plus the lock.
