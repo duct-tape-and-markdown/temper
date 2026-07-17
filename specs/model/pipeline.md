@@ -49,10 +49,12 @@ of a kind whose locus is local, or a lock the invocation joins. Two rules
 attach to anything **uncommitted** — content review never saw — never to
 a layer's name:
 
-- **Check-side, structurally.** A local locus is layout-only: the
-  document is the governed source, emit writes nothing there, and the
-  lock captures the committed harness alone — committed bytes are
-  layer-invariant by construction. A local member's rows derive at read
+- **Check-side, structurally.** A local member is read-side only: its
+  document is the governed source, read in place under whatever format
+  its kind declares — never an emit input or target (emit's codomain is
+  the committed tree, decision 0034) — and the lock captures the
+  committed harness alone, so committed bytes are layer-invariant by
+  construction. A local member's rows derive at read
   time under the kind the committed lock declares: review fixes what a
   local file may say; the gate reads what it says.
 - **Review is the price of softening.** The committed harness may soften
@@ -75,6 +77,11 @@ active local member, every dialed clause, and every joined lock.
 ## Emit
 
 The deterministic compile of the harness value into artifacts plus the lock.
+Its codomain is the committed tree: temper is an authoring tool — a
+projection is an iterative update to a source-controlled artifact, and
+carrying bytes to machines is source control's job. Emit writes no
+uncommitted path; a local member is a check-side input, never a target
+(decision 0034).
 
 - **Total, and write-only.** Members are the only source; every artifact is
   its member's format evaluated over its values; no file is part emitted,

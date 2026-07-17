@@ -91,3 +91,18 @@ already shipped), the dial kind and its TOML format mechanics, the
 `--layer` lock join, the announcement line. The claude-code face's
 `settings.local.json` is the first candidate local-locus layout kind
 beyond the dial itself.
+
+## Amended — 2026-07-16 (0034)
+
+"Layout-only" was the wrong fence: it smuggled a format — markdown's
+heading tree, via the definition of layout — into a provenance property,
+and the first local-locus kind, the dial this same record ratified as
+TOML, could not pass it (`(local-locus-toml-face)`, plan-caught, enforced
+code by 40619a0). Decision 0034 re-spells the class from the invariant it
+was guarding: a local member is **read-side only**, any declared format —
+never an emit input or target, because emit's codomain is the committed
+tree. The lock exclusion stands as a corollary (the lock is a committed
+artifact); the dial as specified is unchanged. The widening condition
+this record named — "a consumer who needs program-authored local
+projections" — is retired rather than kept: 0034 rules that write path
+out of the tool's job, not merely unbuilt.

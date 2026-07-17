@@ -107,3 +107,13 @@ never a composition feature. The stack, precedence-as-provider-fact, and
 both uncommitted rules stand; the "envelope as admissibility contract
 over the layer's effect" became the dial kind's schema, which cannot
 spell deletion — the same bound, held structurally.
+
+## Amended — 2026-07-16 (0034)
+
+Decision 0034 retracts one clause of the first uncommitted rule:
+"uncommitted members project only to natively-local targets" granted a
+local write path emit turned out not to have — emit's codomain is the
+committed tree, so an uncommitted member is a check-side input, never a
+projection source. The rule's substance (committed bytes are
+layer-invariant) stands, now as a corollary of the codomain rather than
+a bound beside it.

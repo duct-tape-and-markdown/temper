@@ -13,39 +13,6 @@ tax.
 
 ## Open forks
 
-- `(local-locus-toml-face)` — OPEN, blocking, registered 07-16 routing 0032.
-  Two ratified sentences of one commit collide. `representation.md` ("locus"):
-  a local locus **is layout-only** — "the document is the governed source,
-  read at check under the declared layout". `contract.md` ("clause"): the dial
-  is "a temper-owned, local-locus **TOML** document (`.temper/dial.toml`)".
-  But a layout is a template over **the body's heading tree** in three
-  primitives and "admits no syntax beyond markdown's own"
-  (`representation.md`, "kind") — a TOML file has no heading tree, so the dial
-  as specified cannot be a layout-content member, and the first local-locus
-  kind cannot satisfy the local locus's own rule. Verified on disk at 399d8e3:
-  `Format` is `yaml-frontmatter | json-document` (`src/kind.rs`:555-564,
-  `sdk/src/kind.ts`:22) — no TOML face exists; a `json-document` kind is
-  `Content::File | Content::Fields`, never layout (`src/main.rs`:1263-1266),
-  which is the precedent a `toml-document` format would follow (`toml_edit` is
-  already sanctioned). **The collision is enforced code as of 40619a0, not two
-  readings of prose:** `local_locus_fault` (`src/kind.rs`:746) refuses a local
-  kind that is not layout content, surfaced at the gate as `kind.local-locus`
-  (`src/main.rs`:1860). So the dial as `contract.md` spells it now trips a
-  shipped fence — the fork's cost moved from latent to a refusal a build tick
-  would hit on contact. Three candidate readings, each amending a different
-  ratified sentence: a `toml-document` format joins the inventory and
-  "layout-only" widens to source-only (the property that carries the trust
-  story is read-never-written, not markdown); or the dial is markdown with a
-  declared layout, against contract.md's explicit `.temper/dial.toml`; or
-  "layout-only" stays literal and the dial is not a local-locus member,
-  against 0032's own "no special mechanisms". Plan does not pick between two
-  ratified sentences, and build must not either. Blocks DIAL-KIND and, through
-  it, CHECK-ANNOUNCES-THE-LOCK-FAMILY. LOCAL-LOCUS-COMMITMENT-CLASS **shipped**
-  (40619a0) with the fence as written, as its entry said it would; the ruling
-  re-cuts `local_locus_fault` if it widens the class. Its fixture kind governs
-  `.claude/local/*.md`, never `.temper/dial.md` — the first real local kind's
-  face is exactly what this fork owes.
-
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
@@ -71,11 +38,11 @@ tax.
   candidate local-locus layout kind beyond the dial itself." A candidate is not
   a requirement, and plan does not promote one — the `(plugin-author-dogfood)`
   precedent. The question: does the claude-code face ship a
-  `settings.local.json` kind, and can it, given the file is JSON and a local
-  locus is layout-only? That second half is `(local-locus-toml-face)`'s
-  question wearing another format, so this fork's shape depends on that
-  ruling and is not independent of it. Nothing is broken by leaving it open:
-  the file is ungoverned today and no member declares it. No dependents.
+  `settings.local.json` kind? The "can it" half is ruled — 0034 makes a
+  local member read-side only under any declared format, so a JSON local
+  kind gated in place is ordinary; ship-or-not is all that remains.
+  Nothing is broken by leaving it open: the file is ungoverned today and
+  no member declares it. No dependents.
 
 - `(eval-capability)` — OPEN, strategic, parked past launch. Harness evals: a
   requirement carries prose intent and a verifier edge
