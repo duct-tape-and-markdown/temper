@@ -6,8 +6,8 @@ import type { ValueType } from "./ValueType.js";
  * [`ValueType`] alongside its comparison text), a list field (e.g. a YAML sequence
  * like `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,
  * `deny`, `allowed_chars`) read the scalar text; presence predicates
- * (`required`, `forbidden_keys`) need only the key; the `type` primitive
- * (forthcoming) reads [`FeatureValue::kind`].
+ * (`required`, `forbidden_keys`) need only the key; the `type` primitive reads
+ * [`FeatureValue::kind`].
  */
 export type FeatureValue = { "Scalar": { 
 /**

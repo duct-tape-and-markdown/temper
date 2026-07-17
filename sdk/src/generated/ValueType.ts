@@ -5,7 +5,11 @@
  * field schema ranges over. Taken from the *parsed*
  * YAML/JSON value, not its stringified form: a sound `type` check needs the
  * extractor to preserve the source kind rather than collapse every scalar to a
- * bare string (the slice-1 shortcut this entry corrects). The five scalar kinds
+ * bare string. The five scalar kinds
  * answer [`FeatureValue::as_scalar`]; the two container kinds do not.
+ *
+ * The binding renames to lowercase so the TS spelling is the one
+ * [`ValueType::from_name`] decodes — the lattice has one name across the seam,
+ * and a `type` clause's declared kind crosses the lock in that spelling.
  */
-export type ValueType = "String" | "Integer" | "Number" | "Boolean" | "Null" | "List" | "Map";
+export type ValueType = "string" | "integer" | "number" | "boolean" | "null" | "list" | "map";

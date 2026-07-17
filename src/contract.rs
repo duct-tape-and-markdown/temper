@@ -326,6 +326,13 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "optional" => Predicate::Optional {
             field: row.field.clone()?,
         },
+        // The declared kind crosses the lock as its lattice name; an unknown name is
+        // no predicate at all, so the row is rejected at load rather than decided
+        // against a guessed type.
+        "type" => Predicate::Type {
+            field: row.field.clone()?,
+            kind: ValueType::from_name(row.value_type.as_deref()?)?,
+        },
         "range" => {
             let bound = row.range?;
             Predicate::Range {

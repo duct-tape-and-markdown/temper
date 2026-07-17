@@ -31,9 +31,14 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 /// field schema ranges over. Taken from the *parsed*
 /// YAML/JSON value, not its stringified form: a sound `type` check needs the
 /// extractor to preserve the source kind rather than collapse every scalar to a
-/// bare string (the slice-1 shortcut this entry corrects). The five scalar kinds
+/// bare string. The five scalar kinds
 /// answer [`FeatureValue::as_scalar`]; the two container kinds do not.
+///
+/// The binding renames to lowercase so the TS spelling is the one
+/// [`ValueType::from_name`] decodes — the lattice has one name across the seam,
+/// and a `type` clause's declared kind crosses the lock in that spelling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
+#[ts(rename_all = "lowercase")]
 pub enum ValueType {
     /// A textual scalar.
     String,
@@ -91,8 +96,8 @@ impl ValueType {
 /// [`ValueType`] alongside its comparison text), a list field (e.g. a YAML sequence
 /// like `allowed-tools`), or a map field. Scalar predicates (`min_len`, `enum`,
 /// `deny`, `allowed_chars`) read the scalar text; presence predicates
-/// (`required`, `forbidden_keys`) need only the key; the `type` primitive
-/// (forthcoming) reads [`FeatureValue::kind`].
+/// (`required`, `forbidden_keys`) need only the key; the `type` primitive reads
+/// [`FeatureValue::kind`].
 #[derive(Debug, Clone, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
 pub enum FeatureValue {
     /// A single scalar value: its parsed source kind (one of the scalar kinds —

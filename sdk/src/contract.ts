@@ -7,6 +7,7 @@
  * outside it is a squiggle, not a runtime rejection.
  */
 
+import type { ValueType } from "./generated/index.js";
 import type { KindDefinition } from "./kind.js";
 
 /** A clause's delivery posture: `required` gate-blocks, `advisory` reports. */
@@ -39,6 +40,11 @@ export interface Predicate {
    * field on *both* ends. Spelled to match the lock's own `gate` column.
    */
   readonly gate?: string;
+  /**
+   * `type`'s declared source kind over the closed scalar/container lattice. Spelled
+   * to match the lock's own `value_type` column.
+   */
+  readonly value_type?: ValueType;
   /** `allowed_chars`'s declared character class. */
   readonly charset?: Charset;
   /** `forbidden_keys`'s forbidden key list. */
@@ -64,8 +70,8 @@ export interface Charset {
 // Node-scope predicates.
 /** A field or marker is present. */
 export const required = (field: string): Predicate => ({ key: "required", field });
-/** The field's parsed scalar type is as declared. */
-export const type = (field: string): Predicate => ({ key: "type", field });
+/** The field's parsed source kind is the declared one. */
+export const type = (field: string, kind: ValueType): Predicate => ({ key: "type", field, value_type: kind });
 /** The field's value is at least `n` characters. */
 export const minLen = (field: string, n: number): Predicate => ({ key: "min_len", field, args: { min: n } });
 /** The field's value is at most `n` characters. */

@@ -83,6 +83,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
  }
         : undefined,
     gate: predicate.key === "mention-reachable" ? predicate.gate : undefined,
+    value_type: predicate.key === "type" ? predicate.value_type : undefined,
     bound: nodeScopeBoundArgs(predicate),
     // The generated rows carry mutable columns; the predicate's `charset`/`keys`/
     // `values` are read-only, so copy each into a fresh array/object — the same

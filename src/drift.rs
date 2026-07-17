@@ -2445,7 +2445,8 @@ pub struct LayoutRegionRow {
 /// carry
 /// their bounds/target, and the node-scope predicates that need more than
 /// `field`/`severity` (`min_len`/`max_len`/`max_lines`'s bound, `allowed_chars`'s
-/// charset, `forbidden_keys`'s keys, `deny`'s values) carry theirs too — so a kind's
+/// charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared kind) carry
+/// theirs too — so a kind's
 /// own floor clause round-trips losslessly, not identity+severity alone.
 /// `unique`'s field rides the shared `field`
 /// column (the same slot `required`/`min_len`/… target); the rest carry their own
@@ -2495,6 +2496,13 @@ pub struct ClauseRow {
     /// which `field` alone cannot express.
     #[serde(default)]
     pub gate: Option<String>,
+    /// The `type` clause's declared source kind, when the predicate is `type` — the
+    /// lattice name (`string`/`integer`/`number`/`boolean`/`null`/`list`/`map`) that
+    /// [`crate::extract::ValueType::from_name`] decodes. Carried as its name rather
+    /// than as a [`crate::extract::ValueType`]: the lattice is a feature-side type,
+    /// and the row family decodes its arguments at the boundary.
+    #[serde(default)]
+    pub value_type: Option<String>,
     /// The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
     /// is one of those three.
     #[serde(default)]
@@ -3329,6 +3337,9 @@ impl ClauseRow {
         if let Some(gate) = &self.gate {
             table.insert("gate", value(gate.clone()));
         }
+        if let Some(value_type) = &self.value_type {
+            table.insert("value_type", value(value_type.clone()));
+        }
         if let Some(bound) = &self.bound {
             table.insert("bound", value(bound_table(bound)));
         }
@@ -3368,6 +3379,7 @@ impl ClauseRow {
                 None => None,
             },
             gate: opt_str(table, "gate")?,
+            value_type: opt_str(table, "value_type")?,
             bound: match opt_table(table, "bound")? {
                 Some(bound) => Some(bound_from_table(bound)?),
                 None => None,

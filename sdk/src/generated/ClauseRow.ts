@@ -15,7 +15,8 @@ import type { SectionContainsRow } from "./SectionContainsRow.js";
  * carry
  * their bounds/target, and the node-scope predicates that need more than
  * `field`/`severity` (`min_len`/`max_len`/`max_lines`'s bound, `allowed_chars`'s
- * charset, `forbidden_keys`'s keys, `deny`'s values) carry theirs too — so a kind's
+ * charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared kind) carry
+ * theirs too — so a kind's
  * own floor clause round-trips losslessly, not identity+severity alone.
  * `unique`'s field rides the shared `field`
  * column (the same slot `required`/`min_len`/… target); the rest carry their own
@@ -76,6 +77,14 @@ degree?: DegreeBoundRow,
  * which `field` alone cannot express.
  */
 gate?: string, 
+/**
+ * The `type` clause's declared source kind, when the predicate is `type` — the
+ * lattice name (`string`/`integer`/`number`/`boolean`/`null`/`list`/`map`) that
+ * [`crate::extract::ValueType::from_name`] decodes. Carried as its name rather
+ * than as a [`crate::extract::ValueType`]: the lattice is a feature-side type,
+ * and the row family decodes its arguments at the boundary.
+ */
+value_type?: string, 
 /**
  * The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
  * is one of those three.
