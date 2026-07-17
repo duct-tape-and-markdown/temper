@@ -1,64 +1,5 @@
 [
   {
-    "tag": "TEST-FIXTURE-WRITERS-ONE-HOME",
-    "summary": "The manifest-fixture writer is copy-pasted per test file \u2014 `write_plugin_json` byte-identical across two files, `write_settings` across two more \u2014 while `tests/common` already homes its siblings",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/common/mod.rs",
-          "description": "The home, and it already holds this exact job for two of the six loci: `write_skill` (139) writes `<root>/.claude/skills/<name>/SKILL.md` and `write_rule` (280) writes `<root>/.claude/rules/<name>.md`, each 3 lines of create-parents-then-write at a real Claude Code locus. The manifest members' writers grew OUTSIDE that home instead, one private copy per test file. Bring them in beside their siblings: a `.claude-plugin/plugin.json` writer, a `.claude-plugin/marketplace.json` writer, and a `.claude/settings.json` writer, each carrying the locus citation its copies already state (`.claude/rules/rust.md:98`, 'Harness-input fixtures mirror the real Claude Code layout'). Do NOT re-spell the create-parents-then-write body a sixth time per locus: `memory_gate::write_sibling` (66) is already that primitive \u2014 `root.join(rel)`, `create_dir_all(path.parent())`, `fs::write` \u2014 private to one file; generalize it into the home and compose every locus writer (this one included) through it, the ladder's rung engineering.md names before 'add new'. Second strand, same home and same rule: `common::write_lock` (374) compiles `Payload { version: drift::SEAM_VERSION, declarations, members: Vec::new() }` through `drift::emit(&payload, &root.join(\".temper\"), EmitOptions::default())` \u2014 and `requirement_roster::write_clauses` (44) re-spells that body verbatim with `declarations` narrowed to `Declarations { clauses, ..default }`, its doc comment even opening on the same sentence. A clause-narrowed lock is an argument to the home, not a second lock compiler."
-        },
-        {
-          "path": "tests/plugin_manifest_kind.rs",
-          "description": "`write_plugin_json` (43-47) \u2014 one of the two byte-identical copies, doc comment included. Folds onto the home; its callers keep their bodies verbatim."
-        },
-        {
-          "path": "tests/json_document_format.rs",
-          "description": "`write_plugin_json` (57-61) \u2014 the other copy, byte-identical to `plugin_manifest_kind`'s body and near-identical in its doc comment. Two private names for one job in two files is the same signal the last three folds acted on. Folds onto the home."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "`write_settings` (52-56) \u2014 writes `<root>/.claude/settings.json`; byte-equivalent to `installed_plugin_kind`'s copy below, differing only in the local binding name (`claude` vs `dir`). Folds onto the home."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "`write_settings` (49-53) \u2014 the second settings.json copy. Folds onto the home."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "`write_settings_json` (61-65) \u2014 the third settings.json copy, the same job with the body hardwired to `{}`; it composes the home with that body. Its own two callers bypass even it and re-spell `fs::write(harness.join(\".claude/settings.json\"), \"{}\")` inline at 188 and 310 \u2014 both reach the home. NOT folded: `write_skill` (36) already composes `common::write_skill` and only builds a body, which is the composition this entry is asking for everywhere else."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": "`write_marketplace_json` (52-56) \u2014 the same create-parents-then-write shape at `.claude-plugin/marketplace.json`, single-copy so far but the same job and the same locus root as `plugin.json`. Folds onto the home rather than being left as the seventh site to regrow the next copy from."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "`write_clauses` (44-54) \u2014 the second strand: keep the name and its two callers, but compose `common::write_lock(root, Declarations { clauses, ..Default::default() })` rather than re-spelling the `Payload`/`drift::emit` body. Its doc comment (39-43) carries the `expect`-erasure context this file exercises \u2014 the caller's own context, keep it at the call site rather than porting it into `tests/common`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/common/mod.rs",
-        "asserts": "no new assertion \u2014 this is test scaffolding, and the proof is the existing suite unchanged and green: every folded site keeps its current assertions and fixture bodies verbatim, so a behavior change at any of the folded surfaces surfaces as a failure rather than a re-blessed expectation"
-      }
-    ],
-    "acceptance": "Every harness-input fixture writer lives in `tests/common` and no private per-file copy survives (engineering.md, 'One job, one home': test scaffolding lives in one home, never copy-pasted per file; generalize the near-duplicate before adding new). Mechanically: `rg -n '^fn write_' tests/*.rs` returns no `write_plugin_json`, `write_settings`, `write_settings_json`, or `write_marketplace_json`; `rg -n 'create_dir_all' tests/common/mod.rs` shows the one parents-creating primitive every locus writer composes; `write_clauses` no longer names `Payload` or `drift::emit`. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green.",
-    "notes": "Same rule as the four runner folds, different axis: fixtures, not runners. Four helpers + two inline sites across six files spell one job the home already holds for `skill`/`rule`. NOT folded, each a different job behind a colliding name: `memory_gate::write_claude_md` (45, pads to N lines) vs `requirement_roster::write_claude_md` (752, verbatim body); `acceptance::write_lock` (157, verbatim TOML) vs `common::write_lock` (374, compiled Declarations). Re-read on disk. scoped at 8913b59."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -67,7 +8,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "A human probe rules the hop semantics \u2014 the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (\u21d2 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (\u21d2 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence \u2014 never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
+      "reason": "A human probe rules the hop semantics — the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (⇒ 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (⇒ 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence — never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
     },
     "dependsOnForks": [],
     "files": {
@@ -75,11 +16,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 8913b59. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' \u2014 a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts \u2014 hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it \u2014 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') \u2014 carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 8913b59. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 8913b59) already pins the boundary mechanically rather than in a comment \u2014 `r1..r5` rescued from a live seed, `r6` dead as the sole finding \u2014 so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 8913b59) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -88,22 +29,22 @@
     "tests": [
       {
         "path": "tests/graph.rs",
-        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper \u2014 the boundary hop pinned at the ruled number, in the ruled counting"
+        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper — the boundary hop pinned at the ruled number, in the ruled counting"
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 8913b59 and holds \u2014 nothing ruled the hop semantics; inbox empty and the window is tests-only, touching no import mechanics: `git diff ec2b848..8913b59 -- src/` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 8913b59."
+    "notes": "Park re-tested at 8913b59 and holds — nothing ruled the hop semantics; inbox empty and the window is tests-only, touching no import mechanics: `git diff ec2b848..8913b59 -- src/` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 8913b59."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
-    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary\u2194npm version lockstep at the v0.1 tag",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships \u2014 three channels"
+      "section": "What ships — three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
