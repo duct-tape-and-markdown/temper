@@ -614,6 +614,64 @@ fn a_target_the_mention_does_not_reach_is_no_finding() {
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
 }
 
+/// A floor-clean rule scoped by `paths` **and** carrying a `routes_to` field edge — a
+/// reference riding a field, not the separate mention family. `mention-reachable` judges
+/// it once field and mention edges share one enumeration.
+fn scoped_routing_rule(paths: &str, routes_to: &str) -> String {
+    format!(
+        "---\n\
+         paths: [\"{paths}\"]\n\
+         routes_to: {routes_to}\n\
+         ---\n\
+         # Style\n\
+         \n\
+         Prefer the standards skill.\n"
+    )
+}
+
+/// The rendering claim carried on a **field edge** is judged, not only one riding the
+/// separate mention family. A rule scoped to `src/**` whose `routes_to` field points at a
+/// skill gated to `docs/**`, with no mention row at all: the field edge resolves into the
+/// one shared enumeration, so `mention-reachable` ranges over it exactly as `degree`
+/// does, and the reference fires where the skill cannot be invoked. Before the
+/// unification this fail-opened — the edge was absent from the mention-only set the check
+/// read, so it reported nothing while `degree` counted the same edge.
+#[test]
+fn a_mention_riding_a_field_edge_is_judged() {
+    let root = common::tmpdir("mr-field-edge");
+    common::write_rule_skill_harness(
+        &root,
+        "style",
+        &scoped_routing_rule("src/**", "standards"),
+        "standards",
+        &common::gated_skill("standards", Some("docs/**")),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: routes_to_edge(),
+            requirements: vec![mention_reachable_requirement()],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.output.contains("mention-reachable")
+            && run.output.contains("src/**")
+            && run.output.contains("standards"),
+        "a field-edge reference to a gated target must be judged — naming the predicate, \
+         the uncovered scope glob, and the target, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "the clause is advisory — it must not block the run ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
 #[test]
 fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
     let root = common::tmpdir("mention-resolves");

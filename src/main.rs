@@ -1108,11 +1108,14 @@ fn gate(
     diagnostics.extend(graph::degree(&selections, &edges, &mention_edges, &by_kind));
 
     // `mention-reachable`: the second selection predicate whose judge needs the graph —
-    // each selected member's authored mentions must be able to fire where their target
-    // can be invoked, which reads the *target* member's gate field across the mention
-    // graph. Opt-in like `degree`: a selection declaring no such clause does no work.
+    // each selected member's references must be able to fire where their target can be
+    // invoked, which reads the *target* member's gate field. It ranges over the same
+    // unified edge set `degree` does — the resolved field edges *and* the mention/import
+    // family — so a rendering claim carried on a field edge is judged, never dropped.
+    // Opt-in like `degree`: a selection declaring no such clause does no work.
     diagnostics.extend(graph::mention_reachable(
         &selections,
+        &edges,
         &mention_edges,
         &by_kind,
     ));

@@ -338,10 +338,16 @@ pub fn degree(
 /// neither cries wolf about a pattern it cannot decide.
 ///
 /// Like `degree`, this is **opt-in** — selections declaring no `mention-reachable`
-/// clause do no graph work.
+/// clause do no graph work — and ranges over the same unified enumeration `degree`
+/// folds: the declared field edges resolved to real targets ([`resolved_edges`]) plus
+/// the already-resolved mention and import edges. A reference to a gated target can fire
+/// where that target cannot be invoked whatever locus declared it, so a rendering claim
+/// carried on a field edge is judged rather than dropped for riding a family this check
+/// once read alone.
 #[must_use]
 pub fn mention_reachable(
     selections: &[Selection],
+    edges: &[Edge],
     mention_edges: &[ResolvedEdge],
     by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
@@ -354,6 +360,9 @@ pub fn mention_reachable(
     if !any_clause {
         return Vec::new();
     }
+    let mut all_edges = resolved_edges(edges, by_kind);
+    all_edges.extend(mention_edges.iter().cloned());
+
     let mut diagnostics = Vec::new();
     for selection in selections {
         for clause in &selection.clauses {
@@ -366,7 +375,7 @@ pub fn mention_reachable(
             };
             for (kind, features) in &selection.members {
                 let source = ((*kind).to_string(), features.id.clone());
-                for edge in mention_edges.iter().filter(|edge| edge.from == source) {
+                for edge in all_edges.iter().filter(|edge| edge.from == source) {
                     // A mention whose target composes no member has no gate to read —
                     // `route_mentions` owns that verdict, so this clause stays silent.
                     let Some(target) = member_at(&edge.to, by_kind) else {
