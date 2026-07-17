@@ -153,9 +153,12 @@ pub struct CheckRun {
 }
 
 /// Run `temper check <args…>` from `root`, optionally selecting `reporter`
-/// (e.g. `"github"`), capturing the result. A run gating a harness directory
-/// through the GitHub reporter goes through [`check_harness`], never a
-/// re-spelled `Command` or a per-file copy of its line filter.
+/// (e.g. `"github"`), capturing the result. Every `check` run reaches the binary
+/// here — whatever its reporter, arg shape, or working directory — never a
+/// re-spelled `Command`; the GitHub-reporter harness shape composes one step
+/// further through [`check_harness`]. The one run this cannot express is a
+/// caller driving a command string that carries the verb itself, since `check`
+/// is prepended here.
 pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
     cmd.current_dir(root).arg("check").args(args);

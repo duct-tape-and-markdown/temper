@@ -207,15 +207,13 @@ fn check_rejects_a_harness_and_workspace_together() {
     // into the gate; supplying both is a usage error, not a silent precedence pick.
     let ws = common::tmpdir("conflict-ws");
     let harness = common::tmpdir("conflict-harness");
-    let status = Command::new(BIN)
-        .arg("check")
-        .arg(&ws)
-        .arg("--harness")
-        .arg(&harness)
-        .status()
-        .unwrap();
+    let run = common::check_in(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        &[ws.to_str().unwrap(), "--harness", harness.to_str().unwrap()],
+        None,
+    );
     assert!(
-        !status.success(),
+        !run.ok,
         "check <workspace> --harness <path> must be a usage error"
     );
 }
@@ -245,17 +243,16 @@ fn check_resolves_the_nested_temper_for_an_explicit_harness_root() {
 
     // The explicit harness-root argument (terminal reporter): resolves `<root>/.temper`,
     // so the unfilled required requirement fires and the run exits non-zero.
-    let output = Command::new(BIN)
-        .arg("check")
-        .arg(&harness)
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
+    let run = common::check_in(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        &[harness.to_str().unwrap()],
+        None,
+    );
+    let stdout = &run.stdout;
     assert!(
-        !output.status.success(),
+        !run.ok,
         "check <harness-root> must resolve the nested .temper and fail on the unfilled \
-         required requirement, never silently half-gate; got exit {:?}:\n{stdout}",
-        output.status.code()
+         required requirement, never silently half-gate; got:\n{stdout}"
     );
     assert!(
         stdout.contains("engineering-standards"),
@@ -264,13 +261,9 @@ fn check_resolves_the_nested_temper_for_an_explicit_harness_root() {
 
     // The bare-verb spelling from inside the harness resolves the same lock — no arg
     // spelling produces a silent green on the half-resolved workspace.
-    let bare = Command::new(BIN)
-        .current_dir(&harness)
-        .arg("check")
-        .output()
-        .unwrap();
+    let bare = common::check_in(&harness, &[], None);
     assert!(
-        !bare.status.success(),
+        !bare.ok,
         "a bare `check` from the harness root must fail on the same unfilled requirement"
     );
 }
@@ -283,13 +276,9 @@ fn self_host_check_is_clean_over_tempers_own_surface() {
     // crate root; a bare `check` reads the committed surface there, read-only, so the
     // repo is never mutated (the flume `temper check (self)` gate's exact invocation).
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let status = Command::new(BIN)
-        .current_dir(repo_root)
-        .arg("check")
-        .status()
-        .unwrap();
+    let run = common::check_in(repo_root, &[], None);
     assert!(
-        status.success(),
+        run.ok,
         "temper must lint its own committed surface clean — the self-hosting finish line"
     );
 }

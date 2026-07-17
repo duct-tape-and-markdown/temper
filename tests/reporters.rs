@@ -13,15 +13,10 @@
 //! surface prints SARIF and *still exits non-zero* — a reporter reshapes
 //! presentation, never the gate's exit code.
 
-use std::process::Command;
-
 mod common;
 
 use temper::check::Diagnostic;
 use temper::reporter;
-
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// A mixed diagnostic set — one blocking error and one advisory warn — so a single
 /// render exercises both severity mappings.
@@ -169,19 +164,11 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
     // kind members live off harness disk and no ambient project assembly at the
     // process CWD — e.g. temper's own — can leak in. Mirrors the `schema`/`cli` tests'
     // isolation.
-    let output = Command::new(BIN)
-        .current_dir(&harness)
-        .arg("check")
-        .arg(".")
-        .arg("--reporter")
-        .arg("sarif")
-        .output()
-        .unwrap();
+    let run = common::check_in(&harness, &["."], Some("sarif"));
 
     // Presentation: stdout is a valid SARIF log naming the temper driver.
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let log: serde_json::Value =
-        serde_json::from_str(stdout.trim()).expect("--reporter sarif must print valid SARIF JSON");
+    let log: serde_json::Value = serde_json::from_str(run.stdout.trim())
+        .expect("--reporter sarif must print valid SARIF JSON");
     assert_eq!(log["runs"][0]["tool"]["driver"]["name"], "temper");
     assert!(
         log["runs"][0]["results"]
@@ -195,7 +182,7 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
     // Verdict: the reporter reshapes presentation, never the exit code — a failing
     // surface still exits non-zero.
     assert!(
-        !output.status.success(),
+        !run.ok,
         "check --reporter sarif on a failing surface must still exit non-zero"
     );
 }

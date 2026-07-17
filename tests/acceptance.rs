@@ -19,7 +19,6 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 mod common;
 
@@ -36,10 +35,6 @@ use temper::frontmatter::Member;
 fn builtin_skill_contract() -> Contract {
     temper::builtin::contract("skill").expect("the skill floor is embedded")
 }
-
-/// The built `temper` binary, located by Cargo at compile time — the custom-kind
-/// acceptance drives it to observe the process exit code.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// Render a diagnostic set as one stable line per finding (`<severity> <rule>:
 /// <message>`), in the order the engine collects them.
@@ -321,17 +316,10 @@ fn over_length_body() -> String {
 /// harness root: `check` resolves `<root>/.temper`'s committed lock and walks its
 /// members off `<root>`.
 fn check_from(cwd: &Path, root: &Path, extra: &[&str]) -> (bool, String) {
-    let output = Command::new(BIN)
-        .current_dir(cwd)
-        .arg("check")
-        .arg(root)
-        .args(extra)
-        .output()
-        .unwrap();
-    (
-        output.status.success(),
-        String::from_utf8(output.stdout).unwrap(),
-    )
+    let mut args = vec![root.to_str().unwrap()];
+    args.extend_from_slice(extra);
+    let run = common::check_in(cwd, &args, None);
+    (run.ok, run.stdout)
 }
 
 /// The custom-kind acceptance:

@@ -46,18 +46,19 @@ Drive the team through the playbook.\n";
 /// Run `temper check <harness> --reporter session-start` and return `(exit-zero, parsed
 /// payload)`. The session-start reporter reads the positional path as a harness root.
 fn run_session_start(harness: &Path) -> (bool, serde_json::Value) {
-    let output = Command::new(BIN)
-        .arg("check")
-        .arg(harness)
-        .arg("--reporter")
-        .arg("session-start")
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
+    let run = common::check_in(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        &[harness.to_str().unwrap()],
+        Some("session-start"),
+    );
     // The gate owns its output contract: stdout is always valid JSON.
-    let payload = serde_json::from_str(&stdout)
-        .unwrap_or_else(|e| panic!("session-start stdout must be valid JSON ({e}):\n{stdout}"));
-    (output.status.success(), payload)
+    let payload = serde_json::from_str(&run.stdout).unwrap_or_else(|e| {
+        panic!(
+            "session-start stdout must be valid JSON ({e}):\n{}",
+            run.stdout
+        )
+    });
+    (run.ok, payload)
 }
 
 #[test]

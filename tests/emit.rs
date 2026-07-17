@@ -19,7 +19,7 @@
 //!   extractor, straight off harness disk.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use sha2::{Digest, Sha256};
@@ -1480,29 +1480,28 @@ fn check_harness_and_session_start_gate_the_raw_harness_with_no_scratch_import()
     )
     .unwrap();
 
-    let harness_output = Command::new(BIN)
-        .arg("check")
-        .arg("--harness")
-        .arg(&harness)
-        .output()
-        .unwrap();
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    let harness_run = common::check_in(
+        manifest_dir,
+        &["--harness", harness.to_str().unwrap()],
+        None,
+    );
     assert!(
-        harness_output.status.success(),
+        harness_run.ok,
         "a clean harness must gate green over --harness: {}",
-        String::from_utf8_lossy(&harness_output.stdout)
+        harness_run.output
     );
 
-    let session_start_output = Command::new(BIN)
-        .arg("check")
-        .arg(&harness)
-        .arg("--reporter")
-        .arg("session-start")
-        .output()
-        .unwrap();
+    let session_start_run = common::check_in(
+        manifest_dir,
+        &[harness.to_str().unwrap()],
+        Some("session-start"),
+    );
     assert!(
-        session_start_output.status.success(),
+        session_start_run.ok,
         "session-start is always advisory: {}",
-        String::from_utf8_lossy(&session_start_output.stdout)
+        session_start_run.output
     );
 
     // Neither gate ever imports: no surface workspace or lock lands beside the harness,
