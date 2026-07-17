@@ -168,9 +168,11 @@ impl CheckRun {
 /// here — whatever its reporter, arg shape, or working directory — never a
 /// re-spelled `Command`, and every reader of a github run's finding lines
 /// reaches [`CheckRun::findings`] rather than re-spelling the filter; the
-/// GitHub-reporter harness shape composes both one step further through
-/// [`check_harness`]. The one run this cannot express is a caller driving a
-/// command string that carries the verb itself, since `check` is prepended here.
+/// one-shot `--harness <root>` arg shape composes it through
+/// [`check_harness_in`], and the GitHub-reporter projection of that shape one
+/// step further still through [`check_harness`]. The one run this cannot express
+/// is a caller driving a command string that carries the verb itself, since
+/// `check` is prepended here.
 pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
     cmd.current_dir(root).arg("check").args(args);
@@ -188,14 +190,21 @@ pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun 
     }
 }
 
-/// Run `temper check --harness <dir> --reporter github`, returning `(finding
+/// Run `temper check --harness <harness>` from `harness` itself — the one-shot
+/// wedge, no on-ramp step and no workspace — under `reporter`.
+///
+/// This is the only home for that arg shape. It stays fixed to exactly this
+/// shape rather than growing a parameter per permutation: a run adding a flag,
+/// passing a workspace positional, or working from some other directory is a
+/// different run and reaches [`check_in`] directly.
+pub fn check_harness_in(harness: &Path, reporter: Option<&str>) -> CheckRun {
+    check_in(harness, &["--harness", harness.to_str().unwrap()], reporter)
+}
+
+/// Run the one-shot harness gate under the github reporter, returning `(finding
 /// lines, exit success)`. Each finding is one `::error`/`::warning …` line.
 pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let run = check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
+    let run = check_harness_in(harness, Some("github"));
     (run.findings(), run.ok)
 }
 

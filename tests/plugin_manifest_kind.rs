@@ -139,7 +139,7 @@ fn a_manifest_with_no_name_refuses_loud_rather_than_degrading_to_a_nameless_memb
     // declares no `name` is the case the loader rejects outright.
     write_plugin_json(&harness, "{\n  \"description\": \"Nameless\"\n}\n");
 
-    let run = common::check_in(&harness, &["--harness", harness.to_str().unwrap()], None);
+    let run = common::check_harness_in(&harness, None);
 
     // `name` is this kind's identity, not merely a required field, so its absence is a
     // *read* refusal that never reaches the clause: with no identity there is no member to
@@ -196,7 +196,7 @@ fn a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_deci
     // the clause decides the key's presence, never which world the reader is in, so
     // "loads today, `--strict` fails it, a future release requires `experimental.*`" can
     // only be teaching prose carried with the clause.
-    let run = common::check_in(&harness, &["--harness", harness.to_str().unwrap()], None);
+    let run = common::check_harness_in(&harness, None);
     assert!(
         run.output.contains("still loads today") && run.output.contains("`--strict` fails it"),
         "{}",

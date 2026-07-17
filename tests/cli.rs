@@ -90,17 +90,9 @@ fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
     fs::write(dir.join(format!("{name}.md")), rule_md).unwrap();
 }
 
-/// Run `temper check --harness <harness> [extra…]` (the one-shot wedge — no on-ramp
-/// step, no workspace).
-fn run_check_harness(harness: &Path, extra: &[&str]) -> common::CheckRun {
-    let mut args = vec!["--harness", harness.to_str().unwrap()];
-    args.extend_from_slice(extra);
-    common::check_in(harness, &args, None)
-}
-
 /// Run `temper check --harness <harness>` and return whether it exited zero.
 fn check_harness_succeeds(harness: &Path) -> bool {
-    run_check_harness(harness, &[]).ok
+    common::check_harness_in(harness, None).ok
 }
 
 #[test]
@@ -140,7 +132,12 @@ fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     );
     // Strict policy: --deny-advisories promotes the warn to a blocking failure.
     assert!(
-        !run_check_harness(&harness, &["--deny-advisories"]).ok,
+        !common::check_in(
+            &harness,
+            &["--harness", harness.to_str().unwrap(), "--deny-advisories"],
+            None
+        )
+        .ok,
         "an advisory-only violation must exit non-zero under --deny-advisories"
     );
 }
@@ -174,7 +171,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     let harness = common::tmpdir("one-shot-src");
     write_rule_harness(&harness, "rust", FORBIDDEN_KEY_RULE);
 
-    let run = run_check_harness(&harness, &[]);
+    let run = common::check_harness_in(&harness, None);
     assert!(
         !run.ok,
         "check --harness must exit non-zero on a required-clause violation"
@@ -196,7 +193,7 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     let clean = common::tmpdir("one-shot-clean");
     write_rule_harness(&clean, "rust", CLEAN_RULE);
     assert!(
-        run_check_harness(&clean, &[]).ok,
+        common::check_harness_in(&clean, None).ok,
         "check --harness over a clean harness must exit zero"
     );
 }

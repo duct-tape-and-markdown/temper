@@ -215,7 +215,7 @@ fn the_declared_format_decides_which_adapter_reads_the_artifact() {
         },
     );
 
-    let run = common::check_in(&dir, &["--harness", dir.to_str().unwrap()], Some("github"));
+    let run = common::check_harness_in(&dir, Some("github"));
     assert!(
         run.ok,
         "a conforming plugin manifest gates clean: {}",
@@ -251,7 +251,7 @@ fn the_dispatch_still_judges_a_json_document_that_omits_a_required_field() {
         },
     );
 
-    let run = common::check_in(&dir, &["--harness", dir.to_str().unwrap()], Some("github"));
+    let run = common::check_harness_in(&dir, Some("github"));
     assert!(
         !run.ok,
         "a missing required field fails the gate: {}",

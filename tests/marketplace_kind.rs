@@ -197,7 +197,7 @@ fn a_catalog_with_no_name_refuses_loud_rather_than_degrading_to_a_nameless_membe
         r#"{ "owner": { "name": "Someone" }, "plugins": [] }"#,
     );
 
-    let run = common::check_in(&harness, &["--harness", harness.to_str().unwrap()], None);
+    let run = common::check_harness_in(&harness, None);
 
     // `name` is this kind's identity, not merely a required field, so its absence is a
     // *read* refusal that never reaches the clause — the `plugin-manifest` precedent. The

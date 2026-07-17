@@ -36,15 +36,6 @@ use temper::drift::{
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
-/// Run `temper check --harness <root>` — the one-shot wedge, gating `root` directly
-/// rather than through the two-step `./.temper` default. `root` already carries its own
-/// `.temper/` surface (`write_requirements`/`author_satisfies` project it there), so
-/// this exercises the one-shot gate's surface-present branch: its lock's declared
-/// requirement/satisfies rows must gate exactly as the two-step path's do.
-fn check_harness_in(root: &Path) -> common::CheckRun {
-    common::check_in(root, &["--harness", root.to_str().unwrap()], None)
-}
-
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
 /// `clauses` — the SDK-emitted fixture standing in for an `expect` binding's
 /// erasure (`sdk/src/declarations.ts`): the gate's per-kind contract sources its
@@ -178,8 +169,11 @@ fn a_count_band_fires_when_the_satisfier_set_is_out_of_band() {
     );
 
     // The one-shot `check --harness` gate over the identical already-emitted harness
-    // must reach the same finding — a locked `count` clause is not two-step-only.
-    let harness_run = check_harness_in(&root);
+    // must reach the same finding — a locked `count` clause is not two-step-only. Every
+    // one-shot run in this file gates a `root` that already carries its own `.temper/`
+    // surface, so it exercises the gate's surface-present branch: the lock's declared
+    // requirement/satisfies rows must gate exactly as the two-step path's do.
+    let harness_run = common::check_harness_in(&root, None);
     assert!(
         !harness_run.ok,
         "check --harness must also fail the run on the same out-of-band count ⇒ non-zero, got:\n{}",
@@ -634,7 +628,7 @@ fn a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_aut
 
     // The one-shot `check --harness` gate over the identical already-emitted harness
     // must resolve the same lock-declared row.
-    let harness_run = check_harness_in(&root);
+    let harness_run = common::check_harness_in(&root, None);
     assert!(
         harness_run.ok,
         "check --harness must also resolve the lock-declared satisfies row ⇒ zero, got:\n{}",
@@ -791,7 +785,7 @@ fn a_memory_members_satisfies_row_fills_a_memory_narrowed_requirement() {
         run.output
     );
 
-    let harness_run = check_harness_in(&root);
+    let harness_run = common::check_harness_in(&root, None);
     assert!(
         harness_run.ok,
         "check --harness must also resolve the memory member's satisfies row ⇒ zero, got:\n{}",
