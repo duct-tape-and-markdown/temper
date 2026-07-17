@@ -278,6 +278,23 @@ pub enum DriftError {
         format: String,
     },
 
+    /// A member's kind declares a **read face only** — `toml-document` has no write twin,
+    /// and none is coming: emit's codomain is the committed tree, and a format joined for
+    /// reading uncommitted documents has no projection to render. Refused loud rather than
+    /// rendered through whichever encoder the write dispatch would otherwise fall through
+    /// to, which would put a member's fields on disk in a format its author never declared
+    /// (invariant 6: no path silently degrades).
+    #[error(
+        "member `{member}` declares format `{format}`, which is a read face only — it has no write face to project through"
+    )]
+    #[diagnostic(code(temper::drift::format_has_no_write_face))]
+    FormatHasNoWriteFace {
+        /// The member's `kind:name` address.
+        member: String,
+        /// The declared format label the member's kind carries.
+        format: String,
+    },
+
     /// A harness-level settings-residue key names a manifest no in-play kind declares — so
     /// there is no manifest to fold it into. Refused loud before a byte is written rather
     /// than shedding the authored key (invariant 6).
@@ -1019,6 +1036,17 @@ pub fn emit(
         }
         let host = host_address(&member.kind, &member.name);
         let format = format_from_row(facts)?;
+        // A read-face-only format has no writer for this member to reach, so it is refused
+        // whole — body or not — ahead of the include resolution below, for the reason that
+        // resolution's own refusal is sited there: nothing is fingerprinted against a
+        // projection that was never going to happen.
+        if let Some(Format::TomlDocument) = format {
+            return Err(DriftError::FormatHasNoWriteFace {
+                member: host,
+                format: Format::TomlDocument.label().to_string(),
+            }
+            .into());
+        }
         // A format that renders its fields alone has no slot to put a body in, so an
         // authored body is refused here rather than dropped at the write face. Sited above
         // the include resolution below: the words are already homeless whether or not they
@@ -1843,23 +1871,29 @@ fn emit_one(
         .map(|bytes| install::placement_lines(&String::from_utf8_lossy(bytes)))
         .unwrap_or_default();
 
-    let desired = normalize_lf(&project_bytes(
-        projection.format,
-        &projection.fields,
-        &projection.body,
-        &placements,
-    ));
+    let render = || {
+        project_bytes(
+            projection.format,
+            &projection.fields,
+            &projection.body,
+            &placements,
+        )
+        .map(|bytes| normalize_lf(&bytes))
+        .ok_or_else(|| DriftError::FormatHasNoWriteFace {
+            member: host_address(&projection.kind, &projection.name),
+            format: projection
+                .format
+                .map(|format| format.label().to_string())
+                .unwrap_or_default(),
+        })
+    };
+    let desired = render()?;
 
     // Double-emit determinism: a second
     // projection over the same surface must be byte-identical. Nondeterministic
     // authoring (a timestamp, an unordered map surfacing into a field) is a loud
     // failure here, never a silent churn the next `emit` would rewrite.
-    let second_pass = normalize_lf(&project_bytes(
-        projection.format,
-        &projection.fields,
-        &projection.body,
-        &placements,
-    ));
+    let second_pass = render()?;
     if second_pass != desired {
         return Err(DriftError::Nondeterministic {
             path: disk_path.clone(),
@@ -1907,15 +1941,28 @@ fn emit_one(
 /// carries no `paths`/unknown keys, a memory `CLAUDE.md`) projects to its body alone —
 /// no frontmatter block, so install's metadata there is a block-level HTML-comment
 /// banner heading the body, round-tripped the same way.
+///
+/// `None` when `format` names a **read face only** (`toml-document`): there is no write
+/// face to render through, and inventing one here would be the silent degrade
+/// [`DriftError::FormatHasNoWriteFace`] exists to refuse. The match over [`Format`] is
+/// exhaustive so that a format joining the vocabulary must answer here rather than
+/// inherit the frontmatter fall-through by default; each caller raises the refusal
+/// naming its own subject.
 #[must_use]
 pub fn project_bytes(
     format: Option<Format>,
     fields: &[(String, JsonValue)],
     body: &str,
     placements: &[String],
-) -> String {
-    if let Some(Format::JsonDocument) = format {
-        return crate::json_manifest::write_document(&fields.iter().cloned().collect());
+) -> Option<String> {
+    match format {
+        Some(Format::JsonDocument) => {
+            return Some(crate::json_manifest::write_document(
+                &fields.iter().cloned().collect(),
+            ));
+        }
+        Some(Format::TomlDocument) => return None,
+        Some(Format::YamlFrontmatter) | None => {}
     }
     if fields.is_empty() {
         // A frontmatterless projection: install's banner, if any, heads the body with
@@ -1926,7 +1973,7 @@ pub fn project_bytes(
             out.push_str("\n\n");
         }
         out.push_str(body);
-        return out;
+        return Some(out);
     }
     let mut frontmatter = String::new();
     for line in placements {
@@ -1936,7 +1983,7 @@ pub fn project_bytes(
     for (key, value) in fields {
         frontmatter.push_str(&render_field(key, value));
     }
-    format!("---\n{frontmatter}---\n{body}")
+    Some(format!("---\n{frontmatter}---\n{body}"))
 }
 
 /// Render one frontmatter field as `key: <value>\n`. The value is emitted as
@@ -4048,10 +4095,27 @@ mod tests {
         // With no placements a frontmatterless projection is its body alone; with
         // install's banner it heads the body, one blank line between — the bytes
         // install placed, so a re-emit reports Unchanged instead of stripping it.
-        assert_eq!(project_bytes(None, &[], body, &[]), body);
+        assert_eq!(project_bytes(None, &[], body, &[]).as_deref(), Some(body));
         assert_eq!(
             project_bytes(None, &[], body, std::slice::from_ref(&banner)),
-            format!("{banner}\n\n{body}")
+            Some(format!("{banner}\n\n{body}"))
+        );
+    }
+
+    #[test]
+    fn project_bytes_renders_nothing_for_a_read_only_format() {
+        // The write dispatch's floor: a `toml-document` member has no write face, and the
+        // fall-through below this arm would otherwise hand it a frontmatter block — a
+        // member's fields on disk in a format its author never declared. `None` is what
+        // makes each caller raise its own refusal instead.
+        assert_eq!(
+            project_bytes(
+                Some(Format::TomlDocument),
+                &[("name".to_string(), JsonValue::from("dial"))],
+                "",
+                &[]
+            ),
+            None
         );
     }
 

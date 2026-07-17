@@ -52,3 +52,4 @@ pub mod roster;
 pub mod schema;
 #[cfg(test)]
 pub(crate) mod test_support;
+pub mod toml_document;

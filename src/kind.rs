@@ -560,6 +560,12 @@ pub enum Format {
     /// document rather than surfacing in one collection of it, which is what separates
     /// this format from a [`CollectionAddress`]-carrying manifest kind.
     JsonDocument,
+    /// `toml-document` — the whole artifact is one TOML table, its top-level keys the
+    /// member's own fields and its identity a declared key among them: the
+    /// [`JsonDocument`](Format::JsonDocument) read over a second grammar. A **read face
+    /// only** — no write twin exists, so a member of a kind declaring it is read and gated
+    /// in place and never projected.
+    TomlDocument,
 }
 
 impl Format {
@@ -571,6 +577,7 @@ impl Format {
         match self {
             Format::YamlFrontmatter => "yaml-frontmatter",
             Format::JsonDocument => "json-document",
+            Format::TomlDocument => "toml-document",
         }
     }
 }
@@ -965,6 +972,7 @@ fn format_from_label(label: &str) -> Option<Format> {
     match label {
         "yaml-frontmatter" => Some(Format::YamlFrontmatter),
         "json-document" => Some(Format::JsonDocument),
+        "toml-document" => Some(Format::TomlDocument),
         _ => None,
     }
 }

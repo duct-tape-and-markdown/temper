@@ -161,6 +161,16 @@ pub enum BundleError {
         /// The kind the roster does not carry.
         kind: &'static str,
     },
+
+    /// A bundled manifest's kind declares a read-face-only format, so the write dispatch
+    /// has nothing to render it through. Refused loud for the same reason a missing kind
+    /// is: a bundle written past its kind's declared format is ungated output.
+    #[error("embedded kind `{kind}` declares a read-only format — no write face renders it")]
+    #[diagnostic(code(temper::bundle::unwritable_format))]
+    UnwritableFormat {
+        /// The kind whose declared format names no write face.
+        kind: &'static str,
+    },
 }
 
 /// The typed result of a [`run`]: every file the plugin tree carries (relative to
@@ -308,7 +318,9 @@ fn write_member(
         return Err(BundleError::MissingKind { kind });
     };
     let fields: Vec<(String, JsonValue)> = fields.clone().into_iter().collect();
-    let rendered = crate::drift::project_bytes(definition.format, &fields, "", &[]);
+    let Some(rendered) = crate::drift::project_bytes(definition.format, &fields, "", &[]) else {
+        return Err(BundleError::UnwritableFormat { kind });
+    };
     write_text(out, relative, &rendered, files)
 }
 

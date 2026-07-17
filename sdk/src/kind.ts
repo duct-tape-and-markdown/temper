@@ -18,8 +18,10 @@ import type { Requirement } from "./contract.js";
  * vocabulary the engine implements once per entry, and the fact deciding which adapter
  * reads a file kind's artifact. `"json-document"` is a whole artifact that is one JSON
  * object: its top-level keys the member's fields, its identity a declared key among them.
+ * `"toml-document"` is that read over TOML, and a **read face only** — nothing projects a
+ * member declaring it, so it serves a document temper reads in place and never writes.
  */
-export type Format = "yaml-frontmatter" | "json-document";
+export type Format = "yaml-frontmatter" | "json-document" | "toml-document";
 
 /**
  * Whether a member is a lone file (identity from the stem), a directory with an

@@ -36,6 +36,7 @@ use temper::read;
 use temper::reporter;
 use temper::roster;
 use temper::schema;
+use temper::toml_document;
 
 /// The SDK surface workspace under the cwd — the emit `--into` default and the
 /// path `schema` / `explain` / `bundle` read the committed lock from.
@@ -1250,11 +1251,11 @@ fn resolve_kind_units(
 /// both file loci share, so a nested file child and a `governs`-scanned member differ only
 /// in the base each composes under. **The one adapter dispatch**: a layout kind's document
 /// is read under its declared layout — its field sections fill the unit's fields, a
-/// non-fitting document refusing loud; a kind declaring the `json-document` format reads
-/// its whole artifact as one JSON object through the JSON adapter; every other file kind
-/// reads through the generic frontmatter adapter. A fields-only kind with no collection
-/// address (not a manifest kind) rides whichever of those its format names, differing only
-/// in projection. A per-call-site format match would be a second dispatch to disagree with
+/// non-fitting document refusing loud; a kind declaring the `json-document` or
+/// `toml-document` format reads its whole artifact as one structured document through that
+/// grammar's adapter; every other file kind reads through the generic frontmatter adapter.
+/// A fields-only kind with no collection address (not a manifest kind) rides whichever of
+/// those its format names, differing only in projection. A per-call-site format match would be a second dispatch to disagree with
 /// this one, so both file loci route through here.
 ///
 /// # Errors
@@ -1271,6 +1272,9 @@ fn read_file_unit(
         (kind::Content::Layout(layout), _) => layout_unit(layout, file, base, edge_fields),
         (kind::Content::File | kind::Content::Fields, Some(kind::Format::JsonDocument)) => {
             Ok(json_manifest::DocumentMember::read(kind, file)?.to_unit())
+        }
+        (kind::Content::File | kind::Content::Fields, Some(kind::Format::TomlDocument)) => {
+            Ok(toml_document::read(kind, file)?.to_unit())
         }
         (kind::Content::File | kind::Content::Fields, _) => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
@@ -1404,11 +1408,11 @@ fn assemble_lock_family(
 ///
 /// The dispatch mirrors [`read_file_unit`]'s arm for arm, over the same declared format:
 /// a layout's regions declare a member collection and an edge slot, so those two families
-/// are read off the document here; the frontmatter and json-document read faces declare
-/// neither, so a member of theirs has no row in either family and its fields and prose
-/// reach the corpus through `read_file_unit` alone. Matching both facts exhaustively is
-/// the point — a read face that *does* declare rows must answer here, and a catch-all
-/// would instead let it gate against silence.
+/// are read off the document here; the frontmatter, json-document and toml-document read
+/// faces declare neither, so a member of theirs has no row in either family and its fields
+/// and prose reach the corpus through `read_file_unit` alone. Matching both facts
+/// exhaustively is the point — a read face that *does* declare rows must answer here, and a
+/// catch-all would instead let it gate against silence.
 ///
 /// # Errors
 ///
@@ -1423,7 +1427,12 @@ fn local_document_rows(
         (kind::Content::Layout(layout), _) => layout,
         (
             kind::Content::File | kind::Content::Fields,
-            Some(kind::Format::YamlFrontmatter | kind::Format::JsonDocument) | None,
+            Some(
+                kind::Format::YamlFrontmatter
+                | kind::Format::JsonDocument
+                | kind::Format::TomlDocument,
+            )
+            | None,
         ) => return Ok(drift::LayoutDocumentRows::default()),
     };
     let mut edge_fields = kind.edge_field_slots();
