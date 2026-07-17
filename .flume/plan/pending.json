@@ -70,6 +70,104 @@
     "notes": "Field defect (centercode round 2, 1e952e0): source-side twin of EMBEDDED-EDGE-DEGREE-SEAM (c607fad, target side via `target_identity`). Field-proven: `connect-optimus` consults `data-access` with two uncovered globs, both endpoints declare `paths`, check silent while `explain` shows the edge. Host lives on `NestedMemberRow.host` (drift.rs:3020), dropped at main.rs:2053 — thread it. observed 4cc3081; re-verified live at b576844 (unify 6667265 changed the edge set, not the source keying)."
   },
   {
+    "tag": "TEMPLATE-DISCOVERY-CARVE",
+    "summary": "A declared kind's locus and a built-in template both materialize a member at one path — a phantom `supporting-doc` twin with a bogus degree finding; carve the declared path out of template discovery",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "The carve-out at discovery time. `discover_nested_file` (~159-193) materializes template children (e.g. `supporting-doc` at `*.md` under each skill dir) via `scan_locus` under each host unit; its only exclusion today is the within-host `if file != entry` (~182). It already receives the full declared set (`kinds: &BTreeMap<String, CustomKind>`), so before pushing a `NestedFileUnit`, DROP any candidate path a declared kind's `governs` locus claims — build the claimed-path set by running the existing `discover_kind_files`/`scan_locus` (~235/~289) over each declared kind carrying a `governs` pair (skip the nested-file kinds themselves), and filter each template candidate against it. Carving at this single point (one home per path) keeps the phantom out of `features`, so coverage (`src/main.rs`:896 `member_counts`), `explain` (`src/read.rs`:498-511 incoming-edge narration), and the `degree` clause (`src/graph.rs`:278-284) all stop seeing the twin with NO edit at those three consumer sites. Leave the declared-vs-declared `governs`-collision refusal (`src/main.rs`:2329 `governs_collision_diagnostics`, rule `kind.governs-collision`) UNTOUCHED — two declared kinds sharing a glob stays a refusal."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "The carve-out fixture, extending the existing nested-file discovery home (`engineering.md` 'One job, one home'). Assert: a declared exact-path kind whose locus claims a path a host template would also discover (e.g. `.claude/skills/jobs/conventions.md`, claimed by both the declared kind and `skill`'s `supporting-doc` template) materializes exactly ONE member (the declared kind's), no phantom `supporting-doc` twin — coverage counts one, `explain` narrates one, and no bogus 0-incoming `degree` finding fires. This is 0038's gauntlet cell where a declared locus meets a template glob; when the gauntlet corpus harness lands (9a18907 derivation) it is the cell's natural home — extend it there if present at build time, else here."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a declared kind's exact-path locus carves its path out of a host template's discovery — one member (the declared kind's), no phantom `supporting-doc` twin, no bogus 0-incoming degree finding; two declared kinds sharing a governs glob still refuse (governs-collision untouched)"
+      }
+    ],
+    "acceptance": "A path a declared kind's `governs` locus claims leaves any host template's discovery — exactly that path: the declared member is the sole home, the phantom `supporting-doc` twin and its bogus 0-incoming `degree` finding retire, and declared-vs-declared collision stays the `governs`-collision refusal (representation.md, 'locus': position stays decidable — two kinds never share a governs glob; 0038, the declaration-beats-presumption family's third instance). `cargo test` green.",
+    "notes": "0038 Consequences bullet 1, from inbox (centercode, observed 4cc3081; re-verified — 4cc3081..HEAD shipped only extent, discovery untouched). Carve in discover_nested_file (import.rs:182), extending the within-host exclusion; phantom never enters features so coverage/explain/degree self-heal. Declared-vs-declared stays the governs-collision refusal (main.rs:2329). Gauntlet cell rides nested_member.rs until 9a18907's harness lands. Disjoint from STAR-SEGMENT-LOCUS."
+  },
+  {
+    "tag": "STAR-SEGMENT-LOCUS",
+    "summary": "Admit single-`*` `*/<file>` globs for a lone-file kind whose identity is the starred segment, not the stem — widen the splice both faces; identity source a spelled UnitShape fact, never inferred",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Extend `UnitShape` (~591-607) — the ONE declared identity-source enum (`engineering.md` 'A shared concept is one type') — with a lone-file starred-segment identity source, a variant beside `File`/`Directory`/`NamedField`, NEVER a parallel fact. Distinct from `Directory` (which owns the directory and hosts templated companions): the new source is a lone file that borrows the starred directory segment for identity ONLY, so it coexists inside another kind's directory (the consumer's `conventions.md` sitting inside a skill's dir, which `skill` owns). Add its arm to `unit_shape_from_label` (~984-995). Identity uniqueness stays gated by the existing machinery — no new check."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "Identity derivation: `Member::import_from_source` matches on `unit_shape` (~192-224) — add the starred-segment arm: id = the starred directory segment (reuse `source_dir_name`, `src/extract.rs`:868-874, the directory-name reader `Directory` already uses), NOT `fold_file_id`'s stem (~420-426). The exhaustive match refuses to compile until this arm lands (the seam guard — a shared enum consumer)."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Widen the engine splice: `member_projection_path` (~743-764) file branch (~761) calls `splice_name` (~669-678), which refuses `*/` via `DriftError::FlatGlobDepth` (~326-342); admit `*/<file>` for the starred-segment source, landing `<root>/<segment>/<file>` (the `directory` branch ~755 is the projection precedent). `KindFactRow.unit_shape` (~2583) + its `to_table`/`from_table` (~3414/~3446) carry the new label. Coexists with MANIFEST-SEGMENT-REAP on this file (disjoint region: emit_manifest ~1375 / reap ledger ~485)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The builtin/declared shape comparison at ~2164 matches `unit_shape`; confirm the new variant flows (a declared custom kind, not a built-in override — named for the consumer audit, likely no logic change). Coexists with EMBEDDED-EDGE-SOURCE-SEAM (~2043) and TAP-VERB-EVENT-RECORD (Command enum ~180) on this file, disjoint regions."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Add the new label to `type UnitShape` (~32) and document it on `KindFacts.unitShape` / `identityField` (~171-183) as the spelled identity source — file stem vs starred segment, never inferred from the glob."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Widen `spliceName` (~122-131, the `pattern.includes('/')` refusal) reached from the file branch of `projectionPath` (~194-210, ~209): admit `*/<file>` for the starred-segment source, landing `<root>/<name>/<file>` (the `directory` branch ~204-207 is the precedent). `emit.ts`:141 (`unitShape === 'directory'` host check) named for the audit. `tests/projection_path_seam.rs` gates the SDK and engine faces into agreement."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`unitShapeLabel` (~146-149) + the row builder (~252-260) carry the new label across the wire (snake_case to match the Rust `KindFactRow` reader, `sdk.md` 'The engine seam'). Overlaps VERIFIER-TYPED on this file (requirement-lowering region vs unit-shape region) — disjoint, serialized if both in flight."
+        },
+        {
+          "path": "sdk/src/generated/KindFactRow.ts",
+          "description": "Regenerate ONLY if the new UnitShape variant carries a structured payload (like `named-field(<field>)`); a bare label leaves `unit_shape?: string` unchanged and no diff appears. Build confirms off the Rust derive — run the SDK generate step and commit any diff."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/projection_path_seam.rs",
+        "asserts": "a lone-file starred-segment kind at glob `*/<file>` projects to `<root>/<segment>/<file>` on both the SDK and engine faces (the splice admits it — no `FlatGlobDepth` / `spliceName` refusal), agreeing byte-for-byte across the seam"
+      },
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "discovering a starred-segment kind at `*/conventions.md` yields one member per matching directory, each identity = its starred directory segment (no stem-collision naming every member `conventions`), coexisting with a `skill` that owns the same directory"
+      }
+    ],
+    "acceptance": "A kind may declare a single-`*` `*/<file>` locus for a lone file whose identity is the starred directory segment — the built-in `skill`'s `UnitShape::Directory` identity rule generalized to every author's constructor, spelled as a declared `UnitShape` fact (stem vs starred segment) and never inferred from the glob. The splice admits it on both faces, discovery yields one member per directory keyed by its segment, uniqueness stays gated by the existing machinery (representation.md, 'locus'; 0038). `pnpm --dir sdk test` + `cargo test` green.",
+    "notes": "0038 Consequences bullet 2, from inbox (centercode, observed 4cc3081; re-verified — window shipped only extent). NOT directory-shape: a lone conventions.md inside a skill's dir can't claim that dir (skill owns it) — it needs a lone file borrowing the segment for identity, hence the file-branch splice widening. Widens UnitShape (shared enum); consumers named in files[], exhaustive matches refuse to compile until answered. Shares drift.rs/main.rs/declarations.ts with queued entries."
+  },
+  {
     "tag": "TAP-VERB-EVENT-RECORD",
     "summary": "Ship 0037's `temper tap` verb + its versioned JSONL event record: reads a hook payload from stdin, appends one record (identity + discriminant, never prose) to the uncommitted per-machine log",
     "per": {

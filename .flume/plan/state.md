@@ -3,28 +3,31 @@
 - Spec derived through: 6d2cca6
 - Audited through: 0349821
 - Residue swept through: 0349821
-- This tick: SPEC DELTA (5b6b6f2, 0037 amended). Derived 0037's tap slice
-  1+3 into TAP-VERB-EVENT-RECORD (gate:open): the `temper tap` verb + the
-  record's versioned shape, one entry (the writer round-trips the shape).
-  (tap-log-format) resolved by the amendment — the log is the engine's own
-  record (lock/emit-payload category, `SEAM_VERSION` precedent), NOT a
-  member: no kind, no declared format, the trilemma dissolves. Slice 4
-  (field strand — the record's sole reader) still un-derived, so 5b6b6f2 is
-  NOT fully routed; 9a18907 (gauntlet corpus + shared-concept) un-derived →
-  cursor HELD at 6d2cca6. Flagged for build: `temper tap` is an 8th CLI
-  subcommand, so 'seven verbs ship' (CLAUDE.md/.temper, chore(harness)) goes
-  stale — human/projection territory, not this entry's fence.
-- Queue: 8 entries — 2 pickable (gate:open) field defects, disjoint
-  (MANIFEST-SEGMENT-REAP on drift.rs/json_manifest.rs; EMBEDDED-EDGE-SOURCE-
-  SEAM on graph.rs/main.rs, coexisting with parked IMPORT-HOP-CAP-CITE on
-  graph.rs, disjoint region). TAP-VERB-EVENT-RECORD is blockedBy
-  EMBEDDED-EDGE — both edit main.rs (disjoint regions: Command enum vs
-  embedded_member_features), serialized per the shared-file rule, no logic
-  dep. SETTINGS-LOCAL-KIND + VERIFIER-TYPED (blockedBy EXTENT — shipped
-  4bdb796, unblock at next audit); TELEMETRY-HOOK-PROJECTION (blockedBy
-  VERIFIER-TYPED); + 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING).
+- This tick: INBOX drain. Routed both centercode 0038 field notes into two
+  gate:open entries — TEMPLATE-DISCOVERY-CARVE (a declared locus carves its
+  path out of a host template's discovery; the phantom `supporting-doc` twin
+  + its bogus 0-incoming `degree` finding retire; carve at import.rs:182 so
+  coverage/explain/degree self-heal) and STAR-SEGMENT-LOCUS (single-`*`
+  `*/<file>` globs admitted for a lone-file kind identified by the starred
+  segment; splice widened both faces; identity source a spelled UnitShape
+  variant, never inferred). Re-verified: window 4cc3081..HEAD shipped only
+  extent (4bdb796) — discovery/splice/identity all untouched, so the gaps
+  stand as filed. Inbox now empty. NOTE for the spec-delta job: 0038
+  (684dfec) is now DERIVED (both feature Consequences bullets → the two
+  entries; bullet 3 'consumer un-caps' is centercode's, not temper's; bullet
+  4 'route field notes' is this drain) — the cursor advance to 684dfec awaits
+  only 5b6b6f2 slice 4 + 9a18907, which precede it in delta order.
+- Queue: 10 entries — 4 pickable (gate:open): MANIFEST-SEGMENT-REAP
+  (drift.rs/json_manifest.rs), EMBEDDED-EDGE-SOURCE-SEAM (graph.rs/main.rs),
+  TEMPLATE-DISCOVERY-CARVE (import.rs, disjoint from all), STAR-SEGMENT-LOCUS
+  (kind/frontmatter/drift/main + SDK; shares drift.rs/main.rs/declarations.ts
+  with queued entries, disjoint regions). Then TAP-VERB-EVENT-RECORD
+  (blockedBy EMBEDDED-EDGE, shared main.rs); SETTINGS-LOCAL-KIND +
+  VERIFIER-TYPED (blockedBy EXTENT — shipped 4bdb796, unblock at next audit);
+  TELEMETRY-HOOK-PROJECTION (blockedBy VERIFIER-TYPED); + 2 parked
+  (IMPORT-HOP-CAP-CITE, PACKAGING).
 
 Plan continues: yes — spec delta live (cursor 6d2cca6): derive 0037's field
-strand (slice 4) next, then 9a18907's gauntlet-corpus entry + shared-concept
-sweep; then reconcile b85df4a..HEAD (EXTENT shipped — unblock the two
-blockedBy entries).
+strand (slice 4 of 5b6b6f2) next, then 9a18907's gauntlet-corpus entry +
+shared-concept sweep; then reconcile b85df4a..HEAD (EXTENT shipped — unblock
+the two blockedBy entries). 0038 already derived this tick.
