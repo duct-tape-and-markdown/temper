@@ -3,29 +3,28 @@
 - Spec derived through: 6d2cca6
 - Audited through: 0349821
 - Residue swept through: 0349821
-- This tick: DRAIN INBOX (3 lines). Item 1 — `(tap-log-format)` ruled
-  07-17, folded to the spec amendment 5b6b6f2 (0037 + pipeline.md
-  "Telemetry"): a fork resolution whose derivation IS the live spec delta,
-  so the line drains and the derivation stays the spec-delta job (cursor
-  held at 6d2cca6; the amendment rescopes slice [3] to a versioned JSONL
-  engine record, [1]/[4] unblock). Items 2 & 3 — two centercode field
-  defects (1e952e0), re-verified live at b576844 (window 4cc3081..HEAD
-  touched both target regions only in EXTENT): filed MANIFEST-SEGMENT-REAP
-  (emit silently drops discovered manifest members, no ledger/cliff —
-  emit_manifest reads whole bytes only, drift.rs:1409) and
-  EMBEDDED-EDGE-SOURCE-SEAM (mention_reachable misses an embedded-carried
-  citation, source keyed to the embedded member not its host, graph.rs:974
-  — twin of degree-seam's target_identity). Cursors unmoved (no audit/spec
-  derivation this tick).
-- Queue: 7 entries — 2 pickable (gate:open) field defects at top
-  (MANIFEST-SEGMENT-REAP, EMBEDDED-EDGE-SOURCE-SEAM; the latter coexists
-  with parked IMPORT-HOP-CAP-CITE on graph.rs, disjoint region);
-  SETTINGS-LOCAL-KIND + VERIFIER-TYPED (blockedBy EXTENT — shipped 4bdb796,
-  unblock at next audit); TELEMETRY-HOOK-PROJECTION (blockedBy
-  VERIFIER-TYPED); + 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING). 0037's
-  [1]/[3]/[4] no longer fork-parked — carried by the spec delta 5b6b6f2.
+- This tick: SPEC DELTA (5b6b6f2, 0037 amended). Derived 0037's tap slice
+  1+3 into TAP-VERB-EVENT-RECORD (gate:open): the `temper tap` verb + the
+  record's versioned shape, one entry (the writer round-trips the shape).
+  (tap-log-format) resolved by the amendment — the log is the engine's own
+  record (lock/emit-payload category, `SEAM_VERSION` precedent), NOT a
+  member: no kind, no declared format, the trilemma dissolves. Slice 4
+  (field strand — the record's sole reader) still un-derived, so 5b6b6f2 is
+  NOT fully routed; 9a18907 (gauntlet corpus + shared-concept) un-derived →
+  cursor HELD at 6d2cca6. Flagged for build: `temper tap` is an 8th CLI
+  subcommand, so 'seven verbs ship' (CLAUDE.md/.temper, chore(harness)) goes
+  stale — human/projection territory, not this entry's fence.
+- Queue: 8 entries — 2 pickable (gate:open) field defects, disjoint
+  (MANIFEST-SEGMENT-REAP on drift.rs/json_manifest.rs; EMBEDDED-EDGE-SOURCE-
+  SEAM on graph.rs/main.rs, coexisting with parked IMPORT-HOP-CAP-CITE on
+  graph.rs, disjoint region). TAP-VERB-EVENT-RECORD is blockedBy
+  EMBEDDED-EDGE — both edit main.rs (disjoint regions: Command enum vs
+  embedded_member_features), serialized per the shared-file rule, no logic
+  dep. SETTINGS-LOCAL-KIND + VERIFIER-TYPED (blockedBy EXTENT — shipped
+  4bdb796, unblock at next audit); TELEMETRY-HOOK-PROJECTION (blockedBy
+  VERIFIER-TYPED); + 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING).
 
-Plan continues: yes — spec delta 5b6b6f2 live (cursor 6d2cca6): derive
-0037's amended tail (tap verb, versioned JSONL log record, field strand),
-then reconcile b85df4a..HEAD (EXTENT shipped — unblock the two blockedBy
-entries).
+Plan continues: yes — spec delta live (cursor 6d2cca6): derive 0037's field
+strand (slice 4) next, then 9a18907's gauntlet-corpus entry + shared-concept
+sweep; then reconcile b85df4a..HEAD (EXTENT shipped — unblock the two
+blockedBy entries).

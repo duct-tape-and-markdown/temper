@@ -70,6 +70,47 @@
     "notes": "Field defect (centercode round 2, 1e952e0): source-side twin of EMBEDDED-EDGE-DEGREE-SEAM (c607fad, target side via `target_identity`). Field-proven: `connect-optimus` consults `data-access` with two uncovered globs, both endpoints declare `paths`, check silent while `explain` shows the edge. Host lives on `NestedMemberRow.host` (drift.rs:3020), dropped at main.rs:2053 — thread it. observed 4cc3081; re-verified live at b576844 (unify 6667265 changed the edge set, not the source keying)."
   },
   {
+    "tag": "TAP-VERB-EVENT-RECORD",
+    "summary": "Ship 0037's `temper tap` verb + its versioned JSONL event record: reads a hook payload from stdin, appends one record (identity + discriminant, never prose) to the uncommitted per-machine log",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EMBEDDED-EDGE-SOURCE-SEAM"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/tap.rs",
+          "description": "The tap verb's home + the versioned JSONL event-record type (register `pub mod tap;` in `src/lib.rs`, ~27-57). The record is the ENGINE'S OWN record, the lock/emit-payload category (0037 amended 5b6b6f2) — NOT a member, no declared format, no lock row: a plain struct carrying a version tag (`TAP_RECORD_VERSION`, versioned in lockstep with the binary — the `SEAM_VERSION` precedent, `src/drift.rs`:547) plus the event's identity + minimal discriminant only: the member/path the event names, the load reason, the session id (pipeline.md 'Telemetry'). NEVER captured prose — no tool output, no prompt text, no message bodies (intent.md invariant, pipeline.md). Serialize one record per line (JSONL) and an APPEND writer that appends a single record — never rewrites the file, so parallel sessions interleave lines safely (pipeline.md 'Telemetry'). The log is per-machine, uncommitted, never an emit input or target — the local class's guarantees by PLACEMENT: an uncommitted path under the workspace honoring the ignore posture (the dial precedent, `.temper/dial.toml`; exact filename is build's HOW, decidable on disk). Deserialize (current version) rides here so the writer round-trips in test; the version-SKEW tolerance + narration count is the field strand's (slice 4, the record's sole reader — 'A shared concept is one type', engineering.md 9a18907)."
+        },
+        {
+          "path": "tests/tap.rs",
+          "description": "The feature's fixture home (one per feature, `tests/rust.md`). Assert: a sample hook payload on stdin yields one appended JSONL record carrying the extracted identity + discriminant and NO prose; the record round-trips (write then read back the current version); two appends produce two lines and never rewrite the file (parallel-safe append); a record an older `TAP_RECORD_VERSION` wrote deserializes tolerated — surfaced/countable, never a silent skip or a hard error (the lock version-skew tolerance precedent, `src/drift.rs`:3365). Model the stdin-payload drive on `tests/cli.rs`/`tests/install.rs` guard-payload fixtures."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Add a `Tap` variant to the `Command` enum (~180, after `Guard`) and its dispatch arm (~354, mirroring `Guard`): read the Claude Code hook payload from stdin (`io::Read::read_to_string(&mut io::stdin(), ...)`, ~373), extract the event's identity + minimal discriminant per its lifecycle event, and append one record via `src/tap.rs`. Exit zero (a tap is advisory recording, never a gate). The payload→record field extraction per lifecycle event (InstructionsLoaded / Skill-under-PostToolUse / UserPromptExpansion / PostToolUse) is an EXTERNAL FACT — cite code.claude.com/docs/en/hooks and re-verify against live docs at encode (collaboration.md external-fact bar). NOTE the seven-verbs identity: `temper tap` is an 8th CLI subcommand; the 'Seven verbs ship' line lives in `CLAUDE.md`/`.temper` (a human chore(harness) projection, outside this entry's fence) — flag it in the commit body, do not edit it here."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/tap.rs",
+        "asserts": "`temper tap` over a sample hook payload appends one versioned JSONL record carrying the event's identity + minimal discriminant and no prose; the record round-trips; two appends interleave as two lines without rewriting the file; an older-version record deserializes tolerated (countable, never silent-skipped or fatal)"
+      }
+    ],
+    "acceptance": "`temper tap` reads a hook payload from stdin and appends one machine-written JSONL record — the event's identity + minimal discriminant (member/path, load reason, session id), never captured prose — to the per-machine uncommitted log, exiting zero. The record is the engine's own record (no member, no declared format), versioned in lockstep with the binary (SEAM_VERSION precedent); an append is a single record that never rewrites the file, so parallel sessions interleave lines; an older record version reads tolerated, never silent-skipped (pipeline.md, 'Telemetry'; 0037 amended). `cargo test` green.",
+    "notes": "0037 slice 1+3 of 5 (amended 5b6b6f2): tap verb + record's versioned shape — writer round-trips the shape. (tap-log-format) resolved: the log is the engine's own record, not a member. Slice 4 (field strand) is its sole READER — shared type defined here, read there (9a18907). blockedBy EMBEDDED-EDGE only for shared main.rs (disjoint regions, no logic dep — tap is the receiver). `temper tap` = 8th subcommand; 'seven verbs' is chore(harness)/.temper. scoped at 36f3fd8."
+  },
+  {
     "tag": "SETTINGS-LOCAL-KIND",
     "summary": "Ship `settings-local` (0036): `.claude/settings.local.json`, a json-document at the local commitment class — read in place, gated, never emitted; documented keys typed, residue opaque",
     "per": {
