@@ -1,5 +1,48 @@
 [
   {
+    "tag": "CHECK-FINDINGS-ONE-HOME",
+    "summary": "The runner consolidation homed the spawn but left the github finding-line extraction copied five times — and bundle.rs regrew `check_harness` verbatim, one commit after it was consolidated",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "Home the extraction on the value that owns the bytes: add a `findings()` method to `CheckRun` (149) returning the github-reporter finding lines — `output.lines().filter(|l| l.starts_with(\"::\")).map(str::to_string).collect()`, the body now spelled at 187-192 inside `check_harness` (181). `check_harness` keeps its `(Vec<String>, bool)` shape and composes the method rather than open-coding the filter, exactly as it already composes `check_in` for the spawn. `CheckRun` is the right home over a free function: the filter is a projection of `output`, and every one of the five copies below already holds a `CheckRun` (or an expression producing one) at the point it re-spells the filter. `check_in`'s doc (155-161) already claims the spawn home; extend the same claim to the finding shape so the doc's narrowness cannot license the next regrowth — the root cause a9a21a9 named for the six `check_harness` copies."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "236-241 is `check_harness(&out)` re-spelled verbatim, regrown one commit after CHECK-HARNESS-ONE-HOME (3bd0f80) consolidated six copies of exactly this: `common::check_in(&out, &[\"--harness\", out.to_str().unwrap()], Some(\"github\"))` then the `::` filter is byte-for-byte the home's own body (`tests/common/mod.rs:181-194`), and the assertions below want both halves it returns (`run.ok` at 245, `findings` at 247). Collapse to `let (findings, ok) = common::check_harness(&out);` — the file already `mod common`s and calls `common::check_in`. This is the sixth copy, not a fifth: it duplicates the composed home, not just the filter."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Two copies. The local `fn check_in(root, args) -> (Vec<String>, bool)` (29-38) re-spells the filter at 34 — fold its body to `let run = common::check_in(root, args, Some(\"github\")); (run.findings(), run.ok)`. Keep the local wrapper itself: its `[\".\"]`-arg shape is not `check_harness`'s `--harness` spelling, so it is a composition of the home, not a rival to it — the shape `cli.rs`'s `run_check_harness` (95) already establishes as sanctioned. Its name shadowing `common::check_in` with a different signature is pre-existing and NOT this entry's to rename — say so rather than folding a rename in silently. Second copy: 177-180 open-codes the filter inline (as `Vec<&str>`, the one `&str` spelling) purely to assert emptiness — becomes `run.findings()`, whose `Vec<String>` serves `is_empty()` and the `{findings:#?}` message identically."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "`check_two_step` (77-82) re-spells the filter at 80 over `common::check_in(harness, &[\".\"], Some(\"github\"))`. Becomes `common::check_in(harness, &[\".\"], Some(\"github\")).findings()`. Its `[\".\"]` args are deliberate and documented (70-76: the path argument resolves as a harness root so `check` reads members live off harness disk) — that spelling survives untouched; only the filter folds. The file's other seven runs already reach `common::check_harness` (131, 161, 179, 212, 228, 267, 285) and are not this entry's to touch."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "unchanged behavior — the suites ARE the test: every folded caller keeps its current assertions green, since the extraction is pure over `CheckRun.output`"
+      }
+    ],
+    "acceptance": "`rg 'starts_with\\(\"::\"\\)' tests/` finds exactly one home — `CheckRun::findings` in `tests/common/mod.rs` — and `check_harness` composes it rather than open-coding it. No `check_in(root, [\"--harness\", root], Some(\"github\"))`-plus-filter spelling survives beside `check_harness`. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "scoped at 8036900. Third consolidation over this scaffolding, and the pattern is now legible: 3bd0f80 homed the harness shape, a9a21a9 homed the spawn, each leaving the layer below it copied. This entry takes the layer a9a21a9 left. Disjoint from both parks (src/graph.rs, release.yml). The five filter copies and bundle.rs's regrown `check_harness` were all re-read on disk at 8036900."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -16,11 +59,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 3593ab6. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 8036900. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 3593ab6) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 8036900) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -33,7 +76,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 3593ab6 and holds — nothing ruled the hop semantics; inbox empty and the reconciled window is one test-consolidation commit touching no import mechanics: `git diff d88ed75..3593ab6 -- src/graph.rs tests/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 3593ab6."
+    "notes": "Park re-tested at 8036900 and holds — nothing ruled the hop semantics; inbox empty and the window is one test-scaffolding commit touching no import mechanics: `git diff 3593ab6..8036900 -- src/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 8036900."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +103,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 3593ab6, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The reconciled window is test-only and touched no release surface. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8036900, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The reconciled window is tests-only and touched no release surface. scoped at b676656."
   }
 ]

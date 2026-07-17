@@ -35,13 +35,13 @@ tax.
     capture `build-clause-algebra-cannot-address-nested-fields.md`). Every
     `Predicate` carries a flat `field: String` (`Features::field` →
     `fields.get(name)`), and `extract::json_to_feature`
-    (`src/extract.rs:921`, re-verified 3593ab6) flattens on the way in: an
+    (`src/extract.rs:921`, re-verified 8036900) flattens on the way in: an
     object becomes an opaque `FeatureValue::Map`, inner keys discarded. So
     `owner.name` required and each `plugins[]` entry's `name`+`source` have no
     clause; `required("owner")`/`required("plugins")` is the shipped slice,
     held in `marketplaceDefaultContract`'s header (806) and pinned by
     `the_rules_below_the_top_level_are_not_gateable_today`
-    (`tests/marketplace_kind.rs:267`). A field-path spelling may round-trip
+    (`tests/marketplace_kind.rs:267`, unmoved at 8036900). A field-path spelling may round-trip
     with no schema delta (`field` is a `String` on both faces); un-flattening
     `FeatureValue` instead touches the `type` predicate's kind-preservation
     contract and every consumer.
@@ -104,7 +104,7 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 3593ab6: no
+  dir by `temper bundle` on every run? Re-verified at 8036900: no
   `.claude-plugin/` exists here, so both kinds govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
@@ -169,24 +169,25 @@ condition arrives, it is the next break. If work touches one, surface it.
 
 - **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
   drained and the physical trees were deleted (`chore(harness)` 68f187d).
-  **One debt survives**, accepted: `tests/session_start.rs:121/140` still
+  **One debt survives**, accepted: `tests/session_start.rs:122/141` still
   writes `+++`-format `.temper/kinds/spec/KIND.md` +
   `.temper/packages/spec/PACKAGE.md` fixtures. **Reclassified 07-16 — this
   record had it wrong, and the misfiling is why it never discharged.** It was
   filed as narration staleness riding a reconcile; it is not. Read on disk at
-  3593ab6: the fixtures sit inside
+  8036900: the fixtures sit inside
   `stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start`
-  (111), whose *subject* is that files in the retired format are inert — the
+  (113), whose *subject* is that files in the retired format are inert — the
   vocabulary is the assertion, not a comment beside it. So no hygiene pass can
   "reconcile" it: the live question is whether temper still wants a test
   pinning retired-format inertness at all, and that is a value call
-  (subtraction before addition, CLAUDE.md) no build tick may invent. Three
-  entries (664a522, CHECK-ARG-HALF-GATE 4256274, and CHECK-RUNNER-REMAINDER,
-  which edits the file at 48/360 and is scoped to leave 121/140 standing) have
-  or will open the file without touching it — correctly, under this reading.
-  Not a rider awaiting a carrier; a question awaiting a human. Both trees
-  re-verified spelled at 121/140, in a file the d88ed75..3593ab6 window never
-  touched.
+  (subtraction before addition, CLAUDE.md) no build tick may invent. **The
+  reclassification is now proven, not predicted:** CHECK-RUNNER-REMAINDER
+  shipped (a9a21a9), edited this very file at 49, and left the fixtures
+  standing — the third entry to open it and correctly not touch it (after
+  664a522 and CHECK-ARG-HALF-GATE 4256274). That fold shifted the cites two
+  lines (121/140 → 122/141, fn 111 → 113); the numbers above are re-read on
+  disk at 8036900, not carried forward. Not a rider awaiting a carrier; a
+  question awaiting a human.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
   `packages/{rule,memory}.anthropic/PACKAGE.md` files; `rg` over the file finds
@@ -208,9 +209,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. All ten
-  lines re-verified on disk at reconcile HEAD 3593ab6 (unmoved; `prose.ts`
-  untouched in the d88ed75..3593ab6 window too and edited by no queued entry —
-  still no carrier). The
+  lines re-verified on disk at reconcile HEAD 8036900 (unmoved; the
+  3593ab6..8036900 window is tests-only, so `prose.ts` went untouched again,
+  and no queued entry edits it — still no carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
@@ -226,7 +227,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the cite still sits at
-  42) at reconcile HEAD 3593ab6 — no queued entry edits `Cargo.toml`, so it
+  42) at reconcile HEAD 8036900 — no queued entry edits `Cargo.toml`, so it
   still has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
