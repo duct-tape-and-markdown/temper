@@ -7,8 +7,7 @@
       "section": "Layers"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The `Check` command (106-123: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `engine::admissibility` path (830/869). Every address here re-read on disk at 15e5924: 09ef5ea's read-face join moved the admissibility pair 829/868→830/869 and `assemble_lock_family` 1381→1385. That join's site is the one 990715e minted as where every consumer's declaration family is built — the invocation's locks join there, beside the local kinds' derived rows, rather than at a second per-call-site read. 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
+          "description": "The `Check` command (106-123: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `engine::admissibility` path (830/869). Every address re-read on disk at af2a1f1: 6e7b958 threaded `import::LocalOverride` through `resolve_kind_units`'s two discovery calls (1200, 1218), moving `assemble_lock_family` 1385→1395; the `Check` command and the admissibility pair sit unmoved. That join's site is the one 990715e minted as where every consumer's declaration family is built — the invocation's locks join there, beside the local kinds' derived rows, rather than at a second per-call-site read. 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
         },
         {
           "path": "src/drift.rs",
@@ -37,7 +36,7 @@
       }
     ],
     "acceptance": "An org authors an ordinary temper corpus, emits its lock, and distributes it; a consumer joins it at check and is gated by it, fail-closed (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Behind 0034's three, sharing `src/main.rs`/`src/drift.rs` with two. scoped f1d97e4; every cite re-read on disk at 15e5924 after 09ef5ea moved both files."
+    "notes": "The third of 0032's five, and the queue's one pickable entry — its gate opened at 6e7b958, the last of 0034's three derivations. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Six entries chain behind it on `src/main.rs`/`src/drift.rs`/`src/compose.rs`. scoped f1d97e4; every cite re-read on disk at af2a1f1."
   },
   {
     "tag": "TYPE-ACCEPTS-A-SET",
@@ -348,7 +347,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. **Every half is upstream code on disk by the time this is picked** — `Commitment::Local` (46-56) and `CustomKind::local` (735) shipped at 40619a0, the layout-only arm that would otherwise refuse this kind on contact is retired (bce89b7, the fault at 750 now fencing the `governs`-less locus alone), and `Format::TomlDocument` (563-568) shipped at 09ef5ea as a read face with no write twin — exactly what a never-projected local document needs. All four re-read on disk at 15e5924. This entry declares the kind; it mints no format and no locus mechanics of its own."
+          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. **Every half is upstream code on disk by the time this is picked** — `Commitment::Local` (46-56) and `CustomKind::local` (735) shipped at 40619a0, the layout-only arm that would otherwise refuse this kind on contact is retired (bce89b7, the fault at 750 now fencing the `governs`-less locus alone), `Format::TomlDocument` (563-568) shipped at 09ef5ea as a read face with no write twin — exactly what a never-projected local document needs — and 6e7b958 made the walk find the dial's own `.temper/dial.toml` at all, which is what keeps this kind's rows from deriving over an empty set. All four kind.rs addresses re-read on disk at af2a1f1. This entry declares the kind; it mints no format and no locus mechanics of its own."
         },
         {
           "path": "src/main.rs",
@@ -365,7 +364,7 @@
       }
     ],
     "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole — the dial stays local-locus TOML, and \"layout-only\" retires as the wrong fence rather than the dial bending to it. Now serialized only, behind SHAPE-PREDICATE over `sdk/src/builtins.ts`, with all three 0034 derivations upstream through the chain — two of the three have now shipped (bce89b7, 09ef5ea). scoped f1d97e4; cites re-read 15e5924."
+    "notes": "Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole — the dial stays local-locus TOML, and \"layout-only\" retires as the wrong fence rather than the dial bending to it. Serialized only, behind SHAPE-PREDICATE over `sdk/src/builtins.ts`. **All three 0034 derivations have now shipped** (bce89b7, 09ef5ea, 6e7b958), so nothing upstream of this kind is unbuilt — only the chain's file serialization holds it. scoped f1d97e4; cites re-read af2a1f1."
   },
   {
     "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",

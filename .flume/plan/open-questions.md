@@ -38,9 +38,11 @@ tax.
   candidate local-locus layout kind beyond the dial itself." A candidate is not
   a requirement, and plan does not promote one — the `(plugin-author-dogfood)`
   precedent. The question: does the claude-code face ship a
-  `settings.local.json` kind? The "can it" half is ruled — 0034 makes a
-  local member read-side only under any declared format, so a JSON local
-  kind gated in place is ordinary; ship-or-not is all that remains.
+  `settings.local.json` kind? The "can it" half is now **built, not merely
+  ruled** — 0034's three derivations all ship (bce89b7, 09ef5ea, 6e7b958), so
+  a local JSON kind would be gated in place under `json-document` and its
+  always-gitignored document actually found by the walk. Ship-or-not is all
+  that remains, and it costs no upstream work.
   Nothing is broken by leaving it open: the file is ungoverned today and
   no member declares it. No dependents.
 
@@ -191,9 +193,9 @@ condition arrives, it is the next break. If work touches one, surface it.
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
     file. No queued entry opens `src/roster.rs`; it waits for one, and never
-    becomes an entry of its own. Cite re-read at a94cfb5 — 6d145fa moved it
-    465→470 (the label lift), which is the ride-only rule's own hazard: an
-    orphan's address drifts under it, so the sweep re-reads rather than carries.
+    becomes an entry of its own. Cite re-read on disk at af2a1f1, still 470 —
+    but re-read rather than carried, because an orphan's address drifts under
+    the ride-only rule (6d145fa moved it 465→470 while this record slept).
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
   `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"
