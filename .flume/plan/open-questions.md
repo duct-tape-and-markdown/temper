@@ -180,12 +180,14 @@ condition arrives, it is the next break. If work touches one, surface it.
     names both riders in its first edit — filed at 6f72a3b, which is what
     retired this record's old "no queued entry opens either file" claim.
     Found at sweep HEAD a932bb0.
-  - `src/roster.rs`:465 — **the last orphan of its class**: the doc comment on
+  - `src/roster.rs`:470 — **the last orphan of its class**: the doc comment on
     the `membership_roster` test helper cites `` `10-contracts.md` ``, a file
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
     file. No queued entry opens `src/roster.rs`; it waits for one, and never
-    becomes an entry of its own.
+    becomes an entry of its own. Cite re-read at a94cfb5 — 6d145fa moved it
+    465→470 (the label lift), which is the ride-only rule's own hazard: an
+    orphan's address drifts under it, so the sweep re-reads rather than carries.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
   `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"

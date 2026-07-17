@@ -1,45 +1,41 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: 399d8e3
-- Residue swept through: 399d8e3
-- This tick: SPEC DELTA — decision 0034 (`f1d97e4..832f015`), derived whole.
-  The ruling: emit's codomain is the committed tree, so the local locus is
-  **read-side only under any declared format** and "layout-only" retires as
-  the wrong fence. **Consequences checklist, every bullet routed.** (1) The
-  same-commit corpus edits (pipeline/representation re-cuts, 0030 + 0032
-  errata) are the human's own act in 8d794ba — not plan's. (2)
-  `(local-locus-toml-face)` **resolves and deletes** — verified already done
-  on disk: 8d794ba deleted the record itself. (3) `(settings-local-kind)`
-  **reduces to ship-or-not** — likewise already re-cut in that commit; its
-  record says so. (4) `local_locus_fault` re-cut → **filed**
-  LOCAL-LOCUS-IS-READ-SIDE-ONLY, carrying the errata's coupled landmine in
-  the same entry as ruled (`local_document_rows`' silent none,
-  `src/main.rs`:1402 — the fence's own doc calls that silence licensed, and
-  0034 revokes the licence). (5) The `toml-document` read face → **filed**
-  TOML-DOCUMENT-READ-FACE. (6) The errata's walk carve-out → **filed**
-  LOCAL-GOVERNS-OVERRIDES-DISCOVERY. (7) "DIAL-KIND and
-  CHECK-ANNOUNCES-THE-LOCK-FAMILY unblock" → DIAL-KIND's `dependsOnForks`
-  **cleared**, its `src/kind.rs` description, schemaDelta, and notes
-  rewritten off the ruling; CHECK-ANNOUNCES inherits through the chain.
-  **Verified moot, not filed:** 0034's "emit writes no uncommitted path"
-  needs no guard — `emit_program` already skips a local member before any
-  content/format branch and books its path owned (`src/drift.rs`:992-995),
-  so the codomain holds structurally today; named in
-  LOCAL-LOCUS-IS-READ-SIDE-ONLY's notes so build does not mint a second one.
-  **Gate repair (closing checklist, not the job):**
-  CHECK-JOINS-INVOCATION-LOCKS pointed `blockedBy` at
-  CLAUSE-LABEL-IS-AN-ADDRESS, which shipped (6205707) and was dropped by its
-  own ship commit — a dangling tag the reference gate rejects; re-gated onto
-  the 0034 chain.
-- Queue: 12 entries, **1 pickable** — LOCAL-LOCUS-IS-READ-SIDE-ONLY. Nine
-  form one `blockedBy` chain behind it (0034's three → join → 0033's four
-  widenings → dial → announcement), serialized on shared files; **no entry
-  rests on a fork any more** — the board's four survivors have no dependents.
-  Two parked on human acts.
+- Audited through: 832f015
+- Residue swept through: 832f015
+- This tick: RECONCILE `399d8e3..832f015` — both motions, one code commit in
+  the window (6d145fa, CLAUSE-LABEL-IS-AN-ADDRESS; the three `specs:` commits
+  are 0034, already derived at a94cfb5). **Audit:** the ship is verified on
+  disk, never from the log — `clause_label` (`src/contract.rs`:84),
+  `stamp_clause_labels` (`src/drift.rs`:1269), the `label` column (2658),
+  `Clause.label` (`src/contract.rs`:51). The entry was already dropped by its
+  own ship commit (6205707), so nothing was left to drop. Every gate re-tested:
+  the chain's `blockedBy` tags all resolve, LOCAL-LOCUS-IS-READ-SIDE-ONLY stays
+  the one pickable, and both parks hold on re-read — PACKAGING on every clause
+  (four era tags only, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 verbatim,
+  `.github/` untouched), IMPORT-HOP-CAP-CITE because nothing ruled the hop
+  semantics and the constant is still 5. **Sweep:** no residue. The label ship
+  has one home — every site calls `contract::clause_label`, no second
+  derivation — and `Selector::rule` is gone as its body claims. 0034's
+  `layout-only` residue in `src/kind.rs` (50/735/738/746/761) is already
+  operationalized by the pickable entry, not a fresh gap. One tension swept and
+  cleared, not filed: a pre-label lock now hard-fails at `req_str(table,
+  "label")` (`src/drift.rs`:3583), but 0024's owed "robust read" governs
+  *spelling* normalization of existing labels, not a new identity column, and
+  pre-1.0 carries no back-compat burden (`distribution.md`) with zero such locks
+  in the wild. **Cite repair — the window's one real finding:** 6d145fa moved
+  cites under two records that *asserted they had not moved*.
+  IMPORT-HOP-CAP-CITE's notes claimed `git diff -- src/graph.rs tests/graph.rs`
+  is empty and listed five unmoved cites; all false at HEAD (constant 65→59,
+  narration 525→519 and 624→618, BFS 654→648, test 1356→1357) — re-read and
+  re-stamped. The orphan cite `src/roster.rs`:465→470 likewise. The rest of the
+  queue is deliberately NOT re-stamped: `scoped at <sha>` is the designed
+  defense against line drift — build diffs that range at pick-up — so a mass
+  re-stamp is churn and would falsely claim a re-scope.
+- Queue: 12 entries, **1 pickable** — LOCAL-LOCUS-IS-READ-SIDE-ONLY. Nine chain
+  behind it (0034's three → join → 0033's four → dial → announcement),
+  serialized on shared files; no entry rests on a fork. Two parked on human acts.
 
-Plan continues: yes — post-ship reconciliation of `399d8e3..832f015`
-(6d145fa shipped CLAUSE-LABEL-IS-AN-ADDRESS into `src/`; both the audit and
-sweep motions are unrun over that window, and only the dangling gate it left
-was repaired here).
-</content>
+Plan continues: no — the window is reconciled on both motions, the spec delta is
+empty at 832f015, and the inbox and refactor captures are clear. Build takes over
+on the pickable entry.
