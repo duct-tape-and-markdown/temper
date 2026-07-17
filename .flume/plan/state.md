@@ -1,47 +1,52 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: 7629fb0
-- Residue swept through: 7629fb0
-- This tick: RECONCILE `da31f82..7629fb0` — both motions over 990715e's ship,
+- Audited through: 15e5924
+- Residue swept through: 15e5924
+- This tick: RECONCILE `7629fb0..15e5924` — both motions over 09ef5ea's ship,
   the window's only commit touching `src/`/`tests/`/`sdk/`.
-  **Audit: the join shipped as scoped, and it unblocks the queue.**
-  Verified on disk, not off the log: `assemble_lock_family` (`src/main.rs`:1381)
-  joins the committed rows with every local kind's derived `nested`/`satisfies`
-  before any consumer reads, and both `gate` (782) and `explain` (478) range
-  over the one family. The ship commit (7629fb0) removed
-  LOCK-FAMILY-ASSEMBLED-ONCE, leaving TOML-DOCUMENT-READ-FACE's `blockedBy`
-  naming a tag no entry carries — **re-tested and opened**: that gate rested on
-  `src/main.rs` serialization alone, and the serialization is spent. It is now
-  the queue's one pickable entry.
-  **Cites re-stamped, re-read on disk, never carried:** 990715e moved
-  TOML-DOCUMENT-READ-FACE's second `src/main.rs` pair (`local_document_rows`'s
-  match 1412-1418→1422-1428, its decision-rule doc 1392-1399→1405-1411);
-  `read_file_unit`'s dispatch (1270-1286) and its doc (1249-1258) are unmoved.
-  The entry gains one fact it lacked: the join left `local_document_rows`
-  exactly one caller, and `assemble_lock_family` mints no format match of its
-  own, so it is not a third site the TOML face must answer. `src/kind.rs`'s
-  four addresses re-read and hold — the window never touched the file.
-  **One finding older than this window.** CHECK-JOINS-INVOCATION-LOCKS cited
-  `engine::admissibility` at 811/850 — true when stamped at 399d8e3, falsified
-  by 6d145fa's label lift (+18 → 829/868), and missed by last tick's sweep of
-  that very window. Re-stamped against `git show 399d8e3:src/main.rs`, and the
-  entry now names `assemble_lock_family` as the seam its join lands at.
-  **Sweep: clean.** The commit's named demolition drained whole — the two
-  per-call-site commitment branches are gone; the sole surviving
-  `commitment != Some(Local)` is the join's own filter, not a per-call-site
-  re-decision. Four `read_declarations` consumers still skip the join
-  (`schema` 290, `mode_from_lock` 589, `guarded_manifests` 621,
-  `coverage_note`:283) — each reads only `kinds`/`clauses`/`assembly`, row
-  families a local member never contributes, so none is a second fail-open.
-  Nothing filed; no second implementation surfaced. Both parks re-tested and
-  hold: the window touches neither `src/graph.rs` nor `.github/`. The
-  `src/roster.rs`:470 orphan cite still waits for a carrier, unmoved.
-- Queue: 11 entries, **1 pickable** — TOML-DOCUMENT-READ-FACE. Eight chain
-  behind it, serialized on shared files; no entry rests on a fork. Two parked.
+  **Audit: the read face shipped as scoped, and it drains the queue's last
+  blocker.** Verified on disk, not off the log: `Format::TomlDocument`
+  (`src/kind.rs`:563-568) lifts from `"toml-document"` (975), `read_file_unit`
+  dispatches it to `toml_document::read(...).to_unit()` (`src/main.rs`:1276-1277),
+  and `local_document_rows`'s match names it beside the two other read faces
+  (1433). The ship commit (15e5924) removed the entry.
+  **The head entry's gate re-tested and opened.** LOCAL-GOVERNS-OVERRIDES-DISCOVERY
+  rested on the toml face alone — its workspace-skip fixture is the dial's own
+  `.temper/dial.toml`, which now reads under the shipped face. It is the queue's
+  one pickable entry.
+  **Cites re-stamped, re-read on disk, never carried.** 09ef5ea's toml module
+  shifted `src/drift.rs`'s whole row family ~78 lines: `ClauseRow` 2627→2704,
+  `value_type` 2672→2760 (written 3511-3512→3602-3603, read 3553→3647),
+  `read_declarations` 3104→3192, `parse_declarations` 3127→3215 — reaching three
+  entries. `src/main.rs` moved the admissibility pair 829/868→830/869 and
+  `assemble_lock_family` 1381→1385; `src/kind.rs` moved `CustomKind::local`
+  728→735 and `local_locus_fault` 743→750. DIAL-KIND's `src/kind.rs` note is
+  re-worded off its queued-upstream framing: two of its three 0034 halves are
+  now shipped code (bce89b7, 09ef5ea).
+  **One finding of my own making.** LOCAL-GOVERNS-OVERRIDES-DISCOVERY's
+  `src/import.rs` addresses were wrong at scope time and no sweep had re-read
+  them — `git_ignore` 355→354, the `WORKSPACE_DIR` skip 358-365→357 (block
+  362-366), the nested-root stop 365-372→367-375. The file was never touched
+  since 832f015, so this is scoping error, not drift: an entry's cites are
+  re-read on disk even when the window proves the file unmoved.
+  **Sweep: clean.** No second implementation — `toml_document.rs` reuses
+  `json_manifest::DocumentMember` and `document::item_to_json` rather than
+  triplicating the whole-artifact read; only the grammar is new. The exhaustive
+  `project_bytes` match closed a real fail-open (a TOML member would have landed
+  `---`-fenced bytes at a `.toml` path) and both callers raise their own refusal.
+  Nothing filed. Both parks re-tested and hold: the window touches neither
+  `src/graph.rs` nor `.github/`. The `src/roster.rs`:470 orphan cite still waits
+  for a carrier, unmoved. One open-questions record restamped: the
+  format-inventory asymmetry said "the inventory's second entry" and there are
+  now three — re-worded, and it names the exhaustive-match proof that keeps
+  "deliberate addition" mechanical.
+- Queue: 10 entries, **1 pickable** — LOCAL-GOVERNS-OVERRIDES-DISCOVERY. Seven
+  chain behind it, serialized on shared files; no entry rests on a fork. Two
+  parked.
 
 Plan continues: no — every input is drained. Inbox and refactor captures are
 empty, the spec delta is empty (nothing past 832f015), and both reconciliation
-cursors now sit at 7629fb0 with the window's audit and sweep complete. Build
-takes over: TOML-DOCUMENT-READ-FACE is pickable, and eight entries queue
-behind the read face 0034 ratified.
+cursors now sit at 15e5924 with the window's audit and sweep complete. Build
+takes over: LOCAL-GOVERNS-OVERRIDES-DISCOVERY is pickable, and seven entries
+queue behind the discovery override 0034's errata ratified.

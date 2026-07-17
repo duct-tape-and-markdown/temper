@@ -124,12 +124,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   so a lockless harness is still fully gated (`specs/model/pipeline.md`, "The
   lock"). Data, not code.
 
-- **Format implementations are engine code** (the frontmatter adapter, and
-  since 3ed8d2b the `json-document` reader beside it) — kept because an
-  external format's mechanics are temper's to implement once; the kind that
-  selects them is data (`specs/model/representation.md`, "kind": a kind is
-  data, its extractor composed from that data). Grows only by deliberate
-  addition, and the inventory's second entry was exactly that.
+- **Format implementations are engine code** (the frontmatter adapter, the
+  `json-document` reader beside it since 3ed8d2b, and `toml-document` since
+  09ef5ea) — kept because an external format's mechanics are temper's to
+  implement once; the kind that selects them is data
+  (`specs/model/representation.md`, "kind": a kind is data, its extractor
+  composed from that data). Grows only by deliberate addition, and each of
+  the inventory's two additions was exactly that. The third entry sharpened
+  the record rather than straining it: `toml-document` is a **read face with
+  no write twin**, so `project_bytes` now returns `Option<String>` over an
+  exhaustive `Format` match — a format that cannot be written refuses at the
+  writer rather than inheriting a fall-through. The next format answers that
+  match by construction, which is what keeps "deliberate" mechanical here.
 
 - **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
   drained and the physical trees were deleted (`chore(harness)` 68f187d).
