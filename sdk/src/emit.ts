@@ -250,7 +250,12 @@ function edgeTargetFacts(
   for (const edge of value.edgeFields ?? []) {
     const address = leaves[edge.field];
     if (address === undefined || address === "") continue;
-    const target = options.members?.get(address);
+    // A one-element `to` set resolves a bare address within its one kind; a
+    // multi-element set reads the kind-qualified `kind:name` the author wrote
+    // (`EdgeField.to`). An already-qualified address carries its own colon, so
+    // only a bare leaf is lifted to `${edge.to[0]}:${address}` for the lookup.
+    const lookup = edge.to.length === 1 && !address.includes(":") ? `${edge.to[0]}:${address}` : address;
+    const target = options.members?.get(lookup);
     if (target === undefined) {
       throw new Error(
         `${context}: edge field \`${edge.field}\` names \`${address}\`, which resolves to no ` +
@@ -266,7 +271,7 @@ function edgeTargetFacts(
     }
     targets[edge.field] = {
       name: target.name,
-      address,
+      address: lookup,
       kind: target.kind,
       path: relativeProjection(projectionPath(host), projectionPath(target)),
     };

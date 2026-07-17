@@ -1174,6 +1174,63 @@ test("an embedded format spells an edge target off the derived facts — name, a
   );
 });
 
+test("a one-element `to` set resolves a bare leaf address within its one kind, identical to the kind-qualified form", () => {
+  const citation = citationKind();
+  const bare = () =>
+    embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "rust" } });
+  const qualified = () =>
+    embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source: "rule:rust" } });
+
+  const build = (cite: () => ReturnType<typeof embeddedMemberValue>) =>
+    emit(
+      harness({
+        members: [
+          rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+          memory({ name: "CLAUDE", prose: blocks(cite()) }),
+        ],
+        admit: [{ host: memory, admits: [citation] }],
+      }),
+    );
+
+  // The bare address resolves within the sole `to` kind (`rule`), and the derived facts —
+  // and thus the rendered reference — are byte-identical to the kind-qualified spelling:
+  // the target member is the same, so its facts are the same.
+  const bareBody = build(bare).members.find((m) => m.name === "CLAUDE")!.body;
+  assert.equal(bareBody, build(qualified).members.find((m) => m.name === "CLAUDE")!.body);
+  assert.equal(bareBody, "See [rust](.claude/rules/rust.md) — the rule at `rule:rust`.\n");
+});
+
+test("a multi-element `to` set still demands the kind-qualified address — a bare leaf resolves to nothing", () => {
+  const citation = kind<object>(
+    {
+      name: "citation",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "source", to: ["rule", "skill"] }],
+    },
+    { render: (value) => `See \`${value.targets.source.address}\`.` },
+  );
+  const build = (source: string) =>
+    emit(
+      harness({
+        members: [
+          rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust conventions` }),
+          memory({
+            name: "CLAUDE",
+            prose: blocks(embeddedMemberValue({ kind: citation, key: "the-standard", leaves: { source } })),
+          }),
+        ],
+        admit: [{ host: memory, admits: [citation] }],
+      }),
+    );
+
+  // The qualified address resolves; the bare one names no `kind:name` member and refuses,
+  // since a two-kind set can never infer which kind a bare name lives in.
+  assert.equal(build("rule:rust").members.find((m) => m.name === "CLAUDE")!.body, "See `rule:rust`.\n");
+  assert.throws(() => build("rust"), /resolves to no composed member/);
+});
+
 test("an edge field's leaf still rides the nested_member row as the authored address, never the rendered reference", () => {
   const citation = citationKind();
   const h = harness({
