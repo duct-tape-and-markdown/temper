@@ -1870,10 +1870,16 @@ fn a_requirement_rows_kind_sources_the_each_grain_kind_clause() {
 // `builtin::contract` round-trips every row's predicate/field/severity losslessly.
 // `builtin_kind`'s kind facts stay a separate hand-written mirror, untouched here.
 
-/// The declared `(predicate, field, severity)` triples a built-in floor's clauses
-/// carry, in declaration order — the shape a `ClauseRow` reduces a `Clause` to
-/// (`temper::drift::ClauseRow`; `Predicate::key`/`Predicate::target`).
-fn floor_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
+/// The `(predicate, field, gate, severity)` a clause row carries — every column the
+/// projection must round-trip. The `gate` end is `Some` only for a two-field predicate
+/// (`mention-reachable`), whose second field the one-field `Predicate::target` cannot
+/// name by design.
+type ClauseQuad = (&'static str, Option<String>, Option<String>, &'static str);
+
+/// The declared quads a built-in floor's clauses carry, in declaration order — the
+/// shape a `ClauseRow` reduces a `Clause` to (`temper::drift::ClauseRow`;
+/// `Predicate::key`/`Predicate::target`).
+fn floor_quads(kind: &str) -> Vec<ClauseQuad> {
     let contract = builtin::contract(kind)
         .unwrap_or_else(|| panic!("built-in kind `{kind}` ships an embedded floor"));
     contract
@@ -1884,18 +1890,24 @@ fn floor_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)
                 Severity::Required => "required",
                 Severity::Advisory => "advisory",
             };
-            (
-                clause.predicate.key(),
-                clause.predicate.target().map(str::to_string),
-                severity,
-            )
+            // `target` is the one-field accessor and stays `None` for a two-field
+            // predicate, so the scope/gate pair is read off the variant itself — the
+            // row carries both columns, and both must round-trip.
+            let (field, gate) = match &clause.predicate {
+                Predicate::MentionReachable {
+                    scope_field,
+                    gate_field,
+                } => (Some(scope_field.clone()), Some(gate_field.clone())),
+                predicate => (predicate.target().map(str::to_string), None),
+            };
+            (clause.predicate.key(), field, gate, severity)
         })
         .collect()
 }
 
-/// The embedded built-in lock's own `(predicate, field, severity)` triples for one
-/// kind, in the row order the lock carries them.
-fn lock_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)> {
+/// The embedded built-in lock's own quads for one kind, in the row order the lock
+/// carries them.
+fn lock_quads(kind: &str) -> Vec<ClauseQuad> {
     builtin_lock::declarations()
         .clauses
         .iter()
@@ -1904,6 +1916,7 @@ fn lock_triples(kind: &str) -> Vec<(&'static str, Option<String>, &'static str)>
             (
                 row.predicate.as_str(),
                 row.field.clone(),
+                row.gate.clone(),
                 row.severity.as_str(),
             )
         })
@@ -2064,37 +2077,37 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
 #[test]
 fn the_embedded_lock_clauses_match_todays_hand_written_floors_per_kind() {
     assert_eq!(
-        lock_triples("skill"),
-        floor_triples("skill"),
+        lock_quads("skill"),
+        floor_quads("skill"),
         "skill's floor clauses round-trip through the derived lock unchanged"
     );
     assert_eq!(
-        lock_triples("rule"),
-        floor_triples("rule"),
+        lock_quads("rule"),
+        floor_quads("rule"),
         "rule's floor clauses round-trip through the derived lock unchanged"
     );
     // The memberless emit binds `memoryAnthropicDefaultContract` to the SDK's one exported
     // `memory` kind — its single advisory size clause survives under the `memory` kind's rows.
     assert_eq!(
-        lock_triples("memory"),
-        floor_triples("memory"),
+        lock_quads("memory"),
+        floor_quads("memory"),
         "memory's floor clauses round-trip through the derived lock unchanged"
     );
     assert_eq!(
-        lock_triples("command"),
-        floor_triples("command"),
+        lock_quads("command"),
+        floor_quads("command"),
         "command's floor clauses round-trip through the derived lock unchanged"
     );
     assert_eq!(
-        lock_triples("agent"),
-        floor_triples("agent"),
+        lock_quads("agent"),
+        floor_quads("agent"),
         "agent's floor clauses round-trip through the derived lock unchanged"
     );
     // The hook floor is a single `enum` clause over the lifecycle event — the strictest
     // documented profile of a fields-only registration member.
     assert_eq!(
-        lock_triples("hook"),
-        floor_triples("hook"),
+        lock_quads("hook"),
+        floor_quads("hook"),
         "hook's floor clauses round-trip through the derived lock unchanged"
     );
 }

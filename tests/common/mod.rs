@@ -17,7 +17,7 @@ use std::sync::Once;
 
 use temper::drift::{
     self, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EmitOptions, KindFactRow,
-    Payload, PayloadMember, RequirementRow, SatisfiesRow,
+    MentionRow, Payload, PayloadMember, RequirementRow, SatisfiesRow,
 };
 use temper::frontmatter::Member;
 use temper::kind::Unit;
@@ -245,6 +245,62 @@ pub fn write_rule(root: &Path, name: &str) {
         format!("# {name}\n\nBody.\n"),
     )
     .unwrap();
+}
+
+/// A floor-clean rule, optionally scoped by `paths` — a mention's source. `None` is
+/// the unscoped rule (the harness loads it always).
+pub fn scoped_rule(paths: Option<&str>) -> String {
+    let scope = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    format!(
+        "---\n\
+         {scope}---\n\
+         # Style\n\
+         \n\
+         Prefer the standards skill.\n"
+    )
+}
+
+/// A floor-clean skill, optionally gated by `paths` — a mention's target. `None` is
+/// the ungated skill, invocable with no file read first.
+pub fn gated_skill(name: &str, paths: Option<&str>) -> String {
+    let gate = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         {gate}---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// Write a harness of one rule and one skill straight at their real Claude Code locus
+/// — the rule under `.claude/rules/<rule>.md`, the skill under
+/// `.claude/skills/<skill>/SKILL.md` — no scratch import. `check` reads built-in kind
+/// members live off harness disk.
+pub fn write_rule_skill_harness(
+    root: &Path,
+    rule_name: &str,
+    rule_md: &str,
+    skill_name: &str,
+    skill_md: &str,
+) {
+    let rules = root.join(".claude").join("rules");
+    fs::create_dir_all(&rules).unwrap();
+    fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
+
+    write_skill(root, skill_name, skill_md);
+}
+
+/// A `mention` declaration row — the lock family a deferred discovery-locus mention
+/// rides. `emit` writes it whether or not the target is a composed value; `check` folds
+/// it into the resolved-edge set and resolves it against the discovered corpus.
+pub fn mention(member: &str, target: &str) -> MentionRow {
+    MentionRow {
+        member: member.to_string(),
+        target: target.to_string(),
+    }
 }
 
 /// The retired manifest's filename, spelled by concatenation so the retired token

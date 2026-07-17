@@ -100,14 +100,20 @@ test("commandDefaultContract is skillDefaultContract minus the directory-name cl
   assert.equal(commandDefaultContract[0].predicate.field, "name");
 });
 
-test("ruleDefaultContract forbids Cursor keys, validates path globs, and budgets body size", () => {
+test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
-    ["forbidden_keys", "glob-valid", "max_lines"],
+    ["forbidden_keys", "glob-valid", "max_lines", "mention-reachable"],
   );
   assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
   // The `glob-valid` clause ranges over the one documented rules key, `paths`.
   assert.equal(ruleDefaultContract[1].predicate.field, "paths");
+  // Both ends of `mention-reachable` are `paths`: the rule's own scope is the source,
+  // the mentioned member's is the gate. Advisory — literal containment can be wrong, so
+  // it must not block (0028).
+  assert.equal(ruleDefaultContract[3].predicate.field, "paths");
+  assert.equal(ruleDefaultContract[3].predicate.gate, "paths");
+  assert.equal(ruleDefaultContract[3].severity, "advisory");
 });
 
 test("memoryAnthropicDefaultContract is a single advisory size budget", () => {

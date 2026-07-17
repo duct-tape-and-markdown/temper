@@ -20,9 +20,7 @@ mod common;
 use temper::drift::{
     AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow,
 };
-use temper::drift::{
-    KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, TemplateRow,
-};
+use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, NestedMemberRow, TemplateRow};
 
 /// A floor-clean rule carrying a `routes_to` reference field — the declared edge
 /// the graph reads. `routes_to` is not a floor-forbidden rule key, so the rule
@@ -36,18 +34,6 @@ fn routing_rule(routes_to: &str) -> String {
          \n\
          Prefer the standards skill.\n"
     )
-}
-
-/// Write a harness of one rule and one skill straight at their real Claude Code locus
-/// — the rule under `.claude/rules/<rule>.md`, the skill under
-/// `.claude/skills/<skill>/SKILL.md` — no scratch import. `check` reads built-in kind
-/// members live off harness disk.
-fn write_harness(root: &Path, rule_name: &str, rule_md: &str, skill_name: &str, skill_md: &str) {
-    let rules = root.join(".claude").join("rules");
-    fs::create_dir_all(&rules).unwrap();
-    fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
-
-    common::write_skill(root, skill_name, skill_md);
 }
 
 /// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table used
@@ -116,7 +102,7 @@ fn a_resolving_route_is_clean() {
     let root = common::tmpdir("resolves");
     // The rule routes to `standards`, which the skill provides — the route resolves,
     // so the whole run is clean.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -144,7 +130,7 @@ fn a_dangling_route_fails_the_run_with_a_route_resolution_finding() {
     let root = common::tmpdir("dangling");
     // The rule routes to `absent`, but the only skill is `standards` — the route
     // resolves to no artifact, a dangling route that fails the run.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("absent"),
@@ -180,7 +166,7 @@ fn an_unadopted_harness_runs_no_graph() {
     // graph runs and the (floor-clean) corpus passes. The reference is a declared
     // *contract*, never inferred — with none declared, temper says nothing about the
     // route.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("absent"),
@@ -211,7 +197,7 @@ fn an_acyclic_reference_graph_passes() {
     let root = common::tmpdir("acyclic");
     // `rule style → skill standards`, but the skill routes nowhere — even with both
     // edge kinds declared, the graph is a DAG, so `acyclic` is clean.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -240,7 +226,7 @@ fn a_cyclic_reference_graph_fails_the_run() {
     // `rule style → skill standards → rule style`: the rule routes to the skill and
     // the skill routes back to the rule. Both routes resolve, so the only finding is
     // the cycle — which must fail the run.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -282,7 +268,7 @@ fn a_self_registering_degree_bound_fires_when_the_node_is_pointed_at() {
     // The rule `style` routes to the skill `standards`, so `standards` has incoming
     // degree 1. A requirement declaring the skill self-registering (`incoming = { max = 0 }`,
     // "must not be pointed at") is violated — the run fails on the degree finding.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -328,7 +314,7 @@ fn a_self_registering_degree_bound_passes_when_the_node_is_not_pointed_at() {
     // Same edge and harness, but the bound ranges over the *rule* `style`: nothing
     // points at the rule (the only edge is rule → skill), so its incoming degree is
     // zero — inside `incoming = { max = 0 }`, and the run is clean.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -365,7 +351,7 @@ fn a_routed_degree_bound_passes_when_the_node_is_reachable() {
     let root = common::tmpdir("degree-routed-passes");
     // The rule routes to `standards`, so the skill has incoming degree 1 — inside the
     // open-above routed bound `incoming = { min = 1 }` ("must be reachable"). Clean.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -403,7 +389,7 @@ fn a_routed_degree_bound_fires_when_the_node_is_unreachable() {
     // The bound ranges over the *rule* `style` and requires it reachable (`incoming =
     // { min = 1 }`), but nothing points at the rule (the only edge is rule → skill),
     // so its incoming degree is zero — outside the bound. The run fails on degree.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -449,7 +435,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
     // nothing points at — a kind-blind requirement's `degree` bound must still range
     // over the opt-in satisfier (whichever modeled kind it is), not be skipped for
     // lack of a declared `kind`.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -487,16 +473,6 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
     );
 }
 
-/// A `mention` declaration row — the lock family a deferred discovery-locus mention
-/// rides. `emit` writes it whether or not the target is a composed value; `check` folds
-/// it into the resolved-edge set and resolves it against the discovered corpus.
-fn mention(member: &str, target: &str) -> MentionRow {
-    MentionRow {
-        member: member.to_string(),
-        target: target.to_string(),
-    }
-}
-
 /// The `gate` requirement bound to `rule`, carrying an **advisory** `mention-reachable`
 /// clause over `paths` → `paths`: the source rule's own scope field, and the field read
 /// off the *mentioned* member for its gate. Advisory is the shipped severity — literal
@@ -512,34 +488,6 @@ fn mention_reachable_requirement() -> RequirementRow {
     }
 }
 
-/// A floor-clean rule, optionally scoped by `paths` — the mention's source. `None` is
-/// the unscoped rule (the harness loads it always).
-fn scoped_rule(paths: Option<&str>) -> String {
-    let scope = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
-    format!(
-        "---\n\
-         {scope}---\n\
-         # Style\n\
-         \n\
-         Prefer the standards skill.\n"
-    )
-}
-
-/// A floor-clean skill, optionally gated by `paths` — the mention's target. `None` is
-/// the ungated skill, invocable with no file read first.
-fn gated_skill(name: &str, paths: Option<&str>) -> String {
-    let gate = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
-    format!(
-        "---\n\
-         name: {name}\n\
-         description: Use when {name} is the task at hand; not for anything else.\n\
-         {gate}---\n\
-         # {name}\n\
-         \n\
-         Body.\n"
-    )
-}
-
 /// Drive a `mention-reachable` case: a rule `style` scoped by `rule_paths` mentioning a
 /// skill `standards` gated by `skill_paths`, with the clause bound to `style` via the
 /// `gate` requirement's opt-in selection. `mention` carries the rule→skill mention row
@@ -551,18 +499,18 @@ fn mention_reachable_run(
     mention_edge: bool,
 ) -> common::CheckRun {
     let root = common::tmpdir(slug);
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
-        &scoped_rule(rule_paths),
+        &common::scoped_rule(rule_paths),
         "standards",
-        &gated_skill("standards", skill_paths),
+        &common::gated_skill("standards", skill_paths),
     );
     common::write_lock(
         &root,
         Declarations {
             mentions: if mention_edge {
-                vec![mention("rule:style", "skill:standards")]
+                vec![common::mention("rule:style", "skill:standards")]
             } else {
                 Vec::new()
             },
@@ -667,7 +615,7 @@ fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
     // against the discovered corpus. `standards` opts into a routed `incoming = { min = 1 }`
     // bound, so the mention counting toward its degree proves the edge resolved to the
     // real, discovered member — the run is clean.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -677,7 +625,7 @@ fn a_deferred_mention_resolves_against_a_discovered_member_at_check() {
     common::write_lock(
         &root,
         Declarations {
-            mentions: vec![mention("rule:style", "skill:standards")],
+            mentions: vec![common::mention("rule:style", "skill:standards")],
             requirements: vec![degree_requirement(
                 Some("skill"),
                 DegreeBoundRow {
@@ -706,7 +654,7 @@ fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
     // the real `standards` never, whose incoming degree stays zero, so the degree bound is
     // missed: the gate refuses, the same verdict a dangling declared edge earns (a dangling
     // mention also trips its own `graph.route` finding — this case pins the degree miss).
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -716,7 +664,7 @@ fn a_mention_naming_no_discovered_member_leaves_the_target_unreached() {
     common::write_lock(
         &root,
         Declarations {
-            mentions: vec![mention("rule:style", "skill:ghost")],
+            mentions: vec![common::mention("rule:style", "skill:ghost")],
             requirements: vec![degree_requirement(
                 Some("skill"),
                 DegreeBoundRow {
@@ -751,7 +699,7 @@ fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
     // degree clause opts the mention into counting — so the deferred mention's own dangling
     // verdict is check's to own: a `graph.route` finding naming the citing member and the
     // dangling target, the same verb a dangling declared edge trips.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -761,7 +709,7 @@ fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
     common::write_lock(
         &root,
         Declarations {
-            mentions: vec![mention("rule:style", "skill:ghost")],
+            mentions: vec![common::mention("rule:style", "skill:ghost")],
             ..Declarations::default()
         },
     );
@@ -787,7 +735,7 @@ fn a_mention_to_a_declared_requirement_stays_clean() {
     // A mention may name a bare requirement, resolved against the roster rather than the
     // by-kind corpus. `gate` is declared (advisory, so its own coverage never gates), so the
     // mention resolves and the run stays clean.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -797,7 +745,7 @@ fn a_mention_to_a_declared_requirement_stays_clean() {
     common::write_lock(
         &root,
         Declarations {
-            mentions: vec![mention("rule:style", "gate")],
+            mentions: vec![common::mention("rule:style", "gate")],
             requirements: vec![common::requirement("gate", false, None)],
             ..Declarations::default()
         },
@@ -817,7 +765,7 @@ fn a_mention_to_an_undeclared_requirement_fires_a_route_finding() {
     // The same bare-requirement mention, but no `gate` requirement is declared — the roster
     // resolves it nowhere, so check owns the dangling verdict exactly as it does an absent
     // member target.
-    write_harness(
+    common::write_rule_skill_harness(
         &root,
         "style",
         &routing_rule("standards"),
@@ -827,7 +775,7 @@ fn a_mention_to_an_undeclared_requirement_fires_a_route_finding() {
     common::write_lock(
         &root,
         Declarations {
-            mentions: vec![mention("rule:style", "gate")],
+            mentions: vec![common::mention("rule:style", "gate")],
             ..Declarations::default()
         },
     );

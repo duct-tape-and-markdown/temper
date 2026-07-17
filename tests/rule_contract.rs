@@ -15,7 +15,10 @@
 use std::collections::BTreeSet;
 
 use temper::contract::{Contract, Predicate, Severity};
+use temper::drift::Declarations;
 use temper::engine;
+
+mod common;
 
 /// The built-in rule contract, resolved from the embedded built-in lock the same
 /// way the shipped tool resolves it.
@@ -25,7 +28,8 @@ fn rule_builtin() -> Contract {
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
 /// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
-/// `glob-valid` (required), the lean-rule `max_lines` (advisory). Guidance and
+/// `glob-valid` (required), the lean-rule `max_lines` (advisory), the
+/// `mention-reachable` gate check (advisory). Guidance and
 /// `source` ride each clause but are product prose, so they are excluded from this
 /// structural pin. No `optional` clause over `paths`: the SDK floor asserts nothing
 /// decidable for an optional field's *presence*, so the lock carries no such row —
@@ -49,6 +53,13 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
             },
         ),
         (Severity::Advisory, Predicate::MaxLines { max: 200 }),
+        (
+            Severity::Advisory,
+            Predicate::MentionReachable {
+                scope_field: "paths".to_string(),
+                gate_field: "paths".to_string(),
+            },
+        ),
     ]
 }
 
@@ -105,7 +116,12 @@ fn rule_builtin_encodes_only_decidable_clauses() {
 
     assert_eq!(
         kinds,
-        BTreeSet::from(["forbidden_keys", "glob-valid", "max_lines"]),
+        BTreeSet::from([
+            "forbidden_keys",
+            "glob-valid",
+            "max_lines",
+            "mention-reachable",
+        ]),
         "the rule built-in must carry only its declared decidable predicates",
     );
 }
@@ -171,6 +187,72 @@ fn rule_features(paths: &[&str]) -> temper::extract::Features {
         satisfies: Vec::new(),
         edge_placements: None,
     }
+}
+
+/// Drive a bare harness through the shipped floor: a rule `style` scoped by
+/// `rule_paths` mentioning a skill `standards` gated by `skill_paths`. The lock carries
+/// the mention row and **nothing else** — no requirement, no `satisfies` — so whatever
+/// fires here fires off the embedded `rule` default contract alone. That absence is the
+/// acceptance: coverage with zero opt-in.
+fn bare_harness_run(
+    slug: &str,
+    rule_paths: Option<&str>,
+    skill_paths: Option<&str>,
+) -> common::CheckRun {
+    let root = common::tmpdir(slug);
+    common::write_rule_skill_harness(
+        &root,
+        "style",
+        &common::scoped_rule(rule_paths),
+        "standards",
+        &common::gated_skill("standards", skill_paths),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: vec![common::mention("rule:style", "skill:standards")],
+            ..Declarations::default()
+        },
+    );
+
+    common::check_in(&root, &[], None)
+}
+
+/// The shipped floor's `mention-reachable` clause fires on a rule whose `paths` sit
+/// outside the gate of the skill it mentions — with no opt-in anywhere. The rule loads
+/// under `src/**`; the skill is invocable only once a `docs/**` file is read, and
+/// invoking it outside that gate hard-errors. The finding is **advisory**, so the gate
+/// does not block: literal containment can be wrong, and a check that can be wrong must
+/// not fail a run (0028; intent.md invariant 5 leaves escalation to the corpus).
+#[test]
+fn the_rule_floor_flags_a_mention_of_a_gated_skill_with_zero_opt_in() {
+    let run = bare_harness_run("rule-floor-mr", Some("src/**"), Some("docs/**"));
+    assert!(
+        run.output.contains("mention-reachable") && run.output.contains("standards"),
+        "the shipped rule floor alone must flag the unreachable mention, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "the clause ships advisory — literal containment can be wrong, so the finding must \
+         not block the run ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+/// The floor's clause stays silent where the mention is reachable: the rule's every
+/// scope glob appears verbatim in the skill's gate, so the mention fires only where the
+/// skill can be invoked. Pins that the default contract is not a blanket alarm on any
+/// harness that mentions a gated skill.
+#[test]
+fn the_rule_floor_is_silent_when_the_mention_sits_inside_the_targets_gate() {
+    let run = bare_harness_run("rule-floor-mr-clean", Some("docs/**"), Some("docs/**"));
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "a scope literally contained in the gate is no finding, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
 }
 
 /// The rule built-in is itself admissible — it passes the second green.
