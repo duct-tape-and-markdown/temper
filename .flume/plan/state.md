@@ -1,40 +1,35 @@
 # Plan state
 
-- Spec derived through: 832f015
+- Spec derived through: 5f89860
 - Audited through: b85df4a
 - Residue swept through: b85df4a
-- This tick: DRAIN INBOX — routed centercode's four field reports (all
-  `observed at d359782`; window d359782..26c0528 is .flume-only, so every
-  cited address carries). Re-verified each on disk before scoping, not from
-  the log:
-  **Three defects → pickable entries (gate:open), disjoint files.**
-  - MENTION-REACHABLE-EDGE-UNIFY (contract.md, "edge"): `mention_reachable`
-    (`main.rs`:1114) gets `&mention_edges` alone while `degree` (:1108) gets
-    both edge sets — a mention on a field edge missing from that partial set
-    gets zero coverage yet the clause runs green. Confirmed on disk; the
-    invariant-6 fail-open shape, fixed to the READ-EDGE-UNIFY bar (6e80405).
-  - ADMISSION-JOINS-FILE-TEMPLATE (representation.md, "nesting"):
-    `templatesFor` (`declarations.ts`:193) returns admit rows *instead of*
-    `facts.templates` when any kind is admitted — the doc comment itself
-    calls the override "layer-blind". Confirmed; fix joins path-carrying
-    templates, no new intent.
-  - EMBEDDED-LEAF-BARE-ADDRESS (contract.md, "edge"): `edgeTargetFacts`
-    (`emit.ts`:253) does a flat `members.get(address)` over a `kind:name`
-    table (`memberTable`:626), so a bare address on a one-element `to` set
-    dies wrongly. Confirmed against `EdgeField.to`'s doc (`kind.ts`:55,
-    decision 0029); SDK-only qualify-before-get.
-  **One demand → fork, not entry.** `(value-extent-predicate)`: a
-  render-extent predicate for posture budgets. A vocabulary addition is a
-  deliberate language change (contract.md, "clause") — never derived —
-  registered as an open fork; resolution returns through the inbox.
-  Inbox drained to empty. The two existing parks copied forward verbatim,
-  untested this tick (audit is not this tick's job; both held at b85df4a
-  under d359782 and the window since is .flume-only).
-- Queue: 5 entries, **3 pickable** (the three field defects, gate:open,
-  disjoint across `src/main.rs`+`src/graph.rs` / `sdk/src/declarations.ts` /
-  `sdk/src/emit.ts`) + 2 parked (hop-semantics probe; Apple notarizing + v0.1
-  tag). No entry rests on a fork.
+- This tick: DERIVE spec delta 5f89860 (decision 0035, "extent joins the
+  vocabulary") — a human `specs:` commit that landed as last tick's parent
+  while the inbox drain was in flight, ruling the value-extent demand the prior
+  tick had just parked as a fork. Routed the decision's Consequences:
+  - Bullet 1 ("Plan derives the entry: the predicate in engine and SDK, each-
+    and whole-grain over rendered extent, units lines/characters, admissibility
+    for the unit; the inbox demand note discharges into it") → **EXTENT-PREDICATE**
+    (per contract.md, "clause"). Adds `Predicate::Extent` (contract.rs), both-grain
+    eval render-side (engine.rs), the `extent` constructor (contract.ts), clause
+    lowering + a `unit` column (declarations.ts, drift.rs `ClauseRow`, generated
+    mirror). Inbox note already discharged (drained empty last tick).
+  - Bullet 2 ("No shipped default contract adopts extent — the shipped defaults
+    stay opinion-free") → verified-as-constraint: the entry adopts extent in no
+    default contract; `sdk/src/builtins.ts` and the built-in lock stay untouched.
+  **Correction carried in the same tick:** the prior commit (f552ccd) had
+  registered `(value-extent-predicate)` as an OPEN fork — 0035 resolves it, so
+  a linter had already reverted the record from the working tree; this commit
+  lands that removal (resolution = encode + delete).
+  **Collision surfaced, not papered over:** 0035 rules render-side and *rejects*
+  source-side, but the shipped `max_lines` (source-side body lines, adopted in
+  the skill/rule/memory defaults) is exactly that rejected measurement, and 0035
+  never names its retirement. Registered `(extent-subsumes-max-lines)` — a
+  language change no derived layer invents. EXTENT sits BESIDE `max_lines`,
+  serialized behind ADMISSION (shared `declarations.ts`).
+- Queue: 6 entries, **3 pickable** (the three field defects, gate:open, disjoint)
+  + EXTENT-PREDICATE (blockedBy ADMISSION) + 2 parked. No entry rests on a fork.
 
-Plan continues: no — inbox drained, spec delta empty (cursor 832f015, no
-`specs/` commit past it), and b85df4a..26c0528 is .flume-only (nothing to
-reconcile). Three pickable defects now hand off to build.
+Plan continues: no — spec delta routed (cursor at 5f89860, its sole commit),
+inbox empty, and b85df4a..f552ccd is spec/.flume-only (nothing to reconcile).
+Three pickable defects hand off to build; EXTENT unblocks when ADMISSION ships.

@@ -88,6 +88,63 @@
     "notes": "Field defect (centercode, session-verified on disk). SDK-only: the resolution gap is in `edgeTargetFacts`; decision 0029 ratified bare-for-singleton, so the lookup fixes toward the doc `EdgeField.to` already carries. No Rust ripple — this is emit's own leaf resolution over the composed member table. scoped at 26c0528."
   },
   {
+    "tag": "EXTENT-PREDICATE",
+    "summary": "Derive 0035's `extent` predicate — the rendered extent of a selected item in lines or characters, each-grain and whole-grain, measured render-side off committed artifacts; a new vocabulary word",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": { "kind": "blockedBy", "tag": "ADMISSION-JOINS-FILE-TEMPLATE" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/extent.rs",
+          "description": "The new predicate's fixture home (one per rule, `tests/rust.md`): each-grain (a member/embedded value whose rendered extent exceeds the bound fires; within-bound passes) and whole-grain (a selection's summed rendered extent over the bound fires) at both units (lines, characters). Render-side: a member with a resolved reference/include whose projection exceeds the bound fires even though its source body does not — the axis 0035 rejected `max_lines` for."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Add `extent` to the closed vocabulary: a new `Predicate::Extent` variant carrying its declared unit (lines | characters) and bound, its parse arm in the label→predicate table (beside `max_lines`, 462) — an unknown unit rejected at load is the unit's admissibility — and its label/field arms (562-571, 624). `extent` is a **node-scope** predicate like `max_lines`/`max_len`: it names no field and measures the selected item's own rendered size."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Evaluate `extent` at both grains beside the existing predicates (219, 256): each-grain (per selected item's rendered extent ≤ bound) and whole-grain (the selection's summed rendered extent ≤ bound — the ambient-context budget the grain axis gives for free, 0035). Measurement is render-side — the bytes the item contributes to its projection as emit resolved them, decidable off the committed artifacts the gate holds — NOT `features.body_lines` (source-side; `max_lines` at 895 keeps that). A file member's extent is its projection; an embedded value's is its rendered span in the host artifact (the load-bearing case — centercode's posture kinds are embedded)."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "A new `extent(unit, bound)` constructor beside `maxLines` (131), unit typed `'lines' | 'characters'`, returning `{ key: 'extent', ... }`. No default contract adopts it — 0035: budgets are authored opinion, the shipped defaults stay opinion-free (so `sdk/src/builtins.ts` and the built-in lock are untouched)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`clauseRow` (64) lowers the new predicate: its bound rides `nodeScopeBoundArgs` like `max_lines`, and its `unit` needs a new optional column. **Shares this file with ADMISSION-JOINS-FILE-TEMPLATE — this entry is serialized behind it (the blockedBy).**"
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The `ClauseRow` struct (2704) gains the optional `unit` column (snake_case wire key, `#[derive(Deserialize)]`-read); the Rust reader lifts it into the predicate at load. Two-sided by construction (`sdk.md`, 'The engine seam'). The built-in lock is unaffected — no shipped contract adopts extent."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "Regenerated TS mirror of the `ClauseRow` struct once its `unit` column lands — the generated seam, not hand-authored; run the SDK generate step and commit the diff."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "SDK-side: the `extent` constructor produces the expected clause value and its declaration row carries the unit + bound columns; a round-trip proves the wire key matches the Rust reader."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/extent.rs",
+        "asserts": "each-grain and whole-grain `extent` fire on rendered-extent overruns at both units (lines, characters) and pass within bound; render-side measurement catches an overrun a source-side count would miss"
+      }
+    ],
+    "acceptance": "`extent(unit, bound)` is a closed-vocabulary predicate: each-grain bounds a selected item's rendered extent, whole-grain bounds the selection's summed rendered extent, unit is lines or characters, measurement is render-side off committed artifacts, and an unknown unit is refused at load (contract.md, 'clause': the predicate vocabulary is closed, an unknown predicate is rejected at load). No shipped default contract adopts it. `pnpm --dir sdk test` + `cargo test` green.",
+    "notes": "Routes decision 0035 (5f89860, accepted 2026-07-17) — the first real-consumer vocabulary demand ruled (centercode's withdrawn posture budgets). Serialized behind ADMISSION: both edit `sdk/src/declarations.ts`. If build carries an embedded value's rendered span in the lock (emit-side), it also touches `sdk/src/emit.ts` — coordinate with EMBEDDED-LEAF if still open. Sits BESIDE `max_lines` (source-side); `(extent-subsumes-max-lines)` carries the retire-or-coexist ruling. scoped at f552ccd."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
