@@ -1,56 +1,5 @@
 [
   {
-    "tag": "CHECK-HARNESS-ARGS-ONE-HOME",
-    "summary": "The `--harness <root>` one-shot run is re-spelled at eight sites, two as byte-equivalent private per-file wrappers — the layer beneath the spawn fold",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/common/mod.rs",
-          "description": "The home. `check_harness` (193) already IS this job — cwd at the harness root, `--harness <root>`, run it — but hardwires `Some(\"github\")` (197) and projects to `(Vec<String>, bool)` (199), so every caller wanting the `CheckRun` itself or a different reporter cannot reach it and re-spells the arg vector against `check_in` instead. Generalize the near-duplicate rather than add beside it (the ladder's third rung): a `CheckRun`-returning home owning the `&[\"--harness\", root.to_str().unwrap()]` construction, with `check_harness` composing it for its github+findings projection — exactly as `check_harness` today composes `check_in` (174) for the spawn and `CheckRun::findings` (157) for the filter. Scope bound, stated so the fold does not over-reach: the home is this ONE arg shape (cwd == root, `--harness <root>`), never a helper per arg permutation; `check_in` stays the general spawn every other shape reaches, and its doc (166-173) gains the new composition step alongside the two it already claims."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "`run_check_harness` (95-99) — a private wrapper spelling the arg vector with an `extra` tail, whose `&[]` case is byte-equivalent to `requirement_roster`'s wrapper below; two private names for one job across two files is the signal engineering.md names (shared scaffolding lives in `tests/common`, never copy-pasted per file). Folds onto the home; `check_harness_succeeds` (102) keeps composing it. NOT folded, and the reason is that test's own subject: `check_rejects_a_harness_and_workspace_together` (205) spells `--harness` AND the positional workspace together at 212 with cwd at `CARGO_MANIFEST_DIR` — the mutually-exclusive-routes usage error, a different run, not this shape."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "`check_harness_in` (44-46) — the second private wrapper, `common::check_in(root, &[\"--harness\", root.to_str().unwrap()], None)` at 45, byte-equivalent to `cli.rs`'s `run_check_harness(root, &[])`. Folds onto the home; its doc comment (40-43) carries the surface-present branch THIS file exercises and is the caller's own context, not the home's — keep it at the call site rather than porting it into `tests/common`."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": "One inline re-spelling at 200 (reporter `None`), folding onto the home. `the_rules_below_the_top_level_are_not_gateable_today` (252) is untouched by this entry — it pins the `(clause-vocabulary-holds)` fork's first instance and its subject is the clause algebra, not the runner."
-        },
-        {
-          "path": "tests/plugin_manifest_kind.rs",
-          "description": "Two inline re-spellings at 142 and 199 (reporter `None`), both reading `run.ok`/`run.output`. Both fold onto the home."
-        },
-        {
-          "path": "tests/json_document_format.rs",
-          "description": "Two inline re-spellings at 218 and 254, both `Some(\"github\")` reading `run.ok`/`run.output` — the shape that wants the `CheckRun` back, which is exactly why today's `check_harness` (projecting to `(findings, ok)`) could not serve them and the arg vector regrew here. Both fold onto the home."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/common/mod.rs",
-        "asserts": "no new assertion — this is test scaffolding, and the proof is the existing suite unchanged and green: every folded site keeps its current assertions verbatim, so a behavior change at any of the eight surfaces as a failure rather than a re-blessed expectation"
-      }
-    ],
-    "acceptance": "Exactly one surface in `tests/` constructs the `--harness <root>` one-shot arg vector, and it lives in `tests/common` (engineering.md, 'One job, one home': test scaffolding lives in one home, never copy-pasted per file; generalize the near-duplicate before adding beside it). `rg '\\\"--harness\\\"' tests/` returns the home plus only the two deliberate non-instances named above (`emit.rs`, `cli.rs`'s conflict test). No private per-file wrapper for the shape survives. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green.",
-    "notes": "Third find in one class: 3bd0f80 homed the harness shape, a9a21a9 the spawn, f9aa32b the finding filter — each left the layer beneath it copied. This is that layer. All eight sites re-read on disk at scoping. Two are deliberately NOT folded (emit.rs:1485 runs from `CARGO_MANIFEST_DIR` — cwd-independence is its subject; cli.rs:212 is the both-routes usage error), named here rather than left for build to rediscover. scoped at ec2b848."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
