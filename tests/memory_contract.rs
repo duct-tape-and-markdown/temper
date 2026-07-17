@@ -1,7 +1,7 @@
 //! The memory kind's **File shape** round trip, end to end.
 //!
 //! The gate already *dispatches* memory members (`tests/memory_gate.rs` drives
-//! `check --harness` and proves the `max_lines` advisory fires/stays-silent). What no
+//! `check --harness` and proves the `extent` advisory fires/stays-silent). What no
 //! test carried was the **adapter read/emit face over a File-shaped unit with no YAML
 //! frontmatter** — the retired `adapter_fidelity.rs` exercised the frontmatter faces
 //! only over `.claude/` members that all declare `format = "yaml-frontmatter"`, never
@@ -14,7 +14,7 @@
 //! - the whole frontmatterless file is the byte-faithful body — the read face lifts no
 //!   clause module, because the source declares no frontmatter field.
 //!
-//! `max_lines` fire/silent is *not* re-tested here — `memory_gate.rs` already owns it
+//! `extent` fire/silent is *not* re-tested here — `memory_gate.rs` already owns it
 //! across the real `check --harness` process boundary.
 
 use std::fs;

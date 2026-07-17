@@ -272,14 +272,14 @@ mod tests {
     fn render_leads_with_the_announced_inputs() {
         let announcement = Announcement {
             local_members: vec!["dial:workstation".to_string()],
-            dialed_clauses: vec!["skill.max_lines".to_string()],
+            dialed_clauses: vec!["skill.extent".to_string()],
             joined_locks: vec!["/org/lock.toml".to_string()],
         };
         let rendered = render(&[], &announcement);
 
         assert!(rendered.starts_with(ANNOUNCEMENT_HEADING));
         assert!(rendered.contains("local member: dial:workstation"));
-        assert!(rendered.contains("dialed clause: skill.max_lines"));
+        assert!(rendered.contains("dialed clause: skill.extent"));
         assert!(rendered.contains("joined lock: /org/lock.toml"));
     }
 
@@ -292,7 +292,7 @@ mod tests {
                 ..Default::default()
             },
             Announcement {
-                dialed_clauses: vec!["skill.max_lines".to_string()],
+                dialed_clauses: vec!["skill.extent".to_string()],
                 ..Default::default()
             },
             Announcement {

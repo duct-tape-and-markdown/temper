@@ -22,7 +22,7 @@ export type Severity = "required" | "advisory";
  * identity+severity alone.
  */
 export interface Predicate {
-  /** The predicate's clause key (`required`, `max_len`, `max_lines`, …). */
+  /** The predicate's clause key (`required`, `max_len`, `extent`, …). */
   readonly key: string;
   /**
    * The field (or marker) the predicate constrains, when it names one.
@@ -74,7 +74,14 @@ export interface Predicate {
   readonly range?: { readonly min: number; readonly max: number };
   /** `section_contains`'s heading-text prefix and the marker each governed section must carry. */
   readonly section?: { readonly heading: string; readonly marker: string };
+  /** `extent`'s declared unit — the render-side size proxy the bound is measured in. */
+  readonly unit?: ExtentUnit;
 }
+
+/** The unit an `extent` bound is measured in — the closed set of stable render-side size
+ * proxies. Token count is deliberately absent: a verdict that moves when a tokenizer
+ * updates is a gate that changes its mind with no diff. */
+export type ExtentUnit = "lines" | "characters";
 
 /**
  * The character class `allowed_chars` admits — inclusive ranges plus individual
@@ -127,8 +134,17 @@ export const allowedChars = (field: string, charset: Charset): Predicate => ({
  *   Prose spelling a comparison (`use when x < y`) is not a tag and does not fire.
  */
 export const shape = (field: string, shape: Shape): Predicate => ({ key: "shape", field, shape });
-/** The member's body is at most `n` lines. */
-export const maxLines = (n: number): Predicate => ({ key: "max_lines", args: { max: n } });
+/**
+ * The selected item's **rendered** extent is at most `bound`, in the declared `unit`
+ * (`lines` or `characters`). Node-scope and render-side: the measure is the bytes the
+ * item contributes to its projection, not the source body a count reads before a
+ * reference resolves or a render hook runs.
+ */
+export const extent = (unit: ExtentUnit, bound: number): Predicate => ({
+  key: "extent",
+  unit,
+  args: { max: bound },
+});
 /** The forbidden keys (e.g. the Cursor `globs`/`alwaysApply` keys) are absent. */
 export const forbiddenKeys = (keys: readonly string[]): Predicate => ({ key: "forbidden_keys", keys });
 /**

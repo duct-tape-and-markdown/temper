@@ -55,7 +55,7 @@ export type {
  * predicate carries them, the `count`/`target`/`degree` argument columns a
  * requirement's own set-/edge-scope demand needs, and the
  * `bound`/`charset`/`keys`/`values` argument columns a kind's own node-scope
- * floor clause needs (`min_len`/`max_len`/`max_lines`'s bound,
+ * floor clause needs (`min_len`/`max_len`/`extent`'s bound, `extent`'s unit,
  * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values) — so
  * the lock encodes the floor losslessly, not identity+severity alone. `kind`
  * is supplied only for a kind's own `expect` clause; a requirement's nested
@@ -87,6 +87,7 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
       predicate.key === "type" && predicate.value_type ? [...predicate.value_type] : undefined,
     shape: predicate.key === "shape" ? predicate.shape : undefined,
     bound: nodeScopeBoundArgs(predicate),
+    unit: predicate.key === "extent" ? predicate.unit : undefined,
     // The generated rows carry mutable columns; the predicate's `value_type`/
     // `charset`/`keys`/`values` are read-only, so copy each into a fresh
     // array/object — the same bytes, a shape the row will accept.
@@ -113,11 +114,11 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
   };
 }
 
-/** `min_len`/`max_len`/`max_lines`'s scalar bound off their shared `min`/`max`
+/** `min_len`/`max_len`/`extent`'s scalar bound off their shared `min`/`max`
  * args keys — `undefined` for every other predicate, and for these three when
  * neither endpoint is present. */
 function nodeScopeBoundArgs(predicate: Predicate): { readonly min?: number; readonly max?: number } | undefined {
-  if (predicate.key !== "min_len" && predicate.key !== "max_len" && predicate.key !== "max_lines") {
+  if (predicate.key !== "min_len" && predicate.key !== "max_len" && predicate.key !== "extent") {
     return undefined;
  }
   const min = predicate.args?.min;

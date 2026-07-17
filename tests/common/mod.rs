@@ -613,6 +613,7 @@ pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> Requiremen
 /// that wants a *lock*-shaped row spells the label it is asserting about.
 pub fn clause(predicate: &str, severity: &str) -> ClauseRow {
     ClauseRow {
+        unit: None,
         label: None,
         kind: None,
         predicate: predicate.to_string(),
@@ -646,6 +647,7 @@ pub fn required_clause_row(
     degree: Option<DegreeBoundRow>,
 ) -> ClauseRow {
     ClauseRow {
+        unit: None,
         field: field.map(str::to_string),
         count,
         target: target.map(str::to_string),

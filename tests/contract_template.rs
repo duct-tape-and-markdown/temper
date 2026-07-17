@@ -17,7 +17,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use temper::check;
-use temper::contract::{Charset, Contract, Predicate, Severity, Shape};
+use temper::contract::{Charset, Contract, ExtentUnit, Predicate, Severity, Shape};
 use temper::engine;
 use temper::extract::Features;
 
@@ -128,7 +128,14 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
                 max: 500,
             },
         ),
-        (Severity::Advisory, Predicate::MaxLines { max: 500 }),
+        (
+            Severity::Advisory,
+            Predicate::Extent {
+                unit: ExtentUnit::Lines,
+                max: 500,
+                whole: false,
+            },
+        ),
         (
             Severity::Required,
             Predicate::ForbiddenKeys {
@@ -194,7 +201,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
             "deny",
             "allowed_chars",
             "shape",
-            "max_lines",
+            "extent",
             "name-matches-dir",
             "forbidden_keys",
             "glob-valid",
@@ -335,6 +342,8 @@ fn formatted(placements: Option<&[(&str, bool)]>) -> Features {
         id: "the-standard".to_string(),
         fields: BTreeMap::new(),
         body_lines: 0,
+        rendered_lines: 0,
+        rendered_chars: 0,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,

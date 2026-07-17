@@ -259,6 +259,7 @@ mod tests {
     /// argument column the case exercises.
     fn clause_row(severity: &str) -> ClauseRow {
         ClauseRow {
+            unit: None,
             label: Some("fixture.clause".to_string()),
             kind: None,
             predicate: String::new(),
@@ -288,9 +289,10 @@ mod tests {
         // than only flipping an existing one's severity.
         let rows = vec![
             ClauseRow {
-                label: Some("spec.max_lines".to_string()),
+                unit: Some("lines".to_string()),
+                label: Some("spec.extent".to_string()),
                 kind: Some("spec".to_string()),
-                predicate: "max_lines".to_string(),
+                predicate: "extent".to_string(),
                 field: None,
                 severity: "advisory".to_string(),
                 guidance: None,
@@ -312,9 +314,10 @@ mod tests {
                 section: None,
             },
             ClauseRow {
-                label: Some("rule.max_lines".to_string()),
+                unit: Some("lines".to_string()),
+                label: Some("rule.extent".to_string()),
                 kind: Some("rule".to_string()),
-                predicate: "max_lines".to_string(),
+                predicate: "extent".to_string(),
                 field: None,
                 severity: "required".to_string(),
                 guidance: None,
@@ -342,9 +345,13 @@ mod tests {
         assert_eq!(
             contract.clauses,
             vec![Clause {
-                label: "spec.max_lines".to_string(),
+                label: "spec.extent".to_string(),
                 severity: Severity::Advisory,
-                predicate: Predicate::MaxLines { max: 150 },
+                predicate: Predicate::Extent {
+                    unit: contract::ExtentUnit::Lines,
+                    max: 150,
+                    whole: false,
+                },
                 guidance: None,
                 source: None,
             }]
@@ -357,6 +364,7 @@ mod tests {
         // cannot admit is corruption rejected loud, never a clause silently dropped.
         // An unknown predicate names nothing in the vocabulary.
         let unknown = vec![ClauseRow {
+            unit: None,
             label: None,
             kind: Some("spec".to_string()),
             predicate: "not_a_predicate".to_string(),
@@ -370,6 +378,7 @@ mod tests {
         // A known predicate missing its required argument (`section_contains` with no
         // `section` column) cannot be built either — the same loud rejection.
         let missing_arg = vec![ClauseRow {
+            unit: None,
             label: None,
             kind: Some("spec".to_string()),
             predicate: "section_contains".to_string(),
@@ -383,9 +392,10 @@ mod tests {
         // A severity outside the closed `required`/`advisory` vocabulary is rejected
         // on the severity channel.
         let bad_severity = vec![ClauseRow {
+            unit: Some("lines".to_string()),
             label: None,
             kind: Some("spec".to_string()),
-            predicate: "max_lines".to_string(),
+            predicate: "extent".to_string(),
             bound: Some(crate::drift::BoundRow {
                 min: None,
                 max: Some(150),

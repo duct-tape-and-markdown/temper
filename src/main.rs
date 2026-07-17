@@ -2053,6 +2053,12 @@ fn embedded_member_features(
         id: row.key.clone(),
         fields,
         body_lines: 0,
+        // An embedded member is lifted from its host's declared surface, never a
+        // document of its own, so it contributes no rendered body here — an `extent`
+        // clause bound to an embedded kind is fenced as bodyless rather than reading a
+        // zero as a pass.
+        rendered_lines: 0,
+        rendered_chars: 0,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,

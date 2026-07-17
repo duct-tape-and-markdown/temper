@@ -244,10 +244,24 @@ pub enum Predicate {
         /// The declared shape its value must hold.
         shape: Shape,
     },
-    /// `max_lines`: the artifact body is at most `max` lines.
-    MaxLines {
-        /// The inclusive upper bound, in lines.
+    /// `extent`: the selected item's **rendered** extent is at most `max`, measured in
+    /// the declared [`ExtentUnit`]. Node-scope (names no field, like `max_lines` did),
+    /// and the one predicate that carries its own grain: each-grain (`whole` false)
+    /// bounds every selected item's own rendered extent; whole-grain (`whole` true)
+    /// bounds the selection's summed rendered extent, judged over the set by
+    /// [`crate::engine::judge`].
+    ///
+    /// Measurement is render-side — the bytes the item contributes to its projection, off
+    /// [`Features::rendered_extent`](crate::extract::Features::rendered_extent), never the
+    /// `LineCount` primitive's source-side `body_lines`.
+    Extent {
+        /// The unit the bound is measured in — lines or characters.
+        unit: ExtentUnit,
+        /// The inclusive upper bound, in `unit`s.
         max: usize,
+        /// Whether the bound ranges over the whole selection (summed extent) rather than
+        /// each selected item on its own.
+        whole: bool,
     },
     /// `require_sections`: each named heading is present in the body.
     RequireSections {
@@ -459,8 +473,14 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
             field: row.field.clone()?,
             max: row.bound?.max?,
         },
-        "max_lines" => Predicate::MaxLines {
+        // An unknown unit is no unit at all: `from_name` returns `None`, the row is
+        // rejected at load rather than lifted into a clause measuring nothing. A lock
+        // still carrying the retired `max_lines` predicate falls through to the closed
+        // vocabulary's ordinary unknown-predicate reject.
+        "extent" => Predicate::Extent {
+            unit: ExtentUnit::from_name(row.unit.as_deref()?)?,
             max: row.bound?.max?,
+            whole: false,
         },
         "allowed_chars" => Predicate::AllowedChars {
             field: row.field.clone()?,
@@ -568,7 +588,7 @@ impl Predicate {
             Predicate::ClosedKeys => "closed-keys",
             Predicate::AllowedChars { .. } => "allowed_chars",
             Predicate::Shape { .. } => "shape",
-            Predicate::MaxLines { .. } => "max_lines",
+            Predicate::Extent { .. } => "extent",
             Predicate::RequireSections { .. } => "require_sections",
             Predicate::MustDefine { .. } => "must_define",
             Predicate::SectionContains { .. } => "section_contains",
@@ -597,7 +617,9 @@ impl Predicate {
     /// The line is the *feature read*, not the grain: `mention-reachable` is each-grain
     /// over the members, but each verdict reads the mention graph and the target
     /// member's own gate field, so it belongs to the selection judges exactly as
-    /// `degree` does.
+    /// `degree` does. `extent` is the one predicate that ranges over the selection *or*
+    /// the member depending on its own `whole` flag — a whole-grain budget sums the set,
+    /// an each-grain budget reads one member.
     #[must_use]
     pub fn ranges_over_selection(&self) -> bool {
         matches!(
@@ -608,12 +630,13 @@ impl Predicate {
                 | Predicate::Degree { .. }
                 | Predicate::Kind { .. }
                 | Predicate::MentionReachable { .. }
+                | Predicate::Extent { whole: true, .. }
         )
     }
 
     /// The field (or marker) this predicate constrains, or `None` for the
     /// artifact- and cross-artifact-level predicates that name no single field
-    /// (`forbidden_keys`, `max_lines`, `require_sections`, `name-matches-dir`,
+    /// (`forbidden_keys`, `extent`, `require_sections`, `name-matches-dir`,
     /// `unique-name`, `dependency-exists`).
     #[must_use]
     pub fn target(&self) -> Option<&str> {
@@ -636,7 +659,7 @@ impl Predicate {
             Predicate::Unique { field } | Predicate::Membership { field, .. } => Some(field),
             Predicate::ForbiddenKeys { .. }
             | Predicate::ClosedKeys
-            | Predicate::MaxLines { .. }
+            | Predicate::Extent { .. }
             | Predicate::RequireSections { .. }
             | Predicate::NameMatchesDir
             | Predicate::UniqueName
@@ -679,7 +702,7 @@ impl Predicate {
             Predicate::MustDefine { .. }
             | Predicate::ForbiddenKeys { .. }
             | Predicate::ClosedKeys
-            | Predicate::MaxLines { .. }
+            | Predicate::Extent { .. }
             | Predicate::RequireSections { .. }
             | Predicate::SectionContains { .. }
             | Predicate::NameMatchesDir
@@ -872,6 +895,40 @@ impl Shape {
                  by single hyphens"
             }
             Shape::NoXmlTags => "the value carries no XML tag",
+        }
+    }
+}
+
+/// The unit an [`Extent`](Predicate::Extent) bound is measured in — the closed set of
+/// stable render-side size proxies. Token count is deliberately absent: it moves when a
+/// tokenizer or model updates, and a verdict that changes with no diff is not a gate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExtentUnit {
+    /// The rendered line count.
+    Lines,
+    /// The rendered character count.
+    Characters,
+}
+
+impl ExtentUnit {
+    /// This unit's declared name — the spelling the lock's `unit` column carries and the
+    /// author names in the SDK. The single home of the unit name table.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            ExtentUnit::Lines => "lines",
+            ExtentUnit::Characters => "characters",
+        }
+    }
+
+    /// Parse a declared unit name into its [`ExtentUnit`], or `None` when it names no
+    /// member of the closed set — the admissibility of an author's unit, refused at load.
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<ExtentUnit> {
+        match name {
+            "lines" => Some(ExtentUnit::Lines),
+            "characters" => Some(ExtentUnit::Characters),
+            _ => None,
         }
     }
 }

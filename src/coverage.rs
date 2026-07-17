@@ -148,6 +148,8 @@ mod tests {
             id: id.to_string(),
             fields: BTreeMap::new(),
             body_lines: 0,
+            rendered_lines: 0,
+            rendered_chars: 0,
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,

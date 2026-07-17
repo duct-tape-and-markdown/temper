@@ -36,7 +36,7 @@
 //! object's `additionalProperties: false`, the one clause whose face is the object's
 //! rather than a property's. The remaining
 //! predicates name no frontmatter JSON-Schema keyword — a body budget
-//! (`max_lines`), a section requirement (`require_sections`), a body marker
+//! (`extent`), a section requirement (`require_sections`), a body marker
 //! (`must_define`), the `optional` documentation clause, and the cross-artifact
 //! predicates (`name-matches-dir`, `unique-name`, `dependency-exists`) — so they
 //! ride no channel here. The emitted validation keywords are therefore *exactly*
@@ -132,7 +132,7 @@ pub fn emit(contract: &Contract) -> Value {
             // set is known whichever order the clauses were authored in.
             Predicate::ClosedKeys => closed = true,
             // The remaining predicates name no frontmatter JSON-Schema keyword —
-            // `optional` is documentation, `max_lines`/`require_sections`/
+            // `optional` is documentation, `extent`/`require_sections`/
             // `must_define`/`section_contains` are body/structural, the
             // cross-artifact predicates range over the whole corpus, and
             // `count`/`unique`/`membership`/`degree`/`kind`/`format-places-edges`
@@ -144,7 +144,7 @@ pub fn emit(contract: &Contract) -> Value {
             // None is a per-artifact frontmatter squiggle, so none rides the
             // validation channel here.
             Predicate::Optional { .. }
-            | Predicate::MaxLines { .. }
+            | Predicate::Extent { .. }
             | Predicate::RequireSections { .. }
             | Predicate::MustDefine { .. }
             | Predicate::SectionContains { .. }
@@ -171,7 +171,7 @@ pub fn emit(contract: &Contract) -> Value {
     // Schema property's `description`, joining whatever the field's earlier clauses
     // taught. This is the on-law guarantee made concrete —
     // taste can only become documentation, never a squiggle. Guidance on a
-    // field-less predicate (`forbidden_keys`, `max_lines`, the cross-artifact ones)
+    // field-less predicate (`forbidden_keys`, `extent`, the cross-artifact ones)
     // names no frontmatter property, so it rides no channel here, exactly as those
     // predicates' validation does not. Absent guidance ⇒ no `description`.
     for clause in &contract.clauses {
@@ -454,7 +454,11 @@ mod tests {
                     keys: vec!["globs".to_string(), "alwaysApply".to_string()],
                 }),
                 // A structural predicate that must NOT surface as a keyword.
-                clause(Predicate::MaxLines { max: 500 }),
+                clause(Predicate::Extent {
+                    unit: crate::contract::ExtentUnit::Lines,
+                    max: 500,
+                    whole: false,
+                }),
                 clause(Predicate::NameMatchesDir),
             ],
         }
@@ -497,7 +501,11 @@ mod tests {
             name: "structural".to_string(),
             guidance: None,
             clauses: vec![
-                clause(Predicate::MaxLines { max: 500 }),
+                clause(Predicate::Extent {
+                    unit: crate::contract::ExtentUnit::Lines,
+                    max: 500,
+                    whole: false,
+                }),
                 clause(Predicate::RequireSections {
                     sections: vec!["Usage".to_string()],
                 }),

@@ -27,6 +27,8 @@ fn skill(name: &str, description: &str) -> Features {
         .into_iter()
         .collect(),
         body_lines: 0,
+        rendered_lines: 0,
+        rendered_chars: 0,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,

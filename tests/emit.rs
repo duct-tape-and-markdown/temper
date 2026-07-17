@@ -129,6 +129,7 @@ fn emit_writes_all_five_declaration_families_the_payload_carries() {
         RUST_BODY,
     )]);
     payload.declarations.clauses.push(drift::ClauseRow {
+        unit: None,
         label: None,
         kind: Some("rule".to_string()),
         field: Some("paths".to_string()),

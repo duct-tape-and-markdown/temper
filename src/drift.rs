@@ -2688,9 +2688,9 @@ pub struct LayoutRegionRow {
 /// and, per predicate, its own argument: the node-set/edge-scope predicates
 /// carry
 /// their bounds/target, and the node-scope predicates that need more than
-/// `field`/`severity` (`min_len`/`max_len`/`max_lines`'s bound, `allowed_chars`'s
-/// charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared kind) carry
-/// theirs too — so a kind's
+/// `field`/`severity` (`min_len`/`max_len`/`extent`'s bound, `extent`'s unit,
+/// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared
+/// kind) carry theirs too — so a kind's
 /// own floor clause round-trips losslessly, not identity+severity alone.
 /// `unique`'s field rides the shared `field`
 /// column (the same slot `required`/`min_len`/… target); the rest carry their own
@@ -2775,10 +2775,16 @@ pub struct ClauseRow {
     /// string column, and no read-side skew tolerance answers it.
     #[serde(default)]
     pub shape: Option<String>,
-    /// The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
+    /// The `min_len`/`max_len`/`extent` clause's scalar bound, when the predicate
     /// is one of those three.
     #[serde(default)]
     pub bound: Option<BoundRow>,
+    /// The `extent` clause's declared unit (`lines`/`characters`), when the predicate is
+    /// `extent` — the closed set [`crate::contract::ExtentUnit::from_name`] decodes, an
+    /// unknown value refused at load. Carried as a name, the trade the whole row family
+    /// makes for its closed-vocabulary arguments.
+    #[serde(default)]
+    pub unit: Option<String>,
     /// The `allowed_chars` clause's declared character class, when the predicate is
     /// `allowed_chars`.
     #[serde(default)]
@@ -2820,7 +2826,7 @@ pub struct SectionContainsRow {
     pub marker: String,
 }
 
-/// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`max_lines`'s
+/// A node-scope clause row's scalar bound — `min_len`'s `min`, `max_len`/`extent`'s
 /// `max`, each endpoint optional so the row carries only what the predicate declared.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, ts_rs::TS)]
 #[ts(optional_fields)]
@@ -2828,7 +2834,7 @@ pub struct BoundRow {
     /// The inclusive lower bound, when the predicate declares one (`min_len`).
     #[serde(default)]
     pub min: Option<usize>,
-    /// The inclusive upper bound, when the predicate declares one (`max_len`/`max_lines`).
+    /// The inclusive upper bound, when the predicate declares one (`max_len`/`extent`).
     #[serde(default)]
     pub max: Option<usize>,
 }
@@ -3644,6 +3650,9 @@ impl ClauseRow {
         if let Some(bound) = &self.bound {
             table.insert("bound", value(bound_table(bound)));
         }
+        if let Some(unit) = &self.unit {
+            table.insert("unit", value(unit.clone()));
+        }
         if let Some(charset) = &self.charset {
             table.insert("charset", value(charset_table(charset)));
         }
@@ -3689,6 +3698,7 @@ impl ClauseRow {
                 Some(bound) => Some(bound_from_table(bound)?),
                 None => None,
             },
+            unit: opt_str(table, "unit")?,
             charset: match opt_table(table, "charset")? {
                 Some(charset) => Some(charset_from_table(charset)?),
                 None => None,

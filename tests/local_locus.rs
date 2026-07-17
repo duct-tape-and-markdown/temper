@@ -300,6 +300,7 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
             kinds: vec![knob_kind_facts()],
             requirements: vec![common::requirement("knob-is-governed", true, Some("knob"))],
             clauses: vec![drift::ClauseRow {
+                unit: None,
                 label: None,
                 kind: Some("override".to_string()),
                 count: Some(drift::CountBoundRow { min: 0, max: 1 }),
@@ -346,6 +347,7 @@ fn a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_der
                 ..common::kind_facts("knob", ".claude/local", "*.md")
             }],
             clauses: vec![drift::ClauseRow {
+                unit: None,
                 kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 values: Some(vec!["block".to_string()]),
@@ -389,6 +391,7 @@ fn discovery_probe(root: &str, glob: &str, commitment: Option<&str>) -> Declarat
             ..common::kind_facts("knob", root, glob)
         }],
         clauses: vec![drift::ClauseRow {
+            unit: None,
             kind: Some("knob".to_string()),
             field: Some("mode".to_string()),
             values: Some(vec!["block".to_string()]),
@@ -470,6 +473,7 @@ fn a_local_kind_governing_under_the_workspace_is_discovered_though_the_walk_skip
                 ..common::kind_facts("knob", ".temper", "knob.toml")
             }],
             clauses: vec![drift::ClauseRow {
+                unit: None,
                 kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 values: Some(vec!["block".to_string()]),

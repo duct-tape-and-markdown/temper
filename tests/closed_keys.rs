@@ -25,6 +25,8 @@ fn member(fields: serde_json::Value) -> Features {
         id: "acme-tools".to_string(),
         fields: fields.into_iter().collect(),
         body_lines: 0,
+        rendered_lines: 0,
+        rendered_chars: 0,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,
@@ -210,7 +212,14 @@ fn a_closed_keys_clause_on_a_kind_declaring_no_keys_is_inadmissible() {
     // clause indicts every key of every member, which the author cannot have meant. The
     // contract fails admissibility rather than gating on it.
     let vacuous = contract(vec![
-        clause(ClauseSeverity::Required, Predicate::MaxLines { max: 9 }),
+        clause(
+            ClauseSeverity::Required,
+            Predicate::Extent {
+                unit: contract::ExtentUnit::Lines,
+                max: 9,
+                whole: false,
+            },
+        ),
         closes(ClauseSeverity::Required),
     ]);
 

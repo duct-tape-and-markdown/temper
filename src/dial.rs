@@ -163,6 +163,8 @@ mod tests {
                 .map(|value| (ENTRIES_KEY.to_string(), value))
                 .collect(),
             body_lines: 0,
+            rendered_lines: 0,
+            rendered_chars: 0,
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,
@@ -179,7 +181,7 @@ mod tests {
         // Failing to apply is the safe direction, and the kind's own `enum` clause is
         // what reports it — the read never invents a third severity's meaning.
         let dial = Dial::from_features(&[dial_member(Some(serde_json::json!([
-            { "label": "skill.max_lines", "severity": "off" },
+            { "label": "skill.extent", "severity": "off" },
             { "label": "rule.required.description", "severity": "advisory" },
         ])))]);
 
@@ -192,9 +194,9 @@ mod tests {
     #[test]
     fn an_entry_missing_either_half_never_lands() {
         let dial = Dial::from_features(&[dial_member(Some(serde_json::json!([
-            { "label": "skill.max_lines" },
+            { "label": "skill.extent" },
             { "severity": "advisory" },
-            { "label": ["skill.max_lines"], "severity": "advisory" },
+            { "label": ["skill.extent"], "severity": "advisory" },
         ])))]);
 
         assert!(dial.is_empty());

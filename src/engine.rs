@@ -40,7 +40,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::check::{self, Diagnostic};
-use crate::contract::{self, Clause, Contract, EdgeBound, Predicate};
+use crate::contract::{self, Clause, Contract, EdgeBound, ExtentUnit, Predicate};
 use crate::extract::{FeatureValue, Features, ValueType};
 
 /// Validate every artifact's [`Features`] against the contract's clauses,
@@ -216,7 +216,7 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         Predicate::ForbiddenKeys { .. }
         | Predicate::MustDefine { .. }
         | Predicate::ClosedKeys
-        | Predicate::MaxLines { .. }
+        | Predicate::Extent { .. }
         | Predicate::RequireSections { .. }
         | Predicate::SectionContains { .. }
         | Predicate::NameMatchesDir
@@ -240,9 +240,9 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
 /// An embedded member is lifted from its host's declared surface — its leaves become
 /// fields, and every body-derived feature is empty because there is no document to read
 /// them from. A predicate ranging over one of those features therefore returns the same
-/// answer over every member of the kind: `max_lines` reads zero lines and passes over
-/// any value, `section_contains` finds no section to indict, `name-matches-dir` has no
-/// directory to compare. Deciding nothing, they are inadmissible where they are bound,
+/// answer over every member of the kind: `extent` reads a zero rendered span and passes
+/// over any bound, `section_contains` finds no section to indict, `name-matches-dir` has
+/// no directory to compare. Deciding nothing, they are inadmissible where they are bound,
 /// rather than degrading to a check that never ran.
 ///
 /// The line is the feature read, not the predicate's family: `must_define` looks the
@@ -253,7 +253,7 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         return None;
     };
     let feature = match predicate {
-        Predicate::MaxLines { .. } => "the body's line count",
+        Predicate::Extent { .. } => "the member's rendered extent",
         Predicate::RequireSections { .. } => "the body's headings",
         Predicate::SectionContains { .. } => "the body's sections",
         Predicate::NameMatchesDir => "the member's source directory",
@@ -497,6 +497,13 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 Predicate::Kind { kind } => {
                     diagnostics.extend(wrong_kind(selection, clause, kind));
                 }
+                Predicate::Extent {
+                    unit,
+                    max,
+                    whole: true,
+                } => {
+                    diagnostics.extend(over_budget(selection, clause, *unit, *max));
+                }
                 // `degree` binds to a selection too, but its judge needs the graph.
                 // Every other predicate binds to a member, not a set.
                 _ => {}
@@ -537,6 +544,38 @@ fn out_of_band(
             "{} selects {} member(s){listed}, outside its declared count bound [{min}, {max}]",
             selection.selector.noun(),
             selection.members.len(),
+        ),
+    ))
+}
+
+/// The whole-grain `extent` finding when the selection's **summed** rendered extent
+/// exceeds the budget — the ambient-context ceiling ("everything always-on under N
+/// lines") that falls out of the grain axis. Each member contributes its own rendered
+/// extent in the declared unit; the finding names the selection, the total, and the bound.
+fn over_budget(
+    selection: &Selection,
+    clause: &Clause,
+    unit: ExtentUnit,
+    max: usize,
+) -> Option<Diagnostic> {
+    let total: usize = selection
+        .members
+        .iter()
+        .map(|(_, features)| match unit {
+            ExtentUnit::Lines => features.rendered_lines,
+            ExtentUnit::Characters => features.rendered_chars,
+        })
+        .sum();
+    if total <= max {
+        return None;
+    }
+    Some(finding(
+        selection,
+        clause,
+        format!(
+            "{} has a summed rendered extent of {total} {} (max {max})",
+            selection.selector.noun(),
+            unit.name(),
         ),
     ))
 }
@@ -892,9 +931,23 @@ fn decide(
             }
         },
 
-        Predicate::MaxLines { max } => Outcome::check(features.body_lines <= *max, || {
-            format!("body is {} lines (max {max})", features.body_lines)
-        }),
+        // `extent` at the **each** grain: one member's own rendered extent against the
+        // bound, in the declared unit. Render-side off the projected body, never the
+        // `line_count` primitive's source-side `body_lines`. The whole-grain form ranges
+        // over the selection and is judged by [`judge`], so it never reaches this table.
+        Predicate::Extent {
+            unit,
+            max,
+            whole: false,
+        } => {
+            let measured = match unit {
+                ExtentUnit::Lines => features.rendered_lines,
+                ExtentUnit::Characters => features.rendered_chars,
+            };
+            Outcome::check(measured <= *max, || {
+                format!("rendered extent is {measured} {} (max {max})", unit.name())
+            })
+        }
 
         // `require_sections` decides over the extracted body headings: one
         // finding per named section with no matching heading.
@@ -1005,7 +1058,10 @@ fn decide(
         // the mention graph and the *target* member's gate field — neither is on the
         // member in hand — so `crate::graph::mention_reachable` judges it, exactly as
         // `degree`'s judge lives there.
-        | Predicate::MentionReachable { .. } => Outcome::Indeterminate,
+        | Predicate::MentionReachable { .. }
+        // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
+        // per-member table.
+        | Predicate::Extent { whole: true, .. } => Outcome::Indeterminate,
     }
 }
 
@@ -1115,6 +1171,8 @@ mod tests {
             id: id.to_string(),
             fields,
             body_lines,
+            rendered_lines: body_lines,
+            rendered_chars: 0,
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: source_dir.map(str::to_string),
@@ -1537,14 +1595,18 @@ mod tests {
     #[test]
     fn a_body_shaped_predicate_bound_to_an_embedded_kind_is_inadmissible() {
         // The lift zeroes an embedded member's body-derived features, so each of these
-        // returns one fixed answer over every member of the kind: `max_lines` reads
-        // zero lines and passes any value, `section_contains` finds no section to
+        // returns one fixed answer over every member of the kind: `extent` reads a zero
+        // rendered span and passes any bound, `section_contains` finds no section to
         // indict, `require_sections` misses every named heading, `name-matches-dir` has
         // no directory to compare. Bound where nothing can decide them, they fail
         // admissibility rather than read as checks that ran.
         let embedded = Locus::Embedded("citation".to_string());
         for predicate in [
-            Predicate::MaxLines { max: 2 },
+            Predicate::Extent {
+                unit: ExtentUnit::Lines,
+                max: 2,
+                whole: false,
+            },
             Predicate::RequireSections {
                 sections: vec!["Usage".to_string()],
             },
@@ -1907,7 +1969,11 @@ mod tests {
                 field: "model".to_string(),
                 charset: slug_charset(),
             },
-            Predicate::MaxLines { max: 9 },
+            Predicate::Extent {
+                unit: ExtentUnit::Lines,
+                max: 9,
+                whole: false,
+            },
             Predicate::RequireSections {
                 sections: vec!["Usage".to_string()],
             },
@@ -2073,8 +2139,13 @@ mod tests {
     }
 
     #[test]
-    fn max_lines_fires_only_past_the_budget() {
-        let predicate = || Predicate::MaxLines { max: 500 };
+    fn extent_each_grain_fires_only_past_the_budget() {
+        let predicate = || Predicate::Extent {
+            unit: ExtentUnit::Lines,
+            max: 500,
+            whole: false,
+        };
+        // The `features` helper mirrors its line count into the rendered extent.
         let long = features("demo", &[], 501, None);
         assert_eq!(run(predicate(), long).len(), 1);
 
@@ -2312,7 +2383,11 @@ mod tests {
             clause(
                 "skill",
                 ClauseSeverity::Advisory,
-                Predicate::MaxLines { max: 10 },
+                Predicate::Extent {
+                    unit: ExtentUnit::Lines,
+                    max: 10,
+                    whole: false,
+                },
             ),
         ];
         let contract = Contract {
@@ -2365,7 +2440,11 @@ mod tests {
             clause(
                 "skill",
                 ClauseSeverity::Advisory,
-                Predicate::MaxLines { max: 500 },
+                Predicate::Extent {
+                    unit: ExtentUnit::Lines,
+                    max: 500,
+                    whole: false,
+                },
             ),
             clause("skill", ClauseSeverity::Required, Predicate::NameMatchesDir),
         ];

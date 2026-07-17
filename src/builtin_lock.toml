@@ -297,13 +297,14 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
-label = "command.max_lines"
+label = "command.extent"
 kind = "command"
-predicate = "max_lines"
+predicate = "extent"
 severity = "advisory"
-guidance = "Progressive disclosure: keep SKILL.md under 500 lines and move detailed reference material to separate files, one level deep. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
+guidance = "Progressive disclosure: keep SKILL.md under 500 rendered lines and move detailed reference material to separate files, one level deep. Measured render-side — the lines the projected artifact contributes to context, not the source body before any include resolves. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
 cite = "https://agentskills.io/specification#progressive-disclosure (retrieved 2026-07-15)"
 bound = { max = 500 }
+unit = "lines"
 
 [[declaration.clause]]
 label = "command.forbidden_keys"
@@ -493,13 +494,14 @@ cite = "https://code.claude.com/docs/en/mcp (retrieved 2026-07-15)"
 values = ["stdio", "http", "streamable-http", "sse", "ws"]
 
 [[declaration.clause]]
-label = "memory.max_lines"
+label = "memory.extent"
 kind = "memory"
-predicate = "max_lines"
+predicate = "extent"
 severity = "advisory"
-guidance = "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)"
+guidance = "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)"
 cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)"
 bound = { max = 200 }
+unit = "lines"
 
 [[declaration.clause]]
 label = "plugin-manifest.required.name"
@@ -828,13 +830,14 @@ guidance = "`paths` is the one documented rules key: globs (brace expansion supp
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
 
 [[declaration.clause]]
-label = "rule.max_lines"
+label = "rule.extent"
 kind = "rule"
-predicate = "max_lines"
+predicate = "extent"
 severity = "advisory"
-guidance = "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md; rules load in full regardless of length.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it."
+guidance = "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md; rules load in full regardless of length.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it."
 cite = "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)"
 bound = { max = 200 }
+unit = "lines"
 
 [[declaration.clause]]
 label = "rule.mention-reachable.paths"
@@ -963,13 +966,14 @@ cite = "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)"
 bound = { max = 500 }
 
 [[declaration.clause]]
-label = "skill.max_lines"
+label = "skill.extent"
 kind = "skill"
-predicate = "max_lines"
+predicate = "extent"
 severity = "advisory"
-guidance = "Progressive disclosure: keep SKILL.md under 500 lines and move detailed reference material to separate files, one level deep. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
+guidance = "Progressive disclosure: keep SKILL.md under 500 rendered lines and move detailed reference material to separate files, one level deep. Measured render-side — the lines the projected artifact contributes to context, not the source body before any include resolves. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good."
 cite = "https://agentskills.io/specification#progressive-disclosure (retrieved 2026-07-15)"
 bound = { max = 500 }
+unit = "lines"
 
 [[declaration.clause]]
 label = "skill.forbidden_keys"

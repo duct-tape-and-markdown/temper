@@ -247,11 +247,12 @@ fn a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_fals
          governs_glob = \"*.md\"\n\
  \n\
          [[declaration.clause]]\n\
-         label = \"spec.max_lines\"\n\
+         label = \"spec.extent\"\n\
          kind = \"spec\"\n\
-         predicate = \"max_lines\"\n\
+         predicate = \"extent\"\n\
          severity = \"advisory\"\n\
          bound = { max = 20 }\n\
+         unit = \"lines\"\n\
  \n\
          [[declaration.requirement]]\n\
          name = \"spec-coverage\"\n\

@@ -59,6 +59,7 @@ fn lock_of(org: &Path) -> PathBuf {
 /// varies between them is the join and never the check.
 fn description_bound(severity: &str) -> ClauseRow {
     ClauseRow {
+        unit: None,
         kind: Some("skill".to_string()),
         field: Some("description".to_string()),
         bound: Some(BoundRow {
@@ -232,6 +233,7 @@ fn a_joined_lock_that_fails_admissibility_fails_the_check() {
     let org = org(
         "layer-inadmissible-org",
         vec![ClauseRow {
+            unit: None,
             kind: Some("skill".to_string()),
             field: Some("status".to_string()),
             values: Some(Vec::new()),
@@ -259,6 +261,7 @@ fn a_joined_lock_fails_admissibility_even_where_this_corpus_selects_nothing() {
     let org = org(
         "layer-inadmissible-unknown-org",
         vec![ClauseRow {
+            unit: None,
             kind: Some("ritual".to_string()),
             field: Some("status".to_string()),
             values: Some(Vec::new()),
@@ -324,6 +327,7 @@ fn a_joined_clause_binds_to_a_custom_kind_by_name() {
     let org = org(
         "layer-custom-kind-org",
         vec![ClauseRow {
+            unit: None,
             kind: Some("playbook".to_string()),
             field: Some("owner".to_string()),
             ..common::clause("required", "required")

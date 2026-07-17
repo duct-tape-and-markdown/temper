@@ -83,7 +83,7 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
       "max_len",
       "shape",
       "max_len",
-      "max_lines",
+      "extent",
       "forbidden_keys",
       "glob-valid",
     ],
@@ -114,7 +114,7 @@ test("commandDefaultContract is skillDefaultContract minus the directory-name cl
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {
   assert.deepEqual(
     ruleDefaultContract.map((c) => c.predicate.key),
-    ["forbidden_keys", "glob-valid", "max_lines", "mention-reachable"],
+    ["forbidden_keys", "glob-valid", "extent", "mention-reachable"],
   );
   assert.deepEqual(ruleDefaultContract[0].predicate.keys, ["description", "globs", "alwaysApply"]);
   // The `glob-valid` clause ranges over the one documented rules key, `paths`.
@@ -129,7 +129,7 @@ test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets bod
 
 test("memoryAnthropicDefaultContract is a single advisory size budget", () => {
   assert.equal(memoryAnthropicDefaultContract.length, 1);
-  assert.equal(memoryAnthropicDefaultContract[0].predicate.key, "max_lines");
+  assert.equal(memoryAnthropicDefaultContract[0].predicate.key, "extent");
   assert.equal(memoryAnthropicDefaultContract[0].severity, "advisory");
 });
 

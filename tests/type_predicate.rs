@@ -209,6 +209,7 @@ fn an_empty_set_is_inadmissible_rather_than_a_clause_that_admits_nothing() {
     // The lock can spell it, so the engine must refuse it: no value the lattice carries
     // satisfies an empty set — the vacuity an inverted `range` bound already fails on.
     let row = ClauseRow {
+        unit: None,
         field: Some("paths".to_string()),
         value_type: Some(Vec::new()),
         ..common::clause("type", "required")

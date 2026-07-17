@@ -11,6 +11,8 @@ Features {
         ],
     },
     body_lines: 8,
+    rendered_lines: 8,
+    rendered_chars: 233,
     headings: [
         "Rust conventions",
         "Errors & diagnostics",

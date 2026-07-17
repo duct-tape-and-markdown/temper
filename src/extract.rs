@@ -307,8 +307,19 @@ pub struct Features {
     /// and no consumer of this map knows the kind yet.
     #[ts(type = "{ [key in string]: unknown }")]
     pub fields: BTreeMap<String, JsonValue>,
-    /// The artifact body's line count (for `max_lines`).
+    /// The artifact body's line count — the `line_count` primitive's feature, populated
+    /// only when a kind composes it.
     pub body_lines: usize,
+    /// The member's **rendered extent** in lines — the projection's line count, measured
+    /// intrinsically off every unit rather than gated behind a composed primitive, since
+    /// `extent` is node-scope and must decide over any kind's members. Distinct from
+    /// [`body_lines`](Features::body_lines): that reads only where `line_count` is
+    /// composed; this always carries the projected body's size.
+    pub rendered_lines: usize,
+    /// The member's **rendered extent** in characters — the projection's character count,
+    /// the second unit an `extent` clause measures in. Intrinsic like
+    /// [`rendered_lines`](Features::rendered_lines).
+    pub rendered_chars: usize,
     /// The ATX headings (`#`..`######`) in the body, in document order, with the
     /// `#` run and any closing `#` run trimmed (for `require_sections`). A `#`
     /// inside a fenced code block is not a heading.
@@ -577,7 +588,7 @@ pub(crate) fn body_preamble(body: &str) -> String {
     lines[..end].join("\n")
 }
 
-/// The line count of a byte-faithful markdown body — the `max_lines` feature.
+/// The line count of a byte-faithful markdown body — the `line_count` primitive's feature.
 /// A single home for the count so the per-kind projectors and the data-driven
 /// [`crate::kind`] composer read it the identical way rather than each writing
 /// `body.lines().count()` inline.

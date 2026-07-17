@@ -14,7 +14,7 @@
 
 use std::collections::BTreeSet;
 
-use temper::contract::{Contract, Predicate, Severity};
+use temper::contract::{Contract, ExtentUnit, Predicate, Severity};
 use temper::drift::Declarations;
 use temper::engine;
 
@@ -28,7 +28,7 @@ fn rule_builtin() -> Contract {
 
 /// The decidable `(severity, predicate)` vector the rule built-in must carry, in
 /// declaration order — the Cursor-key `forbidden_keys` (required), the `paths`
-/// `glob-valid` (required), the lean-rule `max_lines` (advisory), the
+/// `glob-valid` (required), the lean-rule `extent` (advisory), the
 /// `mention-reachable` gate check (advisory). Guidance and
 /// `source` ride each clause but are product prose, so they are excluded from this
 /// structural pin. No `optional` clause over `paths`: the SDK floor asserts nothing
@@ -52,7 +52,14 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
                 field: "paths".to_string(),
             },
         ),
-        (Severity::Advisory, Predicate::MaxLines { max: 200 }),
+        (
+            Severity::Advisory,
+            Predicate::Extent {
+                unit: ExtentUnit::Lines,
+                max: 200,
+                whole: false,
+            },
+        ),
         (
             Severity::Advisory,
             Predicate::MentionReachable {
@@ -65,7 +72,7 @@ fn expected_clauses() -> Vec<(Severity, Predicate)> {
 
 /// The embedded rule built-in carries exactly the decidable clause vector at its
 /// declared severities, and its display name is its bare kind label, `rule` — the
-/// projection's argument payload (the `forbidden_keys` list, the `max_lines` bound)
+/// projection's argument payload (the `forbidden_keys` list, the `extent` bound)
 /// survives unchanged.
 #[test]
 fn rule_builtin_carries_the_decidable_clause_vector() {
@@ -117,9 +124,9 @@ fn rule_builtin_encodes_only_decidable_clauses() {
     assert_eq!(
         kinds,
         BTreeSet::from([
+            "extent",
             "forbidden_keys",
             "glob-valid",
-            "max_lines",
             "mention-reachable",
         ]),
         "the rule built-in must carry only its declared decidable predicates",
@@ -175,6 +182,8 @@ fn rule_features(paths: &[&str]) -> temper::extract::Features {
         id: "demo".to_string(),
         fields,
         body_lines: 1,
+        rendered_lines: 1,
+        rendered_chars: 0,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,

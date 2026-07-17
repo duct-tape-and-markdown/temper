@@ -30,9 +30,24 @@ id: string,
  */
 fields: { [key in string]: unknown }, 
 /**
- * The artifact body's line count (for `max_lines`).
+ * The artifact body's line count — the `line_count` primitive's feature, populated
+ * only when a kind composes it.
  */
 body_lines: number, 
+/**
+ * The member's **rendered extent** in lines — the projection's line count, measured
+ * intrinsically off every unit rather than gated behind a composed primitive, since
+ * `extent` is node-scope and must decide over any kind's members. Distinct from
+ * [`body_lines`](Features::body_lines): that reads only where `line_count` is
+ * composed; this always carries the projected body's size.
+ */
+rendered_lines: number, 
+/**
+ * The member's **rendered extent** in characters — the projection's character count,
+ * the second unit an `extent` clause measures in. Intrinsic like
+ * [`rendered_lines`](Features::rendered_lines).
+ */
+rendered_chars: number, 
 /**
  * The ATX headings (`#`..`######`) in the body, in document order, with the
  * `#` run and any closing `#` run trimmed (for `require_sections`). A `#`

@@ -1,7 +1,7 @@
 /**
  * The node-set/edge-scope clause constructors: `count`/`unique`/`membership`/`degree` compose a
  * set-/edge-scope demand as an ordinary `Predicate` value, peers of the
- * node-scope constructors (`required`, `maxLines`, …) already in `contract.ts`.
+ * node-scope constructors (`required`, `extent`, …) already in `contract.ts`.
  */
 
 import assert from "node:assert/strict";
@@ -12,6 +12,7 @@ import {
   count,
   degree,
   enumOf,
+  extent,
   harness,
   membership,
   mentionReachable,
@@ -141,6 +142,19 @@ test("sectionContains composes a heading/marker predicate landing its section co
     heading: "Decision",
     marker: "Rejected",
   });
+});
+
+test("extent composes a render-side budget landing its unit and bound columns", () => {
+  assert.deepEqual(extent("lines", 300), {
+    key: "extent",
+    unit: "lines",
+    args: { max: 300 },
+  });
+  // The row carries both the unit and the bound — the wire form the Rust reader lifts
+  // into `Predicate::Extent`, so the seam spells one `unit` name on both sides.
+  const row = skillClauseRow(extent("characters", 4000));
+  assert.equal(row.unit, "characters");
+  assert.deepEqual(row.bound, { min: undefined, max: 4000 });
 });
 
 // `Requirement.kind` carries only the kind's identity for coverage resolution,

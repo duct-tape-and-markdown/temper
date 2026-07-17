@@ -486,6 +486,7 @@ fn a_kind_blind_degree_bound_ranges_over_the_opt_in_satisfier_instead_of_being_s
 fn mention_reachable_requirement() -> RequirementRow {
     RequirementRow {
         clauses: vec![ClauseRow {
+            unit: None,
             label: None,
             field: Some("paths".to_string()),
             gate: Some("paths".to_string()),
@@ -1214,6 +1215,8 @@ mod reachability {
             id: id.to_string(),
             fields,
             body_lines: 1,
+            rendered_lines: 1,
+            rendered_chars: 0,
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: Some(id.to_string()),

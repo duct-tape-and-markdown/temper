@@ -300,7 +300,7 @@ mod tests {
                 "Coordinate",
                 "name has characters outside [a-z0-9-]",
             ),
-            Diagnostic::warn("max_lines", "coordinate", "body is long"),
+            Diagnostic::warn("extent", "coordinate", "rendered extent is over budget"),
         ];
         let json = payload(&diagnostics);
 
@@ -324,7 +324,11 @@ mod tests {
         assert!(json["hookSpecificOutput"]["additionalContext"].is_null());
 
         // Advisory-only is still a clean *contract* (no error severity) — quiet.
-        let advisory = vec![Diagnostic::warn("max_lines", "coordinate", "body is long")];
+        let advisory = vec![Diagnostic::warn(
+            "extent",
+            "coordinate",
+            "rendered extent is over budget",
+        )];
         let json = payload(&advisory);
         assert!(json["hookSpecificOutput"]["additionalContext"].is_null());
     }
@@ -358,7 +362,7 @@ mod tests {
     fn a_clean_run_still_announces_what_judged_it() {
         let announcement = Announcement {
             local_members: vec!["dial:workstation".to_string()],
-            dialed_clauses: vec!["skill.max_lines".to_string()],
+            dialed_clauses: vec!["skill.extent".to_string()],
             joined_locks: vec!["/org/lock.toml".to_string()],
         };
         let json = announced(&[], &announcement);
@@ -367,7 +371,7 @@ mod tests {
             .expect("an announced run carries additionalContext whatever its verdict");
 
         assert!(context.contains("local member: dial:workstation"));
-        assert!(context.contains("dialed clause: skill.max_lines"));
+        assert!(context.contains("dialed clause: skill.extent"));
         assert!(context.contains("joined lock: /org/lock.toml"));
         // Nothing is failing, so there is nothing to route through the human.
         assert!(!context.contains("approval before continuing"));

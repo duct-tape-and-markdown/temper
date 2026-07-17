@@ -1257,8 +1257,7 @@ pub enum Primitive {
     /// it), in document order (`Features::sections`) — the `## Decision`-block
     /// feature a `section_contains` clause decides over.
     Sections,
-    /// `line_count` — the body's line count (`Features::body_lines`), the
-    /// `max_lines` feature.
+    /// `line_count` — the body's line count (`Features::body_lines`).
     LineCount,
     /// `placement` — the name of the directory the unit sits under
     /// (`Features::source_dir`) — file placement.
@@ -1409,6 +1408,12 @@ impl Extraction {
             id: unit.id.clone(),
             fields: BTreeMap::new(),
             body_lines: 0,
+            // Render-side extent is intrinsic to every unit, never gated behind the
+            // `line_count` primitive — an `extent` clause is node-scope and decides over
+            // any kind's members. The body a file member carries is read off its
+            // committed projection, so its size is the rendered extent directly.
+            rendered_lines: extract::body_line_count(&unit.body),
+            rendered_chars: unit.body.chars().count(),
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,

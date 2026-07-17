@@ -9,7 +9,7 @@
 //! over harness-dir fixtures mirroring the real Claude Code layout — `.claude/skills/*`
 //! plus a repo-root `CLAUDE.md`. The GitHub reporter is used for a machine-parseable
 //! finding set: each finding is one `::error`/`::warning title=<rule>::<artifact>: …`
-//! line, so a `max_lines` advisory on the `CLAUDE` member is counted exactly.
+//! line, so a `extent` advisory on the `CLAUDE` member is counted exactly.
 
 use std::fs;
 use std::path::Path;
@@ -44,7 +44,7 @@ Drive the team through the playbook.\n";
 /// discovers off its `governs` locus (`root = "."`, `glob = "CLAUDE.md"`).
 fn write_claude_md(root: &Path, lines: usize) {
     let mut body = String::from("# Memory\n");
-    // Already one line; pad to the requested total so `max_lines` (a body-line budget)
+    // Already one line; pad to the requested total so `extent` (a body-line budget)
     // sees exactly `lines`.
     for i in 1..lines {
         body.push_str(&format!("Guidance line {i}.\n"));
@@ -204,7 +204,7 @@ fn a_backed_at_import_fires_nothing_with_zero_config() {
 }
 
 #[test]
-fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
+fn an_over_length_claude_md_fires_exactly_one_memory_extent_advisory() {
     let harness = common::tmpdir("over-length");
     // A clean skill so the run is not empty, and a 251-line CLAUDE.md over the
     // memory.anthropic 200-line budget.
@@ -212,20 +212,20 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     write_claude_md(&harness, 251);
 
     let findings = check_harness(&harness).0;
-    let max_lines = common::findings_for(&findings, "memory.max_lines");
+    let extent = common::findings_for(&findings, "memory.extent");
 
-    // Exactly one `max_lines` advisory — the memory member dispatched to
+    // Exactly one `extent` advisory — the memory member dispatched to
     // memory.anthropic, not silently skipped.
     assert_eq!(
-        max_lines.len(),
+        extent.len(),
         1,
-        "expected exactly one max_lines advisory on the memory member, got: {findings:#?}"
+        "expected exactly one extent advisory on the memory member, got: {findings:#?}"
     );
     // It is a `warning` (advisory) naming the `CLAUDE` member and the 251/200 budget.
-    let finding = max_lines[0];
+    let finding = extent[0];
     assert!(
         finding.starts_with("::warning "),
-        "max_lines is an advisory (warn), got: {finding}"
+        "extent is an advisory (warn), got: {finding}"
     );
     assert!(
         finding.contains("::CLAUDE:"),
@@ -255,8 +255,8 @@ fn an_under_length_claude_md_fires_no_memory_advisory() {
     // The memory member is still dispatched to memory.anthropic — it simply conforms, so
     // the body-size budget fires nothing.
     assert!(
-        common::findings_for(&findings, "memory.max_lines").is_empty(),
-        "an under-length CLAUDE.md must fire no max_lines advisory, got: {findings:#?}"
+        common::findings_for(&findings, "memory.extent").is_empty(),
+        "an under-length CLAUDE.md must fire no extent advisory, got: {findings:#?}"
     );
 }
 
@@ -285,7 +285,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
 
     // And the memory advisory fires beside it — the two kinds are judged in one run.
     assert_eq!(
-        common::findings_for(&findings, "memory.max_lines").len(),
+        common::findings_for(&findings, "memory.extent").len(),
         1,
         "the memory advisory fires beside the skill finding, got: {findings:#?}"
     );

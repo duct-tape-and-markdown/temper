@@ -170,7 +170,7 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         | Predicate::ForbiddenKeys { .. }
         | Predicate::ClosedKeys
         | Predicate::AllowedChars { .. }
-        | Predicate::MaxLines { .. }
+        | Predicate::Extent { .. }
         | Predicate::RequireSections { .. }
         | Predicate::MustDefine { .. }
         | Predicate::SectionContains { .. }

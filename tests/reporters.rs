@@ -35,7 +35,7 @@ fn diagnostic_set() -> Vec<Diagnostic> {
             "Coordinate",
             "name has characters outside [a-z0-9-]",
         ),
-        Diagnostic::warn("max_lines", "coordinate", "body is over the line budget"),
+        Diagnostic::warn("extent", "coordinate", "body is over the line budget"),
     ]
 }
 
@@ -64,7 +64,7 @@ fn github_emits_one_workflow_command_line_per_finding_with_the_rule_as_title() {
         lines[0]
     );
     assert!(
-        lines[1].starts_with("::warning title=max_lines::"),
+        lines[1].starts_with("::warning title=extent::"),
         "a warn finding is a ::warning line titled with its rule, got: {}",
         lines[1]
     );
@@ -128,7 +128,7 @@ fn sarif_is_valid_json_with_the_temper_driver_and_one_result_per_diagnostic() {
     );
 
     // The warn diagnostic maps warn->warning.
-    assert_eq!(results[1]["ruleId"], "max_lines");
+    assert_eq!(results[1]["ruleId"], "extent");
     assert_eq!(results[1]["level"], "warning");
 }
 
@@ -205,7 +205,7 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
 const DIAL: &str = "name = \"workstation\"\n\
 \n\
 [[clause]]\n\
-label = \"skill.max_lines\"\n\
+label = \"skill.extent\"\n\
 severity = \"required\"\n";
 
 #[test]
@@ -244,7 +244,7 @@ fn a_run_announces_every_local_member_dialed_clause_and_joined_lock() {
          got:\n{announced}"
     );
     assert!(
-        announced.contains("dialed clause: skill.max_lines"),
+        announced.contains("dialed clause: skill.extent"),
         "the machine re-weighed a clause, so the run says which, got:\n{announced}"
     );
     assert!(

@@ -6,7 +6,7 @@ expression: report
 error skill.allowed_chars.name: field `name` has characters outside the allowed set: FN
 
 ## body-length
-warn skill.max_lines: body is 505 lines (max 500)
+warn skill.extent: rendered extent is 505 lines (max 500)
 
 ## clean
 (no diagnostics)

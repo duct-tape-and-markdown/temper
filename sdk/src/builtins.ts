@@ -20,10 +20,10 @@ import {
   degree,
   deny,
   enumOf,
+  extent,
   forbiddenKeys,
   globValid,
   maxLen,
-  maxLines,
   mentionReachable,
   minLen,
   nameMatchesDir,
@@ -1135,10 +1135,10 @@ export const skillDefaultContract: readonly Clause[] = [
     guidance: "Optional field; when present the spec caps it at 500 characters. Most skills do not need it.",
     cite: "https://agentskills.io/specification#frontmatter (retrieved 2026-07-15)",
   }),
-  clause(maxLines(500), {
+  clause(extent("lines", 500), {
     severity: "advisory",
     guidance:
-      "Progressive disclosure: keep SKILL.md under 500 lines and move detailed reference material to separate files, one level deep. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good.",
+      "Progressive disclosure: keep SKILL.md under 500 rendered lines and move detailed reference material to separate files, one level deep. Measured render-side — the lines the projected artifact contributes to context, not the source body before any include resolves. Once a skill loads, its body stays in context across turns — every line is a recurring token cost. The context window is a public good.",
     cite: "https://agentskills.io/specification#progressive-disclosure (retrieved 2026-07-15)",
   }),
   clause(forbiddenKeys(["globs", "alwaysApply"]), {
@@ -1269,10 +1269,10 @@ export const ruleDefaultContract: readonly Clause[] = [
       "`paths` is the one documented rules key: globs (brace expansion supported) that scope the rule to matching files. An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the rule never loads where you meant it to, with no error surfaced. Fix the pattern or drop it.",
     cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
   }),
-  clause(maxLines(200), {
+  clause(extent("lines", 200), {
     severity: "advisory",
     guidance:
-      "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md; rules load in full regardless of length.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.",
+      "Unconditional rules are always-on context, paid every session: the docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. (Distinct from the hard 200-line/25KB cutoff, which applies only to auto-memory MEMORY.md; rules load in full regardless of length.) For each line ask: would removing it cause Claude to make mistakes? If not, cut it.",
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
   }),
   clause(mentionReachable("paths", "paths"), {
@@ -1310,10 +1310,10 @@ export const ruleDefaultContract: readonly Clause[] = [
  * (gitignored), appended after `CLAUDE.md` at its level.
  */
 export const memoryAnthropicDefaultContract: readonly Clause[] = [
-  clause(maxLines(200), {
+  clause(extent("lines", 200), {
     severity: "advisory",
     guidance:
-      "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 lines per memory file — 'longer files consume more context and reduce adherence.' For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)",
+      "CLAUDE.md is always-on context, paid every session. The memory docs' size target is under 200 rendered lines per memory file — 'longer files consume more context and reduce adherence.' Measured render-side, off the projected artifact rather than the source body. For each line ask: would removing it cause Claude to make mistakes? If not, cut it. (Advisory: Claude Code loads the file in full regardless of length; this is a context-cost budget, not a hard cutoff.)",
     cite: "https://code.claude.com/docs/en/memory#write-effective-instructions (retrieved 2026-07-15)",
   }),
 ];

@@ -45,7 +45,7 @@ Drive the team through the playbook.\n";
 
 /// A skill clean but for its over-budget body: every `required` clause holds
 /// (lowercase `name` matching its directory, a present short description, no
-/// forbidden keys), and the only violation is the advisory `max_lines` budget
+/// forbidden keys), and the only violation is the advisory `extent` budget
 /// (warn). That isolates the `--deny-advisories` promotion.
 fn advisory_only_skill() -> String {
     let mut body = String::from("# Coordinate\n");
@@ -122,7 +122,7 @@ fn check_exits_non_zero_when_an_error_rule_fires() {
 #[test]
 fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     let harness = common::tmpdir("advisory-src");
-    // The only clause this skill violates is the advisory `max_lines` budget.
+    // The only clause this skill violates is the advisory `extent` budget.
     common::write_skill(&harness, "coordinate", &advisory_only_skill());
 
     // Default policy: an advisory-only run is clean — warn does not gate.

@@ -30,6 +30,8 @@ fn feature(id: &str, satisfies: &[&str]) -> Features {
         id: id.to_string(),
         fields,
         body_lines: 1,
+        rendered_lines: 1,
+        rendered_chars: 0,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: Some(id.to_string()),

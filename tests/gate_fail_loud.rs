@@ -188,6 +188,7 @@ fn a_kind_contract_naming_a_judge_less_predicate_fails_loud() {
         &root,
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
+                unit: None,
                 label: None,
                 kind: Some("skill".to_string()),
                 ..common::clause("dependency-exists", "required")
@@ -222,6 +223,7 @@ fn a_count_floor_bound_to_a_kinds_own_selection_is_judged_not_fenced() {
         &root,
         temper::drift::Declarations {
             clauses: vec![temper::drift::ClauseRow {
+                unit: None,
                 label: None,
                 kind: Some("skill".to_string()),
                 count: Some(temper::drift::CountBoundRow { min: 2, max: 3 }),
@@ -291,6 +293,7 @@ fn write_embedded_citation_harness(
                 placed_edges: Some(placed_edges),
             }],
             clauses: std::iter::once(temper::drift::ClauseRow {
+                unit: None,
                 label: None,
                 kind: Some("citation".to_string()),
                 ..common::clause("format-places-edges", "required")
@@ -358,7 +361,7 @@ fn an_embedded_kind_clause_that_holds_leaves_the_run_silent() {
 #[test]
 fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
     // An embedded member owns no document: the lift reads it off its host's declared
-    // surface and every body-derived feature arrives empty. A `max_lines` bound to the
+    // surface and every body-derived feature arrives empty. An `extent` bound to the
     // kind therefore measures a zero-line body and passes whatever the value holds —
     // a clause that decides nothing while reading as a check that ran. Admissibility is
     // where that dies, naming the predicate and the kind, rather than conformance
@@ -368,19 +371,20 @@ fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
         &root,
         vec!["source".to_string()],
         vec![temper::drift::ClauseRow {
+            unit: Some("lines".to_string()),
             label: None,
             kind: Some("citation".to_string()),
             bound: Some(temper::drift::BoundRow {
                 min: None,
                 max: Some(2),
             }),
-            ..common::clause("max_lines", "required")
+            ..common::clause("extent", "required")
         }],
     );
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let fenced = common::findings_for(&findings, "citation.max_lines");
+    let fenced = common::findings_for(&findings, "citation.extent");
     assert_eq!(
         fenced.len(),
         1,
@@ -405,7 +409,7 @@ fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
 #[test]
 fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
     // The fence's line is the feature read, not the kind. With the same inadmissible
-    // `max_lines` declared, the citation's decidable clauses must still reach their
+    // `extent` declared, the citation's decidable clauses must still reach their
     // members: `format-places-edges` fires over the dropped `source` edge exactly as it
     // does without it. A fence that swallowed the dispatch would trade one silence for
     // another.
@@ -414,13 +418,14 @@ fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
         &root,
         Vec::new(),
         vec![temper::drift::ClauseRow {
+            unit: Some("lines".to_string()),
             label: None,
             kind: Some("citation".to_string()),
             bound: Some(temper::drift::BoundRow {
                 min: None,
                 max: Some(2),
             }),
-            ..common::clause("max_lines", "required")
+            ..common::clause("extent", "required")
         }],
     );
 

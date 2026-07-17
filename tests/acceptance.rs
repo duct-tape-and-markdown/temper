@@ -11,7 +11,7 @@
 //!   and compiling its seam payload twice reproduces the
 //!   projection with no diff;
 //! - the custom-kind acceptance:
-//!   over a corpus whose lock declares a custom kind and an advisory `max_lines`
+//!   over a corpus whose lock declares a custom kind and an advisory `extent`
 //!   clause naming it, `temper check` names that clause and the offending member
 //!   in its diagnostic output (and flips the exit code under `--deny-advisories`)
 //!   — driving the built binary, since both the rendered diagnostics and the exit
@@ -277,10 +277,10 @@ fn builtin_skill_out_of_vocabulary_row_is_a_load_error() {
 
 /// Author a custom kind's `lock.toml` declaration row pair — one
 /// `[[declaration.kind]]` naming its `governs` root/glob, one
-/// `[[declaration.clause]]` binding an advisory `max_lines` budget to it — the
+/// `[[declaration.clause]]` binding an advisory `extent` budget to it — the
 /// live authoring surface (`tests/session_start.rs`'s
 /// `a_custom_kind_synthesized_from_the_lock_resolves_its_requirement_with_no_false_admissibility_finding`
-/// uses the identical shape). `max_lines` is the fixture's small 10-line budget so a
+/// uses the identical shape). `extent` is the fixture's small 10-line budget so a
 /// short over-length body trips it without a real spec-sized corpus.
 fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
     let temper = corpus.join(".temper");
@@ -294,17 +294,18 @@ fn author_custom_kind_lock(corpus: &Path, name: &str, governs_root: &str) {
              governs_glob = \"*.md\"\n\
              \n\
              [[declaration.clause]]\n\
-             label = \"{name}.max_lines\"\n\
+             label = \"{name}.extent\"\n\
              kind = \"{name}\"\n\
-             predicate = \"max_lines\"\n\
+             predicate = \"extent\"\n\
              severity = \"advisory\"\n\
-             bound = {{ max = 10 }}\n"
+             bound = {{ max = 10 }}\n\
+             unit = \"lines\"\n"
         ),
     )
     .unwrap();
 }
 
-/// A body over the fixture's 10-line `max_lines` budget — used to prove the
+/// A body over the fixture's 10-line `extent` budget — used to prove the
 /// advisory fires (and, under `--deny-advisories`, blocks), naming itself in the
 /// diagnostic.
 fn over_length_body() -> String {
@@ -327,9 +328,9 @@ fn check_from(cwd: &Path, root: &Path, extra: &[&str]) -> (bool, String) {
 }
 
 /// The custom-kind acceptance:
-/// over a corpus whose lock declares a `spec` kind + an advisory `max_lines`
+/// over a corpus whose lock declares a `spec` kind + an advisory `extent`
 /// clause naming it, `check` names that clause and the offending member in its
-/// diagnostic output for the over-length spec, and stays silent about `max_lines`
+/// diagnostic output for the over-length spec, and stays silent about `extent`
 /// for the clean one — proof the custom kind's own clause fires, not just the
 /// always-on coverage/gate-installed notes every corpus carries.
 #[test]
@@ -348,13 +349,13 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
         "an advisory-only spec violation must exit zero without --deny-advisories"
     );
     assert!(
-        output.contains("max_lines") && output.contains("15-kinds"),
-        "the over-length spec's own max_lines clause must name itself and the \
+        output.contains("extent") && output.contains("15-kinds"),
+        "the over-length spec's own extent clause must name itself and the \
          offending member, got:\n{output}"
     );
     assert!(
         !output.contains("00-intent"),
-        "the clean spec must trip no max_lines finding, got:\n{output}"
+        "the clean spec must trip no extent finding, got:\n{output}"
     );
 
     let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
@@ -362,12 +363,12 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
         !ok,
         "the over-length spec must exit non-zero under --deny-advisories"
     );
-    assert!(output.contains("max_lines") && output.contains("15-kinds"));
+    assert!(output.contains("extent") && output.contains("15-kinds"));
 }
 
 /// A custom kind authored **outside** `specs/` (`adr/*.md`), the same shape as the
 /// `spec` case above and driven for the same reason: its own lock-declared
-/// `max_lines` clause names itself and the offending ADR in the diagnostic output,
+/// `extent` clause names itself and the offending ADR in the diagnostic output,
 /// independent of the always-on coverage/gate-installed notes.
 #[test]
 fn check_reads_a_custom_kind_rooted_outside_specs() {
@@ -385,13 +386,13 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
         "an advisory-only ADR violation must exit zero without --deny-advisories"
     );
     assert!(
-        output.contains("max_lines") && output.contains("0002-long"),
-        "the over-length ADR's own max_lines clause must name itself and the \
+        output.contains("extent") && output.contains("0002-long"),
+        "the over-length ADR's own extent clause must name itself and the \
          offending member, got:\n{output}"
     );
     assert!(
         !output.contains("0001-short"),
-        "the clean ADR must trip no max_lines finding, got:\n{output}"
+        "the clean ADR must trip no extent finding, got:\n{output}"
     );
 
     let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
@@ -399,5 +400,5 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
         !ok,
         "the over-length ADR must exit non-zero under --deny-advisories"
     );
-    assert!(output.contains("max_lines") && output.contains("0002-long"));
+    assert!(output.contains("extent") && output.contains("0002-long"));
 }

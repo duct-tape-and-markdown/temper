@@ -14,9 +14,9 @@ import type { SectionContainsRow } from "./SectionContainsRow.js";
  * and, per predicate, its own argument: the node-set/edge-scope predicates
  * carry
  * their bounds/target, and the node-scope predicates that need more than
- * `field`/`severity` (`min_len`/`max_len`/`max_lines`'s bound, `allowed_chars`'s
- * charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared kind) carry
- * theirs too — so a kind's
+ * `field`/`severity` (`min_len`/`max_len`/`extent`'s bound, `extent`'s unit,
+ * `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values, `type`'s declared
+ * kind) carry theirs too — so a kind's
  * own floor clause round-trips losslessly, not identity+severity alone.
  * `unique`'s field rides the shared `field`
  * column (the same slot `required`/`min_len`/… target); the rest carry their own
@@ -116,10 +116,17 @@ value_type?: Array<string>,
  */
 shape?: string, 
 /**
- * The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
+ * The `min_len`/`max_len`/`extent` clause's scalar bound, when the predicate
  * is one of those three.
  */
 bound?: BoundRow, 
+/**
+ * The `extent` clause's declared unit (`lines`/`characters`), when the predicate is
+ * `extent` — the closed set [`crate::contract::ExtentUnit::from_name`] decodes, an
+ * unknown value refused at load. Carried as a name, the trade the whole row family
+ * makes for its closed-vocabulary arguments.
+ */
+unit?: string, 
 /**
  * The `allowed_chars` clause's declared character class, when the predicate is
  * `allowed_chars`.

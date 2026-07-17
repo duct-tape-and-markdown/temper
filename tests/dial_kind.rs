@@ -39,7 +39,7 @@ description: Use when coordinating agents across axes; not for single-axis work.
 Drive the team through the playbook.\n";
 
 /// A well-formed skill whose body runs past the shipped 500-line advisory — one
-/// `skill.max_lines` finding at `advisory`, and the hardening cases' target.
+/// `skill.extent` finding at `advisory`, and the hardening cases' target.
 fn overlong_skill() -> String {
     format!(
         "---\n\
@@ -141,20 +141,20 @@ fn a_dial_hardens_in_every_mode() {
 
         let (before, ok) = common::check_harness(&harness);
         assert_eq!(
-            reported_severity(&before, "skill.max_lines").as_deref(),
+            reported_severity(&before, "skill.extent").as_deref(),
             Some("warning"),
-            "the shipped `max_lines` is advisory: {before:?}"
+            "the shipped `extent` is advisory: {before:?}"
         );
         assert!(
             ok,
             "an advisory finding alone does not fail a run: {before:?}"
         );
 
-        write_dial(&harness, &dial_entry("skill.max_lines", "required"));
+        write_dial(&harness, &dial_entry("skill.extent", "required"));
         let (after, ok) = common::check_harness(&harness);
 
         assert_eq!(
-            reported_severity(&after, "skill.max_lines").as_deref(),
+            reported_severity(&after, "skill.extent").as_deref(),
             Some("error"),
             "the dialed clause blocks this machine under `{mode}`: {after:?}"
         );
