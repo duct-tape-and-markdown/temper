@@ -1,5 +1,52 @@
 [
   {
+    "tag": "CHECK-RUNNER-REMAINDER",
+    "summary": "Eight hand-rolled `Command::new(BIN)` `temper check` runners survive the consolidation that exists to leave one — four in the consolidated file itself, four in three suites never in its scope",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/cli.rs",
+          "description": "Four `temper check` runs still hand-roll `Command::new(BIN)` in the very file 3bd0f80 consolidated: 210 (`check <ws> --harness <harness>`, status only), 248 (`check <harness>` from the ambient cwd), 267 (bare `check` from the harness), 286 (`self_host_check_is_clean_over_tempers_own_surface`, bare `check` from `CARGO_MANIFEST_DIR`). Each is `common::check_in(cwd, args, reporter)` — its first parameter IS the cwd, so 248's deliberate cwd-not-root spelling survives the fold at full strength (pass the crate root as cwd, the harness as the positional arg). The file already `mod common`s (19). `const BIN` (22) SURVIVES — `schema`, `guard`, `--help`, and the retired-verb loop still read it; do not predict its death (3bd0f80 made exactly that miss on `requirement_roster`'s `BIN`, which `explain_in` still reads)."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "`check_harness_and_session_start_gate_the_raw_harness_with_no_scratch_import` (1473) hand-rolls two check runners: 1483 (`check --harness <harness>`) and 1495 (`check <harness> --reporter session-start`). Both fold onto `common::check_in`; `mod common` is already at 32. `const BIN` (35) SURVIVES — the two `emit` runners at 1422/1451 read it, and `emit` is not `check_in`'s job."
+        },
+        {
+          "path": "tests/reporters.rs",
+          "description": "172 hand-rolls `check . --reporter sarif` from the harness cwd — `common::check_in(&harness, &[\".\"], Some(\"sarif\"))`. `mod common` at 18. This is `BIN`'s ONLY use in the file (24), so `const BIN` retires with the fold — `rg BIN tests/reporters.rs` finds those two lines and nothing else."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "`run_session_start` (48) hand-rolls `check <harness> --reporter session-start` and parses stdout as JSON — folds onto `common::check_in`, whose `CheckRun.stdout` field (added by 3bd0f80 for exactly this stream-specific need) serves the parse. `mod common` at 18. The honest exception, named not papered: 360 drives `temper::install::SESSION_START_COMMAND`'s own token stream (`.split_whitespace().skip(1)`) — its subject is that the wired command string works, so `check` arrives as data inside `args`, not as the verb a runner prepends. `check_in` prepends `check` and cannot express it; leave it hand-rolled, and `const BIN` (24) SURVIVES for it. The `.temper/kinds/` + `.temper/packages/` fixtures at 121/140 are NOT this entry's to touch — see notes."
+        },
+        {
+          "path": "tests/common/mod.rs",
+          "description": "`check_in`'s doc (155-158) currently homes only the GitHub-reporter harness shape, at [`check_harness`]. Its predecessor's call-site-adaptation invitation is what regrew six copies (3bd0f80's own root-cause finding), so the narrower re-spelling invites the same regrowth: re-word it to state that a `check` run goes through this home whatever its reporter, arg shape, or cwd — the one shape it does not serve being a caller driving a command string that carries the verb itself. No new helper: `check_in` already takes cwd, args, and reporter, so every folded caller becomes a call, not a wrapper."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "unchanged behavior — the existing assertions across the four suites are the test; 248's explicit-root-vs-bare-verb pair keeps its cwd distinction, and 170's stdout-specific assertion keeps reading `CheckRun.stdout`"
+      }
+    ],
+    "acceptance": "Exactly one hand-rolled `temper check` runner survives in `tests/` — `session_start.rs:360`, driving `SESSION_START_COMMAND` — and every other `check` run reaches the binary through `common::check_in` (engineering.md, 'One job, one home': a job the tree already performs is extended where it lives; shared test scaffolding lives in one home, never copy-pasted per file). `tests/reporters.rs` no longer declares `BIN`. `cargo test` green (679 passing), `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "The direct remainder of CHECK-HARNESS-ONE-HOME (3bd0f80), which scoped 'nine suites': `cli.rs`'s other four runs were outside its named scope, and `emit`/`reporters`/`session_start` were never in it. Its body claims 'every caller reaches it' — true of the six copies and the two named runners, not of these eight. No behavior moves. `session_start.rs`'s retired-format fixtures are a separate class this entry must not fold in (state.md carries why). scoped at 3593ab6"
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -16,11 +63,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 9005fc1. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 3593ab6. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 9005fc1) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 3593ab6) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -33,7 +80,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at d88ed75 and holds — nothing ruled the hop semantics; inbox empty and the reconciled window (7e266ad, 6dbeb86, 0e7dca2) touched no import mechanics: `git diff 18f219d..d88ed75 -- src/graph.rs tests/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified d88ed75."
+    "notes": "Park re-tested at 3593ab6 and holds — nothing ruled the hop semantics; inbox empty and the reconciled window is one test-consolidation commit touching no import mechanics: `git diff d88ed75..3593ab6 -- src/graph.rs tests/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 3593ab6."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +107,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d88ed75, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. BUNDLE-EMIT-THROUGH-KINDS (0e7dca2) shipped how those bytes are produced; channel 3's publish — this entry's half — is the release act, untouched by it. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 3593ab6, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The reconciled window is test-only and touched no release surface. scoped at b676656."
   }
 ]
