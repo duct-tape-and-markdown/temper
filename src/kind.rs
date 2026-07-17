@@ -75,9 +75,10 @@ pub struct CustomKind {
     pub format: Option<Format>,
     /// The declared unit shape — whether a member is a lone file (id from the stem),
     /// a directory with companions (id from the directory name), or a lone file whose
-    /// id is read from a declared frontmatter field (an agent's `name`).
-    /// A closed enum; absent ⇒ `None`. Read by the surface loader
-    /// ([`crate::frontmatter`]) to derive a member's id from its unit.
+    /// id is read from a declared field (an agent's `name`).
+    /// A closed enum; absent ⇒ `None`. Read by the surface loaders
+    /// ([`crate::frontmatter`], [`crate::json_manifest`]) to derive a member's id from
+    /// its unit.
     pub unit_shape: Option<UnitShape>,
     /// The declared registration — the kind's world fact: the **set** of documented
     /// channels a member reaches the world over (user invocation and description
@@ -494,23 +495,27 @@ fn slugify(text: &str) -> String {
 }
 
 /// A kind's declared **projection format** — the closed vocabulary naming how a
-/// member's on-disk artifact is shaped. The engine implements each
-/// format once, generically; the first and only harvested entry is
-/// [`YamlFrontmatter`](Format::YamlFrontmatter).
-/// Any other value is a load error, the same closed-vocabulary guard the extraction
-/// primitives carry.
+/// member's on-disk artifact is shaped. The engine implements each format once,
+/// generically, and a file kind's declared entry decides which adapter reads its
+/// artifact. Any value outside the vocabulary is a load error, the same
+/// closed-vocabulary guard the extraction primitives carry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     /// `yaml-frontmatter` — YAML frontmatter over a markdown body, the Claude Code
     /// family's shape.
     YamlFrontmatter,
+    /// `json-document` — the whole artifact is one JSON object, its top-level keys the
+    /// member's own fields and its identity a declared key among them. A member owns the
+    /// document rather than surfacing in one collection of it, which is what separates
+    /// this format from a [`CollectionAddress`]-carrying manifest kind.
+    JsonDocument,
 }
 
 /// A kind's declared **unit shape** — the format fact that varies per kind:
 /// whether a member's on-disk artifact is a lone file, its
 /// identity the filename stem; a directory with companions, its identity the
-/// directory name; or a lone file whose identity is read from a declared
-/// frontmatter field rather than derived from the path. A closed enum; any other
+/// directory name; or a lone file whose identity is read from a declared field
+/// rather than derived from the path. A closed enum; any other
 /// value is a load error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnitShape {
@@ -520,11 +525,12 @@ pub enum UnitShape {
     /// `directory` — a directory with companions; the member's id is the directory
     /// name (a skill's `.claude/skills/<name>/SKILL.md`).
     Directory,
-    /// `named-field` — a lone file whose id is read from a declared frontmatter
-    /// field, not the filename (an agent's `name`; any containing subdirectory is
-    /// purely organizational).
+    /// `named-field` — a lone file whose id is read from a declared field, not the
+    /// filename (an agent's frontmatter `name`, a JSON document's top-level `name`; any
+    /// containing subdirectory is purely organizational). The field is read from whichever
+    /// surface the kind's [`Format`] carries its fields on.
     NamedField {
-        /// The frontmatter field the id is read from.
+        /// The declared field the id is read from.
         field: String,
     },
 }
@@ -858,6 +864,7 @@ fn kind_vocab<T>(label: &str, column: &'static str, parsed: Option<T>) -> Result
 fn format_from_label(label: &str) -> Option<Format> {
     match label {
         "yaml-frontmatter" => Some(Format::YamlFrontmatter),
+        "json-document" => Some(Format::JsonDocument),
         _ => None,
     }
 }

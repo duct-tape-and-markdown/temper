@@ -11,12 +11,17 @@
 //! unrepresented manifest still infers its registration members off the addresses handed
 //! in — the file need not be modelled as a member for its members to surface.
 //!
-//! Two faces share the module: the read above and the canonical whole-manifest write
-//! face ([`write_manifest`]) below — a represented manifest's declared collection
-//! segments in address order, then the opaque residue, serialized LF. The
-//! unrepresented-manifest write stays `src/json_splice.rs`, splicing in place. Both faces
-//! are pure functions of their inputs, so a re-read and a double-emit are each
-//! byte-identical, the idempotence keystone the frontmatter face also holds.
+//! A `json-document` kind ([`DocumentMember`]) inverts that read: it declares no address,
+//! so the member owns the whole document — every top-level key its own field, its identity
+//! a declared key among them.
+//!
+//! The write faces mirror the reads: [`write_manifest`] regenerates a represented manifest
+//! whole (declared collection segments in address order, then the opaque residue), and
+//! [`write_document`] renders one member's fields back as the whole document — both
+//! canonical 2-space-pretty, LF-terminated. The unrepresented-manifest write stays
+//! `src/json_splice.rs`, splicing in place. Every face here is a pure function of its
+//! inputs, so a re-read and a double-emit are each byte-identical, the idempotence keystone
+//! the frontmatter face also holds.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -26,7 +31,7 @@ use serde_json::Value as JsonValue;
 
 use crate::extract::{self, FeatureValue};
 use crate::frontmatter::Provenance;
-use crate::kind::{CollectionAddress, CustomKind, Unit};
+use crate::kind::{CollectionAddress, CustomKind, Unit, UnitShape};
 
 /// A JSON manifest read through the adapter's read face: the registration members
 /// inferred at its declared collection addresses, the opaque field residue no address
@@ -97,9 +102,121 @@ impl RegistrationMember {
     }
 }
 
-/// Errors raised while reading a [`Manifest`]. Hard failures (missing file, non-UTF-8,
-/// malformed JSON) — distinct from a lint `Diagnostic`, which the engine collects rather
-/// than throws. Mirrors [`crate::frontmatter::FrontmatterError`]'s shape for the JSON face.
+/// One member whose **whole artifact is one JSON object** — the `json-document` format's
+/// read face. Where a [`Manifest`] read walks declared collection addresses into a host
+/// document and keeps the rest as opaque residue, a document member claims the document:
+/// no address, so every top-level key is the member's own field, and identity is a
+/// declared key among them rather than the filename stem. The JSON peer of
+/// [`crate::frontmatter::Member`] for a kind whose fields have no markdown body to ride.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DocumentMember {
+    /// The member id, read off the document's declared identity key.
+    pub id: String,
+    /// The member's fields — every top-level key of the document, raw and in sorted key
+    /// order, kept unprojected so the one shared read-time fold
+    /// ([`crate::builtin_kind::features`]) types them exactly as a frontmatter member's.
+    pub fields: BTreeMap<String, JsonValue>,
+    /// Where the document came from and the hash of its original bytes — the same
+    /// source-drift anchor a [`Manifest`] read carries.
+    pub provenance: Provenance,
+}
+
+impl DocumentMember {
+    /// Read the JSON document at `source_file` as one member of `kind`, its identity taken
+    /// from the top-level key the kind's [`UnitShape::NamedField`] declares.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`JsonManifestError`] if the file cannot be read, is not UTF-8, is not a
+    /// top-level JSON object, or carries no string value at the declared identity key; and
+    /// [`JsonManifestError::NoDeclaredIdentity`] if `kind` declares no identity field for
+    /// its document to be named by.
+    pub fn read(kind: &CustomKind, source_file: &Path) -> Result<Self, JsonManifestError> {
+        let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io {
+            path: source_file.to_path_buf(),
+            source,
+        })?;
+        let raw = String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 {
+            path: source_file.to_path_buf(),
+            source,
+        })?;
+        Self::parse(kind, source_file, &raw)
+    }
+
+    /// Read a document straight from its `raw` bytes rather than off disk — the split
+    /// [`Manifest::parse`] takes, for the same reason: an in-flight write's pending content
+    /// is read through the one soundness boundary the disk read rides. `source_file` labels
+    /// the provenance and any diagnostic; nothing is read from it.
+    ///
+    /// # Errors
+    ///
+    /// As [`read`](Self::read), less the I/O and UTF-8 failures `raw` has already passed.
+    pub fn parse(
+        kind: &CustomKind,
+        source_file: &Path,
+        raw: &str,
+    ) -> Result<Self, JsonManifestError> {
+        let Some(UnitShape::NamedField { field }) = &kind.unit_shape else {
+            return Err(JsonManifestError::NoDeclaredIdentity {
+                path: source_file.to_path_buf(),
+                kind: kind.name.clone(),
+            });
+        };
+
+        let source_hash = crate::hash::sha256_hex(raw.as_bytes());
+        let value: JsonValue =
+            serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
+                path: source_file.to_path_buf(),
+                detail: err.to_string(),
+            })?;
+        let JsonValue::Object(document) = value else {
+            return Err(JsonManifestError::Malformed {
+                path: source_file.to_path_buf(),
+                detail: "document top level is not a JSON object".to_string(),
+            });
+        };
+
+        let id = document
+            .get(field)
+            .and_then(JsonValue::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| JsonManifestError::NoIdentityValue {
+                path: source_file.to_path_buf(),
+                field: field.clone(),
+            })?;
+
+        Ok(Self {
+            id,
+            fields: document.into_iter().collect(),
+            provenance: Provenance {
+                source_path: source_file.to_path_buf(),
+                source_hash,
+            },
+        })
+    }
+
+    /// This document member as a raw [`Unit`] for the shared extraction: its top-level keys
+    /// become the unit's frontmatter, so a clause ranges over a JSON document's fields
+    /// exactly as it ranges over a frontmatter member's. `body` is empty — the document is
+    /// all fields, no prose — and `satisfies` is left to the caller's lock fold, as for
+    /// every other member.
+    #[must_use]
+    pub fn to_unit(&self) -> Unit {
+        Unit {
+            id: self.id.clone(),
+            frontmatter: self.fields.clone(),
+            body: String::new(),
+            source_path: self.provenance.source_path.clone(),
+            satisfies: Vec::new(),
+            satisfies_clauses: Vec::new(),
+        }
+    }
+}
+
+/// Errors raised while reading a [`Manifest`] or a [`DocumentMember`]. Hard failures
+/// (missing file, non-UTF-8, malformed JSON) — distinct from a lint `Diagnostic`, which the
+/// engine collects rather than throws. Mirrors [`crate::frontmatter::FrontmatterError`]'s
+/// shape for the JSON face.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum JsonManifestError {
     /// A manifest file could not be read.
@@ -135,6 +252,29 @@ pub enum JsonManifestError {
         path: PathBuf,
         /// What was wrong (a parse error, or a non-object top level).
         detail: String,
+    },
+
+    /// A `json-document` kind declares no `named-field` unit shape, so its documents have
+    /// no declared key to be named by — a JSON document's identity is read from a declared
+    /// field, never derived from the path. Refused at load rather than guessed.
+    #[error("kind `{kind}` declares `json-document` with no `named-field` identity")]
+    #[diagnostic(code(temper::json_manifest::no_declared_identity))]
+    NoDeclaredIdentity {
+        /// The document whose kind names no identity field.
+        path: PathBuf,
+        /// The kind missing the declaration.
+        kind: String,
+    },
+
+    /// A JSON document carries no string value at its kind's declared identity key — the
+    /// [`DocumentMember`] peer of [`crate::frontmatter::FrontmatterError::NoNamedFieldId`].
+    #[error("{path} has no `{field}` key to name it")]
+    #[diagnostic(code(temper::json_manifest::no_identity_value))]
+    NoIdentityValue {
+        /// The document missing the declared identity key.
+        path: PathBuf,
+        /// The top-level key the id was to be read from.
+        field: String,
     },
 
     /// The manifest kind's source files could not be discovered off the harness.
@@ -298,6 +438,21 @@ pub fn write_manifest(
     for (key, value) in residue {
         members.push((key.as_str(), value.clone()));
     }
+    render_object(&members)
+}
+
+/// Render one member's `fields` back as the whole JSON document — the `json-document`
+/// format's write face, [`write_manifest`]'s peer for a member that owns its file rather
+/// than surfacing in a collection of one. The same canonical 2-space-pretty encoder with a
+/// trailing LF, keys in the sorted order the read face surfaces them in. A pure function of
+/// its input, so a double-emit is byte-identical and a canonical document round-trips
+/// read→write unchanged.
+#[must_use]
+pub fn write_document(fields: &BTreeMap<String, JsonValue>) -> String {
+    let members: Vec<(&str, JsonValue)> = fields
+        .iter()
+        .map(|(key, value)| (key.as_str(), value.clone()))
+        .collect();
     render_object(&members)
 }
 

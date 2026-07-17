@@ -1155,8 +1155,9 @@ fn resolve_kind_units(
     // A **manifest kind** — a fields-only kind carrying a collection address — reads its
     // members out of a host JSON manifest, never a file tree: the runtime gate-path
     // dispatch the manifest adapter delivered a library face for (MANIFEST-ADAPTER-READ)
-    // lands here at its first manifest kind. Every other kind walks its `governs` locus
-    // and reads each file through the layout or frontmatter adapter.
+    // lands here at its first manifest kind. Every other kind walks its `governs` locus and
+    // reads each file through the one adapter dispatch its declared format decides
+    // (`read_file_unit`).
     let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
         (kind::Content::Fields, Some(address), _) => {
             manifest_units(harness_root, &overlaid, address)?
@@ -1220,25 +1221,31 @@ fn resolve_kind_units(
 
 /// One discovered source file as a raw [`Unit`], its id folded against `base` — the read
 /// both file loci share, so a nested file child and a `governs`-scanned member differ only
-/// in the base each composes under. Dispatches on the kind's content: a layout kind's
-/// document is read under its declared layout — its field sections fill the unit's fields,
-/// a non-fitting document refusing loud — where a file-content kind reads through the
-/// generic frontmatter adapter. A fields-only kind with no collection address (not a
-/// manifest kind) reads its frontmatter the same way, differing only in projection.
+/// in the base each composes under. **The one adapter dispatch**: a layout kind's document
+/// is read under its declared layout — its field sections fill the unit's fields, a
+/// non-fitting document refusing loud; a kind declaring the `json-document` format reads
+/// its whole artifact as one JSON object through the JSON adapter; every other file kind
+/// reads through the generic frontmatter adapter. A fields-only kind with no collection
+/// address (not a manifest kind) rides whichever of those its format names, differing only
+/// in projection. A per-call-site format match would be a second dispatch to disagree with
+/// this one, so both file loci route through here.
 ///
 /// # Errors
 ///
 /// Returns an error if the file is unreadable, malformed, or does not fit its declared
-/// layout.
+/// layout or format.
 fn read_file_unit(
     kind: &CustomKind,
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<Unit> {
-    match &kind.content {
-        kind::Content::Layout(layout) => layout_unit(layout, file, base, edge_fields),
-        kind::Content::File | kind::Content::Fields => {
+    match (&kind.content, &kind.format) {
+        (kind::Content::Layout(layout), _) => layout_unit(layout, file, base, edge_fields),
+        (kind::Content::File | kind::Content::Fields, Some(kind::Format::JsonDocument)) => {
+            Ok(json_manifest::DocumentMember::read(kind, file)?.to_unit())
+        }
+        (kind::Content::File | kind::Content::Fields, _) => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
             Ok(Unit {
                 id: source.id.clone(),

@@ -13,14 +13,19 @@ import type { Prose, Text } from "./prose.js";
 import type { Capability } from "./needs.js";
 import type { Requirement } from "./contract.js";
 
-/** The shape of the on-disk artifact a member projects to (fact 3, projection). */
-export type Format = "yaml-frontmatter";
+/**
+ * The shape of the on-disk artifact a member projects to (fact 3, projection) — a closed
+ * vocabulary the engine implements once per entry, and the fact deciding which adapter
+ * reads a file kind's artifact. `"json-document"` is a whole artifact that is one JSON
+ * object: its top-level keys the member's fields, its identity a declared key among them.
+ */
+export type Format = "yaml-frontmatter" | "json-document";
 
 /**
  * Whether a member is a lone file (identity from the stem), a directory with an
  * entry file (identity from the directory name), or a lone file whose identity is
- * read from a declared frontmatter field (`identityField`) instead of derived from
- * the path (an agent's `name`).
+ * read from a declared field (`identityField`) instead of derived from the path (an
+ * agent's `name`) — on whichever surface the kind's `format` carries its fields.
  */
 export type UnitShape = "file" | "directory" | "named-field";
 
@@ -141,7 +146,7 @@ export interface KindFacts {
   readonly provider?: string;
   /** Fact 2, locus — where members live. */
   readonly locus: Locus;
-  /** Fact 3a, projection — the artifact format; omitted for a frontmatterless kind. */
+  /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
   readonly format?: Format;
   /** Fact 3b, projection — the on-disk unit shape. */
   readonly unitShape: UnitShape;
