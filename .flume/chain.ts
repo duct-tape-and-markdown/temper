@@ -79,6 +79,25 @@ const planHonestyGate: Gate = {
   name: "continuation marker is honest",
   when: "afterCommit",
   async run(ctx) {
+    // A plan-phase honesty check judges plan's own commits alone: a stale
+    // marker written by an earlier tick is not the current commit's
+    // dishonesty, and a human `specs:` commit that merely moves HEAD past
+    // a cursor is never this gate's to revert. Fail open when the subject
+    // is unreadable, per the gate's own posture.
+    if (ctx.commitSha) {
+      try {
+        const subject = execFileSync(
+          "git",
+          ["show", "-s", "--format=%s", ctx.commitSha],
+          { cwd: resolve(ctx.flumeDir, ".."), encoding: "utf8" },
+        ).trim();
+        if (!subject.startsWith("plan:")) {
+          return { ok: true, message: "not a plan commit — marker honesty is plan's own bar" };
+        }
+      } catch {
+        // unreadable subject — fall through to the checks, failing open
+      }
+    }
     let stateText: string;
     try {
       stateText = await readFile(join(ctx.flumeDir, "plan", "state.md"), "utf8");
