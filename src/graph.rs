@@ -344,12 +344,20 @@ pub fn degree(
 /// where that target cannot be invoked whatever locus declared it, so a rendering claim
 /// carried on a field edge is judged rather than dropped for riding a family this check
 /// once read alone.
+///
+/// An edge a **body-carried** member declares is judged under its *host*'s scope, not
+/// the embedded member's own: the embedded source keys to `(embedded-kind, key)`, so
+/// `embedded_hosts` maps it back to `(host-kind, host-id)` and the host's `scope_field`
+/// gates it. This mirrors the target-side [`target_identity`] seam — a member's
+/// reference set is the union of the edges its fields *and* its embedded members
+/// declare, so a body-carried consult is the host's citation to scope.
 #[must_use]
 pub fn mention_reachable(
     selections: &[Selection],
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
     by_kind: &BTreeMap<&str, &[Features]>,
+    embedded_hosts: &BTreeMap<Node, Node>,
 ) -> Vec<Diagnostic> {
     let any_clause = selections.iter().any(|selection| {
         selection
@@ -375,7 +383,9 @@ pub fn mention_reachable(
             };
             for (kind, features) in &selection.members {
                 let source = ((*kind).to_string(), features.id.clone());
-                for edge in all_edges.iter().filter(|edge| edge.from == source) {
+                for edge in all_edges.iter().filter(|edge| {
+                    edge.from == source || embedded_hosts.get(&edge.from) == Some(&source)
+                }) {
                     // A mention whose target composes no member has no gate to read —
                     // `route_mentions` owns that verdict, so this clause stays silent.
                     let Some(target) = member_at(&edge.to, by_kind) else {

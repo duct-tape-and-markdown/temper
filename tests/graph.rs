@@ -19,6 +19,7 @@ mod common;
 
 use temper::drift::{
     AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow,
+    SatisfiesRow,
 };
 use temper::drift::{KindFactRow, LayoutRegionRow, LayoutRow, NestedMemberRow, TemplateRow};
 
@@ -1186,6 +1187,136 @@ mod embedded_edge_sources {
             "the route finding names the authored spelling, not a normalized identity, got:\n{}",
             run.output
         );
+    }
+}
+
+/// The **source-side twin** of `embedded_edge_sources`, over `mention-reachable`: an
+/// edge a host's *body-carried* member declares is judged under the **host's** scope, not
+/// the embedded member's own (which carries none). The embedded source keys to
+/// `(consult, cite)`, so the host's `(manual, manual)` source never matched it — a
+/// body-carried consult escaping the host's scope stayed silent while `explain` showed
+/// the edge. The host attribution mirrors the target-side `target_identity` seam.
+mod embedded_edge_source_scope {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    /// The `manual` host kind: a lone document under `specs/`, scoped by its own `paths`
+    /// frontmatter and hosting the embedded `consult` members its `templates` column
+    /// admits.
+    fn manual_kind() -> KindFactRow {
+        KindFactRow {
+            templates: vec![TemplateRow {
+                kind: "consult".to_string(),
+                path: None,
+            }],
+            ..common::kind_facts("manual", "specs", "manual.md")
+        }
+    }
+
+    /// One embedded `consult` nested under the `manual` host, its `target` edge leaf
+    /// spelled as emit derives it — the skill's full `kind:name` address.
+    fn consult_row() -> NestedMemberRow {
+        NestedMemberRow {
+            host: "manual:manual".to_string(),
+            kind: "consult".to_string(),
+            key: "cite-optimus".to_string(),
+            leaves: BTreeMap::from([("target".to_string(), "skill:data-access".to_string())]),
+            collections: Vec::new(),
+            placed_edges: None,
+        }
+    }
+
+    /// The `mention-reachable` requirement bound to the `manual` host kind: its own
+    /// `paths` scope read against the mentioned member's `paths` gate, advisory so it
+    /// never blocks the run.
+    fn manual_reach_requirement() -> RequirementRow {
+        RequirementRow {
+            clauses: vec![ClauseRow {
+                unit: None,
+                label: None,
+                field: Some("paths".to_string()),
+                gate: Some("paths".to_string()),
+                ..common::clause("mention-reachable", "advisory")
+            }],
+            ..common::requirement("gate", false, Some("manual"))
+        }
+    }
+
+    /// The harness both cases open on: the `manual` host document scoped by `host_paths`,
+    /// and the skill `data-access` the consult points at, gated to `docs/**`.
+    fn write_cited_harness(root: &Path, host_paths: &str) {
+        fs::write(
+            root.join("specs/manual.md"),
+            format!("---\npaths: [\"{host_paths}\"]\n---\n# Manual\n\nBody.\n"),
+        )
+        .unwrap();
+        common::write_skill(
+            root,
+            "data-access",
+            &common::gated_skill("data-access", Some("docs/**")),
+        );
+    }
+
+    /// The lock both cases commit: the `consult.target → skill` edge, one consult naming
+    /// `skill:data-access`, the `mention-reachable` requirement, and the host's opt-in.
+    fn cited_lock(root: &Path) {
+        common::write_lock(
+            root,
+            Declarations {
+                kinds: vec![manual_kind()],
+                assembly: vec![edge("consult", "target", "skill")],
+                nested_members: vec![consult_row()],
+                requirements: vec![manual_reach_requirement()],
+                satisfies: vec![SatisfiesRow {
+                    member: "manual:manual".to_string(),
+                    requirement: "gate".to_string(),
+                }],
+                ..Declarations::default()
+            },
+        );
+    }
+
+    #[test]
+    fn a_body_carried_consult_outside_the_hosts_scope_is_a_finding() {
+        let root = common::scaffold("embedded-source-scope-uncontained");
+        // The host is scoped to `src/**`; its body-carried consult of `data-access`
+        // (gated to `docs/**`) fires exactly where that skill cannot be invoked. Judged
+        // under the host's scope, the escape is a finding — not the silence the host's
+        // own source never matching the embedded edge once left.
+        write_cited_harness(&root, "src/**");
+        cited_lock(&root);
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.output.contains("mention-reachable")
+                && run.output.contains("src/**")
+                && run.output.contains("data-access"),
+            "a body-carried consult outside the host's scope names the predicate, the \
+             uncovered host glob, and the target, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.ok,
+            "the clause is advisory — it must not block the run ⇒ zero, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_body_carried_consult_inside_the_hosts_scope_is_silent() {
+        let root = common::scaffold("embedded-source-scope-contained");
+        // The host is scoped to `docs/**`, literally containing the `data-access` gate,
+        // so the consult fires only where the skill is invocable: silent.
+        write_cited_harness(&root, "docs/**");
+        cited_lock(&root);
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.output.contains("mention-reachable"),
+            "a host scope literally contained in the target's gate is no finding, got:\n{}",
+            run.output
+        );
+        assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
     }
 }
 
