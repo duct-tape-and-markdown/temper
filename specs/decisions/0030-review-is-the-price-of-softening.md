@@ -98,3 +98,12 @@ entries: the stack and envelope in engine and SDK, the claude-code face's
 cited precedence declaration, `--layer` on check, the announcement line.
 The claude-code precedence cite re-fetches raw at encode time per
 `builtins.md`.
+
+## Amended — 2026-07-16 (0032)
+
+Decision 0032 re-spelled the mechanism: a layer is a **locus fact** — a
+member of a local-locus layout kind, or a lock the invocation joins —
+never a composition feature. The stack, precedence-as-provider-fact, and
+both uncommitted rules stand; the "envelope as admissibility contract
+over the layer's effect" became the dial kind's schema, which cannot
+spell deletion — the same bound, held structurally.

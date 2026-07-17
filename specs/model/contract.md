@@ -51,6 +51,16 @@ unknown predicate is rejected at load, never skipped, and adding one is a
 deliberate language change. The corpus does not enumerate it (equal
 representation, `../process/spec-system.md`).
 
+A clause's compiled label (`pipeline.md`, "The lock") is its **address**:
+deterministic, human-legible, printed by every finding and by `explain` —
+never opaque to the author (decision 0032; a collision stays a malformed
+lock). The shipped **dial** kind consumes it: a temper-owned, local-locus
+TOML document (`.temper/dial.toml`) whose entries name a clause by label
+and declare the severity this machine reads it at. The dial's schema is
+the envelope — severity is its only verb, deletion is unspellable, and a
+dialed clause still reports; dial semantics and the block-mode bound live
+in `pipeline.md`, "Layers".
+
 A clause binds to a **selection** and evaluates at one of two grains:
 
 - **each** — the predicate holds of every selected item,

@@ -44,27 +44,33 @@ invocation — with the user slot named and reserved, ungoverned today.
 Temper adopts the provider's ordering, not its override semantics: the
 bounds below are this gate's own rules.
 
-Two rules attach to any **uncommitted** layer — one review never saw —
-never to a layer's name:
+A layer is a **locus fact, never a mechanism** (decision 0032): a member
+of a kind whose locus is local, or a lock the invocation joins. Two rules
+attach to anything **uncommitted** — content review never saw — never to
+a layer's name:
 
-- **Check-side only.** Committed bytes are layer-invariant: emit with and
-  without an uncommitted layer is byte-identical over committed
-  artifacts, and an uncommitted member projects only to natively-local
-  targets. The lock captures the committed harness alone; uncommitted
-  layers compose over the locked declarations at check time.
+- **Check-side, structurally.** A local locus is layout-only: the
+  document is the governed source, emit writes nothing there, and the
+  lock captures the committed harness alone — committed bytes are
+  layer-invariant by construction. A local member's rows derive at read
+  time under the kind the committed lock declares: review fixes what a
+  local file may say; the gate reads what it says.
 - **Review is the price of softening.** The committed harness may soften
-  anything — that is a reviewed diff. An uncommitted layer hardens
-  without bound, in every mode; it softens only visibly — a dialed
-  clause still reports, never deletes — and its softening is inert in
-  block mode, so a block-mode pass on any machine implies the shared
-  gate's pass.
+  anything — that is a reviewed diff. Uncommitted content hardens
+  without bound, in every mode; it softens only through the shipped dial
+  kind (`contract.md`, "clause"), whose schema cannot spell deletion —
+  a dialed clause still reports — and its softening is inert in block
+  mode, so a block-mode pass on any machine implies the shared gate's
+  pass.
 
-A policy layer arrives with the invocation: `check` composes additional
-layers its invocation names, whoever owns the invocation owns the top of
-the stack, and org authority is the org's pipeline definition — no trust
-model here. A layer that fails to parse fails the check, fail-closed.
-`check` announces every active uncommitted layer and every softened
-clause.
+A policy layer arrives with the invocation, **as a lock**: `check` joins
+the declaration rows of locks its invocation names over this corpus —
+kinds travel by name, the joined clauses range over the host's
+selections, and the lock stays the one interchange. Whoever owns the
+invocation owns the top of the stack; org authority is the org's
+pipeline definition — no trust model here. A joined lock that fails
+admissibility fails the check, fail-closed. `check` announces every
+active local member, every dialed clause, and every joined lock.
 
 ## Emit
 
@@ -121,8 +127,10 @@ verified where it is honestly verifiable: CI re-emits and byte-compares.
 ## The lock
 
 The committed anchor: tool-written whole, never patched, and emit is its sole
-producer — no verb compiles anything else into declaration rows, and the gate
-reads declarations from nowhere but the lock. Two row families: **provenance**
+producer. The gate reads declarations from nowhere but the **lock family**:
+the committed lock, the read-time rows of local-locus layout members whose
+kinds it declares, and the locks the invocation joins (decision 0032) — no
+verb compiles a committed declaration row anywhere else. Two row families: **provenance**
 — per member, source path plus content hash, and the byte hash of each
 emitted artifact: the fingerprints drift compares — and **declaration rows**
 — the program's erased declarations and the rows emit derives from layout
@@ -143,8 +151,8 @@ nothing, or a re-read that drops a whole declared layer the lock still
 carries, refuses with the finding stated — a full teardown is an explicit
 flag the author spells, never a side effect.
 
-The gate and every read verb consume committed artifacts plus the lock and
-nothing else: offline, no language runtime. A harness with no lock is still
+The gate and every read verb consume committed artifacts plus the lock
+family and nothing else: offline, no language runtime. A harness with no lock is still
 fully gated — the engine embeds a built-in lock, the default contract in the
 same declaration shape, receipt-less because nothing was emitted. One input
 shape, two sources; there is no third.

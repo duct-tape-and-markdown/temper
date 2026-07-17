@@ -13,58 +13,6 @@ tax.
 
 ## Open forks
 
-- `(layer-delivery-format)` — OPEN, kernel question, **the corpus's, not an
-  entry's**. Registered 07-16, deriving decision 0030 (3c1a58c). **This is not
-  the deferred admission 0030 overruled** — admission is ruled and settled;
-  what is unruled is one question the record does not answer, and all four
-  derivations its Consequences name rest on it: **what artifact does `--layer`
-  name, and how does an uncommitted layer carry its dialed clauses to the
-  engine?** 0030 needs a layer to carry clauses (softening IS a dialed
-  severity), to be **parsed by check** ("A layer that fails to parse fails the
-  check, fail-closed"), and to compose "over the locked declarations at check
-  time". A clause is a declaration row — so an uncommitted layer's clauses are
-  declarations the gate reads that are **not in the lock**, and three kernel
-  sentences box in every reading (all re-read on disk at f70cd03):
-  - `model/pipeline.md`:123-125 ("The lock") — "emit is its sole producer —
-    no verb compiles anything else into declaration rows, and the gate reads
-    declarations from nowhere but the lock."
-  - `model/pipeline.md`:147 — the gate consumes "committed artifacts plus the
-    lock and nothing else: offline, no language runtime."
-  - `model/pipeline.md`:116-117 ("Emit") — the payload "is internal … not a
-    designed public interchange".
-  No reading of the disk settles it; three survive, each shipping a different
-  artifact:
-  1. **A second, uncommitted lock-shaped file emit writes** at a
-     natively-local path, joined over the lock at check. One declaration
-     format, one producer — "no verb compiles anything else into declaration
-     rows" survives verbatim and only "nowhere but the lock" widens to a lock
-     stack; 0030's check-side-only rule already half-sanctions it (emit
-     projects uncommitted members to natively-local targets). **This record's
-     recommendation.** Its cost, stated: an uncommitted lock is a receipt for
-     bytes no review saw, and drift's story over it is undefined — what
-     fingerprint does a local projection compare against?
-  2. **A narrow authored override format** the engine parses directly, emit
-     uninvolved. Keeps emit committed-only; mints a second home for the clause
-     vocabulary outside the SDK's types — the duplicate-surface disease
-     (`process/engineering.md`, "One job, one home").
-  3. **The emit payload as check's input.** Promotes the internal payload to a
-     consumed interface (against 116-117) and puts Node at check time (against
-     147).
-  Whichever is ruled amends a kernel sentence in `model/pipeline.md` — a
-  deliberate ceremony with a decision record (`process/spec-system.md`,
-  "Change ceremony"), never a build tick's to invent nor plan's to guess.
-  Nothing is broken by leaving it open: no layer surface exists at all (`rg`
-  for `--layer`/`layers`/`LayerSlot` over `src/main.rs`, `sdk/src/assembly.ts`,
-  `sdk/src/builtins.ts` is empty, re-run at 9409a6c), so today's gate is exactly the
-  committed harness's — what every placement already assumes. What it costs is
-  the capability 0030 ruled important. **Dependents: all four of 0030's
-  derivations** — the stack and envelope in engine and SDK, the claude-code
-  face's cited precedence declaration, `--layer` on check, the announcement
-  line. None is filed until this rules. Rider for whichever entry encodes the
-  slots: 0030 requires the claude-code precedence cite (user < project < local
-  < invocation; settings docs, retrieved 2026-07-16) **re-fetched raw at encode
-  time** per `builtins.md`.
-
 - `(clause-vocabulary-holds)` — OPEN, model question, **the corpus's, not an
   entry's**. Registered 07-16; consolidated 07-16 from the two instance-keyed
   records this loop had filed separately (`(nested-field-addressing)`,

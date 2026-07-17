@@ -77,7 +77,13 @@ are the same construct — ownership, not privilege (`../builtins.md`).
 
 Where a member serializes. Three spellings:
 
-- **file** — the member owns a file at a path its kind governs,
+- **file** — the member owns a file at a path its kind governs. A file
+  locus may declare a commitment class of **local**: per-machine and
+  uncommitted — the kind is declared and reviewed, its members' documents
+  are not. A local locus is layout-only (the document is the governed
+  source, read at check under the declared layout; emit writes nothing
+  there) and its members' rows never enter the lock, deriving at read
+  time instead (decision 0032),
 - **embedded** — the member lives inside its parent's body, addressed per
   the parent's format, or
 - **nested file** — the member owns a file whose path composes from its
