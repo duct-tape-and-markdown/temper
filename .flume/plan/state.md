@@ -3,58 +3,74 @@
 - Spec derived through: b8396d4
 - Audited through: 14c5de4
 - Residue swept through: 14c5de4
-- This tick: POST-SHIP RECONCILIATION — the window `63e5b97..14c5de4` (one
-  `build:` commit: 3ed8d2b, `json-document`), audited and swept on disk in one
-  tick. **PLUGIN-JSON-DOCUMENT-FORMAT verified shipped and already dropped by
-  14c5de4**: `Format::JsonDocument` (`src/kind.rs:511`), the label parse (867),
-  the SDK union (`sdk/src/kind.ts:22`), `DocumentMember` + `write_document`
-  (`src/json_manifest.rs:112/451`), `tests/json_document_format.rs`. **The
-  stale narrations that entry named are discharged**: `Format`'s doc no longer
-  reads "first and only harvested entry" and `NamedField` (526) now says the id
-  is read from "whichever surface the kind's `Format` carries its fields on",
-  not "frontmatter field". (`src/kind.rs:1138`'s "sole harvested member is
-  `AtImport`" is `DirectiveSyntax`, a different closed vocabulary, accurate at
-  HEAD — not residue.) **Gate re-tested and opened:** PLUGIN-MANIFEST-KIND's
-  `blockedBy PLUGIN-JSON-DOCUMENT-FORMAT` is discharged → `open`. **The
-  sweep's find, which the audit did not predict:** 3ed8d2b made `format`
-  load-bearing on the *read* face only. `project_bytes` (`src/drift.rs:1723`)
-  renders a `---` frontmatter block over every file member unconditionally —
-  `Projection` (562) carries no format and nothing in the emit path reads one —
-  so `write_document` ships with `tests/` as its only consumer, and a
-  `json-document` member (declarable from the SDK today) projects silently
-  wrong bytes at its `.json` path. That contradicts
-  `specs/model/representation.md` ("kind": a file-locus kind's format derives
-  *two* one-way faces — the canonical writer for projections, the lenient
-  reader for sources) and invariant 6. No queued entry carried it: the two kind
-  entries declare kinds with zero members here, and BUNDLE-EMIT-THROUGH-KINDS
-  consumes the dispatch rather than building it. Filed as
-  EMIT-JSON-DOCUMENT-WRITE-FACE, disjoint from every open entry. **Cites
-  re-derived:** `governs_collision_diagnostics` 1801 → **1808**
-  (PLUGIN-MANIFEST-KIND); `builtin_lock.rs` "generated data" 17-19 → **16-18**.
-  Verified unmoved: `all_kinds()` 315, the `kinds.len()` assert **9 at 2093**
-  (so the two kinds land it at 10 then 11 — the corpus's "Ten kinds ship"
-  counts a different set and is not that assert's check), `bundle.rs`
-  178/185/191, every `src/graph.rs` cite. All three accepted-debt records
-  re-verified exact and unmoved (`tests/session_start.rs:121/140`,
-  `sdk/src/prose.ts`'s ten lines, `Cargo.toml:42-45`) — none has a carrier in
-  the queue. The "format implementations are engine code" asymmetry restamped:
-  its parenthetical named only the frontmatter adapter, and the inventory now
-  holds two. Spec cursor copied forward verbatim: this tick derived nothing.
-- Queue: 6 entries — 2 pickable and file-disjoint (EMIT-JSON-DOCUMENT-WRITE-FACE
-  in `src/drift.rs`+`tests/json_document_format.rs`; PLUGIN-MANIFEST-KIND in
-  `src/builtin_kind.rs`+`sdk/`+`tests/`), 2 serialized behind the kinds on
-  shared files, 2 parked on human acts. Both parks re-tested on disk and both
-  hold: IMPORT-HOP-CAP-CITE (nothing ruled the hop semantics; the window
-  touched no import mechanics, `MAX_IMPORT_HOPS` still 5 at 65 under a cite
-  claiming five) and PACKAGING-CHANNELS-REMAINDER (four era tags and no version
-  tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 verbatim). No file appears in
-  two `open` entries.
+- This tick: INBOX — the one live capture drained, `.flume/refactor/` back to
+  its README alone. The prompt's `<refactor-captures>` block failed to render
+  (an `exec-failed` shell probe), so the capture was invisible in context and
+  the tick looked like post-ship reconciliation; `ls` found it, and the inbox
+  job outranks the audit. **`build-type-predicate-cannot-cross-the-lock`
+  (observed 024ba9b) verified true at HEAD on every home**, diffing forward
+  over its three commits: `sdk/src/contract.ts:68` exports `type =
+  (field: string)` with no declared kind; `sdk/src/generated/ClauseRow.ts`
+  carries a column per predicate argument and none for a `ValueType`;
+  `predicate_from_row` (`src/contract.rs:321`) has an arm for every predicate
+  in the closed vocabulary **except `type`**, so the row lifts to `None` and
+  `src/compose.rs:181` rejects it loud — a refusal fired on a predicate the SDK
+  told the author to use. The engine half is fully built and reachable only
+  from Rust: `Predicate::Type` (97), `engine.rs:626` decides it,
+  `schema.rs:64` projects it. `rg` confirms no `predicate = "type"` row exists
+  anywhere (`builtin_lock.toml:274`'s `field = "type"` is mcp-server's `enum`
+  over a field *named* `type` — not a counter-example). Filed as
+  **TYPE-PREDICATE-ROUND-TRIPS**, `open` and disjoint from every other open
+  entry. **Two scoping facts the capture did not carry**, found on disk: the
+  lock's clause *writer* is `ClauseRow::to_table` (`drift.rs:3304`), a second
+  face to thread since `ClauseRow` is `Deserialize`-only; and the lattice has a
+  live **wire-spelling collision** — `ValueType::name()`/`from_name()`
+  (`extract.rs:59`/`76`) spell it lowercase (`"list"`) while the ts-rs binding
+  `sdk/src/generated/ValueType.ts` spells the variants capitalized (`"List"`),
+  so the entry names it as the thing to settle first rather than letting build
+  discover it at the decoder. **The `per` departs from the capture channel's
+  default cite on purpose**: `.flume/refactor/README.md` says cite
+  `engineering.md`, but there is no second implementation here — nothing is
+  duplicated, one home is *missing* — so the entry cites
+  `specs/model/contract.md` ("clause"), the section that actually owns "the
+  enum in code is the authority". A false cite is worse than a departed
+  default. **The capture's sibling gap is a fork, not an entry** — it says so
+  itself: `--strict`'s allow-list over a closed key set needs the vocabulary to
+  grow or `optional`'s dead rows to be read, and that is a
+  `specs/model/contract.md` decision. Registered `(closed-surface-predicate)`.
+  Two narration riders named onto the entry's `extract.rs` (it opens that
+  file): `ValueType`'s doc parenthesizes "the slice-1 shortcut this entry
+  corrects" — a build tick's voice leaked into shipped prose — and
+  `FeatureValue`'s calls the primitive "(forthcoming)" (95), false once it
+  round-trips. **Gate re-tested opportunistically** (cheap, and the queue must
+  be honest to commit): PLUGIN-MANIFEST-KIND shipped at c68f625, verified on
+  disk (`tests/plugin_manifest_kind.rs`, `pluginManifestDefaultContract`), so
+  MARKETPLACE-KIND's `blockedBy` is discharged → `open`. Its stale arithmetic
+  re-derived with it: the `kinds.len()` assert is **10 at 2113**, not 9 at 2093
+  — the entry said "read it on disk", and this is why. All three cursors copied
+  forward verbatim: this tick derived nothing and audited no window.
+- Queue: 5 entries — 2 pickable and file-disjoint (MARKETPLACE-KIND in
+  `src/builtin_kind.rs`+`sdk/`+`tests/`; TYPE-PREDICATE-ROUND-TRIPS in
+  `sdk/src/contract.ts`+`declarations.ts`+`generated/ClauseRow.ts`+`src/drift.rs`
+  +`src/contract.rs`+`src/extract.rs`), 1 serialized behind MARKETPLACE-KIND on
+  `src/bundle.rs`, 2 parked on human acts (both re-tested at 4084dcd and both
+  hold: nothing ruled the hop semantics and the window touched no import
+  mechanics; four era tags and no version tag, crate 0.1.0 vs npm 0.0.7). No
+  file appears in two `open` entries — `sdk/src/builtins.ts` and
+  `tests/lock_declaration_rows.rs` are MARKETPLACE-KIND's alone, which is why
+  the `type` predicate's consumer clause (`plugin-manifest`'s `keywords`) and
+  that file's now-answerable hold paragraph are deliberately out of the wiring
+  entry's scope.
 
-Plan continues: no — the window is reconciled on both motions, the inbox is
-empty, `.flume/refactor/` holds its README alone, and the spec delta is empty
-(b8396d4 is still the newest `specs:` commit, routed at 63e5b97). No input
-sits below post-ship reconciliation. Build takes over: two entries are
-pickable and their cites are fresh as of this tick.
+Plan continues: yes — post-ship reconciliation. The window `14c5de4..4084dcd`
+(two `build:` commits: f8d2431 `json-document` write-face dispatch, c68f625
+`plugin-manifest`) is unaudited and unswept; both cursors still read 14c5de4.
+This tick spent its one job on the inbox, which outranks it. The audit motion
+is partly pre-paid — PLUGIN-MANIFEST-KIND and EMIT-JSON-DOCUMENT-WRITE-FACE
+were both verified shipped on disk here, and 4084dcd already dropped them —
+but the sweep motion is untouched: nothing has read that window's code against
+the corpus. Build is not blocked meanwhile: two entries are pickable and their
+cites are fresh as of this tick.
 
 **One thing for a human, unchanged and not the loop's:** decision 0030 is
 still a hole — `specs/decisions/` runs 0023…0029, 0031, and 0030 (`review is

@@ -46,6 +46,27 @@ tax.
   ship; `.claude/` is human `chore(harness):` territory (CLAUDE.md, "The two
   harnesses"), so this lands as a human act or not at all. No dependents.
 
+- `(closed-surface-predicate)` — OPEN, model question, registered 07-16 from
+  the drained refactor capture (`build-type-predicate-cannot-cross-the-lock`,
+  observed 024ba9b, re-verified at 4084dcd). `plugin-manifest`'s documented
+  `--strict` bar — an unrecognized top-level field is an error — needs an
+  **allow-list over a closed key set**, and the shipped algebra cannot express
+  it: `forbidden_keys` is a deny-list, and the complement of a finite set over
+  an open key space is not one. `Predicate::Optional` (`src/contract.rs:88`)
+  already records a key as "part of the declared schema" but is
+  `Outcome::Holds` unconditionally (`src/engine.rs:621`) — nothing consumes the
+  record, so the rows exist and mean nothing. The fork: whether a closed
+  surface is opt-in per contract, derived from the `optional` rows emit
+  already writes, or a new predicate. Each answer either grows or newly
+  reads the closed vocabulary, and `specs/model/contract.md` ("clause") makes
+  that a deliberate language change — a corpus decision, never a build tick's
+  to invent. Nothing is broken by leaving it open: `sdk/src/builtins.ts`
+  (605-620) names the hold in `pluginManifestDefaultContract`'s header, the
+  honest "almost-empty default contract" posture `specs/builtins.md` sanctions.
+  Distinct from TYPE-PREDICATE-ROUND-TRIPS, the sibling *wiring* gap the same
+  capture named — that one adds no predicate and is filed, not forked. No
+  dependents.
+
 - `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
   harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
   rulesync's portability as an architecture side effect (`specs/intent.md`,
