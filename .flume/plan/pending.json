@@ -1,5 +1,75 @@
 [
   {
+    "tag": "MANIFEST-SEGMENT-REAP",
+    "summary": "Emit silently drops discovered-but-undeclared manifest members (a partial settings.json rewrite kills live hooks + segments) reporting `0 reaped` — extend the reap ledger + cliff to manifest segments",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "The reap-ledger + cliff for manifest segments. `emit_manifest` (~1375-1436) reads the on-disk file only as whole bytes (~1409-1422) to pick Emitted-vs-Unchanged and never parses its members, so a discovered-but-undeclared hook/installed-plugin/marketplace block vanishes with no `EmitEntry` and the residue segment (`extraKnownMarketplaces`) with it. Parse the current manifest (reuse `json_manifest::Manifest::parse` / `CollectionSegment` inference) and diff its discovered collection entries + residue keys against `build.segments`+`build.residue`; HOIST the parse into the pre-write region (near the manifest build ~931-984 / before the cliff block ~1169) to honor 'decide the wave before a byte is written' (~1132-1135). Emit an `EmitEntry` per dropped discovered member into `EmitReport.entries` (reuse `EmitOutcome::Reaped` or add a `MemberReaped` variant, ~485-520) — widen `emit_manifest`'s return (~1380) + its call site (~1236-1247) and add the counter to `render_emit`'s tally (~2005-2021). Add a SEGMENT-LEVEL cliff: a new `DriftError` variant modeled on `TotalReapWave`/`LayerDropped` (~75-104), gated on `!options.teardown`, firing when the drop is total (every discovered member of a manifest collection dropped, none declared in its place)."
+        },
+        {
+          "path": "src/json_manifest.rs",
+          "description": "Reuse the read-side discovery for the emit-time diff: `Manifest::parse` (~303), `RegistrationMember` (~60), the `CollectionSegment` inference (~413). No logic change expected — widen visibility only if the diff in `drift.rs` cannot reach these from the emit path (confirm reachability first, `engineering.md` 'One job, one home'; the discovery already exists on the read side, `main.rs` `manifest_units` ~1453 — do not mint a second parser)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a payload declaring a partial manifest (fewer members than the discovered on-disk settings.json) emits one reap-ledger `EmitEntry` per dropped discovered member and counts it in `render_emit`; a total drop (every discovered member of a collection gone, none declared) refuses at the segment cliff unless `--teardown`"
+      }
+    ],
+    "acceptance": "A partial-manifest emit names every dropped discovered member in the reap ledger (one `EmitEntry` per member, counted in `render_emit`) and refuses at a segment-level cliff when the drop is total (every discovered member of a collection gone, none declared) unless `--teardown` — the reap doctrine extended from whole files to manifest segments (pipeline.md, 'Emit': 'a drifted ownerless file is a finding, never a silent delete'). `cargo test` green.",
+    "notes": "Field defect (centercode, 1e952e0): a corpus declaring 5 installed-plugins before its 2 hooks emitted settings.json as declared, killing the live hooks + `extraKnownMarketplaces`, reporting `1 emitted, 0 reaped`. Rewrite-whole is the model; the SILENCE is the defect — reap doctrine + `--teardown` cliff are whole-file-only today. The emit-time current-manifest parse is drift-detection, never a projection read for meaning. observed 4cc3081; re-verified live at b576844."
+  },
+  {
+    "tag": "EMBEDDED-EDGE-SOURCE-SEAM",
+    "summary": "`mention-reachable` misses an embedded-carried citation: its edge source keys to the embedded member not the host, so a body-carried consult escapes the host's scope gate — attribute source to host",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "The source-side host attribution — the twin of the target-side `target_identity` normalizer (~1274, applied at ~125-126/~968; no source analogue exists). `mention_reachable` (~347-427) keys the host node `source = ((*kind), features.id)` (~377) and filters `edge.from == source` (~378), then reads the scope off the host `features` (~388). An embedded-carried edge's `from` is `(embedded-kind, key)` — set in `resolved_edges` (~956-983) at `from: (edge.from, source.id)` (~974) — never `(rule, host)`, so the rule's body-carried consult is filtered out and never gated against the rule's `paths`. Mirror `target_identity` on the SOURCE side: attribute an embedded edge's `from` to its host `(host-kind, host-id)` for host-kind judgment — carry the host through `resolved_edges`' keying, or walk host->embedded-edge under the host's scope in `mention_reachable`. NOTE: coexists with parked IMPORT-HOP-CAP-CITE on this file (disjoint region — the hop-cap const ~59)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Thread the host address the source-side attribution needs. `embedded_member_features` (~2043-2053) sets the member id from `row.key` and DROPS `row.host` (`NestedMemberRow.host`, `drift.rs`:~3020 — the `kind:name` host address, e.g. `rule:connect-optimus`); carry it into `Features` (or into the edge-source resolution) so `graph.rs` can attribute the embedded edge's source to its host. `embedded_features_by_kind` (~1884-1907) / `assemble_by_kind` (~1838-1840) enroll embedded kinds into the same `by_kind` map `resolved_edges` reads — confirm the host rides the member there."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a `mention-reachable` clause on a host `rule` kind finds a rule whose body-carried consult names globs uncovered by the rule's `paths` scope (today silent); a consult whose globs the scope covers passes — the embedded edge judged under its host's scope"
+      }
+    ],
+    "acceptance": "An embedded-carried citation is judged for mention-reachability under its HOST's scope: a rule whose body-carried consult names globs uncovered by the rule's `paths` is a `mention-reachable` finding, not silent — the embedded edge's source attributed to its host, mirroring the target-side `target_identity` seam (contract.md, 'edge': a member's reference set is the union of the edges its fields and embedded members declare). `cargo test` green.",
+    "notes": "Field defect (centercode round 2, 1e952e0): source-side twin of EMBEDDED-EDGE-DEGREE-SEAM (c607fad, target side via `target_identity`). Field-proven: `connect-optimus` consults `data-access` with two uncovered globs, both endpoints declare `paths`, check silent while `explain` shows the edge. Host lives on `NestedMemberRow.host` (drift.rs:3020), dropped at main.rs:2053 — thread it. observed 4cc3081; re-verified live at b576844 (unify 6667265 changed the edge set, not the source keying)."
+  },
+  {
     "tag": "SETTINGS-LOCAL-KIND",
     "summary": "Ship `settings-local` (0036): `.claude/settings.local.json`, a json-document at the local commitment class — read in place, gated, never emitted; documented keys typed, residue opaque",
     "per": {
