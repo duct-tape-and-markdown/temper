@@ -248,18 +248,19 @@ test("plugin-manifest is a json-document file kind identified by its name key, o
 });
 
 test("pluginManifestDefaultContract gates the decidable slice of the --strict profile", () => {
-  // `name`'s presence, emptiness and charset, plus the one deny-list slice of the
-  // unrecognized-field bar the algebra can express. The rest of `--strict` — an
+  // `name`'s presence, emptiness and charset, the one deny-list slice of the
+  // unrecognized-field bar the algebra can express, and the one wrong-typed field whose
+  // documented type is a single kind rather than a union. The rest of `--strict` — an
   // allow-list over the closed key set — needs a predicate that does not exist, and the
   // contract's own header names the hold rather than forging a clause for it.
   assert.deepEqual(
     pluginManifestDefaultContract.map((entry) => entry.predicate.key),
-    ["required", "min_len", "allowed_chars", "forbidden_keys"],
+    ["required", "min_len", "allowed_chars", "forbidden_keys", "type"],
   );
   // Every clause is an error: `--strict` is the portable bar, so nothing here is a note.
   assert.ok(pluginManifestDefaultContract.every((entry) => entry.severity === "required"));
 
-  const [presence, empty, charset, experimental] = pluginManifestDefaultContract;
+  const [presence, empty, charset, experimental, keywordsType] = pluginManifestDefaultContract;
   assert.deepEqual(presence.predicate, { key: "required", field: "name" });
   assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
   // Kebab-case, no spaces — the charset is the whole rule the docs state.
@@ -269,10 +270,16 @@ test("pluginManifestDefaultContract gates the decidable slice of the --strict pr
     charset: { ranges: ["a-z", "0-9"], chars: "-" },
   });
   assert.deepEqual(experimental.predicate, { key: "forbidden_keys", keys: ["themes", "monitors"] });
+  // The declared kind rides its own field, not the shared `args` bag — the lattice name
+  // the engine decodes, in the one spelling that crosses the lock.
+  assert.deepEqual(keywordsType.predicate, { key: "type", field: "keywords", value_type: "list" });
   // The runtime divergence rides the guidance, the one channel that can carry it: the
   // clause decides the key's presence, never which world the reader is validating in.
   assert.match(experimental.guidance ?? "", /--strict/);
   assert.match(charset.guidance ?? "", /displayName/);
+  // The one clause here the forgiving runtime does not wave through, so its guidance is
+  // where the reader learns this is a load error rather than another `--strict` warning.
+  assert.match(keywordsType.guidance ?? "", /load error/);
 
   // Cited and dated, every one — the audit trail a maintained default contract exists for.
   for (const entry of pluginManifestDefaultContract) {

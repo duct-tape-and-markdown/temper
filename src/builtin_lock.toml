@@ -41,11 +41,15 @@
 #
 # `plugin-manifest` is the one kind here at the `json-document` format: the whole artifact
 # is one JSON object, so its top-level keys are the fields its clauses range over. Its
-# contract is four rows against `name`'s presence, emptiness, and charset, plus the
-# top-level `themes`/`monitors` spelling the experimental migration retires. The rest of
-# the `claude plugin validate --strict` profile — unrecognized top-level fields, and
-# wrong-typed component paths — needs predicates the algebra does not carry yet
-# (`sdk/src/builtins.ts`, `pluginManifestDefaultContract`), so no row here forges them.
+# contract is five rows against `name`'s presence, emptiness, and charset, the top-level
+# `themes`/`monitors` spelling the experimental migration retires, and `keywords`'s
+# declared `list` type. The rest of the `claude plugin validate --strict` profile —
+# unrecognized top-level fields, and wrong-typed *component paths* — needs predicates the
+# algebra does not carry yet (`sdk/src/builtins.ts`, `pluginManifestDefaultContract`), so
+# no row here forges them: the first wants an allow-list over a closed key set, and the
+# second an alternation, since `commands`/`agents` are documented `string|array` while
+# `type` declares one lattice kind. `keywords`'s single declared kind is what makes it the
+# expressible slice, so the row below lifts no part of the hold on the union-typed fields.
 
 [[declaration.kind]]
 name = "agent"
@@ -377,6 +381,15 @@ severity = "required"
 guidance = "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you."
 cite = "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-16)"
 keys = ["themes", "monitors"]
+
+[[declaration.clause]]
+kind = "plugin-manifest"
+predicate = "type"
+field = "keywords"
+severity = "required"
+guidance = '`keywords` is an array of discovery tags, and a bare string is not a shorter spelling of a one-tag list: a wrong-typed field is a load error, so the plugin does not load at all — everywhere, not merely under `--strict`, which is the one rule here the forgiving runtime does not wave through. Write `["deployment"]` for a single tag.'
+cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-16)"
+value_type = "list"
 
 [[declaration.clause]]
 kind = "rule"

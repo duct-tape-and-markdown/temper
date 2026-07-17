@@ -220,6 +220,43 @@ fn a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_deci
 }
 
 #[test]
+fn a_string_keywords_is_the_wrong_typed_field_the_declared_kind_decides() {
+    let harness = common::tmpdir("plugin-manifest-keywords-string");
+    // Unlike the experimental-key slice above, this one is not a `--strict` warning at all:
+    // a wrong-typed field is a load error on every machine, so the finding is an error in
+    // the forgiving runtime's world too.
+    write_plugin_json(
+        &harness,
+        "{\n  \"name\": \"deployment-tools\",\n  \"keywords\": \"deployment\"\n}\n",
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(!ok, "a string-valued keywords fails the gate");
+    let typed = common::findings_for(&findings, "type");
+    assert!(!typed.is_empty(), "{findings:?}");
+    assert!(
+        typed.iter().all(|f| f.starts_with("::error")),
+        "{findings:?}"
+    );
+}
+
+#[test]
+fn an_absent_keywords_is_silent_because_the_field_is_optional() {
+    let harness = common::tmpdir("plugin-manifest-keywords-absent");
+    // Presence is `required`'s concern and no clause requires this field, so `type` ranges
+    // over a value that isn't there and says nothing — the arity that keeps one optional
+    // field's omission from drawing a finding the docs never state.
+    write_plugin_json(&harness, "{\n  \"name\": \"deployment-tools\"\n}\n");
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(ok, "an absent optional field is no finding: {findings:?}");
+    assert!(
+        common::findings_for(&findings, "type").is_empty(),
+        "{findings:?}"
+    );
+}
+
+#[test]
 fn this_repo_authors_no_plugin_manifest_so_the_kind_counts_zero_members() {
     // Honest, not a gap: temper's own harness is not a plugin pack, so the shipped kind
     // has nothing to govern here — the `supporting-doc (0)` precedent.

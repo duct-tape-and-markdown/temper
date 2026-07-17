@@ -27,6 +27,7 @@ import {
   minLen,
   nameMatchesDir,
   required,
+  type,
   uniqueName,
 } from "./contract.js";
 import type { Clause } from "./contract.js";
@@ -611,11 +612,12 @@ export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifes
  *   is not expressible. (`optional` records a key as part of a declared closed schema but
  *   is always satisfied; nothing consumes the record.) The one deny-list slice that *is*
  *   decidable ships below.
- * - **Wrong-typed fields** (`keywords` a string instead of an array — a load error
- *   everywhere, not merely under `--strict`). The `type` predicate exists and the engine
- *   decides it, but it cannot cross the lock: `type()` here takes no declared kind, and
- *   the clause row carries no column for one. The TypeScript types above hold this bar for
- *   an SDK author; a hand-written manifest is unguarded until the predicate round-trips.
+ * - **Wrong-typed component paths**. `skills`, `commands`, `agents`, `hooks`,
+ *   `mcpServers` and `lspServers` are each documented `string|array` (the last three also
+ *   `object`), and `type` declares one lattice kind, never a union — so a union-typed
+ *   field is unreachable until the algebra carries an alternation. The single-kind fields
+ *   are expressible and `keywords` ships below; the TypeScript types above are what hold
+ *   the union bar for an SDK author, and a hand-written manifest is unguarded there.
  *
  * Deliberately absent as undecidable: whether the `description` reads well, whether
  * `keywords` aid discovery, whether `name` names the pack aptly.
@@ -649,6 +651,12 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
     guidance:
       "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you.",
     cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-16)",
+  }),
+  clause(type("keywords", "list"), {
+    severity: "required",
+    guidance:
+      "`keywords` is an array of discovery tags, and a bare string is not a shorter spelling of a one-tag list: a wrong-typed field is a load error, so the plugin does not load at all — everywhere, not merely under `--strict`, which is the one rule here the forgiving runtime does not wave through. Write `[\"deployment\"]` for a single tag.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-16)",
   }),
 ];
 
