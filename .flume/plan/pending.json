@@ -23,11 +23,11 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "Widen the engine splice: `member_projection_path` (~743-764) file branch (~761) calls `splice_name` (~669-678), which refuses `*/` via `DriftError::FlatGlobDepth` (~326-342); admit `*/<file>` for the starred-segment source, landing `<root>/<segment>/<file>` (the `directory` branch ~755 is the projection precedent). `KindFactRow.unit_shape` (~2583) + its `to_table`/`from_table` (~3414/~3446) carry the new label. Coexists with MANIFEST-SEGMENT-REAP on this file (disjoint region: emit_manifest ~1375 / reap ledger ~485)."
+          "description": "Widen the engine splice: `member_projection_path` (~743-764) file branch (~761) calls `splice_name` (~669-678), which refuses `*/` via `DriftError::FlatGlobDepth` (~326-342); admit `*/<file>` for the starred-segment source, landing `<root>/<segment>/<file>` (the `directory` branch ~755 is the projection precedent). `KindFactRow.unit_shape` (~2583) + its `to_table`/`from_table` (~3414/~3446) carry the new label. MANIFEST-SEGMENT-REAP shipped 2a2d583 on this file — its emit_manifest / reap-ledger region is settled on disk, disjoint from this KindFactRow region (build re-addresses off `scoped at`)."
         },
         {
           "path": "src/main.rs",
-          "description": "The builtin/declared shape comparison at ~2164 matches `unit_shape`; confirm the new variant flows (a declared custom kind, not a built-in override — named for the consumer audit, likely no logic change). Coexists with EMBEDDED-EDGE-SOURCE-SEAM (~2043) and TAP-VERB-EVENT-RECORD (Command enum ~180) on this file, disjoint regions."
+          "description": "The builtin/declared shape comparison at ~2164 matches `unit_shape`; confirm the new variant flows (a declared custom kind, not a built-in override — named for the consumer audit, likely no logic change). EMBEDDED-EDGE-SOURCE-SEAM shipped 0d84244; coexists with the still-open TAP-VERB-EVENT-RECORD (Command enum), EMBEDDED-EXTENT-CAPTURE (embedded_member_features), and VERIFIER-TYPED (requirement_from_row) — all region-disjoint on this file."
         },
         {
           "path": "sdk/src/kind.ts",
@@ -44,6 +44,10 @@
         {
           "path": "sdk/src/generated/KindFactRow.ts",
           "description": "Regenerate ONLY if the new UnitShape variant carries a structured payload (like `named-field(<field>)`); a bare label leaves `unit_shape?: string` unchanged and no diff appears. Build confirms off the Rust derive — run the SDK generate step and commit any diff."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "Extend the wired gauntlet harness (`engineering.md` 'The gauntlet corpus'): GAUNTLET-CORPUS (87b3391) shipped the base harness and explicitly deferred the STAR-SEGMENT-LOCUS cell to this entry. Add a lone-file starred-segment kind to the harness composition (~90-140, the inline TS program) — a `*/<file>` locus (a `conventions.md`-shaped file borrowing its directory segment for identity) seated INSIDE the existing skill's directory so it composes against the `skill` that owns that dir — and accept the regenerated `projection_tree` / `check_diagnostics` snapshots showing it discovered, keyed by its segment, and projected to `<root>/<segment>/<file>`. This is where the feature meets the existing ones; pay its composition cost here, at ship time."
         }
       ],
       "retire": []
@@ -57,10 +61,14 @@
       {
         "path": "tests/nested_member.rs",
         "asserts": "discovering a starred-segment kind at `*/conventions.md` yields one member per matching directory, each identity = its starred directory segment (no stem-collision naming every member `conventions`), coexisting with a `skill` that owns the same directory"
+      },
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "the kitchen-sink gauntlet harness carries a starred-segment `*/<file>` kind seated inside the skill's directory; its regenerated projection_tree / check_diagnostics snapshots show it discovered, keyed by segment, and projected to `<root>/<segment>/<file>` — the composition holds against the skill that owns the dir"
       }
     ],
     "acceptance": "A kind may declare a single-`*` `*/<file>` locus for a lone file whose identity is the starred directory segment — the built-in `skill`'s `UnitShape::Directory` identity rule generalized to every author's constructor, spelled as a declared `UnitShape` fact (stem vs starred segment) and never inferred from the glob. The splice admits it on both faces, discovery yields one member per directory keyed by its segment, uniqueness stays gated by the existing machinery (representation.md, 'locus'; 0038). `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "0038 Consequences bullet 2, from inbox (centercode, observed 4cc3081; re-verified — window shipped only extent). NOT directory-shape: a lone conventions.md inside a skill's dir can't claim that dir (skill owns it) — it needs a lone file borrowing the segment for identity, hence the file-branch splice widening. Widens UnitShape (shared enum); consumers named in files[], exhaustive matches refuse to compile until answered. Shares drift.rs/main.rs/declarations.ts with queued entries."
+    "notes": "0038 Consequences bullet 2 (centercode; re-verified HEAD). NOT directory-shape: a lone conventions.md in a skill's dir can't claim that dir (skill owns it) — a lone file borrows the segment for identity, hence the file-branch splice. Widens UnitShape (shared enum); consumers named in files[], exhaustive matches refuse to compile. Gauntlet cell added — GAUNTLET-CORPUS (87b3391) deferred it here. Region-disjoint on drift/main/declarations with the open set. scoped 4cc3081; gauntlet 1745634."
   },
   {
     "tag": "EMBEDDED-EXTENT-CAPTURE",
@@ -70,8 +78,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-EDGE-SOURCE-SEAM"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -91,11 +98,11 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The shared lock row. `NestedMemberRow` (~3019) gains `rendered_lines`/`rendered_chars` as `Option<u32>` columns (the `placed_edges: Option<Vec<String>>` precedent — `#[serde(default)]` + `#[ts(optional)]`, so ordinary rows stay byte-identical), with `to_table`/`from_table` (~4021/~4040, an opt-number helper beside `opt_str_array`) carrying them. The struct literal at ~1594 adds the two columns. Region disjoint from MANIFEST-SEGMENT-REAP (emit_manifest ~1375 / reap ledger ~485) and STAR-SEGMENT-LOCUS (KindFactRow ~2583)."
+          "description": "The shared lock row. `NestedMemberRow` (~3019) gains `rendered_lines`/`rendered_chars` as `Option<u32>` columns (the `placed_edges: Option<Vec<String>>` precedent — `#[serde(default)]` + `#[ts(optional)]`, so ordinary rows stay byte-identical), with `to_table`/`from_table` (~4021/~4040, an opt-number helper beside `opt_str_array`) carrying them. The struct literal at ~1594 adds the two columns. MANIFEST-SEGMENT-REAP shipped 2a2d583 (its emit_manifest / reap-ledger region settled on disk); coexists with the open STAR-SEGMENT-LOCUS (KindFactRow) and VERIFIER-TYPED (RequirementRow) regions — all struct-disjoint from this NestedMemberRow region."
         },
         {
           "path": "src/main.rs",
-          "description": "`embedded_member_features` (~2044) lifts the captured `rendered_lines`/`rendered_chars` from the row into `extract::Features` instead of hardcoding 0 (~2060), and rewords the now-false 'contributes no rendered body' comment (~2055). A value with no captured span (`None` — a layout-host member read off source) has no rendered projection to measure. SAME FUNCTION as EMBEDDED-EDGE-SOURCE-SEAM (which threads `row.host` into `Features` here) — serialized behind it via blockedBy. The NestedMemberRow literal at ~2566 adds the two columns."
+          "description": "`embedded_member_features` (~2066) lifts the captured `rendered_lines`/`rendered_chars` from the row into `extract::Features` instead of hardcoding them to 0 (~2083-2084), and rewords the now-false 'contributes no rendered body' comment (~2079-2082). A value with no captured span (`None` — a layout-host member read off source) has no rendered projection to measure. EMBEDDED-EDGE-SOURCE-SEAM shipped 0d84244 but did NOT touch this function — it attributed body-carried edge sources in `graph.rs`'s `mention_reachable` via `embedded_hosts_by_source` (main.rs:1917), so this entry now owns the sole live edit to `embedded_member_features`. The NestedMemberRow literal at ~2590 adds the two columns."
         },
         {
           "path": "src/engine.rs",
@@ -115,15 +122,15 @@
         },
         {
           "path": "tests/nested_member.rs",
-          "description": "Row-literal ripple: `surface_authority_row` (~37) and the row at ~152 add the two columns (None). Coexists with TEMPLATE-DISCOVERY-CARVE and STAR-SEGMENT-LOCUS on this file — disjoint region (helper literals vs. their new discovery cells)."
+          "description": "Row-literal ripple: `surface_authority_row` (~37) and the row at ~152 add the two columns (None). TEMPLATE-DISCOVERY-CARVE shipped dcaf48c; coexists with the open STAR-SEGMENT-LOCUS on this file — disjoint region (helper literals vs. its new discovery cell)."
         },
         {
           "path": "tests/emit.rs",
-          "description": "Row-literal ripple: the `embedded` helper (~1023) adds the two columns (None). Coexists with MANIFEST-SEGMENT-REAP on this file — disjoint region (helper literal vs. its reap fixture)."
+          "description": "Row-literal ripple: the `embedded` helper (~1023) adds the two columns (None). MANIFEST-SEGMENT-REAP shipped 2a2d583 on this file — its reap fixture is settled on disk, disjoint from this helper literal."
         },
         {
           "path": "tests/graph.rs",
-          "description": "Row-literal ripple: `domain_row` (~908) and `citation_row` (~1107) add the two columns (None). Shares this file with EMBEDDED-EDGE-SOURCE-SEAM (the blockedBy upstream, ships first) and parked IMPORT-HOP-CAP-CITE."
+          "description": "Row-literal ripple: `domain_row` (~908) and `citation_row` (~1107) add the two columns (None). EMBEDDED-EDGE-SOURCE-SEAM shipped 0d84244 (its mention-reachable cases are settled on disk); parked IMPORT-HOP-CAP-CITE also touches this file — both region-disjoint from these row literals."
         },
         {
           "path": "tests/gate_fail_loud.rs",
@@ -152,7 +159,7 @@
       }
     ],
     "acceptance": "An extent clause bound to an embedded kind judges the member's rendered span captured at emit (each and whole grain, both units), not fenced bodyless reading a hardcoded zero — 0035's load-bearing embedded-budget case delivered. The span rides NestedMemberRow as an optional column (the placed_edges precedent), captured by the SDK's own renderMemberToml, lifted into the embedded member's Features, and Extent drops from the bodyless fence (RequireSections/SectionContains/NameMatchesDir stay fenced); a value no format rendered carries no span, its extent undecidable rather than a false pass (engineering.md, 'A shared concept is one type'). `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "Refactor capture build-extent-embedded-span.md (observed fe8790e, re-verified HEAD): EXTENT-PREDICATE (4bdb796) shipped the file-member half; the embedded budget 0035 exists for has no data path — main.rs:2060 hardcodes span 0, drift NestedMemberRow carries none, engine.rs:256 fences Extent bodyless. Widens shared NestedMemberRow (placed_edges precedent). Same function as EMBEDDED-EDGE-SOURCE-SEAM → blockedBy; disjoint-region coexist with MANIFEST/STAR/VERIFIER/TEMPLATE. scoped at 7d17c86."
+    "notes": "Refactor capture build-extent-embedded-span.md (re-verified HEAD): EXTENT (4bdb796) shipped the file-member half; 0035's embedded budget has no data path — main.rs hardcodes span 0, drift NestedMemberRow carries no rendered column, engine.rs fences Extent bodyless. Widens shared NestedMemberRow. EMBEDDED-EDGE-SOURCE-SEAM shipped 0d84244 (its attribution rode graph.rs, not this function) → open. Region-disjoint on drift/main/tests with the open set. scoped 7d17c86."
   },
   {
     "tag": "TAP-VERB-EVENT-RECORD",
@@ -162,8 +169,7 @@
       "section": "Telemetry"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EMBEDDED-EDGE-SOURCE-SEAM"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -193,7 +199,7 @@
       }
     ],
     "acceptance": "`temper tap` reads a hook payload from stdin and appends one machine-written JSONL record — the event's identity + minimal discriminant (member/path, load reason, session id), never captured prose — to the per-machine uncommitted log, exiting zero. The record is the engine's own record (no member, no declared format), versioned in lockstep with the binary (SEAM_VERSION precedent); an append is a single record that never rewrites the file, so parallel sessions interleave lines; an older record version reads tolerated, never silent-skipped (pipeline.md, 'Telemetry'; 0037 amended). `cargo test` green.",
-    "notes": "0037 slice 1+3 of 5 (amended 5b6b6f2): tap verb + record's versioned shape. Writer + version-tolerant read_log round-trip it here. (tap-log-format) resolved: the log is the engine's own record, not a member. Slice 4 (field strand) is the record's sole READER — type + IO here, narration there (9a18907). blockedBy EMBEDDED-EDGE only for shared main.rs (disjoint regions, no logic dep). `temper tap` = 8th subcommand; 'seven verbs' is chore(harness)/.temper. scoped at 36f3fd8."
+    "notes": "0037 slice 1+3 of 5 (amended 5b6b6f2): tap verb + record's versioned shape. Writer + version-tolerant read_log round-trip it here. (tap-log-format) resolved: the log is the engine's own record, not a member. Slice 4 (field strand) is the record's sole READER — type + IO here, narration there (9a18907). EMBEDDED-EDGE shipped 0d84244 → open; Command-enum/dispatch region disjoint from the open set's main.rs touchers. `temper tap` = 8th verb; 'seven verbs' is chore(harness)/.temper. scoped 36f3fd8."
   },
   {
     "tag": "TELEMETRY-FIELD-STRAND",
@@ -339,7 +345,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. Coexists with MANIFEST-SEGMENT-REAP (emit_manifest ~1375 / reap ledger ~485) and STAR-SEGMENT-LOCUS (KindFactRow ~2583) on drift.rs — disjoint from this RequirementRow region ~2877. (EXTENT shipped 4bdb796.)"
+          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. MANIFEST-SEGMENT-REAP shipped 2a2d583 (its emit_manifest / reap-ledger region settled on disk); coexists with the open STAR-SEGMENT-LOCUS (KindFactRow) and EMBEDDED-EXTENT-CAPTURE (NestedMemberRow) regions on drift.rs — all struct-disjoint from this RequirementRow region. (EXTENT shipped 4bdb796.)"
         },
         {
           "path": "src/main.rs",

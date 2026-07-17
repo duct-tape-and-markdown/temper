@@ -1,32 +1,43 @@
 # Plan state
 
 - Spec derived through: 684dfec
-- Audited through: 82dcb3e
-- Residue swept through: 82dcb3e
-- This tick: POST-SHIP RECONCILIATION of 0349821..HEAD. One code commit in
-  window: 4bdb796 (EXTENT-PREDICATE — 9a18907 was specs+.temper harness only,
-  the rest plan/chore/specs). AUDIT: verified on disk EXTENT shipped whole —
-  `extent(unit,bound)` live in `src/engine.rs`, `rendered_lines`/`rendered_chars`
-  intrinsics, `max_lines` retired (surviving mentions are the retirement
-  tests + explanatory comments only). Both `blockedBy: EXTENT-PREDICATE`
-  entries pointed at an absent shipped tag → UNBLOCKED to `open`:
-  SETTINGS-LOCAL-KIND (premise held: no `settings-local` kind in src/sdk) and
-  VERIFIER-TYPED (premise held: `verified_by: Option<String>` still untyped at
-  compose.rs:100 / contract.ts:300). Refreshed both entries' stale "serialized
-  behind EXTENT" language to name the current region-disjoint coexistence
-  partners on drift.rs/main.rs/graph.rs/declarations.ts. SWEEP: EXTENT
-  introduced no residue — `body_lines`/`LineCount` kept as intentional orphans
-  (0035 names no LineCount retirement, per the commit body), refactor already
-  drained (82dcb3e → EMBEDDED-EXTENT-CAPTURE). Ride-only: VERIFIER-TYPED now
-  opens src/roster.rs, so it carries the orphan `10-contracts.md` cite-cut
-  (~475); open-questions record re-routed onto it.
-- Queue: 13 entries — 7 pickable (gate:open): MANIFEST-SEGMENT-REAP,
-  EMBEDDED-EDGE-SOURCE-SEAM, TEMPLATE-DISCOVERY-CARVE, STAR-SEGMENT-LOCUS,
-  GAUNTLET-CORPUS, + SETTINGS-LOCAL-KIND, VERIFIER-TYPED (both unblocked). 4
-  blockedBy (EMBEDDED-EXTENT-CAPTURE/TAP-VERB → EMBEDDED-EDGE;
-  TELEMETRY-FIELD-STRAND → TAP-VERB; TELEMETRY-HOOK-PROJECTION → VERIFIER-TYPED);
-  2 parked (IMPORT-HOP-CAP-CITE, PACKAGING). Open set region-disjoint.
+- Audited through: 1745634
+- Residue swept through: 1745634
+- This tick: POST-SHIP RECONCILIATION of 82dcb3e..HEAD. Four build commits
+  shipped (chore(flume) 1745634): MANIFEST-SEGMENT-REAP (2a2d583),
+  EMBEDDED-EDGE-SOURCE-SEAM (0d84244), TEMPLATE-DISCOVERY-CARVE (dcaf48c),
+  GAUNTLET-CORPUS (87b3391). AUDIT (on disk, not the log): EMBEDDED-EDGE shipped
+  its body-carried-edge attribution in graph.rs's `mention_reachable`
+  (`embedded_hosts_by_source`, main.rs:1917) — NOT in `embedded_member_features`.
+  Both `blockedBy: EMBEDDED-EDGE-SOURCE-SEAM` entries → UNBLOCKED to open,
+  premises re-verified: EMBEDDED-EXTENT-CAPTURE (main.rs still hardcodes span 0
+  at ~2083-84, drift NestedMemberRow lacks a rendered column, engine.rs:256
+  still fences Extent bodyless) and TAP-VERB-EVENT-RECORD (no src/tap.rs, no
+  `Tap` command). Corrected EMBEDDED-EXTENT's now-false "EMBEDDED-EDGE threads
+  row.host into Features here" claim — it never touched that function. Refreshed
+  stale coexistence language naming now-shipped MANIFEST/EMBEDDED-EDGE/TEMPLATE
+  as in-flight partners across STAR/EMBEDDED-EXTENT/TAP/VERIFIER; line-number
+  drift left to build's `scoped at` re-address (the mechanism for exactly that).
+  SWEEP: the 4 ships introduced no residue — MANIFEST reused `Manifest::parse`
+  (no 2nd parser), EMBEDDED-EDGE local to `mention_reachable` (no other reader
+  moves), TEMPLATE-CARVE's consumers self-heal, GAUNTLET test-only. GAUNTLET-
+  CORPUS explicitly deferred the STAR-SEGMENT-LOCUS gauntlet cell to STAR's
+  entry — added it (tests/gauntlet.rs) per engineering.md 'The gauntlet corpus'.
+  TEMPLATE-DISCOVERY-CARVE shipped before the gauntlet existed so its cell was
+  never added — accepted debt (its own nested_member.rs test covers
+  correctness; gauntlet integration coverage is the marginal miss, not a
+  correctness gap). Parks re-tested on disk and hold: IMPORT-HOP-CAP-CITE
+  (MAX_IMPORT_HOPS still 5 at graph.rs:59, no hop-semantics ruling), PACKAGING
+  (no version tag, release.yml deferral verbatim, `git diff 82dcb3e..HEAD --
+  .github/` empty).
+- Queue: 9 entries — 5 pickable (open): STAR-SEGMENT-LOCUS, EMBEDDED-EXTENT-
+  CAPTURE, TAP-VERB-EVENT-RECORD, SETTINGS-LOCAL-KIND, VERIFIER-TYPED. 2
+  blockedBy (TELEMETRY-FIELD-STRAND → TAP-VERB; TELEMETRY-HOOK-PROJECTION →
+  VERIFIER-TYPED); 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING). Open set shares
+  drift.rs/main.rs/declarations.ts region-disjointly (distinct structs/fns,
+  documented per file) — the accepted coexistence pattern; build's singleton
+  serializes picks.
 
-Plan continues: no — inbox empty, no spec delta past 684dfec, EXTENT window
-reconciled and both cursors at HEAD; no live input remains. 7 pickable
-entries — build takes over.
+Plan continues: no — inbox empty, no spec delta past 684dfec, window reconciled
+and both cursors at HEAD; no live input remains. 5 pickable entries — build
+takes over.
