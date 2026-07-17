@@ -13,40 +13,6 @@ tax.
 
 ## Open forks
 
-- `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
-  0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
-  does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:955-969, re-read at b85df4a) names the `source` union
-  as needing "a discriminated-union predicate the vocabulary does not spell":
-  the relative-path form's leading `./`, each object form's own discriminator
-  and required fields. **The prediction this record made has now played out
-  three times, and the third exhausted it** — FIELD-ADDRESSING-RFC-9535-SUBSET
-  (aaf70f1) discharged the two addressable holds; CLOSED-KEYS-CLAUSE (7fae62e)
-  took `pluginManifestDefaultContract`'s last one; SHAPE-PREDICATE (0927979)
-  retired the skill's two, and `skillDefaultContract`'s header now reads
-  "Nothing decidable is held" (`builtins.ts`:1057). Each time this bullet
-  stayed. **It is now what it predicted it would become: the last hold
-  anywhere in the provider face** — re-verified at b85df4a (`sdk/` untouched
-  across 8fc5e21..b85df4a, so the addresses carry), the sole surviving
-  "pending a vocabulary addition" hold in the file (the sentence wraps 959-960;
-  grep the phrase across the line break, not on one line), and its own
-  header was rewritten by that ship to name its widening directly rather than
-  point at a sibling's. `required("plugins[*].source")` — that a source is
-  named at all — ships as the decidable slice, and which of the five
-  documented forms a value is, and whether that form's own required fields are
-  filled, no predicate decides. `marketplace_kind.rs` pins the boundary
-  deliberately: a catalog naming an undocumented `ftp` source still passes.
-  The hold is admissible precisely because it names its closing widening
-  (`builtins.md`, "Default contracts": a hold with no named closing widening is
-  not a hold). The question is whether
-  that fifth widening is ever ratified — a vocabulary addition is a deliberate
-  language change (`model/contract.md`, "clause"), never plan's to derive and
-  never build's to invent. With no sibling hold left to ride a wave beside, it
-  gets no free carrier: it is ratified deliberately or it stands. Nothing is
-  broken by leaving it open: the union is guarded for an SDK author by the
-  `MarketplaceSource` type today, and what is unguarded is the hand-written
-  catalog. No dependents.
-
 - `(settings-local-kind)` — OPEN, human's call, registered 07-16 from 0032's
   own Consequences: "The claude-code face's `settings.local.json` is the first
   candidate local-locus layout kind beyond the dial itself." A candidate is not
