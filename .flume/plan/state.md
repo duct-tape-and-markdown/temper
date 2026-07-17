@@ -1,35 +1,42 @@
 # Plan state
 
-- Spec derived through: 5f89860
+- Spec derived through: 725188e
 - Audited through: b85df4a
 - Residue swept through: b85df4a
-- This tick: DERIVE spec delta 5f89860 (decision 0035, "extent joins the
-  vocabulary") — a human `specs:` commit that landed as last tick's parent
-  while the inbox drain was in flight, ruling the value-extent demand the prior
-  tick had just parked as a fork. Routed the decision's Consequences:
-  - Bullet 1 ("Plan derives the entry: the predicate in engine and SDK, each-
-    and whole-grain over rendered extent, units lines/characters, admissibility
-    for the unit; the inbox demand note discharges into it") → **EXTENT-PREDICATE**
-    (per contract.md, "clause"). Adds `Predicate::Extent` (contract.rs), both-grain
-    eval render-side (engine.rs), the `extent` constructor (contract.ts), clause
-    lowering + a `unit` column (declarations.ts, drift.rs `ClauseRow`, generated
-    mirror). Inbox note already discharged (drained empty last tick).
-  - Bullet 2 ("No shipped default contract adopts extent — the shipped defaults
-    stay opinion-free") → verified-as-constraint: the entry adopts extent in no
-    default contract; `sdk/src/builtins.ts` and the built-in lock stay untouched.
-  **Correction carried in the same tick:** the prior commit (f552ccd) had
-  registered `(value-extent-predicate)` as an OPEN fork — 0035 resolves it, so
-  a linter had already reverted the record from the working tree; this commit
-  lands that removal (resolution = encode + delete).
-  **Collision surfaced, not papered over:** 0035 rules render-side and *rejects*
-  source-side, but the shipped `max_lines` (source-side body lines, adopted in
-  the skill/rule/memory defaults) is exactly that rejected measurement, and 0035
-  never names its retirement. Registered `(extent-subsumes-max-lines)` — a
-  language change no derived layer invents. EXTENT sits BESIDE `max_lines`,
-  serialized behind ADMISSION (shared `declarations.ts`).
-- Queue: 6 entries, **3 pickable** (the three field defects, gate:open, disjoint)
-  + EXTENT-PREDICATE (blockedBy ADMISSION) + 2 parked. No entry rests on a fork.
+- This tick: DERIVE spec delta 725188e (decision 0035 AMENDED, "extent
+  subsumes max_lines") — re-derived after last attempt (915df82) was reverted
+  at the `entry references resolve` gate. Root cause: it put symbol addresses
+  (`Predicate::MaxLines`, `maxLines constructor`) in EXTENT's `retire` array,
+  but `retire` means "this FILE is deleted" (`pending-entry` rule) — both
+  files survive, so the fence read the strings as missing file paths. Fixed:
+  the max_lines retirement is symbol-within-surviving-file, so it is `edit`s;
+  `retire` stays `[]`.
+  Amendment Consequences (its amended section, each routed) → all to
+  **EXTENT-PREDICATE** (per contract.md, "clause"):
+  - "extent subsumes max_lines, which retires" → EXTENT folds the retirement
+    in (remove `Predicate::MaxLines` variant/parse/label/field/eval; `extent`
+    takes the node-scope slot).
+  - "The shipped defaults re-spell (maxLines(500)/maxLines(200) → extent over
+    the same selections), superseding 0035's 'no shipped default adopts
+    extent'; no NEW budget opinion" → EXTENT edits `sdk/src/builtins.ts` (3
+    adoptions) and `src/builtin_lock.toml` re-derives. `command` reuses
+    `skillDefaultContract` (builtins.ts:1191), so 3 source edits flip 4 lock
+    rows.
+  - "Retirement is loud — a lock still carrying max_lines refuses at load" →
+    pinned in `tests/extent.rs`.
+  - "Plan derives the entry" (singular) → one atomic entry.
+  Two corrections vs. the reverted attempt: (1) ADMISSION-JOINS-FILE-TEMPLATE
+  shipped (631bc83) since it, so EXTENT's `blockedBy` is stale — gate now
+  **open**, disjoint from the two parked entries. (2) Wider ripple caught: it
+  missed `manifest_schema_oracle.rs`, `closed_keys.rs`,
+  `sdk/test/{emit,builtins}.test.ts`, `sdk/src/index.ts` — all now in
+  `files.edit`. The `(extent-subsumes-max-lines)` fork was already deleted by
+  the human in 725188e (encode + delete) — re-verified gone. Build-confirm
+  flagged, not invented: `body_lines`/`LineCount` (kind.rs) may orphan once
+  max_lines' eval goes; 0035 names no retirement for it.
+- Queue: 3 entries — EXTENT-PREDICATE **pickable** (gate:open) + 2 parked
+  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Disjoint. No fork rest.
 
-Plan continues: no — spec delta routed (cursor at 5f89860, its sole commit),
-inbox empty, and b85df4a..f552ccd is spec/.flume-only (nothing to reconcile).
-Three pickable defects hand off to build; EXTENT unblocks when ADMISSION ships.
+Plan continues: yes — spec delta still live: 63e1f22 (0036, settings-local
+kind) then 6d2cca6 (0037, typed verifier) un-derived, one slice per tick;
+then post-ship reconcile of b85df4a..HEAD (3 build commits).
