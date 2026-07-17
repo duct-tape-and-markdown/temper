@@ -42,8 +42,8 @@ routing.
   optimization), so it is ratified against a real driver or it waits. The
   needle's design taste rides this note for that day. observed at 4cc3081
 
-- Field demand (centercode, surface inventory; ruling pending with the
-  session — do not derive): the one un-member-typed surface left in the
+- Field demand (centercode, surface inventory; **ruled — decision 0039**,
+  derive from the record): the one un-member-typed surface left in the
   consumer harness is **`extraKnownMarketplaces`** — authored residue on
   the `settings:` passthrough while the plugins it feeds are typed
   `installed-plugin` members. The shipped `marketplace` kind does not cover
@@ -58,8 +58,9 @@ routing.
   installed-plugin pattern at a sibling address — would close the last
   unmodeled segment and make the plugin→marketplace half of
   `plugin@marketplace` enablement keys a checkable edge. Coverage-bar
-  shaped; session recommends ship; awaiting the human word. observed at
-  7cf9ff0
+  shaped. **Ruled while in flight — decision 0039, ship: derive from the
+  record**, which also names the KnownSurface registry entry landing
+  beside the coverage-advisory fix. observed at 7cf9ff0
 
 - Field defect (centercode, first check under 7cf9ff0; session-verified at
   src/coverage_note.rs:396): the new `coverage.unmodeled-surface` advisory

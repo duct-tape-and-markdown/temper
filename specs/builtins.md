@@ -11,7 +11,7 @@ collision is impossible and no name-qualification scheme exists.
 
 ## The shipped kinds
 
-Eleven kinds ship. Eight are file members:
+Twelve kinds ship. Eight are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. Its
@@ -64,7 +64,7 @@ The two manifest kinds and `settings-local` sit outside the domain
 partition below: distribution metadata and machine configuration, never
 authored session content (decisions 0031, 0036).
 
-Three are registration members — fields-only entries a manifest carries at
+Four are registration members — fields-only entries a manifest carries at
 a collection address, never files of their own (`model/representation.md`,
 "Reach"):
 
@@ -76,7 +76,16 @@ a collection address, never files of their own (`model/representation.md`,
   `enabledPlugins`; its channel is the enablement entry itself (decision
   0031). The members a plugin contributes live in the plugin cache,
   outside the corpus; their reach is unmodeled and named as such — the
-  honest subset.
+  honest subset. The marketplace half of its `plugin@marketplace` key is
+  a declared edge to the **known-marketplace** member it names (decision
+  0039).
+- **known-marketplace** — one consumer-side registry entry under
+  `settings.json`'s `extraKnownMarketplaces`: name-keyed, carrying the
+  documented `source` union and `autoUpdate`; its channel is the registry
+  entry itself (decision 0039). Distinct from the publisher-side
+  **marketplace** catalog above — two documents, two owners
+  (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-17; the
+  product stores these per-user in `known_marketplaces.json`).
 
 A kind's registration names the set of documented channels a member reaches
 the world over — user invocation and description trigger are channels, not
