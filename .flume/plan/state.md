@@ -1,66 +1,57 @@
 # Plan state
 
 - Spec derived through: 3c1a58c
-- Audited through: 8913b59
-- Residue swept through: 8913b59
-- This tick: SPEC DELTA — decision 0030 ("review is the price of softening",
-  3c1a58c) routed; the cursor advances b8396d4 → 3c1a58c. Its Consequences
-  section is the checklist and every bullet resolves: two verified moot on
-  disk (the `Layers` section landed same-commit at `pipeline.md`:35; the
-  `(local-overrides)` record is already absent — it left at cd6a31a/df78c05,
-  and the compliance overlay opens no fork of its own, as the record predicts),
-  and **all four derivations route to one new fork,
-  `(layer-delivery-format)`.** The other two cursors are copied forward
-  verbatim: the 8913b59..c370924 window (eb9674c, the fixture fold) is
-  untouched by this tick and is next.
-  **Why a fork and not entries.** 0030 rules the layer stack **admitted now**
-  — deferred admission is its own recorded rejected alternative — and this
-  fork does not reopen that: admission is settled. What the record does not
-  answer is what artifact `--layer` names. 0030 needs an uncommitted layer to
-  carry dialed clauses, be parsed by `check`, and compose over the locked
-  declarations at check time; a clause **is** a declaration row, so those are
-  declarations the gate reads that are not in the lock — and three kernel
-  sentences, each re-read on disk, forbid a reading:
-  `pipeline.md`:123-125 ("the gate reads declarations from nowhere but the
-  lock", "emit is its sole producer"), :147 ("offline, no language runtime"),
-  :116-117 (the payload "is internal … not a designed public interchange").
-  Three deliveries survive that box and each ships a different artifact; the
-  fork records all three, recommends one (an emit-written uncommitted
-  lock-shaped file joined at check), and states its cost. Whichever is ruled
-  amends a kernel sentence — a `specs/` ceremony that is the human's, never a
-  build tick's to invent. Verified there is nothing to build against today:
-  `rg` for `--layer`/`layers`/`LayerSlot` over `src/main.rs`,
-  `sdk/src/assembly.ts`, `sdk/src/builtins.ts` is empty, and the `layer` hits
-  across `src/` are the unrelated nesting-template sense.
-  **No entry was filed against a guess** — the four derivations are named as
-  the fork's dependents, so the ruling returns through the inbox and derives
-  them in one tick.
-- Queue: 4 entries, unchanged this tick — 2 pickable
-  (LOCK-ROW-PATHS-HARNESS-RELATIVE, SDK-BLOCKS-FILE-REFUSAL; both scoped at
-  c370924 and disjoint: `src/drift.rs`+`tests/emit.rs` vs `sdk/src/prose.ts`+
-  `sdk/test/refusals.test.ts`), 2 parked on human acts. Both park reasons hold
-  trivially — no `src/`, `sdk/`, or `specs/` commit landed since they were
-  re-tested (HEAD moved only by the f70cd03 plan commit).
+- Audited through: c370924
+- Residue swept through: c370924
+- This tick: RECONCILE 8913b59..c370924 — one code commit in the window
+  (eb9674c, the fixture fold), audited and swept in one pass; both cursors
+  advance. The spec cursor is copied forward verbatim: 3c1a58c was fully
+  routed last tick and `<spec-delta>` is empty.
+  **Audit.** eb9674c verified on disk, not off the log: `write_sibling`
+  (`tests/common/mod.rs`:141) is the generalized create-parents-then-write
+  primitive, and `write_skill` (150), `write_plugin_json` (157),
+  `write_marketplace_json` (164), `write_settings` (170) each compose it —
+  the fold shipped as scoped, and TEST-FIXTURE-WRITERS-ONE-HOME is already
+  off the queue (96bff16). Its two stated non-folds hold: `coverage_note`'s
+  `write_skill` (36) composes `common::write_skill` and only builds a body;
+  `requirement_roster::write_clauses` (43) no longer names `Payload` or
+  `drift::emit`. **All four gates re-tested and true** — `git log
+  c370924..HEAD -- src/ sdk/ tests/ specs/ .github/` is empty, so no gate
+  could have moved: `MAX_IMPORT_HOPS = 5` still reads 5 at `src/graph.rs`:65
+  under a cite claiming five (IMPORT-HOP-CAP-CITE parked, unruled); `git tag
+  -l` carries only the four era tags, crate 0.1.0 vs npm 0.0.7, and
+  release.yml:7-9 states the darwin + channel-3 deferral verbatim
+  (PACKAGING parked); both pickable entries' cites are unmoved.
+  **Sweep.** One find, filed as TEST-MCP-FIXTURE-WRITER-ONE-HOME: the fold
+  homed three manifest-locus writers and left `.mcp.json` — the fourth
+  shipped manifest locus — with no home and two private copies,
+  `mcp_server_kind::write_mcp` (49, body-passthrough, 4 callers) and
+  `coverage_note::write_mcp_json` (52, `{}`-hardwired, 3 callers). That is
+  `settings.json`'s pair-shape exactly, one locus over, and the
+  `{}`-hardwired half is the direct sibling of the `write_settings_json`
+  the same pass folded.
+  **The CLAUDE.md axis was NOT re-filed.** 8913b59's entry ruled it out by
+  name — `memory_gate::write_claude_md` (45, pads to N lines) vs
+  `requirement_roster::write_claude_md` (749, verbatim body) are different
+  jobs behind a colliding name — and the ruling holds on re-read: they share
+  one `fs::write` line, no create-parents, no nesting. A prior tick's
+  deliberate exclusion is not re-opened without evidence, and none moved.
+- Queue: 5 entries — 3 pickable (LOCK-ROW-PATHS-HARNESS-RELATIVE,
+  SDK-BLOCKS-FILE-REFUSAL, TEST-MCP-FIXTURE-WRITER-ONE-HOME), 2 parked on
+  human acts. All three pickable are disjoint: `src/drift.rs`+`tests/emit.rs`
+  vs `sdk/src/prose.ts`+`sdk/test/refusals.test.ts` vs `tests/common/mod.rs`+
+  `tests/{mcp_server_kind,coverage_note,manifest_adapter}.rs`.
 
-Plan continues: yes — post-ship reconciliation of 8913b59..c370924 (eb9674c,
-the fixture fold) is the next live input, now that the spec delta is routed.
+Plan continues: no — every input is drained. Inbox empty, no refactor
+captures, `<spec-delta>` empty at 3c1a58c, and both reconciliation cursors
+now sit at c370924 with no code commit past them. Build takes over on the
+three pickable entries.
 
-**The human to-do this ledger carried for four ticks is DISCHARGED — deleted,
-not carried forward.** The 0030 hole is closed: `specs/decisions/` now runs
-0001…0031 with no gap, and `0030-review-is-the-price-of-softening.md` is on
-disk (5551 bytes), landed fresh by 3c1a58c rather than restored from d6381b4.
-Both halves of that misfire are now answered — c86d649 scoped the
-`continuation marker is honest` gate to plan's own commits so it cannot revert
-a human `specs:` commit again, and the record it reverted is back. The
-capture at `.flume/friction/plan-continuation-gate-reverts-human-specs-commits.md`
-is left standing: `.flume/friction/` is the human's triage surface, not plan's
-to drain.
-
-**Waiting on a ruling:** two forks now gate real capability.
-`(layer-delivery-format)` is new and holds all of 0030.
-`(clause-vocabulary-holds)` is unmoved — four shipped contracts hold
-decidable, documented rules the algebra cannot spell, and the corpus sanctions
-only "undecidable" as a reason a clause is absent. Nothing is broken by
-either; what they cost is the capability 0030 ruled important, and a gate whose
-reach is thinner than `specs/builtins.md`'s "Strictest documented profile"
-stance reads.
+**Waiting on a ruling:** two forks gate real capability.
+`(layer-delivery-format)` holds all four of 0030's derivations — nothing says
+what artifact `--layer` names on disk. `(clause-vocabulary-holds)` is unmoved
+— four shipped contracts hold decidable, documented rules the algebra cannot
+spell, and the corpus sanctions only "undecidable" as a reason a clause is
+absent. Nothing is broken by either; what they cost is the capability 0030
+ruled important, and a gate whose reach is thinner than `specs/builtins.md`'s
+"Strictest documented profile" stance reads.

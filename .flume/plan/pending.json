@@ -135,5 +135,48 @@
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8913b59, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The 8913b59..c370924 window touched no release surface. scoped at b676656."
+  },
+  {
+    "tag": "TEST-MCP-FIXTURE-WRITER-ONE-HOME",
+    "summary": "The `.mcp.json` fixture writer is the manifest locus the last fold missed — `write_mcp` in one file, a `{}`-hardwired `write_mcp_json` in another, while `tests/common` now homes every sibling locus",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The home, and it now holds this exact job for every manifest locus but one: `write_plugin_json` (157) at `.claude-plugin/plugin.json`, `write_marketplace_json` (164) at `.claude-plugin/marketplace.json`, `write_settings` (170) at `.claude/settings.json` — each a one-line compose of `write_sibling` (141), the create-parents-then-write primitive eb9674c generalized here out of `memory_gate`. `.mcp.json` is the locus left out, though `mcp-server` is a shipped built-in whose governed locus is exactly the harness root's `.mcp.json` (`src/builtin_kind.rs`; `tests/mcp_server_kind.rs` module doc, 1-12). Add one `write_mcp_json(root, body)` beside `write_marketplace_json`, composing `write_sibling` like every sibling — the path is root-flat, so `write_sibling`'s `create_dir_all(parent)` is a no-op over an existing root and no second primitive is warranted — and carry the locus citation both copies already state (`.claude/rules/rust.md`, 'Harness-input fixtures mirror the real Claude Code layout'). Body stays a parameter, never hardwired: the `{}` caller passes `{}`."
+        },
+        {
+          "path": "tests/mcp_server_kind.rs",
+          "description": "`write_mcp` (49-51) with its doc comment (46-48) — `fs::write(root.join(\".mcp.json\"), body)`, the body-passthrough copy. Folds onto the home; its four callers (76, 106, 132, 150) keep their `BROKEN_MCP`/`CLEAN_MCP` bodies verbatim, so a behavior change at the folded surface surfaces as a failure rather than a re-blessed expectation."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "`write_mcp_json` (52-54) with its doc comment (48-51) — the second copy, the same job with the body hardwired to `{}`: the exact shape `write_settings_json` had here before eb9674c folded it, and the sibling that pass left standing. Its three callers (248, 268, 285) reach the home. The doc comment's own context — that `.mcp.json` is the wholly-ungoverned probe only when the kinds handed in carry no `mcp-server` row — is this caller's context, so it stays at the call site rather than being ported into `tests/common`. NOT folded: `write_skill` (36) already composes `common::write_skill` and only builds a body, which is the composition this entry asks for everywhere else."
+        },
+        {
+          "path": "tests/manifest_adapter.rs",
+          "description": "The one inline harness-root site: `fs::write(harness.join(\".mcp.json\"), MANIFEST)` (130), inside `read_kind_routes_a_manifest_kind_through_its_governs_locus` (125) — a real governs-locus fixture at a harness root, so it reaches the home. The file's four other `.mcp.json` writes (45, 84, 102, 116) are OUT and stay inline: each binds `let file = dir.join(\".mcp.json\")` to hand to `Manifest::read(&file, ...)`, a path-taking API under test — the path is the argument, not a harness locus, and a writer returning nothing does not serve them."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/common/mod.rs",
+        "asserts": "no new assertion — this is test scaffolding, and the proof is the existing suite unchanged and green: every folded site keeps its current assertions and fixture bodies verbatim, so a behavior change at any folded surface surfaces as a failure rather than a re-blessed expectation"
+      }
+    ],
+    "acceptance": "The `.mcp.json` fixture writer lives in `tests/common` beside its sibling locus writers and no private per-file copy survives (engineering.md, 'One job, one home': test scaffolding lives in one home, never copy-pasted per file; generalize the near-duplicate before adding new). Mechanically: `rg -n '^fn write_mcp' tests/*.rs` returns nothing, `tests/common/mod.rs` holds one `.mcp.json` writer composing `write_sibling`, and the manifest-locus family there covers all four shipped manifest loci. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green.",
+    "notes": "Same rule as eb9674c, the axis it left: `settings.json`'s pair-shape exactly — a body-passthrough copy plus a `{}`-hardwired copy — at the last manifest locus with no home. NOT folded, and 8913b59's ruling holds on re-read: `memory_gate::write_claude_md` (45, pads to N lines) vs `requirement_roster::write_claude_md` (749, verbatim body) stay different jobs behind a colliding name, sharing one `fs::write` line. scoped at c370924"
   }
 ]
