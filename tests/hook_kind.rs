@@ -14,6 +14,8 @@ use std::path::Path;
 
 mod common;
 
+use common::check_harness;
+
 use temper::builtin_kind;
 use temper::builtin_lock;
 use temper::json_manifest::Manifest;
@@ -57,23 +59,6 @@ fn hook_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("hook")
         .unwrap()
         .expect("hook is embedded")
-}
-
-/// Run `temper check --harness <dir> --reporter github`, returning `(finding lines, exit
-/// success)` — the machine-parseable finding set (`tests/coverage_note.rs`'s pattern).
-fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let run = common::check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
 }
 
 #[test]

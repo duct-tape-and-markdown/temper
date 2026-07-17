@@ -91,24 +91,16 @@ fn write_rule_harness(root: &Path, name: &str, rule_md: &str) {
 }
 
 /// Run `temper check --harness <harness> [extra…]` (the one-shot wedge — no on-ramp
-/// step, no workspace) and return `(exit-zero, stdout)`.
-fn run_check_harness(harness: &Path, extra: &[&str]) -> (bool, String) {
-    let output = Command::new(BIN)
-        .arg("check")
-        .arg("--harness")
-        .arg(harness)
-        .args(extra)
-        .output()
-        .unwrap();
-    (
-        output.status.success(),
-        String::from_utf8(output.stdout).unwrap(),
-    )
+/// step, no workspace).
+fn run_check_harness(harness: &Path, extra: &[&str]) -> common::CheckRun {
+    let mut args = vec!["--harness", harness.to_str().unwrap()];
+    args.extend_from_slice(extra);
+    common::check_in(harness, &args, None)
 }
 
 /// Run `temper check --harness <harness>` and return whether it exited zero.
 fn check_harness_succeeds(harness: &Path) -> bool {
-    run_check_harness(harness, &[]).0
+    run_check_harness(harness, &[]).ok
 }
 
 #[test]
@@ -148,7 +140,7 @@ fn deny_advisories_promotes_a_warn_only_run_to_a_failure() {
     );
     // Strict policy: --deny-advisories promotes the warn to a blocking failure.
     assert!(
-        !run_check_harness(&harness, &["--deny-advisories"]).0,
+        !run_check_harness(&harness, &["--deny-advisories"]).ok,
         "an advisory-only violation must exit non-zero under --deny-advisories"
     );
 }
@@ -182,14 +174,16 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     let harness = common::tmpdir("one-shot-src");
     write_rule_harness(&harness, "rust", FORBIDDEN_KEY_RULE);
 
-    let (ok, stdout) = run_check_harness(&harness, &[]);
+    let run = run_check_harness(&harness, &[]);
     assert!(
-        !ok,
+        !run.ok,
         "check --harness must exit non-zero on a required-clause violation"
     );
+    // `stdout`, not `output`: which stream the finding lands on is the assertion.
     assert!(
-        stdout.contains("forbidden_keys"),
-        "the finding must reach stdout, got:\n{stdout}"
+        run.stdout.contains("forbidden_keys"),
+        "the finding must reach stdout, got:\n{}",
+        run.stdout
     );
     // One-shot means no workspace ceremony: the harness is imported internally into a
     // scratch dir, so no `.temper` surface is left beside it.
@@ -201,8 +195,10 @@ fn check_harness_one_shot_lints_a_raw_harness_without_a_workspace() {
     // A clean harness over the same one-shot path exits zero.
     let clean = common::tmpdir("one-shot-clean");
     write_rule_harness(&clean, "rust", CLEAN_RULE);
-    let (ok, _) = run_check_harness(&clean, &[]);
-    assert!(ok, "check --harness over a clean harness must exit zero");
+    assert!(
+        run_check_harness(&clean, &[]).ok,
+        "check --harness over a clean harness must exit zero"
+    );
 }
 
 #[test]

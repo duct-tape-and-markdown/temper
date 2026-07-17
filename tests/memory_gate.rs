@@ -13,12 +13,10 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 mod common;
 
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
+use common::check_harness;
 
 /// A skill that trips no `error`-severity clause: lowercase `name` matching its
 /// directory, a present description, a short body — so the memory finding is not masked
@@ -54,21 +52,6 @@ fn write_claude_md(root: &Path, lines: usize) {
     fs::write(root.join("CLAUDE.md"), body).unwrap();
 }
 
-/// Run `temper check --harness <dir> --reporter github` and return the emitted finding
-/// lines (`::error`/`::warning …`), one per finding.
-fn check_harness(harness: &Path) -> Vec<String> {
-    let run = common::check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
-    run.output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect()
-}
-
 /// Write a repo-root `CLAUDE.md` whose body carries the given `@`-import directive on
 /// its own line — the `memory` member `import` discovers off its `governs` locus, its
 /// `at-import` target the directive classing resolves against provenance.
@@ -91,16 +74,8 @@ fn write_sibling(root: &Path, rel: &str, body: &str) {
 /// built-in kind members live off harness disk and enumerates the whole repo for
 /// directive backing — no scratch import needed. Returns the emitted finding lines.
 fn check_two_step(harness: &Path) -> Vec<String> {
-    let output = Command::new(BIN)
-        .current_dir(harness)
-        .arg("check")
-        .arg(".")
-        .arg("--reporter")
-        .arg("github")
-        .output()
-        .unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    stdout
+    common::check_in(harness, &["."], Some("github"))
+        .output
         .lines()
         .filter(|line| line.starts_with("::"))
         .map(str::to_string)
@@ -153,7 +128,7 @@ fn an_unbacked_at_import_in_a_claude_md_fires_one_unbacked_pointer_finding() {
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
     let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
 
     // Exactly one unbacked-pointer finding, on the memory member — the wedge path now
@@ -183,7 +158,7 @@ fn a_claude_md_import_resolving_to_a_member_fires_no_unbacked_finding() {
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
 
     assert!(
         common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
@@ -201,7 +176,7 @@ fn an_unbacked_at_import_fires_a_non_gating_advisory_with_zero_config() {
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@docs/missing.md");
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
     let unbacked = common::findings_for(&findings, "graph.directive-unbacked");
 
     // Exactly one unbacked-pointer finding, on the memory member, drawn with zero config.
@@ -234,7 +209,7 @@ fn a_backed_at_import_fires_nothing_with_zero_config() {
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md_importing(&harness, "@.claude/skills/coordinate/SKILL.md");
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
 
     assert!(
         common::findings_for(&findings, "graph.directive-unbacked").is_empty(),
@@ -250,7 +225,7 @@ fn an_over_length_claude_md_fires_exactly_one_memory_max_lines_advisory() {
     common::write_skill(&harness, "coordinate", CLEAN_SKILL);
     write_claude_md(&harness, 251);
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
     let max_lines = common::findings_for(&findings, "max_lines");
 
     // Exactly one `max_lines` advisory — the memory member dispatched to
@@ -289,7 +264,7 @@ fn an_under_length_claude_md_fires_no_memory_advisory() {
     // A short CLAUDE.md, well under the 200-line budget.
     write_claude_md(&harness, 10);
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
 
     // The memory member is still dispatched to memory.anthropic — it simply conforms, so
     // the body-size budget fires nothing.
@@ -307,7 +282,7 @@ fn the_memory_dispatch_leaves_skill_findings_unchanged() {
     common::write_skill(&harness, "coordinate", ERROR_SKILL);
     write_claude_md(&harness, 251);
 
-    let findings = check_harness(&harness);
+    let findings = check_harness(&harness).0;
 
     // The skill finding still fires, exactly as before the gate generalized.
     let allowed_chars = common::findings_for(&findings, "allowed_chars");

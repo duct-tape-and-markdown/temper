@@ -23,6 +23,8 @@ use std::path::Path;
 
 mod common;
 
+use common::check_harness;
+
 use temper::coverage_note;
 use temper::drift::{self, Declarations, EmitOptions, KindFactRow, Payload, PayloadMember};
 use temper::kind::CustomKind;
@@ -92,23 +94,6 @@ fn lock_widget_kind(root: &Path) {
         }],
     };
     drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
-}
-
-/// Run `temper check --harness <dir> --reporter github`, returning `(finding lines,
-/// exit success)`. Each finding is one `::error`/`::warning …` line.
-fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let run = common::check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
 }
 
 #[test]

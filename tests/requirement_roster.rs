@@ -42,18 +42,7 @@ const BIN: &str = env!("CARGO_BIN_EXE_temper");
 /// this exercises the one-shot gate's surface-present branch: its lock's declared
 /// requirement/satisfies rows must gate exactly as the two-step path's do.
 fn check_harness_in(root: &Path) -> common::CheckRun {
-    let out = Command::new(BIN)
-        .arg("check")
-        .arg("--harness")
-        .arg(root)
-        .output()
-        .unwrap();
-    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
-    output.push_str(&String::from_utf8_lossy(&out.stderr));
-    common::CheckRun {
-        ok: out.status.success(),
-        output,
-    }
+    common::check_in(root, &["--harness", root.to_str().unwrap()], None)
 }
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared

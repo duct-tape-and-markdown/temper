@@ -144,15 +144,18 @@ pub fn write_skill(root: &Path, name: &str, skill_md: &str) {
 
 /// The outcome of a `check` run: whether it exited zero and its combined
 /// stdout+stderr (diagnostics render to stdout, a load error to stderr).
+/// `stdout` keeps that stream alone, for the case asserting *which* stream a
+/// finding reaches — a distinction `output` deliberately erases.
 pub struct CheckRun {
     pub ok: bool,
     pub output: String,
+    pub stdout: String,
 }
 
 /// Run `temper check <args…>` from `root`, optionally selecting `reporter`
-/// (e.g. `"github"`), capturing the result. Callers that need a different
-/// return shape (a `(bool, String)` pair, a parsed `Vec<String>` of
-/// `::`-prefixed finding lines) adapt from [`CheckRun`] at the call site.
+/// (e.g. `"github"`), capturing the result. A run gating a harness directory
+/// through the GitHub reporter goes through [`check_harness`], never a
+/// re-spelled `Command` or a per-file copy of its line filter.
 pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_temper"));
     cmd.current_dir(root).arg("check").args(args);
@@ -160,12 +163,31 @@ pub fn check_in(root: &Path, args: &[&str], reporter: Option<&str>) -> CheckRun 
         cmd.arg("--reporter").arg(reporter);
     }
     let out = cmd.output().unwrap();
-    let mut output = String::from_utf8_lossy(&out.stdout).into_owned();
+    let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
+    let mut output = stdout.clone();
     output.push_str(&String::from_utf8_lossy(&out.stderr));
     CheckRun {
         ok: out.status.success(),
         output,
+        stdout,
     }
+}
+
+/// Run `temper check --harness <dir> --reporter github`, returning `(finding
+/// lines, exit success)`. Each finding is one `::error`/`::warning …` line.
+pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
+    let run = check_in(
+        harness,
+        &["--harness", harness.to_str().unwrap()],
+        Some("github"),
+    );
+    let findings = run
+        .output
+        .lines()
+        .filter(|line| line.starts_with("::"))
+        .map(str::to_string)
+        .collect();
+    (findings, run.ok)
 }
 
 /// Read `root`'s current lock declarations (empty if none), apply `patch`, and

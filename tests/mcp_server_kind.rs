@@ -16,6 +16,8 @@ use std::path::Path;
 
 mod common;
 
+use common::check_harness;
+
 use serde_json::Value as JsonValue;
 use temper::builtin_kind;
 use temper::builtin_lock;
@@ -52,23 +54,6 @@ fn mcp_server_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("mcp-server")
         .unwrap()
         .expect("mcp-server is embedded")
-}
-
-/// Run `temper check --harness <dir> --reporter github`, returning `(finding lines, exit
-/// success)` — the machine-parseable finding set (`tests/hook_kind.rs`'s pattern).
-fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let run = common::check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
 }
 
 #[test]

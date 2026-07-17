@@ -15,6 +15,8 @@ use std::path::Path;
 
 mod common;
 
+use common::check_harness;
+
 use serde_json::Value as JsonValue;
 use temper::builtin_kind;
 use temper::builtin_lock;
@@ -54,23 +56,6 @@ fn installed_plugin_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("installed-plugin")
         .unwrap()
         .expect("installed-plugin is embedded")
-}
-
-/// Run `temper check --harness <dir> --reporter github`, returning `(finding lines, exit
-/// success)` — the machine-parseable finding set (`tests/mcp_server_kind.rs`'s pattern).
-fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let run = common::check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
 }
 
 /// The kind's members projected through the shared read-time fold — the same `Features` a

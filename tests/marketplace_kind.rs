@@ -24,6 +24,8 @@ use std::path::Path;
 
 mod common;
 
+use common::check_harness;
+
 use temper::builtin_kind;
 use temper::json_manifest::DocumentMember;
 use temper::kind::{Content, Format, Governs, Registration, UnitShape};
@@ -57,23 +59,6 @@ fn marketplace_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("marketplace")
         .unwrap()
         .expect("marketplace is embedded")
-}
-
-/// Run `temper check --harness <dir> --reporter github`, returning `(finding lines, exit
-/// success)` — the machine-parseable finding set (`tests/plugin_manifest_kind.rs`).
-fn check_harness(harness: &Path) -> (Vec<String>, bool) {
-    let run = common::check_in(
-        harness,
-        &["--harness", harness.to_str().unwrap()],
-        Some("github"),
-    );
-    let findings = run
-        .output
-        .lines()
-        .filter(|line| line.starts_with("::"))
-        .map(str::to_string)
-        .collect();
-    (findings, run.ok)
 }
 
 #[test]
