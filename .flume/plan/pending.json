@@ -1,48 +1,5 @@
 [
   {
-    "tag": "MENTION-REACHABLE-RULE-CLAUSE",
-    "summary": "The `rule` default contract adopts `mention-reachable` at advisory — `paths` on both ends, kind-generic as shipped — and the frozen built-in lock re-derives: a bare harness covered with zero opt-in",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The clauses live in code"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "`ruleDefaultContract` (647-666) gains the clause. Its three existing entries are the spelling model, each `clause(predicate, { severity, guidance, cite })`: `forbiddenKeys` (648), `globValid(\"paths\")` (654), `maxLines(200)` (660). The predicate SHIPPED (83fa520) as `mentionReachable(scopeField, gateField)` — two field arguments, exported from `sdk/src/contract.ts` (137) — so the adoption is `mentionReachable(\"paths\", \"paths\")`: the rule's own `paths` is the source scope, the target's `paths` is the gate. **It hard-codes no kind**, which the summary's \"skill\" framing must not re-narrow: 83fa520's body records that 0028's literal \"target registers by `paths-match`\" reading selects rules and never skills on this tree, and the shipped trigger is the target's gate FIELD carrying globs. So this clause fires on any mentioned member whose `paths` carries globs — a skill (whose `paths` gates every channel, builtins.ts:120-126) and equally a rule. That is the ruling's intent, not scope creep; state the reading in the commit body. Severity is **advisory** by the ruling, never taste — 0028 fixes it because literal containment false-fires on a semantically contained narrower glob. Guidance carries what the predicate cannot decide: the leniency, and the two remedies the ruling names (scope the source to the gate, or ungate the target). The `cite` is an external fact and gets the full ritual per builtins.md — re-fetch the live page and re-date it at build time; never copy a neighbour's date forward. The standing gating cite to start from is code.claude.com/docs/en/skills (retrieved 2026-07-15, verified 2.1.210) at the skill `paths` doc; 0028's hard-error and gating behavior are probe-verified on 2.1.211, 2026-07-16. If the live page no longer carries the gating sentence, that is a finding to surface, not a cite to soften."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Regenerated whole, never hand-patched: the `rule` kind's clause rows (256-278, where `glob-valid` on `paths` sits at 264-270) gain the new row — carrying both field columns, `field` for the source scope and `gate` for the target's gate (the column 83fa520 added to `ClauseRow`). The file's own header (1-20) declares it derived from the memberless emit. `tests/builtin_lock_frozen.rs` (the byte-compare at 77) re-runs the SDK module's own emit through a real `node` subprocess and fails loud on any hand-edit, so the only honest motion here is to re-derive."
-        },
-        {
-          "path": "tests/rule_contract.rs",
-          "description": "The rule default contract's own suite — it grows the coverage for the adopted clause. Existing tests here pin the three shipped clauses; the fourth joins them, including that its severity is advisory (an escalation would be the corpus's declared act, never the default's — intent.md invariant 5)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/rule_contract.rs",
-        "asserts": "the rule default contract carries `mention-reachable` at advisory with both field ends (`paths` scope, `paths` gate), guidance and a cite; a rule whose `paths` do not sit inside a mentioned gated member's `paths` produces an advisory finding and never an error, so the gate does not block on a check that can be wrong"
-      },
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the embedded built-in lock still byte-equals the SDK module's own memberless emit with the new clause row in it — the lock is derived, never transcribed"
-      }
-    ],
-    "acceptance": "A bare harness is covered with zero opt-in: `rule`'s default contract carries `mention-reachable` at advisory, guided and cited to a re-verified live source, and the embedded lock byte-equals the SDK's own memberless emit (builtins.md, \"The clauses live in code\": every shipped clause is decidable, severity-declared, guided, cited and dated). `cargo test` green; `pnpm --dir sdk test` green.",
-    "notes": "Derived from 0028 (14a803b); the predicate shipped at 83fa520 and this is the adoption half it named. 0028's Rejected list settles both objections: opt-in-only adoption is rejected — the author who makes this mistake never opts in — so it ships in the default contract; engine-side always-on is rejected because a known false alarm needs an off switch, which is what makes it a clause. scoped d19124a; unblocked, re-cited at 01337ff."
-  },
-  {
     "tag": "EDGE-TARGET-SET",
     "summary": "A field edge's `to` widens to a declared non-empty set of target kinds: a one-element set resolves bare names exactly as today, a multi-element set demands the kind-qualified address always",
     "per": {
