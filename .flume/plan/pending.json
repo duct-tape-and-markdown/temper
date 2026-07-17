@@ -1,5 +1,79 @@
 [
   {
+    "tag": "LOCK-ROW-PATHS-HARNESS-RELATIVE",
+    "summary": "`emit --into` bakes the cwd prefix into every lock row and reads rows back raw, so a committed lock resolves only from the harness root — a wrong-cwd emit corrupts 20 rows at exit 0",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Both faces of the row-path contract, which today silently agree on the wrong base. WRITE: `harness_root` is `workspace_dir.parent()` (839) — a cwd-relative path — and `source_path = harness_root.join(member_projection_path(...))` (955) carries that prefix into every provenance/rollup row (`to_lock_path(&projection.source_path)` at 1144, `to_lock_path(path)` at 1159), into the reap's `owned_paths` (1063) and `layout_paths` (976), and into the manifest keys (1069). READ: rows come back raw — `fs::read(&row.source_path)` in `source_dep_stale` (2174), `fs::remove_file(&row.source_path)` in the reap (1173) — so nothing joins them under the targeted root. The two families already disagree inside one emit pass: include rows go through `harness_relative` (1003), member rows do not. Spell every row harness-root-relative through the existing `harness_relative` (1508) — the one home for the transform, never a second — and keep the joined path as the I/O target, the split `resolve_source_dependency(&host, &relative, harness_root, ...)` (1005) already models. Readers join the row under `harness_root` rather than reading it raw. `normalize_lock_path` (608) stays the canonicalizer on both sides of the reap join (decision 0024's robust read)."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "The test home for the compiler tier (module doc, 1-12). Most cases pass an absolute tempdir `into` (`harness.join(\".temper\")`, 69) — the very shape that emits cwd-prefixed rows today — while the `./`-lock reap case (~1118) is the one that serializes on the module's cwd mutex, chdirs to the harness, and passes a relative `into` (1129) to get harness-relative rows. That mutex is the established pattern for any new case that must fix the process cwd; a case driving `drift::emit` at a tempdir workspace needs no chdir at all, since a tempdir is already outside cwd. The assertion at 1139 (`source_path = \"./.claude/rules/rust.md\"`) pins today's relative spelling and stays green."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "emitting a workspace whose harness root is not the process cwd writes byte-identical lock rows to the same payload emitted with cwd = the harness root — no row carries a cwd prefix — and reaps nothing"
+      },
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a re-emit of a workspace from a foreign cwd leaves a live projection the prior lock owns unreaped: the reap join resolves rows under the targeted root, never cwd"
+      }
+    ],
+    "acceptance": "`emit --into <dir>` writes the same lock bytes from any cwd as the same emit run with cwd = the harness root; every provenance and rollup row is harness-root-relative, and the reap join plus source-dependency staleness resolve rows under the targeted root. The lock stays resolvable by a verb aimed at a harness at an explicit path (pipeline.md, 'The lock': the gate and every read verb consume committed artifacts plus the lock, offline). Both committed locks (`.temper/lock.toml`, `examples/base-harness/.temper/lock.toml`) are byte-unchanged — each was emitted with cwd = its own root, so the correct spelling is already on disk. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Confirmed on disk at c370924, both faces read. Field report: .flume/friction/build-emit-into-resolves-source-paths-from-cwd.md (`--into examples/base-harness/.temper` from the repo root exits 0, re-bases 20 rows). The inbox line's refusal alternative is rejected — `--into`'s only non-default use IS naming a workspace off cwd, so refusing it guts the flag. `common::write_lock` passes no members, so no fixture fan-out. scoped at c370924"
+  },
+  {
+    "tag": "SDK-BLOCKS-FILE-REFUSAL",
+    "summary": "`file()` composed inside `blocks()` crashes with a raw TypeError from `resolveMemberLeaves` — `blocks()`'s own type already excludes `File`, so the constructor refuses loudly instead of crashing",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "`blocks(...values: (Text | EmbeddedMemberValue)[])` (242) is the refusal's home: its declared parameter type already excludes `File` (130), so the guard states at runtime what the type states at compile time rather than inventing a new rule. `text` (205) is the pattern to mirror — it throws on a reserved marker because 'a stray one is a loud authoring error, not a silent mis-split' — with the same posture here: name the offending block's index and what `blocks()` admits (a `text` span or an embedded member value), and point a file-bodied author at the two homes that already exist — `file()` as a member's whole `Prose` body (the `Prose = File | Text | Blocks` union, 170), or `include()` (232) interpolated into a `text` span when a file's bytes belong inside a composed body, the path the lock fingerprints as a dependency. RIDER — the open-questions record 'Pre-recut vocabulary survives in sdk/src/prose.ts's doc comments' names this file and this entry is its carrier: reconcile the doc-comment narration while here — `law 5` (6, 141, 258), `law 8` (11), `posture N` (126, 156, 161, 188, 238), and the two cites to files that no longer exist, `15-kinds.md` (126) and `20-surface.md` (200). All ten re-verified on disk at c370924, and the `blocks()` doc at 238 is one of them. Doc comments only: no symbol or behavior moves with them."
+        },
+        {
+          "path": "sdk/test/refusals.test.ts",
+          "description": "The declare-side refusal home (module doc, 1-14: 'a broken source yields no output, never silent bytes'), already importing `blocks`, `text`, and `embeddedMemberValue` (19). The new case lands beside the existing fifteen rather than opening a file of its own."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/refusals.test.ts",
+        "asserts": "a `file()` value composed inside `blocks()` throws a typed authoring error naming the offending block's index and what `blocks()` admits — never a raw TypeError, and never a silently rendered member fence"
+      }
+    ],
+    "acceptance": "`blocks(file(...))` refuses at the constructor with a typed error an author can act on, so the runtime holds the line its parameter type already draws and no authored input reaches `resolveMemberLeaves` with absent `leaves` (intent.md invariant 6, 'Loud or nothing': a failure temper can detect is an error message at author-time — no path silently degrades). `file()` as a whole body and `include()` inside a `text` span both keep working unchanged. `pnpm --dir sdk test` (strict tsc + node --test) green.",
+    "notes": "Confirmed at c370924. Whether the spelling is legal — the inbox line's first question — the SDK's own type answers: `blocks` (242) admits only `Text | EmbeddedMemberValue`, so strict tsc rejects it and only a JS or cast caller reaches the crash, via `isTextSpan` (251) → `renderMemberBlock` (emit.ts:353) → `resolveMemberLeaves` (288). Legalizing it would mint a second, unfingerprinted home for `include()`'s job. scoped at c370924"
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -33,7 +107,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 8913b59 and holds — nothing ruled the hop semantics; inbox empty and the window is tests-only, touching no import mechanics: `git diff ec2b848..8913b59 -- src/` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 8913b59."
+    "notes": "Park re-tested at 8913b59 and holds — nothing ruled the hop semantics; the 8913b59..c370924 window touches no import mechanics (`git diff 8913b59..c370924 -- src/` is empty). `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 8913b59."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +134,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8913b59, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The reconciled window is tests-only and touched no release surface. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8913b59, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The 8913b59..c370924 window touched no release surface. scoped at b676656."
   }
 ]

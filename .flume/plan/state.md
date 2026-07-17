@@ -3,70 +3,60 @@
 - Spec derived through: b8396d4
 - Audited through: 8913b59
 - Residue swept through: 8913b59
-- This tick: POST-SHIP RECONCILIATION of `ec2b848..8913b59` — inbox empty,
-  `.flume/refactor/` empty (README only), spec delta empty, so the window was
-  the first live input. One build commit (d14f6fe), both motions ran; the spec
-  cursor is copied forward verbatim.
-  **Audit — CHECK-HARNESS-ARGS-ONE-HOME shipped and verified on disk; already
-  dropped from the queue by its own ship commit.** Read the files, not the
-  log. `common::check_harness_in` (`tests/common/mod.rs:200`) is the one home
-  for the `--harness <root>` arg shape; both private per-file wrappers are
-  gone (`rg 'fn run_check_harness|fn check_harness_in' tests/` finds only the
-  home), and all eight sites reach it. `check_harness` (206) composes it for
-  its github+findings projection rather than re-spelling the vector, so the
-  ladder's three rungs now stack: `check_in` (176) spawns, `check_harness_in`
-  (200) fixes the arg shape, `check_harness` (206) projects.
-  **The acceptance's own enumeration was wrong, and the ship commit says so
-  rather than quietly meeting it.** It claimed `rg '"--harness"' tests/` would
-  return the home plus two non-instances; disk returns the home plus **three**
-  (`emit.rs:1487`, `cli.rs:209`, and `cli.rs:137`). The third is my scoping
-  error, not build's: `cli.rs:137` was `run_check_harness(harness,
-  &["--deny-advisories"])`, and removing the wrapper's `extra` tail — which
-  the entry's own scope bound demanded ("never a helper per arg permutation")
-  — necessarily dropped it to `check_in` with an inline vector. The entry's
-  intent is met and the work is done; one site spelling a three-element vector
-  is not a duplicate. Dropped, with the enumeration miss named.
-  **Sweep — the runner ladder has bottomed out, and the find is on a different
-  axis.** I looked for the fifth rung and there isn't one: the surviving
-  private wrappers (`gate_fail_loud::check_in` 29,
-  `lock_declaration_rows::check_in` 1625, `memory_gate::check_two_step` 76)
-  each compose `common::check_in` at their own file's arg shape and
-  projection — compositions engineering.md sanctions, not second
-  implementations. `Some("github")` at 15 sites is an argument, not a
-  duplicated job. Filing a fold there would be manufactured work, so it is
-  named here and not filed.
-  What the sweep did find is the same rule on the **fixture** axis, and it is
-  stronger evidence than the runner class ever had: `write_plugin_json` is
-  **byte-identical** — body and doc comment — in `plugin_manifest_kind.rs:43`
-  and `json_document_format.rs:57`; `write_settings` is byte-equivalent in
-  `hook_kind.rs:52` and `installed_plugin_kind.rs:49` (only the local binding
-  name differs); `coverage_note::write_settings_json` (61) is a third copy
-  with the body hardwired, bypassed by its own two callers at 188/310; and
-  `marketplace_kind::write_marketplace_json` (52) is the shape a sixth time.
-  The tell is that `tests/common` **already homes this exact job** for two of
-  the loci (`write_skill` 139, `write_rule` 280) — the manifest members'
-  writers simply grew outside it. Second strand, same home:
-  `requirement_roster::write_clauses` (44) re-spells `common::write_lock`'s
-  (374) `Payload`/`drift::emit` body verbatim with `declarations` narrowed to
-  clauses. No pending entry consolidates either ⇒ filed as
-  **TEST-FIXTURE-WRITERS-ONE-HOME**, pickable. The entry names the two
-  same-name-different-job pairs that must NOT fold (`write_claude_md`,
-  `write_lock`), so build does not rediscover them one failure at a time.
-  **Riders and parks re-verified on disk, none carried forward.** `git diff
-  ec2b848..8913b59 -- src/ sdk/` is empty, so every `src/`/`sdk/` cite is
-  unmoved by construction; all restamped to 8913b59. `MAX_IMPORT_HOPS` still 5
-  at 65 under a cite claiming five; four era tags and no version tag, crate
-  0.1.0 vs npm 0.0.7, `release.yml:7-9`'s darwin + channel-3 deferral
-  verbatim. `marketplace_kind.rs:252` re-read (unmoved — the window edited
-  that file at 200 one-for-one). The `session_start.rs:122/141` fixture
-  question is unmoved and stays a question awaiting a human.
-- Queue: 3 entries — 1 pickable (TEST-FIXTURE-WRITERS-ONE-HOME, scoped at
-  8913b59), 2 parked on human acts. No file appears in two entries — checked
-  mechanically; the pickable entry is tests-only and disjoint from both parks.
+- This tick: INBOX — two human-routed notes drained, both verified on disk at
+  c370924 and filed as pickable entries. Cursors copied forward verbatim: the
+  spec delta (3c1a58c, decision 0030) and the 8913b59..c370924 window are
+  untouched by this tick, and inbox outranks both.
+  **Note 1 — `emit --into` re-bases every lock row ⇒
+  LOCK-ROW-PATHS-HARNESS-RELATIVE.** Verified deeper than the report: the
+  corruption is not a writer slip but *both faces agreeing on the wrong base*.
+  `harness_root = workspace_dir.parent()` (drift.rs:839) is cwd-relative, so
+  `harness_root.join(...)` (955) bakes the cwd prefix into every provenance
+  row; readers then take rows raw (`fs::read(&row.source_path)` 2174,
+  `remove_file` 1173). Writer and reader therefore agree — but only while cwd
+  IS the harness root, which is why the suite is green and the field report
+  saw exit 0. Two disk facts settle the fix-vs-refuse fork the note leaves
+  open, so it needed no ruling: (a) the lock's own two row families already
+  disagree in one emit pass — include rows go through `harness_relative`
+  (1003, the helper at 1508), member rows do not; (b) pipeline.md ("Install")
+  binds the verbs to "one project's harness at an explicit path", which a
+  cwd-relative committed row cannot survive. Refusal is rejected in the entry:
+  `--into`'s only non-default use is naming a workspace off cwd. Ripple
+  measured, not guessed — `common::write_lock` passes `members: Vec::new()`,
+  writes no provenance rows, so the shared-fixture fan-out the entry rule
+  warns about does not reach its callers; scope is drift.rs + tests/emit.rs.
+  **Note 2 — `file()` inside `blocks()` raw-TypeErrors ⇒
+  SDK-BLOCKS-FILE-REFUSAL.** The note names legality as the entry's first
+  question; **the SDK's own surface has already answered it**, so this is
+  derivation, not a fork: `blocks(...values: (Text | EmbeddedMemberValue)[])`
+  (prose.ts:242) excludes `File` (130) by type — strict tsc rejects the
+  spelling, and only a JS or cast caller reaches `isTextSpan` (251) falling
+  through to `renderMemberBlock` (emit.ts:353) → `resolveMemberLeaves` (288)
+  dereferencing absent `leaves`. The entry makes the runtime hold the line the
+  type draws, mirroring `text`'s existing throw (205). Legalizing it was
+  weighed and rejected: `include()` (232) already homes file-bytes-in-a-body
+  and is the path the lock fingerprints — a second home would be
+  unfingerprinted.
+  **The `prose.ts` narration rider has a carrier at last.** Nine entries'
+  worth of precedent says it discharges when an entry NAMES it, never when the
+  file is merely opened — SDK-BLOCKS-FILE-REFUSAL edits `blocks()`, whose own
+  doc comment (238) is one of the ten stale lines, so the entry names all ten
+  and the fork record now points at it.
+  **Friction captures left alone** — `.flume/friction/` is the human's triage
+  surface, not plan's to drain; only `.flume/refactor/` (empty, README only)
+  is. The `--into` capture's product half is now queued, which is what its own
+  "Suggested fix: inbox item" asked for.
+- Queue: 4 entries — 2 pickable (LOCK-ROW-PATHS-HARNESS-RELATIVE and
+  SDK-BLOCKS-FILE-REFUSAL, both scoped at c370924), 2 parked on human acts. No
+  file appears in two entries — checked mechanically; the two pickable entries
+  are disjoint (`src/drift.rs`+`tests/emit.rs` vs `sdk/src/prose.ts`+
+  `sdk/test/refusals.test.ts`), so they fan out in parallel safely.
 
-Plan continues: no — every input below post-ship reconciliation is dry (inbox
-empty, no captures, spec delta empty) and this tick reconciled the window to
-HEAD. Build takes over: TEST-FIXTURE-WRITERS-ONE-HOME is pickable.
+Plan continues: yes — the spec delta is the next live input: 3c1a58c
+(decision 0030, "review is the price of softening") sits past the
+`Spec derived through: b8396d4` cursor, un-derived; its Consequences section
+is the next tick's derivation checklist. Post-ship reconciliation of
+8913b59..c370924 (eb9674c, the fixture fold) follows it.
 
 **One thing for a human, unchanged and not the loop's:** decision 0030 is
 still a hole — `specs/decisions/` runs 0023…0029, 0031, and 0030 (`review is
@@ -75,10 +65,12 @@ the price of softening`) is orphaned at d6381b4, reverted by this phase's own
 Recoverable via `git show d6381b4`; John's alone to restore; the misfire is
 filed at
 `.flume/friction/plan-continuation-gate-reverts-human-specs-commits.md`.
+(c86d649 scoped that gate to plan's own commits, so the misfire cannot recur —
+the orphaned record itself still needs a human hand.)
 
 **Waiting on a ruling:** `(clause-vocabulary-holds)` is still the fork board's
 largest — four shipped contracts hold decidable, documented rules the algebra
 cannot spell, and the corpus sanctions only "undecidable" as a reason a clause
-is absent. Unmoved this window (tests-only). Nothing is broken; what it costs
-is that the gate's reach is thinner than `specs/builtins.md`'s "Strictest
-documented profile" stance reads.
+is absent. Unmoved this window. Nothing is broken; what it costs is that the
+gate's reach is thinner than `specs/builtins.md`'s "Strictest documented
+profile" stance reads.

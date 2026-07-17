@@ -208,11 +208,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   entry that opens the file without reconciling it deepens the rider. Four
   entries have now opened `prose.ts` and left every narration line as
   unchanged context (the precedent: the rider discharges on *reconciliation*,
-  never on the file being opened). Rides whichever entry next reconciles the
-  comment lines — no queued entry opens `prose.ts` — never standalone. All ten
-  lines re-verified on disk at reconcile HEAD 8913b59 (unmoved; the
-  ec2b848..8913b59 window is tests-only, so `prose.ts` went untouched again,
-  and no queued entry edits it — still no carrier). The
+  never on the file being opened). **The rider has a carrier as of 07-16:**
+  SDK-BLOCKS-FILE-REFUSAL edits `blocks()` (242) — whose own doc comment at
+  238 is one of the ten lines — and names the reconciliation in its
+  `files.edit` description, so this discharges when that entry ships and not
+  before. All ten lines re-verified on disk at c370924 (unmoved: `git log
+  8913b59..c370924 -- sdk/src/prose.ts` is empty). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
