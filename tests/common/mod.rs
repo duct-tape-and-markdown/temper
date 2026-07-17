@@ -165,6 +165,12 @@ pub fn write_marketplace_json(root: &Path, body: &str) {
     write_sibling(root, ".claude-plugin/marketplace.json", body);
 }
 
+/// Write an MCP manifest at its real Claude Code locus (`<root>/.mcp.json`, the harness
+/// root itself) — never a layout invented for the test's convenience.
+pub fn write_mcp_json(root: &Path, body: &str) {
+    write_sibling(root, ".mcp.json", body);
+}
+
 /// Write settings at their real Claude Code locus (`<root>/.claude/settings.json`)
 /// — never a layout invented for the test's convenience.
 pub fn write_settings(root: &Path, body: &str) {

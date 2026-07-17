@@ -11,9 +11,6 @@
 //! end to end through the `check --harness` gate. `.mcp.json` is wholly this manifest, so
 //! modelling it retires the whole-file `coverage.unmodeled-surface` finding.
 
-use std::fs;
-use std::path::Path;
-
 mod common;
 
 use common::check_harness;
@@ -43,13 +40,6 @@ const CLEAN_MCP: &str = r#"{
   }
 }"#;
 
-/// Write a `.mcp.json` at the real Claude Code locus — the harness root, never a layout
-/// invented for the test (`.claude/rules/rust.md`, "Harness-input fixtures mirror the real
-/// layout").
-fn write_mcp(root: &Path, body: &str) {
-    fs::write(root.join(".mcp.json"), body).unwrap();
-}
-
 fn mcp_server_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("mcp-server")
         .unwrap()
@@ -73,7 +63,7 @@ fn the_mcp_server_kind_is_a_fields_only_manifest_kind_at_the_mcp_servers_collect
 #[test]
 fn a_mcp_json_server_entry_reads_as_an_mcp_server_member_with_its_fields() {
     let harness = common::tmpdir("read-mcp-members");
-    write_mcp(&harness, BROKEN_MCP);
+    common::write_mcp_json(&harness, BROKEN_MCP);
 
     let reads = Manifest::read_kind(&harness, &mcp_server_kind()).unwrap();
     assert_eq!(reads.len(), 1, "the one .mcp.json manifest is read once");
@@ -103,7 +93,7 @@ fn a_mcp_json_server_entry_reads_as_an_mcp_server_member_with_its_fields() {
 #[test]
 fn the_mcp_server_default_contract_fires_on_an_undocumented_transport() {
     let harness = common::tmpdir("mcp-broken-transport");
-    write_mcp(&harness, BROKEN_MCP);
+    common::write_mcp_json(&harness, BROKEN_MCP);
 
     let (findings, ok) = check_harness(&harness);
 
@@ -129,7 +119,7 @@ fn the_mcp_server_default_contract_fires_on_an_undocumented_transport() {
 #[test]
 fn the_mcp_server_default_contract_passes_documented_and_absent_transports() {
     let harness = common::tmpdir("mcp-clean-transport");
-    write_mcp(&harness, CLEAN_MCP);
+    common::write_mcp_json(&harness, CLEAN_MCP);
 
     let (findings, _ok) = check_harness(&harness);
 
@@ -147,7 +137,7 @@ fn a_mcp_json_no_longer_fires_the_unmodeled_surface_finding() {
     // file — modelling it retires the coverage note's whole-file finding cleanly, unlike a
     // settings.json segment kind (a hook) which leaves its container flagged.
     let harness = common::tmpdir("mcp-modeled-surface");
-    write_mcp(&harness, CLEAN_MCP);
+    common::write_mcp_json(&harness, CLEAN_MCP);
 
     let (findings, _ok) = check_harness(&harness);
 

@@ -127,7 +127,7 @@ fn read_kind_routes_a_manifest_kind_through_its_governs_locus() {
     // declared collection address naming the `mcpServers` map — the loader dispatch a kind
     // with a collection address takes instead of the frontmatter loader.
     let harness = common::tmpdir("manifest-adapter-read-kind");
-    fs::write(harness.join(".mcp.json"), MANIFEST).unwrap();
+    common::write_mcp_json(&harness, MANIFEST);
 
     let mut kind = CustomKind::new(
         "mcp-server",

@@ -46,13 +46,6 @@ Drive the team through the playbook.\n"
     common::write_skill(root, name, &skill_md);
 }
 
-/// Write a bare `.mcp.json` — a real Claude Code surface (code.claude.com/docs/en/settings).
-/// Governed whole by the `mcp-server` built-in (`.mcp.json` is wholly its `mcpServers`
-/// map), so it is used only where the kinds handed in carry no `mcp-server` row.
-fn write_mcp_json(root: &Path) {
-    fs::write(root.join(".mcp.json"), "{}").unwrap();
-}
-
 /// Commit a lock at `<root>/.temper/lock.toml` declaring a `widget` kind rooted at
 /// `.claude` selecting `settings.json`, and project its one member — a locked custom
 /// kind the coverage note's built-in set carries no row for, so the gate discovers it
@@ -245,7 +238,7 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
     // (2) A genuinely missing lock still degrades to the built-in kinds alone — the
     // note succeeds and still flags an ungoverned present surface.
     let missing = common::tmpdir("coverage-note-missing-lock");
-    write_mcp_json(&missing);
+    common::write_mcp_json(&missing, "{}");
     let diagnostics = coverage_note::check(&missing, &empty_kinds, &BTreeMap::new())
         .expect("a missing lock degrades to the built-in kinds, never an error");
     assert!(
@@ -265,7 +258,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
 
     // (1) No `mcp-server` kind in scope: the full finding fires, naming the whole file.
     let ungoverned = common::tmpdir("mcp-wholly-ungoverned");
-    write_mcp_json(&ungoverned);
+    common::write_mcp_json(&ungoverned, "{}");
     let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
     let bare = coverage_note::check(&ungoverned, &empty_kinds, &BTreeMap::new()).unwrap();
     let mcp = bare
@@ -282,7 +275,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     // (2) The `mcp-server` built-in governs `.mcp.json` whole (its collection spans the
     // manifest), so no finding survives — partial narrowing never reaches a governed file.
     let governed = common::tmpdir("mcp-wholly-governed");
-    write_mcp_json(&governed);
+    common::write_mcp_json(&governed, "{}");
     let builtins = temper::builtin_kind::definitions().unwrap();
     let full = coverage_note::check(&governed, &builtins, &BTreeMap::new()).unwrap();
     assert!(
