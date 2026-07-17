@@ -1,5 +1,36 @@
 [
   {
+    "tag": "SCHEMA-DOCS-CHANNEL-ACCUMULATES",
+    "summary": "The schema docs channel keeps one `description` per property, so every guided clause but the last silently drops its teaching — eight lost today; give it the validation channel's accumulation",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/schema.rs",
+          "description": "The docs-channel loop — the second `for clause in &contract.clauses` (169-186, after the validation match) — `insert`s `description` into the shared property map once per guided clause, and `insert` is last-writer-wins: on a field carrying N guided clauses, N-1 teachings leave no trace and nothing reports the loss. **The accumulation surface already exists one channel over**: `push_subschema` (318) was added by SHAPE-PREDICATE (0927979) for this exact hazard on `pattern`, and its own doc comment states the rule — 'writing a second `pattern` straight onto the property would leave only the last clause's standing — silently dropping the other from the schema, with nothing to catch it'. This is that hazard's twin in the neighbouring loop, so extend that home's rule rather than minting a second composition story: join the field's guided clauses into the one `description` in clause order (deterministic — `contract.clauses` is the compiled order), so adding a clause adds prose instead of re-picking which teaching an author sees. Joining is what the corpus already demands (`specs/builtins.md`, 'The clauses live in code': guidance 'rides the clause value itself, so it cannot dangle from the check it explains'); the capture's pick-a-winner alternative needs a stated rule for which clause wins, and there is none — author order decides by accident. `Predicate::documented_field` (`src/contract.rs`) is the gate on which predicates write here at all, and it is why `mention-reachable` contributes nothing. All addresses re-read on disk at a2e48aa."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/schema.rs",
+        "asserts": "a field carrying several guided clauses reaches hover with every teaching present, in clause order; a single guided clause still emits its prose unadorned; a field-less predicate's guidance still rides no channel"
+      }
+    ],
+    "acceptance": "Every guided clause on a field reaches its property's `description` — `skill.name`'s six and `skill.description`'s four each keep all their teaching, so the 1024-cap prose an author needs is back at the keystroke. The three existing channel tests in `src/schema.rs`'s `mod tests` (623, 667, 699) still hold. `cargo test` green.",
+    "notes": "Drained from `.flume/refactor/build-schema-docs-channel-single-slot.md` (filed by SHAPE-PREDICATE, observed 94012c4); capture deleted. Verified at a2e48aa via `temper schema --kind skill`: only the last clause's guidance survives — `description` carries the shape teaching, the 1024-cap prose gone; `name` carries `deny`'s. Live loss is 8 (the verb models skill+rule alone); 14 more latent in agent/command/marketplace/plugin-manifest. `rule.paths` is unaffected. scoped at a2e48aa."
+  },
+  {
     "tag": "DIAL-KIND",
     "summary": "Ship the temper-owned `dial` kind: a local-locus document naming clauses by label and declaring the severity this machine reads them at — deletion unspellable, softening inert in block mode",
     "per": {
@@ -7,8 +38,7 @@
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "SHAPE-PREDICATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,23 +46,23 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "`all_kinds` (374-388) ships eleven claude-code kinds; the dial joins as temper's own — its schema IS 0030's envelope: an entry names a clause by its compiled label and declares a severity, and the schema cannot spell deletion, so a dialed clause still reports. Re-read on disk at 0c3cbcb — the file is untouched in the window and the roster still carries eleven."
+          "description": "`all_kinds` (374-388) ships eleven claude-code kinds; the dial joins as temper's own — its schema IS 0030's envelope: an entry names a clause by its compiled label and declares a severity, and the schema cannot spell deletion, so a dialed clause still reports. The file is untouched across 0c3cbcb..a2e48aa, so this address carries from last tick's re-read; the roster still carries eleven."
         },
         {
           "path": "sdk/src/builtins.ts",
-          "description": "The provider face. The dial is **temper-owned, not a claude-code kind**, so it exports from the root, never the `claude-code` subpath (`specs/builtins.md`: the shipped claude-code kinds export from that subpath alone)."
+          "description": "The provider face. The dial is **temper-owned, not a claude-code kind**, so it exports from the root, never the `claude-code` subpath (`specs/builtins.md`: the shipped claude-code kinds export from that subpath alone). **Cite stale by one ship**: 0927979 edited this file (+24 — the skill contract's two `shape` clauses, and the marketplace hold header's rewrite), so its line addresses re-stamp at next tick's audit before this entry is picked."
         },
         {
           "path": "sdk/src/index.ts",
-          "description": "The root export carries the dial. 7fae62e edited this file — one line, `closedKeys` joining the predicate-ctor export block (29) — so the dial's export lands beside a block the window just moved, and this is the file that serializes the entry behind SHAPE-PREDICATE only via `sdk/src/builtins.ts`."
+          "description": "The root export carries the dial. The predicate-ctor export block is where the window's churn lands: `closedKeys` joined at 29 (7fae62e) and `shape` at 50 (0927979), both re-read on disk at a2e48aa — so the dial's export lands beside a block two consecutive ships have moved, and this is the file that serialized this entry behind SHAPE-PREDICATE only via `sdk/src/builtins.ts`."
         },
         {
           "path": "src/kind.rs",
-          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. **Every half is upstream code on disk by the time this is picked** — `Commitment::Local` (46-56) and `CustomKind::local` (735) shipped at 40619a0, the layout-only arm that would otherwise refuse this kind on contact is retired (bce89b7, `local_locus_fault` at 750 now fencing the `governs`-less locus alone), `Format::TomlDocument` (568, its name at 580 and its decode at 975) shipped at 09ef5ea as a read face with no write twin — exactly what a never-projected local document needs — and 6e7b958 made the walk find the dial's own `.temper/dial.toml` at all, which is what keeps this kind's rows from deriving over an empty set. All addresses re-read on disk at 0c3cbcb; the file is untouched in the window. This entry declares the kind; it mints no format and no locus mechanics of its own."
+          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. **Every half is upstream code on disk by the time this is picked** — `Commitment::Local` (46-56) and `CustomKind::local` (735) shipped at 40619a0, the layout-only arm that would otherwise refuse this kind on contact is retired (bce89b7, `local_locus_fault` at 750 now fencing the `governs`-less locus alone), `Format::TomlDocument` (568, its name at 580 and its decode at 975) shipped at 09ef5ea as a read face with no write twin — exactly what a never-projected local document needs — and 6e7b958 made the walk find the dial's own `.temper/dial.toml` at all, which is what keeps this kind's rows from deriving over an empty set. The file is untouched across 0c3cbcb..a2e48aa, so every address carries from last tick's re-read. This entry declares the kind; it mints no format and no locus mechanics of its own."
         },
         {
           "path": "src/main.rs",
-          "description": "Check applies the dial's severities to the labelled clauses it names, and its softening is inert in block mode — so a block-mode pass on any machine implies the shared gate's pass. b753358 reshaped this file around the lock family, and the dial rides that shape rather than minting a second one: `assemble_lock_family` (1457) is the one read of every layered input, before any consumer, and returns the `LockFamily` (1426-1436) whose `joined_clauses` field is where a policy layer's clauses already sit. Read it before adding a severity-application seam. Addresses re-read on disk at 0c3cbcb; the file is untouched in the window."
+          "description": "Check applies the dial's severities to the labelled clauses it names, and its softening is inert in block mode — so a block-mode pass on any machine implies the shared gate's pass. b753358 reshaped this file around the lock family, and the dial rides that shape rather than minting a second one: `assemble_lock_family` (1457) is the one read of every layered input, before any consumer, and returns the `LockFamily` (1426-1436) whose `joined_clauses` field is where a policy layer's clauses already sit. Read it before adding a severity-application seam. The file is untouched across 0c3cbcb..a2e48aa, so these addresses carry from last tick's re-read."
         }
       ],
       "retire": []
@@ -45,7 +75,7 @@
       }
     ],
     "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole — the dial stays local-locus TOML, and \"layout-only\" retires as the wrong fence. Serialized only, behind SHAPE-PREDICATE over `sdk/src/builtins.ts`. All three 0034 derivations have shipped (bce89b7, 09ef5ea, 6e7b958), so nothing upstream is unbuilt — only the chain's file serialization holds it. scoped f1d97e4; cites re-read at 0c3cbcb."
+    "notes": "**Gate opened this tick**: SHAPE-PREDICATE shipped (0927979 — `Predicate::Shape` at `contract.rs`:241, `tests/shape_predicate.rs` on disk), so the `sdk/src/builtins.ts` serialization holding this entry is discharged. Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole. All three 0034 derivations ship (bce89b7, 09ef5ea, 6e7b958) — nothing upstream is unbuilt. The two SDK cites above are stale by that ship and re-stamp at next tick's audit. scoped f1d97e4."
   },
   {
     "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
@@ -64,11 +94,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict. Two of the three are already assembled and need no re-derivation: `assemble_lock_family` (1457) returns the `LockFamily` (1426-1436) carrying both the local-locus read-time rows and `joined_clauses`, read once before any consumer. The joined third is the live gap b753358 named and deferred here by name: it shipped the join with every finding carrying its layer in the address (`<label>@<layer>`, `qualify_layer_label` at 1546), so a layer that produces no finding gates silently today — exactly what this closes. Addresses re-read on disk at 0c3cbcb; the file is untouched in the window."
+          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict. Two of the three are already assembled and need no re-derivation: `assemble_lock_family` (1457) returns the `LockFamily` (1426-1436) carrying both the local-locus read-time rows and `joined_clauses`, read once before any consumer. The joined third is the live gap b753358 named and deferred here by name: it shipped the join with every finding carrying its layer in the address (`<label>@<layer>`, `qualify_layer_label` at 1546), so a layer that produces no finding gates silently today — exactly what this closes. The file is untouched across 0c3cbcb..a2e48aa, so these addresses carry from last tick's re-read."
         },
         {
           "path": "src/reporter.rs",
-          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line. All three re-read on disk at 0c3cbcb; the file is untouched in the window."
+          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line. The file is untouched across 0c3cbcb..a2e48aa, so all three addresses carry from last tick's re-read."
         }
       ],
       "retire": []
@@ -81,7 +111,7 @@
       }
     ],
     "acceptance": "`check` announces every active local member, every dialed clause, and every joined lock (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "Last of 0032's five — it announces what the other four introduce, so it is honest only once they exist. The joined-lock third is **built and unannounced** (b753358), the first of the three to reach that state; scope is unchanged, and the commit body should say so. Serialized behind the dial (shares `src/main.rs`). scoped f1d97e4; cites re-read at 0c3cbcb."
+    "notes": "Last of 0032's five — it announces what the other four introduce, so it is honest only once they exist. The joined-lock third is **built and unannounced** (b753358), the first of the three to reach that state; scope is unchanged, and the commit body should say so. Serialized behind the dial (shares `src/main.rs`). scoped f1d97e4; cites carry from 0c3cbcb."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -100,11 +130,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (621) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (648), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 519 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 618-620 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 643-646 ('capped at the format's import recursion depth'). Every address re-read on disk at 0c3cbcb; the file is untouched in the window."
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (621) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (648), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 519 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 618-620 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 643-646 ('capped at the format's import recursion depth'). The file is untouched across 0c3cbcb..a2e48aa, so every address carries from last tick's re-read."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1349) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1350-1354) spells 'capped at the format's five-hop import recursion' (1352) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. Re-read on disk at 0c3cbcb; the file is untouched in the window."
+          "description": "`the_import_closure_is_hop_capped` (1349) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1350-1354) spells 'capped at the format's five-hop import recursion' (1352) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. The file is untouched across 0c3cbcb..a2e48aa, so the addresses carry from last tick's re-read."
         }
       ],
       "retire": []
@@ -117,7 +147,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 0c3cbcb and holds — nothing ruled the hop semantics. The window touched neither file, so every address carries unmoved from last tick's re-read rather than being re-derived. The constant is still 5 on disk (`graph.rs`:59), so the park's subject is untouched — and may still be wrong. rescoped 4a33911; re-cited 53519b9; park re-tested 0c3cbcb."
+    "notes": "Park re-tested at 0c3cbcb and holds — nothing ruled the hop semantics. The window touched neither file, so every address carries from last tick's re-read rather than being re-derived. The constant is still 5 on disk (`graph.rs`:59), so the park's subject is untouched — and may still be wrong. rescoped 4a33911; re-cited 53519b9; park re-tested 0c3cbcb."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
