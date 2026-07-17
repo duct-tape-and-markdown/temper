@@ -511,6 +511,19 @@ pub enum Format {
     JsonDocument,
 }
 
+impl Format {
+    /// The declared label this format lifts from — the inverse of
+    /// [`format_from_label`], so a diagnostic names the format in the same
+    /// vocabulary the author declared it in.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Format::YamlFrontmatter => "yaml-frontmatter",
+            Format::JsonDocument => "json-document",
+        }
+    }
+}
+
 /// A kind's declared **unit shape** — the format fact that varies per kind:
 /// whether a member's on-disk artifact is a lone file, its
 /// identity the filename stem; a directory with companions, its identity the

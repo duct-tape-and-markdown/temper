@@ -23,7 +23,8 @@ mod common;
 
 use serde_json::json;
 use temper::drift::{
-    ClauseRow, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
+    ClauseRow, Declarations, EmitOptions, EmitOutcome, IncludeRow, KindFactRow, Payload,
+    PayloadMember,
 };
 use temper::json_manifest::{DocumentMember, write_document};
 use temper::kind::{CustomKind, Extraction, Governs, UnitShape};
@@ -41,6 +42,10 @@ const PLUGIN_JSON: &str = r#"{
   "version": "1.2.0"
 }
 "#;
+
+/// The include slot byte the SDK plants per include (`U+0001`) — the marker `emit` splices
+/// a resolved target's bytes into, and the reason a composed body is non-empty.
+const INCLUDE_SLOT: char = '\u{1}';
 
 /// The peer-branch fixtures' bodies: a `yaml-frontmatter` rule and a formatless memory
 /// file, the two shapes the JSON face must leave untouched.
@@ -328,6 +333,91 @@ fn emit_projects_a_json_document_member_through_the_canonical_write_face() {
     let second = temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(second.entries[0].outcome, EmitOutcome::Unchanged);
     assert_eq!(fs::read_to_string(&projected).unwrap(), PLUGIN_JSON);
+}
+
+#[test]
+fn a_json_document_member_carrying_a_body_refuses_before_any_byte_is_written() {
+    // The format renders its fields alone, so an authored body has no slot to land in. The
+    // honest act is a refusal, never a render: dropping the words to emit the fields anyway
+    // would break "temper never drops authored words" silently, at the one arm no reader
+    // would think to check (`specs/intent.md`, invariants 3 and 6).
+    let (harness, into) = workspace("json-document-emit-body");
+    let payload = Payload {
+        version: temper::drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![plugin_kind_row()],
+            ..Declarations::default()
+        },
+        members: vec![PayloadMember {
+            body: "# Formatter\n\nAuthored prose with nowhere to go.\n".to_string(),
+            ..plugin_member()
+        }],
+    };
+
+    let err = temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+
+    // The refusal addresses the member and names the format, so the author knows which
+    // words to move and why they cannot stay.
+    let message = err.to_string();
+    assert!(message.contains("plugin-manifest:formatter"), "{message}");
+    assert!(message.contains("json-document"), "{message}");
+
+    // Loud or nothing: the refusal precedes output, so the artifact was never written —
+    // not written-then-blamed, and never a fields-only file standing in for the authored
+    // document (`specs/model/pipeline.md`, "Emit").
+    assert!(
+        !harness.join(".claude-plugin/plugin.json").exists(),
+        "a refused emit writes no bytes"
+    );
+
+    // The falsifier's other half: the same member with no body emits its canonical document
+    // as it always has. The refusal cannot be satisfied by breaking the shipped path.
+    let clean = Payload {
+        members: vec![plugin_member()],
+        ..payload
+    };
+    temper::drift::emit(&clean, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        fs::read_to_string(harness.join(".claude-plugin/plugin.json")).unwrap(),
+        PLUGIN_JSON
+    );
+}
+
+#[test]
+fn an_include_into_a_json_document_refuses_rather_than_fingerprinting_dropped_bytes() {
+    // The vivid case: an include resolves, the lock fingerprints the dependency, and then
+    // the spliced bytes reach no artifact — temper would track a target whose content it
+    // silently discarded, and a later edit to that target would report drift against bytes
+    // that were never projected. The body is homeless whether or not it splices, so the
+    // refusal fires ahead of the resolution.
+    let (harness, into) = workspace("json-document-emit-include");
+    fs::write(harness.join("fragment.md"), "shared prose.\n").unwrap();
+
+    let payload = Payload {
+        version: temper::drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![plugin_kind_row()],
+            includes: vec![IncludeRow {
+                member: "plugin-manifest:formatter".to_string(),
+                source_path: harness.join("fragment.md").to_string_lossy().into_owned(),
+            }],
+            ..Declarations::default()
+        },
+        members: vec![PayloadMember {
+            body: format!("Intro.\n{INCLUDE_SLOT}"),
+            ..plugin_member()
+        }],
+    };
+
+    let err = temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap_err();
+    assert!(
+        err.to_string().contains("plugin-manifest:formatter"),
+        "{err}"
+    );
+    assert!(
+        !harness.join(".claude-plugin/plugin.json").exists(),
+        "a refused emit writes no bytes"
+    );
 }
 
 #[test]

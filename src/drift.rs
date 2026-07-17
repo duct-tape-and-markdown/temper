@@ -258,6 +258,23 @@ pub enum DriftError {
         slots: usize,
     },
 
+    /// A member carries an authored body at a format that renders its fields alone — a
+    /// `json-document` artifact is one JSON object, with no prose slot to render words
+    /// into. Refused before a byte is written rather than projected without them: temper
+    /// never drops authored words (invariant 3), and never silently degrades a projection
+    /// it could refuse (invariant 6). The honest repair is the author's, not the engine's —
+    /// there is no home to invent here.
+    #[error(
+        "member `{member}` carries an authored body, but its `{format}` format renders its fields alone — the words have no home in this format; move them to a body-bearing member or drop them at the source"
+    )]
+    #[diagnostic(code(temper::drift::body_has_no_home))]
+    BodyHasNoHome {
+        /// The member's `kind:name` address.
+        member: String,
+        /// The declared format label the member's kind carries.
+        format: String,
+    },
+
     /// A harness-level settings-residue key names a manifest no in-play kind declares — so
     /// there is no manifest to fold it into. Refused loud before a byte is written rather
     /// than shedding the authored key (invariant 6).
@@ -959,10 +976,25 @@ pub fn emit(
             layout_paths.insert(to_lock_path(&source_path));
             continue;
         }
+        let host = host_address(&member.kind, &member.name);
+        let format = format_from_row(facts)?;
+        // A format that renders its fields alone has no slot to put a body in, so an
+        // authored body is refused here rather than dropped at the write face. Sited above
+        // the include resolution below: the words are already homeless whether or not they
+        // splice, and refusing first keeps `emit` from fingerprinting a dependency whose
+        // content could reach no artifact.
+        if let Some(Format::JsonDocument) = format
+            && !member.body.is_empty()
+        {
+            return Err(DriftError::BodyHasNoHome {
+                member: host,
+                format: Format::JsonDocument.label().to_string(),
+            }
+            .into());
+        }
         // A composed-prose member whose body declares includes: resolve each against
         // disk (refusing before any byte is written when it dangles), splice its bytes
         // into the body at the matching slot, and fingerprint the dependency.
-        let host = host_address(&member.kind, &member.name);
         let body = match includes_by_member.get(host.as_str()) {
             None => member.body.clone(),
             Some(includes) => {
@@ -986,7 +1018,7 @@ pub fn emit(
             kind: member.kind.clone(),
             name: member.name.clone(),
             source_path,
-            format: format_from_row(facts)?,
+            format,
             fields: member.fields.clone(),
             body,
         });
@@ -1727,7 +1759,10 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
 /// already on disk rather than dropping them. A JSON document carries none by
 /// construction — install places its metadata as a frontmatter comment or a markdown
 /// banner, neither of which a JSON artifact's bytes can hold — so that face takes no
-/// `placements` and drops nothing. An artifact with no fields (a rule that
+/// `placements`. It renders `fields` alone: a JSON document has no prose slot, so `body`
+/// reaches this face empty or not at all — [`emit`]'s projection loop refuses a
+/// `json-document` member carrying one ([`DriftError::BodyHasNoHome`]) rather than let
+/// this arm drop it. An artifact with no fields (a rule that
 /// carries no `paths`/unknown keys, a memory `CLAUDE.md`) projects to its body alone —
 /// no frontmatter block, so install's metadata there is a block-level HTML-comment
 /// banner heading the body, round-tripped the same way.
