@@ -81,3 +81,16 @@ encoded, per `builtins.md`); the frozen built-in lock re-derives.
 same commit — a shipped clause now ranges over mentions, though none
 demands one exist. The fork record deletes with this record's commit; plan
 derives the build entry.
+
+## Amended — 2026-07-16
+
+The Decision's trigger clause — "whose target member registers by
+`paths-match`" — did not survive contact with the tree: a skill's `paths`
+is a channel **gate** that deliberately adds no `paths-match` registration
+entry (`sdk/src/builtins.ts:120-126`; rules register that way, skills do
+not), so read literally the ruling's own motivating rule→skill case could
+never fire. What shipped is the ruling's design sentence instead: the
+trigger is the target's gate **field** carrying globs, hard-coding no kind
+(`83fa520`; the adoption entry re-worded in `f7f916c`). The invariant, both
+diagnoses, the advisory severity, and the default-contract adoption stand
+unchanged.
