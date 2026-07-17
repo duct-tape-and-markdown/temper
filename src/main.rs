@@ -38,6 +38,7 @@ use temper::read;
 use temper::reporter;
 use temper::roster;
 use temper::schema;
+use temper::tap;
 use temper::toml_document;
 
 /// The SDK surface workspace under the cwd — the emit `--into` default and the
@@ -175,6 +176,19 @@ enum Command {
     Guard {
         /// The harness root whose `.temper/lock.toml` declares the posture (defaults
         /// to the current directory, the project Claude Code runs the hook from).
+        #[arg(default_value = ".")]
+        path: PathBuf,
+    },
+    /// The telemetry tap: read a Claude Code hook payload from stdin and append
+    /// one machine-written record — the event's identity and its minimal
+    /// discriminant (the member or path it names, the load reason, the session
+    /// id), never captured prose — to the per-machine, uncommitted event log
+    /// under the harness's workspace. Advisory recording, never a gate: it always
+    /// exits zero, and a payload naming no recognized event records nothing.
+    Tap {
+        /// The harness root whose `.temper/` workspace carries the event log
+        /// (defaults to the current directory, the project Claude Code runs the
+        /// hook from).
         #[arg(default_value = ".")]
         path: PathBuf,
     },
@@ -408,6 +422,22 @@ fn main() -> miette::Result<ExitCode> {
                     }
                 },
             )
+        }
+        Command::Tap { path } => {
+            // Advisory recording at Claude Code's lifecycle boundary: read the hook
+            // payload from stdin, extract the event's identity + minimal discriminant,
+            // and append one record to the per-machine log. A payload naming no
+            // recognized event records nothing, and a failed append never gates — the
+            // tap always exits zero.
+            let workspace_dir = path.join(temper::WORKSPACE_DIR);
+            let mut payload = String::new();
+            io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
+            if let Some(record) = tap::record_from_payload(&payload)
+                && let Err(err) = tap::append(&workspace_dir, &record)
+            {
+                eprintln!("temper tap: {err}");
+            }
+            Ok(ExitCode::SUCCESS)
         }
         Command::Install {
             path,

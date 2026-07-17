@@ -17,6 +17,11 @@
 /.temper/node_modules/
 /examples/*/.temper/node_modules/
 
+# The per-machine tap event log (`temper tap` appends; machine-written, never
+# committed, never an emit input or target).
+/.temper/tap.jsonl
+/examples/*/.temper/tap.jsonl
+
 # SDK build output
 sdk/dist/
 sdk/node_modules/
