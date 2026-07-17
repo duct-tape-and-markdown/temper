@@ -1,0 +1,196 @@
+---
+source: tests/gauntlet.rs
+expression: "projection_tree(&harness, &report)"
+---
+# emit report
+
+guide:operate-the-gate -> Emitted @ docs/guides/operate-the-gate/GUIDE.md
+manifest:settings.json -> Emitted @ .claude/settings.json
+rule:authoring -> Emitted @ .claude/rules/authoring.md
+rule:conventions -> Emitted @ .claude/rules/conventions.md
+
+# tree
+
+=== .claude/local/machine.md ===
+---
+mode: advisory
+---
+
+This workstation's own knob.
+
+=== .claude/rules/authoring.md ===
+---
+paths: ["src/**/*.rs"]
+---
+# Authoring
+
+How a change enters, and where the standard lives.
+
+
+See [conventions](conventions.md).
+
+=== .claude/rules/conventions.md ===
+---
+paths: ["src/**/*.rs"]
+---
+# Conventions
+
+The standing bar every module holds.
+
+=== .claude/settings.json ===
+{
+  "enabledPlugins": {
+    "formatter@acme-marketplace": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "temper reporter",
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  },
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)"
+    ]
+  }
+}
+
+=== .gitignore ===
+.claude/local/
+
+=== .temper/lock.toml ===
+[[guide]]
+name = "operate-the-gate"
+source_path = "docs/guides/operate-the-gate/GUIDE.md"
+source_hash = "f06595500ae92b2e960659a7a138f2044ebd8f3a982243db2f59d7dacc090fc0"
+emit_hash = "f06595500ae92b2e960659a7a138f2044ebd8f3a982243db2f59d7dacc090fc0"
+
+[[rule]]
+name = "authoring"
+source_path = ".claude/rules/authoring.md"
+source_hash = "ccd836dc68503a80568f24b18262bd9cc1c80e2b279157c81a44e36d47915982"
+emit_hash = "ccd836dc68503a80568f24b18262bd9cc1c80e2b279157c81a44e36d47915982"
+
+[[rule]]
+name = "conventions"
+source_path = ".claude/rules/conventions.md"
+source_hash = "a17cb4c1a0288874d07ef7a6ae07a7693a9533cd7029dbbbfe9c18a613ab0de0"
+emit_hash = "a17cb4c1a0288874d07ef7a6ae07a7693a9533cd7029dbbbfe9c18a613ab0de0"
+
+[[declaration.kind]]
+name = "guide"
+governs_root = "docs/guides"
+governs_glob = "*/GUIDE.md"
+unit_shape = "directory"
+templates = [{ kind = "spec", path = "*.md" }]
+
+[[declaration.kind]]
+name = "hook"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["event(event)"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+
+[[declaration.kind]]
+name = "installed-plugin"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["enablement"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
+
+[[declaration.kind]]
+name = "machine"
+governs_root = ".claude/local"
+governs_glob = "*.md"
+commitment = "local"
+format = "yaml-frontmatter"
+unit_shape = "file"
+
+[[declaration.kind]]
+name = "rule"
+governs_root = ".claude/rules"
+governs_glob = "*.md"
+format = "yaml-frontmatter"
+unit_shape = "file"
+registration = ["paths-match(paths)"]
+templates = [{ kind = "citation" }]
+
+[[declaration.kind]]
+name = "spec"
+unit_shape = "file"
+content = { regions = [{ region = "prose" }, { region = "field", slot = "intent" }, { region = "collection", member_kind = "invariant" }] }
+
+[[declaration.clause]]
+label = "machine.type.mode"
+kind = "machine"
+predicate = "type"
+field = "mode"
+severity = "advisory"
+value_type = ["string"]
+
+[[declaration.assembly]]
+fact = "mode"
+value = "warn"
+
+[[declaration.assembly]]
+fact = "edge"
+from = "citation"
+field = "source"
+to = ["rule"]
+
+[[declaration.nested_member]]
+host = "rule:authoring"
+kind = "citation"
+key = "the-standard"
+leaves = { source = "rule:conventions" }
+placed_edges = ["source"]
+
+[[declaration.nested_member]]
+host = "spec:representation"
+kind = "invariant"
+key = "loud-or-nothing"
+
+[[declaration.nested_member]]
+host = "spec:representation"
+kind = "invariant"
+key = "the-projection-is-not-the-database"
+
+[[declaration.registration]]
+kind = "hook"
+key = "SessionStart"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "installed-plugin"
+key = "formatter@acme-marketplace"
+manifest = "settings.json"
+key_path = "enabledPlugins.*"
+
+=== docs/guides/operate-the-gate/GUIDE.md ===
+# Operate the gate
+
+=== docs/guides/operate-the-gate/representation.md ===
+The representation model, authored in prose.
+
+# Intent
+temper types the documents that program agents.
+
+# Invariants
+
+## Loud or nothing
+A gate never fabricates absence.
+
+## The projection is not the database
+Facts are declared, never mined back.
