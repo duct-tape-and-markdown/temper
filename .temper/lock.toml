@@ -1,8 +1,8 @@
 [[memory]]
 name = "CLAUDE"
 source_path = "CLAUDE.md"
-source_hash = "9d3e9a9a719537acda6b9735e3c95a107abaa097e0d78eb64e2a10de68081347"
-emit_hash = "9d3e9a9a719537acda6b9735e3c95a107abaa097e0d78eb64e2a10de68081347"
+source_hash = "7317de21b4f8db632702074cff35dea6ef630b2ba80fb04ab69ae14d3af920ac"
+emit_hash = "7317de21b4f8db632702074cff35dea6ef630b2ba80fb04ab69ae14d3af920ac"
 
 [[rule]]
 name = "collaboration"

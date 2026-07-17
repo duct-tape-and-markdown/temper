@@ -91,8 +91,9 @@ read, not a bar the pipeline holds; nothing reverts on either):
 
 ## Quality standard
 
-Engineering: **correct, clear, well-tested.** This tool is I/O-bound over tiny
-files — there is no performance pressure, so never trade clarity for a micro-opt.
+Engineering: **correct, clear, well-tested.** Member files are tiny, but
+discovery walks the consumer's whole tree and `check` runs at session open —
+tree-scale costs are real engineering; clarity still outranks any micro-opt.
 Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tick.
 
 ## Non-negotiables
