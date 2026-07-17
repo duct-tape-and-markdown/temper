@@ -127,15 +127,25 @@ pub enum Predicate {
         /// The field that is permitted.
         field: String,
     },
-    /// `type`: the field's preserved source kind is the declared [`ValueType`] over
-    /// the closed scalar/container lattice (`string`/`integer`/`number`/
+    /// `type`: the field's preserved source kind is one of the declared [`ValueType`]s
+    /// over the closed scalar/container lattice (`string`/`integer`/`number`/
     /// `boolean`/`list`/`map`/`null`). Unlike `min_len`/`enum`/`pattern`, which
     /// refine *within* a scalar type, `type` only fixes the kind.
+    ///
+    /// The declaration is a **set**, not one kind: an external format that documents a
+    /// field as `string|array` is gateable by the set `{string, list}`, where a
+    /// single-kind clause could only reject one of the two documented forms — a false
+    /// positive, which no clause may produce. A one-element set is the single-kind
+    /// clause exactly, down to the diagnostic's wording; an empty set admits no value
+    /// at all and is inadmissible ([`crate::engine`]), the rule an inverted `range`
+    /// or `count` bound already sets.
     Type {
         /// The field constrained.
         field: String,
-        /// The declared source kind the field must carry.
-        kind: ValueType,
+        /// The declared source kinds, any one of which the field may carry. Held as a
+        /// set so the author's write order is not a distinction the lock, the
+        /// diagnostic, or the emitted schema can carry.
+        kinds: BTreeSet<ValueType>,
     },
     /// `min_len`: the field's value is at least `min` characters long.
     MinLen {
@@ -363,12 +373,19 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "optional" => Predicate::Optional {
             field: row.field.clone()?,
         },
-        // The declared kind crosses the lock as its lattice name; an unknown name is
+        // The declared kinds cross the lock as their lattice names; an unknown name is
         // no predicate at all, so the row is rejected at load rather than decided
-        // against a guessed type.
+        // against a guessed type. An empty set decodes fine and fails admissibility
+        // instead — a vacuous clause is the engine's refusal to make, not the
+        // decoder's.
         "type" => Predicate::Type {
             field: row.field.clone()?,
-            kind: ValueType::from_name(row.value_type.as_deref()?)?,
+            kinds: row
+                .value_type
+                .as_ref()?
+                .iter()
+                .map(|name| ValueType::from_name(name))
+                .collect::<Option<BTreeSet<ValueType>>>()?,
         },
         "range" => {
             let bound = row.range?;

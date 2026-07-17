@@ -419,7 +419,67 @@ field = "keywords"
 severity = "required"
 guidance = '`keywords` is an array of discovery tags, and a bare string is not a shorter spelling of a one-tag list: a wrong-typed field is a load error, so the plugin does not load at all — everywhere, not merely under `--strict`, which is the one rule here the forgiving runtime does not wave through. Write `["deployment"]` for a single tag.'
 cite = "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-16)"
-value_type = "list"
+value_type = ["list"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.skills"
+kind = "plugin-manifest"
+predicate = "type"
+field = "skills"
+severity = "required"
+guidance = '`skills` names custom skill directories — each holding a `<name>/SKILL.md` — as one `"./custom/skills/"` path or a list of them. Unlike its neighbours it *adds* to the default `skills/` scan rather than replacing it, so listing `"./skills/"` alongside your extra path is redundant, not required.'
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+value_type = ["string", "list"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.commands"
+kind = "plugin-manifest"
+predicate = "type"
+field = "commands"
+severity = "required"
+guidance = """`commands` names flat `.md` skill files or directories, as one path, a list of them, or an object keyed by command name (each entry carrying `source` or inline `content`). Setting it *replaces* the default `commands/` scan — to keep the default and add to it, list it explicitly: `["./commands/", "./extras/"]`. The reference table names only the string and array forms; the object form is the published schema's, so a manifest using it is valid and this clause admits all three."""
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17); object form per https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)"
+value_type = ["string", "list", "map"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.agents"
+kind = "plugin-manifest"
+predicate = "type"
+field = "agents"
+severity = "required"
+guidance = "`agents` names custom agent files as one path or a list of them, and *replaces* the default `agents/` scan — a manifest that sets it and expects `agents/` to still be read ships a plugin missing every agent in that folder. Claude Code v2.1.140 and later warns about the ignored folder in `claude plugin list`."
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+value_type = ["string", "list"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.hooks"
+kind = "plugin-manifest"
+predicate = "type"
+field = "hooks"
+severity = "required"
+guidance = "`hooks` is a path to a hook config JSON file, a list of them, or the config inline as an object keyed by event name. The inline object is the whole `hooks.json` body, not a fragment of it — the same shape `hooks/hooks.json` carries."
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+value_type = ["string", "list", "map"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.mcpServers"
+kind = "plugin-manifest"
+predicate = "type"
+field = "mcpServers"
+severity = "required"
+guidance = "`mcpServers` is a path to an MCP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.mcp.json` carries. A `channels` entry's `server` must match a key here, so the inline object is the form to reach for when the two are authored together."
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+value_type = ["string", "list", "map"]
+
+[[declaration.clause]]
+label = "plugin-manifest.type.lspServers"
+kind = "plugin-manifest"
+predicate = "type"
+field = "lspServers"
+severity = "required"
+guidance = "`lspServers` is a path to an LSP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.lsp.json` carries. These drive code intelligence (go to definition, find references), so a wrong-typed value costs the capability silently rather than loudly."
+cite = "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)"
+value_type = ["string", "list", "map"]
 
 [[declaration.clause]]
 label = "rule.forbidden_keys"

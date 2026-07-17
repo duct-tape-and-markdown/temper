@@ -11,5 +11,10 @@
  * The binding renames to lowercase so the TS spelling is the one
  * [`ValueType::from_name`] decodes — the lattice has one name across the seam,
  * and a `type` clause's declared kind crosses the lock in that spelling.
+ *
+ * `Ord` is the declaration order above, and it is what gives a declared *set* of
+ * kinds one canonical spelling: a `type` clause holds its kinds in a `BTreeSet`, so
+ * the order an author wrote them in never reaches the lock, the diagnostic, or the
+ * emitted schema.
  */
 export type ValueType = "string" | "integer" | "number" | "boolean" | "null" | "list" | "map";

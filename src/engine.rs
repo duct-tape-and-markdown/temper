@@ -137,11 +137,11 @@ pub enum Locus {
 /// The admissibility violations of a single clause's predicate at `locus` — empty when
 /// the clause is well-formed over the definition. Three decidable checks live here
 /// today: (1) the predicate has a judge at all, since one that does not could only ever
-/// return [`Outcome::Indeterminate`] — a silent no-op; (2) a value/key list is
+/// return [`Outcome::Indeterminate`] — a silent no-op; (2) a value/key/kind list is
 /// non-empty — a list-bearing predicate with an empty list is vacuous (an `enum` over no
-/// values admits nothing; `forbidden_keys` over no keys forbids nothing), which the
-/// author cannot have meant; and (3) the predicate reads a feature the bound locus
-/// carries ([`bodyless`]).
+/// values admits nothing; `forbidden_keys` over no keys forbids nothing; a `type` over no
+/// kinds admits no value the lattice can carry), which the author cannot have meant; and
+/// (3) the predicate reads a feature the bound locus carries ([`bodyless`]).
 ///
 /// `pub(crate)` so [`crate::roster::admissibility`] reuses the same per-predicate rules
 /// for a requirement's own `clauses` — one definition of "vacuous", never a second copy
@@ -215,6 +215,12 @@ fn vacuities(predicate: &Predicate) -> Vec<String> {
         }
         Predicate::ForbiddenKeys { keys } if keys.is_empty() => {
             vec!["`forbidden_keys` clause lists no keys".to_string()]
+        }
+        // A `type` clause over no kinds admits no value at all — every field the
+        // lattice can carry fails it — so it is vacuous in the same way an inverted
+        // `range` bound is, and the author cannot have meant it.
+        Predicate::Type { field, kinds } if kinds.is_empty() => {
+            vec![format!("`type` clause on field `{field}` lists no kinds")]
         }
         Predicate::RequireSections { sections } if sections.is_empty() => {
             vec!["`require_sections` clause lists no sections".to_string()]
@@ -604,16 +610,18 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // always satisfied — its presence or absence is never a violation.
         Predicate::Optional { .. } => Outcome::Holds,
 
-        // `type` compares the field's *preserved source kind* to the declared
-        // one. An absent field is the `required` clause's concern, so `type`
-        // stays silent on absence (like the other field predicates).
-        Predicate::Type { field, kind } => match features.field(field).map(FeatureValue::kind) {
+        // `type` compares the field's *preserved source kind* to the declared set,
+        // holding when it is any member — a field an external format documents as
+        // `string|array` is gated by the set, never by picking one of the two. An
+        // absent field is the `required` clause's concern, so `type` stays silent on
+        // absence (like the other field predicates).
+        Predicate::Type { field, kinds } => match features.field(field).map(FeatureValue::kind) {
             None => Outcome::Holds,
-            Some(actual) => Outcome::check(actual == *kind, || {
+            Some(actual) => Outcome::check(kinds.contains(&actual), || {
                 format!(
                     "field `{field}` is `{}` but the contract declares `{}`",
                     actual.name(),
-                    kind.name()
+                    declared_kinds(kinds)
                 )
             }),
         },
@@ -838,6 +846,20 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
     }
 }
 
+/// A `type` clause's declared set, rendered for a diagnostic: the lattice names in
+/// lattice order, `|`-joined — the spelling the external formats themselves use for a
+/// documented union (`string|array`).
+///
+/// A one-element set renders as the bare kind name, so a single-kind clause's finding
+/// reads exactly as it did before the set widening.
+fn declared_kinds(kinds: &BTreeSet<ValueType>) -> String {
+    kinds
+        .iter()
+        .map(|kind| kind.name())
+        .collect::<Vec<&str>>()
+        .join("|")
+}
+
 /// The scalar text of a named field, or `None` if it is absent or a list — the
 /// generic accessor every value predicate (`min_len`, `enum`, …) reads through.
 fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
@@ -1002,7 +1024,7 @@ mod tests {
     fn type_fires_on_a_kind_mismatch_and_is_silent_on_match_and_absence() {
         let predicate = || Predicate::Type {
             field: "count".to_string(),
-            kind: ValueType::Integer,
+            kinds: BTreeSet::from([ValueType::Integer]),
         };
 
         // The field's preserved source kind differs from the declared one: fires.
@@ -1036,7 +1058,7 @@ mod tests {
         // declared fires.
         let container = Predicate::Type {
             field: "tags".to_string(),
-            kind: ValueType::Map,
+            kinds: BTreeSet::from([ValueType::Map]),
         };
         let as_list = features(
             "demo",
@@ -1045,6 +1067,75 @@ mod tests {
             None,
         );
         assert_eq!(run(container, as_list).len(), 1);
+    }
+
+    #[test]
+    fn type_over_a_set_holds_for_any_member_and_names_the_whole_set_when_it_fires() {
+        // The `string|array` shape an external format documents: both forms hold.
+        let union = || Predicate::Type {
+            field: "skills".to_string(),
+            kinds: BTreeSet::from([ValueType::String, ValueType::List]),
+        };
+        let as_string = features(
+            "demo",
+            &[("skills", FeatureValue::scalar(ValueType::String, "./s/"))],
+            1,
+            None,
+        );
+        assert!(run(union(), as_string).is_empty());
+        let as_list = features(
+            "demo",
+            &[("skills", FeatureValue::List(vec!["./s/".to_string()]))],
+            1,
+            None,
+        );
+        assert!(run(union(), as_list).is_empty());
+
+        // A kind outside the set fires once, and the message names the whole declared
+        // set — an author told only "not `string`" cannot see the other form is open.
+        let as_bool = features(
+            "demo",
+            &[("skills", FeatureValue::scalar(ValueType::Boolean, "true"))],
+            1,
+            None,
+        );
+        let diags = run(union(), as_bool);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(
+            diags[0].message,
+            "field `skills` is `boolean` but the contract declares `string|list`"
+        );
+
+        // The set is a set: the author's write order is not a distinction it carries.
+        assert_eq!(
+            union(),
+            Predicate::Type {
+                field: "skills".to_string(),
+                kinds: BTreeSet::from([ValueType::List, ValueType::String]),
+            }
+        );
+    }
+
+    #[test]
+    fn a_one_element_set_reads_exactly_as_the_single_kind_clause_it_replaces() {
+        // The widening's compatibility bar, in the one place an author sees it: the
+        // finding's wording is the pre-set wording, not `declares `integer|``.
+        let single = Predicate::Type {
+            field: "count".to_string(),
+            kinds: BTreeSet::from([ValueType::Integer]),
+        };
+        let wrong = features(
+            "demo",
+            &[("count", FeatureValue::scalar(ValueType::String, "7"))],
+            1,
+            None,
+        );
+        let diags = run(single, wrong);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(
+            diags[0].message,
+            "field `count` is `string` but the contract declares `integer`"
+        );
     }
 
     #[test]
@@ -1642,7 +1733,7 @@ mod tests {
             },
             Predicate::Type {
                 field: "model".to_string(),
-                kind: ValueType::String,
+                kinds: BTreeSet::from([ValueType::String]),
             },
             Predicate::MinLen {
                 field: "model".to_string(),
@@ -1969,6 +2060,15 @@ mod tests {
                     sections: Vec::new(),
                 },
                 "require_sections",
+            ),
+            // A `type` over no kinds is the same vacuity: no value the lattice can
+            // carry satisfies it, so it admits nothing at any locus.
+            (
+                Predicate::Type {
+                    field: "keywords".to_string(),
+                    kinds: BTreeSet::new(),
+                },
+                "type",
             ),
         ] {
             let diags = admissibility(

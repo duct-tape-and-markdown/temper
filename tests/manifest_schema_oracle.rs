@@ -28,29 +28,29 @@ const SCHEMA: &str = include_str!("fixtures/plugin-manifest/schema.json");
 /// Every rule the published schema states that the shipped clauses do not carry. Each
 /// widening shrinks this list; re-stating it is how the shrink becomes a reviewable diff.
 ///
-/// The shape of what is here: fifteen `type` rules over fields no clause types at all; six
-/// union-typed component fields awaiting a `type` that accepts a set of lattice kinds; and
+/// The shape of what is here: fifteen `type` rules over fields no clause types at all;
+/// three union-typed *experimental* component fields, which no clause types either; and
 /// `homepage`'s `format`, which names no widening — a URI check is not on the books.
+///
+/// The six documented component-path fields left with the `type` predicate's set
+/// widening: `skills`, `commands`, `agents`, `hooks`, `mcpServers` and `lspServers` are
+/// each gated over their whole documented union now. `monitors`, `outputStyles` and
+/// `themes` are union-typed too and stay — not for want of the set, but because they are
+/// components the shipped floor types with no clause at all.
 const EXPECTED_LAG: &[&str] = &[
     "$schema: type=string",
-    "agents: type in {array|string}",
     "author: type=object",
     "channels: type=array",
-    "commands: type in {array|object}",
     "dependencies: type=array",
     "description: type=string",
     "homepage: format",
     "homepage: type=string",
-    "hooks: type in {array|object|string}",
     "license: type=string",
-    "lspServers: type in {array|object|string}",
-    "mcpServers: type in {array|object|string}",
     "monitors: type in {array|string}",
     "name: type=string",
     "outputStyles: type in {array|string}",
     "repository: type=string",
     "settings: type=object",
-    "skills: type in {array|string}",
     "themes: type in {array|string}",
     "userConfig: type=object",
     "version: type=string",
@@ -72,22 +72,27 @@ fn json_schema_type(kind: ValueType) -> &'static str {
 
 /// The schema types one property names, deduplicated and ordered — one entry for a plain
 /// `type`, the branch union for an `anyOf`.
+///
+/// The walk recurses through `anyOf` branches, because a branch may be an `anyOf` of its
+/// own: the schema spells `commands`' string form as a two-branch `anyOf` over the same
+/// `string` under different `pattern`s, and reading only the outer branches' own `type`
+/// keys would drop the string form from a union the property plainly states. That is
+/// still the property's *own* type union — the measured slice — and not a keyword nested
+/// inside a value's subschema.
 fn declared_types(property: &Value) -> Vec<String> {
-    let named = |schema: &Value| {
-        schema
-            .get("type")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-    };
-    match property.get("anyOf").and_then(Value::as_array) {
-        Some(branches) => branches
-            .iter()
-            .filter_map(named)
-            .collect::<BTreeSet<String>>()
-            .into_iter()
-            .collect(),
-        None => named(property).into_iter().collect(),
+    fn walk(schema: &Value, into: &mut BTreeSet<String>) {
+        match schema.get("anyOf").and_then(Value::as_array) {
+            Some(branches) => branches.iter().for_each(|branch| walk(branch, into)),
+            None => {
+                if let Some(named) = schema.get("type").and_then(Value::as_str) {
+                    into.insert(named.to_string());
+                }
+            }
+        }
     }
+    let mut types = BTreeSet::new();
+    walk(property, &mut types);
+    types.into_iter().collect()
 }
 
 /// Every rule the vendored schema's root object states, in this file's rule-id vocabulary.
@@ -129,16 +134,26 @@ fn schema_rules() -> BTreeSet<String> {
 /// The schema rule this predicate carries, or `None` when it states a rule the schema does
 /// not — the oracle measures the schema's rules, never the converse.
 ///
-/// A union-typed property is deliberately unreachable here: a single-kind `type` clause
-/// over `agents: type in {array|string}` would reject the documented string form, so it
-/// covers that rule in no sense worth counting.
+/// A `type` clause declares a set of kinds, so it spells its rule the same two ways
+/// [`schema_rules`] does: `type=<one>` for a single kind, `type in {a|b}` for a union. A
+/// clause covers a union-typed property only by declaring that property's whole union —
+/// declaring a subset of it would reject a documented form, so it earns no coverage here
+/// and is a rule the shipped floor may not carry in the first place.
 fn covered_rule(predicate: &Predicate) -> Option<String> {
     Some(match predicate {
         Predicate::Required { field } => format!("{field}: required"),
         Predicate::MinLen { field, .. } => format!("{field}: minLength"),
         Predicate::MaxLen { field, .. } => format!("{field}: maxLength"),
         Predicate::Enum { field, .. } => format!("{field}: enum"),
-        Predicate::Type { field, kind } => format!("{field}: type={}", json_schema_type(*kind)),
+        Predicate::Type { field, kinds } => {
+            // The schema's own names, ordered as `schema_rules` orders them: the lattice
+            // order the clause's set carries is not the schema vocabulary's.
+            let named: BTreeSet<&str> = kinds.iter().map(|kind| json_schema_type(*kind)).collect();
+            match named.iter().copied().collect::<Vec<&str>>().as_slice() {
+                [one] => format!("{field}: type={one}"),
+                many => format!("{field}: type in {{{}}}", many.join("|")),
+            }
+        }
         // The rest state rules the published schema does not: `allowed_chars` holds the
         // kebab-case bar the schema leaves to a `description`, `forbidden_keys` holds the
         // `--strict` experimental-component migration the schema still permits outright,
@@ -199,9 +214,11 @@ fn the_lag_behind_the_published_schema_is_the_named_expected_set() {
 }
 
 #[test]
-fn the_shipped_clauses_carry_the_three_rules_the_schema_and_the_vocabulary_agree_on() {
+fn the_shipped_clauses_carry_the_rules_the_schema_and_the_vocabulary_agree_on() {
     // The other side of the diff: the lag is a real subtraction from a real intersection,
-    // not the whole schema going uncovered because the read is wired wrong.
+    // not the whole schema going uncovered because the read is wired wrong. Six of the
+    // nine are the component-path unions, each covered by declaring the property's whole
+    // documented set — the property the `type` widening bought.
     let covered: BTreeSet<String> = schema_rules()
         .intersection(&covered_rules())
         .cloned()
@@ -209,7 +226,17 @@ fn the_shipped_clauses_carry_the_three_rules_the_schema_and_the_vocabulary_agree
 
     assert_eq!(
         covered.iter().map(String::as_str).collect::<Vec<&str>>(),
-        vec!["keywords: type=array", "name: minLength", "name: required"],
+        vec![
+            "agents: type in {array|string}",
+            "commands: type in {array|object|string}",
+            "hooks: type in {array|object|string}",
+            "keywords: type=array",
+            "lspServers: type in {array|object|string}",
+            "mcpServers: type in {array|object|string}",
+            "name: minLength",
+            "name: required",
+            "skills: type in {array|string}",
+        ],
     );
 }
 

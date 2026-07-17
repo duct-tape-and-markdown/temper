@@ -196,6 +196,54 @@ fn a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_deci
 }
 
 #[test]
+fn both_documented_forms_of_a_union_typed_component_path_gate_clean() {
+    // `skills` is documented `string|array`, and the clause declares the set — so each
+    // documented form passes through the real gate. A single-kind clause could only have
+    // admitted one of the two, which is why the field was held rather than gated.
+    for (label, value) in [
+        ("skills-string", "\"./custom/skills/\""),
+        ("skills-array", "[\"./custom/skills/\", \"./more/skills/\"]"),
+    ] {
+        let harness = common::tmpdir(label);
+        write_plugin_json(
+            &harness,
+            &format!("{{\n  \"name\": \"deployment-tools\",\n  \"skills\": {value}\n}}\n"),
+        );
+
+        let (findings, ok) = check_harness(&harness);
+        assert!(ok, "a documented `skills` form gates clean: {findings:?}");
+        assert!(
+            findings.iter().all(|f| !f.starts_with("::error")),
+            "{findings:?}"
+        );
+    }
+}
+
+#[test]
+fn a_component_path_outside_its_documented_union_fails_the_gate() {
+    let harness = common::tmpdir("plugin-manifest-skills-number");
+    write_plugin_json(
+        &harness,
+        "{\n  \"name\": \"deployment-tools\",\n  \"skills\": 7\n}\n",
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(!ok, "a number-valued skills fails the gate");
+    let typed = common::findings_for(&findings, "plugin-manifest.type.skills");
+    assert!(!typed.is_empty(), "{findings:?}");
+    assert!(
+        typed.iter().all(|f| f.starts_with("::error")),
+        "{findings:?}"
+    );
+    // The finding names the whole declared set, not one arbitrary member of it: an
+    // author told only "not a string" cannot see the list form is open to them.
+    assert!(
+        typed.iter().any(|f| f.contains("string|list")),
+        "{findings:?}"
+    );
+}
+
+#[test]
 fn a_string_keywords_is_the_wrong_typed_field_the_declared_kind_decides() {
     let harness = common::tmpdir("plugin-manifest-keywords-string");
     // Unlike the experimental-key slice above, this one is not a `--strict` warning at all:

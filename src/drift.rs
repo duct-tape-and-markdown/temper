@@ -2751,13 +2751,20 @@ pub struct ClauseRow {
     /// which `field` alone cannot express.
     #[serde(default)]
     pub gate: Option<String>,
-    /// The `type` clause's declared source kind, when the predicate is `type` — the
-    /// lattice name (`string`/`integer`/`number`/`boolean`/`null`/`list`/`map`) that
-    /// [`crate::extract::ValueType::from_name`] decodes. Carried as its name rather
-    /// than as a [`crate::extract::ValueType`]: the lattice is a feature-side type,
-    /// and the row family decodes its arguments at the boundary.
+    /// The `type` clause's declared source kinds, when the predicate is `type` — the
+    /// lattice names (`string`/`integer`/`number`/`boolean`/`null`/`list`/`map`) that
+    /// [`crate::extract::ValueType::from_name`] decodes. Carried as names rather than
+    /// as [`crate::extract::ValueType`]s: the lattice is a feature-side type, and the
+    /// row family decodes its arguments at the boundary.
+    ///
+    /// A **set**, since a `type` clause declares one: the column is an array of names
+    /// in lattice order, and a one-element array is the single-kind clause. A lock
+    /// written by an older engine spells that case as a bare string, which
+    /// [`ClauseRow::from_table`] reads as the one-element set it means; the next `emit`
+    /// rewrites the file whole in the array form, which is the upgrade — a committed
+    /// lock is re-emitted from its source, never patched in place.
     #[serde(default)]
-    pub value_type: Option<String>,
+    pub value_type: Option<Vec<String>>,
     /// The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
     /// is one of those three.
     #[serde(default)]
@@ -3336,6 +3343,25 @@ fn opt_str_array(table: &dyn TableLike, column: &str) -> Result<Option<Vec<Strin
     Ok(Some(out))
 }
 
+/// An optional string-array column that also reads a bare string as the one-element
+/// array it means — absent is `Ok(None)`, any other shape a [`RowError`].
+///
+/// The one column read this way is `value_type`, and the tolerance is a version skew,
+/// not a spelling choice: an engine that predates the `type` predicate's set widening
+/// wrote one lattice name as a bare string, and the row means exactly the one-element
+/// set. Reading it is what an upgraded engine owes a lock a prior version committed;
+/// the next `emit` writes the file whole in the canonical array form, so the tolerance
+/// never becomes a second spelling temper itself emits.
+fn opt_str_or_str_array(
+    table: &dyn TableLike,
+    column: &str,
+) -> Result<Option<Vec<String>>, RowError> {
+    match table.get(column).and_then(Item::as_str) {
+        Some(one) => Ok(Some(vec![one.to_string()])),
+        None => opt_str_array(table, column),
+    }
+}
+
 /// An optional nested table column — absent is `Ok(None)`, a present non-table is a [`RowError`].
 fn opt_table<'a>(
     table: &'a dyn TableLike,
@@ -3600,7 +3626,7 @@ impl ClauseRow {
             table.insert("gate", value(gate.clone()));
         }
         if let Some(value_type) = &self.value_type {
-            table.insert("value_type", value(value_type.clone()));
+            table.insert("value_type", value(string_array(value_type)));
         }
         if let Some(bound) = &self.bound {
             table.insert("bound", value(bound_table(bound)));
@@ -3644,7 +3670,7 @@ impl ClauseRow {
                 None => None,
             },
             gate: opt_str(table, "gate")?,
-            value_type: opt_str(table, "value_type")?,
+            value_type: opt_str_or_str_array(table, "value_type")?,
             bound: match opt_table(table, "bound")? {
                 Some(bound) => Some(bound_from_table(bound)?),
                 None => None,

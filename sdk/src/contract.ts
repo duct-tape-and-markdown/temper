@@ -41,10 +41,11 @@ export interface Predicate {
    */
   readonly gate?: string;
   /**
-   * `type`'s declared source kind over the closed scalar/container lattice. Spelled
-   * to match the lock's own `value_type` column.
+   * `type`'s declared source kinds over the closed scalar/container lattice — the set
+   * the field may carry any one of. Spelled to match the lock's own `value_type`
+   * column.
    */
-  readonly value_type?: ValueType;
+  readonly value_type?: readonly ValueType[];
   /** `allowed_chars`'s declared character class. */
   readonly charset?: Charset;
   /** `forbidden_keys`'s forbidden key list. */
@@ -70,8 +71,16 @@ export interface Charset {
 // Node-scope predicates.
 /** A field or marker is present. */
 export const required = (field: string): Predicate => ({ key: "required", field });
-/** The field's parsed source kind is the declared one. */
-export const type = (field: string, kind: ValueType): Predicate => ({ key: "type", field, value_type: kind });
+/**
+ * The field's parsed source kind is one of the declared ones. `kinds` is a set: a
+ * format that documents a field as `string|array` is gated by `["string", "list"]`,
+ * and a one-element `["list"]` is the plain single-kind check.
+ */
+export const type = (field: string, kinds: readonly ValueType[]): Predicate => ({
+  key: "type",
+  field,
+  value_type: kinds,
+});
 /** The field's value is at least `n` characters. */
 export const minLen = (field: string, n: number): Predicate => ({ key: "min_len", field, args: { min: n } });
 /** The field's value is at most `n` characters. */

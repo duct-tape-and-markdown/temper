@@ -37,7 +37,12 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 /// The binding renames to lowercase so the TS spelling is the one
 /// [`ValueType::from_name`] decodes — the lattice has one name across the seam,
 /// and a `type` clause's declared kind crosses the lock in that spelling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, schemars::JsonSchema, ts_rs::TS)]
+///
+/// `Ord` is the declaration order above, and it is what gives a declared *set* of
+/// kinds one canonical spelling: a `type` clause holds its kinds in a `BTreeSet`, so
+/// the order an author wrote them in never reaches the lock, the diagnostic, or the
+/// emitted schema.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, schemars::JsonSchema, ts_rs::TS)]
 #[ts(rename_all = "lowercase")]
 pub enum ValueType {
     /// A textual scalar.

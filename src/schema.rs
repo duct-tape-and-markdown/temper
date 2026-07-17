@@ -39,6 +39,8 @@
 //! the decidable clauses the editor can decide against a single artifact's
 //! frontmatter.
 
+use std::collections::BTreeSet;
+
 use serde_json::{Map, Value};
 
 use crate::contract::{Charset, Contract, Predicate};
@@ -61,9 +63,8 @@ pub fn emit(contract: &Contract) -> Value {
     for clause in &contract.clauses {
         match &clause.predicate {
             Predicate::Required { field } => push_unique(&mut required, field),
-            Predicate::Type { field, kind } => {
-                property(&mut properties, field)
-                    .insert("type".to_string(), Value::from(json_type(*kind)));
+            Predicate::Type { field, kinds } => {
+                property(&mut properties, field).insert("type".to_string(), json_types(kinds));
             }
             Predicate::MinLen { field, min } => {
                 property(&mut properties, field).insert("minLength".to_string(), Value::from(*min));
@@ -167,6 +168,23 @@ pub fn emit(contract: &Contract) -> Value {
         schema.insert("allOf".to_string(), Value::Array(clauses));
     }
     Value::Object(schema)
+}
+
+/// The JSON-Schema `type` keyword for a `type` clause's declared set. JSON Schema
+/// spells a union of kinds as an array of type names and a single kind as a bare one,
+/// so the projection is the clause's own set said in the schema's vocabulary — a
+/// one-element set still emits the bare name, exactly as before the widening.
+///
+/// The array is in lattice order (the set's own), never the author's write order.
+fn json_types(kinds: &BTreeSet<ValueType>) -> Value {
+    match kinds.iter().copied().collect::<Vec<ValueType>>().as_slice() {
+        [one] => Value::from(json_type(*one)),
+        many => Value::Array(
+            many.iter()
+                .map(|kind| Value::from(json_type(*kind)))
+                .collect(),
+        ),
+    }
 }
 
 /// The JSON-Schema `type` name for a lattice [`ValueType`]. The scalar kinds share
@@ -284,7 +302,7 @@ mod tests {
                 }),
                 clause(Predicate::Type {
                     field: "name".to_string(),
-                    kind: ValueType::String,
+                    kinds: BTreeSet::from([ValueType::String]),
                 }),
                 clause(Predicate::MaxLen {
                     field: "name".to_string(),
@@ -460,17 +478,37 @@ mod tests {
             clauses: vec![
                 clause(Predicate::Type {
                     field: "tags".to_string(),
-                    kind: ValueType::List,
+                    kinds: BTreeSet::from([ValueType::List]),
                 }),
                 clause(Predicate::Type {
                     field: "meta".to_string(),
-                    kind: ValueType::Map,
+                    kinds: BTreeSet::from([ValueType::Map]),
                 }),
             ],
         };
         let schema = emit(&contract);
         assert_eq!(schema["properties"]["tags"]["type"], "array");
         assert_eq!(schema["properties"]["meta"]["type"], "object");
+    }
+
+    #[test]
+    fn a_declared_set_of_kinds_emits_json_schemas_own_type_array() {
+        // JSON Schema spells a union as an array of type names, so the clause's set
+        // needs no encoding of temper's own: the squiggle admits exactly the forms the
+        // clause does, and the editor validates the documented `string|array` field
+        // rather than half of it.
+        let contract = Contract {
+            name: "unions".to_string(),
+            guidance: None,
+            clauses: vec![clause(Predicate::Type {
+                field: "skills".to_string(),
+                kinds: BTreeSet::from([ValueType::String, ValueType::List]),
+            })],
+        };
+        assert_eq!(
+            emit(&contract)["properties"]["skills"]["type"],
+            json!(["string", "array"]),
+        );
     }
 
     /// A field clause carrying `guidance` — the docs (hover) channel.

@@ -249,13 +249,14 @@ test("plugin-manifest is a json-document file kind identified by its name key, o
 
 test("pluginManifestDefaultContract gates the decidable slice of the --strict profile", () => {
   // `name`'s presence, emptiness and charset, the one deny-list slice of the
-  // unrecognized-field bar the algebra can express, and the one wrong-typed field whose
-  // documented type is a single kind rather than a union. The rest of `--strict` — an
-  // allow-list over the closed key set — needs a predicate that does not exist, and the
-  // contract's own header names the hold rather than forging a clause for it.
+  // unrecognized-field bar the algebra can express, and every wrong-typed field —
+  // `keywords`' single kind and the six component paths' documented unions, which a
+  // `type` over a set reaches. The rest of `--strict` — an allow-list over the closed
+  // key set — needs a predicate that does not exist, and the contract's own header
+  // names that hold rather than forging a clause for it.
   assert.deepEqual(
     pluginManifestDefaultContract.map((entry) => entry.predicate.key),
-    ["required", "min_len", "allowed_chars", "forbidden_keys", "type"],
+    ["required", "min_len", "allowed_chars", "forbidden_keys", "type", "type", "type", "type", "type", "type", "type"],
   );
   // Every clause is an error: `--strict` is the portable bar, so nothing here is a note.
   assert.ok(pluginManifestDefaultContract.every((entry) => entry.severity === "required"));
@@ -270,9 +271,27 @@ test("pluginManifestDefaultContract gates the decidable slice of the --strict pr
     charset: { ranges: ["a-z", "0-9"], chars: "-" },
   });
   assert.deepEqual(experimental.predicate, { key: "forbidden_keys", keys: ["themes", "monitors"] });
-  // The declared kind rides its own field, not the shared `args` bag — the lattice name
-  // the engine decodes, in the one spelling that crosses the lock.
-  assert.deepEqual(keywordsType.predicate, { key: "type", field: "keywords", value_type: "list" });
+  // The declared kinds ride their own field, not the shared `args` bag — the lattice
+  // names the engine decodes, in the one spelling that crosses the lock. A single-kind
+  // check is the one-element set, no second spelling for it.
+  assert.deepEqual(keywordsType.predicate, { key: "type", field: "keywords", value_type: ["list"] });
+
+  // The six component-path fields, each gated over the whole union its documentation
+  // states: declaring a subset would reject a documented form, so the set is the clause.
+  assert.deepEqual(
+    pluginManifestDefaultContract
+      .map((entry) => entry.predicate)
+      .filter((predicate) => predicate.key === "type" && predicate.field !== "keywords")
+      .map((predicate) => [predicate.field, predicate.value_type]),
+    [
+      ["skills", ["string", "list"]],
+      ["commands", ["string", "list", "map"]],
+      ["agents", ["string", "list"]],
+      ["hooks", ["string", "list", "map"]],
+      ["mcpServers", ["string", "list", "map"]],
+      ["lspServers", ["string", "list", "map"]],
+    ],
+  );
   // The runtime divergence rides the guidance, the one channel that can carry it: the
   // clause decides the key's presence, never which world the reader is validating in.
   assert.match(experimental.guidance ?? "", /--strict/);
@@ -281,10 +300,15 @@ test("pluginManifestDefaultContract gates the decidable slice of the --strict pr
   // where the reader learns this is a load error rather than another `--strict` warning.
   assert.match(keywordsType.guidance ?? "", /load error/);
 
-  // Cited and dated, every one — the audit trail a maintained default contract exists for.
+  // Cited and dated, every one — the audit trail a maintained default contract exists
+  // for. `commands` is the one clause citing a second source alongside the reference
+  // page: the published schema carries an object form the reference table omits, and a
+  // clause admitting that form says where it read it.
   for (const entry of pluginManifestDefaultContract) {
-    assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/plugins-reference#.* \(retrieved 2026-07-16\)$/);
+    assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/plugins-reference#\S+ \(retrieved 2026-07-\d\d\)/);
   }
+  const commandsType = pluginManifestDefaultContract.find((entry) => entry.predicate.field === "commands");
+  assert.match(commandsType?.cite ?? "", /json\.schemastore\.org\/claude-code-plugin-manifest\.json \(retrieved 2026-07-16\)$/);
 });
 
 test("marketplace is a json-document file kind at a glob its plugin-manifest sibling never contends for", () => {

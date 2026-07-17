@@ -603,7 +603,7 @@ export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifes
  * the two diverge each clause's guidance says so (all facts
  * code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
  *
- * Two decidable documented rules are absent, **pending a vocabulary addition** — the same
+ * One decidable documented rule is absent, **pending a vocabulary addition** — the same
  * hold `skillDefaultContract` names for its own two:
  *
  * - **Unrecognized top-level fields**, the substance of `--strict`. The check is an
@@ -611,13 +611,13 @@ export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifes
  *   `forbidden_keys`, a deny-list — the complement of a finite set over an open key space
  *   is not expressible. (`optional` records a key as part of a declared closed schema but
  *   is always satisfied; nothing consumes the record.) The one deny-list slice that *is*
- *   decidable ships below.
- * - **Wrong-typed component paths**. `skills`, `commands`, `agents`, `hooks`,
- *   `mcpServers` and `lspServers` are each documented `string|array` (the last three also
- *   `object`), and `type` declares one lattice kind, never a union — so a union-typed
- *   field is unreachable until the algebra carries an alternation. The single-kind fields
- *   are expressible and `keywords` ships below; the TypeScript types above are what hold
- *   the union bar for an SDK author, and a hand-written manifest is unguarded there.
+ *   decidable ships below. The `closed-keys` widening closes this.
+ *
+ * The component-path fields are gated below rather than held: `type` declares a *set* of
+ * lattice kinds, so a field documented `string|array` is checked as the union it is. Each
+ * clause declares the widest union its documentation states — a narrower set would reject
+ * a documented form, which is a false positive no clause may produce, and the strictest
+ * *documented* profile of a union-typed field is the union.
  *
  * Deliberately absent as undecidable: whether the `description` reads well, whether
  * `keywords` aid discovery, whether `name` names the pack aptly.
@@ -652,11 +652,47 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
       "`themes` and `monitors` are experimental components and belong under the `experimental` key. Declaring them at the top level still loads today and `claude plugin validate` only warns — but `--strict` fails it, and a future release will require `experimental.*`, so a top-level spelling is a migration already scheduled against you.",
     cite: "https://code.claude.com/docs/en/plugins-reference#experimental-components (retrieved 2026-07-16)",
   }),
-  clause(type("keywords", "list"), {
+  clause(type("keywords", ["list"]), {
     severity: "required",
     guidance:
       "`keywords` is an array of discovery tags, and a bare string is not a shorter spelling of a one-tag list: a wrong-typed field is a load error, so the plugin does not load at all — everywhere, not merely under `--strict`, which is the one rule here the forgiving runtime does not wave through. Write `[\"deployment\"]` for a single tag.",
     cite: "https://code.claude.com/docs/en/plugins-reference#unrecognized-fields (retrieved 2026-07-16)",
+  }),
+  clause(type("skills", ["string", "list"]), {
+    severity: "required",
+    guidance:
+      "`skills` names custom skill directories — each holding a `<name>/SKILL.md` — as one `\"./custom/skills/\"` path or a list of them. Unlike its neighbours it *adds* to the default `skills/` scan rather than replacing it, so listing `\"./skills/\"` alongside your extra path is redundant, not required.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(type("commands", ["string", "list", "map"]), {
+    severity: "required",
+    guidance:
+      "`commands` names flat `.md` skill files or directories, as one path, a list of them, or an object keyed by command name (each entry carrying `source` or inline `content`). Setting it *replaces* the default `commands/` scan — to keep the default and add to it, list it explicitly: `[\"./commands/\", \"./extras/\"]`. The reference table names only the string and array forms; the object form is the published schema's, so a manifest using it is valid and this clause admits all three.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17); object form per https://json.schemastore.org/claude-code-plugin-manifest.json (retrieved 2026-07-16)",
+  }),
+  clause(type("agents", ["string", "list"]), {
+    severity: "required",
+    guidance:
+      "`agents` names custom agent files as one path or a list of them, and *replaces* the default `agents/` scan — a manifest that sets it and expects `agents/` to still be read ships a plugin missing every agent in that folder. Claude Code v2.1.140 and later warns about the ignored folder in `claude plugin list`.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(type("hooks", ["string", "list", "map"]), {
+    severity: "required",
+    guidance:
+      "`hooks` is a path to a hook config JSON file, a list of them, or the config inline as an object keyed by event name. The inline object is the whole `hooks.json` body, not a fragment of it — the same shape `hooks/hooks.json` carries.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(type("mcpServers", ["string", "list", "map"]), {
+    severity: "required",
+    guidance:
+      "`mcpServers` is a path to an MCP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.mcp.json` carries. A `channels` entry's `server` must match a key here, so the inline object is the form to reach for when the two are authored together.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
+  }),
+  clause(type("lspServers", ["string", "list", "map"]), {
+    severity: "required",
+    guidance:
+      "`lspServers` is a path to an LSP config JSON file, a list of them, or the config inline as an object keyed by server name — the same shape `.lsp.json` carries. These drive code intelligence (go to definition, find references), so a wrong-typed value costs the capability silently rather than loudly.",
+    cite: "https://code.claude.com/docs/en/plugins-reference#component-path-fields (retrieved 2026-07-17)",
   }),
 ];
 

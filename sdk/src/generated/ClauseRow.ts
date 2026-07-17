@@ -90,13 +90,20 @@ degree?: DegreeBoundRow,
  */
 gate?: string, 
 /**
- * The `type` clause's declared source kind, when the predicate is `type` — the
- * lattice name (`string`/`integer`/`number`/`boolean`/`null`/`list`/`map`) that
- * [`crate::extract::ValueType::from_name`] decodes. Carried as its name rather
- * than as a [`crate::extract::ValueType`]: the lattice is a feature-side type,
- * and the row family decodes its arguments at the boundary.
+ * The `type` clause's declared source kinds, when the predicate is `type` — the
+ * lattice names (`string`/`integer`/`number`/`boolean`/`null`/`list`/`map`) that
+ * [`crate::extract::ValueType::from_name`] decodes. Carried as names rather than
+ * as [`crate::extract::ValueType`]s: the lattice is a feature-side type, and the
+ * row family decodes its arguments at the boundary.
+ *
+ * A **set**, since a `type` clause declares one: the column is an array of names
+ * in lattice order, and a one-element array is the single-kind clause. A lock
+ * written by an older engine spells that case as a bare string, which
+ * [`ClauseRow::from_table`] reads as the one-element set it means; the next `emit`
+ * rewrites the file whole in the array form, which is the upgrade — a committed
+ * lock is re-emitted from its source, never patched in place.
  */
-value_type?: string, 
+value_type?: Array<string>, 
 /**
  * The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
  * is one of those three.
