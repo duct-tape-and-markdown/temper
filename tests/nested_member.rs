@@ -575,6 +575,59 @@ fn a_file_the_hosts_pattern_does_not_match_is_discovered_as_no_member() {
 }
 
 #[test]
+fn a_declared_kinds_exact_path_carves_its_path_out_of_a_host_template() {
+    // 0038's gauntlet cell: a declared locus meets a host template's glob at one path.
+    // The declared exact-path kind is that path's sole home — the host template's
+    // discovery carves it out, so no phantom `supporting-doc` twin materializes for the
+    // coverage/`explain`/`degree` consumers to each have to un-see.
+    let harness = common::tmpdir("template-discovery-carve");
+    let unit = write_skill_with_companions(&harness, "jobs");
+    // A second `*.md` companion under the same unit — the exact path both the declared
+    // kind and the host's `supporting-doc` template would otherwise claim.
+    std::fs::write(unit.join("conventions.md"), "# Conventions\n").unwrap();
+
+    let child = nested_file_kind("supporting-doc");
+    // The declared kind governs `conventions.md` at its exact path under the skill unit.
+    let declared = CustomKind::new(
+        "convention",
+        Governs {
+            root: ".claude/skills/jobs".to_string(),
+            glob: "conventions.md".to_string(),
+        },
+        Extraction::new(Vec::new()),
+    );
+    let kinds = BTreeMap::from([
+        (
+            "skill".to_string(),
+            skill_templating("supporting-doc", "*.md"),
+        ),
+        ("convention".to_string(), declared),
+    ]);
+
+    let found = temper::import::discover_nested_file(
+        &harness,
+        &child,
+        &kinds,
+        temper::import::LocalOverride::Honored,
+    )
+    .unwrap();
+
+    // `PLAYBOOK.md` is the skill's only `supporting-doc` child: the template glob would
+    // have swept up `conventions.md` too, but the declared kind's locus carves it out, so
+    // the declared member is that path's sole home and the twin never forms.
+    assert_eq!(
+        found.iter().map(|unit| &unit.file).collect::<Vec<_>>(),
+        vec![&unit.join("PLAYBOOK.md")]
+    );
+    assert!(
+        !found
+            .iter()
+            .any(|found| found.file == unit.join("conventions.md")),
+        "the declared kind's path is no host template's child — no phantom twin"
+    );
+}
+
+#[test]
 fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_doc_child() {
     // The built-in adoption, off the shipped kinds alone: no test-built host, no
     // overlaid template. `skill` templates `supporting-doc` at its directory's markdown,

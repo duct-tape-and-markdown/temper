@@ -162,6 +162,13 @@ pub fn discover_nested_file(
     kinds: &BTreeMap<String, CustomKind>,
     over: LocalOverride,
 ) -> Result<Vec<NestedFileUnit>, ImportError> {
+    // A path a declared kind's own `governs` locus claims has one home — that kind's
+    // member — so it is carved out of every host template's discovery here, at the
+    // single point one path is decided. Without the carve a declared exact-path kind and
+    // a host template both materialize the path: a phantom twin the coverage, `explain`,
+    // and `degree` consumers would each then have to un-see. Position stays decidable at
+    // this one seam instead.
+    let claimed = declared_governed_paths(harness, kinds, over)?;
     let mut found = Vec::new();
     for host in kinds.values() {
         let (Some(pattern), Some(governs)) =
@@ -179,7 +186,7 @@ pub fn discover_nested_file(
                 continue;
             };
             for file in scan_locus(&host_unit, pattern, &discoverable)? {
-                if file != entry {
+                if file != entry && !claimed.contains(&file) {
                     found.push(NestedFileUnit {
                         host_unit: host_unit.clone(),
                         file,
@@ -190,6 +197,29 @@ pub fn discover_nested_file(
     }
     found.sort_by(|a, b| a.file.cmp(&b.file));
     Ok(found)
+}
+
+/// Every path some declared kind's own `governs` locus claims, across `kinds` — the set a
+/// host template's discovery carves out so a declared kind's member is the sole home of its
+/// path. A nested file kind governs no locus of its own (a template child's path is its
+/// host's fact), so it contributes nothing; only the kinds carrying a `governs` pair claim
+/// paths, scanned through the same `discover_kind_files` walk discovery itself rides.
+///
+/// # Errors
+///
+/// Returns an [`ImportError`] if a declared kind's locus cannot be enumerated.
+fn declared_governed_paths(
+    harness: &Path,
+    kinds: &BTreeMap<String, CustomKind>,
+    over: LocalOverride,
+) -> Result<BTreeSet<PathBuf>, ImportError> {
+    let mut claimed = BTreeSet::new();
+    for kind in kinds.values() {
+        if let Some(governs) = kind.governs.as_ref() {
+            claimed.extend(discover_kind_files(harness, kind, governs, over)?);
+        }
+    }
+    Ok(claimed)
 }
 
 /// The path pattern `host` templates `child`'s file layer at, if it declares one — the
