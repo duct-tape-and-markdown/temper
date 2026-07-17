@@ -1,40 +1,5 @@
 [
   {
-    "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
-    "summary": "`check` announces every active local member, every dialed clause, and every joined lock — the gate says out loud which inputs judged this run",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Layers"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict. Nothing of it is built: `rg announce src/ tests/` is empty at 8fc5e21. All three inputs are now assembled and need no re-derivation, which is what the dial's ship changed in this entry's favour. `assemble_lock_family` (1512) returns the `LockFamily` (1474), read once before any consumer, carrying `declarations`, `joined_clauses` (1484 — each already addressed under the layer that carried it, `qualify_layer_label` at 1629), and, new since the dial shipped, `dial` (1491). The dialed third is assembled too: `dialed` (830) accumulates every label the dial reached across its four `apply` sites (886, 932, 997, 1059) and is final at `dial.refusals` (1061), so the announcement reads that set rather than re-deriving it. The local-member third is the one that needs a value retained rather than a fresh read: `assemble_lock_family` resolves each local kind's units (`resolve_kind_units`, 1256) and keeps only the derived rows, dropping the unit ids — announce them by retaining them on `LockFamily` beside the rows they produced, never by re-walking the kind's glob. One rider (comment staleness, the ride-only class — it discharges only because this entry opens the file and names it): the comment at 1047 calls the selection loop \"The second and last dial site\" while four `dial.apply` sites exist; correct it to the count, or to the two-class reading it means."
-        },
-        {
-          "path": "src/reporter.rs",
-          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line. The file is untouched across a2e48aa..8fc5e21, so all three addresses carry from last tick's re-read."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/reporters.rs",
-        "asserts": "a check run with a local member, a dialed clause, and a joined lock announces all three; a run with none announces nothing extra"
-      }
-    ],
-    "acceptance": "`check` announces every active local member, every dialed clause, and every joined lock (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "Last of 0032's five — it announces what the other four introduce, and all four now exist: DIAL-KIND shipped (eaee2af), discharging this entry's `blockedBy`. The premise moved in its favour — all three thirds are built-and-unannounced now, where last tick only the joined lock was, so this is announcement with no re-derivation. Carries one ride-only comment fix, named in the `src/main.rs` description. scoped at 8fc5e21; every address re-read this tick."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
