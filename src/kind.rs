@@ -1102,7 +1102,7 @@ fn content_shape_from_label(label: &str) -> Option<Content> {
 /// Returns a [`LockRowError`] when the recorded `key_path` label falls outside the closed
 /// vocabulary — the tool-written lock carries only labels the SDK could emit, so an
 /// unknown one is corruption rejected at load.
-fn collection_address_from_row(
+pub(crate) fn collection_address_from_row(
     row: &KindFactRow,
 ) -> Result<Option<CollectionAddress>, LockRowError> {
     match &row.collection_address {

@@ -29,8 +29,8 @@ use crate::hash::sha256_hex;
 use crate::import::{RollupEntry, write_rollup};
 use crate::install;
 use crate::kind::{
-    Commitment, Content, Format, Layout, LayoutRegion, commitment_from_row, content_from_row,
-    format_from_row,
+    CollectionAddress, Commitment, Content, Format, Layout, LayoutRegion,
+    collection_address_from_row, commitment_from_row, content_from_row, format_from_row,
 };
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
@@ -100,6 +100,25 @@ pub enum DriftError {
         /// The host member address (`kind:name`) whose embedded-member layer dropped.
         host: String,
         /// How many nested members the committed lock still declares under the host.
+        count: usize,
+    },
+
+    /// A partial manifest rewrite would drop every discovered member of one collection
+    /// while the payload declares none in its place — the whole live `hooks` (or
+    /// `enabledPlugins`, `mcpServers`) block a settings.json rewrite would strand. Refused
+    /// at the segment cliff, the whole-file [`TotalReapWave`](DriftError::TotalReapWave)
+    /// doctrine carried down to a manifest's segments (decision 0024): a genuine segment
+    /// teardown is the `--teardown` flag the author spells.
+    #[error(
+        "refusing to drop the whole `{collection}` collection of `{manifest}`: it carries {count} discovered member(s) on disk and this emit declares none in their place (a partial manifest rewrite would strand them silently). Pass `--teardown` to clear the collection on purpose."
+    )]
+    #[diagnostic(code(temper::drift::segment_reap_wave))]
+    SegmentReapWave {
+        /// The manifest whose collection would be emptied, harness-relative.
+        manifest: String,
+        /// The collection key (`hooks`, `enabledPlugins`, `mcpServers`) being emptied.
+        collection: String,
+        /// How many discovered members the collection carries on disk.
         count: usize,
     },
 
@@ -504,6 +523,13 @@ pub enum EmitOutcome {
     /// edit, or some other out-of-band change. Left on disk and only reported:
     /// deleting hand-authored bytes is never the safe default.
     OrphanDrift,
+    /// A discovered manifest member — a hook, an installed plugin, an MCP server, or an
+    /// opaque residue key — the on-disk manifest carried and the payload no longer
+    /// declares. A represented manifest is regenerated whole, so an undeclared member would
+    /// vanish with no finding; this names it in the reap ledger instead. The segment-level
+    /// peer of [`Reaped`](EmitOutcome::Reaped): temper wrote the manifest, so dropping the
+    /// member loses nothing authored, but the drop is surfaced, never silent.
+    MemberReaped,
 }
 
 impl EmitOutcome {
@@ -515,6 +541,7 @@ impl EmitOutcome {
             EmitOutcome::Unchanged => "unchanged",
             EmitOutcome::Reaped => "reaped",
             EmitOutcome::OrphanDrift => "orphan-drift",
+            EmitOutcome::MemberReaped => "member-reaped",
         }
     }
 }
@@ -1214,7 +1241,14 @@ pub fn emit(
         }
     }
 
-    let mut entries = Vec::with_capacity(projections.len() + orphans.len());
+    // The reap doctrine carried down to a manifest's segments: a represented manifest is
+    // rewritten whole, so a member the on-disk file carried and the payload no longer
+    // declares would vanish with no finding. The diff runs before any byte is written, so
+    // the segment cliff refuses a total collection drop without undoing a write.
+    let segment_reaps =
+        manifest_segment_reaps(&manifests, &kind_facts, &harness_root, options.teardown)?;
+
+    let mut entries = Vec::with_capacity(projections.len() + orphans.len() + segment_reaps.len());
     let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     for projection in &projections {
         let (entry, hash) = emit_one(projection, &harness_root, options.dry_run)?;
@@ -1245,6 +1279,10 @@ pub fn emit(
         }
         entries.push(entry);
     }
+
+    // The manifest segment reaps diffed before the writes above — each dropped discovered
+    // member named in the ledger beside the whole-file reaps.
+    entries.extend(segment_reaps);
 
     // Reap the byte-faithful orphans classified above — the deletion deferred past
     // the cliff check so a refused wave never removed a file. A drifted orphan is
@@ -1433,6 +1471,115 @@ fn emit_manifest(
         })?;
     }
     Ok((row(EmitOutcome::Emitted), hash))
+}
+
+/// The manifest segment reaps this emit performs: for each represented manifest, every
+/// member the on-disk file discovers at a declared collection address — and every opaque
+/// residue key it carries — that the payload no longer declares. A represented manifest is
+/// regenerated whole through the write face, so an undeclared hook, installed plugin, or
+/// residue key would vanish with no finding; this diffs the current file's discovered
+/// members and residue keys against the build's `segments` and `residue` and names each
+/// dropped one in the reap ledger — the whole-file reap doctrine carried down to a
+/// manifest's segments.
+///
+/// The current file is parsed for **drift detection alone**, never a projection read for
+/// meaning: an absent or unreadable file discovers nothing, and the reap is decided here,
+/// before a byte is written, so the segment cliff never has to undo a write.
+///
+/// # Errors
+/// Returns [`DriftError::SegmentReapWave`] when the drop is total — every discovered member
+/// of one collection gone, the payload declaring none in its place — unless `teardown` is
+/// set. Propagates a [`LockRowError`] when a kind fact's collection address carries a
+/// key-path label outside the closed vocabulary.
+fn manifest_segment_reaps(
+    manifests: &BTreeMap<PathBuf, ManifestBuild>,
+    kind_facts: &BTreeMap<&str, &KindFactRow>,
+    harness_root: &Path,
+    teardown: bool,
+) -> Result<Vec<EmitEntry>, DriftError> {
+    let mut reaps = Vec::new();
+    for (path, build) in manifests {
+        // Every collection address that targets this manifest file — the kinds whose
+        // registration members surface inside it (a hook and an installed plugin both key
+        // into one settings.json). A collection with no address here reads as one opaque
+        // top-level key, so an undeclared collection still surfaces as a residue-key drop,
+        // never silently.
+        let mut addresses = Vec::new();
+        for facts in kind_facts.values() {
+            if manifest_target_path(facts).as_deref() == Some(path.as_path())
+                && let Some(address) = collection_address_from_row(facts)?
+            {
+                addresses.push(address);
+            }
+        }
+        let address_refs: Vec<&CollectionAddress> = addresses.iter().collect();
+
+        // Read the current manifest for drift detection only. An absent or unreadable file
+        // discovers nothing; a malformed one carries no members this pass can honor — either
+        // way the whole-file rewrite below stands, and nothing is falsely reaped.
+        let disk_path = harness_root.join(path);
+        let Ok(raw) = fs::read_to_string(&disk_path) else {
+            continue;
+        };
+        let Ok(current) = crate::json_manifest::Manifest::parse(&disk_path, &raw, &address_refs)
+        else {
+            continue;
+        };
+
+        let mut discovered: BTreeMap<&str, usize> = BTreeMap::new();
+        for member in &current.members {
+            *discovered.entry(member.collection.as_str()).or_default() += 1;
+            let declared = build
+                .segments
+                .get(&member.collection)
+                .is_some_and(|entries| entries.contains_key(&member.key));
+            if !declared {
+                reaps.push(EmitEntry {
+                    kind: member.collection.clone(),
+                    name: member.key.clone(),
+                    source_path: disk_path.clone(),
+                    outcome: EmitOutcome::MemberReaped,
+                });
+            }
+        }
+        // A residue key drop is keyed by the manifest's filename — the same label an
+        // ownerless manifest wears in the ledger.
+        let manifest_label = disk_path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| to_lock_path(path));
+        for key in current.opaque_fields.keys() {
+            if !build.residue.contains_key(key) {
+                reaps.push(EmitEntry {
+                    kind: manifest_label.clone(),
+                    name: key.clone(),
+                    source_path: disk_path.clone(),
+                    outcome: EmitOutcome::MemberReaped,
+                });
+            }
+        }
+
+        // The segment cliff: a collection whose every discovered member is dropped, the
+        // payload declaring none in its place, is a total teardown of that segment — refused
+        // unless the author spells it, the whole-file cliff's segment-level peer. A residue
+        // key is no collection, so its drop is a ledger finding but never trips this.
+        if !teardown {
+            for (collection, count) in &discovered {
+                let survives = build
+                    .segments
+                    .get(*collection)
+                    .is_some_and(|entries| !entries.is_empty());
+                if !survives {
+                    return Err(DriftError::SegmentReapWave {
+                        manifest: to_lock_path(path),
+                        collection: (*collection).to_string(),
+                        count: *count,
+                    });
+                }
+            }
+        }
+    }
+    Ok(reaps)
 }
 
 /// What emit derives from one layout source in a single read: its member collections
@@ -2002,23 +2149,25 @@ fn render_field(key: &str, value: &JsonValue) -> String {
 #[must_use]
 pub fn render_emit(report: &EmitReport) -> String {
     let mut out = String::new();
-    let (mut emitted, mut unchanged, mut reaped, mut orphan_drift) = (0u32, 0u32, 0u32, 0u32);
+    let (mut emitted, mut unchanged, mut reaped, mut orphan_drift, mut member_reaped) =
+        (0u32, 0u32, 0u32, 0u32, 0u32);
     for entry in &report.entries {
         match entry.outcome {
             EmitOutcome::Emitted => emitted += 1,
             EmitOutcome::Unchanged => unchanged += 1,
             EmitOutcome::Reaped => reaped += 1,
             EmitOutcome::OrphanDrift => orphan_drift += 1,
+            EmitOutcome::MemberReaped => member_reaped += 1,
         }
         out.push_str(&format!(
-            "{:<10}  {:<5}  {}\n",
+            "{:<13}  {:<5}  {}\n",
             entry.outcome.label(),
             entry.kind,
             entry.name
         ));
     }
     out.push_str(&format!(
-        "\n{emitted} emitted, {unchanged} unchanged, {reaped} reaped, {orphan_drift} orphan-drift\n"
+        "\n{emitted} emitted, {unchanged} unchanged, {reaped} reaped, {orphan_drift} orphan-drift, {member_reaped} member-reaped\n"
     ));
     out
 }

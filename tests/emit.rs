@@ -675,6 +675,172 @@ fn harness_settings_residue_folds_into_settings_json_beside_the_hooks_segment() 
     assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
 }
 
+/// A represented `settings.json` payload: one hook registration per event in `events`
+/// (keyed `hooks.<event>`), plus a `settings` container member whose fields are the opaque
+/// `residue`. The container kind and the hook kind both govern `.claude/settings.json`, so
+/// the container's member projects to the manifest the hooks surface inside.
+fn settings_payload(events: &[&str], residue: &[(&str, serde_json::Value)]) -> Payload {
+    let registrations = events
+        .iter()
+        .map(|event| RegistrationRow {
+            kind: "hook".to_string(),
+            key: (*event).to_string(),
+            manifest: "settings.json".to_string(),
+            key_path: "hooks.<Event>".to_string(),
+            fields: vec![
+                ("type".to_string(), serde_json::json!("command")),
+                ("command".to_string(), serde_json::json!("temper reporter")),
+            ],
+        })
+        .collect();
+    let fields = residue
+        .iter()
+        .map(|(key, value)| ((*key).to_string(), value.clone()))
+        .collect();
+    Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                hook_kind_facts(),
+                common::kind_facts("settings", ".claude", "settings.json"),
+            ],
+            registrations,
+            ..Default::default()
+        },
+        members: vec![PayloadMember {
+            kind: "settings".to_string(),
+            name: "settings".to_string(),
+            host: None,
+            fields,
+            body: String::new(),
+            source_path: None,
+        }],
+    }
+}
+
+#[test]
+fn a_partial_manifest_rewrite_names_every_dropped_member_in_the_reap_ledger() {
+    let (harness, into) = workspace("manifest-segment-reap");
+
+    // The live settings.json: two hooks (distinct events) and two opaque residue keys.
+    let full = settings_payload(
+        &["PreToolUse", "SessionStart"],
+        &[
+            (
+                "permissions",
+                serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+            ),
+            (
+                "extraKnownMarketplaces",
+                serde_json::json!(["acme/plugins"]),
+            ),
+        ],
+    );
+    drift::emit(&full, &into, EmitOptions::default()).unwrap();
+
+    // The partial rewrite: the SessionStart hook and `permissions` survive; the PreToolUse
+    // hook and the `extraKnownMarketplaces` residue key are dropped. A whole-file rewrite
+    // would strand both silently — the segment reap names each in the ledger instead.
+    let partial = settings_payload(
+        &["SessionStart"],
+        &[(
+            "permissions",
+            serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+        )],
+    );
+    let report = drift::emit(&partial, &into, EmitOptions::default()).unwrap();
+
+    // One reap-ledger entry per dropped discovered member — the hook keyed by its event,
+    // the residue key by the manifest filename.
+    assert_eq!(outcome(&report, "PreToolUse"), EmitOutcome::MemberReaped);
+    assert_eq!(
+        outcome(&report, "extraKnownMarketplaces"),
+        EmitOutcome::MemberReaped
+    );
+
+    // The tally counts both, and the surviving hook is never reaped.
+    let rendered = drift::render_emit(&report);
+    assert!(rendered.contains("2 member-reaped"), "{rendered}");
+    assert!(
+        !report
+            .entries
+            .iter()
+            .any(|e| e.name == "SessionStart" && e.outcome == EmitOutcome::MemberReaped),
+        "the surviving hook is never reaped: {:?}",
+        report.entries
+    );
+
+    // The rewritten manifest keeps the survivors and sheds the dropped members.
+    let written = fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap();
+    assert!(written.contains("SessionStart"), "{written}");
+    assert!(written.contains("permissions"), "{written}");
+    assert!(!written.contains("PreToolUse"), "{written}");
+    assert!(!written.contains("extraKnownMarketplaces"), "{written}");
+}
+
+#[test]
+fn a_total_collection_drop_refuses_at_the_segment_cliff_unless_teardown() {
+    let (harness, into) = workspace("manifest-segment-cliff");
+
+    // The live settings.json carries one hook and a residue key.
+    let full = settings_payload(
+        &["PreToolUse"],
+        &[(
+            "permissions",
+            serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+        )],
+    );
+    drift::emit(&full, &into, EmitOptions::default()).unwrap();
+
+    // A payload declaring the hook kind but no hook registration — the whole `hooks`
+    // collection would be emptied. A settings residue keeps the manifest represented so the
+    // diff still runs.
+    let emptied = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                hook_kind_facts(),
+                common::kind_facts("settings", ".claude", "settings.json"),
+            ],
+            settings: vec![SettingsRow {
+                manifest: "settings.json".to_string(),
+                key: "permissions".to_string(),
+                value: serde_json::json!({ "allow": ["Bash(cargo build:*)"] }),
+            }],
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+
+    // The total drop refuses at the segment cliff, naming the collection and the flag.
+    let err = drift::emit(&emptied, &into, EmitOptions::default()).unwrap_err();
+    let message = format!("{err}");
+    assert!(message.contains("hooks"), "{message}");
+    assert!(message.contains("teardown"), "{message}");
+
+    // The refusal fires before any byte is written — the live hook is untouched.
+    let written = fs::read_to_string(harness.join(".claude").join("settings.json")).unwrap();
+    assert!(written.contains("PreToolUse"), "{written}");
+
+    // Spelled `--teardown`: the same emit proceeds and names the cleared hook in the ledger.
+    let report = drift::emit(
+        &emptied,
+        &into,
+        EmitOptions {
+            teardown: true,
+            ..EmitOptions::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(outcome(&report, "PreToolUse"), EmitOutcome::MemberReaped);
+    assert!(
+        !fs::read_to_string(harness.join(".claude").join("settings.json"))
+            .unwrap()
+            .contains("PreToolUse"),
+        "the spelled teardown clears the hook from the manifest"
+    );
+}
+
 #[test]
 fn a_settings_residue_key_with_no_manifest_to_land_in_refuses_loud() {
     let (_harness, into) = workspace("settings-residue-unplaceable");
