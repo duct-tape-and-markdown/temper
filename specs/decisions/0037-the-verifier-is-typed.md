@@ -1,6 +1,7 @@
 # 0037 — the verifier is typed: telemetry rides the config surface
 
-- **Date:** 2026-07-17 · **Status:** accepted
+- **Date:** 2026-07-17 · **Status:** accepted · **Amended:** 2026-07-17
+  (the log is the engine's own record, not a member)
 
 ## Context
 
@@ -81,3 +82,20 @@ local-locus log kind, the field strand, verifier-type resolution at
 check. The `(eval-capability)` fork record deletes with this record's
 commit; the ledger's behavioral-horizon carry resolves — the horizon
 graduated straight to intent, so `docs/horizons.md` gains no entry.
+
+## Amended — 2026-07-17
+
+The Decision's storage clause — "records them to a local-locus log" — and
+the derivation slice "the local-locus log kind" over-claimed membership:
+the local commitment class is a class of *members*, and making the log a
+member forces a format question none of the three formats can answer
+(append-only under concurrent sessions versus whole-file document reads —
+the `(tap-log-format)` fork). Ruled same day: the log is the **engine's
+own record**, the lock and emit-payload category — machine-written,
+bespoke-parsed, versioned in lockstep with the binary that both writes
+and reads it; no member, no declared format, the format vocabulary stays
+three. The local class's guarantees hold by placement (an uncommitted
+per-machine path), and a reader meeting older records tolerates them out
+loud. The derivation slice rescopes to the record's versioned shape in
+engine code; the tap verb and the field strand unblock unchanged — the
+strand's member join still rides the lock, only the parse is bespoke.

@@ -78,8 +78,15 @@ active local member, every dialed clause, and every joined lock.
 
 A telemetry declaration projects as tap hook registrations in the emitted
 manifest — the same rows any hook rides. The tap appends event records to
-a local-locus log (`representation.md`, "locus"): per-machine,
-uncommitted, never an emit input or target. A record is an event's
+its own log — the lock's category, never a member's: machine-written,
+bespoke-parsed, internal and versioned in lockstep with the one binary
+that both writes and reads it (the emit payload's precedent; the format
+vocabulary stays the members'). The log is per-machine, uncommitted, and
+never an emit input or target — the local class's guarantees by
+placement, not by membership — and an append is a single record:
+parallel sessions interleave lines, never rewrite the file. A reader
+meeting records an older tap wrote tolerates them out loud — a count in
+the narration, never a silent skip. A record is an event's
 identity and its minimal discriminant — the member or path the event
 names, the load reason, the session id — and never captured prose: no
 tool output, no prompt text, no message bodies. The bound is the tap's
