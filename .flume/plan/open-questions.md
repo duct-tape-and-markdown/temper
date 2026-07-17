@@ -13,21 +13,6 @@ tax.
 
 ## Open forks
 
-- `(value-extent-predicate)` — OPEN, human's call, registered 07-17 from the
-  centercode field report (observed at d359782). First real-consumer
-  vocabulary demand on record: no shipped predicate ranges over an embedded
-  value's **rendered extent**, so advisory posture budgets are unsayable — the
-  consumer declared per-grain render budgets (orientation ~12 rendered lines,
-  directive ~4, step ~3) and withdrew them for lack of a predicate. The want:
-  a value-extent predicate over the lines/characters of a member's resolved
-  render, each-grain, decidable. A vocabulary addition is a deliberate
-  language change (`model/contract.md`, "clause": the predicate vocabulary is
-  closed, an unknown predicate is rejected at load, and adding one is a
-  deliberate language change) — never plan's to derive and never build's to
-  invent, so this parks for the design session. Nothing is broken by leaving
-  it open: the budgets are simply unexpressible today, and the consumer
-  withdrew them rather than hitting a wrong verdict. No dependents.
-
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
