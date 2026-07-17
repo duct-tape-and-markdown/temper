@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the ten built-in kinds' facts and their default contract clauses, plus the
+# the eleven built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,10 +10,11 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
-# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `mcp-server`,
-# `plugin-manifest`, `skill`, `supporting-doc`, `rule`, `memory`) and its ten default
-# contracts (`agentDefaultContract`, `commandDefaultContract`, `hookDefaultContract`,
-# `installedPluginDefaultContract`, `mcpServerDefaultContract`,
+# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `marketplace`,
+# `mcp-server`, `plugin-manifest`, `skill`, `supporting-doc`, `rule`, `memory`) and its
+# eleven default contracts (`agentDefaultContract`, `commandDefaultContract`,
+# `hookDefaultContract`, `installedPluginDefaultContract`, `marketplaceDefaultContract`,
+# `mcpServerDefaultContract`,
 # `pluginManifestDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
 # `memoryAnthropicDefaultContract`) — the identical rows an
@@ -22,7 +23,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's ten kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's eleven kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -33,7 +34,7 @@
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
 # `installed-plugin` is the one kind here contributing a kind fact and no clause row at
-# all: its default contract is empty, so ten kinds carry nine contracts' clauses. The
+# all: its default contract is empty, so eleven kinds carry ten contracts' clauses. The
 # format documents no gateable schema — an entry is one scalar under a key that is the
 # member's identity rather than a declared field — and the absence is the honest encoding,
 # not a row lost in regeneration.
@@ -79,6 +80,13 @@ unit_shape = "file"
 registration = ["enablement"]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
+
+[[declaration.kind]]
+name = "marketplace"
+governs_root = ".claude-plugin"
+governs_glob = "marketplace.json"
+format = "json-document"
+unit_shape = "named-field(name)"
 
 [[declaration.kind]]
 name = "mcp-server"
@@ -267,6 +275,57 @@ severity = "required"
 guidance = "A hook keys under its lifecycle event; an event outside the documented set is dead configuration — Claude Code silently never fires a hook under an unrecognized event. If this is a newly-documented event, re-fetch code.claude.com/docs/en/hooks and extend temper's cited set rather than working around the finding."
 cite = "https://code.claude.com/docs/en/hooks (retrieved 2026-07-15)"
 values = ["SessionStart", "Setup", "UserPromptSubmit", "UserPromptExpansion", "PreToolUse", "PermissionRequest", "PermissionDenied", "PostToolUse", "PostToolUseFailure", "PostToolBatch", "Notification", "MessageDisplay", "SubagentStart", "SubagentStop", "TaskCreated", "TaskCompleted", "Stop", "StopFailure", "TeammateIdle", "InstructionsLoaded", "ConfigChange", "CwdChanged", "FileChanged", "WorktreeCreate", "WorktreeRemove", "PreCompact", "PostCompact", "Elicitation", "ElicitationResult", "SessionEnd"]
+
+[[declaration.clause]]
+kind = "marketplace"
+predicate = "required"
+field = "name"
+severity = "required"
+guidance = "A marketplace declares a `name` — the identity users type when installing from it (`/plugin install my-tool@your-marketplace`) and the key each user registers it under. There is no directory fallback the way `plugin.json` has one."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+kind = "marketplace"
+predicate = "min_len"
+field = "name"
+severity = "required"
+guidance = "A present-but-empty name cannot key an install or qualify a plugin reference. Give it a real one."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
+bound = { min = 1 }
+
+[[declaration.clause]]
+kind = "marketplace"
+predicate = "allowed_chars"
+field = "name"
+severity = "required"
+guidance = "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is typed after an `@` to qualify every plugin installed from the marketplace, so a space or a capital makes it unquotable exactly where users type it."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
+charset = { ranges = ["a-z", "0-9"], chars = "-" }
+
+[[declaration.clause]]
+kind = "marketplace"
+predicate = "deny"
+field = "name"
+severity = "required"
+guidance = "This name is reserved for official Anthropic use and a third-party marketplace cannot load under it. Claude Code re-checks the reserved list on every load, not only when the marketplace is added — so publishing under one of these names strands every user who already added you: the marketplace stops loading and reports that it is registered from an untrusted source, and they must remove and re-add it. The list also grows (before v2.1.205, `first-party-plugins` and `healthcare` were not on it). Names that merely *impersonate* an official marketplace — `official-claude-plugins`, `anthropic-plugins-v2` — are blocked too, but impersonation is a judgment no clause can decide: this clause holds the enumerated list, and steering clear of the lookalikes is yours."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
+values = ["claude-code-marketplace", "claude-code-plugins", "claude-plugins-official", "claude-plugins-community", "claude-community", "anthropic-marketplace", "anthropic-plugins", "agent-skills", "anthropic-agent-skills", "knowledge-work-plugins", "life-sciences", "claude-for-legal", "claude-for-financial-services", "financial-services-plugins", "first-party-plugins", "healthcare"]
+
+[[declaration.clause]]
+kind = "marketplace"
+predicate = "required"
+field = "owner"
+severity = "required"
+guidance = "A marketplace names its maintainer: `owner.name` is required and `owner.email` is optional. This clause decides the `owner` object's presence — that its `name` is filled is a rule the clause algebra cannot yet address, since a nested object's keys are not reachable by a clause; the `Marketplace` type holds that bar for an SDK author."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+kind = "marketplace"
+predicate = "required"
+field = "plugins"
+severity = "required"
+guidance = "The `plugins` array is the catalog — a marketplace without it lists nothing. Each entry needs a `name` and a `source`; that per-entry rule is not addressable by a clause today (an array's elements are not reachable), so the `Marketplace` type carries it instead. An empty array is a valid, if empty, catalog."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
 
 [[declaration.clause]]
 kind = "mcp-server"

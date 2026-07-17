@@ -56,6 +56,7 @@ mod tests {
                 "command",
                 "hook",
                 "installed-plugin",
+                "marketplace",
                 "mcp-server",
                 "memory",
                 "plugin-manifest",
@@ -99,6 +100,7 @@ mod tests {
                     "agent"
                         | "command"
                         | "hook"
+                        | "marketplace"
                         | "mcp-server"
                         | "plugin-manifest"
                         | "skill"

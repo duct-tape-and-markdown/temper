@@ -339,6 +339,36 @@ fn claude_code_plugin_manifest() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `.claude-plugin/marketplace.json` kind: the catalog a
+/// marketplace distributes its plugins through, the whole file one JSON document
+/// (`code.claude.com/docs/en/plugin-marketplaces`, retrieved 2026-07-16). Identity reads
+/// from the top-level `name` for the same reason its `plugin-manifest` sibling's does —
+/// the stem is `marketplace` for every catalog ever written.
+///
+/// Its glob is distinct from `plugin-manifest`'s, so the two kinds share the
+/// `.claude-plugin` root and never contend for a file.
+///
+/// It owns its file, so it carries no collection address. Channel-less: a catalog is
+/// distribution metadata read by the installer, never surfaced to the model.
+fn claude_code_marketplace() -> CustomKind {
+    CustomKind {
+        format: Some(Format::JsonDocument),
+        unit_shape: Some(crate::kind::UnitShape::NamedField {
+            field: "name".to_string(),
+        }),
+        ..CustomKind::new(
+            "marketplace",
+            Governs {
+                root: ".claude-plugin".to_string(),
+                glob: "marketplace.json".to_string(),
+            },
+            Extraction::new(vec![Primitive::Field {
+                key: "name".to_string(),
+            }]),
+        )
+    }
+}
+
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
@@ -347,6 +377,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_command(),
         claude_code_hook(),
         claude_code_installed_plugin(),
+        claude_code_marketplace(),
         claude_code_mcp_server(),
         claude_code_plugin_manifest(),
         claude_code_skill(),
@@ -564,6 +595,7 @@ mod tests {
                 "command",
                 "hook",
                 "installed-plugin",
+                "marketplace",
                 "mcp-server",
                 "memory",
                 "plugin-manifest",

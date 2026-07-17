@@ -2109,8 +2109,30 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     // Channel-less: distribution metadata reaches the installer, never the model.
     assert_eq!(manifest.registration, Vec::<String>::new());
 
+    let marketplace = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "marketplace")
+        .expect("the marketplace kind fact is embedded");
+    // The same root as `plugin-manifest` above, told apart by the glob alone — the two
+    // `.claude-plugin` file kinds never contend for a file.
+    assert_eq!(marketplace.governs_root.as_deref(), Some(".claude-plugin"));
+    assert_eq!(
+        marketplace.governs_glob.as_deref(),
+        Some("marketplace.json")
+    );
+    assert_eq!(marketplace.format.as_deref(), Some("json-document"));
+    assert_eq!(marketplace.unit_shape.as_deref(), Some("named-field(name)"));
+    assert_eq!(marketplace.shape, None);
+    assert_eq!(marketplace.collection_address, None);
+    // Channel-less, like its sibling: a catalog is read by the installer.
+    assert_eq!(marketplace.registration, Vec::<String>::new());
+
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    assert_eq!(declarations.kinds.len(), 10);
+    // Eleven, not the ten `specs/builtins.md` enumerates: `supporting-doc` ships beside
+    // that roster without joining it (as `requirement` does), so the engine's kind set
+    // runs one above the corpus's count. Both numbers are right; neither checks the other.
+    assert_eq!(declarations.kinds.len(), 11);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

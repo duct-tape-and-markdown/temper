@@ -16,6 +16,8 @@ import {
   hookDefaultContract,
   installedPlugin,
   installedPluginDefaultContract,
+  marketplace,
+  marketplaceDefaultContract,
   mcpServer,
   mcpServerDefaultContract,
   memory,
@@ -40,6 +42,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   ruleDefaultContract,
   memoryAnthropicDefaultContract,
   pluginManifestDefaultContract,
+  marketplaceDefaultContract,
   supportingDocDefaultContract,
 ];
 
@@ -274,6 +277,96 @@ test("pluginManifestDefaultContract gates the decidable slice of the --strict pr
   // Cited and dated, every one — the audit trail a maintained default contract exists for.
   for (const entry of pluginManifestDefaultContract) {
     assert.match(entry.cite ?? "", /^https:\/\/code\.claude\.com\/docs\/en\/plugins-reference#.* \(retrieved 2026-07-16\)$/);
+  }
+});
+
+test("marketplace is a json-document file kind at a glob its plugin-manifest sibling never contends for", () => {
+  assert.deepEqual(marketplace.facts.locus, {
+    kind: "at",
+    root: ".claude-plugin",
+    glob: "marketplace.json",
+  });
+  assert.equal(marketplace.facts.format, "json-document");
+  // Identity from the document's own key: every catalog's stem is `marketplace`.
+  assert.equal(marketplace.facts.unitShape, "named-field");
+  assert.equal(marketplace.facts.identityField, "name");
+  // It owns its file, exactly as its sibling does.
+  assert.equal(marketplace.facts.collectionAddress, undefined);
+  assert.equal(marketplace.facts.shape, undefined);
+  // Channel-less: a catalog is read by the installer, never surfaced to the model.
+  assert.deepEqual(marketplace.facts.registration, []);
+  // The two `.claude-plugin` kinds share a root and are told apart by their globs, so a
+  // manifest and a catalog never contend for the same file.
+  assert.deepEqual(pluginManifest.facts.locus, {
+    kind: "at",
+    root: ".claude-plugin",
+    glob: "plugin.json",
+  });
+});
+
+test("marketplaceDefaultContract gates the reserved-names deny list and the top-level slice it can address", () => {
+  // `name`'s presence, emptiness, charset and the reserved deny list, plus the presence
+  // of the two required objects. The rules *below* the top level — `owner.name`, each
+  // `plugins[]` entry's `name`/`source`, the `source` union — are not addressable by a
+  // clause today, and the contract's header names that hold rather than forging clauses.
+  assert.deepEqual(
+    marketplaceDefaultContract.map((entry) => entry.predicate.key),
+    ["required", "min_len", "allowed_chars", "deny", "required", "required"],
+  );
+  // Every clause is an error: each is a documented rule that stops a catalog loading.
+  assert.ok(marketplaceDefaultContract.every((entry) => entry.severity === "required"));
+
+  const [presence, empty, charset, reserved, owner, plugins] = marketplaceDefaultContract;
+  assert.deepEqual(presence.predicate, { key: "required", field: "name" });
+  assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
+  assert.deepEqual(charset.predicate, {
+    key: "allowed_chars",
+    field: "name",
+    charset: { ranges: ["a-z", "0-9"], chars: "-" },
+  });
+  assert.deepEqual(owner.predicate, { key: "required", field: "owner" });
+  assert.deepEqual(plugins.predicate, { key: "required", field: "plugins" });
+
+  // The deny list is the load-bearing clause: it is the documented reserved set entire,
+  // transcribed from the page rather than sampled, and every name is kebab-case so each
+  // is a value the charset clause above would otherwise pass.
+  assert.equal(reserved.predicate.key, "deny");
+  assert.equal(reserved.predicate.field, "name");
+  assert.deepEqual(reserved.predicate.values, [
+    "claude-code-marketplace",
+    "claude-code-plugins",
+    "claude-plugins-official",
+    "claude-plugins-community",
+    "claude-community",
+    "anthropic-marketplace",
+    "anthropic-plugins",
+    "agent-skills",
+    "anthropic-agent-skills",
+    "knowledge-work-plugins",
+    "life-sciences",
+    "claude-for-legal",
+    "claude-for-financial-services",
+    "financial-services-plugins",
+    "first-party-plugins",
+    "healthcare",
+  ]);
+  // The impersonation rule is real and undecidable, so it can only ride the guidance —
+  // a clause that guessed at it would fire on true negatives.
+  assert.match(reserved.guidance ?? "", /impersonate/);
+  // And the guidance carries why the clause outranks a lint: the list is re-checked on
+  // every load, so a name that *becomes* reserved strands users who already added you.
+  assert.match(reserved.guidance ?? "", /every load/);
+  // The two presence clauses each name the sub-field rule they cannot reach, so the
+  // hold is stated where an author meets it, not only in the module header.
+  assert.match(owner.guidance ?? "", /owner\.name/);
+  assert.match(plugins.guidance ?? "", /source/);
+
+  // Cited and dated, every one.
+  for (const entry of marketplaceDefaultContract) {
+    assert.match(
+      entry.cite ?? "",
+      /^https:\/\/code\.claude\.com\/docs\/en\/plugin-marketplaces#.* \(retrieved 2026-07-16\)$/,
+    );
   }
 });
 

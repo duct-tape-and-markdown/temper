@@ -653,6 +653,218 @@ export const pluginManifestDefaultContract: readonly Clause[] = [
 ];
 
 /**
+ * Where a marketplace fetches one listed plugin from — the documented `source` union
+ * (code.claude.com/docs/en/plugin-marketplaces, "Plugin sources", retrieved 2026-07-16).
+ *
+ * A relative-path string is the local form: it must start with `./` and resolves against
+ * the *marketplace root* — the directory containing `.claude-plugin/` — never against
+ * `.claude-plugin/` itself. The object forms carry a `source` discriminator naming the
+ * fetch mechanism.
+ *
+ * On the three git-based forms (`github`, `url`, `git-subdir`), `ref` names a branch or
+ * tag and `sha` an exact commit; when both are set the `sha` is the effective pin.
+ */
+export type MarketplaceSource =
+  | string
+  | Readonly<{ source: "github"; repo: string; ref?: string; sha?: string }>
+  | Readonly<{ source: "url"; url: string; ref?: string; sha?: string }>
+  | Readonly<{ source: "git-subdir"; url: string; path: string; ref?: string; sha?: string }>
+  | Readonly<{ source: "npm"; package: string; version?: string; registry?: string }>;
+
+/**
+ * One entry in a marketplace's `plugins` array: `name` and `source` are required, and
+ * every field of the plugin manifest schema may be restated here alongside the
+ * marketplace-specific `source`, `category`, `tags`, `strict`, and `relevance`
+ * (code.claude.com/docs/en/plugin-marketplaces, "Plugin entries", retrieved 2026-07-16).
+ */
+export interface MarketplacePlugin extends Omit<PluginManifest, "name"> {
+  /** The public-facing plugin identifier users type: `/plugin install <name>@<market>`. */
+  readonly name: string;
+  /** Where to fetch this plugin from. */
+  readonly source: MarketplaceSource;
+  /** Category for organization in the picker. */
+  readonly category?: string;
+  /** Tags for searchability. */
+  readonly tags?: readonly string[];
+  /**
+   * Whether `plugin.json` is the authority for component definitions (default `true`).
+   */
+  readonly strict?: boolean;
+  /**
+   * Signals telling Claude Code when to suggest this plugin. Takes effect only for
+   * marketplaces an administrator allowlists in managed settings. Requires v2.1.152+.
+   */
+  readonly relevance?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * `.claude-plugin/marketplace.json` — the distribution catalog
+ * (code.claude.com/docs/en/plugin-marketplaces, "Marketplace schema", retrieved
+ * 2026-07-16).
+ */
+export interface Marketplace {
+  /**
+   * The marketplace identifier (kebab-case, no spaces), public-facing: users see it when
+   * installing (`/plugin install my-tool@your-marketplace`). Each user registers only one
+   * marketplace per name — adding a second under the same name replaces the first — and
+   * the name is checked against a reserved deny list.
+   */
+  readonly name: string;
+  /** The maintainer: `name` required, `email` optional. */
+  readonly owner: Readonly<{ name: string; email?: string }>;
+  /** The catalog itself — every plugin this marketplace distributes. */
+  readonly plugins: readonly MarketplacePlugin[];
+  /** JSON Schema URL for editor autocomplete. Claude Code ignores it at load time. */
+  readonly $schema?: string;
+  /** Brief marketplace description. */
+  readonly description?: string;
+  /** Marketplace manifest version. */
+  readonly version?: string;
+  /**
+   * `pluginRoot` is a base directory prepended to relative plugin source paths, so
+   * `"source": "formatter"` resolves under it. `description`/`version` are also accepted
+   * here for backward compatibility.
+   */
+  readonly metadata?: Readonly<{ pluginRoot?: string; description?: string; version?: string }>;
+  /**
+   * Other marketplaces whose plugins this marketplace's plugins may depend on. A
+   * dependency on a marketplace absent from this list is blocked at install.
+   */
+  readonly allowCrossMarketplaceDependenciesOn?: readonly string[];
+  /**
+   * Map from a former plugin `name` to its current name, or to `null` if it was removed —
+   * how existing users migrate across a rename. Requires Claude Code v2.1.193 or later.
+   */
+  readonly renames?: Readonly<Record<string, string | null>>;
+}
+
+/**
+ * `marketplace` — `.claude-plugin/marketplace.json`, a whole-file JSON document whose
+ * top-level keys are its fields; identity from `name`, the named-field mode, because the
+ * stem is `marketplace` for every catalog ever written. Like its `plugin-manifest`
+ * sibling it owns its file (no collection address) and is channel-less: a catalog is read
+ * by the installer, never surfaced to the model
+ * (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-16).
+ */
+export const marketplace: KindDefinition<Marketplace> = kind<Marketplace>({
+  name: "marketplace",
+  locus: { kind: "at", root: ".claude-plugin", glob: "marketplace.json" },
+  format: "json-document",
+  unitShape: "named-field",
+  registration: [],
+  identityField: "name",
+});
+
+/**
+ * The reserved marketplace names — reserved for official Anthropic use and refused to a
+ * third-party marketplace, re-read from the docs at encode time rather than trusted from
+ * memory (code.claude.com/docs/en/plugin-marketplaces, "Marketplace schema", retrieved
+ * 2026-07-16). The list grows: before v2.1.205 `first-party-plugins` and `healthcare`
+ * were not reserved, so the update ritual is to walk this array against the page, never
+ * to re-derive it.
+ */
+const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
+  "claude-code-marketplace",
+  "claude-code-plugins",
+  "claude-plugins-official",
+  "claude-plugins-community",
+  "claude-community",
+  "anthropic-marketplace",
+  "anthropic-plugins",
+  "agent-skills",
+  "anthropic-agent-skills",
+  "knowledge-work-plugins",
+  "life-sciences",
+  "claude-for-legal",
+  "claude-for-financial-services",
+  "financial-services-plugins",
+  "first-party-plugins",
+  "healthcare",
+];
+
+/**
+ * The default contract for `marketplace` — the strictest documented profile of the catalog
+ * format (all facts code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-16).
+ *
+ * The reserved-names clause is the load-bearing one, and it gates a *loud* failure: Claude
+ * Code re-checks reserved names on every load, not only on `/plugin marketplace add`, so a
+ * catalog published under a name that later becomes reserved stops loading for every user
+ * who already added it. That is the one clause here worth more than a lint.
+ *
+ * **The documented rules below the top level are absent, pending a vocabulary addition** —
+ * the same shape of hold `pluginManifestDefaultContract` names for its own two, and the
+ * reason is one gap, not three:
+ *
+ * - **`owner.name` required.** The clause algebra addresses a field by top-level key; a
+ *   nested object projects to an opaque `FeatureValue::Map` whose inner keys the extractor
+ *   discards, so no clause can name `owner.name`. `required("owner")` — the presence of
+ *   the object — is the decidable slice, and it ships below.
+ * - **Each `plugins[]` entry requires `name` and `source`.** An array projects to a list of
+ *   stringified elements, so a clause cannot range *into* an entry. `required("plugins")`
+ *   is the decidable slice.
+ * - **The `source` union.** Needs both of the above plus a discriminated-union predicate:
+ *   the relative-path form's leading `./`, the four object forms' `source` discriminator
+ *   and their required fields. None of it is addressable today.
+ *
+ * The TypeScript types above hold every one of those bars for an SDK author — `Marketplace`
+ * makes `owner.name` and each entry's `name`/`source` non-optional, and `MarketplaceSource`
+ * is the union — so what is unguarded is the hand-written catalog, not the authored one.
+ *
+ * Deliberately absent as undecidable, and never a clause (`specs/intent.md`, invariant 2):
+ * the docs *also* block names that "impersonate official marketplaces" (`official-claude-plugins`,
+ * `anthropic-plugins-v2` are the page's own examples). Impersonation is semantic judgment —
+ * there is no predicate that decides it, and a clause that guessed would fire on true
+ * negatives. The enumerated deny list is the decidable subset; the impersonation rule rides
+ * as guidance below.
+ *
+ * Authoring notes the clauses cannot carry: a relative-path `source` resolves against a
+ * *local copy* of the marketplace, so it silently fails to resolve for users who added the
+ * marketplace by direct URL to `marketplace.json` — only that one file is downloaded. Reach
+ * for `github`, `url`, or `npm` when the catalog is distributed by URL. Where a git source
+ * pins both `ref` and `sha`, the `sha` is the effective pin. A marketplace entry's
+ * `defaultEnabled` beats the same field in the plugin's own `plugin.json`, while `version`
+ * runs the other way — `plugin.json` wins.
+ */
+export const marketplaceDefaultContract: readonly Clause[] = [
+  clause(required("name"), {
+    severity: "required",
+    guidance:
+      "A marketplace declares a `name` — the identity users type when installing from it (`/plugin install my-tool@your-marketplace`) and the key each user registers it under. There is no directory fallback the way `plugin.json` has one.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(minLen("name", 1), {
+    severity: "required",
+    guidance:
+      "A present-but-empty name cannot key an install or qualify a plugin reference. Give it a real one.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(allowedChars("name", { ranges: ["a-z", "0-9"], chars: "-" }), {
+    severity: "required",
+    guidance:
+      "Kebab-case, no spaces — lowercase letters, digits, and hyphens. The name is typed after an `@` to qualify every plugin installed from the marketplace, so a space or a capital makes it unquotable exactly where users type it.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(deny("name", RESERVED_MARKETPLACE_NAMES), {
+    severity: "required",
+    guidance:
+      "This name is reserved for official Anthropic use and a third-party marketplace cannot load under it. Claude Code re-checks the reserved list on every load, not only when the marketplace is added — so publishing under one of these names strands every user who already added you: the marketplace stops loading and reports that it is registered from an untrusted source, and they must remove and re-add it. The list also grows (before v2.1.205, `first-party-plugins` and `healthcare` were not on it). Names that merely *impersonate* an official marketplace — `official-claude-plugins`, `anthropic-plugins-v2` — are blocked too, but impersonation is a judgment no clause can decide: this clause holds the enumerated list, and steering clear of the lookalikes is yours.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)",
+  }),
+  clause(required("owner"), {
+    severity: "required",
+    guidance:
+      "A marketplace names its maintainer: `owner.name` is required and `owner.email` is optional. This clause decides the `owner` object's presence — that its `name` is filled is a rule the clause algebra cannot yet address, since a nested object's keys are not reachable by a clause; the `Marketplace` type holds that bar for an SDK author.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-16)",
+  }),
+  clause(required("plugins"), {
+    severity: "required",
+    guidance:
+      "The `plugins` array is the catalog — a marketplace without it lists nothing. Each entry needs a `name` and a `source`; that per-entry rule is not addressable by a clause today (an array's elements are not reachable), so the `Marketplace` type carries it instead. An empty array is a valid, if empty, catalog.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)",
+  }),
+];
+
+/**
  * The default contract for `skill` — Anthropic's documented skill contract: the Agent
  * Skills open standard (agentskills.io), Anthropic's platform upload
  * validation, and Claude Code's own docs.
