@@ -1,76 +1,66 @@
 # Plan state
 
-- Spec derived through: b8396d4
+- Spec derived through: 3c1a58c
 - Audited through: 8913b59
 - Residue swept through: 8913b59
-- This tick: INBOX — two human-routed notes drained, both verified on disk at
-  c370924 and filed as pickable entries. Cursors copied forward verbatim: the
-  spec delta (3c1a58c, decision 0030) and the 8913b59..c370924 window are
-  untouched by this tick, and inbox outranks both.
-  **Note 1 — `emit --into` re-bases every lock row ⇒
-  LOCK-ROW-PATHS-HARNESS-RELATIVE.** Verified deeper than the report: the
-  corruption is not a writer slip but *both faces agreeing on the wrong base*.
-  `harness_root = workspace_dir.parent()` (drift.rs:839) is cwd-relative, so
-  `harness_root.join(...)` (955) bakes the cwd prefix into every provenance
-  row; readers then take rows raw (`fs::read(&row.source_path)` 2174,
-  `remove_file` 1173). Writer and reader therefore agree — but only while cwd
-  IS the harness root, which is why the suite is green and the field report
-  saw exit 0. Two disk facts settle the fix-vs-refuse fork the note leaves
-  open, so it needed no ruling: (a) the lock's own two row families already
-  disagree in one emit pass — include rows go through `harness_relative`
-  (1003, the helper at 1508), member rows do not; (b) pipeline.md ("Install")
-  binds the verbs to "one project's harness at an explicit path", which a
-  cwd-relative committed row cannot survive. Refusal is rejected in the entry:
-  `--into`'s only non-default use is naming a workspace off cwd. Ripple
-  measured, not guessed — `common::write_lock` passes `members: Vec::new()`,
-  writes no provenance rows, so the shared-fixture fan-out the entry rule
-  warns about does not reach its callers; scope is drift.rs + tests/emit.rs.
-  **Note 2 — `file()` inside `blocks()` raw-TypeErrors ⇒
-  SDK-BLOCKS-FILE-REFUSAL.** The note names legality as the entry's first
-  question; **the SDK's own surface has already answered it**, so this is
-  derivation, not a fork: `blocks(...values: (Text | EmbeddedMemberValue)[])`
-  (prose.ts:242) excludes `File` (130) by type — strict tsc rejects the
-  spelling, and only a JS or cast caller reaches `isTextSpan` (251) falling
-  through to `renderMemberBlock` (emit.ts:353) → `resolveMemberLeaves` (288)
-  dereferencing absent `leaves`. The entry makes the runtime hold the line the
-  type draws, mirroring `text`'s existing throw (205). Legalizing it was
-  weighed and rejected: `include()` (232) already homes file-bytes-in-a-body
-  and is the path the lock fingerprints — a second home would be
-  unfingerprinted.
-  **The `prose.ts` narration rider has a carrier at last.** Nine entries'
-  worth of precedent says it discharges when an entry NAMES it, never when the
-  file is merely opened — SDK-BLOCKS-FILE-REFUSAL edits `blocks()`, whose own
-  doc comment (238) is one of the ten stale lines, so the entry names all ten
-  and the fork record now points at it.
-  **Friction captures left alone** — `.flume/friction/` is the human's triage
-  surface, not plan's to drain; only `.flume/refactor/` (empty, README only)
-  is. The `--into` capture's product half is now queued, which is what its own
-  "Suggested fix: inbox item" asked for.
-- Queue: 4 entries — 2 pickable (LOCK-ROW-PATHS-HARNESS-RELATIVE and
-  SDK-BLOCKS-FILE-REFUSAL, both scoped at c370924), 2 parked on human acts. No
-  file appears in two entries — checked mechanically; the two pickable entries
-  are disjoint (`src/drift.rs`+`tests/emit.rs` vs `sdk/src/prose.ts`+
-  `sdk/test/refusals.test.ts`), so they fan out in parallel safely.
+- This tick: SPEC DELTA — decision 0030 ("review is the price of softening",
+  3c1a58c) routed; the cursor advances b8396d4 → 3c1a58c. Its Consequences
+  section is the checklist and every bullet resolves: two verified moot on
+  disk (the `Layers` section landed same-commit at `pipeline.md`:35; the
+  `(local-overrides)` record is already absent — it left at cd6a31a/df78c05,
+  and the compliance overlay opens no fork of its own, as the record predicts),
+  and **all four derivations route to one new fork,
+  `(layer-delivery-format)`.** The other two cursors are copied forward
+  verbatim: the 8913b59..c370924 window (eb9674c, the fixture fold) is
+  untouched by this tick and is next.
+  **Why a fork and not entries.** 0030 rules the layer stack **admitted now**
+  — deferred admission is its own recorded rejected alternative — and this
+  fork does not reopen that: admission is settled. What the record does not
+  answer is what artifact `--layer` names. 0030 needs an uncommitted layer to
+  carry dialed clauses, be parsed by `check`, and compose over the locked
+  declarations at check time; a clause **is** a declaration row, so those are
+  declarations the gate reads that are not in the lock — and three kernel
+  sentences, each re-read on disk, forbid a reading:
+  `pipeline.md`:123-125 ("the gate reads declarations from nowhere but the
+  lock", "emit is its sole producer"), :147 ("offline, no language runtime"),
+  :116-117 (the payload "is internal … not a designed public interchange").
+  Three deliveries survive that box and each ships a different artifact; the
+  fork records all three, recommends one (an emit-written uncommitted
+  lock-shaped file joined at check), and states its cost. Whichever is ruled
+  amends a kernel sentence — a `specs/` ceremony that is the human's, never a
+  build tick's to invent. Verified there is nothing to build against today:
+  `rg` for `--layer`/`layers`/`LayerSlot` over `src/main.rs`,
+  `sdk/src/assembly.ts`, `sdk/src/builtins.ts` is empty, and the `layer` hits
+  across `src/` are the unrelated nesting-template sense.
+  **No entry was filed against a guess** — the four derivations are named as
+  the fork's dependents, so the ruling returns through the inbox and derives
+  them in one tick.
+- Queue: 4 entries, unchanged this tick — 2 pickable
+  (LOCK-ROW-PATHS-HARNESS-RELATIVE, SDK-BLOCKS-FILE-REFUSAL; both scoped at
+  c370924 and disjoint: `src/drift.rs`+`tests/emit.rs` vs `sdk/src/prose.ts`+
+  `sdk/test/refusals.test.ts`), 2 parked on human acts. Both park reasons hold
+  trivially — no `src/`, `sdk/`, or `specs/` commit landed since they were
+  re-tested (HEAD moved only by the f70cd03 plan commit).
 
-Plan continues: yes — the spec delta is the next live input: 3c1a58c
-(decision 0030, "review is the price of softening") sits past the
-`Spec derived through: b8396d4` cursor, un-derived; its Consequences section
-is the next tick's derivation checklist. Post-ship reconciliation of
-8913b59..c370924 (eb9674c, the fixture fold) follows it.
+Plan continues: yes — post-ship reconciliation of 8913b59..c370924 (eb9674c,
+the fixture fold) is the next live input, now that the spec delta is routed.
 
-**One thing for a human, unchanged and not the loop's:** decision 0030 is
-still a hole — `specs/decisions/` runs 0023…0029, 0031, and 0030 (`review is
-the price of softening`) is orphaned at d6381b4, reverted by this phase's own
-`continuation marker is honest` gate firing on a human `specs:` commit.
-Recoverable via `git show d6381b4`; John's alone to restore; the misfire is
-filed at
-`.flume/friction/plan-continuation-gate-reverts-human-specs-commits.md`.
-(c86d649 scoped that gate to plan's own commits, so the misfire cannot recur —
-the orphaned record itself still needs a human hand.)
+**The human to-do this ledger carried for four ticks is DISCHARGED — deleted,
+not carried forward.** The 0030 hole is closed: `specs/decisions/` now runs
+0001…0031 with no gap, and `0030-review-is-the-price-of-softening.md` is on
+disk (5551 bytes), landed fresh by 3c1a58c rather than restored from d6381b4.
+Both halves of that misfire are now answered — c86d649 scoped the
+`continuation marker is honest` gate to plan's own commits so it cannot revert
+a human `specs:` commit again, and the record it reverted is back. The
+capture at `.flume/friction/plan-continuation-gate-reverts-human-specs-commits.md`
+is left standing: `.flume/friction/` is the human's triage surface, not plan's
+to drain.
 
-**Waiting on a ruling:** `(clause-vocabulary-holds)` is still the fork board's
-largest — four shipped contracts hold decidable, documented rules the algebra
-cannot spell, and the corpus sanctions only "undecidable" as a reason a clause
-is absent. Unmoved this window. Nothing is broken; what it costs is that the
-gate's reach is thinner than `specs/builtins.md`'s "Strictest documented
-profile" stance reads.
+**Waiting on a ruling:** two forks now gate real capability.
+`(layer-delivery-format)` is new and holds all of 0030.
+`(clause-vocabulary-holds)` is unmoved — four shipped contracts hold
+decidable, documented rules the algebra cannot spell, and the corpus sanctions
+only "undecidable" as a reason a clause is absent. Nothing is broken by
+either; what they cost is the capability 0030 ruled important, and a gate whose
+reach is thinner than `specs/builtins.md`'s "Strictest documented profile"
+stance reads.
