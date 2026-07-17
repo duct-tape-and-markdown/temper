@@ -30,6 +30,22 @@ tax.
   launch, and `docs/horizons.md` is where a human carries it — plan does not
   write that page.
 
+- `(plugin-author-dogfood)` — OPEN, human's call, registered 07-16 from
+  decision 0031's own Consequences: "Temper's own repo becomes a **candidate**
+  plugin-author corpus once the producer kinds exist — the dogfood extends to
+  the surface it ships." A candidate is not a requirement, and plan does not
+  promote one. The question: does this repo commit a `.claude-plugin/` tree as
+  `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
+  authored, gated, and emitted — rather than assembled fresh into an output
+  dir by `temper bundle` on every run? Verified at e81c758: no
+  `.claude-plugin/` exists here, so both kinds will govern globs this repo
+  matches with zero members (honest, the `supporting-doc (0)` precedent), and
+  nothing is broken by leaving this open. Distinct from
+  BUNDLE-EMIT-THROUGH-KINDS, which routes `bundle`'s writers through the kinds
+  without any committed manifest. Blocked in fact until the three 0031 kinds
+  ship; `.claude/` is human `chore(harness):` territory (CLAUDE.md, "The two
+  harnesses"), so this lands as a human act or not at all. No dependents.
+
 - `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
   harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
   rulesync's portability as an architecture side effect (`specs/intent.md`,
@@ -113,9 +129,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   route-resolving deferred mentions) yet left every strand doc comment as
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. Re-verified on disk at reconcile HEAD b3a1636 — all five
-  unmoved (`read.rs` untouched in this window too), and no queued entry edits
-  `read.rs`, so it still has no carrier.
+  495/633/770/1172. **It has a carrier at last:** INSTALLED-PLUGIN-KIND edits
+  `read.rs` (the new `Registration` variant lights up `explain`'s match arms)
+  and names all five lines in its `files[].description` — the entry names the
+  rider, which is what discharges it; a file merely opened has left it twice.
+  Delete this record when that entry lands with the five reconciled.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,

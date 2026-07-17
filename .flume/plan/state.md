@@ -1,57 +1,56 @@
 # Plan state
 
-- Spec derived through: a571973
+- Spec derived through: 16ce347
 - Audited through: b3a1636
 - Residue swept through: b3a1636
-- This tick: RECONCILE 53519b9..b3a1636 — the first live input at orientation
-  (inbox empty, `.flume/refactor/` its README alone, spec delta dry when the
-  prompt rendered). **Audit's one finding, and it is the tick: the ship was a
-  phantom.** b3a1636 (`chore(flume): ship EXAMPLE-EDGE-TARGET-SET-SPELLING`)
-  dropped the entry from the queue, but **no commit in the window touched
-  `examples/`** — `git log -- examples/` is unmoved since f19f49b, and both
-  fields still read the retired bare-string spelling on disk
-  (`kinds.ts:135` `to: "source"`, `:182` `to: "decision"`; `lock.toml:320/326`
-  the same). The window's only build commit (9275f15) spent itself filing a
-  friction capture and landed no code, and the ship fired anyway. **Entry
-  re-filed, re-scoped at b3a1636**, its two line cites and the SDK tuple
-  (`kind.ts:53`) re-read rather than trusted, with one thing added that the
-  friction bought: the lock's `files[].description` now states the cwd rule
-  (`emit` with cwd = `examples/base-harness`, never `--into` from the repo
-  root, which exits 0 while re-basing every `source_path` row — 20 corrupted
-  rows beside the 2 owed) and predicts the 2-row diff, so the next build reads
-  the fact instead of re-paying for it. **Sweep: dry, and trivially so** —
-  `git diff --name-only 53519b9..b3a1636` touches `.flume/` alone; no `src/`,
-  `tests/`, or `sdk/` byte moved, so no code-vs-corpus gap could open. All four
-  riders re-verified by reading and unmoved, stamps advanced to b3a1636:
-  `session_start.rs:121/140`, `read.rs:270/495/633/770/1172`, `prose.ts`
-  (6/11/126/141/156/161/188/200/238/258), `Cargo.toml:42-45` — none has a
-  carrier; no queued entry opens any of them. **Both parks re-tested on disk,
-  both hold:** `MAX_IMPORT_HOPS` reads 5 at `graph.rs:65` under a cite claiming
-  five and nothing ruled the hop semantics; `git tag -l` carries the four era
-  tags and no version tag, crate 0.1.0 vs npm 0.0.7, `release.yml:7-9` states
-  the darwin + channel-3 deferral verbatim. Spec cursor copied forward
-  verbatim: this tick derived no spec.
-- Queue: 3 entries — 1 pickable (EXAMPLE-EDGE-TARGET-SET-SPELLING, alone in
-  `examples/**`, disjoint from everything queued); 2 parked on human acts
-  (IMPORT-HOP-CAP-CITE: a hop-depth probe. PACKAGING-CHANNELS-REMAINDER: Apple
-  notarizing + the v0.1 tag). No file appears in two entries.
+- This tick: SPEC DELTA — derive 16ce347 (`0031 — a plugin registers by
+  enablement`), the first live input (inbox empty, `.flume/refactor/` its
+  README alone, and no `src/`/`tests/`/`sdk/` commit past the audit cursor:
+  the only commit in that window is this tick's own predecessor, `plan:`
+  e81c758). **The roster grows seven → ten, filed as a five-entry chain**,
+  every surface `rg`'d or read at e81c758 rather than trusted. Ripple modelled
+  on a7a8cc1, the last kind addition (9 files, +303): `builtin_kind.rs` +
+  `builtin_lock.toml` (generated, never hand-edited) + `builtin_lock.rs` +
+  `builtins.ts` + `claude-code.ts` + the two lock tests, plus a per-kind
+  acceptance file. **The chain is serialized because everything shares
+  `builtin_kind.rs`/`builtins.ts`/`kind.rs`, not because the work is
+  sequenced**: INSTALLED-PLUGIN-KIND (open) → PLUGIN-JSON-DOCUMENT-FORMAT →
+  PLUGIN-MANIFEST-KIND → MARKETPLACE-KIND → BUNDLE-EMIT-THROUGH-KINDS.
+  **Three findings the derivation turned up, each carried into the entry that
+  needs it rather than left for build to re-pay:** (1) `Format` is a declared
+  fact **nothing branches on** — `rg 'Format::YamlFrontmatter'` finds only
+  constructions, the label parse, and one test assert; the adapter dispatch
+  (`main.rs:1160`) keys on `(content, collection_address, governs)` and falls
+  every file kind through to `read_file_unit` regardless of format, so
+  `json-document` is what makes the fact load-bearing and `main.rs` is that
+  entry's heart. (2) `installed-plugin` sharing hook's `.claude/settings.json`
+  governs glob is **not** a collision: `governs_collision_diagnostics`
+  (`main.rs:1801`) skips every collection-address kind (1812/1824) and its
+  header states the rule — the mining representation.md forbids is two
+  *document* kinds contending for one file. (3) **The docs contradict
+  themselves on the `enabledPlugins` key charset** — plugins-reference
+  documents `<plugin>@<marketplace>` while schemastore's
+  `claude-code-settings.json` patterns `^[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)?$`,
+  admitting no `@` — so the entry forbids a key-shape clause: encoding one
+  against either spelling forges findings on valid harnesses (invariant 2).
+  The value type is settled and agreed (boolean), so the channel-gate field
+  stands. **Consequences checklist, all four bullets routed** — evidence in
+  the commit body. **`src/read.rs`'s five-line rider found its carrier**:
+  INSTALLED-PLUGIN-KIND edits the file and names the lines. Both other cursors
+  copied forward verbatim: this tick audited and swept nothing.
+- Queue: 8 entries — 2 pickable and disjoint (EXAMPLE-EDGE-TARGET-SET-SPELLING
+  in `examples/**`; INSTALLED-PLUGIN-KIND in `src/`+`sdk/`+`tests/`), 4
+  serialized behind it on shared files, 2 parked on human acts (a hop-depth
+  probe; Apple notarizing + the v0.1 tag). Both parks re-tested at e81c758 and
+  hold. No file appears in two `open` entries.
 
-Plan continues: yes — **the spec delta went live mid-tick and is the next
-input.** 16ce347 (`specs: a plugin registers by enablement (0031)`) landed on
-top of b3a1636 while this tick was reconciling; it sits past the spec cursor
-a571973, underived. It resolves `(plugin-surface)` and John's commit body ends
-"plan derives the entries": the roster grows seven → ten (`installed-plugin`
-registration member, `plugin-manifest`, `marketplace`), consolidating the
-hard-coded `serde_json` writers at `src/bundle.rs:185,191`. Its Consequences
-section is the next tick's derivation checklist and deserves the whole tick —
-this tick declines to half-derive an 88-line decision it did not orient on.
-John deleted the `(plugin-surface)` fork record himself in that commit; this
-tick left the deletion alone. **Unrelated, and for a human rather than the
-loop: decision 0030 is a hole.** `specs/decisions/` runs 0023…0029 then 0031,
-and 0030 (`review is the price of softening`, 100 lines + 34 of `pipeline.md`)
-is orphaned at d6381b4 — committed, then reverted by this phase's own
-`continuation marker is honest` gate, which fired on a human `specs:` commit
-because plan's then-current `state.md` said `Plan continues: no`. The work is
-recoverable (`git show d6381b4`), is John's alone to restore, and the gate
-misfire is filed at
+Plan continues: no — the delta is drained (16ce347 was its only commit, now
+fully routed), the inbox is empty, `.flume/refactor/` holds its README alone,
+and no code commit sits past the audit cursor. Build takes over: two entries
+are pickable. **One thing for a human, unchanged and not the loop's:**
+decision 0030 is still a hole — `specs/decisions/` runs 0023…0029, 0031, and
+0030 (`review is the price of softening`) is orphaned at d6381b4, reverted by
+this phase's own `continuation marker is honest` gate firing on a human
+`specs:` commit. Recoverable via `git show d6381b4`; John's alone to restore;
+the misfire is filed at
 `.flume/friction/plan-continuation-gate-reverts-human-specs-commits.md`.
