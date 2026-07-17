@@ -38,6 +38,26 @@ tax.
   it, CHECK-ANNOUNCES-THE-LOCK-FAMILY; LOCAL-LOCUS-COMMITMENT-CLASS ships the
   fence as written and re-cuts if the ruling widens it.
 
+- `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
+  0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
+  does not rule it. `marketplaceDefaultContract`'s header
+  (`sdk/src/builtins.ts`:813-816, read at 15b7a3a) names the `source` union as
+  needing "both of the above **plus a discriminated-union predicate**": the
+  relative-path form's leading `./`, the four object forms' `source`
+  discriminator and their required fields. 0033's widening 2 makes
+  `plugins[*].source` **addressable** — `required` and `type` over it become
+  spellable — and stops there; which of the five documented forms a value is,
+  and whether that form's own required fields are filled, no predicate
+  decides. So after FIELD-ADDRESSING-RFC-9535-SUBSET ships, the bullet stays
+  as a hold rather than discharging, which is admissible precisely because it
+  already names its closing widening (`builtins.md`, "Default contracts": a
+  hold with no named closing widening is not a hold). The question is whether
+  that fifth widening is ever ratified — a vocabulary addition is a deliberate
+  language change (`model/contract.md`, "clause"), never plan's to derive and
+  never build's to invent. Nothing is broken by leaving it open: the union is
+  guarded for an SDK author by the `MarketplaceSource` type today, and what is
+  unguarded is the hand-written catalog. No dependents.
+
 - `(settings-local-kind)` — OPEN, human's call, registered 07-16 from 0032's
   own Consequences: "The claude-code face's `settings.local.json` is the first
   candidate local-locus layout kind beyond the dial itself." A candidate is not

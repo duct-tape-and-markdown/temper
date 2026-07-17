@@ -47,6 +47,41 @@
     "notes": "First of 0032's five derivations; the class the other four rest on. Its `layout-only` fence is ratified text, but the dial — the first local-locus kind — is specified as TOML, which no layout can hold: see `(local-locus-toml-face)`. That fork rules the dial's face, not this class; if it widens `layout-only`, the fence re-cuts here. scoped at f1d97e4."
   },
   {
+    "tag": "MANIFEST-SCHEMA-COVERAGE-ORACLE",
+    "summary": "A fixture test diffs `plugin-manifest`'s shipped clause coverage against the platform's published JSON Schema — the vocabulary's lag becomes a number a human reads, never an engine",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/manifest_schema_oracle.rs",
+          "description": "Reads the shipped floor — `temper::builtin::contract(\"plugin-manifest\")` (`src/builtin.rs`:71), which projects the built-in lock's own clause rows — and diffs it against the vendored schema: every documented rule the clause set does not carry is named in an expected list spelled inline in this file, so each widening's shrink is a reviewable one-file diff. Deliberately not an `insta` snapshot: the snapshot path would sit outside this entry's declared files. The module header carries the schema's source URL and retrieval date (JSON holds no comment). The oracle reports and never gates the format — 0033 rejects a `jsonschema` validation predicate by name: one clause means one severity and no per-rule guidance for every violation inside it, a generic validator where the model wants a teaching gate."
+        },
+        {
+          "path": "tests/fixtures/plugin-manifest/schema.json",
+          "description": "The vendored copy of `json.schemastore.org/claude-code-plugin-manifest.json` — the `$schema` value in the platform's own docs (0033; re-fetch and re-date at encode time, the ritual every clause cite already follows). Vendored, never fetched at test time: a network read would make the gate non-deterministic and offline-hostile, against the no-runtime-checking property the engine holds everywhere else (`specs/distribution.md`, \"What ships — three channels\")."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/manifest_schema_oracle.rs",
+        "asserts": "the set of documented manifest rules the shipped `plugin-manifest` clauses do not carry equals the expected list the test spells; a clause added to the contract shrinks that set and fails the test until the list is re-stated"
+      }
+    ],
+    "acceptance": "The lag between `plugin-manifest`'s shipped clause coverage and the platform's published validation bar is a named, test-pinned set a human reads rather than an anxiety argued from scratch each time (builtins.md, \"Default contracts\"). `cargo test` green.",
+    "notes": "0033's oracle, and the wave's one disjoint entry — it edits no shared file, so it is pickable beside LOCAL-LOCUS-COMMITMENT-CLASS. Landing it before the four widenings is the point: it measures the lag each widening then shrinks. Each widening moves its expected list, but that file cannot ride their `files` until it exists on disk — a later tick adds it. scoped at 15b7a3a."
+  },
+  {
     "tag": "CLAUSE-LABEL-IS-AN-ADDRESS",
     "summary": "A clause's compiled label becomes its address — deterministic, human-legible, written once at emit, printed by every finding and by `explain`; two rows under one label are a malformed lock",
     "per": {
@@ -75,7 +110,7 @@
         },
         {
           "path": "src/compose.rs",
-          "description": "The clause-row read-back (`clause_from_row`, 166-190) lifts the label off the row; the engine treats it as opaque and never resolves a collision."
+          "description": "The clause-row read-back (`clause_from_row`, 176-190) lifts the label off the row; the engine treats it as opaque and never resolves a collision."
         },
         {
           "path": "src/read.rs",
@@ -147,6 +182,270 @@
     "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Serialized behind the label entry: both edit `src/main.rs`, `src/compose.rs`, `src/drift.rs`. scoped at f1d97e4."
   },
   {
+    "tag": "TYPE-ACCEPTS-A-SET",
+    "summary": "The `type` predicate accepts a set of lattice kinds — the six documented `string|array(|object)` manifest fields become gateable, and a one-element set is today's behavior exactly",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CHECK-JOINS-INVOCATION-LOCKS"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`Predicate::Type` (97-102) carries one `kind: ValueType` (101); it becomes a set, satisfied when the field's preserved kind is any member. The variant's doc (93-96) states the widening. `predicate_from_row` (321) decodes the column. An empty set admits nothing and is inadmissible — the inverted-bound precedent `range` and `count` already set."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "The `Type` arm (626) matches the feature's preserved kind against one declared kind; it becomes set membership, and the violation message names the declared set. `admissibility` (110) rejects the empty set beside the existing vacuous-clause refusals — the empty `forbidden_keys` case (220) is the shape to follow."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow::value_type` (2586-2593) is `Option<String>` — one lattice name — written at 3428-3429 and read at 3470; it carries the set. An older lock's bare string reads as a one-element set and the next emit rewrites the file whole in canonical form: the robust read plus canonical rewrite an upgraded engine owes a committed lock (`pipeline.md`, \"The lock\"), never a patch of the file."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "The three row-build sites carrying `value_type: None` (226, 253, 275) move with the column."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The `Type` arm (64-67) writes JSON Schema's `type` from one lattice kind via `json_type`; a set is JSON Schema's own type-array, so the `schema` verb keeps saying exactly what the clause says and nothing more."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "`Predicate.value_type` (43-47, spelled to match the lock's column) and the `type` ctor (74) take the set; a one-element call stays today's behavior exactly."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`pluginManifestDefaultContract`'s header (606-620) names two holds; the second (615-620, \"Wrong-typed component paths\") discharges — `skills`, `commands`, `agents`, `hooks`, `mcpServers`, `lspServers` gain `type` clauses over their documented unions, each carrying a fresh raw cite retrieved at encode time, never re-encoded from this description. The first hold (609-614) survives and stays named: `closed-keys` is the widening that closes it."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "The ts-rs seam row, regenerated — do not hand-edit; `tests/seam_bindings_current.rs` holds it current."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Generated data, never transcribed — re-derived from the SDK module by the frozen lane (`tests/builtin_lock_frozen.rs`), which byte-compares it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "ClauseRow's `value_type` column carries a set of lattice names rather than one; a one-element set is today's behavior, and a bare string an older lock wrote reads as a one-element set.",
+    "tests": [
+      {
+        "path": "tests/type_predicate.rs",
+        "asserts": "a `type` clause over a set holds when the field carries any member kind and fails naming the whole declared set; a one-element set behaves exactly as today's single kind; an empty set is inadmissible; a lock row spelling a bare string reads as a one-element set"
+      },
+      {
+        "path": "tests/plugin_manifest_kind.rs",
+        "asserts": "a manifest whose `skills` key carries a documented `string|array` value passes, and one carrying a number fails through the real gate"
+      }
+    ],
+    "acceptance": "The six documented union-typed manifest fields are gated rather than held (builtins.md, \"Default contracts\": a hold is named with the widening that closes it, and discharges when it ships). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "First of 0033's four widenings (0029's move). Serialized behind CHECK-JOINS-INVOCATION-LOCKS: both edit `src/drift.rs` and `src/compose.rs`. The wave's four entries each edit `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts` and the generated seam, so they chain rather than fan out. scoped at 15b7a3a."
+  },
+  {
+    "tag": "FIELD-ADDRESSING-RFC-9535-SUBSET",
+    "summary": "Field addressing widens to a declared RFC 9535 subset — name segments and `[*]` only, riding `serde_json_path`; anything beyond the subset is rejected at admissibility",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TYPE-ACCEPTS-A-SET"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "Cargo.toml",
+          "description": "`serde_json_path` joins the sanctioned dependency set (0033, human-ruled; re-verify the crate live at encode time). It is hidden mechanics exactly as `regex` (40) hides under `allowed_chars` and `globset` (36) under the governs glob — never a hand-rolled path walker (`specs/process/engineering.md`, \"Libraries before hand-rolls\"). Two stale-cite riders discharge while the file is open, neither having a carrier of its own: 38-39 sells `regex` as \"the `pattern` primitive\", a predicate that does not exist (`rg Pattern src/contract.rs src/engine.rs` is empty) and that the corpus refuses outright — its live job is the charset mechanics behind `allowed_chars`; and 42-45 cites `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/` dir exists) and assigns ts-rs the interchange-TS role the `sdk/src/generated/` seam bindings superseded (36a7662)."
+        },
+        {
+          "path": "src/extract.rs",
+          "description": "`FeatureValue` (102-117) flattens both containers: `List` (113) stringifies its elements and `Map` (116) carries no payload at all, so nothing can reach inside either. Extraction retains the nested values the paths evaluate over. 0033 rejects un-flattening `FeatureValue` as the fix **by name** — that would touch the `type` predicate's kind-preservation contract (`kind` at 108, read by the `Type` arm) and every consumer, where path evaluation over retained values needs no row change."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Path evaluation replaces bare-key lookup at the field-reading seam (`features.field(...)`, e.g. the `Type` arm at 626 and `scalar(features, field)` at 708); `[*]` is the each-grain over elements. `admissibility` (110) rejects a path using anything beyond the declared subset — filters, slices, recursive descent — so the RFC engine stays hidden and never surfaces as an author-facing pattern language (`intent.md`, invariant 1; 0033 refuses author-facing JSONPath for the third time on the record)."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "`field` stays a `String` on both faces — no row delta (0033). The docs on the field-carrying variants state the declared subset and its bound."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "`push_unique(&mut required, field)` (63) and `property(&mut properties, field)` (65) treat `field` as a top-level key; `owner.name` is not one. What the `schema` verb says about a nested path is the entry's to settle and it must settle it — spelling a path as a top-level required key would have the editor demand a key the format never documents, a forged finding at the keystroke (`distribution.md`, \"The placements and their enforcement modes\": validation is the decidable predicates only)."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The `field` parameters' docs (`Predicate.field` at 26-27, and the node-scope ctors from 70) state the addressing subset an author may write — names and `[*]`, nothing else."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`marketplaceDefaultContract`'s header (802-818) names one gap behind three bullets. Two discharge: `owner.name` required (806-809) and each `plugins[]` entry's `name`/`source` (810-812) become clauses, with fresh raw cites retrieved at encode time. The third (813-816, the `source` union) **survives and stays named**: it needs a discriminated-union predicate 0033 does not ratify, and the bullet already names that widening, which is what keeps it a hold rather than a silent absence (`builtins.md`, \"Default contracts\"). The `required(\"owner\")` (866) and `required(\"plugins\")` (872) guidance says the per-entry bar is unreachable; that sentence retires with the reach."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Generated data — re-derived and byte-compared by `tests/builtin_lock_frozen.rs`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none — `field` is a string on both faces; the subset is a grammar over its contents, checked at admissibility.",
+    "tests": [
+      {
+        "path": "tests/field_addressing.rs",
+        "asserts": "a clause addressing `owner.name` reads the nested value and fires on it; `plugins[*].source` evaluates each-grain over the array's elements; a path spelling a filter, a slice, or recursive descent is inadmissible rather than skipped; a bare name addresses exactly what it addresses today"
+      },
+      {
+        "path": "tests/marketplace_kind.rs",
+        "asserts": "a catalog whose `owner` object omits `name`, and one whose `plugins[]` entry omits `source`, each fail through the real gate"
+      }
+    ],
+    "acceptance": "`owner.name` and `plugins[*].source` are spellable and gated; the RFC engine is hidden mechanics and a path beyond the declared subset is refused (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "0033's second widening. Its human half rides but is not this entry's to write: CLAUDE.md's stack list is a `.temper` projection, so adding `serde_json_path` there is a `chore(harness)` act (CLAUDE.md, \"The two harnesses\") — name it in the commit body rather than editing the projection. Serialized behind TYPE-ACCEPTS-A-SET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a."
+  },
+  {
+    "tag": "CLOSED-KEYS-CLAUSE",
+    "summary": "`closed-keys`: a clause declaring the kind's already-declared `required`/`optional` key set exhaustive — an undeclared key is a finding, and `plugin-manifest`'s `--strict` bar becomes spellable",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "FIELD-ADDRESSING-RFC-9535-SUBSET"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "The `Predicate` enum (81) gains `ClosedKeys` — a variant naming no field of its own: it consumes the kind's already-declared `Required` (83-88) and `Optional` (89-94) rows as the allow-list, so the key set is never authored twice (0033). `predicate_from_row` (321) decodes it."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Evaluation reads the contract's own sibling rows rather than one field's value — a predicate needing wider context is evaluation cost, never a category (`contract.md`, \"clause\": the degree/reachability precedent). `Predicate::Optional` returns `Outcome::Holds` (621) and nothing consumes the record today; `closed-keys` is what consumes it. `admissibility` (110) rejects a `closed-keys` clause on a kind declaring no keys — vacuous, the shape the empty `forbidden_keys` refusal (220) already sets. The `ForbiddenKeys` arm (695) is the deny-list complement this does not replace."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow` (2548) needs no argument column for it — the allow-list derives from the kind's sibling rows, so the row is predicate/severity/guidance/cite alone."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`clause_from_row` (176-190) lifts it; the row-build sites carry no new column."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The exhaustive `match` (62) needs an arm, and `closed-keys` is the one predicate whose JSON Schema face is the whole object's rather than a property's: `additionalProperties: false`. The no-op arm list (110-120) is where a predicate lands when it has no schema face; this one has one."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "A `closedKeys()` ctor joins the node-scope predicates (70-80); it names no field, and its doc says the allow-list is the kind's own declared keys, never a second list."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`pluginManifestDefaultContract`'s first hold (609-614) — unrecognized top-level fields, \"the substance of `--strict`\" — discharges: the manifest's documented keys already ride as `required`/`optional` rows, and one `closedKeys()` clause declares them exhaustive, with a fresh raw cite retrieved at encode time. The header's parenthetical that nothing consumes `optional` (612-613) retires with it. The shipped `forbiddenKeys` deny-list slice (\"the one deny-list slice that *is* decidable\") stays unless it is now subsumed — check on disk and say which in the commit body (`engineering.md`, \"One job, one home\")."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "The ts-rs seam row, regenerated — do not hand-edit."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Generated data — re-derived and byte-compared by `tests/builtin_lock_frozen.rs`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "ClauseRow carries a `closed-keys` predicate key with no new argument column — the allow-list is the kind's own `required`/`optional` rows.",
+    "tests": [
+      {
+        "path": "tests/closed_keys.rs",
+        "asserts": "a member carrying a key the kind declares neither required nor optional is a finding at the clause's declared severity; a member carrying only declared keys holds; the clause on a kind declaring no keys is inadmissible; the allow-list is read from the kind's rows, so adding an `optional` row admits the key with no second edit"
+      },
+      {
+        "path": "tests/plugin_manifest_kind.rs",
+        "asserts": "a manifest carrying an undocumented top-level key fails through the real gate — the `--strict` bar the kind's contract mirrors"
+      }
+    ],
+    "acceptance": "`plugin-manifest`'s contract checks the strictest documented profile it claims — `claude plugin validate --strict` — rather than naming the gap as a hold (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "0033's third widening. `optional` has been a row nothing reads since it shipped; this is the consumer that makes it load-bearing, so the first `closed-keys` clause is also the first real test that a kind's declared rows are complete. Serialized behind FIELD-ADDRESSING-RFC-9535-SUBSET over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a."
+  },
+  {
+    "tag": "SHAPE-PREDICATE",
+    "summary": "`shape`: a predicate over a closed enum of engine-implemented, doc-cited shapes, opening with the two documented ones — the skill name's hyphen rules and no-XML-tags-in-description",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CLOSED-KEYS-CLAUSE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "The `Predicate` enum (81) gains `Shape { field, shape }` over a new closed `Shape` enum whose members are engine-implemented and doc-cited, opening with exactly two: the skill name's hyphen rules (no leading, trailing, or consecutive hyphen) and no-XML-tags-in-description. An unknown shape is rejected at load exactly as an unknown predicate is, never skipped (`contract.md`, \"clause\": the vocabulary is closed and growing it is a deliberate language change) — `predicate_from_row` (321) is that boundary. No author ever writes a pattern: 0033 refuses the author-facing pattern clause for the third time on the record."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "Each shape's mechanics are `regex`, hidden exactly as it hides under `allowed_chars` (708). The violation message names the shape and the clause's guidance teaches it. `admissibility` (110) needs no new refusal — an unknown shape never decodes into a clause at all."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow` (2548) gains a `shape` column carrying the enum member's name, following the `value_type` precedent (2586-2593, written at 3428 and read at 3470): the row family carries the argument as its name and decodes it at the boundary rather than carrying an engine type."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`clause_from_row` (176-190) and the three row-build sites (226, 253, 275) carry the column."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "The exhaustive `match` (62) needs an arm, and which one is a real choice the entry must make and state: emitting a shape's hidden regex as JSON Schema's `pattern` puts a pattern in front of an author through the back door, while the no-op arm list (110-120) leaves the keystroke quieter than the gate. `distribution.md` (\"The placements and their enforcement modes\") bounds it — the generated schema is the decidable predicates only, and it is machine output, never clause surface."
+        },
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "A `shape()` ctor and a `Shape` string-union type join the node-scope predicates (70-80): an author picks a named shape and can spell nothing else — the closed enum is the type."
+        },
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`skillDefaultContract`'s header (889-894) names both holds and already names this widening (\"a narrow shape predicate governs additions\"); both discharge — the name's hyphen rules and the platform's \"no XML tags in the description\" become clauses with fresh raw cites retrieved at encode time. The `allowedChars` name clause (914) already keeps XML out of the *name* and its guidance says so; this is the description's own bar, and the two must not double-cover the name."
+        },
+        {
+          "path": "sdk/src/generated/ClauseRow.ts",
+          "description": "The ts-rs seam row, regenerated — do not hand-edit."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Generated data — re-derived and byte-compared by `tests/builtin_lock_frozen.rs`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "ClauseRow gains a `shape` column carrying the declared shape's enum name, when the predicate is `shape`.",
+    "tests": [
+      {
+        "path": "tests/shape_predicate.rs",
+        "asserts": "a skill name with a leading, trailing, or consecutive hyphen is a finding and a clean slug is not; a description carrying an XML tag is a finding; a lock row naming a shape the enum does not carry is refused at load rather than skipped; no clause surface accepts an author-written pattern"
+      }
+    ],
+    "acceptance": "The two documented decidable spec rules the skill contract has named as a hold since it shipped are gated, over a closed enum no author can extend (builtins.md, \"Default contracts\"). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "0033's fourth widening — the \"later wave under their own design\" 0022 reserved. The enum's closure is the whole safety property: it is what separates a shape from the open lint `intent.md` invariant 2 exists to prevent, so a shape lands with its doc cite or it does not land. Serialized behind CLOSED-KEYS-CLAUSE over `src/contract.rs`, `src/engine.rs`, `src/schema.rs`, `sdk/src/builtins.ts`. scoped at 15b7a3a."
+  },
+  {
     "tag": "DIAL-KIND",
     "summary": "Ship the temper-owned `dial` kind: a local-locus document naming clauses by label and declaring the severity this machine reads them at — deletion unspellable, softening inert in block mode",
     "per": {
@@ -155,7 +454,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "CHECK-JOINS-INVOCATION-LOCKS"
+      "tag": "SHAPE-PREDICATE"
     },
     "dependsOnForks": [
       "local-locus-toml-face"
@@ -194,7 +493,7 @@
       }
     ],
     "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Fork-gated, not merely serialized: `contract.md` calls the dial a local-locus **TOML** document while `representation.md` declares a local locus layout-only, and a layout is markdown's heading tree. Build must not pick between those sentences. Also serialized behind the join (shares `src/main.rs`) and needs the label to name a clause at all. scoped at f1d97e4."
+    "notes": "Fork-gated, not merely serialized: `contract.md` calls the dial a local-locus **TOML** document while `representation.md` declares a local locus layout-only, and a layout is markdown's heading tree. Build must not pick between those sentences. Re-gated 07-16 behind 0033's wave (shares `sdk/src/builtins.ts`) rather than the wave behind it: this entry cannot ship until a human rules the fork, and 0033's widenings must not wait on that. scoped at f1d97e4."
   },
   {
     "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
@@ -266,7 +565,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at f1d97e4 and holds — nothing ruled the hop semantics; the window touches no import mechanics (`git log 9409a6c..HEAD -- src/ tests/` is empty). Every cite re-read on disk, all unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified f1d97e4."
+    "notes": "Park re-tested at 15b7a3a and holds — nothing ruled the hop semantics, and the window since f1d97e4 is plan-only, touching no import mechanics. Every cite re-read on disk, all unmoved: the constant 5 at 65, the narration at 525/624, the BFS at 654, the boundary test at 1356. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified f1d97e4."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -293,6 +592,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at f1d97e4, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The 9409a6c..HEAD window touched no release surface. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at f1d97e4, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. The window since touched no release surface. scoped at b676656."
   }
 ]
