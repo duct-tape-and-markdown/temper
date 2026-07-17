@@ -208,6 +208,106 @@
     "notes": "Routes 0036 (63e1f22): its sole Consequences bullet — kind, default contract, fixture under the discovery override — is this one atomic entry. (settings-local-kind) fork already absent from open-questions; no deletion owed. blockedBy EXTENT: both regenerate builtin_lock.toml. No per-key settings schema exists today — the default contract is authored fresh from the live settings docs, cited. src/{builtin,contract,kind}.rs unchanged, data-driven. scoped at 4cc3081."
   },
   {
+    "tag": "VERIFIER-TYPED",
+    "summary": "Derive 0037's verifier-type resolution: retype `verified_by` into a species union — script (path) + telemetry (documented event names), each resolved at admissibility; probe deferred",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "requirement — a shipped kind, not a primitive"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EXTENT-PREDICATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "Retype the verifier slot. `Requirement.verifiedBy?: string` (~284) becomes `verifier?: Verifier`, a discriminated union with two active species this slice — add `Verifier` plus the `script(path: string)` and `telemetry(events: readonly string[])` constructors (both erase to `{ species, ... }`). PROBE IS NOT TYPED HERE: 0037 keeps probe a documented pattern until its transcript surface is documented or a second consumer types it — do not mint a `probe()` constructor. The `telemetry` constructor documents its admissible event names (InstructionsLoaded, Skill, UserPromptExpansion, PostToolUse — code.claude.com/docs/en/hooks, retrieved 2026-07-17 per 0037; build re-verifies against live docs at encode). Reword the interface doc (~277) `verifiedBy wires the behavioral remainder` to the typed verifier. Overlaps EXTENT on this file (different region) — serialized behind it."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "The requirement lowering (~343) currently emits `verified_by: requirement.verifiedBy`; emit the species-tagged verifier onto the wire row instead (the `verifier` column carrying species + payload). Snake_case wire keys to match the Rust `#[derive(Deserialize)]` reader (`sdk.md`, 'The engine seam'). Overlaps EXTENT on this file (clauseRow region vs. requirement region) — serialized behind it."
+        },
+        {
+          "path": "sdk/src/generated/RequirementRow.ts",
+          "description": "Regenerated once the Rust `RequirementRow` verifier column lands: `verified_by?: string` (~36) becomes the typed `verifier?` column mirroring the new `Verifier` shape. Generated seam, not hand-authored — run the SDK generate step and commit the diff. If the Rust `Verifier` enum derives `TS` as a standalone type, the generate step also emits a NEW `sdk/src/generated/Verifier.ts` and its `generated/index.ts` re-export — commit those too; if the wire shape inlines into RequirementRow, no new file appears. Build confirms off the derive."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "If the root barrel re-exports the contract constructors, add `script`/`telemetry` and the `Verifier` type beside the existing requirement surface; drop nothing else. Confirm on disk whether contract constructors are re-exported here before editing."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "The in-engine model. `Requirement.verified_by: Option<String>` (~100) becomes `verifier: Option<Verifier>`, a new `enum Verifier { Script { path: String }, Telemetry { events: Vec<String> } }` — two variants this slice, probe deferred. Reword the field doc (~98-99) to the typed verifier. `Verifier` is the shared type the drift row lifts into and roster resolves over."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. Overlaps EXTENT on this file (ClauseRow region vs. RequirementRow region) — serialized behind it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`requirement_from_row` (~2399) reconstructs `compose::Requirement` from the row: carry the typed verifier across (`verifier: row.verifier...`) instead of `verified_by: row.verified_by.clone()`."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "The sole resolution/admissibility check. Clause (b) (~127-138) currently tests one path; dispatch per species: `Script { path }` resolves as today (`base_dir.join(path).exists()`, the dangling-verifier message), `Telemetry { events }` resolves each named event against the documented harness-event name set (an unknown event name is inadmissible — a telemetry verifier that names an undocumented event is a silent no-op, same failure shape). The documented event-name set is an external fact carried here (or a small shared const) with its cite (code.claude.com/docs/en/hooks, retrieved 2026-07-17; build re-verifies). Rename the doc at ~94 and the field access. Migrate the two unit tests (~640-658) to the typed verifier and add a telemetry case."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Mechanical field-rename ripple: the `verified_by: None` requirement fixture (~1487) becomes `verifier: None`."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Mechanical ripple: `verified_by: None` fixture (~1693) -> `verifier: None`."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "Mechanical ripple: `verified_by: None` fixture (~172) -> `verifier: None`."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "The verifier admissibility fixtures migrate and extend. `a_requirement_with_a_dangling_verified_by_is_inadmissible` (~388) and `a_roster_whose_verifiers_all_resolve_passes` (~418) re-spell `verified_by: Some(path)` as `verifier: Some(script(path))`; ADD telemetry cases: a requirement whose telemetry verifier names a documented event passes admissibility, and one naming an undocumented event is inadmissible with the no-op message. This is the entry's primary behavioral fixture (extending the existing home, `engineering.md` 'One job, one home' — no new file)."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Mechanical ripple: `verified_by: None` fixture (~52) -> `verifier: None`."
+        },
+        {
+          "path": "tests/layout_edge_slot.rs",
+          "description": "Mechanical ripple: `verified_by: None` fixture (~126) -> `verifier: None`."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Mechanical ripple: `verified_by: None` fixture (~261) -> `verifier: None`."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The `verifiedBy: \"tests/dev-standards.test.ts\"` fixture (~190) re-spells as `verifier: script(\"tests/dev-standards.test.ts\")`; its emitted-row assertion follows the new `verifier` wire shape."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "Add SDK coverage for the typed union: `script(path)` and `telemetry(events)` produce the expected species-tagged clause/row values, and a round-trip proves the wire key matches the Rust reader. If no verifier coverage exists today, this is its home."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "a script verifier resolves like today (path exists passes, dangling is inadmissible); a telemetry verifier naming a documented harness event passes admissibility and one naming an undocumented event is inadmissible; both species round-trip through the lock row"
+      },
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "the `script` and `telemetry` constructors produce the expected species-tagged verifier wire values"
+      }
+    ],
+    "acceptance": "The requirement's verifier is a typed species union: `script(path)` (today's path resolution, retyped) and `telemetry(events)` (named documented harness events), each resolved at admissibility — a script's path exists, a telemetry event's name is a documented one, and either failing is inadmissible with the silent-no-op finding (contract.md, 'requirement': the gate checks the declaration resolves, never runs it; no verifier verdict enters check's exit code). Probe is not typed this slice (0037 keeps it a documented pattern). `pnpm --dir sdk test` + `cargo test` green.",
+    "notes": "0037 slice 5 of 5 (6d2cca6): verifier-type resolution. Un-derived siblings, one slice per tick (cursor holds 63e1f22): tap verb, telemetry declaration+hook projection, local-locus log kind, field strand. This slice owns the documented event-NAME set (telemetry's resolution target); event PAYLOAD cites land with their consumer downstream. Probe deferred per 0037. blockedBy EXTENT on shared contract.ts/declarations.ts/drift.rs (disjoint regions). scoped at f19b052."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
