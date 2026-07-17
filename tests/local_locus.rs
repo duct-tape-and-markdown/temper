@@ -285,16 +285,20 @@ fn check_reads_a_local_members_document_under_the_declared_layout() {
 fn check_derives_a_local_members_collection_members_off_its_document() {
     // An `override` clause the derived members must exist to fail: a bound of at most one
     // member over a document declaring two. Nothing in the lock says the members exist,
-    // so a firing clause is the read-time derivation reaching the corpus.
+    // so a firing clause is the read-time derivation reaching the embedded corpus.
+    // The document's own `satisfies` fill is declared as a requirement here so the gate's
+    // verdict rests on the count clause alone — a dangling fill would fail the run for a
+    // reason that has nothing to do with the derivation under test.
     let harness = scaffold(
         "local-collection",
         Declarations {
             kinds: vec![dial_kind_facts()],
+            requirements: vec![common::requirement("dial-is-governed", true, Some("dial"))],
             clauses: vec![drift::ClauseRow {
                 label: None,
                 kind: Some("override".to_string()),
                 count: Some(drift::CountBoundRow { min: 0, max: 1 }),
-                ..common::clause("count", "error")
+                ..common::clause("count", "required")
             }],
             ..Default::default()
         },
@@ -302,10 +306,22 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
 
     let (findings, ok) = common::check_harness(&harness);
 
-    assert!(
-        !ok,
+    let count = common::findings_for(&findings, "override.count");
+    assert_eq!(
+        count.len(),
+        1,
         "the document's two derived `override` members breach a max-of-one bound: {findings:?}"
     );
+    assert!(
+        count[0].contains("skip-the-slow-gate") && count[0].contains("widen-the-line-bound"),
+        "the finding names the members read off the document: {count:?}"
+    );
+    assert!(
+        common::findings_for(&findings, "requirement.dangling").is_empty(),
+        "the local member's derived fill reaches the roster, so its requirement resolves: \
+         {findings:?}"
+    );
+    assert!(!ok, "the breached bound fails the gate: {findings:?}");
 }
 
 #[test]

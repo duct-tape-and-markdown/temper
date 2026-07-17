@@ -475,7 +475,7 @@ fn explain(target: &str) -> miette::Result<String> {
 
     // The assembly's own declared facts, read first: the corpus below walks each
     // kind's governs locus off *this*.
-    let declarations = drift::read_declarations(&workspace)?;
+    let declarations = assemble_lock_family(harness_root, &drift::read_declarations(&workspace)?)?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
@@ -779,7 +779,7 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
-    let declarations = drift::read_declarations(workspace)?;
+    let declarations = assemble_lock_family(harness_root, &drift::read_declarations(workspace)?)?;
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
@@ -1147,9 +1147,10 @@ fn layout_unit(
 /// range over. Every
 /// member is discovered by walking this kind's [`overlay_builtin_kind`]-overlaid
 /// `governs` locus, read straight off harness disk so the corpus can never drift from a
-/// stale copy; its `satisfies` fill edges come from the lock's own
-/// [`SatisfiesRow`](drift::SatisfiesRow) family, keyed by member id — the real
-/// SDK-emit shape and the only source a converted harness ever populates. Its
+/// stale copy; its `satisfies` fill edges come from the run's assembled
+/// [`SatisfiesRow`](drift::SatisfiesRow) family, keyed by member id — a committed
+/// member's row off the lock, a local member's derived at
+/// [`assemble_lock_family`], so this read never re-decides which source it has. Its
 /// rationale-carrying `satisfies_clauses` mirrors it: a lock-declared row narrates as a
 /// rationale-less [`document::Satisfies`](document::Satisfies) — the lock row carries
 /// no rationale text — so `explain` can never disagree with the gate about which
@@ -1221,19 +1222,9 @@ fn resolve_kind_units(
     // qualified label; a bare label an older engine wrote still binds against this kind's
     // own id (a bare label two kinds share is refused at admissibility, never
     // cross-attributed here).
-    // A local-locus member's fills are its own document's `satisfies` edge slot: its rows
-    // never enter the lock, so the family below carries none of them and its fills would
-    // silently miss the roster. Every other member's come off the lock.
-    let derived;
-    let satisfies = if overlaid.commitment == Some(kind::Commitment::Local) {
-        derived = local_document_rows(&overlaid, &units, declarations)?;
-        &derived.satisfies[..]
-    } else {
-        &declarations.satisfies[..]
-    };
     for unit in &mut units {
         let address = extract::host_address(&kind.name, &unit.id);
-        for row in satisfies {
+        for row in &declarations.satisfies {
             if row.member != address && row.member != unit.id {
                 continue;
             }
@@ -1354,9 +1345,8 @@ fn manifest_units(
 
 /// A kind's members' extracted [`Features`](extract::Features) — [`resolve_kind_units`]
 /// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
-/// each member's nested-member facts resolved off the lock's own declared
-/// `nested_members` rows by address ([`builtin_kind::features`]), never by re-parsing
-/// its rendered body.
+/// each member's nested-member facts resolved off the run's assembled `nested_members`
+/// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
 ///
 /// # Errors
 ///
@@ -1368,21 +1358,41 @@ fn kind_features(
 ) -> miette::Result<Vec<extract::Features>> {
     let kind = overlay_builtin_kind(kind, declarations)?;
     let units = resolve_kind_units(&kind, harness_root, declarations)?;
-    // A local-locus kind's members contribute no `nested_member` rows to the lock — the
-    // kind is committed, its members' documents are not — so theirs are derived here, at
-    // read time, off the documents themselves under the kind the committed lock declares.
-    // Every other kind's reach the corpus off the lock's own family.
-    let derived;
-    let nested_members = if kind.commitment == Some(kind::Commitment::Local) {
-        derived = local_document_rows(&kind, &units, declarations)?;
-        &derived.nested[..]
-    } else {
-        &declarations.nested_members[..]
-    };
     Ok(units
         .iter()
-        .map(|unit| builtin_kind::features(&kind, unit, nested_members))
+        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
         .collect())
+}
+
+/// The run's whole declaration family: the committed lock joined with every local-locus
+/// kind's read-time derived rows ([`local_document_rows`]).
+///
+/// A local kind is committed but its members' documents are not, so the lock carries no
+/// row of theirs. Deriving them *here* — once, before any consumer reads — is what lets
+/// every consumer below read one family: a clause bound to an embedded kind selects a
+/// local host's members exactly as it selects a committed host's, and a local member's
+/// fills reach the roster on the same read. A consumer re-deciding which of two sources it
+/// reads is the shape this replaces; the derivation runs against the committed family,
+/// which is what decides the kinds and loci the members are discovered under.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`] and [`local_document_rows`].
+fn assemble_lock_family(
+    harness_root: &Path,
+    committed: &drift::Declarations,
+) -> miette::Result<drift::Declarations> {
+    let mut assembled = committed.clone();
+    for kind in declared_kinds(committed)?.values() {
+        if kind.commitment != Some(kind::Commitment::Local) {
+            continue;
+        }
+        let units = resolve_kind_units(kind, harness_root, committed)?;
+        let rows = local_document_rows(kind, &units, committed)?;
+        assembled.nested_members.extend(rows.nested);
+        assembled.satisfies.extend(rows.satisfies);
+    }
+    Ok(assembled)
 }
 
 /// A local-locus kind's members' declaration rows, derived off their own documents —
@@ -1544,7 +1554,9 @@ fn kind_selections<'a>(
 /// one `by_kind` map every graph predicate ranges over. An embedded kind is named where a
 /// host declares it — a `templates` column entry, or a layout member collection's
 /// `member_kind` — and carries no kind-fact row, so this is the sole seam it enters the
-/// corpus through. Its members are the lock's `nested_member` rows of that kind, each
+/// corpus through. Its members are the run's assembled `nested_member` rows of that kind
+/// — a committed host's off the lock, a local host's derived at [`assemble_lock_family`],
+/// so a clause over it selects a local host's members and a committed host's alike — each
 /// lifted to a member whose id is the row's key and whose fields are its leaves, so an
 /// edge resolves against it by identity ([`embedded_member_features`]). A declared kind
 /// with no rows keys to an empty slice — modeled, so an edge targeting it is admissible
