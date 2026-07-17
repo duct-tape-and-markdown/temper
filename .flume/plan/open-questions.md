@@ -13,30 +13,6 @@ tax.
 
 ## Open forks
 
-- `(settings-local-kind)` — OPEN, human's call, registered 07-16 from 0032's
-  own Consequences: "The claude-code face's `settings.local.json` is the first
-  candidate local-locus layout kind beyond the dial itself." A candidate is not
-  a requirement, and plan does not promote one — the `(plugin-author-dogfood)`
-  precedent. The question: does the claude-code face ship a
-  `settings.local.json` kind? The "can it" half is now **built, not merely
-  ruled** — 0034's three derivations all ship (bce89b7, 09ef5ea, 6e7b958), so
-  a local JSON kind would be gated in place under `json-document` and its
-  always-gitignored document actually found by the walk. **The dial itself now
-  ships** (eaee2af; `temper_dial()`, `src/builtin_kind.rs`:388, read at
-  b85df4a), so this record's own framing — "beyond the dial itself" — now names
-  a shape proven end to end in code rather than one merely derivable: a
-  `settings.local.json` kind would be the second instance of a live pattern,
-  not the first of an untried one. **The pattern's last leg closed at
-  b85df4a**: CHECK-ANNOUNCES shipped (dab85aa), so a local member is read,
-  gated, *and* named in the verdict — `LockFamily.local_members`
-  (`src/main.rs`:1506) retains every local member the assembly read, by
-  `<kind>:<id>`, and the announcement carries it whatever the verdict. A
-  `settings.local.json` kind would inherit that announcement free, with no
-  surface of its own. Ship-or-not is all
-  that remains, and it costs no upstream work.
-  Nothing is broken by leaving it open: the file is ungoverned today and
-  no member declares it. No dependents.
-
 - `(eval-capability)` — OPEN, strategic, parked past launch. Harness evals: a
   requirement carries prose intent and a verifier edge
   (`specs/model/contract.md`, "requirement"), and the graph gives eval

@@ -11,7 +11,7 @@ collision is impossible and no name-qualification scheme exists.
 
 ## The shipped kinds
 
-Ten kinds ship. Seven are file members:
+Eleven kinds ship. Eight are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. Its
@@ -50,8 +50,19 @@ Ten kinds ship. Seven are file members:
   `npm`) (code.claude.com/docs/en/plugin-marketplaces, retrieved
   2026-07-16).
 
-The two manifest kinds sit outside the domain partition below: they carry
-distribution metadata, never session content (decision 0031).
+- **settings-local** — the machine's own settings overlay at
+  `.claude/settings.local.json`, a JSON document at the **local**
+  commitment class: per-machine, uncommitted, read in place and gated,
+  never emitted (decisions 0032/0034/0036); singleton identity from its
+  fixed documented path. Documented keys are typed, the unschematized
+  residue stays opaque fields named as such — and it is fields, not
+  members: a locally-registered hook or enablement's member-hood and
+  reach stay unmodeled and named as such, the installed-plugin cache
+  precedent (code.claude.com/docs/en/settings, retrieved 2026-07-16).
+
+The two manifest kinds and `settings-local` sit outside the domain
+partition below: distribution metadata and machine configuration, never
+authored session content (decisions 0031, 0036).
 
 Three are registration members — fields-only entries a manifest carries at
 a collection address, never files of their own (`model/representation.md`,
