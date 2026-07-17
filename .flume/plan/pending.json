@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "LOCK-FAMILY-ASSEMBLED-ONCE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -24,7 +23,7 @@
         },
         {
           "path": "src/main.rs",
-          "description": "Two exhaustive `(content, format)` matches answer, and the second is a compile error until it does. (1) `read_file_unit`'s format dispatch (1279-1291) routes a kind's declared format to its adapter; its doc (1262-1267) states why this is the one dispatch — \"a per-call-site format match would be a second dispatch to disagree with this one\" — so the read face lands here and nowhere else. (2) `local_document_rows`'s match (1412-1418) enumerates `Some(YamlFrontmatter | JsonDocument) | None` with no catch-all, so a third `Format` member fails to compile until this entry decides its arm; its doc (1392-1399, written by bce89b7) states the decision rule — a read face declaring a member collection or an edge slot must answer here, and one declaring neither returns no rows. A TOML document declares neither, so it joins the return-default arm exactly as `json-document` does; the doc's own reason is that a catch-all \"would instead let it gate against silence\"."
+          "description": "Two exhaustive `(content, format)` matches answer, and the second is a compile error until it does. Both re-read on disk at 7629fb0: 990715e's join moved the second pair (match 1412-1418→1422-1428, doc 1392-1399→1398-1416), so these are the current numbers, not the ones scoped last tick. (1) `read_file_unit`'s format dispatch (1270-1286, unmoved) routes a kind's declared format to its adapter; its doc (1249-1258) states why this is the one dispatch — \"a per-call-site format match would be a second dispatch to disagree with this one\" — so the read face lands here and nowhere else. (2) `local_document_rows`'s match (1422-1428) enumerates `Some(YamlFrontmatter | JsonDocument) | None` with no catch-all, so a third `Format` member fails to compile until this entry decides its arm; its doc's decision rule (1405-1411, written by bce89b7) — a read face declaring a member collection or an edge slot must answer here, and one declaring neither returns no rows. A TOML document declares neither, so it joins the return-default arm exactly as `json-document` does; the doc's own reason is that a catch-all \"would instead let it gate against silence\". 990715e left `local_document_rows` exactly one caller — the new `assemble_lock_family` (1381), which derives every local kind's rows once per run and mints no format match of its own, so it is not a third site to answer."
         },
         {
           "path": "src/drift.rs",
@@ -45,7 +44,7 @@
       }
     ],
     "acceptance": "A kind may declare `toml-document` and its members read and gate; nothing writes one (representation.md, \"kind\": format implementations are engine code, grown by deliberate addition — 0034 ratifies this one). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Gate holds on serialization alone — both edit `src/main.rs`; last tick's \"subsumes the format match\" reason is false and retired (the match sits inside `local_document_rows`, which the join keeps). scoped 832f015; re-read da31f82."
+    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Unblocked at 7629fb0: LOCK-FAMILY-ASSEMBLED-ONCE shipped (990715e), spending the `src/main.rs` serialization its gate rested on. Now the queue's one pickable entry. scoped 832f015; cites re-read 7629fb0."
   },
   {
     "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY",
@@ -104,7 +103,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The `Check` command (105-122: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `engine::admissibility` path (811/850). 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
+          "description": "The `Check` command (105-122: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `engine::admissibility` path (829/868). That pair is re-stamped, not carried: the cite read 811/850, true when stamped at 399d8e3 and falsified by 6d145fa's label lift (+18) — verified on disk at 7629fb0 against `git show 399d8e3:src/main.rs`. The join's own home is now `assemble_lock_family` (1381), which 990715e minted as the one site every consumer's declaration family is built at — the invocation's locks join there, beside the local kinds' derived rows, rather than at a second per-call-site read. 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
         },
         {
           "path": "src/drift.rs",
@@ -125,7 +124,7 @@
       }
     ],
     "acceptance": "An org authors an ordinary temper corpus, emits its lock, and distributes it; a consumer joins it at check and is gated by it, fail-closed (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Re-gated at 832f015: its blocker CLAUSE-LABEL-IS-AN-ADDRESS shipped (6205707), leaving a dangling tag; now behind 0034's three, sharing `src/main.rs`/`src/drift.rs` with two. scoped f1d97e4; cites re-read 399d8e3."
+    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Behind 0034's three, sharing `src/main.rs`/`src/drift.rs` with two. scoped f1d97e4; the `admissibility` cite re-read at 7629fb0 and corrected (811/850→829/868) — 6d145fa moved it after the 399d8e3 stamp and last tick's sweep missed it."
   },
   {
     "tag": "TYPE-ACCEPTS-A-SET",

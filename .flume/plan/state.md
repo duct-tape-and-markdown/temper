@@ -1,46 +1,47 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: da31f82
-- Residue swept through: da31f82
-- This tick: RECONCILE `832f015..da31f82` — both motions over bce89b7's ship,
+- Audited through: 7629fb0
+- Residue swept through: 7629fb0
+- This tick: RECONCILE `da31f82..7629fb0` — both motions over 990715e's ship,
   the window's only commit touching `src/`/`tests/`/`sdk/`.
-  **Sweep: clean.** 0034's named demolition drained whole — `rg "layout-only"`
-  over `src/`, `tests/`, `sdk/src/` returns nothing, and the fence's narration
-  went with the arm (`local_locus_fault`'s doc, `local_locus_admissibility`'s
-  doc, the `gate` call-site comment, `tests/local_locus.rs`'s module header).
-  Nothing filed; no second implementation surfaced.
-  **Audit: one finding, and it was a gate reason, not code.**
-  LOCK-FAMILY-ASSEMBLED-ONCE re-verified on disk — all three claims hold
-  (`embedded_features_by_kind` 1555 folding `declarations.nested_members`
-  alone, call sites 523/913, `kind_features` 1364 landing the `nested` half
-  only at 1384, the false-green severity at `tests/local_locus.rs`:297). It
-  stays pickable.
-  TOML-DOCUMENT-READ-FACE's gate reason was **false and is retired**: last tick
-  wrote that the lock-family join "subsumes the `local_document_rows` format
-  match this face answers". It does not — the match sits *inside*
-  `local_document_rows` (1412-1418), which the join keeps; the join retires the
-  two *commitment* branches at that function's call sites (1229, 1377), a
-  different surface. The gate stands on serialization alone (both edit
-  `src/main.rs`), so the reason is re-stated, not the gate dropped. The
-  correction became scope the entry lacked: bce89b7 left that
-  `(content, format)` match exhaustive with **no catch-all**, so
-  `Format::TomlDocument` is a compile error until the entry picks its arm —
-  now named in its `src/main.rs` description with the doc's own decision rule.
-  **Cites re-stamped, re-read on disk, never carried:** bce89b7 moved four
-  `src/kind.rs` addresses under two entries citing them —
-  TOML-DOCUMENT-READ-FACE (`Format` 555→554, `label` 571→570,
-  `format_from_label` 975→964, doc 551-554→548-552) and DIAL-KIND
-  (`CustomKind::local` 729→728, which last tick's own re-stamp missed).
-  Both parks re-tested and hold — the window touches neither `src/graph.rs` nor
-  `.github/`; `MAX_IMPORT_HOPS` is still 5, `git tag -l` carries only the four
-  era tags, release.yml:7-9 states the deferral verbatim. The
+  **Audit: the join shipped as scoped, and it unblocks the queue.**
+  Verified on disk, not off the log: `assemble_lock_family` (`src/main.rs`:1381)
+  joins the committed rows with every local kind's derived `nested`/`satisfies`
+  before any consumer reads, and both `gate` (782) and `explain` (478) range
+  over the one family. The ship commit (7629fb0) removed
+  LOCK-FAMILY-ASSEMBLED-ONCE, leaving TOML-DOCUMENT-READ-FACE's `blockedBy`
+  naming a tag no entry carries — **re-tested and opened**: that gate rested on
+  `src/main.rs` serialization alone, and the serialization is spent. It is now
+  the queue's one pickable entry.
+  **Cites re-stamped, re-read on disk, never carried:** 990715e moved
+  TOML-DOCUMENT-READ-FACE's second `src/main.rs` pair (`local_document_rows`'s
+  match 1412-1418→1422-1428, its decision-rule doc 1392-1399→1405-1411);
+  `read_file_unit`'s dispatch (1270-1286) and its doc (1249-1258) are unmoved.
+  The entry gains one fact it lacked: the join left `local_document_rows`
+  exactly one caller, and `assemble_lock_family` mints no format match of its
+  own, so it is not a third site the TOML face must answer. `src/kind.rs`'s
+  four addresses re-read and hold — the window never touched the file.
+  **One finding older than this window.** CHECK-JOINS-INVOCATION-LOCKS cited
+  `engine::admissibility` at 811/850 — true when stamped at 399d8e3, falsified
+  by 6d145fa's label lift (+18 → 829/868), and missed by last tick's sweep of
+  that very window. Re-stamped against `git show 399d8e3:src/main.rs`, and the
+  entry now names `assemble_lock_family` as the seam its join lands at.
+  **Sweep: clean.** The commit's named demolition drained whole — the two
+  per-call-site commitment branches are gone; the sole surviving
+  `commitment != Some(Local)` is the join's own filter, not a per-call-site
+  re-decision. Four `read_declarations` consumers still skip the join
+  (`schema` 290, `mode_from_lock` 589, `guarded_manifests` 621,
+  `coverage_note`:283) — each reads only `kinds`/`clauses`/`assembly`, row
+  families a local member never contributes, so none is a second fail-open.
+  Nothing filed; no second implementation surfaced. Both parks re-tested and
+  hold: the window touches neither `src/graph.rs` nor `.github/`. The
   `src/roster.rs`:470 orphan cite still waits for a carrier, unmoved.
-- Queue: 12 entries, **1 pickable** — LOCK-FAMILY-ASSEMBLED-ONCE. Nine chain
+- Queue: 11 entries, **1 pickable** — TOML-DOCUMENT-READ-FACE. Eight chain
   behind it, serialized on shared files; no entry rests on a fork. Two parked.
 
 Plan continues: no — every input is drained. Inbox and refactor captures are
 empty, the spec delta is empty (nothing past 832f015), and both reconciliation
-cursors now sit at da31f82 with the window's audit and sweep complete. Build
-takes over: LOCK-FAMILY-ASSEMBLED-ONCE is pickable, and nine entries queue
-behind a derivation that today fails open.
+cursors now sit at 7629fb0 with the window's audit and sweep complete. Build
+takes over: TOML-DOCUMENT-READ-FACE is pickable, and eight entries queue
+behind the read face 0034 ratified.
