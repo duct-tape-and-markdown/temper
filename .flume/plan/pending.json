@@ -1,44 +1,5 @@
 [
   {
-    "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY",
-    "summary": "A committed local-locus kind's `governs` declaration overrides discovery's presumptions — gitignore and the workspace skip — for exactly its own scope",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "`discoverable_paths` (347-385) prunes on two presumptions with no local-class awareness: `git_ignore(true)` (354) and the categorical `WORKSPACE_DIR` skip inside `filter_entry` (357; the skip block 362-366). A real local document is always gitignored, so the shipped class finds members only in fixtures where the file happens to be tracked; and the dial's ratified `.temper/dial.toml` sits under the skipped workspace. Both make rows silently fail to derive — the fail-open invariant 6 forbids. The reviewed `governs` declaration is the authorship claim over its unreviewed documents, so it overrides both, there and only there (0034 errata). `discover_kind_units` (234-241) sees only `governs`; `discover_kind_files` (207-222) already carries the `kind` whose commitment decides. Two fences are NOT the presumptions the errata names and stay whole: `.git/` (362) and the nested-governed-root stop (367-375, `is_governed_root` 388). The comment at 235-238 and `discoverable_paths`'s doc (330-346) state the scoped override rather than the bare presumption."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Install's adoption walk keeps the presumption whole — adoption never converts a local document into a committed member (0034 errata, stated by name). Verify on disk which walk install runs and say in the commit body whether it inherits the carve-out through `import` or is already separate; if it inherits, it is fenced here."
-        },
-        {
-          "path": "tests/local_locus.rs",
-          "description": "The class's own test home — its scaffold (118) writes fixtures into a temp harness, so the ignore-rule and workspace-skip cases land beside the admissibility and read-time-rows cases they complete."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/local_locus.rs",
-        "asserts": "a local kind's member is discovered and gated though a `.gitignore` names it, and a local kind governing a path under `.temper/` is discovered though the walk categorically skips the workspace; a committed kind's member under the same ignore rule stays undiscovered; a nested governed root and `.git/` are still fenced from a local kind's walk; install's adoption walk still honors the presumption"
-      }
-    ],
-    "acceptance": "The declaration is the authorship claim: discovery sees a local-locus kind's per-machine documents despite ignore rules and the workspace skip, there and only there, so `.temper/dial.toml` is reachable (pipeline.md, \"Install\"). `cargo test` green.",
-    "notes": "0034's errata (832f015), the ruling's own post-sweep. **Gate opened at 15e5924**: it rested on the toml face alone — this entry's workspace-skip fixture is the dial's own `.temper/dial.toml`, which now reads under the shipped face (09ef5ea). The linear chain is what puts all three 0034 derivations upstream of DIAL-KIND, which needs every one. scoped 832f015; import.rs cites re-read on disk at 15e5924 and corrected (the walk's own numbers were never re-read after scoping)."
-  },
-  {
     "tag": "CHECK-JOINS-INVOCATION-LOCKS",
     "summary": "A policy layer is a lock the invocation joins: `check --layer <path>` joins named locks' rows over this corpus, kinds travel by name, and a joined lock failing admissibility fails the check",
     "per": {
