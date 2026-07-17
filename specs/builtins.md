@@ -11,7 +11,7 @@ collision is impossible and no name-qualification scheme exists.
 
 ## The shipped kinds
 
-Seven kinds ship. Five are file members:
+Ten kinds ship. Seven are file members:
 
 - **skill** — its entry file carries YAML frontmatter over a body; identity
   from its directory's name; registers on both invocation channels. Its
@@ -36,15 +36,36 @@ Seven kinds ship. Five are file members:
   scope registers unconditionally.
 - **memory** — a `CLAUDE.md`-family file, loaded whole at launch, with no
   frontmatter: the entire file is prose.
+- **plugin-manifest** — the pack's identity at
+  `.claude-plugin/plugin.json`, a JSON document; identity from its `name`
+  field, the one required field (kebab-case). Its contract mirrors the
+  strictest documented profile — `claude plugin validate --strict` — so a
+  passing manifest travels everywhere the format is honored
+  (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-16).
+- **marketplace** — the distribution catalog at
+  `.claude-plugin/marketplace.json`, a JSON document; identity from `name`
+  (kebab-case, checked against the documented reserved-names deny list);
+  `owner.name` required; each `plugins[]` entry names `name` plus `source`
+  (the documented union: relative path, `github`, `url`, `git-subdir`,
+  `npm`) (code.claude.com/docs/en/plugin-marketplaces, retrieved
+  2026-07-16).
 
-Two are registration members — fields-only entries a manifest carries at a
-collection address, never files of their own (`model/representation.md`,
+The two manifest kinds sit outside the domain partition below: they carry
+distribution metadata, never session content (decision 0031).
+
+Three are registration members — fields-only entries a manifest carries at
+a collection address, never files of their own (`model/representation.md`,
 "Reach"):
 
 - **hook** — one handler registration under `settings.json`'s
   `hooks.<Event>`; its channel is the documented event.
 - **mcp-server** — one connection under `.mcp.json`'s `mcpServers`; its
   channel is the connection.
+- **installed-plugin** — one enablement entry under `settings.json`'s
+  `enabledPlugins`; its channel is the enablement entry itself (decision
+  0031). The members a plugin contributes live in the plugin cache,
+  outside the corpus; their reach is unmodeled and named as such — the
+  honest subset.
 
 A kind's registration names the set of documented channels a member reaches
 the world over — user invocation and description trigger are channels, not
