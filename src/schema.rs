@@ -16,7 +16,8 @@
 //! - **docs** (hover) — the per-field [`guidance`](crate::contract::Clause::guidance)
 //!   prose kept *out of checks*, projected onto each field's property
 //!   `description` keyword, **strictly alongside** the validation keywords and
-//!   never mixed into them. Advisory; it never gates.
+//!   never mixed into them. A field's guided clauses join into that one keyword,
+//!   just as its shapes compose into `allOf`. Advisory; it never gates.
 //!
 //! Taste cannot become a squiggle — the closed algebra has no syntax for it, and
 //! neither does the schema — so it can only ride the docs channel. The medium
@@ -167,7 +168,8 @@ pub fn emit(contract: &Contract) -> Value {
 
     // The docs (hover) channel, emitted **strictly alongside** the validation
     // keywords above, never mixed into them: a field clause's advisory `guidance` prose rides its JSON
-    // Schema property's `description`. This is the on-law guarantee made concrete —
+    // Schema property's `description`, joining whatever the field's earlier clauses
+    // taught. This is the on-law guarantee made concrete —
     // taste can only become documentation, never a squiggle. Guidance on a
     // field-less predicate (`forbidden_keys`, `max_lines`, the cross-artifact ones)
     // names no frontmatter property, so it rides no channel here, exactly as those
@@ -179,8 +181,7 @@ pub fn emit(contract: &Contract) -> Value {
         if let (Some(guidance), Some(field)) =
             (&clause.guidance, clause.predicate.documented_field())
         {
-            property(&mut properties, field)
-                .insert("description".to_string(), Value::from(guidance.clone()));
+            push_description(property(&mut properties, field), guidance);
         }
     }
 
@@ -323,6 +324,22 @@ fn push_subschema(property: &mut Map<String, Value>, subschema: Value) {
     {
         entries.push(subschema);
     }
+}
+
+/// Append `prose` to a property's `description`, the docs channel's one slot.
+///
+/// Guidance faces the same hazard [`push_subschema`] answers, one channel over: a field
+/// carrying several guided clauses — a skill's `name` carries six — has one `description`
+/// to reach the author through, and writing each straight onto the property would leave
+/// only the last clause's teaching, silently dropping the rest. Paragraphs join in the
+/// contract's compiled clause order, so adding a clause adds prose rather than re-picking
+/// which teaching an author sees at the keystroke.
+fn push_description(property: &mut Map<String, Value>, prose: &str) {
+    let joined = match property.get("description").and_then(Value::as_str) {
+        Some(existing) => format!("{existing}\n\n{prose}"),
+        None => prose.to_string(),
+    };
+    property.insert("description".to_string(), Value::from(joined));
 }
 
 /// The generated `^[<ranges><chars>]*$` character-class pattern for a [`Charset`]
@@ -661,6 +678,55 @@ mod tests {
                 .get("description")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn every_guided_clause_on_a_field_keeps_its_teaching() {
+        // One `description` slot, several guided clauses on the field — a skill's `name`
+        // carries six. Each teaching joins in clause order rather than overwriting the
+        // last, so the author hovers on the whole contract, not on whichever clause the
+        // compiler happened to emit last.
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses: vec![
+                guided(
+                    Predicate::Required {
+                        field: "name".to_string(),
+                    },
+                    "every skill declares a name",
+                ),
+                guided(
+                    Predicate::MaxLen {
+                        field: "name".to_string(),
+                        max: 64,
+                    },
+                    "64 characters is the cap the loader enforces",
+                ),
+                guided(
+                    Predicate::AllowedChars {
+                        field: "name".to_string(),
+                        charset: Charset {
+                            ranges: vec![('a', 'z')],
+                            chars: BTreeSet::from(['-']),
+                        },
+                    },
+                    "kebab-case, no spaces",
+                ),
+            ],
+        };
+        let schema = emit(&contract);
+        assert_eq!(
+            schema["properties"]["name"]["description"],
+            json!(
+                "every skill declares a name\n\n\
+                 64 characters is the cap the loader enforces\n\n\
+                 kebab-case, no spaces"
+            )
+        );
+        // The joined prose sits strictly beside the validation keywords, never inside one.
+        assert_eq!(schema["properties"]["name"]["maxLength"], json!(64));
+        assert_eq!(schema["required"], json!(["name"]));
     }
 
     #[test]
