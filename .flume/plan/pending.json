@@ -19,7 +19,7 @@
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "The row lowering. `nestedMemberRow` (~506) gains the captured rendered-extent columns (`rendered_lines`/`rendered_chars`) on the emitted `NestedMemberRow`, measured off the same `renderMemberToml` render `emit` produces — the `placed_edges` precedent (~527: a render fact reaches the engine as a declaration row or not at all, absent for a value no format rendered so an ordinary row stays byte-identical). Overlaps STAR-SEGMENT-LOCUS (unit-shape region) / VERIFIER-TYPED (requirement-lowering region) — disjoint from the nested-member region."
+          "description": "The row lowering. `nestedMemberRow` (~506) gains the captured rendered-extent columns (`rendered_lines`/`rendered_chars`) on the emitted `NestedMemberRow`, measured off the same `renderMemberToml` render `emit` produces — the `placed_edges` precedent (~527: a render fact reaches the engine as a declaration row or not at all, absent for a value no format rendered so an ordinary row stays byte-identical). STAR-SEGMENT-LOCUS shipped 2a89535 (its unit-shape region settled on disk); overlaps open VERIFIER-TYPED (requirement-lowering region) — disjoint from the nested-member region."
         },
         {
           "path": "sdk/src/generated/NestedMemberRow.ts",
@@ -27,7 +27,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The shared lock row. `NestedMemberRow` (~3019) gains `rendered_lines`/`rendered_chars` as `Option<u32>` columns (the `placed_edges: Option<Vec<String>>` precedent — `#[serde(default)]` + `#[ts(optional)]`, so ordinary rows stay byte-identical), with `to_table`/`from_table` (~4021/~4040, an opt-number helper beside `opt_str_array`) carrying them. The struct literal at ~1594 adds the two columns. MANIFEST-SEGMENT-REAP shipped 2a2d583 (its emit_manifest / reap-ledger region settled on disk); coexists with the open STAR-SEGMENT-LOCUS (KindFactRow) and VERIFIER-TYPED (RequirementRow) regions — all struct-disjoint from this NestedMemberRow region."
+          "description": "The shared lock row. `NestedMemberRow` (~3019) gains `rendered_lines`/`rendered_chars` as `Option<u32>` columns (the `placed_edges: Option<Vec<String>>` precedent — `#[serde(default)]` + `#[ts(optional)]`, so ordinary rows stay byte-identical), with `to_table`/`from_table` (~4021/~4040, an opt-number helper beside `opt_str_array`) carrying them. The struct literal at ~1594 adds the two columns. MANIFEST-SEGMENT-REAP (2a2d583) and STAR-SEGMENT-LOCUS (2a89535) shipped (reap-ledger / splice-name regions settled on disk); coexists with the open VERIFIER-TYPED (RequirementRow) region — struct-disjoint from this NestedMemberRow region."
         },
         {
           "path": "src/main.rs",
@@ -51,7 +51,7 @@
         },
         {
           "path": "tests/nested_member.rs",
-          "description": "Row-literal ripple: `surface_authority_row` (~37) and the row at ~152 add the two columns (None). TEMPLATE-DISCOVERY-CARVE shipped dcaf48c; coexists with the open STAR-SEGMENT-LOCUS on this file — disjoint region (helper literals vs. its new discovery cell)."
+          "description": "Row-literal ripple: `surface_authority_row` (~37) and the row at ~152 add the two columns (None). TEMPLATE-DISCOVERY-CARVE (dcaf48c) and STAR-SEGMENT-LOCUS (2a89535) shipped on this file — disjoint region (helper literals vs. their discovery / starred-segment cells)."
         },
         {
           "path": "tests/emit.rs",
@@ -258,7 +258,7 @@
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "The requirement lowering (~343) currently emits `verified_by: requirement.verifiedBy`; emit the species-tagged verifier onto the wire row instead (the `verifier` column carrying species + payload). Snake_case wire keys to match the Rust `#[derive(Deserialize)]` reader (`sdk.md`, 'The engine seam'). Coexists with STAR-SEGMENT-LOCUS (unit-shape region ~146/~252) on declarations.ts — disjoint from this requirement-lowering region ~344. (EXTENT shipped 4bdb796.)"
+          "description": "The requirement lowering (~343) currently emits `verified_by: requirement.verifiedBy`; emit the species-tagged verifier onto the wire row instead (the `verifier` column carrying species + payload). Snake_case wire keys to match the Rust `#[derive(Deserialize)]` reader (`sdk.md`, 'The engine seam'). STAR-SEGMENT-LOCUS shipped 2a89535 (its unit-shape region settled on disk) — disjoint from this requirement-lowering region ~344. (EXTENT shipped 4bdb796.)"
         },
         {
           "path": "sdk/src/generated/RequirementRow.ts",
@@ -274,7 +274,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. MANIFEST-SEGMENT-REAP shipped 2a2d583 (its emit_manifest / reap-ledger region settled on disk); coexists with the open STAR-SEGMENT-LOCUS (KindFactRow) and EMBEDDED-EXTENT-CAPTURE (NestedMemberRow) regions on drift.rs — all struct-disjoint from this RequirementRow region. (EXTENT shipped 4bdb796.)"
+          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. MANIFEST-SEGMENT-REAP (2a2d583) and STAR-SEGMENT-LOCUS (2a89535) shipped (reap-ledger / splice-name regions settled on disk); coexists with the open EMBEDDED-EXTENT-CAPTURE (NestedMemberRow) region on drift.rs — struct-disjoint from this RequirementRow region. (EXTENT shipped 4bdb796.)"
         },
         {
           "path": "src/main.rs",
