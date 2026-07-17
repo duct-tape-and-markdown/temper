@@ -1,5 +1,93 @@
 [
   {
+    "tag": "MENTION-REACHABLE-EDGE-UNIFY",
+    "summary": "`mention-reachable` reads `mention_edges` alone, not the resolved edge set every other graph judge shares — a mention absent from that partial set gets zero coverage while its clause runs green",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The wiring gap. `graph::mention_reachable` (call site 1114) receives `&mention_edges` alone, while `graph::degree` (1108) receives `&edges` *and* `&mention_edges` — so a member whose mention rides a field edge resolved into `edges` but not the separate `mentions` family gets zero reachability coverage and the clause reports nothing (invariant-6 fail-open; human-verified at the consumer: three uncovered `consult` mentions, no findings, yet the same edges count for `degree`). `edges_from_declarations` (2428) and `mention_edges_from_declarations` (2468) build the two families independently; route the judge to the one resolved enumeration contract.md mandates — the READ-EDGE-UNIFY shape (6e80405: the read family consumes the gate's resolved set, no private re-derivation)."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`mention_reachable` (343) filters `mention_edges` by `edge.from`; give it the unified resolved edge set every judge shares and select the rendering-claim (mention) property off it, so a mention carried on any field edge is judged rather than silently dropped. `degree` (236) is the precedent — it already takes both edge sets."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a member whose mention rides a field edge is judged by `mention-reachable` (an out-of-scope target fires a finding) rather than silently passed because the mention was absent from a mention-only edge set"
+      }
+    ],
+    "acceptance": "`mention-reachable` ranges over the one resolved edge enumeration the gate and every read verb share (contract.md, 'edge': every edge resolves into one enumeration that the gate and every read verb share) — a mention carried on a field edge is judged, with no fail-open silence. `cargo test` green.",
+    "notes": "Field defect (centercode; session-verified on disk, window d359782..26c0528 clean of src/). Both halves reproduced: three uncovered `consult` mentions get no finding, the same edges count for `degree`. Fix derivable, no new intent — the READ-EDGE-UNIFY bar (6e80405). Mention rows are emit-resolved, but the gap is read-side (main.rs wiring), so confirm before assuming an SDK ripple. scoped at 26c0528."
+  },
+  {
+    "tag": "ADMISSION-JOINS-FILE-TEMPLATE",
+    "summary": "A corpus `admit` over a host wipes its declared file-template layer: `templatesFor` returns admit rows instead of `facts.templates`, so composing a body over `skill` kills its `supporting-doc` layer",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "nesting"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`templatesFor` (193): when any embedded kind is admitted over the host it returns `admitted.map((kind) => ({ kind }))` (195) *instead of* `facts.templates`, and admit rows carry no `path` column — so a file layer (a template with a path pattern) is unspellable in the replacement, and the engine then refuses via `drift`'s nested-file-path check ('its host kind `skill` templates no file layer'). Admission overrides the embedded (pathless) grain only; join the path-carrying declared templates rather than replacing them. The doc comment (181-192) calls the override 'layer-blind' — that is the bug, not a licensed simplification; rewrite it to the joined semantics."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "admitting an embedded kind over a host that declares a file-template layer keeps that file layer (its child kind still templates a path), so a composed body over `skill` still projects `supporting-doc` files rather than being refused for no file layer"
+      }
+    ],
+    "acceptance": "An `admit` over a host overrides only the embedded (pathless) child kind and joins the host's path-carrying file-template layers — composing a body over `skill` still projects its `supporting-doc` files, and the nested-file-path refusal no longer fires on a host that declares a file layer (representation.md, 'nesting': admission is a declaration over the host kind; the template's path pattern is the host's declared fact). `pnpm --dir sdk test` + `cargo test` green.",
+    "notes": "Field defect (centercode, migrating onto 0025; session-verified, consumer reverted to per-skill `at`-locus doc kinds). Fix derivable, no new intent: admission overrides a layer's child kind and admits the embedded grain — neither sanctions wiping a file layer. Change is SDK-side (`templatesFor`); TemplateRow's wire already carries an optional path, so `src/read.rs` is likely unchanged — confirm the `builtin_lock_frozen` seam. scoped at 26c0528."
+  },
+  {
+    "tag": "EMBEDDED-LEAF-BARE-ADDRESS",
+    "summary": "emit's embedded edge-leaf resolution does a flat `members.get(address)` over a `kind:name` table, so a bare address on a one-element `to` set (`['skill']`) dies 'resolves to no composed member'",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`edgeTargetFacts` (242): `options.members?.get(address)` (253) looks a bare leaf address up in a `${kind}:${name}`-keyed table (`memberTable`, 625), so a leaf like `harness-meta` on an edge field whose `to` is the one-element set `['skill']` never matches and throws 'resolves to no composed member' (255) — but `EdgeField.to`'s own doc (kind.ts:55, decision 0029) promises 'a one-element set resolves a bare address within its one kind'. Qualify a bare address to `${edge.to[0]}:${address}` when `edge.to.length === 1` before the get; a multi-element set still demands the written kind-qualified address."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "an embedded edge field whose `to` is a one-element set resolves a bare leaf address within that one kind (the derived edge-target facts point at the right member), matching what a kind-qualified address resolves to; a multi-element set still requires the qualified form"
+      }
+    ],
+    "acceptance": "An embedded member's edge field with a one-element `to` set resolves a bare address within its one kind (contract.md, 'edge': a one-element set resolves a bare name within its one kind; a multi-element set requires the kind-qualified address always) — emit derives the edge-target facts instead of refusing. `pnpm --dir sdk test` green.",
+    "notes": "Field defect (centercode, session-verified on disk). SDK-only: the resolution gap is in `edgeTargetFacts`; decision 0029 ratified bare-for-singleton, so the lookup fixes toward the doc `EdgeField.to` already carries. No Rust ripple — this is emit's own leaf resolution over the composed member table. scoped at 26c0528."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
