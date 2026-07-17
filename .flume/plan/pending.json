@@ -1,5 +1,72 @@
 [
   {
+    "tag": "CHECK-HARNESS-ONE-HOME",
+    "summary": "Nine test suites run `temper check` through four implementations of one job: six byte-identical `check_harness` copies plus three hand-rolled runners",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The shared home, and the entry's root cause. Lift ONE `check_harness(harness: &Path) -> (Vec<String>, bool)` beside `check_in` (156) — run `check --harness <dir> --reporter github`, keep the `::`-prefixed lines, pair with `run.ok` — as the home the callers below collapse onto. Then retire the sentence that licensed the copying: `check_in`'s doc (152-155) reads 'Callers that need a different return shape (a `(bool, String)` pair, a parsed `Vec<String>` of `::`-prefixed finding lines) adapt from [`CheckRun`] at the call site' — it names the two exact shapes that got copied six and three times, so leaving it standing regrows them. Re-word it to point at the lifted helper. `CheckRun` (147-150) itself is correct and stays."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "Delete the private `check_harness` (99, 5 callers); call the `common::` one. Body byte-identical to the other five — verified at 9005fc1."
+        },
+        {
+          "path": "tests/hook_kind.rs",
+          "description": "Delete the private `check_harness` (64, 4 callers); call the `common::` one."
+        },
+        {
+          "path": "tests/installed_plugin_kind.rs",
+          "description": "Delete the private `check_harness` (61, 2 callers); call the `common::` one."
+        },
+        {
+          "path": "tests/marketplace_kind.rs",
+          "description": "Delete the private `check_harness` (64, 8 callers); call the `common::` one."
+        },
+        {
+          "path": "tests/mcp_server_kind.rs",
+          "description": "Delete the private `check_harness` (59, 4 callers); call the `common::` one."
+        },
+        {
+          "path": "tests/plugin_manifest_kind.rs",
+          "description": "Delete the private `check_harness` (55, 7 callers); call the `common::` one. The one named file the 2e27bdc..9005fc1 window touched (7e266ad appended 37 lines); the fn is unmoved at 55 and still byte-identical."
+        },
+        {
+          "path": "tests/memory_gate.rs",
+          "description": "Near-duplicate of the same job: `check_harness` (59, 8 callers) differs only by dropping the exit status (`-> Vec<String>`). Fold onto the shared home and let its callers ignore the `.1`."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Not named by the capture; the deeper case. `check_harness_in` (44, one caller at 193) hand-rolls the runner over `BIN` (37) — Command, stdout+stderr concat, `common::CheckRun` construction — reimplementing `check_in`'s body in a file that already calls `common::check_in` 17 times. It returns the shared type while duplicating the shared runner, so it collapses onto `common::check_in(&root, &[\"--harness\", …], None)`; `BIN` (37) dies with it if nothing else reads it (`rg` before deleting)."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Not named by the capture, and the one case with a real wrinkle — do not paper it over. `run_check_harness` (95, returning `(bool, String)`) hand-rolls the same runner over its own `BIN`, and `check_harness_succeeds` (110) wraps it; the file already declares `mod common` (19). It reads **stdout only**, where `check_in` concatenates stdout+stderr, so folding it in merges stderr into `output` — harmless for the `assert!(contains)` callers, but re-read every assertion here for a negative or exact-match one the merge would flip. If a caller genuinely needs stdout-only, that is an honest second shape: say so in the commit body and leave this file's helper standing rather than weakening an exit-code assertion to fit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/common/mod.rs",
+        "asserts": "no new behavior — the existing assertions across the nine suites are the test: they pass unchanged against the single shared helper, and `rg 'fn check_harness' tests/` finds exactly one definition"
+      }
+    ],
+    "acceptance": "One `check_harness` exists, in `tests/common` beside `check_in`; the six copies, `memory_gate`'s variant, and `requirement_roster`'s hand-rolled runner are gone, with `cli.rs` folded in or its stdout-only need stated in the commit body (engineering.md, 'One job, one home': test scaffolding lives in one home, never copy-pasted per file; a second implementation of one job is residue). `check_in`'s doc no longer licenses per-call-site copies. `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "Drained from `.flume/refactor/build-check-harness-copies.md` (observed 2e27bdc, deleted this tick). Claim re-verified at 9005fc1 and holds: six bodies still byte-identical and unmoved; `git diff 2e27bdc..HEAD` touched only plugin_manifest_kind.rs (+37, fn unmoved at 55). Two homes the capture missed, found by grepping `fn check_harness` across tests/: requirement_roster.rs:44 and cli.rs:95 hand-roll the runner itself. scoped at 9005fc1."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -16,11 +83,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 18f219d. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 9005fc1. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 18f219d) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 9005fc1) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -33,7 +100,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 18f219d and holds — nothing ruled the hop semantics; the inbox is empty and the window (c74aab9, c7bd4f3) touched no import mechanics: `git diff 4084dcd..HEAD -- src/graph.rs tests/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 18f219d."
+    "notes": "Park re-tested at 9005fc1 and holds — nothing ruled the hop semantics; inbox empty and the window (7e266ad, 6dbeb86, 0e7dca2) touched no import mechanics: `git diff 18f219d..HEAD -- src/graph.rs tests/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 9005fc1."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +127,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 18f219d, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 9005fc1, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. BUNDLE-EMIT-THROUGH-KINDS (0e7dca2) shipped how those bytes are produced; channel 3's publish — this entry's half — is the release act, untouched by it. scoped at b676656."
   }
 ]

@@ -3,74 +3,57 @@
 - Spec derived through: b8396d4
 - Audited through: 18f219d
 - Residue swept through: 18f219d
-- This tick: POST-SHIP RECONCILIATION of `4084dcd..18f219d` (c74aab9
-  `marketplace`, c7bd4f3 the `type` predicate's lock crossing) — both motions,
-  both cursors advanced. Inbox empty and `.flume/refactor/` at its README
-  alone, so job 3 was the first live input.
-  **Audit.** Both ships verified on disk, not from the log: `claude_code_marketplace()`
-  (`src/builtin_kind.rs:353`) is in `all_kinds()` (374-382) and the lock's
-  `kinds.len()` assert reads **11** at `tests/lock_declaration_rows.rs:2135`
-  (ten roster kinds plus `supporting-doc`, exactly as c74aab9's body argues);
-  `type` carries its declared kind end to end — `value_type` column
-  (`drift.rs:2505`), `predicate_from_row` arm (`contract.rs:332-334`) decoding
-  via `ValueType::from_name`, SDK `type(field, kind)` (`contract.ts:74`).
-  18f219d had already dropped both entries, so the drop motion was pre-paid.
-  **Both blockers cleared, and both dependents opened.** JSON-DOCUMENT-BODY-REFUSAL
-  (was `blockedBy` TYPE-PREDICATE-ROUND-TRIPS on `src/drift.rs`) → `open`:
-  c7bd4f3's drift.rs edits landed at 2445+/3337+, clear of every cite it holds.
-  Its cites were **re-derived and two were wrong when filed** — `format_from_row`
-  reads 989 not 988, the `splice_includes` call 982 not 983 (both unmoved across
-  the window; the entry was off by one at 826f06d). BUNDLE-EMIT-THROUGH-KINDS
-  (was `blockedBy` MARKETPLACE-KIND) → `open`; every `src/bundle.rs` cite
-  (178/185/191/223/238/259/278) re-verified unmoved. Both parks hold on every
-  clause: `git diff 4084dcd..HEAD -- src/graph.rs tests/graph.rs` is **empty**,
-  `MAX_IMPORT_HOPS` still 5 at 65 under a cite claiming five, nothing ruled the
-  hop semantics; four era tags and no version tag, crate 0.1.0 vs npm 0.0.7,
-  release.yml:7-9 states the deferral verbatim.
-  **Sweep — the window declared its own remainder and nothing carried it.**
-  **TYPE-CLAUSE-CONSUMER** filed: `type` now round-trips, and **no shipped
-  contract uses it** — `rg '\btype\(' sdk/src/builtins.ts` matches prose only.
-  `pluginManifestDefaultContract`'s header (614-618) still asserts the predicate
-  "takes no declared kind, and the clause row carries no column for one" —
-  **false at HEAD**, and the same bullet names its own consumer and calls the
-  rule decidable and documented (`keywords` a string is "a load error
-  everywhere, not merely under `--strict`"). `src/builtin_lock.toml`'s header
-  (42-48) narrates the same retired hold. This is c7bd4f3's declared out-of-scope
-  corner ("that file is MARKETPLACE-KIND's") which c74aab9 correctly did not
-  poach — an honest handoff with no catcher, so plan filed it. Not comment
-  staleness: the missing **clause** is the entry; the header moves with it.
-  `per` cites `specs/builtins.md` "Default contracts"; `tests/type_predicate.rs:35`
-  already proves the exact mechanism (`type("keywords", "list")`) over a custom
-  kind — the shipped kind whose real field motivated it stays ungated.
-  **`(nested-field-addressing)` registered** — MARKETPLACE-KIND shipped a wide
-  corner cut (its own `.flume/friction/` capture): a clause addresses a **flat**
-  top-level key and `json_to_feature` (`src/extract.rs:916-926`) discards inner
-  object keys and stringifies array elements, so `owner.name`, `plugins[]`'s
-  `name`/`source`, and the `source` union have no clause — a catalog Claude Code
-  refuses outright passes `check` clean. Forked, not filed: `specs/builtins.md`
-  sanctions only "undecidable, deliberately absent", and **three** contracts now
-  carry a *decidable-but-unexpressible* hold the corpus does not name. Naming
-  that category is a corpus act (`model/contract.md`, "clause"), never a build
-  tick's. Kin to `(closed-surface-predicate)`; may settle as a pair.
-  `(plugin-author-dogfood)`'s blocked-in-fact clause **discharged** — all three
-  0031 kinds ship, verified in `all_kinds()`; only the human ruling holds it.
-  `(closed-surface-predicate)` corrected: `Predicate::Optional` is at
-  `contract.rs:89`, not 88 (unmoved across the window — wrong when written).
-  All three standing debt riders re-verified unmoved and restamped to 18f219d
-  (`session_start.rs` 121/140, `prose.ts`'s ten lines, `Cargo.toml`'s cite at
-  42); none has a carrier. Spec cursor copied forward verbatim — this tick
-  derived nothing.
-- Queue: 5 entries — 3 pickable and file-disjoint (TYPE-CLAUSE-CONSUMER in
-  `sdk/src/builtins.ts`+`src/builtin_lock.toml`+`sdk/test/`+`tests/plugin_manifest_kind.rs`;
-  JSON-DOCUMENT-BODY-REFUSAL in `src/drift.rs`+`tests/json_document_format.rs`;
-  BUNDLE-EMIT-THROUGH-KINDS in `src/bundle.rs`+`tests/bundle.rs`), 2 parked on
-  human acts. No file appears in two entries — checked mechanically.
+- This tick: REFACTOR DRAIN — `build-check-harness-copies.md` (the tick's first
+  live input: inbox empty, but the build window filed a capture, so job 1 beat
+  the unreconciled window). Filed **CHECK-HARNESS-ONE-HOME**, deleted the
+  capture. All three cursors copied forward verbatim — this tick audited,
+  swept, and derived nothing.
+  **Claim re-verified at HEAD, not taken on report.** The capture (observed
+  2e27bdc) holds intact: all six `check_harness` bodies still byte-identical
+  and unmoved (`coverage_note` 99, `hook_kind` 64, `installed_plugin_kind` 61,
+  `marketplace_kind` 64, `mcp_server_kind` 59, `plugin_manifest_kind` 55), each
+  a thin wrapper over `common::check_in` (156). `git diff 2e27bdc..HEAD` over
+  the seven named files touched only `plugin_manifest_kind.rs` (7e266ad, +37;
+  fn unmoved at 55).
+  **Scoped to the verified gap, which is wider than the reported one.**
+  `rg 'fn check_harness' tests/` found two homes the capture missed, and they
+  are the worse class: `requirement_roster.rs:44` (`check_harness_in`) and
+  `cli.rs:95` (`run_check_harness`) do not wrap the shared home at all — they
+  hand-roll the runner over their own `BIN`, reimplementing `check_in`'s body
+  (Command, stdout+stderr concat, `CheckRun` construction). `requirement_roster`
+  does it in a file already calling `common::check_in` 17 times. So the job has
+  **four** implementations, not one-plus-copies. `cli.rs` carries the one honest
+  wrinkle — stdout-only where `check_in` merges stderr — named in the entry so
+  build states it rather than papering it over.
+  **Root cause named in the entry, not left as comment residue.**
+  `check_in`'s own doc (`tests/common/mod.rs:152-155`) *licenses* the copying in
+  as many words — "Callers that need a different return shape (a `(bool,
+  String)` pair, a parsed `Vec<String>` of `::`-prefixed finding lines) adapt
+  from [`CheckRun`] at the call site" — naming the two exact shapes that got
+  copied six and three times. That sentence is the rule the entry changes, not
+  staleness riding along: retire it or the copies regrow.
+  **Both parks re-tested on disk and hold**, restamped 9005fc1:
+  `git diff 18f219d..HEAD -- src/graph.rs tests/graph.rs` is empty,
+  `MAX_IMPORT_HOPS` still 5 at 65 under a cite claiming five, 525/624/649-654
+  and `tests/graph.rs:1356` unmoved, nothing ruled the hop semantics; four era
+  tags and no version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 states the
+  darwin + channel-3 deferral verbatim. 9005fc1 had already dropped the three
+  shipped entries, so the drop motion was pre-paid.
+- Queue: 3 entries — 1 pickable (CHECK-HARNESS-ONE-HOME, `tests/common/mod.rs`
+  + nine suites), 2 parked on human acts. No file appears in two entries —
+  checked mechanically; the pickable entry is disjoint from both parks
+  (`tests/graph.rs` is untouched by it, `release.yml` unrelated).
 
-Plan continues: no — every input below the serviced job is dead. Inbox empty,
-`.flume/refactor/` at its README, spec delta empty (`Spec derived through:`
-b8396d4 is the last `specs:` commit), and both reconciliation cursors now read
-18f219d, the tip of the last build window. Build takes over: three entries are
-pickable, file-disjoint, and every cite was re-derived on disk this tick.
+Plan continues: yes — post-ship reconciliation of `18f219d..9005fc1` (7e266ad,
+6dbeb86, 0e7dca2: the `type` clause's first consumer, the `json-document` body
+refusal, bundle's manifests through their kinds). Unreconciled: both cursors
+still read 18f219d, and this tick spent its one job on the capture that window
+filed. Next tick audits and sweeps it — including two routing pointers this
+tick deliberately did not chase: `(closed-surface-predicate)`'s record says
+"TYPE-CLAUSE-CONSUMER is scoped to leave that bullet standing" and
+`(nested-field-addressing)` leans on BUNDLE-EMIT-THROUGH-KINDS, and **both of
+those entries have now shipped** — the conditions need re-testing against disk,
+which is the audit motion's job, not this one's.
 
 **One thing for a human, unchanged and not the loop's:** decision 0030 is
 still a hole — `specs/decisions/` runs 0023…0029, 0031, and 0030 (`review is
