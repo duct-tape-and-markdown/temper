@@ -234,7 +234,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "TAP-VERB-EVENT-RECORD"
+      "tag": "VERIFIER-TYPED"
     },
     "dependsOnForks": [],
     "files": {
@@ -263,7 +263,7 @@
       }
     ],
     "acceptance": "`explain` narrates a field strand beside why/impact/context — the per-machine tap log's event counts and denominators joined to members through the same lock declarations the gate reads, evidence narrated never judged; a record an older tap wrote surfaces as a count in the narration, an absent log narrates none, and `explain` never gates and exits zero (contract.md, 'Read verbs'; 0037 amended). `cargo test` green.",
-    "notes": "0037 slice 4 of 5 (amended 5b6b6f2): the tap record's sole reader. Type + writer + version-tolerant read_log live in TAP-VERB's src/tap.rs (one home for record IO); this slice is the pure explain-side consumer — no src/tap.rs edit, so the references-resolve gate holds (the prior attempts scoped the reader into the not-yet-created src/tap.rs and reverted). Joins events to members through the lock as the gate reads them (READ-EDGE-UNIFY), never mined for structure. blockedBy TAP-VERB."
+    "notes": "0037 slice 4 of 5 (amended 5b6b6f2): the tap record's sole reader. Version-tolerant `read_log` (returns `LogReadout{records, older_version}`) shipped in src/tap.rs at 4119bed; this slice is the pure explain-side consumer, no src/tap.rs edit. Re-gated TAP-VERB->VERIFIER-TYPED (07-17 reconcile): TAP-VERB shipped, but this shares read.rs/main.rs/read_verbs.rs with VERIFIER-TYPED (disjoint regions, never both open). Joins events to members through the lock (READ-EDGE-UNIFY), never mined."
   },
   {
     "tag": "KNOWN-MARKETPLACE-EDGE",
