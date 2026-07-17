@@ -16,13 +16,17 @@ tax.
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:838-847, re-read at 385c429) names the `source` union
+  (`sdk/src/builtins.ts`:958-969, re-read at 0c3cbcb) names the `source` union
   as needing "a discriminated-union predicate the vocabulary does not spell":
   the relative-path form's leading `./`, each object form's own discriminator
-  and required fields. **The prediction this record made has now played out on
-  disk** — FIELD-ADDRESSING-RFC-9535-SUBSET shipped (aaf70f1), the two
-  addressable holds beside it discharged, and this bullet stayed, rewritten as
-  the contract's *only* hold: `required("plugins[*].source")` — that a source
+  and required fields. **The prediction this record made has played out twice
+  on disk** — FIELD-ADDRESSING-RFC-9535-SUBSET shipped (aaf70f1) and the two
+  addressable holds beside it discharged; CLOSED-KEYS-CLAUSE shipped (7fae62e)
+  and `pluginManifestDefaultContract`'s own last hold went with it, its header
+  now reading "The whole profile ships … nothing decidable is held". Each time
+  this bullet stayed. It is the marketplace contract's *only* hold, and once
+  SHAPE-PREDICATE retires the skill's two it is the last hold anywhere in the
+  provider face: `required("plugins[*].source")` — that a source
   is named at all — ships as the decidable slice, and which of the five
   documented forms a value is, and whether that form's own required fields are
   filled, no predicate decides. `marketplace_kind.rs` pins the boundary
@@ -182,16 +186,25 @@ condition arrives, it is the next break. If work touches one, surface it.
   now reads "the charset mechanics behind `allowed_chars` — hidden, never an
   author-facing `pattern` clause" (36-38), and the schemars/ts-rs note cites
   `src/schema.rs` with ts-rs holding its live `sdk/src/generated/` seam role
-  (48-55). Sweeping the class across `src/` + `sdk/src/` now leaves exactly
-  one line:
-  - `src/roster.rs`:469 — **the last orphan of its class**: the doc comment on
+  (48-55). Sweeping the class across `src/` + `sdk/src/` at 0c3cbcb still
+  leaves exactly one orphan line:
+  - `src/roster.rs`:473 — **the last orphan of its class**: the doc comment on
     the `membership_roster` test helper cites `` `10-contracts.md` ``, a file
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
-    file. No queued entry opens `src/roster.rs`; it waits for one, and never
-    becomes an entry of its own. Cite re-read on disk at 385c429 — 470→469,
-    an orphan's address drifting under the ride-only rule exactly as
-    6d145fa moved it 465→470 while this record slept.
+    file. **The ride-only rule's own condition just got tested and held**:
+    CLOSED-KEYS-CLAUSE (7fae62e) opened `src/roster.rs` — the first entry ever
+    to — and left the cite standing, because the entry was never given it; the
+    orphan merely drifted 469→473 under the edit. A rider discharges when an
+    entry NAMES it, never when a file is merely opened, which is why the
+    carrier this waits for must carry it in its scope. No queued entry opens
+    `src/roster.rs` today; it waits, and never becomes an entry of its own.
+    Cite re-read on disk at 0c3cbcb.
+  A second cite went stale in the same window and is **already carried, so it
+  gets no line here**: 7fae62e retired `pluginManifestDefaultContract`'s hold,
+  falsifying `marketplaceDefaultContract`'s header sentence (958-960) that
+  points at "the same shape of hold `pluginManifestDefaultContract` names for
+  its own two". SHAPE-PREDICATE opens that file and names it in scope.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
   `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"
