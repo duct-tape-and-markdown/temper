@@ -87,7 +87,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  53519b9: both dead trees still spelled (121/140), in a file the window never
+  b3a1636: both dead trees still spelled (121/140), in a file the window never
   touched and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -113,7 +113,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   route-resolving deferred mentions) yet left every strand doc comment as
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. Re-verified on disk at reconcile HEAD 53519b9 — all five
+  495/633/770/1172. Re-verified on disk at reconcile HEAD b3a1636 — all five
   unmoved (`read.rs` untouched in this window too), and no queued entry edits
   `read.rs`, so it still has no carrier.
 
@@ -131,7 +131,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. Lines
-  re-verified on disk at reconcile HEAD 53519b9 (unmoved; `prose.ts` untouched
+  re-verified on disk at reconcile HEAD b3a1636 (unmoved; `prose.ts` untouched
   in this window and edited by no queued entry — still no carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
@@ -148,7 +148,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45)
-  at reconcile HEAD 53519b9 — no queued entry edits `Cargo.toml`, so it still
+  at reconcile HEAD b3a1636 — no queued entry edits `Cargo.toml`, so it still
   has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
