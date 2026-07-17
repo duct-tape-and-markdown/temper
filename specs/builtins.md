@@ -144,6 +144,10 @@ The stance every shipped default contract holds:
   their guidance carries as teaching. A format that documents almost no
   contract gets an almost-empty default contract: the honest encoding, not a
   gap.
+- **A documented, decidable rule the vocabulary cannot yet spell is a
+  hold**: named in the contract's header at the point of enforcement with
+  the widening that closes it, keyed in the plan ledger, test-pinned where
+  load-bearing — never silent, never permanent-by-default (decision 0033).
 
 ## The clauses live in code
 
