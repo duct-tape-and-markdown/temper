@@ -27,6 +27,30 @@ tax.
   and want a **counterpart-drift check** — a fourth open face beside the
   three above. Timing unchanged. No dependents.
 
+- `(tap-log-format)` — OPEN, from 0037 (6d2cca6). The telemetry tap
+  **appends** event records to a local-locus log (`specs/model/pipeline.md`,
+  "Telemetry"); the log is a local-locus member of a kind whose kind
+  "declares a format" the engine reads at read time (`representation.md`,
+  "locus"; explain's field strand joins events to members). But temper's
+  three formats — frontmatter, json-document, toml-document — are all
+  **whole-file document reads**, and "appends" over a session's full event
+  stream (every rule/memory load, skill invocation, tool use) wants
+  append-only, not read-modify-write of a whole document on each hook fire.
+  Three defensible readings, each consequential: **(a)** reuse
+  `json-document`, the tap rewriting the whole array per event — contradicts
+  "appends" and races under concurrent sessions; **(b)** mint a JSONL /
+  append format — a **fourth format**, and format implementations are engine
+  code that "grows only by deliberate addition" (a human call, per the kept
+  asymmetry below); **(c)** the log is not a governed document kind at all
+  but a runtime record with bespoke tap-write / explain-read parsing outside
+  the format machinery — in which case what kind/format it declares, and how
+  explain's read still rides the lock's declarations, needs settling. Plan
+  cannot pick without inventing intent 0037 does not carry. **Dependents:**
+  0037's three un-derived slices all rest here — the **tap verb** [1] (its
+  append target), the **local-locus log kind** [3] (the format subject
+  itself), and explain's **field strand** [4] (the log parse). None is
+  derivable until this is ruled; the ruling returns through the inbox.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
