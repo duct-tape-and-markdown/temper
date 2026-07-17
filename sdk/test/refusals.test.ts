@@ -16,7 +16,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { blocks, embeddedMemberValue, emit, harness, kind, text } from "../src/index.js";
+import { blocks, embeddedMemberValue, emit, file, harness, kind, text } from "../src/index.js";
 import { hook, memory, rule, skill } from "../src/claude-code.js";
 
 /** An embedded-locus kind named `decision` — host-free; the corpus's `admit` names its hosts. */
@@ -204,7 +204,62 @@ test("a host-admitted blocks() value compiles without throwing", () => {
 });
 
 // ---------------------------------------------------------------------------
-// (4) Dangling edge target — an embedded value's edge field naming a member the
+// (4) A file() value composed inside blocks() — refused at the constructor, so the
+//     runtime holds the line blocks()'s parameter type already draws.
+// ---------------------------------------------------------------------------
+
+test("blocks() refuses a file() child, naming its index and what a composed body admits", () => {
+  // The parameter type excludes `File`, so only a cast caller arrives — the refusal is
+  // what stands between one and a raw TypeError deep in leaf resolution.
+  assert.throws(
+    () => blocks(file(import.meta.url, "./long.md") as never),
+    /blocks\(\): block 0 is a `file\(\)` value.*`text` span or an embedded member value/s,
+  );
+});
+
+test("blocks() names the offending index, not merely the first block", () => {
+  assert.throws(
+    () => blocks(text`# Prologue`, file(import.meta.url, "./long.md") as never),
+    /block 1 is a `file\(\)` value/,
+  );
+});
+
+test("blocks() points a file-bodied author at the two homes that already exist", () => {
+  // The refusal is only actionable if it routes: a whole-body `file()`, or `include()`
+  // interpolated into a span when the bytes belong inside a composed body.
+  assert.throws(() => blocks(file(import.meta.url, "./long.md") as never), /prose: file\(…\)/);
+  assert.throws(() => blocks(file(import.meta.url, "./long.md") as never), /interpolate `include\(\)`/);
+});
+
+test("blocks() admits an embedded value of a child kind named `file`", () => {
+  // `EmbeddedMemberValue.kind` is a free-form kind name, so the `file` tag alone is
+  // ambiguous — a corpus that declares a child kind by that name must not be refused.
+  const fileKind = kind<object>({
+    name: "file",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [],
+  });
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: fileKind, key: "the-doc", leaves: { chosen: "x" } })),
+      }),
+    ],
+    admit: [{ host: memory, admits: [fileKind] }],
+  });
+  assert.doesNotThrow(() => emit(h));
+});
+
+test("blocks() admits a bare prose span", () => {
+  // The guard bounds `blocks()`'s children and nothing else — a `text` span composes as
+  // it always did.
+  assert.doesNotThrow(() => blocks(text`# Prologue`));
+});
+
+// ---------------------------------------------------------------------------
+// (5) Dangling edge target — an embedded value's edge field naming a member the
 //     program does not resolve. Unlike a bare mention, an edge target never defers
 //     to the gate: its facts are rendered into the projection now, so an
 //     unresolved one has nothing true to place.

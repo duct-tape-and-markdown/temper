@@ -3,12 +3,11 @@
  * member declares: `file()` for a document that keeps its medium, `` text`…` ``
  * for short inline prose, `blocks()` for a composed body that interleaves verbatim
  * prose spans with embedded-member values in authored order. Whatever
- * the constructor, the words land byte-identical to their authored text (law 5).
+ * the constructor, the words land byte-identical to their authored text.
  * Interpolations in `` text`…` `` are references, two intents apart: a **mention**
  * (a {@link Mentionable}) is a declared one-way edge that moves no content, and an
  * **include** (an {@link Include}) pulls the target file's bytes into the host's emitted
- * projection. Both are authored per word and resolution-checked at emit, never mined
- * (law 8).
+ * projection. Both are authored per word and resolution-checked at emit, never mined.
  */
 
 import type { EmbeddedMemberValue, Member } from "./kind.js";
@@ -123,9 +122,9 @@ const INCLUDE_SLOT = "\u0001";
 
 /**
  * `file(moduleUrl, path)` — the document keeps its medium: markdown in a
- * markdown file, full tooling, forever legal (posture 1, `15-kinds.md`).
- * Resolved and read in byte-for-byte at emit, relative to the declaring
- * module, never the process cwd.
+ * markdown file, full tooling, forever legal. Resolved and read in
+ * byte-for-byte at emit, relative to the declaring module, never the
+ * process cwd.
  */
 export interface File {
   readonly kind: "file";
@@ -138,7 +137,7 @@ export interface File {
 /**
  * `` text`…` `` — short prose inline, dedented, byte-deterministic; the
  * three-line rule that would be silly as a sidecar file. Mentions ride beside
- * the text, never inside it (law 5).
+ * the text, never inside it.
  */
 export interface Text {
   readonly kind: "text";
@@ -153,12 +152,12 @@ export interface Text {
 }
 
 /**
- * `blocks(…)` — a composed body of ordered children (posture 3): verbatim prose
- * spans ({@link Text}) and embedded-member values interleaved in authored order,
+ * `blocks(…)` — a composed body of ordered children: verbatim prose spans
+ * ({@link Text}) and embedded-member values interleaved in authored order,
  * the write-side mirror of a layout's ordered regions. A {@link Text} span stays
  * prose — it carries its own mentions and includes and mints no wrapper member;
  * an embedded value renders to its `member.<kind> <key>` TOML fence, byte-identical
- * to the same value authored as a fence directly (posture 2) and read back by the
+ * to the same value authored as a fence directly and read back by the
  * engine's fold (`src/extract.rs` `parse_embedded_info`/`parse_embedded_member`).
  */
 export interface Blocks {
@@ -184,8 +183,8 @@ function dedent(text: string): string {
 }
 
 /**
- * Declare a document whose medium is preserved — read in whole at emit
- * (posture 1). `moduleUrl` is the declaring module's own `import.meta.url`,
+ * Declare a document whose medium is preserved — read in whole at emit.
+ * `moduleUrl` is the declaring module's own `import.meta.url`,
  * so `path` resolves relative to that module, never the process cwd:
  * `file(import.meta.url, "./long.md")`.
  */
@@ -197,7 +196,7 @@ export function file(moduleUrl: string, path: string): File {
  * The inline dedenting prose constructor. Interpolate {@link Reference} values — a
  * {@link Mentionable} is a mention (moves no content), an {@link Include} pulls the
  * target's bytes in; either is opt-in per word, and plain prose with zero references is
- * fully legal forever (the opt-in Decision, `20-surface.md`).
+ * fully legal forever.
  *
  * # Throws
  * If an authored chunk carries {@link MENTION_SLOT} or {@link INCLUDE_SLOT} — the markers
@@ -235,12 +234,37 @@ export function include(moduleUrl: string, path: string): Include {
 }
 
 /**
- * Compose a member's body from ordered children (posture 3): verbatim prose spans
+ * Compose a member's body from ordered children: verbatim prose spans
  * ({@link text}) and embedded-member values interleaved in authored order. A prose
  * span rides as prose — no wrapper member is minted to carry a narrative.
+ *
+ * # Throws
+ * If a child is a {@link File} — the parameter type excludes one, so only a JS or
+ * cast caller arrives here, and the alternative is a raw crash downstream on the
+ * `leaves` a `File` has no reason to carry.
  */
 export function blocks(...values: (Text | EmbeddedMemberValue)[]): Blocks {
+  values.forEach((value, index) => {
+    if (isFileValue(value)) {
+      throw new Error(
+        `blocks(): block ${index} is a \`file()\` value — a composed body admits a ` +
+          `\`text\` span or an embedded member value. A document is a member's whole ` +
+          `\`prose\` body (\`prose: file(…)\`); to pull its bytes into a composed body, ` +
+          `interpolate \`include()\` into a \`text\` span (specs/model/pipeline.md, "The SDK").`,
+      );
+    }
+  });
   return { kind: "blocks", values };
+}
+
+/**
+ * Whether a composed-body child is a {@link File}. A child kind may itself be named
+ * `file`, so the kind tag alone is ambiguous — an embedded value always carries
+ * `leaves`, and only a `File` anchors a `moduleUrl`.
+ */
+function isFileValue(value: Text | EmbeddedMemberValue): boolean {
+  const candidate = value as Partial<File>;
+  return candidate.kind === "file" && typeof candidate.moduleUrl === "string";
 }
 
 /**
@@ -255,7 +279,7 @@ export function isTextSpan(value: Text | EmbeddedMemberValue): value is Text {
 /**
  * Render an inline body to its final text — the display rule applied: each
  * mention slot becomes its target's display form, the surrounding words
- * untouched (law 5). The chunk count is `mentions.length + 1` by {@link text}'s
+ * untouched. The chunk count is `mentions.length + 1` by {@link text}'s
  * construction, so the walk consumes every slot.
  */
 export function renderText(prose: Text): string {
