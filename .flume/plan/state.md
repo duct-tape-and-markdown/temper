@@ -1,46 +1,45 @@
 # Plan state
 
-- Spec derived through: f1d97e4
+- Spec derived through: 832f015
 - Audited through: 399d8e3
 - Residue swept through: 399d8e3
-- This tick: POST-SHIP RECONCILIATION of `9409a6c..399d8e3`. Both entries
-  shipped and the ship commit already dropped them, so the substance is the
-  gates the window falsified. **Audit.** (1) LOCAL-LOCUS-COMMITMENT-CLASS
-  shipped (40619a0), verified on disk — `Commitment::Local`
-  (`src/kind.rs`:46-56), `declare_local` (730), `local_locus_fault` (746),
-  `LOCAL_LOCUS_RULE` = `kind.local-locus` (`src/main.rs`:1860). It was
-  CLAUSE-LABEL-IS-AN-ADDRESS's **sole** blocker, leaving a **dangling
-  `blockedBy`** the reference gate would reject: re-gated `open`. Its premise
-  re-tested and holds — `ClauseRow` (`src/drift.rs`:2627) still carries **no
-  label column**. (2) MANIFEST-SCHEMA-COVERAGE-ORACLE shipped (97e84a1) and
-  **created a rider for three entries scoped before it existed**:
-  `covered_rule` (`tests/manifest_schema_oracle.rs`:135) matches `Predicate`
-  exhaustively, so CLOSED-KEYS-CLAUSE and SHAPE-PREDICATE cannot compile until
-  their variant lands in an arm, and TYPE-ACCEPTS-A-SET breaks the `Type` arm
-  outright (it destructures a single `kind`) while dropping six rows from
-  `EXPECTED_LAG`. All three gained the file; the oracle's own third test
-  already pins that closed-keys must *not* move the lag, so that entry states
-  it rather than guessing. (3) Both parks hold: `git diff 9409a6c..HEAD` is
-  empty over `src/graph.rs`, `tests/graph.rs`, `.github/`. (4) The window moved
-  cites under six entries (`src/drift.rs` 2548→2627, emit 840→843, `value_type`
-  2586→2672 / 3428→3511 / 3470→3553; `src/main.rs` 1713→1786, 1787→1902, Check
-  105-119→105-122; `src/kind.rs` `Format` 507-522→555-564) — all re-read on
-  disk, none carried forward. **Sweep.** Two records corrected, no new entry
-  earned. `(local-locus-toml-face)` **strengthens**: its collision is shipped
-  code now, not two readings of prose — a TOML dial trips `local_locus_fault`
-  on contact. The stale-cite record's "no queued entry opens either file" claim
-  is **falsified** — FIELD-ADDRESSING-RFC-9535-SUBSET (filed 6f72a3b) opens
-  `Cargo.toml` and names both riders, so only `src/roster.rs`:465 stays
-  orphaned. **Considered, not filed:** 40619a0's self-declared
-  `local_document_rows` double-read — one reader called twice, not two
-  implementations, so "One job, one home" does not reach it, and CLAUDE.md
-  forbids trading clarity for a micro-opt over kilobyte files. That same commit
-  *consolidated* `read_layout_document` into one reader across emit and check.
-- Queue: 10 entries, **1 pickable** — CLAUSE-LABEL-IS-AN-ADDRESS, ungated this
-  tick. Seven form one `blockedBy` chain behind it (join → 0033's four
-  widenings → dial → announcement), serialized on shared files; DIAL-KIND also
-  waits on `(local-locus-toml-face)`. Two parked on human acts.
+- This tick: SPEC DELTA — decision 0034 (`f1d97e4..832f015`), derived whole.
+  The ruling: emit's codomain is the committed tree, so the local locus is
+  **read-side only under any declared format** and "layout-only" retires as
+  the wrong fence. **Consequences checklist, every bullet routed.** (1) The
+  same-commit corpus edits (pipeline/representation re-cuts, 0030 + 0032
+  errata) are the human's own act in 8d794ba — not plan's. (2)
+  `(local-locus-toml-face)` **resolves and deletes** — verified already done
+  on disk: 8d794ba deleted the record itself. (3) `(settings-local-kind)`
+  **reduces to ship-or-not** — likewise already re-cut in that commit; its
+  record says so. (4) `local_locus_fault` re-cut → **filed**
+  LOCAL-LOCUS-IS-READ-SIDE-ONLY, carrying the errata's coupled landmine in
+  the same entry as ruled (`local_document_rows`' silent none,
+  `src/main.rs`:1402 — the fence's own doc calls that silence licensed, and
+  0034 revokes the licence). (5) The `toml-document` read face → **filed**
+  TOML-DOCUMENT-READ-FACE. (6) The errata's walk carve-out → **filed**
+  LOCAL-GOVERNS-OVERRIDES-DISCOVERY. (7) "DIAL-KIND and
+  CHECK-ANNOUNCES-THE-LOCK-FAMILY unblock" → DIAL-KIND's `dependsOnForks`
+  **cleared**, its `src/kind.rs` description, schemaDelta, and notes
+  rewritten off the ruling; CHECK-ANNOUNCES inherits through the chain.
+  **Verified moot, not filed:** 0034's "emit writes no uncommitted path"
+  needs no guard — `emit_program` already skips a local member before any
+  content/format branch and books its path owned (`src/drift.rs`:992-995),
+  so the codomain holds structurally today; named in
+  LOCAL-LOCUS-IS-READ-SIDE-ONLY's notes so build does not mint a second one.
+  **Gate repair (closing checklist, not the job):**
+  CHECK-JOINS-INVOCATION-LOCKS pointed `blockedBy` at
+  CLAUSE-LABEL-IS-AN-ADDRESS, which shipped (6205707) and was dropped by its
+  own ship commit — a dangling tag the reference gate rejects; re-gated onto
+  the 0034 chain.
+- Queue: 12 entries, **1 pickable** — LOCAL-LOCUS-IS-READ-SIDE-ONLY. Nine
+  form one `blockedBy` chain behind it (0034's three → join → 0033's four
+  widenings → dial → announcement), serialized on shared files; **no entry
+  rests on a fork any more** — the board's four survivors have no dependents.
+  Two parked on human acts.
 
-Plan continues: no — inbox and refactor captures are empty, the spec delta is
-drained (`f1d97e4` is still the last `specs/` commit), and both reconciliation
-cursors are current at HEAD. One pickable entry; build takes over.
+Plan continues: yes — post-ship reconciliation of `399d8e3..832f015`
+(6d145fa shipped CLAUSE-LABEL-IS-AN-ADDRESS into `src/`; both the audit and
+sweep motions are unrun over that window, and only the dangling gate it left
+was repaired here).
+</content>

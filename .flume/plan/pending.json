@@ -1,5 +1,132 @@
 [
   {
+    "tag": "LOCAL-LOCUS-IS-READ-SIDE-ONLY",
+    "summary": "The layout-only fence retires: a local locus is read-side only under any declared format, and its members' rows derive at read time rather than silently emptying",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "`local_locus_fault` (746) refuses `Content::File | Content::Fields` with \"a local locus is layout-only\" (766-771); that arm retires — the property carrying the trust story is read-never-written, and markdown was smuggled in by the word (0034). The `governs` fence (735-742) stays whole and untouched: the class is a *file* locus's fact, and a nested-file kind has no locus to class. `Commitment::Local`'s doc (46-56) states \"the locus is **layout-only**\" as the first of two consequences, and `CustomKind::commitment`'s doc (140-145) states \"inadmissible over content that is not a [`Layout`]\" — both re-cut to read-side-only, any declared format. The second consequence (rows never enter the lock) stands, now derived rather than ruled: the lock is a committed artifact."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`local_document_rows` (1402) returns `LayoutDocumentRows::default()` for any non-layout kind (1407-1409), and its own doc (1389-1396) names the layout-only fence as what licenses that silence: \"deriving silence here is what lets it\". The fence is gone, so the silence is the fail-open invariant 6 forbids — 0034's errata names this coupling by name and requires it re-cut in this same entry, or a JSON local kind passes admissibility and silently yields zero rows. A local member's rows derive under whatever format its kind declares (`pipeline.md`, \"Layers\"); the two call sites (1229 satisfies, 1377 nested members) already route every local kind here. `local_locus_admissibility`'s doc (1924-1925) names \"the layout-only fence\" and moves with it."
+        },
+        {
+          "path": "tests/local_locus.rs",
+          "description": "`a_local_kind_that_is_not_layout_content_is_inadmissible` (311-338) asserts the retired fence and greps the finding for \"layout-only\" (334) — it inverts: non-layout content is now admissible and its rows derive. The module doc's third bullet (12) states the fence and re-cuts. `a_local_class_on_a_kind_governing_no_glob_is_inadmissible` (341) survives untouched — that fence stands. The four layout-kind tests (127, 187, 223, 252, 284) pin behavior this entry must not move."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none — the `commitment` column is unchanged; what re-cuts is which content it is admissible over.",
+    "tests": [
+      {
+        "path": "tests/local_locus.rs",
+        "asserts": "a local kind declaring non-layout content is admissible and its member's document rows derive at read time under the kind's declared format rather than yielding none; a local layout kind's rows derive exactly as today; the `governs` fence still refuses a local class on a kind governing no glob"
+      }
+    ],
+    "acceptance": "A local-locus kind is admissible under any declared format and no local member's rows silently empty (representation.md, \"locus\": read-side only — never an emit input or target, any declared format). `cargo test` green.",
+    "notes": "0034's first derivation; 40619a0 shipped the fence as written and pre-declared exactly this re-cut. The codomain rule needs no new emit guard — verified on disk: `emit_program` already skips a local member before any content/format branch and books its path owned (`src/drift.rs`:992-995), so \"emit writes no uncommitted path\" holds structurally today. Say so in the commit body rather than adding a second guard. scoped at 832f015."
+  },
+  {
+    "tag": "TOML-DOCUMENT-READ-FACE",
+    "summary": "`toml-document` joins the format inventory as an honestly read-only face — the engine reads a member's fields off a TOML document, and no emit round-trip exists",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "LOCAL-LOCUS-IS-READ-SIDE-ONLY"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "`Format` (555-564) carries two members; a third joins, cited to the format it reads. `label` (571-576) and `format_from_label` (975-981) are the closed-vocabulary boundary the doc (551-554) promises — a value outside it stays a load error."
+        },
+        {
+          "path": "src/json_manifest.rs",
+          "description": "The `json-document` read face's home — `DocumentMember` (105), the whole-artifact-is-one-object read the module doc states (14). The TOML face is the same job over a second format and `toml_edit` is already the sanctioned keystone crate, so this is where the reader is extended or a module beside it is justified; `engineering.md` (\"One job, one home\") binds the choice, and the commit body names the surface considered and why it did (not) fit. The identity fault `json-document` raises for a kind declaring no `named-field` shape (257-260) is the precedent for the TOML face's own."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`read_file_unit`'s format dispatch (1280-1281) routes a kind's declared format to its adapter; its doc (1262-1268) states why this is the one dispatch — \"a per-call-site format match would be a second dispatch to disagree with\" — so the TOML face lands here and nowhere else."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The write side must never render a TOML member: 0034 ratifies the face as honestly read-only — no emit round-trip exists for a local member to need. A composed member of a `toml-document` kind refuses loud rather than reaching a writer that is not there (`intent.md`, invariant 6: no path silently degrades). The format-keyed `BodyHasNoHome` refusal (1027-1035) is the shape and the site; the JSON write face (1891-1917) is what this face deliberately has no twin of."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "The `Format` union (22) and its doc (19-21) carry the third member — the author's face on the same closed vocabulary."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none — `format` is a label column on `KindFactRow`; the closed vocabulary it decodes into gains one member.",
+    "tests": [
+      {
+        "path": "tests/toml_document.rs",
+        "asserts": "a kind declaring `toml-document` reads its member's fields off the TOML document and gates them; a document that is not valid TOML fails loud rather than yielding no fields; a composed member of a `toml-document` kind refuses at emit rather than being written; a format label outside the vocabulary is still refused at load"
+      }
+    ],
+    "acceptance": "A kind may declare `toml-document` and its members read and gate; nothing writes one (representation.md, \"kind\": format implementations are engine code, grown by deliberate addition — 0034 ratifies this one). `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Serialized behind the fence re-cut: both edit `src/kind.rs`. scoped at 832f015."
+  },
+  {
+    "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY",
+    "summary": "A committed local-locus kind's `governs` declaration overrides discovery's presumptions — gitignore and the workspace skip — for exactly its own scope",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "TOML-DOCUMENT-READ-FACE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "`discoverable_paths` (347-386) prunes on two presumptions with no local-class awareness: `git_ignore(true)` (355) and the categorical `WORKSPACE_DIR` skip in `filter_entry` (358-365). A real local document is always gitignored, so the shipped class finds members only in fixtures where the file happens to be tracked; and the dial's ratified `.temper/dial.toml` sits under the skipped workspace. Both make rows silently fail to derive — the fail-open invariant 6 forbids. The reviewed `governs` declaration is the authorship claim over its unreviewed documents, so it overrides both, there and only there (0034 errata). `discover_kind_units` (234-241) sees only `governs`; `discover_kind_files` (207-222) already carries the `kind` whose commitment decides. Two fences are NOT the presumptions the errata names and stay whole: `.git/` and the nested-governed-root stop (365-372, `is_governed_root` 388). The comment at 235-238 and `discoverable_paths`'s doc (330-346) state the scoped override rather than the bare presumption."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Install's adoption walk keeps the presumption whole — adoption never converts a local document into a committed member (0034 errata, stated by name). Verify on disk which walk install runs and say in the commit body whether it inherits the carve-out through `import` or is already separate; if it inherits, it is fenced here."
+        },
+        {
+          "path": "tests/local_locus.rs",
+          "description": "The class's own test home — its scaffold (118) writes fixtures into a temp harness, so the ignore-rule and workspace-skip cases land beside the admissibility and read-time-rows cases they complete."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/local_locus.rs",
+        "asserts": "a local kind's member is discovered and gated though a `.gitignore` names it, and a local kind governing a path under `.temper/` is discovered though the walk categorically skips the workspace; a committed kind's member under the same ignore rule stays undiscovered; a nested governed root and `.git/` are still fenced from a local kind's walk; install's adoption walk still honors the presumption"
+      }
+    ],
+    "acceptance": "The declaration is the authorship claim: discovery sees a local-locus kind's per-machine documents despite ignore rules and the workspace skip, there and only there, so `.temper/dial.toml` is reachable (pipeline.md, \"Install\"). `cargo test` green.",
+    "notes": "0034's errata (832f015), the ruling's own post-sweep. Serialized behind the toml face — this entry's workspace-skip fixture is the dial's own `.temper/dial.toml`, which reads under that face — and the linear chain is what puts all three 0034 derivations upstream of DIAL-KIND, which needs every one. scoped at 832f015."
+  },
+  {
     "tag": "CHECK-JOINS-INVOCATION-LOCKS",
     "summary": "A policy layer is a lock the invocation joins: `check --layer <path>` joins named locks' rows over this corpus, kinds travel by name, and a joined lock failing admissibility fails the check",
     "per": {
@@ -8,7 +135,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "CLAUSE-LABEL-IS-AN-ADDRESS"
+      "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY"
     },
     "dependsOnForks": [],
     "files": {
@@ -37,7 +164,7 @@
       }
     ],
     "acceptance": "An org authors an ordinary temper corpus, emits its lock, and distributes it; a consumer joins it at check and is gated by it, fail-closed (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Serialized behind the label entry: both edit `src/main.rs`, `src/compose.rs`, `src/drift.rs`. scoped at f1d97e4; cites re-read at 399d8e3."
+    "notes": "The third of 0032's five. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Re-gated at 832f015: its blocker CLAUSE-LABEL-IS-AN-ADDRESS shipped (6205707), leaving a dangling tag; now behind 0034's three, sharing `src/main.rs`/`src/drift.rs` with two. scoped f1d97e4; cites re-read 399d8e3."
   },
   {
     "tag": "TYPE-ACCEPTS-A-SET",
@@ -330,9 +457,7 @@
       "kind": "blockedBy",
       "tag": "SHAPE-PREDICATE"
     },
-    "dependsOnForks": [
-      "local-locus-toml-face"
-    ],
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -350,7 +475,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "`Format` (555-564) spells `yaml-frontmatter` and `json-document` — no TOML face exists, re-verified at 399d8e3. What the dial's document face becomes is exactly the fork this entry waits on. The locus half is no longer hypothetical: `Commitment::Local` (46-56) and `CustomKind::declare_local` (730) ship, and `local_locus_fault` (746) refuses a local kind that is not layout content — so a `toml-document` dial trips that fence as written, which is the fork's stake stated in code rather than in prose."
+          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. Both halves are upstream code by the time this is picked — `Commitment::Local` (46-56) and `CustomKind::local` (730) shipped at 40619a0, LOCAL-LOCUS-IS-READ-SIDE-ONLY retires the `local_locus_fault` layout-only arm (746) that would otherwise refuse this kind on contact, and TOML-DOCUMENT-READ-FACE puts `toml-document` in `Format` (555-564). This entry declares the kind; it mints no format and no locus mechanics of its own."
         },
         {
           "path": "src/main.rs",
@@ -359,7 +484,7 @@
       ],
       "retire": []
     },
-    "schemaDelta": "Pending the fork — the dial's document face is what `(local-locus-toml-face)` rules.",
+    "schemaDelta": "none of the lock's own — the dial is a shipped kind declaring a local locus over the `toml-document` format, and a local member's rows never enter the lock, deriving at read time instead.",
     "tests": [
       {
         "path": "tests/dial_kind.rs",
@@ -367,7 +492,7 @@
       }
     ],
     "acceptance": "See the annoying finding, read its label, dial it — locally, uncommitted, visibly, and without ever softening the shared gate (contract.md, \"clause\"; pipeline.md, \"Layers\"). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Fork-gated, not merely serialized: `contract.md` calls the dial a local-locus **TOML** document while `representation.md` declares a local locus layout-only, and a layout is markdown's heading tree. Build must not pick between those sentences. Gated behind 0033's wave (shares `sdk/src/builtins.ts`): this waits on a human either way, and four ratified widenings must not wait with it. The fork is enforced code now — see the `src/kind.rs` note. scoped f1d97e4; re-read 399d8e3."
+    "notes": "Un-forked at 832f015: 0034 ruled `(local-locus-toml-face)` whole — the dial stays local-locus TOML, and \"layout-only\" retires as the wrong fence rather than the dial bending to it. `dependsOnForks` cleared; the record is deleted from open-questions. Now serialized only, behind SHAPE-PREDICATE over `sdk/src/builtins.ts`, with all three 0034 derivations upstream through the chain. scoped f1d97e4; re-read 399d8e3."
   },
   {
     "tag": "CHECK-ANNOUNCES-THE-LOCK-FAMILY",
