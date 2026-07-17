@@ -308,6 +308,54 @@
     "notes": "0037 slice 5 of 5 (6d2cca6): verifier-type resolution. Un-derived siblings, one slice per tick (cursor holds 63e1f22): tap verb, telemetry declaration+hook projection, local-locus log kind, field strand. This slice owns the documented event-NAME set (telemetry's resolution target); event PAYLOAD cites land with their consumer downstream. Probe deferred per 0037. blockedBy EXTENT on shared contract.ts/declarations.ts/drift.rs (disjoint regions). scoped at f19b052."
   },
   {
+    "tag": "TELEMETRY-HOOK-PROJECTION",
+    "summary": "Derive 0037's telemetry hook projection: emit synthesizes deduped tap `hooks.<Event>` rows from a telemetry verifier — one per lifecycle event, matcher+command cited",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "VERIFIER-TYPED"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "The synthesis home. Add `tapHookRows(harness)` beside `registrationRows` (~627): scan the same requirement sources `requirementRows` reads — `harness.require` (~330) and each member's `member.requires` (~332) — filter requirements whose typed verifier (VERIFIER-TYPED) is the telemetry species (`requirement.verifier` matching `Verifier.Telemetry`), and UNION the lifecycle events they name into ONE `hook` `RegistrationRow` per event — deduped: the tap is dumb, one registration per event however many verifiers name it (the permission-union derived-aggregate precedent, `needs.ts`:39 / pipeline.md 'Telemetry'). Each row is `{ kind: 'hook', key: <settings.json lifecycle event>, manifest: 'settings.json', key_path: 'hooks.<Event>', fields: [['type','command'], ['command', <the tap invocation, slice [1] `temper tap`>], ['matcher', <the documented matcher for this event>]] }` (the hook field shape, `sdk/test/emit.test.ts`:1430). Owns the event-NAME -> (lifecycle event, matcher) mapping and its cites, re-verified against live docs at encode (external-fact bar): `InstructionsLoaded` (rule/memory load, the load reason / `path_glob_match` its matcher), `Skill` -> `PostToolUse` with `tool_name:'Skill'` (skill invocation), `UserPromptExpansion` (command names), `PostToolUse` — code.claude.com/docs/en/hooks, retrieved 2026-07-17 per 0037. Merge into the registrations family in `compileDeclarations` (~747): `registrations: [...registrationRows(harness), ...tapHookRows(harness)]`. Overlaps VERIFIER-TYPED (requirement-lowering region, `verifiedBy`->`verifier` at ~343) — serialized behind it."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "The public `EmitResult` registration view follows: `registrationFacts(harness)` (~591) enumerates registrations from members only, so the memberless synthesized tap hooks are absent from `EmitResult.registrations` (~679/~710) unless merged. Fold the same `tapHookRows` (or its `RegistrationFact` projection) in beside `registrationFacts(harness)` at ~710 so the returned view matches the seam the engine projects. Confirm the fact shape; minimal beyond the merge."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The primary behavioral fixture: a harness whose requirement carries a telemetry verifier naming two lifecycle events (e.g. `InstructionsLoaded` + `Skill`) emits the expected tap `hooks.<Event>` rows into settings.json — one registration per lifecycle event, DEDUPED across two verifiers naming the same event, each with the documented matcher + the tap command. Model on the existing hook-projection fixture (~1430-1468, the `hooks` segment + residue assertions). Overlaps VERIFIER-TYPED (which retypes the `verifiedBy`->`verifier` fixture ~190) — serialized behind it."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "The cross-language seam assertion (`sdk.md`, 'The engine seam'): a payload whose `declarations.registrations` carries a synthesized tap-hook `RegistrationRow` (kind hook, a `matcher` field, `temper tap` command) projects the matcher group into the emitted `.claude/settings.json` `hooks.<Event>` array via the engine's registration loop (`src/drift.rs`:932 -> `hook_matcher_group` `src/extract.rs`:1127) — proving the engine projects the SDK-synthesized row unchanged. Add only if the matcher-group projection off a `matcher` field is not already exercised here; confirm existing coverage first (`engineering.md` 'One job, one home')."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a requirement's telemetry verifier projects one tap `hooks.<Event>` registration per named lifecycle event, deduped across verifiers naming the same event, each carrying the documented matcher and the tap command"
+      },
+      {
+        "path": "tests/emit.rs",
+        "asserts": "the engine projects a synthesized tap-hook RegistrationRow's matcher group into `.claude/settings.json` hooks.<Event> unchanged — the SDK-side synthesis rides the existing registration projection across the seam"
+      }
+    ],
+    "acceptance": "A requirement's telemetry verifier projects at emit as tap `hooks.<Event>` registrations — one deduped hook per lifecycle event any telemetry verifier names, matcher shaped per the documented event (`path_glob_match` for InstructionsLoaded, `tool_name:'Skill'` under PostToolUse for skill invocation, UserPromptExpansion for commands; each cited code.claude.com/docs/en/hooks, re-verified at encode), command the tap invocation, riding the registration family into settings.json 'the same rows any hook rides' (pipeline.md, 'Telemetry'). The rows carry through the seam and the engine projects them via its existing registration loop, no engine change. `pnpm --dir sdk test` + `cargo test` green.",
+    "notes": "0037 slice 2 of 5 (6d2cca6): telemetry's hook projection. SDK-side synthesis (tapHookRows beside registrationRows) reusing the engine's registration loop (drift.rs:932) unchanged. blockedBy VERIFIER-TYPED: needs the typed verifier + overlaps declarations.ts/emit.test.ts. No builtin_lock touch (no shipped telemetry verifier) -> disjoint from EXTENT/SETTINGS-LOCAL. command targets sibling tap [1]; [3] (log format open at derive)/[4] un-derived, cursor holds. scoped at 5b81ba8."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
