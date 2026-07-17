@@ -1,44 +1,5 @@
 [
   {
-    "tag": "CHECK-JOINS-INVOCATION-LOCKS",
-    "summary": "A policy layer is a lock the invocation joins: `check --layer <path>` joins named locks' rows over this corpus, kinds travel by name, and a joined lock failing admissibility fails the check",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Layers"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "The `Check` command (106-123: `root`, `harness`, `deny_advisories`, `reporter`) gains a repeatable `--layer <path>`. Each named lock's declaration rows join over the host corpus: kinds travel by name, the joined clauses range over the host's selections. Fail-closed costs nothing new — a joined lock that fails admissibility is already a malformed lock, refused loud through the existing `engine::admissibility` path (830/869). Every address re-read on disk at af2a1f1: 6e7b958 threaded `import::LocalOverride` through `resolve_kind_units`'s two discovery calls (1200, 1218), moving `assemble_lock_family` 1385→1395; the `Check` command and the admissibility pair sit unmoved. That join's site is the one 990715e minted as where every consumer's declaration family is built — the invocation's locks join there, beside the local kinds' derived rows, rather than at a second per-call-site read. 0030's uncommitted rules bind the join: hardening is unbounded in every mode, softening is visible-only and gate-inert."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`read_declarations` (3192) / `parse_declarations` (3215) read one lock today; the join reads the invocation's locks the same way — the lock stays the one interchange, and no second parser is minted beside this one. Both re-read at 15e5924 (09ef5ea's toml module moved them 3104→3192, 3127→3215)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Clause rows compose into the host's selections whatever lock carried them; a joined row is an ordinary row."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layer_join.rs",
-        "asserts": "`check --layer <lock>` joins the named lock's clauses over the host corpus and gates on them; a joined lock that fails admissibility fails the check loud; a joined clause that would soften the host's gate is inert in block mode while a hardening one binds"
-      }
-    ],
-    "acceptance": "An org authors an ordinary temper corpus, emits its lock, and distributes it; a consumer joins it at check and is gated by it, fail-closed (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "The third of 0032's five, and the queue's one pickable entry — its gate opened at 6e7b958, the last of 0034's three derivations. Org-side authoring stays TS and the lock stays the one interchange — no new format, no trust model, no payload-as-input (0032 rejects that by name: it breaks offline and the payload's internality). Six entries chain behind it on `src/main.rs`/`src/drift.rs`/`src/compose.rs`. scoped f1d97e4; every cite re-read on disk at af2a1f1."
-  },
-  {
     "tag": "TYPE-ACCEPTS-A-SET",
     "summary": "The `type` predicate accepts a set of lattice kinds — the six documented `string|array(|object)` manifest fields become gateable, and a one-element set is today's behavior exactly",
     "per": {
