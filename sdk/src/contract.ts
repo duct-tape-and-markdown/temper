@@ -33,6 +33,12 @@ export interface Predicate {
    * checked field) since `membership` names both.
    */
   readonly target?: string;
+  /**
+   * `mention-reachable`'s **target-side gate field** — a separate slot from `field`
+   * (which carries the source-side scope field) since it is the one predicate naming a
+   * field on *both* ends. Spelled to match the lock's own `gate` column.
+   */
+  readonly gate?: string;
   /** `allowed_chars`'s declared character class. */
   readonly charset?: Charset;
   /** `forbidden_keys`'s forbidden key list. */
@@ -114,6 +120,25 @@ export const sectionContains = (heading: string, marker: string): Predicate => (
 });
 /** Every glob the field carries parses under globset (brace-expansion aware). */
 export const globValid = (field: string): Predicate => ({ key: "glob-valid", field });
+/**
+ * Every mention a selected member authors can fire where its target can be invoked. A
+ * target whose `gateField` carries globs is gated — removed from every invocation
+ * channel until the agent reads a matching file — so a mention of it is actionable only
+ * inside that gate. Fires on a scoped source whose `scopeField` globs are not contained
+ * in the target's gate, and on an unscoped source mentioning a gated target.
+ *
+ * Generic over both ends, hard-coding no kind: the trigger is the target's gate field
+ * carrying a value, never its registration set. Containment is *literal* — every source
+ * glob must appear verbatim in the gate — since true glob-set containment is
+ * undecidable, so it false-fires on a semantically contained narrower glob
+ * (`src/**\/*.ts` inside `src/**`). Declare it at advisory severity: a check that can be
+ * wrong must not block.
+ */
+export const mentionReachable = (scopeField: string, gateField: string): Predicate => ({
+  key: "mention-reachable",
+  field: scopeField,
+  gate: gateField,
+});
 /**
  * Every edge the member's kind declares is placed by the format that renders the member
  * — a format that omits one renders a contract the prose does not represent. Names no

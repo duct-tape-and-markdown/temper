@@ -282,6 +282,26 @@ fn vacuities(predicate: &Predicate) -> Vec<String> {
         Predicate::Kind { kind } if kind.is_empty() => {
             vec!["`kind` clause names an empty kind".to_string()]
         }
+        // Both arguments are *field names*, not glob sets — an empty glob set on either
+        // end is member data the judge reads (and is precisely what "unscoped source" /
+        // "ungated target" mean), never a property of the clause. An empty field name
+        // is the clause-level vacuity: an empty gate field reads no field, so every
+        // target is ungated and the clause can never fire, and an empty scope field
+        // makes every source unscoped, so it fires on target gating alone and decides
+        // nothing about the pair. Neither can be what the author meant.
+        Predicate::MentionReachable {
+            scope_field,
+            gate_field,
+        } => {
+            let mut messages = Vec::new();
+            if scope_field.is_empty() {
+                messages.push("`mention-reachable` clause names an empty scope field".to_string());
+            }
+            if gate_field.is_empty() {
+                messages.push("`mention-reachable` clause names an empty gate field".to_string());
+            }
+            messages
+        }
         _ => Vec::new(),
     }
 }
@@ -825,7 +845,12 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         | Predicate::Unique { .. }
         | Predicate::Membership { .. }
         | Predicate::Degree { .. }
-        | Predicate::Kind { .. } => Outcome::Indeterminate,
+        | Predicate::Kind { .. }
+        // `mention-reachable` is each-grain over the selection, but its verdict reads
+        // the mention graph and the *target* member's gate field — neither is on the
+        // member in hand — so `crate::graph::mention_reachable` judges it, exactly as
+        // `degree`'s judge lives there.
+        | Predicate::MentionReachable { .. } => Outcome::Indeterminate,
     }
 }
 

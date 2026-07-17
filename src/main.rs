@@ -975,6 +975,16 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // obligation-free by default, counted only when a `degree` clause opts in.
     diagnostics.extend(graph::degree(&selections, &edges, &mention_edges, &by_kind));
 
+    // `mention-reachable`: the second selection predicate whose judge needs the graph —
+    // each selected member's authored mentions must be able to fire where their target
+    // can be invoked, which reads the *target* member's gate field across the mention
+    // graph. Opt-in like `degree`: a selection declaring no such clause does no work.
+    diagnostics.extend(graph::mention_reachable(
+        &selections,
+        &mention_edges,
+        &by_kind,
+    ));
+
     // The requirement-coverage tier: every `required`
     // requirement must have a resolving home (≥1 artifact opting in via
     // `satisfies`) and every authored `satisfies` must resolve to a declared

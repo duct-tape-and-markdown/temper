@@ -14,6 +14,7 @@ import {
   enumOf,
   harness,
   membership,
+  mentionReachable,
   mustDefine,
   optional,
   range,
@@ -107,6 +108,20 @@ test("enumOf composes a permitted-value set riding the deny-precedent values col
   const row = skillClauseRow(enumOf("status", ["draft", "final"]));
   assert.deepEqual(row.values, ["draft", "final"]);
   assert.equal(row.field, "status");
+});
+
+test("mentionReachable composes both field ends, the target's gate landing its own column", () => {
+  assert.deepEqual(mentionReachable("paths", "paths"), {
+    key: "mention-reachable",
+    field: "paths",
+    gate: "paths",
+  });
+  // The one two-argument predicate: `field` carries the source's scope, `gate` the
+  // target's — the column the engine reads back (`src/contract.rs`
+  // `predicate_from_row`), so both halves of the seam must spell one name.
+  const row = skillClauseRow(mentionReachable("scope", "gate-field"));
+  assert.equal(row.field, "scope");
+  assert.equal(row.gate, "gate-field");
 });
 
 test("mustDefine composes a body marker landing in the field column", () => {

@@ -247,6 +247,40 @@ pub enum Predicate {
         /// The field whose every glob must parse.
         field: String,
     },
+    /// `mention-reachable`: the **each** grain over the selection's members — every
+    /// mention a selected member authors must be reachable where it fires. A target
+    /// whose `gate_field` carries globs is *gated*: it is removed from every invocation
+    /// channel until the agent reads a file the gate matches, so a mention of it fires
+    /// only where the gate is open. Two diagnoses, one invariant: a **scoped** source
+    /// whose `scope_field` globs are not contained in the target's gate can fire where
+    /// the target cannot be invoked; an **unscoped** source mentioning a gated target is
+    /// actionable only inside that gate.
+    ///
+    /// The predicate is generic over both ends and hard-codes no kind — the source's
+    /// scope field and the target's gate field are arguments, the two-argument sibling
+    /// of [`Predicate::GlobValid`]'s one field. The **trigger is the target's declared
+    /// gate field carrying a non-empty value**, never its kind or its registration set:
+    /// a gate is a field a kind documents, and a kind may gate without declaring a
+    /// `paths-match` registration channel (a skill's `paths` is exactly that —
+    /// `sdk/src/builtins.ts`).
+    ///
+    /// **Declared leniency:** containment is *literal* — every source glob must appear
+    /// verbatim in the target's gate set — because true glob-set containment is
+    /// undecidable. It therefore false-fires on a semantically contained narrower glob
+    /// (`src/**/*.ts` inside `src/**`), which is why a clause naming it ships at
+    /// advisory severity: a check that can be wrong must not block
+    /// (`specs/decisions/0028-a-mention-must-be-reachable-where-it-fires.md`).
+    ///
+    /// Judged by [`crate::graph::mention_reachable`], not the per-member table: the
+    /// verdict needs the mention graph and the *target* member's features, neither of
+    /// which the source member carries.
+    MentionReachable {
+        /// The source member's field carrying the scope globs the mention fires under.
+        scope_field: String,
+        /// The **target** member's field carrying the gate globs that must contain the
+        /// source's scope.
+        gate_field: String,
+    },
     /// `format-places-edges`: the edge scope, at the **each** grain — the selection is
     /// the edges incident on the member, and every one of them must be placed by the
     /// format that renders the member. A format that omits an edge its kind declares
@@ -351,6 +385,13 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "glob-valid" => Predicate::GlobValid {
             field: row.field.clone()?,
         },
+        // The one two-argument predicate: the source's scope rides the shared `field`
+        // column, the target's gate its own `gate` column — one `field` cannot carry
+        // both ends.
+        "mention-reachable" => Predicate::MentionReachable {
+            scope_field: row.field.clone()?,
+            gate_field: row.gate.clone()?,
+        },
         "format-places-edges" => Predicate::FormatPlacesEdges,
         "membership" => Predicate::Membership {
             field: row.field.clone()?,
@@ -425,16 +466,23 @@ impl Predicate {
             Predicate::Degree { .. } => "degree",
             Predicate::Kind { .. } => "kind",
             Predicate::GlobValid { .. } => "glob-valid",
+            Predicate::MentionReachable { .. } => "mention-reachable",
             Predicate::FormatPlacesEdges => "format-places-edges",
         }
     }
 
     /// Whether this predicate ranges over the **selection** a clause binds to rather
     /// than one member's own features — `count`/`unique`/`membership` at the whole
-    /// grain, `degree`/`kind` at the each grain. Judged by
-    /// [`crate::engine::judge`] and [`crate::graph::degree`] over the resolved
+    /// grain, `degree`/`kind`/`mention-reachable` at the each grain. Judged by
+    /// [`crate::engine::judge`], [`crate::graph::degree`], and
+    /// [`crate::graph::mention_reachable`] over the resolved
     /// selection; every other predicate is judged by [`crate::engine::validate`] over a
     /// member.
+    ///
+    /// The line is the *feature read*, not the grain: `mention-reachable` is each-grain
+    /// over the members, but each verdict reads the mention graph and the target
+    /// member's own gate field, so it belongs to the selection judges exactly as
+    /// `degree` does.
     #[must_use]
     pub fn ranges_over_selection(&self) -> bool {
         matches!(
@@ -444,6 +492,7 @@ impl Predicate {
                 | Predicate::Membership { .. }
                 | Predicate::Degree { .. }
                 | Predicate::Kind { .. }
+                | Predicate::MentionReachable { .. }
         )
     }
 
@@ -478,6 +527,9 @@ impl Predicate {
             | Predicate::Count { .. }
             | Predicate::Degree { .. }
             | Predicate::Kind { .. }
+            // Two field arguments, so no *one* field is "the" field it constrains —
+            // the set predicates' silence here is the precedent.
+            | Predicate::MentionReachable { .. }
             | Predicate::FormatPlacesEdges => None,
         }
     }
@@ -519,6 +571,10 @@ impl Predicate {
             | Predicate::Membership { .. }
             | Predicate::Degree { .. }
             | Predicate::Kind { .. }
+            // Its scope field is a real frontmatter property, but the clause's verdict
+            // is about the *target*'s gate, not this property's value — guidance about
+            // the pair belongs to neither property's hover docs alone.
+            | Predicate::MentionReachable { .. }
             | Predicate::FormatPlacesEdges => None,
         }
     }

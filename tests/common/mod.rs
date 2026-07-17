@@ -477,6 +477,7 @@ pub fn clause(predicate: &str, severity: &str) -> ClauseRow {
         count: None,
         target: None,
         degree: None,
+        gate: None,
         bound: None,
         charset: None,
         keys: None,

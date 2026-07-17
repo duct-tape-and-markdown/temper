@@ -69,6 +69,14 @@ target?: string,
  */
 degree?: DegreeBoundRow, 
 /**
+ * The `mention-reachable` clause's **target-side gate field**, when the predicate
+ * is `mention-reachable`. The one predicate taking two field arguments: its
+ * source-side scope field rides the shared [`field`](ClauseRow::field) column, and
+ * this column carries the other end — the field read off the *mentioned* member,
+ * which `field` alone cannot express.
+ */
+gate?: string, 
+/**
  * The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
  * is one of those three.
  */

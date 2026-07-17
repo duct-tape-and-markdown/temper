@@ -121,6 +121,11 @@ pub fn emit(contract: &Contract) -> Value {
             | Predicate::Degree { .. }
             | Predicate::Kind { .. }
             | Predicate::FormatPlacesEdges
+            // `mention-reachable` reads the *mentioned* member's gate field across the
+            // graph, so it constrains no property of the document being validated —
+            // keystroke validation is decidable over one document's own frontmatter,
+            // and this predicate is not. The schema channel is honestly silent here.
+            | Predicate::MentionReachable { .. }
             | Predicate::GlobValid { .. } => {}
         }
     }

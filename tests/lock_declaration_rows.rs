@@ -535,6 +535,53 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
     assert_eq!(degree.outgoing.expect("outgoing bound").max, Some(3));
 }
 
+/// A `mention-reachable` clause row round-trips **both** field ends — the source's scope
+/// on the shared `field` column and the target's gate on its own `gate` column. The one
+/// two-argument predicate: `field` alone cannot carry both, so the `gate` column is the
+/// seam's vocabulary, and the SDK writing it must spell exactly what the engine reads.
+#[test]
+fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        kind: Some("rule".to_string()),
+        field: Some("paths".to_string()),
+        gate: Some("paths".to_string()),
+        ..common::clause("mention-reachable", "advisory")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("clause-row-mention-reachable", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "mention-reachable")
+        .expect("the mention-reachable clause row round-trips");
+    assert_eq!(row.field.as_deref(), Some("paths"), "the source scope end");
+    assert_eq!(row.gate.as_deref(), Some("paths"), "the target gate end");
+
+    // The row is the wire the engine lifts: both ends must reach the typed predicate,
+    // or the clause the lock carries is not the clause the judge runs.
+    assert_eq!(
+        contract::predicate_from_row(row),
+        Some(Predicate::MentionReachable {
+            scope_field: "paths".to_string(),
+            gate_field: "paths".to_string(),
+        }),
+        "both columns lift into the typed predicate"
+    );
+}
+
 /// A kind's own floor clause row round-trips its **node-scope predicate argument**
 /// (`LOCK-CLAUSE-PREDICATE-ARGS`) — `min_len`/`max_len`/`max_lines`'s bound,
 /// `allowed_chars`'s charset, `forbidden_keys`'s keys, `deny`'s values — not just

@@ -37,6 +37,9 @@ const GRAPH_DEGREE_RULE: &str = "graph.degree";
 /// The diagnostic `rule` id every reachability finding reports under.
 const GRAPH_REACHABLE_RULE: &str = "graph.reachable";
 
+/// The diagnostic `rule` id every `mention-reachable` clause finding reports under.
+const GRAPH_MENTION_REACHABLE_RULE: &str = "graph.mention-reachable";
+
 /// The diagnostic `rule` id every unbacked-pointer directive finding reports under.
 const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 
@@ -312,6 +315,145 @@ pub fn degree(
         }
     }
     diagnostics
+}
+
+/// Check the **`mention-reachable`** predicate over every declared [`Selection`]: for
+/// each clause bound to one, return a [`Diagnostic`] — at the clause's own declared
+/// severity — per selected member whose authored mention cannot fire where its target
+/// can be invoked.
+///
+/// A target is **gated** when its own `gate_field` carries globs: the harness removes it
+/// from every invocation channel until it reads a file the gate matches. The trigger is
+/// that field carrying a non-empty value — never the target's kind, and never a
+/// `paths-match` registration lookup: a gate is a field a kind *documents*, and a kind
+/// may gate while declaring no `paths-match` channel at all (a skill's `paths` is
+/// exactly that — it gates every channel and adds no registration entry,
+/// `sdk/src/builtins.ts`). Reading the registration set instead would select rules and
+/// never skills, so the rule→skill mention this check exists for could never fire.
+///
+/// Two diagnoses, one invariant (`specs/decisions/0028-…`): a **scoped** source whose
+/// scope globs are not contained in the target's gate, and an **unscoped** source
+/// mentioning a gated target. Silent otherwise — an ungated target imposes nothing, and
+/// a mention resolving to no composed member is [`route_mentions`]'s verdict, never
+/// double-reported here.
+///
+/// **Declared leniency:** containment is *literal* — every source glob must appear
+/// verbatim in the target's gate set. True glob-set containment is undecidable, so this
+/// errs toward firing on a semantically contained narrower glob rather than staying
+/// silent; a clause naming the predicate therefore ships at advisory severity. This is
+/// the same leniency *direction* [`dead_registration`] takes with an uncompilable glob:
+/// neither cries wolf about a pattern it cannot decide.
+///
+/// Like `degree`, this is **opt-in** — selections declaring no `mention-reachable`
+/// clause do no graph work.
+#[must_use]
+pub fn mention_reachable(
+    selections: &[Selection],
+    mention_edges: &[ResolvedEdge],
+    by_kind: &BTreeMap<&str, &[Features]>,
+) -> Vec<Diagnostic> {
+    let any_clause = selections.iter().any(|selection| {
+        selection
+            .clauses
+            .iter()
+            .any(|clause| matches!(clause.predicate, Predicate::MentionReachable { .. }))
+    });
+    if !any_clause {
+        return Vec::new();
+    }
+    let mut diagnostics = Vec::new();
+    for selection in selections {
+        for clause in &selection.clauses {
+            let Predicate::MentionReachable {
+                scope_field,
+                gate_field,
+            } = &clause.predicate
+            else {
+                continue;
+            };
+            for (kind, features) in &selection.members {
+                let source = ((*kind).to_string(), features.id.clone());
+                for edge in mention_edges.iter().filter(|edge| edge.from == source) {
+                    // A mention whose target composes no member has no gate to read —
+                    // `route_mentions` owns that verdict, so this clause stays silent.
+                    let Some(target) = member_at(&edge.to, by_kind) else {
+                        continue;
+                    };
+                    let gate = declared_globs(target, gate_field);
+                    if gate.is_empty() {
+                        continue;
+                    }
+                    let scope = declared_globs(features, scope_field);
+                    let message = if scope.is_empty() {
+                        format!(
+                            "`{}` is unscoped, but its mention of `{}:{}` is actionable only \
+                             inside that member's `{gate_field}` gate ({}): scope \
+                             `{}`'s `{scope_field}` to the gate, or ungate the target",
+                            features.id,
+                            edge.to.0,
+                            edge.to.1,
+                            quoted(&gate),
+                            features.id,
+                        )
+                    } else if let Some(uncovered) = uncontained(&scope, &gate) {
+                        format!(
+                            "`{}`'s `{scope_field}` glob `{uncovered}` is not in the \
+                             `{gate_field}` gate of the member it mentions, `{}:{}` ({}), so \
+                             the mention can fire where that member cannot be invoked",
+                            features.id,
+                            edge.to.0,
+                            edge.to.1,
+                            quoted(&gate),
+                        )
+                    } else {
+                        continue;
+                    };
+                    diagnostics.push(
+                        Diagnostic::new(
+                            engine::severity_of(clause.severity),
+                            GRAPH_MENTION_REACHABLE_RULE,
+                            &features.id,
+                            message,
+                        )
+                        .with_guidance(clause.guidance.clone()),
+                    );
+                }
+            }
+        }
+    }
+    diagnostics
+}
+
+/// The member a resolved node addresses, or `None` when the corpus composes none of
+/// that kind and id — a bare requirement target (which carries no gate to read) or a
+/// dangler [`route_mentions`] owns. The same corpus lookup [`edge_resolves`] makes to
+/// decide a mention's route, read here for the target's own features.
+fn member_at<'f>(node: &Node, by_kind: &BTreeMap<&str, &'f [Features]>) -> Option<&'f Features> {
+    let (kind, name) = node;
+    by_kind
+        .get(kind.as_str())?
+        .iter()
+        .find(|features| features.id == *name)
+}
+
+/// The first source glob that appears in no gate glob **verbatim**, or `None` when the
+/// gate literally contains every one. The declared leniency: literal containment, since
+/// true glob-set containment is undecidable.
+fn uncontained(scope: &[String], gate: &[String]) -> Option<String> {
+    scope
+        .iter()
+        .find(|glob| !gate.contains(glob))
+        .map(ToString::to_string)
+}
+
+/// A glob set rendered for a finding — backticked and comma-joined, in declaration
+/// order.
+fn quoted(globs: &[String]) -> String {
+    globs
+        .iter()
+        .map(|glob| format!("`{glob}`"))
+        .collect::<Vec<String>>()
+        .join(", ")
 }
 
 /// A degree direction — which side of a node's edges a [`DegreeBound`] constrains.

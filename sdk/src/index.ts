@@ -36,6 +36,7 @@ export {
   maxLen,
   maxLines,
   membership,
+  mentionReachable,
   minLen,
   mustDefine,
   nameMatchesDir,

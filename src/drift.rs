@@ -2460,6 +2460,13 @@ pub struct ClauseRow {
     /// The `degree` clause's in/out edge-count bound, when the predicate is `degree`.
     #[serde(default)]
     pub degree: Option<DegreeBoundRow>,
+    /// The `mention-reachable` clause's **target-side gate field**, when the predicate
+    /// is `mention-reachable`. The one predicate taking two field arguments: its
+    /// source-side scope field rides the shared [`field`](ClauseRow::field) column, and
+    /// this column carries the other end — the field read off the *mentioned* member,
+    /// which `field` alone cannot express.
+    #[serde(default)]
+    pub gate: Option<String>,
     /// The `min_len`/`max_len`/`max_lines` clause's scalar bound, when the predicate
     /// is one of those three.
     #[serde(default)]
@@ -3272,6 +3279,9 @@ impl ClauseRow {
         if let Some(degree) = &self.degree {
             table.insert("degree", value(degree_bound_table(degree)));
         }
+        if let Some(gate) = &self.gate {
+            table.insert("gate", value(gate.clone()));
+        }
         if let Some(bound) = &self.bound {
             table.insert("bound", value(bound_table(bound)));
         }
@@ -3310,6 +3320,7 @@ impl ClauseRow {
                 Some(degree) => Some(degree_bound_from_table(degree)?),
                 None => None,
             },
+            gate: opt_str(table, "gate")?,
             bound: match opt_table(table, "bound")? {
                 Some(bound) => Some(bound_from_table(bound)?),
                 None => None,

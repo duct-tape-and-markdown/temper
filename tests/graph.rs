@@ -17,7 +17,9 @@ use std::path::Path;
 
 mod common;
 
-use temper::drift::{AssemblyFactRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow};
+use temper::drift::{
+    AssemblyFactRow, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow,
+};
 use temper::drift::{
     KindFactRow, LayoutRegionRow, LayoutRow, MentionRow, NestedMemberRow, TemplateRow,
 };
@@ -493,6 +495,168 @@ fn mention(member: &str, target: &str) -> MentionRow {
         member: member.to_string(),
         target: target.to_string(),
     }
+}
+
+/// The `gate` requirement bound to `rule`, carrying an **advisory** `mention-reachable`
+/// clause over `paths` → `paths`: the source rule's own scope field, and the field read
+/// off the *mentioned* member for its gate. Advisory is the shipped severity — literal
+/// containment can be wrong, so the check must not block (0028).
+fn mention_reachable_requirement() -> RequirementRow {
+    RequirementRow {
+        clauses: vec![ClauseRow {
+            field: Some("paths".to_string()),
+            gate: Some("paths".to_string()),
+            ..common::clause("mention-reachable", "advisory")
+        }],
+        ..common::requirement("gate", false, Some("rule"))
+    }
+}
+
+/// A floor-clean rule, optionally scoped by `paths` — the mention's source. `None` is
+/// the unscoped rule (the harness loads it always).
+fn scoped_rule(paths: Option<&str>) -> String {
+    let scope = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    format!(
+        "---\n\
+         {scope}---\n\
+         # Style\n\
+         \n\
+         Prefer the standards skill.\n"
+    )
+}
+
+/// A floor-clean skill, optionally gated by `paths` — the mention's target. `None` is
+/// the ungated skill, invocable with no file read first.
+fn gated_skill(name: &str, paths: Option<&str>) -> String {
+    let gate = paths.map_or_else(String::new, |glob| format!("paths: [\"{glob}\"]\n"));
+    format!(
+        "---\n\
+         name: {name}\n\
+         description: Use when {name} is the task at hand; not for anything else.\n\
+         {gate}---\n\
+         # {name}\n\
+         \n\
+         Body.\n"
+    )
+}
+
+/// Drive a `mention-reachable` case: a rule `style` scoped by `rule_paths` mentioning a
+/// skill `standards` gated by `skill_paths`, with the clause bound to `style` via the
+/// `gate` requirement's opt-in selection. `mention` carries the rule→skill mention row
+/// when the case wants the graph to reach the target at all.
+fn mention_reachable_run(
+    slug: &str,
+    rule_paths: Option<&str>,
+    skill_paths: Option<&str>,
+    mention_edge: bool,
+) -> common::CheckRun {
+    let root = common::tmpdir(slug);
+    write_harness(
+        &root,
+        "style",
+        &scoped_rule(rule_paths),
+        "standards",
+        &gated_skill("standards", skill_paths),
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            mentions: if mention_edge {
+                vec![mention("rule:style", "skill:standards")]
+            } else {
+                Vec::new()
+            },
+            requirements: vec![mention_reachable_requirement()],
+            ..Declarations::default()
+        },
+    );
+    common::author_satisfies(&root, "rules", "style", &["gate"]);
+
+    common::check_in(&root, &[], None)
+}
+
+/// The first diagnosis: a **scoped** source whose scope globs are not literally
+/// contained in the mentioned target's gate. The rule loads under `src/**`, the skill is
+/// invocable only once a `docs/**` file is read — so the mention fires exactly where the
+/// skill cannot be invoked, and the harness answers "no such skill".
+#[test]
+fn a_scoped_source_outside_the_mentioned_targets_gate_is_an_advisory_finding() {
+    let run = mention_reachable_run("mr-uncontained", Some("src/**"), Some("docs/**"), true);
+    assert!(
+        run.output.contains("mention-reachable")
+            && run.output.contains("src/**")
+            && run.output.contains("standards"),
+        "the finding names the predicate, the uncovered scope glob, and the target, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "the clause is advisory — literal containment can be wrong, so it must not block \
+         the run ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+/// The second diagnosis: an **unscoped** source mentioning a gated target. The rule is
+/// always loaded, the skill only after a `docs/**` read — so every session outside the
+/// gate carries an obligation it cannot act on. Killed the session's "the mention is
+/// just early" position: the probe showed the sad path is a hard error (0028).
+#[test]
+fn an_unscoped_source_mentioning_a_gated_target_is_an_advisory_finding() {
+    let run = mention_reachable_run("mr-unscoped", None, Some("docs/**"), true);
+    assert!(
+        run.output.contains("mention-reachable")
+            && run.output.contains("unscoped")
+            && run.output.contains("standards"),
+        "the finding names the predicate, the unscoped source, and the gated target, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.ok,
+        "the clause is advisory ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+/// Literal containment holds: the source's every glob appears verbatim in the target's
+/// gate, so the mention fires only where the skill is invocable — silent.
+#[test]
+fn a_source_scoped_inside_the_targets_gate_is_no_finding() {
+    let run = mention_reachable_run("mr-contained", Some("docs/**"), Some("docs/**"), true);
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "a scope literally contained in the gate is no finding, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
+/// An **ungated** target imposes nothing: with no `paths` on the skill, it is invocable
+/// from the start, so the source's scope is unconstrained. The trigger is the target's
+/// gate field carrying a value — never the source's scope, and never the kind.
+#[test]
+fn an_ungated_target_is_no_finding_whatever_the_source_scope() {
+    let run = mention_reachable_run("mr-ungated", Some("src/**"), None, true);
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "an ungated target constrains no mention of it, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
+/// The clause judges only the mentions a member **authored**: the same
+/// would-be-uncontained scope and gate, with no mention edge between them, is silent. A
+/// mention is obligation-free by default — this clause never invents one.
+#[test]
+fn a_target_the_mention_does_not_reach_is_no_finding() {
+    let run = mention_reachable_run("mr-no-mention", Some("src/**"), Some("docs/**"), false);
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "no authored mention, no reachability claim to judge, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
 }
 
 #[test]
