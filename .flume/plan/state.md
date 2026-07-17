@@ -1,42 +1,37 @@
 # Plan state
 
-- Spec derived through: 725188e
+- Spec derived through: 63e1f22
 - Audited through: b85df4a
 - Residue swept through: b85df4a
-- This tick: DERIVE spec delta 725188e (decision 0035 AMENDED, "extent
-  subsumes max_lines") — re-derived after last attempt (915df82) was reverted
-  at the `entry references resolve` gate. Root cause: it put symbol addresses
-  (`Predicate::MaxLines`, `maxLines constructor`) in EXTENT's `retire` array,
-  but `retire` means "this FILE is deleted" (`pending-entry` rule) — both
-  files survive, so the fence read the strings as missing file paths. Fixed:
-  the max_lines retirement is symbol-within-surviving-file, so it is `edit`s;
-  `retire` stays `[]`.
-  Amendment Consequences (its amended section, each routed) → all to
-  **EXTENT-PREDICATE** (per contract.md, "clause"):
-  - "extent subsumes max_lines, which retires" → EXTENT folds the retirement
-    in (remove `Predicate::MaxLines` variant/parse/label/field/eval; `extent`
-    takes the node-scope slot).
-  - "The shipped defaults re-spell (maxLines(500)/maxLines(200) → extent over
-    the same selections), superseding 0035's 'no shipped default adopts
-    extent'; no NEW budget opinion" → EXTENT edits `sdk/src/builtins.ts` (3
-    adoptions) and `src/builtin_lock.toml` re-derives. `command` reuses
-    `skillDefaultContract` (builtins.ts:1191), so 3 source edits flip 4 lock
-    rows.
-  - "Retirement is loud — a lock still carrying max_lines refuses at load" →
-    pinned in `tests/extent.rs`.
-  - "Plan derives the entry" (singular) → one atomic entry.
-  Two corrections vs. the reverted attempt: (1) ADMISSION-JOINS-FILE-TEMPLATE
-  shipped (631bc83) since it, so EXTENT's `blockedBy` is stale — gate now
-  **open**, disjoint from the two parked entries. (2) Wider ripple caught: it
-  missed `manifest_schema_oracle.rs`, `closed_keys.rs`,
-  `sdk/test/{emit,builtins}.test.ts`, `sdk/src/index.ts` — all now in
-  `files.edit`. The `(extent-subsumes-max-lines)` fork was already deleted by
-  the human in 725188e (encode + delete) — re-verified gone. Build-confirm
-  flagged, not invented: `body_lines`/`LineCount` (kind.rs) may orphan once
-  max_lines' eval goes; 0035 names no retirement for it.
-- Queue: 3 entries — EXTENT-PREDICATE **pickable** (gate:open) + 2 parked
-  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Disjoint. No fork rest.
+- This tick: DERIVE spec delta 63e1f22 (decision 0036, "the machine's own file
+  gets a kind") — one contained slice, one atomic entry **SETTINGS-LOCAL-KIND**.
+  0036's Consequences carries ONE derivation bullet, routed:
+  - "Plan derives the entry (kind, default contract with the documented-profile
+    clauses the settings docs settle, fixture under the discovery override)" →
+    **SETTINGS-LOCAL-KIND**. The `settings-local` shipped kind:
+    `.claude/settings.local.json` as a `json-document` at the **local**
+    commitment class — the plugin-manifest json-document posture crossed with
+    dial's local locus. Two-sided by construction (`sdk.md` seam): SDK
+    authoring def (`sdk/src/builtins.ts` + provider export) + Rust read-side def
+    (`src/builtin_kind.rs` `all_kinds()`) + `builtin_lock.toml` re-derive +
+    `builtin_lock.rs`'s two hard-coded kind lists. `src/{builtin,contract,kind}.rs`
+    unchanged — the machinery (`Commitment::Local`, `Format::JsonDocument`,
+    discovery override) already ships; only data is added.
+  - "builtins.md grows to eleven / sits outside the domain partition" → already
+    in the spec body (63e1f22), not code.
+  - "The (settings-local-kind) record deletes" → verified ALREADY absent from
+    open-questions.md (routed on the 0032/0036 line); no deletion owed this tick.
+  Disjointness: SETTINGS-LOCAL-KIND overlaps EXTENT-PREDICATE on
+  `builtin_lock.toml`, `builtins.ts`, `builtins.test.ts`, `lock_declaration_rows.rs`
+  (both regenerate the lock) → serialized `blockedBy: EXTENT-PREDICATE`
+  (`pending-entry` rule). No overlap with the two parked entries.
+  0037 (6d2cca6, typed verifier — a multi-part capability: tap verb, telemetry
+  declaration + hook projection, local-locus log kind, field strand, verifier-type
+  resolution) is NOT derived this tick — its own slice, next.
+- Queue: 4 entries — EXTENT-PREDICATE **pickable** (gate:open); SETTINGS-LOCAL-KIND
+  (blockedBy EXTENT) + 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER).
+  DAG-disjoint. No fork rest.
 
-Plan continues: yes — spec delta still live: 63e1f22 (0036, settings-local
-kind) then 6d2cca6 (0037, typed verifier) un-derived, one slice per tick;
-then post-ship reconcile of b85df4a..HEAD (3 build commits).
+Plan continues: yes — spec delta still live (6d2cca6 / 0037 un-derived, one
+slice per tick), and post-ship reconcile of b85df4a..HEAD (3 build commits)
+still pending below it.

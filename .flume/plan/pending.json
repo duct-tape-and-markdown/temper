@@ -140,6 +140,74 @@
     "notes": "Routes 0035's amendment (725188e): extent SUBSUMES max_lines; the 3 cited budgets carry across, no NEW opinion. command reuses skillDefaultContract (builtins.ts:1191), so 3 source edits flip 4 lock rows. body_lines + its LineCount primitive may orphan once max_lines' eval goes — confirm at build, don't invent its retirement (0035 names none). ADMISSION shipped (631bc83): the blockedBy is stale, unblocked to open. scoped at b804e98."
   },
   {
+    "tag": "SETTINGS-LOCAL-KIND",
+    "summary": "Ship `settings-local` (0036): `.claude/settings.local.json`, a json-document at the local commitment class — read in place, gated, never emitted; documented keys typed, residue opaque",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EXTENT-PREDICATE"
+    },
+    "files": {
+      "new": [
+        {
+          "path": "tests/settings_local_kind.rs",
+          "description": "The new kind's fixture home (one per shipped kind, `tests/rust.md`), modeled on `tests/plugin_manifest_kind.rs` (json-document file member) crossed with `tests/dial_kind.rs` (local locus). Fixtures at the real layout `.claude/settings.local.json` (never an invented path): the kind owns the file as a `json-document` whose top-level keys are its fields; identity is the fixed singleton path (`unitShape: file`, stem `settings.local`, no identity field); the discovery override finds the always-gitignored document and `check` derives its rows AT READ TIME while emit writes nothing at its path (the local-locus contract, dial precedent — `tests/local_locus.rs` is the generic-machinery home and needs no edit); the documented-key clauses fire on their violations and the unschematized residue passes opaque; and `check` announces the active member (`src/check.rs` `Announcement.local_members`). Each format fact cites the live settings docs."
+        }
+      ],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add the `settingsLocal` kind + a `SettingsLocal` interface + `settingsLocalDefaultContract`, modeled on `pluginManifest` (~593) with the local commitment lifted from `sdk/src/dial.ts`:70. Kind: `locus: { kind: 'at', root: '.claude', glob: 'settings.local.json', commitment: 'local' }`, `format: 'json-document'`, `unitShape: 'file'` (singleton identity from the fixed stem — no `identityField`), `registration: []`. The `SettingsLocal` interface types the DOCUMENTED top-level keys and names the unschematized residue opaque (the plugin-manifest interface pattern). `settingsLocalDefaultContract` carries the documented-profile clauses the LIVE settings docs settle — FETCH code.claude.com/docs/en/settings and cite+date each clause (external-fact bar); near-empty is admissible if the format documents little decidable schema (the installed-plugin / almost-empty-contract precedent, builtins.md 'Default contracts'). Fields, not members (0036): a locally-registered hook or enablement stays opaque residue named as such, never a modeled member."
+        },
+        {
+          "path": "sdk/src/claude-code.ts",
+          "description": "Export `settingsLocal`, `settingsLocalDefaultContract`, and the `SettingsLocal` type from the provider face (type block ~11-24, value block ~25-48), following the `pluginManifest` export — a `.claude/` artifact rides the claude-code subpath, never dial's root export."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The engine's read-side def so `check` can extract the local document. Add `claude_code_settings_local()` modeled on `claude_code_plugin_manifest()` (~323) — `Format::JsonDocument`, `UnitShape::File`, the documented-key `Extraction` (opaque residue named as such) — with `.local()` appended as `temper_dial()` does (~405), and register it in `all_kinds()` (~412). `src/kind.rs` carries `Commitment::Local` + `Format::JsonDocument` already — no edit there."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "The pure loader's two hard-coded kind-name lists gain `settings-local`: the sorted roster assertion (~52-68) and the clause-kind match (~100-113). No loader logic changes — data-driven over the lock."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Re-derives (regenerated data, never hand-edited rows — see the file header): a new `[[declaration.kind]]` block (`commitment = 'local'`, `format = 'json-document'`) plus its default-contract `[[declaration.clause]]` rows. Separately, the file's HAND-AUTHORED header prose updates by hand: the kind enumeration and counts (~13-26), and the two now-falsified 'the one kind' claims — `dial` as 'the one kind ... declaring a `local` commitment class' (~33-36) and `plugin-manifest` as 'the one kind ... at the `json-document` format' (~50-60) — each now names a second."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "The re-derivation seam: `MEMBERLESS_BUILTIN_PROGRAM` binds `settings-local` via `expect` — add the import (~31-55) and its `{ kind: settingsLocal, clauses: settingsLocalDefaultContract }` entry (~57-72). This is what re-emits the rows `src/builtin_lock.toml` embeds; run `pnpm --dir sdk build` then `cargo test --test builtin_lock_frozen` to exercise the cross-language seam (`sdk.md`, 'The engine seam')."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Extend the emitted-declaration-row fixtures to carry the new `settings-local` kind fact + its default-contract clause rows. Mechanical, following the roster."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Add `settingsLocal` / `settingsLocalDefaultContract` to the audited import + array (~19-45) so the 'well-formed clause array' and 'non-empty cite' sweeps cover it (~49-66), plus a per-kind assertion that `settings-local` is a local-locus json-document kind at `.claude/settings.local.json` (following the `mcpServer`/`marketplace` per-kind assertions ~136)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/settings_local_kind.rs",
+        "asserts": "`settings-local` owns `.claude/settings.local.json` as a json-document at the local commitment class; the discovery override finds the gitignored document and `check` derives its rows at read time; emit writes nothing at its path; the documented-key clauses fire and the opaque residue passes; the active member is announced"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the embedded `src/builtin_lock.toml` byte-matches the SDK re-emission once `settings-local` joins the memberless program — the frozen-lock seam holds with the new kind fact + default-contract rows"
+      }
+    ],
+    "acceptance": "`settings-local` is a shipped kind: `.claude/settings.local.json` read as a json-document at the local commitment class — discovered under the ignore override, gated in place, never an emit input or target, its rows derived at read time and its presence announced (builtins.md, 'The shipped kinds'; 0036). Documented keys are typed with cited clauses; a locally-registered hook or enablement stays opaque residue named as such, never a modeled member. The built-in lock re-derives to carry the new kind + default contract and the frozen-lock seam holds. `pnpm --dir sdk test` + `cargo test` green.",
+    "notes": "Routes 0036 (63e1f22): its sole Consequences bullet — kind, default contract, fixture under the discovery override — is this one atomic entry. (settings-local-kind) fork already absent from open-questions; no deletion owed. blockedBy EXTENT: both regenerate builtin_lock.toml. No per-key settings schema exists today — the default contract is authored fresh from the live settings docs, cited. src/{builtin,contract,kind}.rs unchanged, data-driven. scoped at 4cc3081."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
