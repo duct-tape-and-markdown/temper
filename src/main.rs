@@ -6,6 +6,7 @@
 //! library so `tests/` can drive it.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -116,6 +117,13 @@ enum Command {
         /// `required` ones — the strict CI policy.
         #[arg(long)]
         deny_advisories: bool,
+        /// A policy layer to join, named as the lock that carries it (the lock file, or a
+        /// directory holding one) — repeatable, joined in the order given. The layer's
+        /// clause rows range over this corpus's own selections, keyed by kind name. A
+        /// layer can only harden: its clauses are added to the contracts this harness
+        /// already declares, never substituted for them.
+        #[arg(long = "layer", value_name = "PATH")]
+        layers: Vec<PathBuf>,
         /// The machine format for the diagnostic set. Presentation only — the exit-code verdict is identical
         /// whichever is chosen (session-start excepted: it is always advisory).
         #[arg(long, value_enum, default_value_t = Reporter::Terminal)]
@@ -247,6 +255,7 @@ fn main() -> miette::Result<ExitCode> {
             root,
             harness,
             deny_advisories,
+            layers,
             reporter,
         } => {
             // The one resolution for every reporter: the path argument (the positional
@@ -256,7 +265,7 @@ fn main() -> miette::Result<ExitCode> {
             // different place than it discovers the corpus from, nor from a different
             // place than the session-start reporter does.
             let harness_path = harness.or(root).unwrap_or_else(|| PathBuf::from("."));
-            let diagnostics = harness_diagnostics(&harness_path)?;
+            let diagnostics = harness_diagnostics(&harness_path, &layers)?;
 
             match reporter {
                 Reporter::Terminal => print!("{}", check::render(&diagnostics)),
@@ -476,7 +485,10 @@ fn explain(target: &str) -> miette::Result<String> {
 
     // The assembly's own declared facts, read first: the corpus below walks each
     // kind's governs locus off *this*.
-    let declarations = assemble_lock_family(harness_root, &drift::read_declarations(&workspace)?)?;
+    // No layers: `explain` narrates what this corpus declares. A policy layer is the
+    // invocation's own, and the invocation here is a read.
+    let LockFamily { declarations, .. } =
+        assemble_lock_family(harness_root, &drift::read_declarations(&workspace)?, &[])?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
@@ -760,11 +772,14 @@ fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
 /// The adopted branch never re-imports: a fresh import discards recognition (the
 /// authored `satisfies` links), so every filled requirement would read unfilled — the
 /// false positive on clean input the surface-present clause forbids.
-fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnostic>> {
+fn harness_diagnostics(
+    harness_path: &Path,
+    layers: &[PathBuf],
+) -> miette::Result<Vec<check::Diagnostic>> {
     match resolve_harness_path(harness_path)? {
-        HarnessPath::Root { workspace, .. } => gate(&workspace, harness_path),
-        HarnessPath::Workspace { enclosing } => gate(harness_path, &enclosing),
-        HarnessPath::Raw => gate(harness_path, harness_path),
+        HarnessPath::Root { workspace, .. } => gate(&workspace, harness_path, layers),
+        HarnessPath::Workspace { enclosing } => gate(harness_path, &enclosing, layers),
+        HarnessPath::Raw => gate(harness_path, harness_path, layers),
     }
 }
 
@@ -772,15 +787,23 @@ fn harness_diagnostics(harness_path: &Path) -> miette::Result<Vec<check::Diagnos
 /// by-kind contracts — the shared gate behind both `check` and the session-start
 /// reporter. `harness_root` is the
 /// directory a member's source path and a `verified_by` path resolve against (the
-/// CWD for a two-step `check`, the harness path for the one-shot gate).
-fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diagnostic>> {
+/// CWD for a two-step `check`, the harness path for the one-shot gate). `layers` names
+/// the policy locks this invocation joins, top of the layer stack.
+fn gate(
+    workspace: &Path,
+    harness_root: &Path,
+    layers: &[PathBuf],
+) -> miette::Result<Vec<check::Diagnostic>> {
     // The assembly's own declared facts — requirements and edges — ride the lock's
     // declaration rows: `emit` is the sole
     // producer, this is the gate's one read of it.
     // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
-    let declarations = assemble_lock_family(harness_root, &drift::read_declarations(workspace)?)?;
+    let LockFamily {
+        declarations,
+        joined_clauses,
+    } = assemble_lock_family(harness_root, &drift::read_declarations(workspace)?, layers)?;
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
@@ -816,14 +839,21 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
     // Every clause's address is unique across the lock, decided before a single contract
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
-    diagnostics.extend(clause_collision_diagnostics(&declarations));
+    diagnostics.extend(clause_collision_diagnostics(&declarations, &joined_clauses));
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
         // The contract is the lock's declared `clauses` for the kind when it names any,
-        // else the embedded default (`builtin_contract`).
-        let contract = builtin_contract(&declarations.clauses, &kind.name)?;
+        // else the embedded default (`builtin_contract`). The invocation's joined clauses
+        // are appended *after* that fallback decides, never folded into the rows it reads:
+        // a layer's row is not this harness declaring one, so it must never be what tips a
+        // built-in off its embedded default and onto a contract of the layer's alone.
+        let contract = compose::with_joined_clauses(
+            builtin_contract(&declarations.clauses, &kind.name)?,
+            &joined_clauses,
+            &kind.name,
+        )?;
 
         let features = kind_features(kind, harness_root, &declarations)?;
 
@@ -863,7 +893,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
+        let contract = compose::with_joined_clauses(
+            compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
+            &joined_clauses,
+            &row.name,
+        )?;
         let features = kind_features(&custom_kind, harness_root, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
@@ -923,7 +957,11 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
     // embedded kind has none of, and an embedded member's host file is already counted
     // under its own kind.
     for (kind, features) in &embedded_features {
-        let contract = compose::default_contract_from_rows(&declarations.clauses, kind)?;
+        let contract = compose::with_joined_clauses(
+            compose::default_contract_from_rows(&declarations.clauses, kind)?,
+            &joined_clauses,
+            kind,
+        )?;
 
         diagnostics.extend(engine::admissibility(
             &contract,
@@ -932,6 +970,12 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         diagnostics.extend(engine::validate(&contract, features));
         contracts.insert(kind.clone(), contract);
     }
+
+    // Every kind a joined clause names that this corpus declares none of. Nothing here
+    // selects such a clause, so it judges nothing — but a layer must fail closed whether
+    // or not the host happens to give its clauses something to range over, so the rows
+    // still face the admissibility their kind's own dispatcher would have run.
+    diagnostics.extend(joined_kind_admissibility(&joined_clauses, &contracts)?);
 
     let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
@@ -1378,8 +1422,23 @@ fn kind_features(
         .collect())
 }
 
-/// The run's whole declaration family: the committed lock joined with every local-locus
-/// kind's read-time derived rows ([`local_document_rows`]).
+/// The run's whole declaration family, assembled once for every consumer below.
+struct LockFamily {
+    /// The committed lock's rows, joined with every local-locus kind's read-time derived
+    /// ones — the corpus's own declarations, the set that decides which kinds and members
+    /// exist here.
+    declarations: drift::Declarations,
+    /// The clause rows of the locks this invocation joins, each already addressed under
+    /// the layer that carried it ([`qualify_layer_label`]). Kept beside the corpus's own
+    /// rows rather than merged into them: these declare nothing about what this harness
+    /// *is* — they only add checks over what it already declares — and a consumer that
+    /// reads them as the corpus's own would let a layer redefine the corpus.
+    joined_clauses: Vec<drift::ClauseRow>,
+}
+
+/// The run's whole declaration family: the committed lock, every local-locus kind's
+/// read-time derived rows ([`local_document_rows`]), and the clause rows of the locks
+/// `layers` names.
 ///
 /// A local kind is committed but its members' documents are not, so the lock carries no
 /// row of theirs. Deriving them *here* — once, before any consumer reads — is what lets
@@ -1389,13 +1448,17 @@ fn kind_features(
 /// reads is the shape this replaces; the derivation runs against the committed family,
 /// which is what decides the kinds and loci the members are discovered under.
 ///
+/// A joined lock is read here for the same reason: one read, before any consumer, so no
+/// call site below re-opens a layer and re-decides what it says.
+///
 /// # Errors
 ///
-/// As [`resolve_kind_units`] and [`local_document_rows`].
+/// As [`resolve_kind_units`], [`local_document_rows`] and [`read_layer_clauses`].
 fn assemble_lock_family(
     harness_root: &Path,
     committed: &drift::Declarations,
-) -> miette::Result<drift::Declarations> {
+    layers: &[PathBuf],
+) -> miette::Result<LockFamily> {
     let mut assembled = committed.clone();
     for kind in declared_kinds(committed)?.values() {
         if kind.commitment != Some(kind::Commitment::Local) {
@@ -1406,7 +1469,109 @@ fn assemble_lock_family(
         assembled.nested_members.extend(rows.nested);
         assembled.satisfies.extend(rows.satisfies);
     }
-    Ok(assembled)
+    Ok(LockFamily {
+        declarations: assembled,
+        joined_clauses: read_layer_clauses(layers)?,
+    })
+}
+
+/// The separator between a joined clause's own compiled address and the layer that
+/// carried it: `<label>@<layer>`.
+///
+/// A compiled address is dot-joined ([`contract::clause_label`]), so `@` appears in no
+/// label emit can write — which is what makes a joined address unable to collide with a
+/// host's, whatever the two locks happen to declare. Legible in both directions: the
+/// author who reads a finding reads which `--layer` argument produced it, and the name is
+/// spelled straight back out of the finding to reach the clause.
+const LAYER_QUALIFIER: char = '@';
+
+/// The lock file a `--layer` argument names: the path itself, or the lock inside it when
+/// the argument names a directory.
+fn layer_lock_path(layer: &Path) -> PathBuf {
+    if layer.is_dir() {
+        layer.join(temper::LOCK_FILENAME)
+    } else {
+        layer.to_path_buf()
+    }
+}
+
+/// The clause rows of every lock `layers` names, each addressed under the layer that
+/// carried it.
+///
+/// Only the clause family joins. A layer hardens the gate over *this* corpus; the rows
+/// that say what this corpus is — its kinds, its members' fills, its requirements — stay
+/// the committed lock's alone, because joining those would let a layer relocate a kind's
+/// locus or forge a fill and so *soften* the very gate it claims to tighten. Clauses are
+/// the family a join can only add to.
+///
+/// # Errors
+///
+/// A named layer that cannot be read, or whose lock is malformed, is an error, not an
+/// empty set: an absent lock the invocation named is a layer that did not gate, and a
+/// layer silently gating nothing is the one outcome fail-closed forbids. (The *host*
+/// lock's absence is legitimate — an unadopted harness has none — which is why that read
+/// tolerates it and this one cannot.)
+fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<Vec<drift::ClauseRow>> {
+    let mut joined = Vec::new();
+    let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
+    for layer in layers {
+        let path = layer_lock_path(layer);
+        // One lock joined twice is one layer: naming it under two spellings is a benign
+        // repetition, and joining it again would collide its every address with its own
+        // first copy and refuse the run as a malformed layer.
+        let identity = fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+        if !seen.insert(identity) {
+            continue;
+        }
+        let text = fs::read_to_string(&path).map_err(|source| {
+            miette::miette!(
+                "failed to read joined layer lock {}: {source}",
+                path.display()
+            )
+        })?;
+        let spelling = layer.display().to_string();
+        for row in drift::parse_declarations(&path, &text)?.clauses {
+            joined.push(qualify_layer_label(row, &spelling));
+        }
+    }
+    Ok(joined)
+}
+
+/// One joined clause row, re-addressed under the layer that carried it.
+///
+/// A row carrying no address is left as it is: every emitted row is stamped with one, so
+/// a row without one is a lock emit did not write, and the contract lift is the one home
+/// that refuses it ([`compose::clause_from_row`]) — re-deciding that here would be a
+/// second verdict on the same fact.
+fn qualify_layer_label(mut row: drift::ClauseRow, layer: &str) -> drift::ClauseRow {
+    if let Some(label) = row.label.take() {
+        row.label = Some(format!("{label}{LAYER_QUALIFIER}{layer}"));
+    }
+    row
+}
+
+/// The admissibility findings of every joined clause naming a kind absent from
+/// `contracts` — the kinds this corpus declares none of, whose clauses no dispatcher
+/// above ever lifted.
+///
+/// # Errors
+///
+/// As [`compose::default_contract_from_rows`].
+fn joined_kind_admissibility(
+    joined: &[drift::ClauseRow],
+    contracts: &BTreeMap<String, Contract>,
+) -> Result<Vec<check::Diagnostic>, compose::ClauseRowError> {
+    let undeclared: BTreeSet<&str> = joined
+        .iter()
+        .filter_map(|row| row.kind.as_deref())
+        .filter(|kind| !contracts.contains_key(*kind))
+        .collect();
+    let mut diagnostics = Vec::new();
+    for kind in undeclared {
+        let contract = compose::default_contract_from_rows(joined, kind)?;
+        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
+    }
+    Ok(diagnostics)
 }
 
 /// A local-locus kind's members' declaration rows, derived off their own documents —
@@ -1926,12 +2091,22 @@ const CLAUSE_COLLISION_RULE: &str = "clause.label-collision";
 /// would name a clause the author cannot tell apart from its twin. That is a malformed
 /// lock, refused before it judges anything, never a collision resolved with a counter
 /// that would renumber a clause's siblings every time one is inserted above it.
-fn clause_collision_diagnostics(declarations: &drift::Declarations) -> Vec<check::Diagnostic> {
+///
+/// `joined` faces the same rule: a layer's rows share the address space they are judged
+/// in, so two of them under one label leave both unaddressable exactly as the host's own
+/// twins would. A joined row can never collide with a *host* row — its address carries the
+/// layer that produced it ([`LAYER_QUALIFIER`]) — so what fires here is a malformed layer
+/// or a malformed corpus, never the join itself.
+fn clause_collision_diagnostics(
+    declarations: &drift::Declarations,
+    joined: &[drift::ClauseRow],
+) -> Vec<check::Diagnostic> {
     let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
     let rows = declarations
         .clauses
         .iter()
-        .chain(declarations.requirements.iter().flat_map(|r| &r.clauses));
+        .chain(declarations.requirements.iter().flat_map(|r| &r.clauses))
+        .chain(joined);
     for row in rows {
         if let Some(label) = &row.label {
             *counts.entry(label.as_str()).or_default() += 1;

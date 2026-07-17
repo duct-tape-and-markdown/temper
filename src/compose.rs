@@ -131,6 +131,35 @@ pub fn default_contract_from_rows(
     })
 }
 
+/// A contract with the clause rows of the invocation's joined locks naming `kind`
+/// appended to it — the host's own contract, hardened.
+///
+/// The joined rows are lifted by the same [`clause_from_row`] the host's are: whatever
+/// lock carried a row, it composes into the host corpus's selection for the kind it
+/// names, and nothing downstream can tell the two apart. Appending is the whole
+/// operation, and it is what bounds a layer to hardening: a joined row never replaces,
+/// reorders, or deletes a host clause, so the host's reviewed contract still judges
+/// every member it judged before. A joined row that would weaken a host clause simply
+/// reports beside the one it cannot displace — visible, and inert on the verdict.
+///
+/// # Errors
+///
+/// As [`default_contract_from_rows`]: a joined row the closed vocabulary cannot admit
+/// is a corrupt lock, refused rather than dropped.
+pub fn with_joined_clauses(
+    mut contract: Contract,
+    joined: &[ClauseRow],
+    kind: &str,
+) -> Result<Contract, ClauseRowError> {
+    for row in joined
+        .iter()
+        .filter(|row| row.kind.as_deref() == Some(kind))
+    {
+        contract.clauses.push(clause_from_row(row)?);
+    }
+    Ok(contract)
+}
+
 /// A lock clause row the closed predicate vocabulary cannot admit — an unknown
 /// predicate or one missing its required argument, or an out-of-vocabulary severity.
 /// Surfaced as a load error rather than a silent skip: the lock is tool-written, so a
