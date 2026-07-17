@@ -7,8 +7,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALLED-PLUGIN-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -50,7 +49,7 @@
       }
     ],
     "acceptance": "`json-document` is the format inventory's second entry, in the closed vocabulary on both sides of the seam (Rust `Format`, SDK `Format`), implemented once and generically in the engine (`specs/model/representation.md`, 'kind': a kind is data, its extractor composed from that data). A kind's declared format now decides which adapter reads it, at the one dispatch — the fact stops being decorative. The JSON mechanics live in `src/json_manifest.rs`, extended, not re-implemented beside it. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), which ratifies the addition by name: plugin-manifest is 'a file member at `.claude-plugin/plugin.json`, JSON document format (a deliberate format-inventory addition — format mechanics are engine code)'. Ships ahead of its two consumers because one entry is one gate-sized commit; the fixture-only proof is the shape the nested-file locus took before `supporting-doc` counted it. Serialized behind INSTALLED-PLUGIN-KIND (shared `src/kind.rs`). scoped at e81c758."
+    "notes": "Derived from decision 0031 (16ce347), which names it: plugin-manifest is 'a file member at `.claude-plugin/plugin.json`, JSON document format (a deliberate format-inventory addition — format mechanics are engine code)'. Ships ahead of its two consumers because one entry is one gate-sized commit; the fixture-only proof is the shape the nested-file locus took before `supporting-doc` counted it. Blocker INSTALLED-PLUGIN-KIND shipped (9f22de2); gate released. scoped at e81c758."
   },
   {
     "tag": "PLUGIN-MANIFEST-KIND",
