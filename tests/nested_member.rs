@@ -254,6 +254,92 @@ process.stdout.write(
 );
 "#;
 
+/// A `skill` that both admits its own embedded `note` kind over its composed body **and**
+/// hosts a `supporting-doc` file child under the same unit — the field defect's exact
+/// shape (centercode). Admission is a declaration over the host kind, but it names only a
+/// child kind, never a path, so it can speak only for the embedded (pathless) grain; the
+/// `supporting-doc` file layer is the host kind's own declared fact and must survive the
+/// composition, or emit finds no file template and refuses the child.
+const ADMIT_OVER_FILE_TEMPLATE_HOST: &str = r#"
+import { blocks, emit, embeddedMemberValue, harness, kind, text } from "@dtmd/temper";
+import { skill, supportingDoc } from "@dtmd/temper/claude-code";
+
+const note = kind<object>({
+  name: "note",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+  registration: [],
+});
+
+const coordinating = skill({
+  name: "coordinate",
+  description: "Use when driving a complex task across a team of agents.",
+  prose: blocks(
+    embeddedMemberValue({ kind: note, key: "first", leaves: { body: "an embedded note" } }),
+  ),
+});
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [
+        coordinating,
+        supportingDoc({ name: "checklist", host: coordinating, prose: text`# Checklist` }),
+      ],
+      admit: [{ host: skill, admits: [note] }],
+    }),
+  ).seam,
+);
+"#;
+
+#[test]
+fn admitting_an_embedded_kind_over_a_host_keeps_the_hosts_file_template_layer() {
+    // The composed body admits `note` (the embedded grain), and the join must leave
+    // `skill`'s declared `supporting-doc` file layer standing: the child still projects,
+    // and the lock's `templates` column carries both layers rather than the admission
+    // wiping the path-carrying one.
+    let (harness, into) =
+        common::wire_sdk_harness("admit-over-file-template", ADMIT_OVER_FILE_TEMPLATE_HOST);
+
+    let report = temper::drift::emit_program(&into, temper::drift::EmitOptions::default()).expect(
+        "a host that both admits an embedded kind and templates a file layer still emits its \
+         file child — the admission overrides only the embedded grain",
+    );
+
+    let child = report
+        .entries
+        .iter()
+        .find(|entry| entry.kind == "supporting-doc" && entry.name == "checklist")
+        .expect("the skill's file child still projects — its file layer survived the admission");
+    assert_eq!(
+        child.source_path,
+        harness.join(".claude/skills/coordinate/checklist.md")
+    );
+    assert!(child.source_path.is_file());
+
+    // The lock join, at the fact grain: the file layer stands and the admitted embedded
+    // kind is appended — never a replacement that leaves the file layer unspellable.
+    let host_row = temper::drift::read_declarations(&into)
+        .unwrap()
+        .kinds
+        .into_iter()
+        .find(|row| row.name == "skill")
+        .expect("the skill host takes a fact row");
+    assert_eq!(
+        host_row.templates,
+        vec![
+            TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            },
+            TemplateRow {
+                kind: "note".to_string(),
+                path: None,
+            },
+        ]
+    );
+}
+
 #[test]
 fn a_file_childs_projection_composes_from_its_hosts_unit_and_the_templates_pattern() {
     // The engine is the sole compiler of every projection, so the composed path is proven

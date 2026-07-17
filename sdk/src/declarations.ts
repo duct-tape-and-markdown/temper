@@ -180,24 +180,26 @@ export function compareStrings(a: string, b: string): number {
 
 /**
  * A host kind's nesting templates, from its two declaration loci. The kind's own
- * declared templates are the default — child kind, plus a file layer's path
- * pattern. An adopting corpus that admits its own embedded kinds over the host overrides
- * that default: an admitted child kind is the one the row carries, and it is embedded by
- * construction (`admissionsByHost` refuses a non-embedded kind), so the overriding layer
- * has no path.
+ * declared templates carry each layer — child kind, plus a file layer's path pattern.
+ * An adopting corpus that admits its own embedded kinds over the host overrides the
+ * *embedded* grain only: an admission names a host and a child kind but no path, so it
+ * can only speak for the pathless (embedded) layer. The path-carrying file layers the
+ * host declares are the host's own facts and stand, joined with the admitted rows —
+ * else composing a body over a host wipes its declared file layer and the engine, finding
+ * no file template, refuses the host's nested file children.
  *
- * The override is layer-blind, since an admission names a host and a child kind but no
- * layer. `undefined` when neither locus declares anything, so the row omits the column
- * rather than carrying an empty array.
+ * `undefined` when nothing is declared or admitted, so the row omits the column rather
+ * than carrying an empty array.
  */
 function templatesFor(facts: KindFacts, admissions: AdmissionsByHost): TemplateRow[] | undefined {
-  const admitted = [...(admissions.get(facts.name) ?? [])].sort(compareStrings);
-  if (admitted.length > 0) return admitted.map((kind) => ({ kind }));
   const declared = (facts.templates ?? []).map((template): TemplateRow => ({
     kind: template.kind.key,
     path: template.path,
   }));
-  return declared.length > 0 ? declared : undefined;
+  const admitted = [...(admissions.get(facts.name) ?? [])].sort(compareStrings);
+  if (admitted.length === 0) return declared.length > 0 ? declared : undefined;
+  const fileLayers = declared.filter((template) => template.path !== undefined);
+  return [...fileLayers, ...admitted.map((kind): TemplateRow => ({ kind }))];
 }
 
 /**

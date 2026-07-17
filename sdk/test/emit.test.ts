@@ -554,7 +554,7 @@ test("a kind's declared file-child template reaches its fact row with no admissi
   assert.deepEqual(guideRow.templates, [{ kind: "supporting-doc", path: "*.md" }]);
 });
 
-test("an admission over a host overrides the child kind its own template declares", () => {
+test("an admission joins the host's file layer, overriding only the embedded grain", () => {
   const richDoc = embeddedKind<Record<never, never>>("rich-doc");
   const h = harness({
     members: [guide({ name: "operate-the-gate" })],
@@ -562,10 +562,14 @@ test("an admission over a host overrides the child kind its own template declare
  });
   const guideRow = compileDeclarations(h).kinds.find((k) => k.name === "guide")!;
 
-  // The adopting corpus wants richer typing than the declared child kind, so its
-  // admission wins. The admitted kind is embedded by construction, so the overriding
-  // layer carries no path — the declared `*.md` pattern goes with the kind it addressed.
-  assert.deepEqual(guideRow.templates, [{ kind: "rich-doc" }]);
+  // The admission names a child kind but no path, so it speaks only for the embedded
+  // grain. The host's declared `supporting-doc` file layer is a path-carrying template —
+  // the host's own fact — and stands, joined with the admitted embedded row rather than
+  // wiped by it.
+  assert.deepEqual(guideRow.templates, [
+    { kind: "supporting-doc", path: "*.md" },
+    { kind: "rich-doc" },
+  ]);
 });
 
 test("a built-in kind's composed body admits a corpus-declared embedded kind", () => {
@@ -587,7 +591,12 @@ test("a built-in kind's composed body admits a corpus-declared embedded kind", (
   const result = emit(h);
   const member = result.members.find((m) => m.name === "operate-the-gate")!;
   assert.equal(member.body, '```member.rubric green-bar\ncheck = "every gate passes"\n```\n');
-  assert.deepEqual(compileDeclarations(h).kinds.find((k) => k.name === "skill")!.templates, [{ kind: "rubric" }]);
+  // `skill` ships a `supporting-doc` file layer; admitting `rubric` joins the embedded
+  // grain onto it rather than wiping the shipped file layer.
+  assert.deepEqual(compileDeclarations(h).kinds.find((k) => k.name === "skill")!.templates, [
+    { kind: "supporting-doc", path: "*.md" },
+    { kind: "rubric" },
+  ]);
   assert.deepEqual(result.declarations.nested_members, [
     { host: "skill:operate-the-gate", kind: "rubric", key: "green-bar", leaves: { check: "every gate passes" }, collections: {} },
   ]);
