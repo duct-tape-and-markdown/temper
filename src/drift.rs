@@ -1759,9 +1759,11 @@ pub fn read_layout_document(
             leaves: member.leaves,
             collections: Vec::new(),
             // A member embedded in a layout document is read off its host's declared
-            // layout — source, never projection — so no format rendered it and none
-            // could have omitted an edge.
+            // layout — source, never projection — so no format rendered it: none could
+            // have omitted an edge, and there is no rendered span to budget.
             placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
         })
         .collect();
     Ok(LayoutDocumentRows { nested, satisfies })
@@ -3211,6 +3213,23 @@ pub struct NestedMemberRow {
     #[serde(default)]
     #[ts(optional)]
     pub placed_edges: Option<Vec<String>>,
+    /// The value's **rendered extent** in lines — the line count of the block `emit`
+    /// projected for this member, captured off the same render, so an `extent` clause bound
+    /// to the embedded kind budgets real data instead of a hardcoded zero.
+    ///
+    /// `None` is a member **no format rendered** — one embedded in a layout document, read
+    /// off its host's declared layout rather than projected — which has no rendered span to
+    /// measure, so its `extent` stays undecidable. Absent from such a row, so an ordinary
+    /// row stays byte-identical (the [`placed_edges`](Self::placed_edges) precedent).
+    #[serde(default)]
+    #[ts(optional)]
+    pub rendered_lines: Option<usize>,
+    /// The value's **rendered extent** in characters — the second unit an `extent` clause
+    /// measures in, captured off the same render. `None` on the same terms as
+    /// [`rendered_lines`](Self::rendered_lines).
+    #[serde(default)]
+    #[ts(optional)]
+    pub rendered_chars: Option<usize>,
 }
 
 /// One entry belonging to one of a [`NestedMemberRow`]'s sibling collections: the
@@ -4196,6 +4215,18 @@ impl NestedMemberRow {
         if let Some(placed) = &self.placed_edges {
             table.insert("placed_edges", value(string_array(placed)));
         }
+        if let Some(lines) = self.rendered_lines {
+            table.insert(
+                "rendered_lines",
+                value(i64::try_from(lines).unwrap_or(i64::MAX)),
+            );
+        }
+        if let Some(chars) = self.rendered_chars {
+            table.insert(
+                "rendered_chars",
+                value(i64::try_from(chars).unwrap_or(i64::MAX)),
+            );
+        }
         table
     }
 
@@ -4205,6 +4236,8 @@ impl NestedMemberRow {
             kind: req_str(table, "kind")?,
             key: req_str(table, "key")?,
             placed_edges: opt_str_array(table, "placed_edges")?,
+            rendered_lines: opt_usize(table, "rendered_lines")?,
+            rendered_chars: opt_usize(table, "rendered_chars")?,
             leaves: match opt_table(table, "leaves")? {
                 Some(leaves) => string_map_from_table(leaves)?,
                 None => BTreeMap::new(),

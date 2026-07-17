@@ -23,7 +23,7 @@ import type {
 import type { MentionScope, Text } from "./prose.js";
 import { checkMentions, isTextSpan, renderText, resolveLeaf } from "./prose.js";
 import { permissionUnion } from "./needs.js";
-import type { Declarations } from "./declarations.js";
+import type { Declarations, RenderedExtent } from "./declarations.js";
 import {
   compareStrings,
   compileDeclarations,
@@ -453,6 +453,49 @@ export function edgePlacements(harness: Harness, options: ResolveOptions): Map<s
 }
 
 /**
+ * The line count of a rendered block, matching the engine's `str::lines()`: a single
+ * trailing newline is absorbed (a block and the same block plus one `\n` span the same),
+ * and an empty block spans none. Kept in step with `src/extract.rs`'s file-side count so a
+ * budget reads one member the same whether it is a file or an embedded projection.
+ */
+function renderedLineCount(block: string): number {
+  if (block.length === 0) return 0;
+  const body = block.endsWith("\n") ? block.slice(0, -1) : block;
+  return body.split("\n").length;
+}
+
+/**
+ * Every composed embedded value's rendered extent — the line and character count of the
+ * block `emit` projected for it — keyed by its {@link placementKey}, what `emit` hands
+ * {@link compileDeclarations} so each `nested_member` row carries the span an `extent`
+ * clause budgets. Iterates exactly the values {@link edgePlacements} does, rendering each
+ * through the same {@link renderMemberBlock} the body projection uses (a hook is pure, so
+ * the measured render and the projected one cannot disagree), never a second renderer.
+ *
+ * A value the SDK composes is always rendered here, so it always captures a span; a value
+ * no format rendered — an embedded member read off a layout host's source — is lowered by
+ * the engine, not this pass, and reaches its row with no span (the `placed_edges`
+ * distinction between an observed empty and an unobserved absence).
+ */
+export function renderedExtents(harness: Harness, options: ResolveOptions): Map<string, RenderedExtent> {
+  const extents = new Map<string, RenderedExtent>();
+  for (const member of harness.members) {
+    if (member.prose?.kind !== "blocks") continue;
+    for (const value of member.prose.values) {
+      if (isTextSpan(value)) continue;
+      const block = renderMemberBlock(member, value, options);
+      extents.set(placementKey(`${member.kind}:${member.name}`, value.kind, value.key), {
+        lines: renderedLineCount(block),
+        // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
+        // yields code points, so a surrogate pair counts once, the way it does file-side.
+        chars: [...block].length,
+      });
+    }
+  }
+  return extents;
+}
+
+/**
  * Render a member-level `Text` body to its final bytes: its mentions are
  * resolution-checked against `scope` ({@link checkMentions}: loud on a dangling
  * address, a discovery-locus one deferred; `context` naming the host) and the
@@ -712,7 +755,11 @@ export function emit(harness: Harness): EmitResult {
   };
   const compile = (): EmitResult => {
     const members = orderedMembers(harness, resolve);
-    const declarations = compileDeclarations(harness, edgePlacements(harness, resolve));
+    const declarations = compileDeclarations(
+      harness,
+      edgePlacements(harness, resolve),
+      renderedExtents(harness, resolve),
+    );
     return {
       declarations,
       members,

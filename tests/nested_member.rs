@@ -61,6 +61,8 @@ fn surface_authority_row(host: &str) -> NestedMemberRow {
             },
         ],
         placed_edges: None,
+        rendered_lines: None,
+        rendered_chars: None,
     }
 }
 
@@ -159,6 +161,8 @@ fn a_leaf_carrying_a_resolved_mentions_display_text_reads_as_a_plain_string() {
         )]),
         collections: Vec::new(),
         placed_edges: None,
+        rendered_lines: None,
+        rendered_chars: None,
     };
     let features = builtin_kind::features(&decision_kind(), &surface_authority_unit(), &[row]);
 

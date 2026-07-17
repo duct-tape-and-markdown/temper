@@ -1420,8 +1420,8 @@ impl Extraction {
             // `line_count` primitive — an `extent` clause is node-scope and decides over
             // any kind's members. The body a file member carries is read off its
             // committed projection, so its size is the rendered extent directly.
-            rendered_lines: extract::body_line_count(&unit.body),
-            rendered_chars: unit.body.chars().count(),
+            rendered_lines: Some(extract::body_line_count(&unit.body)),
+            rendered_chars: Some(unit.body.chars().count()),
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,

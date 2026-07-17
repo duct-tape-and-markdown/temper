@@ -291,6 +291,8 @@ fn write_embedded_citation_harness(
                 )]),
                 collections: Vec::new(),
                 placed_edges: Some(placed_edges),
+                rendered_lines: None,
+                rendered_chars: None,
             }],
             clauses: std::iter::once(temper::drift::ClauseRow {
                 unit: None,
@@ -361,30 +363,25 @@ fn an_embedded_kind_clause_that_holds_leaves_the_run_silent() {
 #[test]
 fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
     // An embedded member owns no document: the lift reads it off its host's declared
-    // surface and every body-derived feature arrives empty. An `extent` bound to the
-    // kind therefore measures a zero-line body and passes whatever the value holds —
-    // a clause that decides nothing while reading as a check that ran. Admissibility is
-    // where that dies, naming the predicate and the kind, rather than conformance
-    // inventing a body to judge.
+    // surface and its headings/sections/source-directory arrive empty. A `name-matches-dir`
+    // bound to the kind therefore has no directory to compare and passes whatever the value
+    // holds — a clause that decides nothing while reading as a check that ran. Admissibility
+    // is where that dies, naming the predicate and the kind, rather than conformance
+    // inventing a body to judge. (`extent` is no longer among these: a composed member's
+    // rendered span is captured at emit, so its `extent` reads real data.)
     let root = common::tmpdir("embedded-kind-body-clause");
     write_embedded_citation_harness(
         &root,
         vec!["source".to_string()],
         vec![temper::drift::ClauseRow {
-            unit: Some("lines".to_string()),
-            label: None,
             kind: Some("citation".to_string()),
-            bound: Some(temper::drift::BoundRow {
-                min: None,
-                max: Some(2),
-            }),
-            ..common::clause("extent", "required")
+            ..common::clause("name-matches-dir", "required")
         }],
     );
 
     let (findings, success) = check_in(&root, &["."]);
 
-    let fenced = common::findings_for(&findings, "citation.extent");
+    let fenced = common::findings_for(&findings, "citation.name-matches-dir");
     assert_eq!(
         fenced.len(),
         1,
@@ -408,8 +405,8 @@ fn a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility() {
 
 #[test]
 fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
-    // The fence's line is the feature read, not the kind. With the same inadmissible
-    // `extent` declared, the citation's decidable clauses must still reach their
+    // The fence's line is the feature read, not the kind. With an inadmissible
+    // `name-matches-dir` declared, the citation's decidable clauses must still reach their
     // members: `format-places-edges` fires over the dropped `source` edge exactly as it
     // does without it. A fence that swallowed the dispatch would trade one silence for
     // another.
@@ -418,14 +415,8 @@ fn the_body_fence_leaves_an_embedded_kinds_decidable_clauses_judging() {
         &root,
         Vec::new(),
         vec![temper::drift::ClauseRow {
-            unit: Some("lines".to_string()),
-            label: None,
             kind: Some("citation".to_string()),
-            bound: Some(temper::drift::BoundRow {
-                min: None,
-                max: Some(2),
-            }),
-            ..common::clause("extent", "required")
+            ..common::clause("name-matches-dir", "required")
         }],
     );
 

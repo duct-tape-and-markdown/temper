@@ -238,12 +238,17 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
 /// `None`.
 ///
 /// An embedded member is lifted from its host's declared surface — its leaves become
-/// fields, and every body-derived feature is empty because there is no document to read
-/// them from. A predicate ranging over one of those features therefore returns the same
-/// answer over every member of the kind: `extent` reads a zero rendered span and passes
-/// over any bound, `section_contains` finds no section to indict, `name-matches-dir` has
-/// no directory to compare. Deciding nothing, they are inadmissible where they are bound,
-/// rather than degrading to a check that never ran.
+/// fields, and the body-derived headings/sections/source-directory are empty because there
+/// is no document to read them from. A predicate ranging over one of those features
+/// therefore returns the same answer over every member of the kind: `section_contains`
+/// finds no section to indict, `require_sections` misses every named heading,
+/// `name-matches-dir` has no directory to compare. Deciding nothing, they are inadmissible
+/// where they are bound, rather than degrading to a check that never ran.
+///
+/// `extent` is *not* fenced here: a composed embedded member's rendered span is captured at
+/// emit and rides its `nested_member` row, so the clause reads real data. A member no
+/// format rendered carries no span, and its each-grain verdict is [`Outcome::Indeterminate`]
+/// per member rather than a kind-wide fence.
 ///
 /// The line is the feature read, not the predicate's family: `must_define` looks the
 /// part but resolves as field presence, which an embedded member's leaves answer, so it
@@ -253,7 +258,6 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         return None;
     };
     let feature = match predicate {
-        Predicate::Extent { .. } => "the member's rendered extent",
         Predicate::RequireSections { .. } => "the body's headings",
         Predicate::SectionContains { .. } => "the body's sections",
         Predicate::NameMatchesDir => "the member's source directory",
@@ -558,10 +562,13 @@ fn over_budget(
     unit: ExtentUnit,
     max: usize,
 ) -> Option<Diagnostic> {
+    // A member no format rendered (`None`) carries no rendered projection, so it is not
+    // part of the population a rendered budget sums — dropped here the way `unique`/
+    // `membership` skip a member missing the field, never read as a zero that pads the sum.
     let total: usize = selection
         .members
         .iter()
-        .map(|(_, features)| match unit {
+        .filter_map(|(_, features)| match unit {
             ExtentUnit::Lines => features.rendered_lines,
             ExtentUnit::Characters => features.rendered_chars,
         })
@@ -944,9 +951,15 @@ fn decide(
                 ExtentUnit::Lines => features.rendered_lines,
                 ExtentUnit::Characters => features.rendered_chars,
             };
-            Outcome::check(measured <= *max, || {
-                format!("rendered extent is {measured} {} (max {max})", unit.name())
-            })
+            // `None` is a member no format rendered — an embedded member read off a
+            // layout host's source. It has no projection to budget, so its extent is
+            // undecidable rather than a zero read as a pass.
+            match measured {
+                Some(measured) => Outcome::check(measured <= *max, || {
+                    format!("rendered extent is {measured} {} (max {max})", unit.name())
+                }),
+                None => Outcome::Indeterminate,
+            }
         }
 
         // `require_sections` decides over the extracted body headings: one
@@ -1171,8 +1184,8 @@ mod tests {
             id: id.to_string(),
             fields,
             body_lines,
-            rendered_lines: body_lines,
-            rendered_chars: 0,
+            rendered_lines: Some(body_lines),
+            rendered_chars: Some(0),
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: source_dir.map(str::to_string),
@@ -1594,19 +1607,15 @@ mod tests {
 
     #[test]
     fn a_body_shaped_predicate_bound_to_an_embedded_kind_is_inadmissible() {
-        // The lift zeroes an embedded member's body-derived features, so each of these
-        // returns one fixed answer over every member of the kind: `extent` reads a zero
-        // rendered span and passes any bound, `section_contains` finds no section to
-        // indict, `require_sections` misses every named heading, `name-matches-dir` has
-        // no directory to compare. Bound where nothing can decide them, they fail
-        // admissibility rather than read as checks that ran.
+        // The lift leaves an embedded member's headings/sections/source-directory empty, so
+        // each of these returns one fixed answer over every member of the kind:
+        // `section_contains` finds no section to indict, `require_sections` misses every
+        // named heading, `name-matches-dir` has no directory to compare. Bound where
+        // nothing can decide them, they fail admissibility rather than read as checks that
+        // ran. `extent` is not among them — a composed member's span is captured at emit —
+        // and is tested separately.
         let embedded = Locus::Embedded("citation".to_string());
         for predicate in [
-            Predicate::Extent {
-                unit: ExtentUnit::Lines,
-                max: 2,
-                whole: false,
-            },
             Predicate::RequireSections {
                 sections: vec!["Usage".to_string()],
             },
@@ -1672,6 +1681,59 @@ mod tests {
                 "`{key}` decides over an embedded member's leaves, got: {diags:?}"
             );
         }
+    }
+
+    #[test]
+    fn an_extent_clause_bound_to_an_embedded_kind_reads_the_captured_span() {
+        // Admissible over an embedded kind now: a composed member's rendered span is
+        // captured at emit and rides its row, so the bodyless fence no longer stands in.
+        let embedded = Locus::Embedded("citation".to_string());
+        let extent = Predicate::Extent {
+            unit: ExtentUnit::Lines,
+            max: 2,
+            whole: false,
+        };
+        assert!(
+            admissibility(
+                &contract(ClauseSeverity::Required, extent.clone()),
+                &embedded
+            )
+            .is_empty(),
+            "a captured span makes `extent` decidable over an embedded member",
+        );
+
+        let carrier = contract(ClauseSeverity::Required, extent.clone());
+
+        // A member carrying a captured span decides against the bound — over is a finding,
+        // within holds — the same algebra a file member's extent runs.
+        let mut over = features("over", &[], 0, None);
+        over.rendered_lines = Some(3);
+        assert!(matches!(
+            decide(&carrier, &extent, &over, std::slice::from_ref(&over)),
+            Outcome::Violated(_)
+        ));
+        let mut within = features("within", &[], 0, None);
+        within.rendered_lines = Some(2);
+        assert!(matches!(
+            decide(&carrier, &extent, &within, std::slice::from_ref(&within)),
+            Outcome::Holds
+        ));
+
+        // A member no format rendered — a layout host read off source — carries no span, so
+        // its extent is undecidable rather than a zero read as a pass, the exact defect the
+        // capture names. `Indeterminate`, distinct from the `Holds` a real zero would earn.
+        let mut unrendered = features("unrendered", &[], 0, None);
+        unrendered.rendered_lines = None;
+        unrendered.rendered_chars = None;
+        assert!(matches!(
+            decide(
+                &carrier,
+                &extent,
+                &unrendered,
+                std::slice::from_ref(&unrendered)
+            ),
+            Outcome::Indeterminate
+        ));
     }
 
     // ---- the selection grain ----------------------------------------------

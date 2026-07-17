@@ -600,7 +600,15 @@ test("a built-in kind's composed body admits a corpus-declared embedded kind", (
     { kind: "rubric" },
   ]);
   assert.deepEqual(result.declarations.nested_members, [
-    { host: "skill:operate-the-gate", kind: "rubric", key: "green-bar", leaves: { check: "every gate passes" }, collections: {} },
+    {
+      host: "skill:operate-the-gate",
+      kind: "rubric",
+      key: "green-bar",
+      leaves: { check: "every gate passes" },
+      collections: {},
+      rendered_lines: 3,
+      rendered_chars: 58,
+    },
   ]);
 });
 
@@ -986,6 +994,8 @@ test("a Text-valued leaf's mention resolves and renders inline — in the fence 
       key: "surface-authority",
       leaves: { chosen: "See rust for the standard." },
       collections: {},
+      rendered_lines: 3,
+      rendered_chars: 78,
     },
   ]);
 });
@@ -1112,6 +1122,8 @@ test("a blocks()-declared embedded member surfaces a matching nested_member row 
           { key: "baked-projection", leaves: { because: "a stamping projector breaks law 5" } },
         ],
       },
+      rendered_lines: 9,
+      rendered_chars: 247,
     },
   ]);
 });
@@ -1348,8 +1360,47 @@ test("a value whose kind declares no edge field records no placement — an ordi
   });
 
   assert.deepEqual(emit(h).declarations.nested_members, [
-    { host: "memory:CLAUDE", kind: "passage", key: "intro", leaves: { body: "Words." }, collections: {} },
+    {
+      host: "memory:CLAUDE",
+      kind: "passage",
+      key: "intro",
+      leaves: { body: "Words." },
+      collections: {},
+      rendered_lines: 1,
+      rendered_chars: 6,
+    },
   ]);
+});
+
+test("a composed embedded member's row carries its captured rendered span; a row no render observed carries none", () => {
+  // The span an `extent` clause budgets rides the row, captured off the same render `emit`
+  // projects. A fence-free render hook makes the projected bytes exactly the leaf body, so
+  // the captured span is checkable directly: two lines, seventeen characters.
+  const passage = kind<object>(
+    { name: "passage", locus: { kind: "embedded" }, unitShape: "file", registration: [] },
+    { render: (value) => value.leaves.body },
+  );
+  const h = harness({
+    members: [
+      memory({
+        name: "CLAUDE",
+        prose: blocks(embeddedMemberValue({ kind: passage, key: "intro", leaves: { body: "line one\nline two" } })),
+      }),
+    ],
+    admit: [{ host: memory, admits: [passage] }],
+  });
+
+  const row = emit(h).declarations.nested_members[0];
+  assert.equal(row.rendered_lines, 2);
+  assert.equal(row.rendered_chars, 17);
+
+  // Compiled without `emit`'s render pass — the state a member read off a layout host's
+  // source reaches its row in — the span columns are absent, never a captured zero: the
+  // engine reads that absence as an undecidable extent rather than a zero passing every
+  // budget, the placement family's observed-empty vs unobserved-absent distinction.
+  const unobserved = compileDeclarations(h).nested_members[0];
+  assert.equal(unobserved.rendered_lines, undefined);
+  assert.equal(unobserved.rendered_chars, undefined);
 });
 
 test("a composed body interleaves prose spans and embedded values in authored order, byte-identical to a wrapper-kind narrative", () => {

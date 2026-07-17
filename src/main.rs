@@ -2076,12 +2076,13 @@ fn embedded_member_features(
         id: row.key.clone(),
         fields,
         body_lines: 0,
-        // An embedded member is lifted from its host's declared surface, never a
-        // document of its own, so it contributes no rendered body here — an `extent`
-        // clause bound to an embedded kind is fenced as bodyless rather than reading a
+        // The rendered span `emit` captured off the value's own projection, lifted from
+        // the row so an `extent` clause bound to the embedded kind budgets real data. A
+        // `None` span is a value no format rendered (a layout host read off source): it has
+        // no projection to measure, so its `extent` stays undecidable rather than reading a
         // zero as a pass.
-        rendered_lines: 0,
-        rendered_chars: 0,
+        rendered_lines: row.rendered_lines,
+        rendered_chars: row.rendered_chars,
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,
@@ -2596,6 +2597,8 @@ mod tests {
                     .collect(),
                 collections: Vec::new(),
                 placed_edges: placed,
+                rendered_lines: None,
+                rendered_chars: None,
             }],
             ..drift::Declarations::default()
         }

@@ -163,8 +163,8 @@ mod tests {
                 .map(|value| (ENTRIES_KEY.to_string(), value))
                 .collect(),
             body_lines: 0,
-            rendered_lines: 0,
-            rendered_chars: 0,
+            rendered_lines: Some(0),
+            rendered_chars: Some(0),
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: None,

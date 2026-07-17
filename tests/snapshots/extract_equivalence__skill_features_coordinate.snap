@@ -15,8 +15,12 @@ Features {
         "name": String("coordinate"),
     },
     body_lines: 20,
-    rendered_lines: 20,
-    rendered_chars: 467,
+    rendered_lines: Some(
+        20,
+    ),
+    rendered_chars: Some(
+        467,
+    ),
     headings: [
         "Coordinate",
         "When to use",

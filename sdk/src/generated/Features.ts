@@ -39,15 +39,21 @@ body_lines: number,
  * intrinsically off every unit rather than gated behind a composed primitive, since
  * `extent` is node-scope and must decide over any kind's members. Distinct from
  * [`body_lines`](Features::body_lines): that reads only where `line_count` is
- * composed; this always carries the projected body's size.
+ * composed; this carries the projected body's size.
+ *
+ * `None` where nothing rendered a projection to measure — an embedded member read off
+ * a layout host's source, never a format's output. A file member always carries
+ * `Some` (its committed body is the projection), so an `extent` clause over it stays
+ * decidable; a `None` member's `extent` is undecidable rather than a zero read as a
+ * pass.
  */
-rendered_lines: number, 
+rendered_lines: number | null, 
 /**
  * The member's **rendered extent** in characters — the projection's character count,
- * the second unit an `extent` clause measures in. Intrinsic like
+ * the second unit an `extent` clause measures in. `None` on the same terms as
  * [`rendered_lines`](Features::rendered_lines).
  */
-rendered_chars: number, 
+rendered_chars: number | null, 
 /**
  * The ATX headings (`#`..`######`) in the body, in document order, with the
  * `#` run and any closing `#` run trimmed (for `require_sections`). A `#`

@@ -1026,6 +1026,8 @@ disable-model-invocation: true\n\
                 leaves: BTreeMap::from([("target".to_string(), "some/path.md".to_string())]),
                 collections: Vec::new(),
                 placed_edges: None,
+                rendered_lines: None,
+                rendered_chars: None,
             },
             crate::drift::NestedMemberRow {
                 host: "rule:some-other-rule".to_string(),
@@ -1034,6 +1036,8 @@ disable-model-invocation: true\n\
                 leaves: BTreeMap::new(),
                 collections: Vec::new(),
                 placed_edges: None,
+                rendered_lines: None,
+                rendered_chars: None,
             },
         ];
 

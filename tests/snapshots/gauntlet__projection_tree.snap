@@ -169,6 +169,8 @@ kind = "citation"
 key = "the-standard"
 leaves = { source = "rule:conventions" }
 placed_edges = ["source"]
+rendered_lines = 1
+rendered_chars = 34
 
 [[declaration.nested_member]]
 host = "spec:representation"

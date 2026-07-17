@@ -48,4 +48,21 @@ collections: { [key in string]: Array<CollectionEntryWire> },
  * no format to omit anything and the clause has nothing to decide. Absent from a
  * row whose value no format rendered, so an ordinary row stays byte-identical.
  */
-placed_edges?: Array<string>, };
+placed_edges?: Array<string>, 
+/**
+ * The value's **rendered extent** in lines — the line count of the block `emit`
+ * projected for this member, captured off the same render, so an `extent` clause bound
+ * to the embedded kind budgets real data instead of a hardcoded zero.
+ *
+ * `None` is a member **no format rendered** — one embedded in a layout document, read
+ * off its host's declared layout rather than projected — which has no rendered span to
+ * measure, so its `extent` stays undecidable. Absent from such a row, so an ordinary
+ * row stays byte-identical (the [`placed_edges`](Self::placed_edges) precedent).
+ */
+rendered_lines?: number, 
+/**
+ * The value's **rendered extent** in characters — the second unit an `extent` clause
+ * measures in, captured off the same render. `None` on the same terms as
+ * [`rendered_lines`](Self::rendered_lines).
+ */
+rendered_chars?: number, };

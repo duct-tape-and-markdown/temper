@@ -6,8 +6,12 @@ Features {
     id: "collaboration",
     fields: {},
     body_lines: 9,
-    rendered_lines: 9,
-    rendered_chars: 327,
+    rendered_lines: Some(
+        9,
+    ),
+    rendered_chars: Some(
+        327,
+    ),
     headings: [
         "Collaboration — pushback is the point",
         "Challenge gaps, never paper over them",

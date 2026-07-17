@@ -22,8 +22,8 @@ fn member(id: &str, lines: usize, chars: usize, body_lines: usize) -> Features {
         id: id.to_string(),
         fields: Default::default(),
         body_lines,
-        rendered_lines: lines,
-        rendered_chars: chars,
+        rendered_lines: Some(lines),
+        rendered_chars: Some(chars),
         headings: Vec::new(),
         sections: Vec::new(),
         source_dir: None,
@@ -113,6 +113,60 @@ fn whole_grain_bounds_the_selections_summed_extent_in_both_units() {
     assert_eq!(engine::judge(&[over_chars]).len(), 1);
     let under_chars = selection(ExtentUnit::Characters, 3000, &members);
     assert!(engine::judge(&[under_chars]).is_empty());
+}
+
+#[test]
+fn an_extent_clause_bound_to_an_embedded_kind_judges_the_captured_span() {
+    // 0035's load-bearing case: an embedded kind's members carry a rendered span captured
+    // at emit, so `extent` is admissible over the embedded locus rather than fenced bodyless
+    // — the fence that once let a hardcoded zero pass every budget. The judging that follows
+    // is the file-side algebra unchanged: one `extent`, one type, decided over a captured
+    // projection whether the member owns a file or is composed into a host body.
+    let lines_budget = contract(ExtentUnit::Lines, 500, false);
+    assert!(
+        engine::admissibility(
+            &lines_budget,
+            &engine::Locus::Embedded("citation".to_string())
+        )
+        .is_empty(),
+        "a captured span makes `extent` decidable over an embedded kind",
+    );
+
+    // Each grain, both units: a composed embedded member over its budget is a finding, under
+    // it passes.
+    let over_lines = member("over", 501, 0, 0);
+    assert_eq!(
+        engine::validate(&lines_budget, std::slice::from_ref(&over_lines)).len(),
+        1
+    );
+    let under_lines = member("under", 500, 0, 0);
+    assert!(engine::validate(&lines_budget, std::slice::from_ref(&under_lines)).is_empty());
+
+    let chars_budget = contract(ExtentUnit::Characters, 4000, false);
+    let over_chars = member("wide", 1, 4001, 0);
+    assert_eq!(
+        engine::validate(&chars_budget, std::slice::from_ref(&over_chars)).len(),
+        1
+    );
+    let under_chars = member("narrow", 1, 4000, 0);
+    assert!(engine::validate(&chars_budget, std::slice::from_ref(&under_chars)).is_empty());
+
+    // Whole grain sums the captured spans across the population, both units — three members
+    // each under the per-member budget whose summed span (360 lines, 2700 chars) overruns.
+    let members = [
+        member("a", 120, 900, 0),
+        member("b", 120, 900, 0),
+        member("c", 120, 900, 0),
+    ];
+    assert_eq!(
+        engine::judge(&[selection(ExtentUnit::Lines, 300, &members)]).len(),
+        1
+    );
+    assert!(engine::judge(&[selection(ExtentUnit::Lines, 400, &members)]).is_empty());
+    assert_eq!(
+        engine::judge(&[selection(ExtentUnit::Characters, 2000, &members)]).len(),
+        1
+    );
 }
 
 #[test]

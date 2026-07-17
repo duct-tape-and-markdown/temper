@@ -495,6 +495,23 @@ export function placementKey(host: string, kind: string, key: string): string {
  */
 export type EdgePlacements = ReadonlyMap<string, readonly string[]>;
 
+/** One composed embedded value's rendered extent — the line and character count of the
+ * block `emit` projected for it ({@link RenderedExtents}), the span an `extent` clause
+ * budgets. */
+export interface RenderedExtent {
+  readonly lines: number;
+  readonly chars: number;
+}
+
+/**
+ * Each composed embedded value's rendered extent, by {@link placementKey} — `emit`'s
+ * record of the span it projected for each value (`emit.ts`'s `renderedExtents`). A value
+ * with no entry had no format rendered it (a member read off a layout host's source),
+ * which the row spells by omitting both span columns rather than a captured zero: an
+ * unmeasured member's `extent` stays undecidable, never a zero read as a pass.
+ */
+export type RenderedExtents = ReadonlyMap<string, RenderedExtent>;
+
 /**
  * One host member's declared embedded-member value as its declaration row —
  * each `Text`-authored leaf resolved to its final stored string
@@ -508,6 +525,7 @@ function nestedMemberRow(
   value: EmbeddedMemberValue,
   scope: MentionScope,
   placements: EdgePlacements | undefined,
+  extents: RenderedExtents | undefined,
 ): NestedMemberRow {
   const context = (childPath: string): string => `member.${value.kind} ${value.key}: leaf \`${childPath}\``;
   const leaves: Record<string, string> = {};
@@ -524,7 +542,9 @@ function nestedMemberRow(
       return { key: entry.key, leaves: entryLeaves };
  });
  }
-  const placed = placements?.get(placementKey(host, value.kind, value.key));
+  const key = placementKey(host, value.kind, value.key);
+  const placed = placements?.get(key);
+  const extent = extents?.get(key);
   return {
     host,
     kind: value.kind,
@@ -536,6 +556,10 @@ function nestedMemberRow(
     // the row it has always written. The generated row carries a mutable column and the
     // placement record is read-only, so the copy is a fresh array.
     ...(placed === undefined ? {} : { placed_edges: [...placed] }),
+    // The rendered span, on the same omitted-not-null discipline: a value no render
+    // observed (compiled without `emit`'s measurement) keeps the row it has always
+    // written, and its `extent` reads as undecidable rather than a captured zero.
+    ...(extent === undefined ? {} : { rendered_lines: extent.lines, rendered_chars: extent.chars }),
   };
 }
 
@@ -590,6 +614,7 @@ function nestedMemberRows(
   admissions: AdmissionsByHost,
   scope: MentionScope,
   placements: EdgePlacements | undefined,
+  extents: RenderedExtents | undefined,
 ): NestedMemberRow[] {
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
@@ -605,7 +630,7 @@ function nestedMemberRows(
             `(specs/model/representation.md, "nesting").`,
         );
       }
-      rows.push(nestedMemberRow(host, value, scope, placements));
+      rows.push(nestedMemberRow(host, value, scope, placements, extents));
  }
  }
   return rows.sort(
@@ -720,14 +745,18 @@ export function mentionScope(harness: Harness): MentionScope {
 /**
  * Compile a harness into its seven declaration families — the erased program.
  *
- * `placements` is `emit`'s record of what each embedded value's format rendered
- * (`emit.ts`'s `edgePlacements`); this pass compiles declarations and never renders, so
- * it has no way to observe one itself. Omitted, every `nested_member` row omits its
- * `placed_edges` column — honest (nothing observed a format) but undecidable for a
- * `format-places-edges` clause, so a whole compile goes through `emit`, never this
- * alone.
+ * `placements` and `extents` are `emit`'s record of what each embedded value's format
+ * rendered (`emit.ts`'s `edgePlacements`) and the span it spanned (`renderedExtents`); this
+ * pass compiles declarations and never renders, so it observes neither itself. Omitted,
+ * every `nested_member` row omits its `placed_edges`/`rendered_lines`/`rendered_chars`
+ * columns — honest (nothing observed a render) but undecidable for a `format-places-edges`
+ * or `extent` clause, so a whole compile goes through `emit`, never this alone.
  */
-export function compileDeclarations(harness: Harness, placements?: EdgePlacements): Declarations {
+export function compileDeclarations(
+  harness: Harness,
+  placements?: EdgePlacements,
+  extents?: RenderedExtents,
+): Declarations {
   const allKinds = kindsInPlay(harness);
   const admissions = admissionsByHost(harness);
   const clauses: ClauseRow[] = [];
@@ -744,7 +773,7 @@ export function compileDeclarations(harness: Harness, placements?: EdgePlacement
     satisfies: satisfiesRows(harness),
     mentions: mentionRows(harness),
     includes: includeRows(harness),
-    nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements),
+    nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
     registrations: registrationRows(harness),
     settings: settingsRows(harness),
   };

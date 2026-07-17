@@ -913,6 +913,8 @@ mod embedded_edge_targets {
             leaves: BTreeMap::new(),
             collections: Vec::new(),
             placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
         }
     }
 
@@ -1112,6 +1114,8 @@ mod embedded_edge_sources {
             leaves: BTreeMap::from([("source".to_string(), source.to_string())]),
             collections: Vec::new(),
             placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
         }
     }
 
@@ -1223,6 +1227,8 @@ mod embedded_edge_source_scope {
             leaves: BTreeMap::from([("target".to_string(), "skill:data-access".to_string())]),
             collections: Vec::new(),
             placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
         }
     }
 
@@ -1346,8 +1352,8 @@ mod reachability {
             id: id.to_string(),
             fields,
             body_lines: 1,
-            rendered_lines: 1,
-            rendered_chars: 0,
+            rendered_lines: Some(1),
+            rendered_chars: Some(0),
             headings: Vec::new(),
             sections: Vec::new(),
             source_dir: Some(id.to_string()),
