@@ -113,19 +113,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   `src/schema.rs` with ts-rs holding its live `sdk/src/generated/` seam role
   (48-55). Sweeping the class across `src/` + `sdk/src/` at 0c3cbcb still
   leaves exactly one orphan line:
-  - `src/roster.rs`:473 — **the last orphan of its class**: the doc comment on
+  - `src/roster.rs`:475 — **the last orphan of its class**: the doc comment on
     the `membership_roster` test helper cites `` `10-contracts.md` ``, a file
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
-    file. **The ride-only rule's own condition just got tested and held**:
-    CLOSED-KEYS-CLAUSE (7fae62e) opened `src/roster.rs` — the first entry ever
-    to — and left the cite standing, because the entry was never given it; the
-    orphan merely drifted 469→473 under the edit. A rider discharges when an
-    entry NAMES it, never when a file is merely opened, which is why the
-    carrier this waits for must carry it in its scope. No queued entry opens
-    `src/roster.rs` today; it waits, and never becomes an entry of its own.
-    Cite re-read on disk at b85df4a, still 473 (`src/roster.rs` untouched
-    across the window).
+    file. A rider discharges when an entry NAMES it, never when a file is
+    merely opened, which is why the carrier must carry it in its scope.
+    **The carrier has now arrived**: VERIFIER-TYPED (unblocked this tick as
+    EXTENT shipped 4bdb796) opens `src/roster.rs` for its clause-(b) verifier
+    dispatch and NAMES this cite-cut in its roster.rs scope — so the rider now
+    rides it and discharges when VERIFIER-TYPED ships, the ride-only rule's
+    predicted resolution. Cite re-read on disk at HEAD, now 475 (drifted
+    469→473→475 under CLOSED-KEYS-CLAUSE's and later edits).
   The rule's **fourth** payout — its first on a cite the sweep itself
   surfaced — **landed**: `src/main.rs`:1047 called the selection loop "The
   second and last dial site" while four `dial.apply` sites existed. It was

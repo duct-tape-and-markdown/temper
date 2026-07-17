@@ -1,33 +1,32 @@
 # Plan state
 
 - Spec derived through: 684dfec
-- Audited through: 0349821
-- Residue swept through: 0349821
-- This tick: INBOX (refactor drain). Drained the one live refactor capture,
-  `.flume/refactor/build-extent-embedded-span.md` (observed fe8790e,
-  re-verified on disk at HEAD): EXTENT-PREDICATE (4bdb796) shipped the
-  file-member half of the extent predicate but not the embedded case 0035
-  exists for — `src/main.rs:2060` hardcodes an embedded member's
-  `rendered_lines`/`rendered_chars` to 0, `drift::NestedMemberRow`
-  (`src/drift.rs:3019`) carries no captured span, and `src/engine.rs:256`
-  fences `Predicate::Extent` bodyless for embedded kinds. Filed
-  EMBEDDED-EXTENT-CAPTURE (per engineering.md 'A shared concept is one
-  type', gate blockedBy EMBEDDED-EDGE-SOURCE-SEAM — both edit the same
-  `embedded_member_features` function): capture the rendered span at emit
-  onto NestedMemberRow (the `placed_edges` optional-column precedent), lift
-  it into the embedded member's Features, drop Extent from the bodyless
-  fence. Widens the shared NestedMemberRow row — consumers named in files[].
-  Capture DELETED (git rm); claim held at HEAD.
-- Queue: 13 entries — 5 pickable (gate:open): MANIFEST-SEGMENT-REAP,
+- Audited through: 82dcb3e
+- Residue swept through: 82dcb3e
+- This tick: POST-SHIP RECONCILIATION of 0349821..HEAD. One code commit in
+  window: 4bdb796 (EXTENT-PREDICATE — 9a18907 was specs+.temper harness only,
+  the rest plan/chore/specs). AUDIT: verified on disk EXTENT shipped whole —
+  `extent(unit,bound)` live in `src/engine.rs`, `rendered_lines`/`rendered_chars`
+  intrinsics, `max_lines` retired (surviving mentions are the retirement
+  tests + explanatory comments only). Both `blockedBy: EXTENT-PREDICATE`
+  entries pointed at an absent shipped tag → UNBLOCKED to `open`:
+  SETTINGS-LOCAL-KIND (premise held: no `settings-local` kind in src/sdk) and
+  VERIFIER-TYPED (premise held: `verified_by: Option<String>` still untyped at
+  compose.rs:100 / contract.ts:300). Refreshed both entries' stale "serialized
+  behind EXTENT" language to name the current region-disjoint coexistence
+  partners on drift.rs/main.rs/graph.rs/declarations.ts. SWEEP: EXTENT
+  introduced no residue — `body_lines`/`LineCount` kept as intentional orphans
+  (0035 names no LineCount retirement, per the commit body), refactor already
+  drained (82dcb3e → EMBEDDED-EXTENT-CAPTURE). Ride-only: VERIFIER-TYPED now
+  opens src/roster.rs, so it carries the orphan `10-contracts.md` cite-cut
+  (~475); open-questions record re-routed onto it.
+- Queue: 13 entries — 7 pickable (gate:open): MANIFEST-SEGMENT-REAP,
   EMBEDDED-EDGE-SOURCE-SEAM, TEMPLATE-DISCOVERY-CARVE, STAR-SEGMENT-LOCUS,
-  GAUNTLET-CORPUS. Then EMBEDDED-EXTENT-CAPTURE (blockedBy EMBEDDED-EDGE),
-  TAP-VERB-EVENT-RECORD (blockedBy EMBEDDED-EDGE), TELEMETRY-FIELD-STRAND
-  (blockedBy TAP-VERB); SETTINGS-LOCAL-KIND + VERIFIER-TYPED (blockedBy
-  EXTENT — shipped 4bdb796/b576844, unblock at next audit);
-  TELEMETRY-HOOK-PROJECTION (blockedBy VERIFIER-TYPED); + 2 parked
-  (IMPORT-HOP-CAP-CITE, PACKAGING).
+  GAUNTLET-CORPUS, + SETTINGS-LOCAL-KIND, VERIFIER-TYPED (both unblocked). 4
+  blockedBy (EMBEDDED-EXTENT-CAPTURE/TAP-VERB → EMBEDDED-EDGE;
+  TELEMETRY-FIELD-STRAND → TAP-VERB; TELEMETRY-HOOK-PROJECTION → VERIFIER-TYPED);
+  2 parked (IMPORT-HOP-CAP-CITE, PACKAGING). Open set region-disjoint.
 
-Plan continues: yes — inbox drained this tick; next live input is post-ship
-reconciliation of b85df4a..HEAD (EXTENT-PREDICATE shipped 4bdb796/b576844 —
-audit unblocks the two blockedBy-EXTENT entries SETTINGS-LOCAL-KIND +
-VERIFIER-TYPED, then sweep the same window code against corpus).
+Plan continues: no — inbox empty, no spec delta past 684dfec, EXTENT window
+reconciled and both cursors at HEAD; no live input remains. 7 pickable
+entries — build takes over.

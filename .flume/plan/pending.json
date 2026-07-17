@@ -379,8 +379,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EXTENT-PREDICATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -438,7 +437,7 @@
       }
     ],
     "acceptance": "`settings-local` is a shipped kind: `.claude/settings.local.json` read as a json-document at the local commitment class — discovered under the ignore override, gated in place, never an emit input or target, its rows derived at read time and its presence announced (builtins.md, 'The shipped kinds'; 0036). Documented keys are typed with cited clauses; a locally-registered hook or enablement stays opaque residue named as such, never a modeled member. The built-in lock re-derives to carry the new kind + default contract and the frozen-lock seam holds. `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "Routes 0036 (63e1f22): its sole Consequences bullet — kind, default contract, fixture under the discovery override — is this one atomic entry. (settings-local-kind) fork already absent from open-questions; no deletion owed. blockedBy EXTENT: both regenerate builtin_lock.toml. No per-key settings schema exists today — the default contract is authored fresh from the live settings docs, cited. src/{builtin,contract,kind}.rs unchanged, data-driven. scoped at 4cc3081."
+    "notes": "Routes 0036 (63e1f22): its sole Consequences bullet — kind, default contract, fixture under the discovery override — is this one atomic entry. (settings-local-kind) fork already absent from open-questions; no deletion owed. EXTENT shipped 4bdb796 → open; disjoint from all open entries. No per-key settings schema exists today — the default contract is authored fresh from the live settings docs, cited. src/{builtin,contract,kind}.rs unchanged, data-driven. scoped at 4cc3081."
   },
   {
     "tag": "VERIFIER-TYPED",
@@ -448,8 +447,7 @@
       "section": "requirement — a shipped kind, not a primitive"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EXTENT-PREDICATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -457,11 +455,11 @@
       "edit": [
         {
           "path": "sdk/src/contract.ts",
-          "description": "Retype the verifier slot. `Requirement.verifiedBy?: string` (~284) becomes `verifier?: Verifier`, a discriminated union with two active species this slice — add `Verifier` plus the `script(path: string)` and `telemetry(events: readonly string[])` constructors (both erase to `{ species, ... }`). PROBE IS NOT TYPED HERE: 0037 keeps probe a documented pattern until its transcript surface is documented or a second consumer types it — do not mint a `probe()` constructor. The `telemetry` constructor documents its admissible event names (InstructionsLoaded, Skill, UserPromptExpansion, PostToolUse — code.claude.com/docs/en/hooks, retrieved 2026-07-17 per 0037; build re-verifies against live docs at encode). Reword the interface doc (~277) `verifiedBy wires the behavioral remainder` to the typed verifier. Overlaps EXTENT on this file (different region) — serialized behind it."
+          "description": "Retype the verifier slot. `Requirement.verifiedBy?: string` (~284) becomes `verifier?: Verifier`, a discriminated union with two active species this slice — add `Verifier` plus the `script(path: string)` and `telemetry(events: readonly string[])` constructors (both erase to `{ species, ... }`). PROBE IS NOT TYPED HERE: 0037 keeps probe a documented pattern until its transcript surface is documented or a second consumer types it — do not mint a `probe()` constructor. The `telemetry` constructor documents its admissible event names (InstructionsLoaded, Skill, UserPromptExpansion, PostToolUse — code.claude.com/docs/en/hooks, retrieved 2026-07-17 per 0037; build re-verifies against live docs at encode). Reword the interface doc (~277) `verifiedBy wires the behavioral remainder` to the typed verifier. EXTENT shipped 4bdb796 and shifted this file (verifier slot now ~300 not ~284); no open entry shares contract.ts."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "The requirement lowering (~343) currently emits `verified_by: requirement.verifiedBy`; emit the species-tagged verifier onto the wire row instead (the `verifier` column carrying species + payload). Snake_case wire keys to match the Rust `#[derive(Deserialize)]` reader (`sdk.md`, 'The engine seam'). Overlaps EXTENT on this file (clauseRow region vs. requirement region) — serialized behind it."
+          "description": "The requirement lowering (~343) currently emits `verified_by: requirement.verifiedBy`; emit the species-tagged verifier onto the wire row instead (the `verifier` column carrying species + payload). Snake_case wire keys to match the Rust `#[derive(Deserialize)]` reader (`sdk.md`, 'The engine seam'). Coexists with STAR-SEGMENT-LOCUS (unit-shape region ~146/~252) on declarations.ts — disjoint from this requirement-lowering region ~344. (EXTENT shipped 4bdb796.)"
         },
         {
           "path": "sdk/src/generated/RequirementRow.ts",
@@ -477,7 +475,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. Overlaps EXTENT on this file (ClauseRow region vs. RequirementRow region) — serialized behind it."
+          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. Coexists with MANIFEST-SEGMENT-REAP (emit_manifest ~1375 / reap ledger ~485) and STAR-SEGMENT-LOCUS (KindFactRow ~2583) on drift.rs — disjoint from this RequirementRow region ~2877. (EXTENT shipped 4bdb796.)"
         },
         {
           "path": "src/main.rs",
@@ -485,7 +483,7 @@
         },
         {
           "path": "src/roster.rs",
-          "description": "The sole resolution/admissibility check. Clause (b) (~127-138) currently tests one path; dispatch per species: `Script { path }` resolves as today (`base_dir.join(path).exists()`, the dangling-verifier message), `Telemetry { events }` resolves each named event against the documented harness-event name set (an unknown event name is inadmissible — a telemetry verifier that names an undocumented event is a silent no-op, same failure shape). The documented event-name set is an external fact carried here (or a small shared const) with its cite (code.claude.com/docs/en/hooks, retrieved 2026-07-17; build re-verifies). Rename the doc at ~94 and the field access. Migrate the two unit tests (~640-658) to the typed verifier and add a telemetry case."
+          "description": "The sole resolution/admissibility check. Clause (b) (~127-138) currently tests one path; dispatch per species: `Script { path }` resolves as today (`base_dir.join(path).exists()`, the dangling-verifier message), `Telemetry { events }` resolves each named event against the documented harness-event name set (an unknown event name is inadmissible — a telemetry verifier that names an undocumented event is a silent no-op, same failure shape). The documented event-name set is an external fact carried here (or a small shared const) with its cite (code.claude.com/docs/en/hooks, retrieved 2026-07-17; build re-verifies). Rename the doc at ~94 and the field access. Migrate the two unit tests (~640-658) to the typed verifier and add a telemetry case. RIDE-ONLY: while this file is open, cut the orphan `10-contracts.md` cite in the `membership_roster` helper doc (~475, a file 0001 deleted) — the sentence's claim stays, only the dead source pointer comes out (`rust.md`, spec citations retired from comments)."
         },
         {
           "path": "src/read.rs",
@@ -538,7 +536,7 @@
       }
     ],
     "acceptance": "The requirement's verifier is a typed species union: `script(path)` (today's path resolution, retyped) and `telemetry(events)` (named documented harness events), each resolved at admissibility — a script's path exists, a telemetry event's name is a documented one, and either failing is inadmissible with the silent-no-op finding (contract.md, 'requirement': the gate checks the declaration resolves, never runs it; no verifier verdict enters check's exit code). Probe is not typed this slice (0037 keeps it a documented pattern). `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "0037 slice 5 of 5 (6d2cca6): verifier-type resolution. Un-derived siblings, one slice per tick (cursor holds 63e1f22): tap verb, telemetry declaration+hook projection, local-locus log kind, field strand. This slice owns the documented event-NAME set (telemetry's resolution target); event PAYLOAD cites land with their consumer downstream. Probe deferred per 0037. blockedBy EXTENT on shared contract.ts/declarations.ts/drift.rs (disjoint regions). scoped at f19b052."
+    "notes": "0037 slice 5 of 5 (6d2cca6): verifier-type resolution. Un-derived siblings, one slice per tick (cursor holds 63e1f22): tap verb, telemetry declaration+hook projection, local-locus log kind, field strand. This slice owns the documented event-NAME set (telemetry's resolution target); event PAYLOAD cites land with their consumer downstream. Probe deferred per 0037. EXTENT shipped 4bdb796 → open; region-disjoint on drift.rs/main.rs/graph.rs/declarations.ts. scoped at f19b052."
   },
   {
     "tag": "TELEMETRY-HOOK-PROJECTION",
