@@ -1,52 +1,5 @@
 [
   {
-    "tag": "CHECK-RUNNER-REMAINDER",
-    "summary": "Eight hand-rolled `Command::new(BIN)` `temper check` runners survive the consolidation that exists to leave one — four in the consolidated file itself, four in three suites never in its scope",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/cli.rs",
-          "description": "Four `temper check` runs still hand-roll `Command::new(BIN)` in the very file 3bd0f80 consolidated: 210 (`check <ws> --harness <harness>`, status only), 248 (`check <harness>` from the ambient cwd), 267 (bare `check` from the harness), 286 (`self_host_check_is_clean_over_tempers_own_surface`, bare `check` from `CARGO_MANIFEST_DIR`). Each is `common::check_in(cwd, args, reporter)` — its first parameter IS the cwd, so 248's deliberate cwd-not-root spelling survives the fold at full strength (pass the crate root as cwd, the harness as the positional arg). The file already `mod common`s (19). `const BIN` (22) SURVIVES — `schema`, `guard`, `--help`, and the retired-verb loop still read it; do not predict its death (3bd0f80 made exactly that miss on `requirement_roster`'s `BIN`, which `explain_in` still reads)."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "`check_harness_and_session_start_gate_the_raw_harness_with_no_scratch_import` (1473) hand-rolls two check runners: 1483 (`check --harness <harness>`) and 1495 (`check <harness> --reporter session-start`). Both fold onto `common::check_in`; `mod common` is already at 32. `const BIN` (35) SURVIVES — the two `emit` runners at 1422/1451 read it, and `emit` is not `check_in`'s job."
-        },
-        {
-          "path": "tests/reporters.rs",
-          "description": "172 hand-rolls `check . --reporter sarif` from the harness cwd — `common::check_in(&harness, &[\".\"], Some(\"sarif\"))`. `mod common` at 18. This is `BIN`'s ONLY use in the file (24), so `const BIN` retires with the fold — `rg BIN tests/reporters.rs` finds those two lines and nothing else."
-        },
-        {
-          "path": "tests/session_start.rs",
-          "description": "`run_session_start` (48) hand-rolls `check <harness> --reporter session-start` and parses stdout as JSON — folds onto `common::check_in`, whose `CheckRun.stdout` field (added by 3bd0f80 for exactly this stream-specific need) serves the parse. `mod common` at 18. The honest exception, named not papered: 360 drives `temper::install::SESSION_START_COMMAND`'s own token stream (`.split_whitespace().skip(1)`) — its subject is that the wired command string works, so `check` arrives as data inside `args`, not as the verb a runner prepends. `check_in` prepends `check` and cannot express it; leave it hand-rolled, and `const BIN` (24) SURVIVES for it. The `.temper/kinds/` + `.temper/packages/` fixtures at 121/140 are NOT this entry's to touch — see notes."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "`check_in`'s doc (155-158) currently homes only the GitHub-reporter harness shape, at [`check_harness`]. Its predecessor's call-site-adaptation invitation is what regrew six copies (3bd0f80's own root-cause finding), so the narrower re-spelling invites the same regrowth: re-word it to state that a `check` run goes through this home whatever its reporter, arg shape, or cwd — the one shape it does not serve being a caller driving a command string that carries the verb itself. No new helper: `check_in` already takes cwd, args, and reporter, so every folded caller becomes a call, not a wrapper."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "unchanged behavior — the existing assertions across the four suites are the test; 248's explicit-root-vs-bare-verb pair keeps its cwd distinction, and 170's stdout-specific assertion keeps reading `CheckRun.stdout`"
-      }
-    ],
-    "acceptance": "Exactly one hand-rolled `temper check` runner survives in `tests/` — `session_start.rs:360`, driving `SESSION_START_COMMAND` — and every other `check` run reaches the binary through `common::check_in` (engineering.md, 'One job, one home': a job the tree already performs is extended where it lives; shared test scaffolding lives in one home, never copy-pasted per file). `tests/reporters.rs` no longer declares `BIN`. `cargo test` green (679 passing), `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "The direct remainder of CHECK-HARNESS-ONE-HOME (3bd0f80), which scoped 'nine suites': `cli.rs`'s other four runs were outside its named scope, and `emit`/`reporters`/`session_start` were never in it. Its body claims 'every caller reaches it' — true of the six copies and the two named runners, not of these eight. No behavior moves. `session_start.rs`'s retired-format fixtures are a separate class this entry must not fold in (state.md carries why). scoped at 3593ab6"
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
