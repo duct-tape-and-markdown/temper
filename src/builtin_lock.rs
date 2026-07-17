@@ -54,6 +54,7 @@ mod tests {
             vec![
                 "agent",
                 "command",
+                "dial",
                 "hook",
                 "installed-plugin",
                 "marketplace",
@@ -99,6 +100,7 @@ mod tests {
                 Some(
                     "agent"
                         | "command"
+                        | "dial"
                         | "hook"
                         | "marketplace"
                         | "mcp-server"

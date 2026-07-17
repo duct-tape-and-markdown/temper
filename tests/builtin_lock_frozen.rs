@@ -6,7 +6,10 @@
 //! A memberless harness binds every built-in kind to every built-in default contract via
 //! `expect` (`sdk/src/assembly.ts`: `expect` keys clauses to a kind value with no
 //! member needed), the identical construction `src/builtin_lock.toml`'s own header
-//! says produced it. Agreement is mechanical: this test is the CI job the fail-loud
+//! says produced it. `dial` is the one kind bound off the SDK's *root* rather than its
+//! provider subpath — temper's own kind, not Claude Code's — and it is bound here like
+//! any other, since what the embedded lock carries is the whole shipped std-lib.
+//! Agreement is mechanical: this test is the CI job the fail-loud
 //! invariant describes, never a human re-reading two files side by side.
 
 use std::fs;
@@ -25,7 +28,7 @@ mod common;
 /// own, and whose one default clause bounds their place in the graph rather than their
 /// bytes — is bound here like any other, contributing its kind fact and that clause.
 const MEMBERLESS_BUILTIN_PROGRAM: &str = r#"
-import { emit, harness } from "@dtmd/temper";
+import { dial, dialDefaultContract, emit, harness } from "@dtmd/temper";
 import {
   agent,
   agentDefaultContract,
@@ -56,6 +59,7 @@ const program = harness({
   expect: [
     { kind: agent, clauses: agentDefaultContract },
     { kind: command, clauses: commandDefaultContract },
+    { kind: dial, clauses: dialDefaultContract },
     { kind: hook, clauses: hookDefaultContract },
     { kind: installedPlugin, clauses: installedPluginDefaultContract },
     { kind: marketplace, clauses: marketplaceDefaultContract },

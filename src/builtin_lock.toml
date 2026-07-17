@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the eleven built-in kinds' facts and their default contract clauses, plus the
+# the twelve built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -9,23 +9,31 @@
 # Derived, never transcribed (specs/distribution.md, "Decision: the built-in
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
-# declarations come from a memberless harness over `@dtmd/temper/claude-code`'s
+# declarations come from a memberless harness over the whole shipped std-lib:
+# `@dtmd/temper/claude-code`'s eleven
 # built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `marketplace`,
-# `mcp-server`, `plugin-manifest`, `skill`, `supporting-doc`, `rule`, `memory`) and its
-# eleven default contracts (`agentDefaultContract`, `commandDefaultContract`,
+# `mcp-server`, `plugin-manifest`, `skill`, `supporting-doc`, `rule`, `memory`) and their
+# default contracts (`agentDefaultContract`, `commandDefaultContract`,
 # `hookDefaultContract`, `installedPluginDefaultContract`, `marketplaceDefaultContract`,
 # `mcpServerDefaultContract`,
 # `pluginManifestDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
-# `memoryAnthropicDefaultContract`) — the identical rows an
+# `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
+# *root* — temper's own kind, whose entries re-read these very clauses at a machine's
+# declared severity, so it ships wherever they do. They are the identical rows an
 # adopted harness's own emit produces, just with no members to project. Regenerate by
 # re-running that memberless emit and re-embedding the resulting lock's declaration rows
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's eleven kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's twelve kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
+#
+# `dial` is the one kind here declaring a `local` commitment class, and the one whose
+# `toml-document` format has no write twin: emit never reads or writes a machine's dial
+# document, and no row of it ever lands in a lock — the rows below declare the kind, which
+# is the committed, reviewed half.
 #
 # `supporting-doc` is the one kind here at the nested-file locus, so its row alone
 # carries no `governs` pair: its members' paths compose from their host skill's unit and
@@ -34,7 +42,7 @@
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
 # `installed-plugin` is the one kind here contributing a kind fact and no clause row at
-# all: its default contract is empty, so eleven kinds carry ten contracts' clauses. The
+# all: its default contract is empty, so twelve kinds carry eleven contracts' clauses. The
 # format documents no gateable schema — an entry is one scalar under a key that is the
 # member's identity rather than a declared field — and the absence is the honest encoding,
 # not a row lost in regeneration.
@@ -66,6 +74,14 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["user-invoked", "description-trigger(description)"]
+
+[[declaration.kind]]
+name = "dial"
+governs_root = ".temper"
+governs_glob = "dial.toml"
+commitment = "local"
+format = "toml-document"
+unit_shape = "named-field(name)"
 
 [[declaration.kind]]
 name = "hook"
@@ -306,6 +322,71 @@ field = "paths"
 severity = "required"
 guidance = "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field."
 cite = "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)"
+
+[[declaration.clause]]
+label = "dial.required.name"
+kind = "dial"
+predicate = "required"
+field = "name"
+severity = "required"
+guidance = "A dial names the machine it speaks for — its identity, and what its findings are reported under. There is no filename fallback: every machine's dial is `dial.toml`."
+
+[[declaration.clause]]
+label = "dial.type.name"
+kind = "dial"
+predicate = "type"
+field = "name"
+severity = "required"
+value_type = ["string"]
+
+[[declaration.clause]]
+label = "dial.type.clause"
+kind = "dial"
+predicate = "type"
+field = "clause"
+severity = "required"
+guidance = "The dialed clauses are an array of tables — `[[clause]]` per entry, each naming one `label` and one `severity`."
+value_type = ["list"]
+
+[[declaration.clause]]
+label = "dial.required.clause[*].label"
+kind = "dial"
+predicate = "required"
+field = "clause[*].label"
+severity = "required"
+guidance = "An entry names the clause it dials by the address the finding printed as its `rule` id — spell it back verbatim. An entry naming a label no clause in this harness carries is a finding, never a silent no-op."
+
+[[declaration.clause]]
+label = "dial.type.clause[*].label"
+kind = "dial"
+predicate = "type"
+field = "clause[*].label"
+severity = "required"
+value_type = ["string"]
+
+[[declaration.clause]]
+label = "dial.required.clause[*].severity"
+kind = "dial"
+predicate = "required"
+field = "clause[*].severity"
+severity = "required"
+guidance = "Severity is an entry's only verb: it is what a dial says, and all a dial says."
+
+[[declaration.clause]]
+label = "dial.enum.clause[*].severity"
+kind = "dial"
+predicate = "enum"
+field = "clause[*].severity"
+severity = "required"
+guidance = "The two severities an authored clause declares under are the two a dial re-declares under — there is no third value that means `off`. Softening a clause to `advisory` still reports it, and is inert in block mode; hardening one to `required` binds in every mode."
+values = ["required", "advisory"]
+
+[[declaration.clause]]
+label = "dial.closed-keys"
+kind = "dial"
+predicate = "closed-keys"
+severity = "required"
+guidance = "The dial's key set is exhaustive: `name` and `clause`, nothing else. A key outside it is a verb this schema does not have — most likely an attempt to spell deletion, which it cannot."
 
 [[declaration.clause]]
 label = "hook.enum.event"

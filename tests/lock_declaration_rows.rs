@@ -2148,11 +2148,29 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     // Channel-less, like its sibling: a catalog is read by the installer.
     assert_eq!(marketplace.registration, Vec::<String>::new());
 
+    let dial = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "dial")
+        .expect("the dial kind fact is embedded");
+    assert_eq!(dial.governs_root.as_deref(), Some(".temper"));
+    assert_eq!(dial.governs_glob.as_deref(), Some("dial.toml"));
+    assert_eq!(dial.format.as_deref(), Some("toml-document"));
+    assert_eq!(dial.unit_shape.as_deref(), Some("named-field(name)"));
+    // The committed, reviewed half of the local class: the kind's own row rides the lock
+    // saying its members' documents never will.
+    assert_eq!(dial.commitment.as_deref(), Some("local"));
+    assert_eq!(dial.shape, None);
+    assert_eq!(dial.collection_address, None);
+    // Channel-less: a dial is read by temper's own gate, never surfaced to the model.
+    assert_eq!(dial.registration, Vec::<String>::new());
+
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    // Eleven, not the ten `specs/builtins.md` enumerates: `supporting-doc` ships beside
-    // that roster without joining it (as `requirement` does), so the engine's kind set
-    // runs one above the corpus's count. Both numbers are right; neither checks the other.
-    assert_eq!(declarations.kinds.len(), 11);
+    // Twelve, not the ten `specs/builtins.md` enumerates: `supporting-doc` ships beside
+    // that roster without joining it (as `requirement` does), and `dial` is temper's own
+    // rather than a provider's, so the engine's kind set runs two above the corpus's
+    // count. Every number is right; none checks another.
+    assert_eq!(declarations.kinds.len(), 12);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

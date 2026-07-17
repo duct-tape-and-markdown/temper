@@ -18,9 +18,10 @@
 //! - **admissibility** fences the class to a *file* locus and nothing else: the class
 //!   rules the read side, so every declared format serves it.
 //!
-//! The fixture kind is a `dial`, at `.claude/local/*.md` where the locus itself is not
-//! what a case is about and at the ratified `.temper/dial.toml` where it is. No shipped
-//! kind declares the class yet — the first one's face is an open fork.
+//! The fixture kind is a `knob` — a lock-declared kind of the suite's own, never the
+//! shipped `dial`, so these cases falsify the *class* rather than one kind's use of it
+//! (`tests/dial_kind.rs` owns the dial's own face). It sits at `.claude/local/*.md` where
+//! the locus is not what a case is about, and under the workspace where it is.
 
 use std::fs;
 
@@ -31,16 +32,16 @@ use temper::drift::{
 
 mod common;
 
-/// A `dial` document: a lead prose region, a `mode` field section, an `overrides` member
+/// A `knob` document: a lead prose region, a `mode` field section, an `overrides` member
 /// collection, and a `satisfies` edge section — every primitive a local member's read has
 /// to carry through, in one document.
-const DIAL_DOC: &str = "The machine's own dial, uncommitted.\n\
+const KNOB_DOC: &str = "The machine's own knob, uncommitted.\n\
 \n\
 # Mode\n\
 advisory\n\
 \n\
 # Satisfies\n\
-- dial-is-governed\n\
+- knob-is-governed\n\
 \n\
 # Overrides\n\
 \n\
@@ -50,8 +51,8 @@ the local override's body.\n\
 ## Widen The Line Bound\n\
 the second override's body.\n";
 
-/// The `dial` layout in wire form — the regions the kind's `content` column declares.
-fn dial_layout_row() -> LayoutRow {
+/// The `knob` layout in wire form — the regions the kind's `content` column declares.
+fn knob_layout_row() -> LayoutRow {
     LayoutRow {
         regions: vec![
             LayoutRegionRow {
@@ -86,21 +87,21 @@ fn dial_layout_row() -> LayoutRow {
     }
 }
 
-/// The `dial` kind's fact row: a **local**-locus layout kind governing
+/// The `knob` kind's fact row: a **local**-locus layout kind governing
 /// `.claude/local/*.md`, templating an embedded `override` layer.
-fn dial_kind_facts() -> KindFactRow {
+fn knob_kind_facts() -> KindFactRow {
     KindFactRow {
         commitment: Some("local".to_string()),
-        content: Some(dial_layout_row()),
+        content: Some(knob_layout_row()),
         templates: vec![drift::TemplateRow {
             kind: "override".to_string(),
             path: None,
         }],
-        ..common::kind_facts("dial", ".claude/local", "*.md")
+        ..common::kind_facts("knob", ".claude/local", "*.md")
     }
 }
 
-fn dial_payload(kind: KindFactRow) -> Payload {
+fn knob_payload(kind: KindFactRow) -> Payload {
     Payload {
         version: drift::SEAM_VERSION,
         declarations: Declarations {
@@ -108,8 +109,8 @@ fn dial_payload(kind: KindFactRow) -> Payload {
             ..Default::default()
         },
         members: vec![PayloadMember {
-            kind: "dial".to_string(),
-            name: "dial".to_string(),
+            kind: "knob".to_string(),
+            name: "knob".to_string(),
             host: None,
             fields: Vec::new(),
             body: String::new(),
@@ -118,12 +119,12 @@ fn dial_payload(kind: KindFactRow) -> Payload {
     }
 }
 
-/// A harness carrying a local `dial` document on disk and `lock`'s declarations in
+/// A harness carrying a local `knob` document on disk and `lock`'s declarations in
 /// `.temper` — the shape every case here opens on.
 fn scaffold(slug: &str, lock: Declarations) -> std::path::PathBuf {
     let harness = common::tmpdir(slug);
     fs::create_dir_all(harness.join(".temper")).unwrap();
-    common::write_sibling(&harness, ".claude/local/dial.md", DIAL_DOC);
+    common::write_sibling(&harness, ".claude/local/knob.md", KNOB_DOC);
     common::write_lock(&harness, lock);
     harness
 }
@@ -133,20 +134,20 @@ fn emit_writes_nothing_at_a_local_members_path_and_rows_none_of_it() {
     let harness = common::tmpdir("local-emit");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
-    let doc_path = harness.join(".claude").join("local").join("dial.md");
-    common::write_sibling(&harness, ".claude/local/dial.md", DIAL_DOC);
+    let doc_path = harness.join(".claude").join("local").join("knob.md");
+    common::write_sibling(&harness, ".claude/local/knob.md", KNOB_DOC);
 
     let report = drift::emit(
-        &dial_payload(dial_kind_facts()),
+        &knob_payload(knob_kind_facts()),
         &into,
         EmitOptions::default(),
     )
     .unwrap();
 
     // The document is the author's own: byte-untouched, and no entry projects or reaps it.
-    assert_eq!(fs::read_to_string(&doc_path).unwrap(), DIAL_DOC);
+    assert_eq!(fs::read_to_string(&doc_path).unwrap(), KNOB_DOC);
     assert!(
-        report.entries.iter().all(|entry| entry.name != "dial"),
+        report.entries.iter().all(|entry| entry.name != "knob"),
         "a local member is neither projected nor reaped: {:?}",
         report.entries
     );
@@ -161,7 +162,7 @@ fn emit_writes_nothing_at_a_local_members_path_and_rows_none_of_it() {
             .iter()
             .map(|k| k.name.as_str())
             .collect::<Vec<_>>(),
-        vec!["dial"],
+        vec!["knob"],
         "the kind's own row is committed"
     );
     assert_eq!(
@@ -193,14 +194,14 @@ fn emit_never_reaps_a_document_whose_kind_turns_local() {
     let harness = common::tmpdir("local-reap");
     let into = harness.join(".temper");
     fs::create_dir_all(&into).unwrap();
-    let doc_path = harness.join(".claude").join("local").join("dial.md");
+    let doc_path = harness.join(".claude").join("local").join("knob.md");
 
     // First the kind is committed and file-content: emit owns the bytes and writes them,
     // leaving a rollup row on the lock naming the path.
     let committed = KindFactRow {
-        ..common::kind_facts("dial", ".claude/local", "*.md")
+        ..common::kind_facts("knob", ".claude/local", "*.md")
     };
-    let mut payload = dial_payload(committed);
+    let mut payload = knob_payload(committed);
     payload.members[0].body = "the projected body.\n".to_string();
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert!(doc_path.exists(), "the committed projection is written");
@@ -208,9 +209,9 @@ fn emit_never_reaps_a_document_whose_kind_turns_local() {
     // Now the kind is declared local and the author owns the document. The prior rollup
     // row still names the path and this pass projects no member onto it — the reap must
     // not read it as an orphan and delete an author's uncommitted file.
-    fs::write(&doc_path, DIAL_DOC).unwrap();
+    fs::write(&doc_path, KNOB_DOC).unwrap();
     let report = drift::emit(
-        &dial_payload(dial_kind_facts()),
+        &knob_payload(knob_kind_facts()),
         &into,
         EmitOptions::default(),
     )
@@ -218,7 +219,7 @@ fn emit_never_reaps_a_document_whose_kind_turns_local() {
 
     assert_eq!(
         fs::read_to_string(&doc_path).unwrap(),
-        DIAL_DOC,
+        KNOB_DOC,
         "the local document survives the transition byte-identical: {:?}",
         report.entries
     );
@@ -232,8 +233,8 @@ fn check_derives_a_local_members_rows_at_read_time_under_the_declared_kind() {
     let harness = scaffold(
         "local-check",
         Declarations {
-            kinds: vec![dial_kind_facts()],
-            requirements: vec![common::requirement("dial-is-governed", true, None)],
+            kinds: vec![knob_kind_facts()],
+            requirements: vec![common::requirement("knob-is-governed", true, None)],
             ..Default::default()
         },
     );
@@ -261,13 +262,13 @@ fn check_reads_a_local_members_document_under_the_declared_layout() {
     let harness = scaffold(
         "local-nonfit",
         Declarations {
-            kinds: vec![dial_kind_facts()],
+            kinds: vec![knob_kind_facts()],
             ..Default::default()
         },
     );
     common::write_sibling(
         &harness,
-        ".claude/local/dial.md",
+        ".claude/local/knob.md",
         "# Mode\nadvisory\n\n# Satisfies\n\n# Overrides\n\n# Stray\nunadmitted structure.\n",
     );
 
@@ -296,8 +297,8 @@ fn check_derives_a_local_members_collection_members_off_its_document() {
     let harness = scaffold(
         "local-collection",
         Declarations {
-            kinds: vec![dial_kind_facts()],
-            requirements: vec![common::requirement("dial-is-governed", true, Some("dial"))],
+            kinds: vec![knob_kind_facts()],
+            requirements: vec![common::requirement("knob-is-governed", true, Some("knob"))],
             clauses: vec![drift::ClauseRow {
                 label: None,
                 kind: Some("override".to_string()),
@@ -342,10 +343,10 @@ fn a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_der
             kinds: vec![KindFactRow {
                 commitment: Some("local".to_string()),
                 format: Some("yaml-frontmatter".to_string()),
-                ..common::kind_facts("dial", ".claude/local", "*.md")
+                ..common::kind_facts("knob", ".claude/local", "*.md")
             }],
             clauses: vec![drift::ClauseRow {
-                kind: Some("dial".to_string()),
+                kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 values: Some(vec!["block".to_string()]),
                 ..common::clause("enum", "required")
@@ -355,8 +356,8 @@ fn a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_der
     );
     common::write_sibling(
         &harness,
-        ".claude/local/dial.md",
-        "---\nmode: advisory\n---\n\nThe machine's own dial, uncommitted.\n",
+        ".claude/local/knob.md",
+        "---\nmode: advisory\n---\n\nThe machine's own knob, uncommitted.\n",
     );
 
     let (findings, ok) = common::check_harness(&harness);
@@ -375,7 +376,7 @@ fn a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_der
     );
 }
 
-/// A frontmatter-face `dial` at `root`/`glob` under `commitment`, plus the `enum` clause
+/// A frontmatter-face `knob` at `root`/`glob` under `commitment`, plus the `enum` clause
 /// its documents breach. The clause is the probe every discovery case below reads: the
 /// lock declares the kind and nothing about any member's fields, so a finding naming
 /// `advisory` is a document the walk reached and read, and silence is a walk that never
@@ -385,10 +386,10 @@ fn discovery_probe(root: &str, glob: &str, commitment: Option<&str>) -> Declarat
         kinds: vec![KindFactRow {
             commitment: commitment.map(str::to_string),
             format: Some("yaml-frontmatter".to_string()),
-            ..common::kind_facts("dial", root, glob)
+            ..common::kind_facts("knob", root, glob)
         }],
         clauses: vec![drift::ClauseRow {
-            kind: Some("dial".to_string()),
+            kind: Some("knob".to_string()),
             field: Some("mode".to_string()),
             values: Some(vec!["block".to_string()]),
             ..common::clause("enum", "required")
@@ -399,7 +400,7 @@ fn discovery_probe(root: &str, glob: &str, commitment: Option<&str>) -> Declarat
 
 /// A document the probe's clause breaches — the per-machine content, at whatever path a
 /// case seats it.
-const PROBE_DOC: &str = "---\nmode: advisory\n---\n\nThe machine's own dial.\n";
+const PROBE_DOC: &str = "---\nmode: advisory\n---\n\nThe machine's own knob.\n";
 
 #[test]
 fn a_local_kinds_document_is_discovered_though_the_gitignore_names_it() {
@@ -412,12 +413,12 @@ fn a_local_kinds_document_is_discovered_though_the_gitignore_names_it() {
         discovery_probe(".claude/local", "*.md", Some("local")),
     );
     common::write_sibling(&harness, ".gitignore", ".claude/local/\n");
-    common::write_sibling(&harness, ".claude/local/dial.md", PROBE_DOC);
+    common::write_sibling(&harness, ".claude/local/knob.md", PROBE_DOC);
 
     let (findings, ok) = common::check_harness(&harness);
 
     assert_eq!(
-        common::findings_for(&findings, "dial.enum.mode").len(),
+        common::findings_for(&findings, "knob.enum.mode").len(),
         1,
         "the ignored document is discovered, read, and gated: {findings:?}"
     );
@@ -438,12 +439,12 @@ fn a_committed_kinds_member_under_the_same_ignore_rule_stays_undiscovered() {
         discovery_probe(".claude/local", "*.md", None),
     );
     common::write_sibling(&harness, ".gitignore", ".claude/local/\n");
-    common::write_sibling(&harness, ".claude/local/dial.md", PROBE_DOC);
+    common::write_sibling(&harness, ".claude/local/knob.md", PROBE_DOC);
 
     let (findings, ok) = common::check_harness(&harness);
 
     assert!(
-        common::findings_for(&findings, "dial.enum.mode").is_empty(),
+        common::findings_for(&findings, "knob.enum.mode").is_empty(),
         "the ignore rule stands for a committed kind: {findings:?}"
     );
     assert!(ok, "nothing was discovered to gate: {findings:?}");
@@ -452,11 +453,11 @@ fn a_committed_kinds_member_under_the_same_ignore_rule_stays_undiscovered() {
 #[test]
 fn a_local_kind_governing_under_the_workspace_is_discovered_though_the_walk_skips_it() {
     // The workspace skip is discovery's second presumption — the surface holds temper's
-    // own modules and lock, never a harness member — and the ratified dial lands at
-    // `.temper/dial.toml`, right under it. The `governs` declaration overrides that skip
-    // for exactly this kind's walk, so the dial's own locus is reachable; the rest of the
-    // surface stays what it was, since the discoverable set is only consulted under the
-    // walking kind's locus.
+    // own modules and lock, never a harness member — and the shipped dial lands right
+    // under it. The `governs` declaration overrides that skip for exactly this kind's
+    // walk, so a local kind's own locus is reachable there; the rest of the surface stays
+    // what it was, since the discoverable set is only consulted under the walking kind's
+    // locus.
     let harness = common::tmpdir("local-workspace");
     fs::create_dir_all(harness.join(".temper")).unwrap();
     common::write_lock(
@@ -466,10 +467,10 @@ fn a_local_kind_governing_under_the_workspace_is_discovered_though_the_walk_skip
                 commitment: Some("local".to_string()),
                 format: Some("toml-document".to_string()),
                 unit_shape: Some("named-field(name)".to_string()),
-                ..common::kind_facts("dial", ".temper", "dial.toml")
+                ..common::kind_facts("knob", ".temper", "knob.toml")
             }],
             clauses: vec![drift::ClauseRow {
-                kind: Some("dial".to_string()),
+                kind: Some("knob".to_string()),
                 field: Some("mode".to_string()),
                 values: Some(vec!["block".to_string()]),
                 ..common::clause("enum", "required")
@@ -479,22 +480,22 @@ fn a_local_kind_governing_under_the_workspace_is_discovered_though_the_walk_skip
     );
     common::write_sibling(
         &harness,
-        ".temper/dial.toml",
+        ".temper/knob.toml",
         "name = \"workstation\"\nmode = \"advisory\"\n",
     );
 
     let (findings, ok) = common::check_harness(&harness);
 
     assert_eq!(
-        common::findings_for(&findings, "dial.enum.mode").len(),
+        common::findings_for(&findings, "knob.enum.mode").len(),
         1,
-        "the dial under the workspace is discovered and read: {findings:?}"
+        "the knob under the workspace is discovered and read: {findings:?}"
     );
     assert!(
         findings.iter().any(|f| f.contains("workstation")),
         "the finding names the member read off the document: {findings:?}"
     );
-    assert!(!ok, "the dial's `mode` breaches the clause: {findings:?}");
+    assert!(!ok, "the knob's `mode` breaches the clause: {findings:?}");
 }
 
 #[test]
@@ -508,26 +509,26 @@ fn a_local_kinds_walk_still_stops_at_git_and_at_a_nested_governed_root() {
         discovery_probe(".claude/local", "**/*.md", Some("local")),
     );
     common::write_sibling(&harness, ".gitignore", ".claude/local/\n");
-    common::write_sibling(&harness, ".claude/local/dial.md", PROBE_DOC);
+    common::write_sibling(&harness, ".claude/local/knob.md", PROBE_DOC);
     // A vendored sub-harness under the locus: its own lock makes its members its own.
     common::write_sibling(&harness, ".claude/local/vendored/.temper/lock.toml", "");
     common::write_sibling(
         &harness,
-        ".claude/local/vendored/vendored-dial.md",
+        ".claude/local/vendored/vendored-knob.md",
         PROBE_DOC,
     );
-    common::write_sibling(&harness, ".claude/local/.git/git-dial.md", PROBE_DOC);
+    common::write_sibling(&harness, ".claude/local/.git/git-knob.md", PROBE_DOC);
 
     let (findings, _ok) = common::check_harness(&harness);
 
-    let breaches = common::findings_for(&findings, "dial.enum.mode");
+    let breaches = common::findings_for(&findings, "knob.enum.mode");
     assert_eq!(
         breaches.len(),
         1,
         "only the locus's own document is the walk's: {findings:?}"
     );
     assert!(
-        breaches[0].contains("dial") && !breaches[0].contains("vendored-dial"),
+        breaches[0].contains("knob") && !breaches[0].contains("vendored-knob"),
         "the fenced documents are not this corpus's members: {breaches:?}"
     );
 }
@@ -543,8 +544,8 @@ fn a_local_class_on_a_kind_governing_no_glob_is_inadmissible() {
                 governs_root: None,
                 governs_glob: None,
                 commitment: Some("local".to_string()),
-                content: Some(dial_layout_row()),
-                ..common::kind_facts("dial", ".claude/local", "*.md")
+                content: Some(knob_layout_row()),
+                ..common::kind_facts("knob", ".claude/local", "*.md")
             }],
             ..Default::default()
         },
@@ -567,8 +568,8 @@ fn a_commitment_label_outside_the_closed_vocabulary_refuses_at_load() {
         Declarations {
             kinds: vec![KindFactRow {
                 commitment: Some("per-machine".to_string()),
-                content: Some(dial_layout_row()),
-                ..common::kind_facts("dial", ".claude/local", "*.md")
+                content: Some(knob_layout_row()),
+                ..common::kind_facts("knob", ".claude/local", "*.md")
             }],
             ..Default::default()
         },

@@ -87,3 +87,9 @@ export { harness } from "./assembly.js";
 // of every projection and the whole lock.
 export type { EmitResult, RegistrationFact, ResolveOptions, SettingsResidue } from "./emit.js";
 export { emit } from "./emit.js";
+
+// The dial — temper's own shipped kind, and the one kind value the root exports: it
+// declares how this machine reads temper's gate, which is a fact about temper rather
+// than about any provider's harness. A provider's kinds stay behind their own subpath.
+export type { Dial, DialEntry } from "./dial.js";
+export { dial, dialDefaultContract } from "./dial.js";

@@ -369,10 +369,47 @@ fn claude_code_marketplace() -> CustomKind {
     }
 }
 
+/// temper's own **dial** kind: `.temper/dial.toml`, a local file locus whose entries name
+/// a clause by its compiled address and declare the severity this machine reads it at.
+///
+/// The one kind here that is not a claude-code kind — Claude Code never reads this
+/// document; temper's own gate does — so it is the SDK's root export rather than its
+/// provider subpath's, and its facts are the corpus's rather than an external source's.
+///
+/// Identity reads from the top-level `name` for its `marketplace` sibling's reason: the
+/// stem is `dial` on every machine that has one. Its `clause` entries reach the member's
+/// fields the way every other top-level key of a document member does — the whole table
+/// is the member's own fields — so [`crate::dial`] reads them off the extracted
+/// [`Features`] rather than re-parsing the document behind the contract's back.
+///
+/// Channel-less, and [`Commitment::Local`](crate::kind::Commitment::Local): read in place
+/// at check, never an emit input or target, and no row of its members' ever enters the
+/// lock.
+fn temper_dial() -> CustomKind {
+    CustomKind {
+        format: Some(Format::TomlDocument),
+        unit_shape: Some(crate::kind::UnitShape::NamedField {
+            field: "name".to_string(),
+        }),
+        ..CustomKind::new(
+            crate::dial::KIND,
+            Governs {
+                root: crate::WORKSPACE_DIR.to_string(),
+                glob: crate::dial::DOCUMENT.to_string(),
+            },
+            Extraction::new(vec![Primitive::Field {
+                key: "name".to_string(),
+            }]),
+        )
+    }
+    .local()
+}
+
 /// Every embedded built-in kind, freshly constructed — the compiled default program's
 /// whole kind set, in no particular order (callers key by [`CustomKind::name`]).
 fn all_kinds() -> Vec<CustomKind> {
     vec![
+        temper_dial(),
         claude_code_agent(),
         claude_code_command(),
         claude_code_hook(),
@@ -593,6 +630,7 @@ mod tests {
             vec![
                 "agent",
                 "command",
+                "dial",
                 "hook",
                 "installed-plugin",
                 "marketplace",

@@ -23,6 +23,7 @@ use temper::contract;
 use temper::contract::Contract;
 use temper::coverage;
 use temper::coverage_note;
+use temper::dial;
 use temper::document;
 use temper::drift;
 use temper::engine;
@@ -599,15 +600,28 @@ fn explain(target: &str) -> miette::Result<String> {
 /// Returns the read error when the lock cannot be read or parsed, and a
 /// [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an unrecognized value.
 fn mode_from_lock(workspace_dir: &Path) -> miette::Result<compose::EnforcementMode> {
-    let Some(value) = drift::read_declarations(workspace_dir)?
+    mode_from_declarations(&drift::read_declarations(workspace_dir)?)
+}
+
+/// The enforcement mode `declarations` declare, for a caller that has already read them —
+/// [`gate`], which needs the mode to decide whether a dialed softening binds and must
+/// never reach a second verdict on the posture from a second read.
+///
+/// # Errors
+///
+/// As [`mode_from_lock`], less the read itself.
+fn mode_from_declarations(
+    declarations: &drift::Declarations,
+) -> miette::Result<compose::EnforcementMode> {
+    let Some(value) = declarations
         .assembly
-        .into_iter()
+        .iter()
         .find(|row| row.fact == "mode")
-        .and_then(|row| row.value)
+        .and_then(|row| row.value.as_deref())
     else {
         return Ok(compose::EnforcementMode::default());
     };
-    match value.as_str() {
+    match value {
         "note" => Ok(compose::EnforcementMode::Note),
         "warn" => Ok(compose::EnforcementMode::Warn),
         "block" => Ok(compose::EnforcementMode::Block),
@@ -800,10 +814,20 @@ fn gate(
     // Never gated on a lock's presence — an unadopted harness's lock declares
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
+    let committed = drift::read_declarations(workspace)?;
+    // The dial's softening is inert under `block`, so the mode is resolved before any
+    // contract is, and off the same declarations the family assembles from — a run whose
+    // gate and whose guard disagreed about the harness's own posture would be two gates.
+    let mode = mode_from_declarations(&committed)?;
     let LockFamily {
         declarations,
         joined_clauses,
-    } = assemble_lock_family(harness_root, &drift::read_declarations(workspace)?, layers)?;
+        dial,
+    } = assemble_lock_family(harness_root, &committed, layers)?;
+    // Every address the dial reached, accumulated across the contracts and selections
+    // below: an entry that reached none is the one thing a dial can be wrong about that
+    // its own schema cannot catch.
+    let mut dialed: BTreeSet<String> = BTreeSet::new();
     let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
         .requirements
         .iter()
@@ -849,11 +873,18 @@ fn gate(
         // are appended *after* that fallback decides, never folded into the rows it reads:
         // a layer's row is not this harness declaring one, so it must never be what tips a
         // built-in off its embedded default and onto a contract of the layer's alone.
-        let contract = compose::with_joined_clauses(
+        let mut contract = compose::with_joined_clauses(
             builtin_contract(&declarations.clauses, &kind.name)?,
             &joined_clauses,
             &kind.name,
         )?;
+        // Every kind's contract is dialable but the dial's own: its clauses are the
+        // envelope the dial document is checked against, so a machine that could soften
+        // them could spell its way out of the shape that bounds it. `dial::refusals`
+        // reports the entry that tried rather than leaving it silently inert.
+        if kind.name != dial::KIND {
+            dialed.extend(dial.apply(mode, &mut contract.clauses));
+        }
 
         let features = kind_features(kind, harness_root, &declarations)?;
 
@@ -893,11 +924,12 @@ fn gate(
     )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        let contract = compose::with_joined_clauses(
+        let mut contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
             &joined_clauses,
             &row.name,
         )?;
+        dialed.extend(dial.apply(mode, &mut contract.clauses));
         let features = kind_features(&custom_kind, harness_root, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
@@ -957,11 +989,12 @@ fn gate(
     // embedded kind has none of, and an embedded member's host file is already counted
     // under its own kind.
     for (kind, features) in &embedded_features {
-        let contract = compose::with_joined_clauses(
+        let mut contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(&declarations.clauses, kind)?,
             &joined_clauses,
             kind,
         )?;
+        dialed.extend(dial.apply(mode, &mut contract.clauses));
 
         diagnostics.extend(engine::admissibility(
             &contract,
@@ -1011,6 +1044,21 @@ fn gate(
     // universal binding are the same algebra, so neither can be judged in isolation.
     let mut selections = roster::selections(&requirements, &by_kind);
     selections.extend(kind_selections(&contracts, &by_kind));
+    // The second and last dial site. A requirement's own clauses reach a judge only here,
+    // as does the each-grain narrowing clause its `kind` facet sources — both are
+    // synthesized past the contracts above, so dialing those alone would leave a
+    // requirement's findings the one family an author could read an address off and not
+    // dial. A kind selection re-dials clauses already dialed above; `apply` is
+    // idempotent, and one site over the whole list beats a second rule about which half
+    // of it is fresh — the dial's own kind selection excepted, since it carries a copy of
+    // the very contract the loop above holds out of reach.
+    for selection in &mut selections {
+        if selection.selector == engine::Selector::Kind(dial::KIND.to_string()) {
+            continue;
+        }
+        dialed.extend(dial.apply(mode, &mut selection.clauses));
+    }
+    diagnostics.extend(dial.refusals(&dialed));
 
     // The selection grain: `count` / `unique` / `membership` whole, `kind` each.
     diagnostics.extend(engine::judge(&selections));
@@ -1434,6 +1482,12 @@ struct LockFamily {
     /// *is* — they only add checks over what it already declares — and a consumer that
     /// reads them as the corpus's own would let a layer redefine the corpus.
     joined_clauses: Vec<drift::ClauseRow>,
+    /// This machine's own dial: the severities it re-reads the clauses above at. Read
+    /// with the rest of the family for the same one-read reason, and kept apart from both
+    /// row sets for the joined clauses': a dial declares nothing about what this harness
+    /// is, and adds no check to it either — it only re-weighs the checks the rows above
+    /// already carry.
+    dial: dial::Dial,
 }
 
 /// The run's whole declaration family: the committed lock, every local-locus kind's
@@ -1448,8 +1502,9 @@ struct LockFamily {
 /// reads is the shape this replaces; the derivation runs against the committed family,
 /// which is what decides the kinds and loci the members are discovered under.
 ///
-/// A joined lock is read here for the same reason: one read, before any consumer, so no
-/// call site below re-opens a layer and re-decides what it says.
+/// A joined lock and this machine's dial are read here for the same reason: one read,
+/// before any consumer, so no call site below re-opens a layered input and re-decides
+/// what it says.
 ///
 /// # Errors
 ///
@@ -1470,9 +1525,37 @@ fn assemble_lock_family(
         assembled.satisfies.extend(rows.satisfies);
     }
     Ok(LockFamily {
+        dial: read_dial(harness_root, committed)?,
         declarations: assembled,
         joined_clauses: read_layer_clauses(layers)?,
     })
+}
+
+/// This machine's [`dial::Dial`], read off the shipped `dial` kind's own members.
+///
+/// The kind is embedded rather than lock-declared, so it is the definition that is
+/// reached for here rather than the loop above's declared set — a harness gets its dial
+/// from adopting temper at all, never from declaring one. The read is the same
+/// [`kind_features`] the gate's own dispatcher runs over the kind, which is what keeps
+/// the entries this returns and the document the contract judges from ever being two
+/// different reads of one file.
+///
+/// # Errors
+///
+/// As [`kind_features`] — a malformed dial document fails the run rather than reading as
+/// an empty dial, since a dial silently applying nothing is the fail-open case.
+fn read_dial(
+    harness_root: &Path,
+    declarations: &drift::Declarations,
+) -> miette::Result<dial::Dial> {
+    let Some(kind) = builtin_kind::definition(dial::KIND)? else {
+        return Ok(dial::Dial::default());
+    };
+    Ok(dial::Dial::from_features(&kind_features(
+        &kind,
+        harness_root,
+        declarations,
+    )?))
 }
 
 /// The separator between a joined clause's own compiled address and the layer that
