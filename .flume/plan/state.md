@@ -1,72 +1,76 @@
 # Plan state
 
 - Spec derived through: b8396d4
-- Audited through: 4084dcd
-- Residue swept through: 4084dcd
-- This tick: POST-SHIP RECONCILIATION of `14c5de4..4084dcd` (f8d2431
-  `json-document` write-face dispatch, c68f625 `plugin-manifest`) — both
-  motions, both cursors advanced. Inbox empty and `.flume/refactor/` at its
-  README alone, so job 3 was the first live input.
-  **Audit.** Both ships verified on disk, not from the log: `project_bytes`
-  routes `Some(Format::JsonDocument)` to `json_manifest::write_document`
-  (`src/drift.rs:1740`) with `format_from_row` lifted beside `content_from_row`
-  (`src/kind.rs:882`); `claude_code_plugin_manifest()` is in `all_kinds()` and
-  `pluginManifestDefaultContract` ships four cited clauses. 4084dcd had already
-  dropped both entries, so the drop motion was pre-paid — but **its cite
-  re-derivation was not, and one claim was false**: MARKETPLACE-KIND asserted
-  `all_kinds()` "315, re-verified unmoved at 4084dcd" when c68f625 had pushed it
-  to **344** by inserting the sibling above it; the `builtins.ts` header cite
-  (605-620) is really **599-627**. Both rewritten, and the entry now says the
-  number moves whenever a sibling lands. The `kinds.len()` assert **is** 10 at
-  2113 as claimed (a second assert at 1572 is a one-kind fixture, not it). All
-  four gates re-tested: BUNDLE-EMIT-THROUGH-KINDS still blocked (no
-  `claude_code_marketplace`); both parks hold on every clause — `MAX_IMPORT_HOPS`
-  still 5 at `graph.rs:65` under a cite claiming five, nothing ruled the hop
-  semantics, that window touched no import mechanics; four era tags and no
-  version tag, crate 0.1.0 vs npm 0.0.7, release.yml:7-9 states the deferral
-  verbatim.
-  **Sweep — the motion nothing had run, and it found a live defect.**
-  **JSON-DOCUMENT-BODY-REFUSAL** filed: `project_bytes`'s JSON arm renders
-  `fields` and never reads `body`, so a `json-document` member's authored prose
-  is **silently dropped** — invariant 3 (never drops authored words) and
-  invariant 6 (loud or nothing) break on the same arm. Reachable today, not
-  theoretical: `pluginManifest` declares no `shape`, so it is body-bearing
-  (`CustomKind::new` defaults `Content::File`), and `MemberInit` carries
-  `prose?` unconditionally (`sdk/src/kind.ts:197`) — the SDK type refuses
-  nothing. The include path is the vivid one: `splice_includes` resolves the
-  include and pushes its row into the lock, then the spliced bytes are dropped —
-  a fingerprinted dependency whose content reaches no artifact. This is f8d2431's
-  own blind spot: that tick argued `placements` cannot exist over JSON bytes *by
-  construction* (sound — `placement_lines` matches only `---\n` or a banner) and
-  never made the same argument for `body`, which has none. `per` cites
-  `specs/intent.md` "Invariants"; `blockedBy` TYPE-PREDICATE-ROUND-TRIPS on
-  `src/drift.rs` alone. Two candidate fixes were weighed and one is not real:
-  declaring the kind `shape: "fields"` buys **no** type-level refusal
-  (`MemberInit.prose?` does not vary on `shape`), so the engine-side loud refusal
-  is the fix, sited where a `Result` can fire before a byte is written.
-  Swept clean otherwise: the window introduced no retired vocabulary, and
-  `bundle`'s `write_json` already delegates to `json_manifest::write_manifest`
-  — the JSON **encoder** has one home, so BUNDLE-EMIT-THROUGH-KINDS's target is
-  narrowed on disk to the hand-built manifest **values**, not the writer. The
-  corpus/code gap on `plugin-manifest`'s `--strict` contract is routed by
-  `(closed-surface-predicate)`, not re-filed. All three standing debt riders
-  re-verified unmoved and restamped to 4084dcd (`session_start.rs` 121/140,
-  `prose.ts`'s ten lines, `Cargo.toml`'s cite at 42); none has a carrier.
-  Spec cursor copied forward verbatim — this tick derived nothing.
-- Queue: 6 entries — 2 pickable and file-disjoint (MARKETPLACE-KIND in
-  `src/builtin_kind.rs`+`src/builtin_lock*`+`sdk/`+`tests/`;
-  TYPE-PREDICATE-ROUND-TRIPS in `sdk/src/contract.ts`+`declarations.ts`
-  +`generated/ClauseRow.ts`+`src/drift.rs`+`src/contract.rs`+`src/extract.rs`),
-  2 serialized (JSON-DOCUMENT-BODY-REFUSAL behind TYPE-PREDICATE-ROUND-TRIPS on
-  `src/drift.rs`; BUNDLE-EMIT-THROUGH-KINDS behind MARKETPLACE-KIND on
-  `src/bundle.rs`), 2 parked on human acts. No file appears in two `open`
-  entries — checked mechanically.
+- Audited through: 18f219d
+- Residue swept through: 18f219d
+- This tick: POST-SHIP RECONCILIATION of `4084dcd..18f219d` (c74aab9
+  `marketplace`, c7bd4f3 the `type` predicate's lock crossing) — both motions,
+  both cursors advanced. Inbox empty and `.flume/refactor/` at its README
+  alone, so job 3 was the first live input.
+  **Audit.** Both ships verified on disk, not from the log: `claude_code_marketplace()`
+  (`src/builtin_kind.rs:353`) is in `all_kinds()` (374-382) and the lock's
+  `kinds.len()` assert reads **11** at `tests/lock_declaration_rows.rs:2135`
+  (ten roster kinds plus `supporting-doc`, exactly as c74aab9's body argues);
+  `type` carries its declared kind end to end — `value_type` column
+  (`drift.rs:2505`), `predicate_from_row` arm (`contract.rs:332-334`) decoding
+  via `ValueType::from_name`, SDK `type(field, kind)` (`contract.ts:74`).
+  18f219d had already dropped both entries, so the drop motion was pre-paid.
+  **Both blockers cleared, and both dependents opened.** JSON-DOCUMENT-BODY-REFUSAL
+  (was `blockedBy` TYPE-PREDICATE-ROUND-TRIPS on `src/drift.rs`) → `open`:
+  c7bd4f3's drift.rs edits landed at 2445+/3337+, clear of every cite it holds.
+  Its cites were **re-derived and two were wrong when filed** — `format_from_row`
+  reads 989 not 988, the `splice_includes` call 982 not 983 (both unmoved across
+  the window; the entry was off by one at 826f06d). BUNDLE-EMIT-THROUGH-KINDS
+  (was `blockedBy` MARKETPLACE-KIND) → `open`; every `src/bundle.rs` cite
+  (178/185/191/223/238/259/278) re-verified unmoved. Both parks hold on every
+  clause: `git diff 4084dcd..HEAD -- src/graph.rs tests/graph.rs` is **empty**,
+  `MAX_IMPORT_HOPS` still 5 at 65 under a cite claiming five, nothing ruled the
+  hop semantics; four era tags and no version tag, crate 0.1.0 vs npm 0.0.7,
+  release.yml:7-9 states the deferral verbatim.
+  **Sweep — the window declared its own remainder and nothing carried it.**
+  **TYPE-CLAUSE-CONSUMER** filed: `type` now round-trips, and **no shipped
+  contract uses it** — `rg '\btype\(' sdk/src/builtins.ts` matches prose only.
+  `pluginManifestDefaultContract`'s header (614-618) still asserts the predicate
+  "takes no declared kind, and the clause row carries no column for one" —
+  **false at HEAD**, and the same bullet names its own consumer and calls the
+  rule decidable and documented (`keywords` a string is "a load error
+  everywhere, not merely under `--strict`"). `src/builtin_lock.toml`'s header
+  (42-48) narrates the same retired hold. This is c7bd4f3's declared out-of-scope
+  corner ("that file is MARKETPLACE-KIND's") which c74aab9 correctly did not
+  poach — an honest handoff with no catcher, so plan filed it. Not comment
+  staleness: the missing **clause** is the entry; the header moves with it.
+  `per` cites `specs/builtins.md` "Default contracts"; `tests/type_predicate.rs:35`
+  already proves the exact mechanism (`type("keywords", "list")`) over a custom
+  kind — the shipped kind whose real field motivated it stays ungated.
+  **`(nested-field-addressing)` registered** — MARKETPLACE-KIND shipped a wide
+  corner cut (its own `.flume/friction/` capture): a clause addresses a **flat**
+  top-level key and `json_to_feature` (`src/extract.rs:916-926`) discards inner
+  object keys and stringifies array elements, so `owner.name`, `plugins[]`'s
+  `name`/`source`, and the `source` union have no clause — a catalog Claude Code
+  refuses outright passes `check` clean. Forked, not filed: `specs/builtins.md`
+  sanctions only "undecidable, deliberately absent", and **three** contracts now
+  carry a *decidable-but-unexpressible* hold the corpus does not name. Naming
+  that category is a corpus act (`model/contract.md`, "clause"), never a build
+  tick's. Kin to `(closed-surface-predicate)`; may settle as a pair.
+  `(plugin-author-dogfood)`'s blocked-in-fact clause **discharged** — all three
+  0031 kinds ship, verified in `all_kinds()`; only the human ruling holds it.
+  `(closed-surface-predicate)` corrected: `Predicate::Optional` is at
+  `contract.rs:89`, not 88 (unmoved across the window — wrong when written).
+  All three standing debt riders re-verified unmoved and restamped to 18f219d
+  (`session_start.rs` 121/140, `prose.ts`'s ten lines, `Cargo.toml`'s cite at
+  42); none has a carrier. Spec cursor copied forward verbatim — this tick
+  derived nothing.
+- Queue: 5 entries — 3 pickable and file-disjoint (TYPE-CLAUSE-CONSUMER in
+  `sdk/src/builtins.ts`+`src/builtin_lock.toml`+`sdk/test/`+`tests/plugin_manifest_kind.rs`;
+  JSON-DOCUMENT-BODY-REFUSAL in `src/drift.rs`+`tests/json_document_format.rs`;
+  BUNDLE-EMIT-THROUGH-KINDS in `src/bundle.rs`+`tests/bundle.rs`), 2 parked on
+  human acts. No file appears in two entries — checked mechanically.
 
 Plan continues: no — every input below the serviced job is dead. Inbox empty,
 `.flume/refactor/` at its README, spec delta empty (`Spec derived through:`
 b8396d4 is the last `specs:` commit), and both reconciliation cursors now read
-4084dcd, the tip of the last build window. Build takes over: two entries are
-pickable, file-disjoint, and their cites were re-derived on disk this tick.
+18f219d, the tip of the last build window. Build takes over: three entries are
+pickable, file-disjoint, and every cite was re-derived on disk this tick.
 
 **One thing for a human, unchanged and not the loop's:** decision 0030 is
 still a hole — `specs/decisions/` runs 0023…0029, 0031, and 0030 (`review is

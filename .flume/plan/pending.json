@@ -1,5 +1,48 @@
 [
   {
+    "tag": "TYPE-CLAUSE-CONSUMER",
+    "summary": "`plugin-manifest`'s `keywords` must be a `list` — decidable, documented, and now expressible — stays ungated, and the contract header still narrates the hold `c7bd4f3` retired",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`pluginManifestDefaultContract` (628) ships four clauses and no `type` clause — `rg '\\btype\\(' sdk/src/builtins.ts` matches only prose, so the predicate the SDK now sells has **zero** shipped consumers. Its header's second hold bullet (614-618) asserts `type()` 'takes no declared kind, and the clause row carries no column for one' — **false at HEAD**: `sdk/src/contract.ts:74` is `type(field, kind)` filling a `value_type` column (`src/drift.rs:2505`), decoded by `predicate_from_row` (`src/contract.rs:332-334`) through `ValueType::from_name`. The bullet names its own consumer and calls the rule decidable and documented: `keywords` a string instead of an array is 'a load error everywhere, not merely under `--strict`'. So ship `clause(type(\"keywords\", \"list\"), ...)` with the severity, guidance, and cite the shipped bar demands (`specs/builtins.md`, 'The clauses live in code': decidable, severity-declared, guided, cited and dated — re-retrieve the plugins-reference page rather than carrying the header's 2026-07-16 stamp forward on trust), and cut the retired bullet. `ValueType`'s wire spelling is lowercase (`src/extract.rs:42-57`; `list` is the container arm). NOT in scope: the first hold bullet (608-613, the closed-key-set allow-list) — that is the live `(closed-surface-predicate)` fork and its prose stays. Leave `skillDefaultContract`'s own hold (882-885) alone: its two absent rules want a shape predicate, not `type`."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "The embedded built-in lock — the default contract in declaration shape, so a new clause is a new row here, and `tests/builtin_lock_frozen.rs` byte-compares this file against the SDK module's own re-derived emit (it needs no edit of its own; it fails if the file is not regenerated). Do not hand-write the row — rebuild the SDK and re-derive, per `.claude/rules/sdk.md`. Its hand-maintained header (42-48) narrates the same retired hold: 'the rest of the `claude plugin validate --strict` profile — unrecognized top-level fields, and wrong-typed component paths — needs predicates the algebra does not carry yet'. Half of that claim moves with this entry and half does not: unrecognized top-level fields remain held by `(closed-surface-predicate)`. Re-word to the true remainder rather than deleting the paragraph — and if the wrong-typed *component paths* (`commands`/`agents`, documented as string-or-array) are still unexpressible because `type` declares one kind and not a union, say that plainly in the header and the commit body rather than letting the new `keywords` row imply the whole hold lifted."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "The SDK-side contract assertions over `pluginManifestDefaultContract` (44, 235-247). The clause array grows by one, so whatever asserts its shape moves with it."
+        },
+        {
+          "path": "tests/plugin_manifest_kind.rs",
+          "description": "The kind's acceptance. Its fixture already authors a well-formed `\"keywords\": [\"deployment\", \"ci-cd\"]` (34) and `a_well_formed_manifest_passes_the_gate_clean` (130) must stay green — the new clause cannot be satisfied by breaking the shipped path. Add the falsifier beside `a_top_level_experimental_component_key_is_the_strict_bar_the_algebra_can_decide` (191), the sibling deny-slice acceptance: a manifest whose `keywords` is a bare string draws the finding, and an absent `keywords` (an optional field) stays silent — the arity `tests/type_predicate.rs` already pins for a custom kind, now pinned for the shipped one."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/plugin_manifest_kind.rs",
+        "asserts": "a `plugin-manifest` whose `keywords` is a string draws the finding; a list-valued `keywords` and an absent `keywords` both stay silent, and the well-formed fixture still passes clean"
+      }
+    ],
+    "acceptance": "The `type` predicate has its first shipped consumer, and no default contract's header claims a hold the engine no longer carries: a documented, decidable rule of the strictest profile is gated where the vocabulary expresses it, absent only where it genuinely cannot (`specs/builtins.md`, 'Default contracts' — the strictest documented profile, with undecidable properties the only deliberate absence). `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
+    "notes": "Sweep finding, window 4084dcd..18f219d, and that window's own declared remainder: c7bd4f3 shipped the lock crossing and said out loud that builtins.ts's hold paragraph and the `keywords` clause were out of its scope (the file was MARKETPLACE-KIND's); c74aab9 then shipped that file without poaching them — correctly. Nothing carried it, so plan filed it. `tests/type_predicate.rs:35` proves the mechanism with `type(\"keywords\", \"list\")` over a custom `pack` kind. scoped at 18f219d."
+  },
+  {
     "tag": "JSON-DOCUMENT-BODY-REFUSAL",
     "summary": "`emit` silently drops an authored body on a `json-document` member — `project_bytes` renders fields alone, and `plugin-manifest` is body-bearing, so authored prose vanishes at a `.json` path",
     "per": {
@@ -7,8 +50,7 @@
       "section": "Invariants"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TYPE-PREDICATE-ROUND-TRIPS"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +58,11 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`project_bytes` (1734) takes the projection's `body` and, on the `Some(Format::JsonDocument)` arm (1740-1742), returns `write_document(fields)` — `body` is never read there. Every other arm renders it. So a `json-document` member's authored prose is dropped from its projection with no error: invariant 3 ('temper never rewords, synthesizes, or drops authored words') and invariant 6 ('no path silently degrades ... or emits over an unresolved input') both break on the same arm. This is the sibling of the bug f8d2431 fixed — that tick made `format` load-bearing on the write face and reasoned that install's `placements` cannot exist over JSON bytes *by construction* (`placement_lines` matches only a `---\\n` prefix or a banner marker), which is sound; it did not reason about `body`, which has no such construction argument. **The fix is a refusal, not a render** — a JSON document has no prose slot to render into, so the honest act is to refuse loudly rather than invent a home for the words. Site it where the refusal can carry a `Result` and fire before any byte is written (`specs/model/pipeline.md`, 'Emit': refusal precedes output): the `Projection`-building loop (985-991, where `format: format_from_row(facts)?` is already lifted at 988 and where the include resolution already refuses) is the natural home; `project_bytes` itself returns `String` and cannot refuse without a signature change. Add the `DriftError` variant beside `IncludeNotUtf8` (238) / `IncludeArity` (252) — same shape: a `#[diagnostic(code(...))]`, the member's `kind:name` address, and a message naming the member and its format, carrying the reason: the words have no home in this format, so route them to a body-bearing member or drop them at the source. `project_bytes`'s doc comment asserts the JSON face 'takes no `placements` and drops nothing' — true of placements, false of `body` today; it moves with the change."
+          "description": "`project_bytes` (1734) takes the projection's `body` and, on the `Some(Format::JsonDocument)` arm (1740-1742), returns `write_document(fields)` — `body` is never read there. Every other arm renders it. So a `json-document` member's authored prose is dropped from its projection with no error: invariant 3 ('temper never rewords, synthesizes, or drops authored words') and invariant 6 ('no path silently degrades ... or emits over an unresolved input') both break on the same arm. This is the sibling of the bug f8d2431 fixed — that tick made `format` load-bearing on the write face and reasoned that install's `placements` cannot exist over JSON bytes *by construction* (`placement_lines` matches only a `---\\n` prefix or a banner marker), which is sound; it did not reason about `body`, which has no such construction argument. **The fix is a refusal, not a render** — a JSON document has no prose slot to render into, so the honest act is to refuse loudly rather than invent a home for the words. Site it where the refusal can carry a `Result` and fire before any byte is written (`specs/model/pipeline.md`, 'Emit': refusal precedes output): the `Projection`-building loop (985-992, where `format: format_from_row(facts)?` is already lifted at 989 and where the include resolution already refuses) is the natural home; `project_bytes` itself returns `String` and cannot refuse without a signature change. Add the `DriftError` variant beside `IncludeNotUtf8` (238) / `IncludeArity` (252) — same shape: a `#[diagnostic(code(...))]`, the member's `kind:name` address, and a message naming the member and its format, carrying the reason: the words have no home in this format, so route them to a body-bearing member or drop them at the source. `project_bytes`'s doc comment (1727-1730) asserts the JSON face 'takes no `placements` and drops nothing' — true of placements, false of `body` today; it moves with the change."
         },
         {
           "path": "tests/json_document_format.rs",
-          "description": "The format's own home (its header: 'the format's own faces, held apart from any roster'), and no other entry opens it — so the acceptance belongs here rather than in a new file. Add the falsifier: a `json-document` payload member carrying a non-empty body refuses, naming the member, and writes no bytes; the empty-body case (every fixture today) still emits byte-identically, so the refusal cannot be satisfied by breaking the shipped path. Drive the include case too if it costs little — it is the vivid one: `splice_includes` (983) resolves the include, pushes its `include_row` into the lock, and then the spliced bytes are dropped, so temper fingerprints a dependency whose content reaches no artifact."
+          "description": "The format's own home (its header: 'the format's own faces, held apart from any roster'), and no other entry opens it — so the acceptance belongs here rather than in a new file. Add the falsifier: a `json-document` payload member carrying a non-empty body refuses, naming the member, and writes no bytes; the empty-body case (every fixture today) still emits byte-identically, so the refusal cannot be satisfied by breaking the shipped path. Drive the include case too if it costs little — it is the vivid one: `splice_includes` (982) resolves the include, pushes its `include_row` into the lock (980), and then the spliced bytes are dropped, so temper fingerprints a dependency whose content reaches no artifact."
         }
       ],
       "retire": []
@@ -33,7 +75,7 @@
       }
     ],
     "acceptance": "No authored word reaches a `json-document` projection's write face and vanishes: a body that cannot be rendered is an error at author-time, never a silent drop (`specs/intent.md`, invariant 3 'Verbatim prose' and invariant 6 'Loud or nothing' — the per-surface refusal clauses are instances of that rule, and a surface without one is a gap, not a license). `cargo test`, `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Sweep finding, window 14c5de4..4084dcd. Reachable today, not theoretical: `pluginManifest` (`sdk/src/builtins.ts:589`) declares no `shape`, so it is body-bearing (`content` absent = `file`, one verbatim prose body), and `MemberInit` carries `prose?` (`sdk/src/kind.ts:197`) unconditionally — the SDK type refuses nothing. `blockedBy` TYPE-PREDICATE-ROUND-TRIPS on `src/drift.rs` alone; nothing else is shared. scoped at 21e003a."
+    "notes": "Sweep finding, window 14c5de4..4084dcd. Reachable today: `pluginManifest` (`sdk/src/builtins.ts:589`) declares no `shape`, so it is body-bearing (one verbatim prose body), and `MemberInit` carries `prose?` (`sdk/src/kind.ts:197`) unconditionally — the SDK type refuses nothing. Unblocked at 18f219d: TYPE-PREDICATE-ROUND-TRIPS shipped (c7bd4f3), its drift.rs edits landing at 2445+/3337+, clear of every cite here. scoped 21e003a; cites corrected and re-verified 18f219d (988→989, 983→982)."
   },
   {
     "tag": "BUNDLE-EMIT-THROUGH-KINDS",
@@ -43,8 +85,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MARKETPLACE-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -52,7 +93,7 @@
       "edit": [
         {
           "path": "src/bundle.rs",
-          "description": "`run()` (178) writes `.claude-plugin/plugin.json` (185) and `.claude-plugin/marketplace.json` (191) through `write_json` (278) over the hand-built `plugin_manifest()` (223) and `marketplace_manifest()` (238) values — every cite re-verified unmoved on disk at 21e003a. **Note what is NOT duplicated:** `write_json` already delegates to `crate::json_manifest::write_manifest`, so the JSON *encoder* has one home already and is not this entry's target. What is duplicated is the manifest *values*: hand-built `BTreeMap`s spelling a shape the kind system types once `plugin-manifest` (shipped c68f625) and `marketplace` ship. The manifests become members of their kinds, rendered by the kind's format, so `bundle` stops hand-spelling a shape the engine can now type and gate. This is the consolidation decision 0031 names ('bundle's hard-coded writers reconcile onto the kinds — emit through the kind system, one home; the entry names the unification'), and `specs/process/engineering.md` makes it the entry rather than scope creep — name the unification in the commit body. NOT in scope: the `SessionStart` hook's `hooks/hooks.json` (`hooks_manifest()`, 259) and the skill's `SKILL.md` — `hooks.json` is a plugin-cache artifact of neither kind, and widening to it is the creep the same page forbids. If any part of either manifest's shape cannot route through a kind, say so plainly rather than leaving a silent hand-rolled remainder."
+          "description": "`run()` (178) writes `.claude-plugin/plugin.json` (185) and `.claude-plugin/marketplace.json` (191) through `write_json` (278) over the hand-built `plugin_manifest()` (223) and `marketplace_manifest()` (238) values — every cite re-verified unmoved on disk at 18f219d. **Note what is NOT duplicated:** `write_json` already delegates to `crate::json_manifest::write_manifest`, so the JSON *encoder* has one home already and is not this entry's target. What is duplicated is the manifest *values*: hand-built `BTreeMap`s spelling a shape the kind system now types — `plugin-manifest` (c68f625) and `marketplace` (c74aab9) are both in `all_kinds()` (`src/builtin_kind.rs:374-382`). The manifests become members of their kinds, rendered by the kind's format, so `bundle` stops hand-spelling a shape the engine can type and gate. This is the consolidation decision 0031 names ('bundle's hard-coded writers reconcile onto the kinds — emit through the kind system, one home; the entry names the unification'), and `specs/process/engineering.md` makes it the entry rather than scope creep — name the unification in the commit body. NOT in scope: the `SessionStart` hook's `hooks/hooks.json` (`hooks_manifest()`, 259) and the skill's `SKILL.md` — `hooks.json` is a plugin-cache artifact of neither kind, and widening to it is the creep the same page forbids. If any part of either manifest's shape cannot route through a kind, say so plainly rather than leaving a silent hand-rolled remainder."
         },
         {
           "path": "tests/bundle.rs",
@@ -69,7 +110,7 @@
       }
     ],
     "acceptance": "The two manifest writers have one home: `bundle`'s output is its members rendered by their kinds' formats, not hand-built `serde_json` beside a kind that types the same shape (`specs/process/engineering.md`, 'One job, one home': a job the tree already performs is extended where it lives, never reimplemented beside itself). The bundle temper publishes passes the contract temper ships for it, closing the gap decision 0031 named — the product wrote files it refused to check. `cargo test`, `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Derived from decision 0031 (16ce347), the third derivation item. Blocked on `marketplace` alone now — `plugin-manifest` shipped at c68f625. It consumes EMIT-JSON-DOCUMENT-WRITE-FACE's dispatch rather than building it: that shipped at f8d2431, verified on disk. Distinct from the `(plugin-author-dogfood)` fork: `bundle` still assembles its tree into an output dir, and no `.claude-plugin/` is committed here. scoped at e81c758; cites re-verified 21e003a."
+    "notes": "Derived from decision 0031 (16ce347), the third derivation item. Unblocked at 18f219d: `marketplace` shipped (c74aab9), so both kinds it consumes exist. It consumes f8d2431's write-face dispatch rather than building it. The catalog's gateable slice is thin — `required(\"owner\")`/`required(\"plugins\")` alone, the `(nested-field-addressing)` hold — so 'passes its kind's contract' is a weaker bar for marketplace.json than plugin.json. scoped at e81c758; cites re-verified 18f219d."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -88,11 +129,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 21e003a. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-verified unmoved at 18f219d. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 624 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 21e003a) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-verified unmoved at 18f219d) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -105,7 +146,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 21e003a and holds — nothing ruled the hop semantics; the inbox is empty and the window (f8d2431, c68f625) touched no import mechanics. `src/graph.rs` untouched by that window: `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are all unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 21e003a."
+    "notes": "Park re-tested at 18f219d and holds — nothing ruled the hop semantics; the inbox is empty and the window (c74aab9, c7bd4f3) touched no import mechanics: `git diff 4084dcd..HEAD -- src/graph.rs tests/graph.rs` is empty. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five, and 525/624/654 plus `tests/graph.rs:1356` are unmoved. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 18f219d."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -132,6 +173,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 21e003a, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 18f219d, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
   }
 ]

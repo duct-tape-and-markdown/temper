@@ -13,6 +13,38 @@ tax.
 
 ## Open forks
 
+- `(nested-field-addressing)` — OPEN, model question, registered 07-16 from
+  MARKETPLACE-KIND's shipped corner cut (c74aab9; the build's own capture at
+  `.flume/friction/build-clause-algebra-cannot-address-nested-fields.md`).
+  A clause addresses a field by **top-level key** — every `Predicate` carries a
+  flat `field: String`, resolved `Features::field` → `fields.get(name)` — and
+  `extract::json_to_feature` (`src/extract.rs:916-926`) flattens on the way in:
+  an object becomes an opaque `FeatureValue::Map` (inner keys discarded), an
+  array becomes a `List` of stringified elements. So `marketplace.json`'s
+  documented, **decidable** rules have no clause: `owner.name` required, each
+  `plugins[]` entry's `name`+`source`, the `source` union. A catalog Claude Code
+  refuses outright passes `temper check` clean; the shipped slice is
+  `required("owner")`/`required("plugins")`, with the hold named in
+  `marketplaceDefaultContract`'s header (794) and pinned by
+  `the_rules_below_the_top_level_are_not_gateable_today`.
+  **The fork is the corpus's, not an entry's.** `specs/builtins.md` ("Default
+  contracts") sanctions exactly one reason a clause is absent — "Undecidable
+  properties are deliberately absent" — plus the almost-empty default contract
+  as "the honest encoding, not a gap". Neither names **decidable but
+  unexpressible**, and three shipped contracts now carry that hold
+  (`skill` 882-885, `plugin-manifest` 608-613, `marketplace` 794). Conflating
+  the two is what wants ruling, because the answers differ in kind: a
+  field-path spelling may round-trip with no schema delta (`field` is a
+  `String` on both faces), but un-flattening `FeatureValue` touches the `type`
+  predicate's kind-preservation contract and every consumer — and whether a
+  discriminated-union check (`source`'s value selects the required fields)
+  enters the vocabulary at all is a language change `specs/model/contract.md`
+  ("clause") reserves to a corpus decision, never a build tick's to invent.
+  Nothing is broken by leaving it open — the holds are named and pinned.
+  BUNDLE-EMIT-THROUGH-KINDS is **not** blocked by it (it consumes whatever the
+  contract gates), but its "passes its kind's contract" bar stays thin for
+  `marketplace.json` until this rules.
+
 - `(eval-capability)` — OPEN, strategic, parked past launch. Harness evals: a
   requirement carries prose intent and a verifier edge
   (`specs/model/contract.md`, "requirement"), and the graph gives eval
@@ -37,39 +69,44 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 4084dcd: no
-  `.claude-plugin/` exists here, so both kinds will govern globs this repo
+  dir by `temper bundle` on every run? Re-verified at 18f219d: no
+  `.claude-plugin/` exists here, so both kinds govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
   BUNDLE-EMIT-THROUGH-KINDS, which routes `bundle`'s writers through the kinds
-  without any committed manifest. Blocked in fact until the three 0031 kinds
-  ship — **two of three now do**: `installed-plugin` (9f22de2) and
-  `plugin-manifest` (c68f625) are both in `all_kinds()`, leaving
-  MARKETPLACE-KIND the last. `.claude/` is human `chore(harness):` territory
-  (CLAUDE.md, "The two harnesses"), so this lands as a human act or not at
-  all. No dependents.
+  without any committed manifest. **The blocked-in-fact clause is discharged:
+  all three 0031 kinds now ship** — `installed-plugin` (9f22de2),
+  `plugin-manifest` (c68f625), `marketplace` (c74aab9), each verified in
+  `all_kinds()` on disk (`src/builtin_kind.rs:374-382`). Nothing but the ruling
+  holds it now. `.claude/` is human `chore(harness):` territory (CLAUDE.md,
+  "The two harnesses"), so this lands as a human act or not at all. No
+  dependents.
 
 - `(closed-surface-predicate)` — OPEN, model question, registered 07-16 from
   the drained refactor capture (`build-type-predicate-cannot-cross-the-lock`,
-  observed 024ba9b, re-verified at 4084dcd). `plugin-manifest`'s documented
+  observed 024ba9b, re-verified at 18f219d). `plugin-manifest`'s documented
   `--strict` bar — an unrecognized top-level field is an error — needs an
   **allow-list over a closed key set**, and the shipped algebra cannot express
   it: `forbidden_keys` is a deny-list, and the complement of a finite set over
-  an open key space is not one. `Predicate::Optional` (`src/contract.rs:88`)
-  already records a key as "part of the declared schema" but is
-  `Outcome::Holds` unconditionally (`src/engine.rs:621`) — nothing consumes the
-  record, so the rows exist and mean nothing. The fork: whether a closed
-  surface is opt-in per contract, derived from the `optional` rows emit
-  already writes, or a new predicate. Each answer either grows or newly
-  reads the closed vocabulary, and `specs/model/contract.md` ("clause") makes
-  that a deliberate language change — a corpus decision, never a build tick's
-  to invent. Nothing is broken by leaving it open: `sdk/src/builtins.ts`
-  (599-627, re-read on disk 21e003a — the record said 605-620) names the hold
-  in `pluginManifestDefaultContract`'s header, the honest "almost-empty
-  default contract" posture `specs/builtins.md` sanctions.
-  Distinct from TYPE-PREDICATE-ROUND-TRIPS, the sibling *wiring* gap the same
-  capture named — that one adds no predicate and is filed, not forked. No
-  dependents.
+  an open key space is not one. `Predicate::Optional` (`src/contract.rs:89` —
+  the record said 88; re-read on disk at 18f219d and unmoved across the window,
+  so the old number was wrong when written) already records a key as "part of
+  the declared schema" but is `Outcome::Holds` unconditionally
+  (`src/engine.rs:621`) — nothing consumes the record, so the rows exist and
+  mean nothing. The fork: whether a closed surface is opt-in per contract,
+  derived from the `optional` rows emit already writes, or a new predicate.
+  Each answer either grows or newly reads the closed vocabulary, and
+  `specs/model/contract.md` ("clause") makes that a deliberate language
+  change — a corpus decision, never a build tick's to invent. Nothing is broken
+  by leaving it open: `sdk/src/builtins.ts` (608-613, the first hold bullet of
+  `pluginManifestDefaultContract`'s header) names it, the honest "almost-empty
+  default contract" posture `specs/builtins.md` sanctions, and
+  TYPE-CLAUSE-CONSUMER is scoped to leave that bullet standing.
+  **The sibling is discharged:** TYPE-PREDICATE-ROUND-TRIPS — the *wiring* gap
+  the same capture named, filed not forked — shipped at c7bd4f3.
+  Kin to `(nested-field-addressing)`: both are decidable-but-unexpressible
+  holds, and a corpus ruling that names the category may settle the pair
+  together. No dependents.
 
 - `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
   harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
@@ -129,7 +166,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  4084dcd: both dead trees still spelled (121/140), in a file that window never
+  18f219d: both dead trees still spelled (121/140), in a file that window never
   touched either and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -152,7 +189,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. All ten
-  lines re-verified on disk at reconcile HEAD 4084dcd (unmoved; `prose.ts`
+  lines re-verified on disk at reconcile HEAD 18f219d (unmoved; `prose.ts`
   untouched in that window too and edited by no queued entry — still no
   carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
@@ -170,7 +207,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the cite still sits at
-  42) at reconcile HEAD 4084dcd — no queued entry edits `Cargo.toml`, so it
+  42) at reconcile HEAD 18f219d — no queued entry edits `Cargo.toml`, so it
   still has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
