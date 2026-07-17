@@ -1,5 +1,40 @@
 [
   {
+    "tag": "LOCK-FAMILY-ASSEMBLED-ONCE",
+    "summary": "The lock family assembles once per run — the committed rows joined with every local kind's derived rows — so a clause over an embedded kind sees a local host's members rather than selecting zero",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The lock family has two row sources that are never joined, so each consumer re-decides which one it reads. `embedded_features_by_kind` (1555) folds `declarations.nested_members` alone — the committed lock — and both call sites (523 read arm, 913 `gate`) pass only `&declarations`; its doc (1542-1554) states those rows are an embedded kind's \"sole seam\" into the corpus, which is exactly the fault. `local_document_rows` (1407) derives a local member's rows at read time, but `kind_features` (1364) lands its `nested` half only in the host's own `Features::nested_members` (1384), so a clause bound to the embedded kind selects **zero** members for a local host while the same clause over a committed host selects normally — a member gated against silence while looking governed (`intent.md`, invariant 6: no path silently degrades). Assemble the family once — committed rows plus every local kind's derived rows — and let the by-kind corpus and the two kind loops read that one `Declarations`, retiring the per-call-site commitment branches at 1228-1233 (`satisfies`) and 1376-1381 (`nested_members`), which exist only because the two sources are never joined and which today call `local_document_rows` twice over the same units. `satisfies` is the half that already works — it folds at 1229 and reaches the roster — so it is the behavior to preserve, not to re-derive."
+        },
+        {
+          "path": "tests/local_locus.rs",
+          "description": "`check_derives_a_local_members_collection_members_off_its_document` (285) is the test that should pin the derivation and pins nothing: its clause row declares severity `\"error\"` (297) via `common::clause(\"count\", \"error\")`, outside the closed `required`/`advisory` vocabulary (`src/compose.rs`:214-219, `severity_from_label`), so `clause_from_row` raises `ClauseRowError::Severity` (188), the lock refuses at load, and the test's `!ok` (305) passes on the load refusal while the count clause never fires. Give it a valid severity and it fails — that is the gap this entry closes, so the severity fix and the join land together or the test goes on asserting nothing. The sibling at 312 (`a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_derive`) spells `common::clause(\"enum\", \"required\")` (331) and is the correct shape to follow."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none — one assembled `Declarations` per run; no row family gains or loses a column.",
+    "tests": [
+      {
+        "path": "tests/local_locus.rs",
+        "asserts": "a clause bound to an embedded kind fires on the members a local host's document declares, at a severity inside the closed vocabulary — so the assertion rests on the clause firing, never on a load refusal; a committed host's members still select exactly as today; a local host's `satisfies` fills still reach the roster"
+      }
+    ],
+    "acceptance": "A local-locus host's derived rows reach both corpora that read them — the by-kind embedded corpus and the host's own features — off one assembled lock family, and the collection test fails when the derivation breaks (engineering.md, \"One job, one home\": a second implementation of one job is residue; the two sources join at one home). `cargo test` green.",
+    "notes": "Drained from a refactor capture filed by LOCAL-LOCUS-IS-READ-SIDE-ONLY's build tick. All three claims re-verified on disk at da31f82: the fold, the missing half, the false-green severity. The gap predates that entry and is format-orthogonal — a layout local host hits it identically. Placed first: TOML-DOCUMENT-READ-FACE and DIAL-KIND extend the branches this subsumes, and building onto a fail-open derivation widens it. scoped at da31f82."
+  },
+  {
     "tag": "TOML-DOCUMENT-READ-FACE",
     "summary": "`toml-document` joins the format inventory as an honestly read-only face — the engine reads a member's fields off a TOML document, and no emit round-trip exists",
     "per": {
@@ -8,7 +43,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "LOCAL-LOCUS-IS-READ-SIDE-ONLY"
+      "tag": "LOCK-FAMILY-ASSEMBLED-ONCE"
     },
     "dependsOnForks": [],
     "files": {
@@ -45,7 +80,7 @@
       }
     ],
     "acceptance": "A kind may declare `toml-document` and its members read and gate; nothing writes one (representation.md, \"kind\": format implementations are engine code, grown by deliberate addition — 0034 ratifies this one). `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Serialized behind the fence re-cut: both edit `src/kind.rs`. scoped at 832f015."
+    "notes": "0034's second derivation — the deliberate-addition path the format-faces asymmetry blesses, `toml_edit` already sanctioned. Read-only is the point, not a stage: DIAL-KIND is the consumer and needs no round trip, and 0034 rejects the local write path outright. Its old blocker (the fence re-cut) shipped at bce89b7, leaving a dangling tag; re-gated behind the lock-family join, which subsumes the `local_document_rows` format match this face answers. scoped at 832f015; re-gated da31f82."
   },
   {
     "tag": "LOCAL-GOVERNS-OVERRIDES-DISCOVERY",
@@ -436,7 +471,7 @@
         },
         {
           "path": "src/kind.rs",
-          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. Both halves are upstream code by the time this is picked — `Commitment::Local` (46-56) and `CustomKind::local` (730) shipped at 40619a0, LOCAL-LOCUS-IS-READ-SIDE-ONLY retires the `local_locus_fault` layout-only arm (746) that would otherwise refuse this kind on contact, and TOML-DOCUMENT-READ-FACE puts `toml-document` in `Format` (555-564). This entry declares the kind; it mints no format and no locus mechanics of its own."
+          "description": "The dial's document face is ruled (0034): a local-locus `toml-document`. Both halves are upstream code by the time this is picked — `Commitment::Local` (46-56) and `CustomKind::local` (729) shipped at 40619a0, and the `local_locus_fault` layout-only arm that would otherwise refuse this kind on contact is already retired (bce89b7): the fault (743) now fences the `governs`-less locus alone, verified on disk at da31f82. TOML-DOCUMENT-READ-FACE puts `toml-document` in `Format` (555-564). This entry declares the kind; it mints no format and no locus mechanics of its own."
         },
         {
           "path": "src/main.rs",
