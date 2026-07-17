@@ -10,12 +10,11 @@
 //! entry into a member, the documented `false` that gates the member off its one channel,
 //! and the settings file that declares no plugins at all.
 
-use std::fs;
 use std::path::Path;
 
 mod common;
 
-use common::check_harness;
+use common::{check_harness, write_settings};
 
 use serde_json::Value as JsonValue;
 use temper::builtin_kind;
@@ -42,15 +41,6 @@ const SETTINGS: &str = r#"{
 const SETTINGS_NO_PLUGINS: &str = r#"{
   "permissions": { "allow": ["Bash(git status)"] }
 }"#;
-
-/// Write a `settings.json` at the real Claude Code locus — `.claude/`, never a layout
-/// invented for the test (`.claude/rules/rust.md`, "Harness-input fixtures mirror the real
-/// layout").
-fn write_settings(root: &Path, body: &str) {
-    let dir = root.join(".claude");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("settings.json"), body).unwrap();
-}
 
 fn installed_plugin_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("installed-plugin")

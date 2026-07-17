@@ -15,11 +15,10 @@
 //! (`sdk/src/builtins.ts`, `pluginManifestDefaultContract`, names the whole hold).
 
 use std::fs;
-use std::path::Path;
 
 mod common;
 
-use common::check_harness;
+use common::{check_harness, write_plugin_json};
 
 use temper::builtin_kind;
 use temper::json_manifest::DocumentMember;
@@ -37,14 +36,6 @@ const PLUGIN_JSON: &str = r#"{
   "agents": ["./custom/agents/reviewer.md"]
 }
 "#;
-
-/// Write a manifest at the real `.claude-plugin/plugin.json` locus — never a layout
-/// invented for the test's convenience (`.claude/rules/rust.md`).
-fn write_plugin_json(root: &Path, body: &str) {
-    let dir = root.join(".claude-plugin");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("plugin.json"), body).unwrap();
-}
 
 fn plugin_manifest_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("plugin-manifest")

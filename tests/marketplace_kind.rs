@@ -20,11 +20,10 @@
 //! whole hold; the `Marketplace` TypeScript type holds those bars for an SDK author.
 
 use std::fs;
-use std::path::Path;
 
 mod common;
 
-use common::check_harness;
+use common::{check_harness, write_marketplace_json};
 
 use temper::builtin_kind;
 use temper::json_manifest::DocumentMember;
@@ -46,14 +45,6 @@ const MARKETPLACE_JSON: &str = r#"{
   ]
 }
 "#;
-
-/// Write a catalog at the real `.claude-plugin/marketplace.json` locus — never a layout
-/// invented for the test's convenience (`.claude/rules/rust.md`).
-fn write_marketplace_json(root: &Path, body: &str) {
-    let dir = root.join(".claude-plugin");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("marketplace.json"), body).unwrap();
-}
 
 fn marketplace_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("marketplace")

@@ -53,17 +53,6 @@ fn write_mcp_json(root: &Path) {
     fs::write(root.join(".mcp.json"), "{}").unwrap();
 }
 
-/// Write a bare `.claude/settings.json` — a real Claude Code surface
-/// (code.claude.com/docs/en/settings). The `hook` built-in governs its `hooks` segment,
-/// so the file is *partially* governed: the note names only the ungoverned permissions/env
-/// residue. Valid JSON `{}` so the `hook` kind reads it as a manifest without aborting on a
-/// parse error.
-fn write_settings_json(root: &Path) {
-    let claude = root.join(".claude");
-    fs::create_dir_all(&claude).unwrap();
-    fs::write(claude.join("settings.json"), "{}").unwrap();
-}
-
 /// Commit a lock at `<root>/.temper/lock.toml` declaring a `widget` kind rooted at
 /// `.claude` selecting `settings.json`, and project its one member — a locked custom
 /// kind the coverage note's built-in set carries no row for, so the gate discovers it
@@ -101,9 +90,11 @@ fn a_partially_governed_settings_json_names_only_the_ungoverned_residue() {
     let harness = common::tmpdir("with-settings-json");
     // Two clean skills the gate checks, plus a `.claude/settings.json` whose `hooks`
     // segment the `hook` built-in governs while its permissions/env residue does not.
+    // Valid JSON `{}` so the `hook` kind reads it as a manifest rather than aborting on a
+    // parse error.
     write_skill(&harness, "coordinate");
     write_skill(&harness, "review");
-    write_settings_json(&harness);
+    common::write_settings(&harness, "{}");
 
     let (findings, success) = check_harness(&harness);
 
@@ -184,8 +175,7 @@ fn a_fully_represented_settings_json_retires_its_unmodeled_surface_finding() {
     // note must flag. The `widget` container stands in for that fully-representing kind.
     let harness = common::tmpdir("fully-represented-settings");
     write_skill(&harness, "coordinate");
-    fs::create_dir_all(harness.join(".claude")).unwrap();
-    fs::write(harness.join(".claude/settings.json"), "{}").unwrap();
+    common::write_settings(&harness, "{}");
     lock_widget_kind(&harness);
 
     let (findings, success) = check_harness(&harness);
@@ -306,8 +296,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
 fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
     let harness = common::tmpdir("locked-widget-kind");
     write_skill(&harness, "coordinate");
-    fs::create_dir_all(harness.join(".claude")).unwrap();
-    fs::write(harness.join(".claude/settings.json"), "{}").unwrap();
+    common::write_settings(&harness, "{}");
     lock_widget_kind(&harness);
 
     let (findings, success) = check_harness(&harness);

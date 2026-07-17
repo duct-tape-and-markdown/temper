@@ -133,13 +133,42 @@ pub fn wire_sdk_harness(label: &str, program: &str) -> (PathBuf, PathBuf) {
     (harness, into)
 }
 
+/// Write `body` at `<root>/<rel>`, creating the parent directories — the
+/// create-parents-then-write primitive every locus writer below composes, and the
+/// direct route for a file at no modeled locus at all (a plain repo file an
+/// `@import` resolves to: the backing set is the whole repo, so a resolving target
+/// need not itself be a harness member).
+pub fn write_sibling(root: &Path, rel: &str, body: &str) {
+    let path = root.join(rel);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, body).unwrap();
+}
+
 /// Write a one-skill harness member directly at its real Claude Code locus
 /// (`<root>/.claude/skills/<name>/SKILL.md`) — `check` reads built-in kind members
 /// live off harness disk, no scratch import.
 pub fn write_skill(root: &Path, name: &str, skill_md: &str) {
-    let dir = root.join(".claude").join("skills").join(name);
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("SKILL.md"), skill_md).unwrap();
+    write_sibling(root, &format!(".claude/skills/{name}/SKILL.md"), skill_md);
+}
+
+/// Write a plugin manifest at its real Claude Code locus
+/// (`<root>/.claude-plugin/plugin.json`) — never a layout invented for the test's
+/// convenience.
+pub fn write_plugin_json(root: &Path, body: &str) {
+    write_sibling(root, ".claude-plugin/plugin.json", body);
+}
+
+/// Write a marketplace catalog at its real Claude Code locus
+/// (`<root>/.claude-plugin/marketplace.json`) — never a layout invented for the
+/// test's convenience.
+pub fn write_marketplace_json(root: &Path, body: &str) {
+    write_sibling(root, ".claude-plugin/marketplace.json", body);
+}
+
+/// Write settings at their real Claude Code locus (`<root>/.claude/settings.json`)
+/// — never a layout invented for the test's convenience.
+pub fn write_settings(root: &Path, body: &str) {
+    write_sibling(root, ".claude/settings.json", body);
 }
 
 /// The outcome of a `check` run: whether it exited zero and its combined
@@ -278,13 +307,11 @@ pub fn clean_skill(name: &str) -> String {
 /// (`<root>/.claude/rules/<name>.md`) — a second modeled kind, so a requirement or
 /// edge typed to `rule` has a real satisfier/endpoint to be.
 pub fn write_rule(root: &Path, name: &str) {
-    let dir = root.join(".claude").join("rules");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(
-        dir.join(format!("{name}.md")),
-        format!("# {name}\n\nBody.\n"),
-    )
-    .unwrap();
+    write_sibling(
+        root,
+        &format!(".claude/rules/{name}.md"),
+        &format!("# {name}\n\nBody.\n"),
+    );
 }
 
 /// A floor-clean rule, optionally scoped by `paths` — a mention's source. `None` is
@@ -326,10 +353,7 @@ pub fn write_rule_skill_harness(
     skill_name: &str,
     skill_md: &str,
 ) {
-    let rules = root.join(".claude").join("rules");
-    fs::create_dir_all(&rules).unwrap();
-    fs::write(rules.join(format!("{rule_name}.md")), rule_md).unwrap();
-
+    write_sibling(root, &format!(".claude/rules/{rule_name}.md"), rule_md);
     write_skill(root, skill_name, skill_md);
 }
 

@@ -29,8 +29,7 @@ use std::process::Command;
 mod common;
 
 use temper::drift::{
-    self, ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, EmitOptions, Payload,
-    RequirementRow, SatisfiesRow,
+    ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow, SatisfiesRow,
 };
 
 /// The binary under test, located by Cargo at compile time.
@@ -42,15 +41,13 @@ const BIN: &str = env!("CARGO_BIN_EXE_temper");
 /// clause/severity overrides from the lock's `ClauseRow` family, never a
 /// re-imported manifest `[kind.*]` layer.
 fn write_clauses(root: &Path, clauses: Vec<ClauseRow>) {
-    let payload = Payload {
-        version: drift::SEAM_VERSION,
-        declarations: Declarations {
+    common::write_lock(
+        root,
+        Declarations {
             clauses,
             ..Declarations::default()
         },
-        members: Vec::new(),
-    };
-    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+    );
 }
 
 /// A skill carrying the Cursor `globs` key — the skill floor's `forbidden_keys`

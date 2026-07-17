@@ -9,12 +9,9 @@
 //! clause — the event must be a documented lifecycle event — firing on a broken hook and
 //! passing a clean one, end to end through the `check --harness` gate.
 
-use std::fs;
-use std::path::Path;
-
 mod common;
 
-use common::check_harness;
+use common::{check_harness, write_settings};
 
 use temper::builtin_kind;
 use temper::builtin_lock;
@@ -46,14 +43,6 @@ const CLEAN_SETTINGS: &str = r#"{
     ]
   }
 }"#;
-
-/// Write a `.claude/settings.json` at the real Claude Code locus, never a layout invented
-/// for the test (`.claude/rules/rust.md`, "Harness-input fixtures mirror the real layout").
-fn write_settings(root: &Path, body: &str) {
-    let claude = root.join(".claude");
-    fs::create_dir_all(&claude).unwrap();
-    fs::write(claude.join("settings.json"), body).unwrap();
-}
 
 fn hook_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("hook")

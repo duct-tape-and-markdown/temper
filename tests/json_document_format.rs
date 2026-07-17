@@ -17,10 +17,11 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 mod common;
 
+use common::write_plugin_json;
 use serde_json::json;
 use temper::drift::{
     ClauseRow, Declarations, EmitOptions, EmitOutcome, IncludeRow, KindFactRow, Payload,
@@ -51,14 +52,6 @@ const INCLUDE_SLOT: char = '\u{1}';
 /// file, the two shapes the JSON face must leave untouched.
 const RULE_BODY: &str = "# Rust conventions\n\nErrors via miette/thiserror.\n";
 const MEMORY_BODY: &str = "# Project\n\nMemory body.\n";
-
-/// Write a plugin manifest at the real `.claude-plugin/plugin.json` locus — never a layout
-/// invented for the test's convenience (`.claude/rules/rust.md`).
-fn write_plugin_json(root: &Path, body: &str) {
-    let dir = root.join(".claude-plugin");
-    fs::create_dir_all(&dir).unwrap();
-    fs::write(dir.join("plugin.json"), body).unwrap();
-}
 
 /// The fixture kind: a `json-document` file kind governing the plugin manifest locus, its
 /// identity read from the document's top-level `name`.

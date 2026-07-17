@@ -16,7 +16,7 @@ use std::path::Path;
 
 mod common;
 
-use common::check_harness;
+use common::{check_harness, write_sibling};
 
 /// A skill that trips no `error`-severity clause: lowercase `name` matching its
 /// directory, a present description, a short body — so the memory finding is not masked
@@ -58,15 +58,6 @@ fn write_claude_md(root: &Path, lines: usize) {
 fn write_claude_md_importing(root: &Path, import_line: &str) {
     let body = format!("# Memory\n\nProject guidance.\n\n{import_line}\n");
     fs::write(root.join("CLAUDE.md"), body).unwrap();
-}
-
-/// Write a plain sibling file at `<root>/<rel>` — not a harness member, just a real repo
-/// file an `@import` can resolve to. The backing set is the whole repo, so a resolving
-/// target need not itself be an imported artifact.
-fn write_sibling(root: &Path, rel: &str, body: &str) {
-    let path = root.join(rel);
-    fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(path, body).unwrap();
 }
 
 /// Gate the harness from its own root with cwd = harness root (`check .`, no
