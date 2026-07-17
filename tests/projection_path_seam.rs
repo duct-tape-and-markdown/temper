@@ -70,12 +70,12 @@ const waypoint = kind<object>(
     unitShape: "file",
     registration: [],
     edgeFields: [
-      { field: "to_skill", to: "skill" },
-      { field: "to_rule", to: "rule" },
-      { field: "to_agent", to: "agent" },
-      { field: "to_command", to: "command" },
-      { field: "to_memory", to: "memory" },
-      { field: "to_doc", to: "supporting-doc" },
+      { field: "to_skill", to: ["skill"] },
+      { field: "to_rule", to: ["rule"] },
+      { field: "to_agent", to: ["agent"] },
+      { field: "to_command", to: ["command"] },
+      { field: "to_memory", to: ["memory"] },
+      { field: "to_doc", to: ["supporting-doc"] },
     ],
   },
   {

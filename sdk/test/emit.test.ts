@@ -1086,7 +1086,7 @@ function citationKind() {
       locus: { kind: "embedded" },
       unitShape: "file",
       registration: [],
-      edgeFields: [{ field: "source", to: "rule" }],
+      edgeFields: [{ field: "source", to: ["rule"] }],
     },
     {
       render: (value) => {
@@ -1174,7 +1174,7 @@ function citationHarness(
       locus: { kind: "embedded" },
       unitShape: "file",
       registration: [],
-      edgeFields: [{ field: "source", to: "rule" }],
+      edgeFields: [{ field: "source", to: ["rule"] }],
     },
     { render },
   );
@@ -1200,7 +1200,7 @@ test("an embedded kind's declared edge field writes its assembly `edge` fact, th
   // silently strand every embedded edge at zero.
   assert.deepEqual(
     declarations.assembly.filter((fact) => fact.fact === "edge"),
-    [{ fact: "edge", from: "citation", field: "source", to: "rule" }],
+    [{ fact: "edge", from: "citation", field: "source", to: ["rule"] }],
   );
   assert.ok(
     !declarations.kinds.some((row) => row.name === "citation"),

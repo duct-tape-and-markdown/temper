@@ -2301,3 +2301,128 @@ fn a_mention_with_no_clause_ranging_over_it_is_obligation_free() {
         "a mention with no clause ranging over it never gates ⇒ clean, got:\n{output}"
     );
 }
+
+/// An `edge` fact's declared target *set* — the column carrying the non-empty set of
+/// kinds a field may resolve into.
+fn edge_fact(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
+    AssemblyFactRow {
+        fact: "edge".to_string(),
+        value: None,
+        from: Some(from.to_string()),
+        field: Some(field.to_string()),
+        to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
+    }
+}
+
+/// The lock text at `<root>/.temper/lock.toml`.
+fn lock_text(root: &Path) -> String {
+    fs::read_to_string(root.join(".temper").join(temper::LOCK_FILENAME)).unwrap()
+}
+
+#[test]
+fn an_edge_facts_target_set_round_trips_the_lock_as_an_array() {
+    let root = common::tmpdir("edge-to-set");
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![
+                edge_fact("citation", "source", &["rule", "skill"]),
+                edge_fact("rule", "routes_to", &["skill"]),
+            ],
+            ..Declarations::default()
+        },
+    );
+
+    assert!(
+        lock_text(&root).contains(r#"to = ["rule", "skill"]"#),
+        "a multi-kind target set writes as an array, got:\n{}",
+        lock_text(&root)
+    );
+
+    let declarations = drift::read_declarations(&root.join(".temper")).unwrap();
+    let targets: Vec<Option<Vec<String>>> = declarations
+        .assembly
+        .iter()
+        .filter(|fact| fact.fact == "edge")
+        .map(|fact| fact.to.clone())
+        .collect();
+    assert_eq!(
+        targets,
+        vec![
+            Some(vec!["rule".to_string(), "skill".to_string()]),
+            Some(vec!["skill".to_string()]),
+        ],
+        "both the multi- and the one-element set round-trip as declared"
+    );
+}
+
+/// A lock committed before the target set widened carries `to = "<kind>"` — the lossless
+/// spelling of the one-element set. An upgraded engine owes it a robust read: the bare
+/// string reads as the singleton, and the file itself is never patched (the next emit
+/// rewrites it whole in the canonical array form).
+#[test]
+fn a_legacy_bare_string_target_reads_as_the_one_element_set_unpatched() {
+    let root = common::tmpdir("edge-to-legacy");
+    common::write_lock(
+        &root,
+        Declarations {
+            assembly: vec![edge_fact("rule", "routes_to", &["skill"])],
+            ..Declarations::default()
+        },
+    );
+
+    // Rewrite the emitted row into the pre-set spelling a committed lock carries.
+    let lock = root.join(".temper").join(temper::LOCK_FILENAME);
+    let legacy = lock_text(&root).replace(r#"to = ["skill"]"#, r#"to = "skill""#);
+    assert!(
+        legacy.contains(r#"to = "skill""#),
+        "the fixture really is the bare-string spelling"
+    );
+    fs::write(&lock, &legacy).unwrap();
+
+    let declarations = drift::read_declarations(&root.join(".temper")).unwrap();
+    let edge = declarations
+        .assembly
+        .iter()
+        .find(|fact| fact.fact == "edge")
+        .expect("the legacy edge row reads back");
+    assert_eq!(
+        edge.to,
+        Some(vec!["skill".to_string()]),
+        "a bare-string `to` reads as the one-element set"
+    );
+    assert_eq!(
+        fs::read_to_string(&lock).unwrap(),
+        legacy,
+        "reading a legacy lock never patches the file"
+    );
+}
+
+#[test]
+fn an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_loud() {
+    let root = common::tmpdir("edge-to-corrupt");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![common::kind_facts("spec", "specs", "*.md")],
+            assembly: vec![edge_fact("spec", "source", &["spec"])],
+            ..Declarations::default()
+        },
+    );
+
+    // A `to` of a type no emit could have produced — the robust legacy read stays narrow,
+    // so a genuinely corrupt column still refuses rather than being tolerated.
+    let lock = root.join(".temper").join(temper::LOCK_FILENAME);
+    let corrupt = lock_text(&root).replace(r#"to = ["spec"]"#, "to = 3");
+    fs::write(&lock, &corrupt).unwrap();
+
+    let (ok, output) = check_in(&root);
+    assert!(
+        !ok,
+        "a corrupt `to` column must fail the run loud, got:\n{output}"
+    );
+    assert!(
+        output.contains("to"),
+        "the load error names the offending column rather than dropping the row, got:\n{output}"
+    );
+}

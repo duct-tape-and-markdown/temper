@@ -46,10 +46,13 @@ pub struct Edge {
     /// The artifact kind that owns the reference field — the edge *source*. A `from`
     /// naming an unmodeled kind yields no source artifacts, so the edge is inert.
     pub from: String,
-    /// The artifact kind the reference resolves to — the edge *target*. The target
-    /// kind must be one `temper` models, else no route can resolve (a
-    /// graph-admissibility concern, [`crate::graph`]).
-    pub to: String,
+    /// The non-empty set of artifact kinds the reference may resolve into — the edge
+    /// *targets*. A one-element set resolves a bare address within its one kind; a
+    /// multi-element set resolves only the kind-qualified `kind:name` address, whose
+    /// kind names which member of the set. Every declared kind must be one `temper`
+    /// models, else that element's routes can never resolve (a graph-admissibility
+    /// concern, [`crate::graph`]).
+    pub to: Vec<String>,
 }
 
 /// A named **requirement** — the harness's named obligation, declared in the
@@ -231,9 +234,9 @@ mod tests {
 
     #[test]
     fn default_contract_from_rows_builds_a_custom_kinds_whole_default_contract() {
-        // Unlike `effective`, a custom kind has no embedded default to override — its
-        // committed rows are its whole default contract, so a matching row contributes a brand new
-        // clause rather than only flipping an existing one's severity.
+        // A custom kind has no built-in default to override — its committed rows are its
+        // whole default contract, so a matching row contributes a brand new clause rather
+        // than only flipping an existing one's severity.
         let rows = vec![
             ClauseRow {
                 kind: Some("spec".to_string()),

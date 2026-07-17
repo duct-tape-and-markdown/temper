@@ -217,7 +217,7 @@ function citationKind() {
     locus: { kind: "embedded" },
     unitShape: "file",
     registration: [],
-    edgeFields: [{ field: "source", to: "rule" }],
+    edgeFields: [{ field: "source", to: ["rule"] }],
   });
 }
 

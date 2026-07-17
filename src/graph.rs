@@ -123,20 +123,14 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
             continue;
         }
 
-        let targets: BTreeSet<&str> = by_kind
-            .get(edge.to.as_str())
-            .copied()
-            .unwrap_or(&[])
-            .iter()
-            .map(|features| features.id.as_str())
-            .collect();
-
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
                 // The finding names the *authored* spelling, never the normalized
                 // identity — the author has to find what they wrote.
-                if !targets.contains(target_identity(target, &edge.to)) {
+                let resolved = target_identity(target, &edge.to)
+                    .is_some_and(|(kind, identity)| resolves(by_kind, kind, identity));
+                if !resolved {
                     diagnostics.push(dangling(edge, source.id.as_str(), target));
                 }
             }
@@ -151,10 +145,11 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
 /// names the edge.
 ///
 /// Two decidable clauses: **(a)** the reference `field` is
-/// non-empty — an empty field names no reference syntax; **(b)** the target kind is
-/// one `temper` models — an unmodeled `to` has no artifacts, so every route over the
-/// edge would dangle, making the fault the declaration's, reported once here while
-/// [`check`] skips the edge.
+/// non-empty — an empty field names no reference syntax; **(b)** every kind the `to`
+/// set declares is one `temper` models — an unmodeled element has no artifacts, so the
+/// routes it would take can never resolve, making the fault the declaration's. The
+/// finding names the offending *element*, not the whole set, and [`check`] skips the
+/// edge.
 ///
 /// `by_kind` is the same corpus map [`check`] reads; admissibility uses only its keys.
 #[must_use]
@@ -167,22 +162,26 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
                 GRAPH_ADMISSIBILITY_RULE,
                 edge_id(edge),
  format!(
-                    "edge from `{}` to `{}` declares an empty reference field, which names no reference syntax",
-                    edge.from, edge.to
+                    "edge from `{}` to {} declares an empty reference field, which names no reference syntax",
+                    edge.from,
+                    render_target_kinds(&edge.to)
  ),
  ));
         }
 
-        // (b) The target kind is one `temper` models — else no route can resolve.
-        if !by_kind.contains_key(edge.to.as_str()) {
-            diagnostics.push(Diagnostic::error(
-                GRAPH_ADMISSIBILITY_RULE,
-                edge_id(edge),
+        // (b) Every declared target kind is one `temper` models — else the routes it
+        // would take can never resolve.
+        for kind in &edge.to {
+            if !by_kind.contains_key(kind.as_str()) {
+                diagnostics.push(Diagnostic::error(
+                    GRAPH_ADMISSIBILITY_RULE,
+                    edge_id(edge),
  format!(
-                    "edge `{}` targets kind `{}`, which `temper` does not model — no route can ever resolve",
- edge.field, edge.to
+                        "edge `{}` targets kind `{kind}`, which `temper` does not model — no route can ever resolve",
+ edge.field
  ),
  ));
+            }
         }
     }
     diagnostics
@@ -942,23 +941,18 @@ pub(crate) fn resolved_edges(
         if !is_admissible(edge, by_kind) {
             continue;
         }
-        let targets: BTreeSet<&str> = by_kind
-            .get(edge.to.as_str())
-            .copied()
-            .unwrap_or(&[])
-            .iter()
-            .map(|features| features.id.as_str())
-            .collect();
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
-                let identity = target_identity(target, &edge.to);
+                let Some((kind, identity)) = target_identity(target, &edge.to) else {
+                    continue;
+                };
                 // A dangling reference loads nothing — no resolved edge.
-                if targets.contains(identity) {
+                if resolves(by_kind, kind, identity) {
                     resolved.push(ResolvedEdge {
                         from: (edge.from.clone(), source.id.clone()),
                         field: edge.field.clone(),
-                        to: (edge.to.clone(), identity.to_string()),
+                        to: (kind.to_string(), identity.to_string()),
                     });
                 }
             }
@@ -1212,11 +1206,15 @@ fn cycle_diagnostic(cycle: &[Node]) -> Diagnostic {
 }
 
 /// Whether an [`Edge`] is admissible: its reference field is named (non-empty) and
-/// its target kind is one `temper` models. The predicate [`check`] gates on to skip
-/// an unsound declaration, kept in lockstep with the clauses [`admissibility`]
-/// reports so the two never disagree.
+/// every kind its target set declares is one `temper` models. The predicate [`check`]
+/// gates on to skip an unsound declaration, kept in lockstep with the clauses
+/// [`admissibility`] reports so the two never disagree.
 fn is_admissible(edge: &Edge, by_kind: &BTreeMap<&str, &[Features]>) -> bool {
-    !edge.field.is_empty() && by_kind.contains_key(edge.to.as_str())
+    !edge.field.is_empty()
+        && edge
+            .to
+            .iter()
+            .all(|kind| by_kind.contains_key(kind.as_str()))
 }
 
 /// The target artifact names an `edge`'s reference field carries on one source
@@ -1231,21 +1229,61 @@ fn edge_targets<'a>(source: &'a Features, field: &str) -> Vec<&'a str> {
     }
 }
 
-/// The identity one authored edge leaf resolves by within the edge's `to` kind — the
-/// single spelling normalizer both [`check`] and [`resolved_edges`] compare through, so
-/// an edge resolves on one path whatever grain declared it.
+/// The `(kind, identity)` one authored edge leaf resolves to within the edge's declared
+/// target set — the single spelling normalizer both [`check`] and [`resolved_edges`]
+/// compare through, so an edge resolves on one path whatever grain declared it. `None`
+/// is a leaf the declaration cannot address at all, which dangles under its authored
+/// name.
 ///
 /// A field edge is declared at any grain, and the grains spell their leaf differently: a
 /// frontmatter field carries a bare identity, while an embedded member's edge field
-/// carries the target's full `kind:name` address. Both name the same member, so both
-/// resolve by identity within `to_kind`. Any other spelling — an address naming some
-/// other kind — is returned whole, so it dangles under its authored name rather than
-/// being cross-attributed to a same-named member of `to_kind`.
-fn target_identity<'a>(target: &'a str, to_kind: &str) -> &'a str {
-    target
-        .strip_prefix(to_kind)
-        .and_then(|rest| rest.strip_prefix(':'))
-        .unwrap_or(target)
+/// carries the target's full `kind:name` address. Which of the declared kinds a leaf
+/// names is read off **the written text alone**, never inferred from the member
+/// population — a bare name stays unresolvable against a multi-kind declaration even
+/// when exactly one kind happens to hold a member of that name, since the answer would
+/// otherwise flip as members come and go.
+///
+/// - a **one-element** set resolves a bare identity within its one kind, and takes a
+///   `kind:name` address whose kind is that element as the same identity. Any other
+///   spelling is carried whole as the identity, so it dangles under its authored name
+///   rather than being cross-attributed to a same-named member of the target kind.
+/// - a **multi-element** set resolves only a `kind:name` whose kind is one of its
+///   elements. A bare name, or an address naming an undeclared kind, resolves to
+///   nothing.
+fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'a str)> {
+    if let [only] = to {
+        let identity = target
+            .strip_prefix(only.as_str())
+            .and_then(|rest| rest.strip_prefix(':'))
+            .unwrap_or(target);
+        return Some((only.as_str(), identity));
+    }
+    let (kind, identity) = target.split_once(':')?;
+    to.iter()
+        .find(|declared| declared.as_str() == kind)
+        .map(|declared| (declared.as_str(), identity))
+}
+
+/// Whether `identity` names a real member of `kind` in the corpus — the one membership
+/// test route resolution runs, over the same map [`check`] and [`resolved_edges`] read.
+fn resolves(by_kind: &BTreeMap<&str, &[Features]>, kind: &str, identity: &str) -> bool {
+    by_kind
+        .get(kind)
+        .copied()
+        .unwrap_or(&[])
+        .iter()
+        .any(|features| features.id == identity)
+}
+
+/// An edge's declared target set, rendered for a diagnostic: one kind reads as its own
+/// name, several as an `or`-joined list — the authored address names one of them.
+fn render_target_kinds(to: &[String]) -> String {
+    let rendered: Vec<String> = to.iter().map(|kind| format!("`{kind}`")).collect();
+    match rendered.split_last() {
+        None => String::new(),
+        Some((last, [])) => last.clone(),
+        Some((last, rest)) => format!("{} or {last}", rest.join(", ")),
+    }
 }
 
 /// A stable identity for an edge in a diagnostic — `<from>.<field>` (e.g.
@@ -1255,14 +1293,15 @@ fn edge_id(edge: &Edge) -> String {
 }
 
 /// The finding for a route that resolves to no artifact — naming the source, the
-/// reference field, the dangling target, and the target kind.
+/// reference field, the dangling target, and the declared target kinds.
 fn dangling(edge: &Edge, source: &str, target: &str) -> Diagnostic {
     Diagnostic::error(
         GRAPH_ROUTE_RULE,
         source,
         format!(
-            "`{source}` `{}` routes to `{target}`, which resolves to no `{}` artifact",
-            edge.field, edge.to
+            "`{source}` `{}` routes to `{target}`, which resolves to no {} artifact",
+            edge.field,
+            render_target_kinds(&edge.to)
         ),
     )
 }
@@ -1339,7 +1378,7 @@ mod tests {
         Edge {
             field: "routes_to".to_string(),
             from: "rule".to_string(),
-            to: "skill".to_string(),
+            to: vec!["skill".to_string()],
         }
     }
 
@@ -1349,7 +1388,7 @@ mod tests {
         Edge {
             field: "routes_to".to_string(),
             from: "rule".to_string(),
-            to: "agent".to_string(),
+            to: vec!["agent".to_string()],
         }
     }
 
@@ -1456,7 +1495,7 @@ mod tests {
         let edge = Edge {
             field: String::new(),
             from: "rule".to_string(),
-            to: "skill".to_string(),
+            to: vec!["skill".to_string()],
         };
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
@@ -1497,7 +1536,7 @@ mod tests {
         Edge {
             field: "routes_to".to_string(),
             from: "skill".to_string(),
-            to: "rule".to_string(),
+            to: vec!["rule".to_string()],
         }
     }
 
@@ -1520,7 +1559,7 @@ mod tests {
         let edges = [Edge {
             field: "routes_to".to_string(),
             from: "rule".to_string(),
-            to: "rule".to_string(),
+            to: vec!["rule".to_string()],
         }];
         let rules = [node("style", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);

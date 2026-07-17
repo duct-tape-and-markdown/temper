@@ -25,6 +25,6 @@ from?: string,
  */
 field?: string, 
 /**
- * An `edge` fact's target kind.
+ * An `edge` fact's target kinds — the non-empty set the field may resolve into.
  */
-to?: string, };
+to?: Array<string>, };

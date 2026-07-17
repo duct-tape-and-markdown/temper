@@ -36,15 +36,21 @@ fn routing_rule(routes_to: &str) -> String {
     )
 }
 
-/// An `edge` assembly fact — the lock row a `[[kind.<from>.relationships]]` table used
-/// to project.
+/// An `edge` assembly fact declaring one target kind — the lock row a
+/// `[[kind.<from>.relationships]]` table used to project.
 fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
+    edge_to_set(from, field, &[to])
+}
+
+/// An `edge` assembly fact over a declared target *set* — the general row `edge` is the
+/// one-element case of.
+fn edge_to_set(from: &str, field: &str, to: &[&str]) -> AssemblyFactRow {
     AssemblyFactRow {
         fact: "edge".to_string(),
         value: None,
         from: Some(from.to_string()),
         field: Some(field.to_string()),
-        to: Some(to.to_string()),
+        to: Some(to.iter().map(|kind| (*kind).to_string()).collect()),
     }
 }
 
@@ -1403,5 +1409,139 @@ mod reachability {
         )]);
 
         assert!(reachable(&registrations, &by_kind, &[], &[], Severity::Error).is_empty());
+    }
+}
+
+/// The addressing rule a declared target *set* carries: which member of the set an
+/// authored address names is read off the written text alone, never inferred from the
+/// member population. The corpus is the same rule-routing-to-skill harness throughout —
+/// only the edge's declared `to` moves — so each case isolates the addressing.
+mod target_set {
+    use super::*;
+
+    /// The rule/skill corpus every case here routes over: a `style` rule whose
+    /// `routes_to` carries `target`, and a `standards` skill.
+    fn routing_harness(label: &str, target: &str) -> std::path::PathBuf {
+        let root = common::tmpdir(label);
+        common::write_rule_skill_harness(
+            &root,
+            "style",
+            &routing_rule(target),
+            "standards",
+            &common::clean_skill("standards"),
+        );
+        root
+    }
+
+    #[test]
+    fn a_multi_kind_set_resolves_a_kind_qualified_address_to_that_kind() {
+        let root = routing_harness("set-qualified", "skill:standards");
+        common::write_lock(
+            &root,
+            Declarations {
+                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "rule"])],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.ok,
+            "a `kind:name` address naming a declared kind resolves within it ⇒ zero, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_multi_kind_set_dangles_a_bare_name_that_would_be_unique_across_the_set() {
+        // `standards` names exactly one member across `skill` and `rule` — inferring it
+        // would resolve. It must not: resolution reads the written text, so the answer
+        // can never flip as members come and go.
+        let root = routing_harness("set-bare", "standards");
+        common::write_lock(
+            &root,
+            Declarations {
+                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "rule"])],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "a bare name against a multi-kind set resolves to nothing ⇒ non-zero, got:\n{}",
+            run.output
+        );
+        assert!(
+            run.output.contains("standards") && run.output.contains("routes_to"),
+            "the finding names the authored spelling and the reference field, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_multi_kind_set_dangles_an_address_naming_an_undeclared_kind() {
+        let root = routing_harness("set-foreign", "agent:standards");
+        common::write_lock(
+            &root,
+            Declarations {
+                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "rule"])],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "an address naming a kind outside the declared set resolves to nothing ⇒ non-zero, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn a_one_element_set_resolves_a_bare_name_within_its_one_kind() {
+        let root = routing_harness("singleton-bare", "standards");
+        common::write_lock(
+            &root,
+            Declarations {
+                assembly: vec![edge_to_set("rule", "routes_to", &["skill"])],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            run.ok,
+            "a one-element set resolves a bare name within its one kind ⇒ zero, got:\n{}",
+            run.output
+        );
+    }
+
+    #[test]
+    fn an_admissibility_finding_names_the_unmodeled_element_not_the_set() {
+        let root = routing_harness("set-unmodeled", "skill:standards");
+        common::write_lock(
+            &root,
+            Declarations {
+                assembly: vec![edge_to_set("rule", "routes_to", &["skill", "sorcery"])],
+                ..Declarations::default()
+            },
+        );
+
+        let run = common::check_in(&root, &[], None);
+        assert!(
+            !run.ok,
+            "a set declaring a kind `temper` does not model is inadmissible ⇒ non-zero"
+        );
+        assert!(
+            run.output.contains("sorcery"),
+            "the finding names the unmodeled element, got:\n{}",
+            run.output
+        );
+        assert!(
+            !run.output.contains("`skill`, `sorcery`") && !run.output.contains("skill or sorcery"),
+            "the finding names the element, never the whole set — the modeled sibling is not at fault, got:\n{}",
+            run.output
+        );
     }
 }

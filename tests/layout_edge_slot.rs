@@ -67,7 +67,7 @@ fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
         value: None,
         from: Some(from.to_string()),
         field: Some(field.to_string()),
-        to: Some(to.to_string()),
+        to: Some(vec![to.to_string()]),
     }
 }
 

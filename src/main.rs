@@ -1899,11 +1899,13 @@ fn clause_from_row(row: &drift::ClauseRow) -> Result<contract::Clause, compose::
 
 /// The assembly's declared edges off the lock's `assembly` fact family — every
 /// `fact = "edge"` row. A present edge row missing a required `field`/`from`/`to` column
-/// is a load error naming the assembly family, never a silently absent edge.
+/// is a load error naming the assembly family, never a silently absent edge — as is a
+/// `to` that names no kind at all.
 ///
 /// # Errors
 ///
-/// Returns a [`drift::LockRowError`] when a present edge fact omits a required column.
+/// Returns a [`drift::LockRowError`] when a present edge fact omits a required column or
+/// declares an empty target set.
 fn edges_from_declarations(
     declarations: &drift::Declarations,
 ) -> Result<Vec<compose::Edge>, drift::LockRowError> {
@@ -1912,10 +1914,20 @@ fn edges_from_declarations(
         .iter()
         .filter(|fact| fact.fact == "edge")
         .map(|fact| {
+            let to: Vec<String> = edge_column(fact.to.clone(), "to")?;
+            // An edge declaring no target kind can never resolve — loading it would
+            // silently narrow the gate to a route it can never judge.
+            if to.is_empty() {
+                return Err(drift::LockRowError::WrongType {
+                    family: "assembly".to_string(),
+                    column: "to".to_string(),
+                    want: "non-empty set of target kinds".to_string(),
+                });
+            }
             Ok(compose::Edge {
                 field: edge_column(fact.field.clone(), "field")?,
                 from: edge_column(fact.from.clone(), "from")?,
-                to: edge_column(fact.to.clone(), "to")?,
+                to,
             })
         })
         .collect()
@@ -1923,7 +1935,7 @@ fn edges_from_declarations(
 
 /// One required column off a present `edge` assembly fact — an absent one is a load error
 /// naming the assembly family, the same reject a malformed row takes at load.
-fn edge_column(value: Option<String>, column: &str) -> Result<String, drift::LockRowError> {
+fn edge_column<T>(value: Option<T>, column: &str) -> Result<T, drift::LockRowError> {
     value.ok_or_else(|| drift::LockRowError::MissingColumn {
         family: "assembly".to_string(),
         column: column.to_string(),
@@ -2019,7 +2031,7 @@ mod tests {
                     fact: "edge".to_string(),
                     from: Some("citation".to_string()),
                     field: Some((*field).to_string()),
-                    to: Some("rule".to_string()),
+                    to: Some(vec!["rule".to_string()]),
                     value: None,
                 })
                 .collect(),

@@ -285,7 +285,7 @@ fn write_embedded_citation_harness(
                 value: None,
                 from: Some("citation".to_string()),
                 field: Some("source".to_string()),
-                to: Some("standard".to_string()),
+                to: Some(vec!["standard".to_string()]),
             }],
             nested_members: vec![temper::drift::NestedMemberRow {
                 host: "standard:the-charter".to_string(),

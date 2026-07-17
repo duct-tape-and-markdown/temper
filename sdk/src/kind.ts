@@ -42,8 +42,15 @@ export type Registration =
 /** One of a kind's fields that is a reference to another member — a graph edge (fact 5). */
 export interface EdgeField {
   readonly field: string;
-  /** The target kind's name — the far end of the edge. */
-  readonly to: string;
+  /**
+   * The far end of the edge: the non-empty **set** of kinds the field may target.
+   * A one-element set resolves a bare address within its one kind; a multi-element
+   * set demands the kind-qualified `kind:name` address always, since resolution
+   * reads the written text and never infers from the member population. The
+   * non-emptiness is the type's to hold — an edge declaring no target kind can
+   * never resolve.
+   */
+  readonly to: readonly [string, ...string[]];
 }
 
 /**

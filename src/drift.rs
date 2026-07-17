@@ -2823,9 +2823,9 @@ pub struct AssemblyFactRow {
     /// An `edge` fact's reference field.
     #[serde(default)]
     pub field: Option<String>,
-    /// An `edge` fact's target kind.
+    /// An `edge` fact's target kinds — the non-empty set the field may resolve into.
     #[serde(default)]
-    pub to: Option<String>,
+    pub to: Option<Vec<String>>,
 }
 
 impl Declarations {
@@ -3175,6 +3175,25 @@ fn templates_from_table(table: &dyn TableLike) -> Result<Vec<TemplateRow>, RowEr
         });
     }
     Ok(out)
+}
+
+/// An `edge` fact's `to` column, read across both spellings a committed lock can carry:
+/// the array a current emit writes, and the bare string a pre-set lock wrote — the
+/// lossless spelling of the one-element set, read as `["<kind>"]`. The file is never
+/// patched; the next emit rewrites it whole in the canonical array form.
+///
+/// Absent is `Ok(None)` — the column stays optional on the row, and an `edge` fact that
+/// omits it is [`crate::main`]'s required-column refusal, not this reader's. A present
+/// `to` that is neither a string nor an array of strings is a [`RowError`], so the gate
+/// stays tight against a genuinely corrupt lock rather than tolerant of any shape.
+fn edge_to_from_table(table: &dyn TableLike) -> Result<Option<Vec<String>>, RowError> {
+    let Some(item) = table.get("to") else {
+        return Ok(None);
+    };
+    if let Some(kind) = item.as_str() {
+        return Ok(Some(vec![kind.to_string()]));
+    }
+    opt_str_array(table, "to")
 }
 
 /// Build a [`KindFactRow`]'s `collection_address` column's wire form: a `{ manifest =
@@ -3572,7 +3591,7 @@ impl AssemblyFactRow {
             table.insert("field", value(field.clone()));
         }
         if let Some(to) = &self.to {
-            table.insert("to", value(to.clone()));
+            table.insert("to", value(Array::from_iter(to.iter().cloned())));
         }
         table
     }
@@ -3583,7 +3602,7 @@ impl AssemblyFactRow {
             value: opt_str(table, "value")?,
             from: opt_str(table, "from")?,
             field: opt_str(table, "field")?,
-            to: opt_str(table, "to")?,
+            to: edge_to_from_table(table)?,
         })
     }
 }

@@ -349,7 +349,7 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
   const facts: AssemblyFactRow[] = [{ fact: "mode", value: harness.mode }];
   for (const kind of kinds) {
     for (const edge of kind.edgeFields ?? []) {
-      facts.push({ fact: "edge", from: kind.name, field: edge.field, to: edge.to });
+      facts.push({ fact: "edge", from: kind.name, field: edge.field, to: [...edge.to] });
  }
  }
   return facts;
