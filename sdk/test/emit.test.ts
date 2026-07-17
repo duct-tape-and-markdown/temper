@@ -202,6 +202,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       provider: undefined,
       governs_root: ".claude/rules",
       governs_glob: "*.md",
+      commitment: undefined,
       format: "yaml-frontmatter",
       unit_shape: "file",
       registration: ["paths-match(paths)"],
@@ -482,6 +483,32 @@ const guide = kind<Record<never, never>>({
   identityField: "name",
   registration: [{ via: "always" }],
   templates: [{ kind: supportingDoc, path: "*.md" }],
+});
+
+/** A local-locus kind: its members' documents are per-machine and uncommitted, so the
+ * kind is all the program declares of it. Layout content is the class's fence — the
+ * document is the governed source the engine reads at check. */
+const dial = kind<Record<never, never>>({
+  name: "dial",
+  locus: { kind: "at", root: ".claude/local", glob: "*.md", commitment: "local" },
+  unitShape: "file",
+  registration: [{ via: "always" }],
+  content: { regions: [{ region: "prose" }] },
+});
+
+test("a local locus's commitment class reaches the kind's fact row", () => {
+  // The program declares the kind and no member of it: a local member's document is the
+  // machine's, never the program's to compose.
+  const result = emit(harness({ members: [rule({ name: "rust", prose: text`# Rust` })], expect: [{ kind: dial, clauses: [] }] }));
+
+  const row = result.declarations.kinds.find((k) => k.name === "dial")!;
+  assert.equal(row.commitment, "local");
+  assert.equal(row.governs_root, ".claude/local");
+
+  // The committed class has no label of its own — it is the absent column, so every
+  // kind that declares nothing keeps a byte-identical row.
+  const committed = result.declarations.kinds.find((k) => k.name === "rule");
+  assert.equal(committed?.commitment, undefined);
 });
 
 test("a host's file child emits at its host's unit joined with the template's pattern", () => {

@@ -120,6 +120,7 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
         provider: None,
         governs_root: Some(".claude/skills".to_string()),
         governs_glob: Some("*/SKILL.md".to_string()),
+        commitment: None,
         format: Some("yaml-frontmatter".to_string()),
         unit_shape: Some("directory".to_string()),
         registration: Vec::new(),

@@ -617,6 +617,7 @@ mod tests {
                     provider: None,
                     governs_root: Some(".claude".to_string()),
                     governs_glob: Some("settings.json".to_string()),
+                    commitment: None,
                     format: None,
                     unit_shape: Some("file".to_string()),
                     registration: Vec::new(),

@@ -30,6 +30,18 @@ governs_root?: string,
  */
 governs_glob?: string, 
 /**
+ * The file locus's declared **commitment class** label — `local` for a per-machine,
+ * uncommitted locus: the kind is declared and reviewed, its members' documents are
+ * not. Absent for the committed class every
+ * shipped kind takes, so an ordinary row stays byte-identical — the same tolerant
+ * round-trip the rest of the optional facts take.
+ *
+ * A local locus is layout-only and its members' rows never enter the lock, so this
+ * column is the *whole* of a local kind's residue here: the row declares the kind,
+ * and the documents it governs derive at read time under it.
+ */
+commitment?: string, 
+/**
  * The declared projection format label, when declared.
  */
 format?: string, 

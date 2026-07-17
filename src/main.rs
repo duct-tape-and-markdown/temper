@@ -834,6 +834,14 @@ fn gate(workspace: &Path, harness_root: &Path) -> miette::Result<Vec<check::Diag
         &custom_rows,
         &declarations,
     )?);
+    // A declared commitment class the locus cannot carry — the layout-only fence — is
+    // decided here, beside the locus's other coherence check, before any member is read
+    // under a kind whose own declaration does not hold together.
+    diagnostics.extend(local_locus_admissibility(
+        &builtin_defs,
+        &custom_rows,
+        &declarations,
+    )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
@@ -1195,9 +1203,19 @@ fn resolve_kind_units(
     // qualified label; a bare label an older engine wrote still binds against this kind's
     // own id (a bare label two kinds share is refused at admissibility, never
     // cross-attributed here).
+    // A local-locus member's fills are its own document's `satisfies` edge slot: its rows
+    // never enter the lock, so the family below carries none of them and its fills would
+    // silently miss the roster. Every other member's come off the lock.
+    let derived;
+    let satisfies = if overlaid.commitment == Some(kind::Commitment::Local) {
+        derived = local_document_rows(&overlaid, &units, declarations)?;
+        &derived.satisfies[..]
+    } else {
+        &declarations.satisfies[..]
+    };
     for unit in &mut units {
         let address = extract::host_address(&kind.name, &unit.id);
-        for row in &declarations.satisfies {
+        for row in satisfies {
             if row.member != address && row.member != unit.id {
                 continue;
             }
@@ -1331,10 +1349,65 @@ fn kind_features(
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
     let kind = overlay_builtin_kind(kind, declarations)?;
-    Ok(resolve_kind_units(&kind, harness_root, declarations)?
+    let units = resolve_kind_units(&kind, harness_root, declarations)?;
+    // A local-locus kind's members contribute no `nested_member` rows to the lock — the
+    // kind is committed, its members' documents are not — so theirs are derived here, at
+    // read time, off the documents themselves under the kind the committed lock declares.
+    // Every other kind's reach the corpus off the lock's own family.
+    let derived;
+    let nested_members = if kind.commitment == Some(kind::Commitment::Local) {
+        derived = local_document_rows(&kind, &units, declarations)?;
+        &derived.nested[..]
+    } else {
+        &declarations.nested_members[..]
+    };
+    Ok(units
         .iter()
-        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
+        .map(|unit| builtin_kind::features(&kind, unit, nested_members))
         .collect())
+}
+
+/// A local-locus kind's members' declaration rows, derived off their own documents —
+/// what the lock would carry for a committed kind, and never does for this one.
+///
+/// The rows go through the same reader `emit` lowers a committed layout host's source
+/// with ([`drift::read_layout_document`]), so a local member's rows are the rows its
+/// document declares, not a second interpretation of it. A kind whose content is not a
+/// layout yields none: the layout-only fence is
+/// [`local_locus_admissibility`]'s to state loudly, and deriving silence here is what
+/// lets it.
+///
+/// # Errors
+///
+/// Returns an error when a member's document cannot be read or does not fit the kind's
+/// declared layout.
+fn local_document_rows(
+    kind: &CustomKind,
+    units: &[Unit],
+    declarations: &drift::Declarations,
+) -> miette::Result<drift::LayoutDocumentRows> {
+    let kind::Content::Layout(layout) = &kind.content else {
+        return Ok(drift::LayoutDocumentRows::default());
+    };
+    let mut edge_fields = kind.edge_field_slots();
+    edge_fields.extend(drift::layout_edge_fields(
+        &declarations.assembly,
+        &kind.name,
+    )?);
+
+    let mut rows = drift::LayoutDocumentRows::default();
+    for unit in units {
+        let document = drift::read_layout_document(
+            layout,
+            &kind.name,
+            &unit.id,
+            &unit.source_path,
+            &edge_fields,
+        )?;
+        rows.nested.extend(document.nested);
+        rows.satisfies.extend(document.satisfies);
+    }
+    Ok(rows)
 }
 
 /// Every file under `root`, as repo-relative slash-separated paths — the
@@ -1778,6 +1851,48 @@ fn kind_collision_diagnostic(row: &drift::KindFactRow) -> check::Diagnostic {
             row.name
         ),
     )
+}
+
+/// The diagnostic `rule` id a kind declaring an inadmissible commitment class reports
+/// under. Sibling of [`GOVERNS_COLLISION_RULE`]: both guard the locus's own coherence
+/// before the corpus is trusted to model the harness — that one across kinds, this one
+/// within a kind.
+const LOCAL_LOCUS_RULE: &str = "kind.local-locus";
+
+/// A [`LOCAL_LOCUS_RULE`] finding per kind whose declared `local` commitment class is
+/// inadmissible — the layout-only fence ([`CustomKind::local_locus_fault`]), raised over
+/// every kind in play before their members are read.
+///
+/// The fence is what makes a local locus's check-side-ness structural rather than a
+/// convention: emit writes nothing at a local member's path, so a local kind that
+/// declared `file` content would name a body no face on either side ever reads or
+/// writes, and every member of it would be governed by nothing while looking governed.
+fn local_locus_admissibility(
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+    declarations: &drift::Declarations,
+) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
+    let mut kinds = Vec::new();
+    for kind in builtin_defs.values() {
+        kinds.push(overlay_builtin_kind(kind, declarations)?);
+    }
+    for row in custom_rows {
+        kinds.push(CustomKind::from_kind_fact_row(row)?);
+    }
+    Ok(kinds
+        .iter()
+        .filter_map(|kind| {
+            let fault = kind.local_locus_fault()?;
+            Some(check::Diagnostic::error(
+                LOCAL_LOCUS_RULE,
+                &kind.name,
+                format!(
+                    "kind `{}` declares the `local` commitment class, but {fault}",
+                    kind.name
+                ),
+            ))
+        })
+        .collect())
 }
 
 /// The diagnostic `rule` id for two distinct kinds resolving to the same `governs`

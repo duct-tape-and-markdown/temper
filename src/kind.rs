@@ -36,6 +36,38 @@ pub struct Governs {
     pub glob: String,
 }
 
+/// A file locus's declared **commitment class** — whether the documents its members own
+/// are committed beside the kind that declares them. Absent from a kind is the default
+/// and only other class: committed, the whole shipped set's posture, where the kind and
+/// its members' documents are reviewed together and `emit` owns the bytes.
+///
+/// A closed vocabulary, the same load-time guard [`Format`] and [`UnitShape`] carry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Commitment {
+    /// `local` — per-machine and uncommitted: the kind is declared and reviewed, its
+    /// members' documents are not. Two consequences ride the class:
+    ///
+    /// - the locus is **layout-only** — the document is the governed source, read at
+    ///   check under the declared layout, and `emit` writes nothing there
+    ///   ([`CustomKind::local_locus_fault`] is the fence);
+    /// - its members' rows never enter the lock, deriving at read time instead, so the
+    ///   committed bytes stay layer-invariant by construction rather than by a rule
+    ///   something has to remember to enforce.
+    Local,
+}
+
+impl Commitment {
+    /// The declared label this class lifts from — the inverse of
+    /// [`commitment_from_label`], so a diagnostic names the class in the same vocabulary
+    /// the author declared it in.
+    #[must_use]
+    pub fn label(self) -> &'static str {
+        match self {
+            Commitment::Local => "local",
+        }
+    }
+}
+
 /// A kind's declared definition — a constructor plus its runtime residue: the
 /// [`governs`](CustomKind::governs) locus, the composed [`Extraction`], the declared
 /// [`relationships`](CustomKind::relationships), and the declared shape facts
@@ -105,6 +137,13 @@ pub struct CustomKind {
     /// it registers at. `None` for a kind that owns its own file locus. Read back off the
     /// row's `collection_address` column.
     pub collection_address: Option<CollectionAddress>,
+    /// The file locus's declared **commitment class** — [`Commitment::Local`] for a
+    /// per-machine, uncommitted locus; absent ⇒ committed, the class every shipped kind
+    /// takes. Meaningless without a [`governs`](CustomKind::governs) locus and
+    /// inadmissible over content that is not a [`Layout`], both fenced by
+    /// [`local_locus_fault`](CustomKind::local_locus_fault). Read back off the row's
+    /// `commitment` column.
+    pub commitment: Option<Commitment>,
 }
 
 /// A kind's declared **content** — how a member's authored body is shaped. The body is
@@ -122,6 +161,19 @@ pub enum Content {
     /// (a hook, an MCP server). Distinct from [`File`](Content::File), which still carries
     /// a verbatim prose body.
     Fields,
+}
+
+impl Content {
+    /// The declared label this content shape lifts from, so a diagnostic names it in the
+    /// same vocabulary the author declared it in — [`Format::label`]'s peer.
+    #[must_use]
+    pub fn label(&self) -> &'static str {
+        match self {
+            Content::File => "file",
+            Content::Layout(_) => "layout",
+            Content::Fields => "fields",
+        }
+    }
 }
 
 /// A registration member's declared **collection address** — where inside a host manifest
@@ -663,6 +715,54 @@ impl CustomKind {
             templates: Vec::new(),
             content: Content::File,
             collection_address: None,
+            commitment: None,
+        }
+    }
+
+    /// Declare this kind's file locus **local** — per-machine and uncommitted
+    /// ([`Commitment::Local`]). The class is the locus's fact, so a kind that governs no
+    /// glob has none to declare; [`local_locus_fault`](CustomKind::local_locus_fault)
+    /// states that fence rather than this setter refusing it, so a malformed declaration
+    /// surfaces as one loud finding at the gate instead of two different failures
+    /// depending on which door it came through.
+    #[must_use]
+    pub fn local(mut self) -> Self {
+        self.commitment = Some(Commitment::Local);
+        self
+    }
+
+    /// Why this kind's declared commitment class is inadmissible, or [`None`] when it is
+    /// sound — the **layout-only** fence, and the coupling that makes a local locus's
+    /// check-side-ness true by construction rather than a rule spread across the verbs.
+    ///
+    /// A local locus is layout-only: its document is
+    /// the governed source, read at check under the declared layout. A local kind whose
+    /// content is not a declared [`Layout`] therefore declares a source `emit` will not
+    /// write and `check` cannot read as one — no member of it could ever be governed, so
+    /// the declaration is refused rather than left to project silence. The class is also a
+    /// *file* locus's fact: a nested-file kind governs no glob of its own, so it has no
+    /// locus to class.
+    #[must_use]
+    pub fn local_locus_fault(&self) -> Option<String> {
+        if self.commitment != Some(Commitment::Local) {
+            return None;
+        }
+        if self.governs.is_none() {
+            return Some(
+                "it declares no `governs` locus — a commitment class is a file locus's \
+                 fact, and a nested file kind's members compose their paths from their \
+                 host's unit instead"
+                    .to_string(),
+            );
+        }
+        match &self.content {
+            Content::Layout(_) => None,
+            Content::File | Content::Fields => Some(format!(
+                "its content is `{}` — a local locus is layout-only: its document is the \
+                 governed source, read at check under the declared layout, and `emit` \
+                 writes nothing there",
+                self.content.label()
+            )),
         }
     }
 
@@ -707,6 +807,7 @@ impl CustomKind {
             templates: row.templates.iter().map(template_from_row).collect(),
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,
+            commitment: commitment_from_row(row)?,
             ..CustomKind::with_locus(
                 row.name.clone(),
                 // The two columns are one spelling: an `at` locus writes both, a nested file
@@ -893,6 +994,33 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     (name == "named-field").then(|| UnitShape::NamedField {
         field: field.to_string(),
     })
+}
+
+/// Parse a [`KindFactRow::commitment`] label into its typed [`Commitment`] — `None` for
+/// any label outside the closed vocabulary. The committed class has no label of its own:
+/// it is the absent column, so every shipped kind's row stays byte-identical.
+fn commitment_from_label(label: &str) -> Option<Commitment> {
+    match label {
+        "local" => Some(Commitment::Local),
+        _ => None,
+    }
+}
+
+/// Lift a [`KindFactRow`]'s declared commitment label into its typed [`Commitment`] —
+/// `None` for a kind whose file locus is committed (the absent column).
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when the label falls outside the closed vocabulary.
+pub(crate) fn commitment_from_row(row: &KindFactRow) -> Result<Option<Commitment>, LockRowError> {
+    match &row.commitment {
+        Some(label) => Ok(Some(kind_vocab(
+            label,
+            "commitment",
+            commitment_from_label(label),
+        )?)),
+        None => Ok(None),
+    }
 }
 
 /// Lift a [`KindFactRow`]'s declared format label into its typed [`Format`] — `None` for
@@ -1537,6 +1665,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some("specs".to_string()),
             governs_glob: Some("*.md".to_string()),
+            commitment: None,
             format: None,
             unit_shape: None,
             registration: Vec::new(),
@@ -1586,6 +1715,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some("specs".to_string()),
             governs_glob: Some("*.md".to_string()),
+            commitment: None,
             format: Some("yaml-frontmatter".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: vec!["description-trigger(description)".to_string()],
@@ -1634,6 +1764,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some("specs".to_string()),
             governs_glob: Some("*.md".to_string()),
+            commitment: None,
             format: Some("xml".to_string()),
             unit_shape: Some("directory".to_string()),
             registration: vec!["bogus".to_string()],
@@ -1659,6 +1790,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some("specs".to_string()),
             governs_glob: Some("*.md".to_string()),
+            commitment: None,
             format: None,
             unit_shape: None,
             registration: vec!["user-invoked".to_string(), "bogus".to_string()],
@@ -1683,6 +1815,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some(".claude/skills".to_string()),
             governs_glob: Some("*/SKILL.md".to_string()),
+            commitment: None,
             format: None,
             unit_shape: None,
             registration: vec![
@@ -1713,6 +1846,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some("adr".to_string()),
             governs_glob: Some("*.md".to_string()),
+            commitment: None,
             format: None,
             unit_shape: None,
             registration: Vec::new(),
@@ -1859,6 +1993,7 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             provider: None,
             governs_root: Some("specs".to_string()),
             governs_glob: Some("*.md".to_string()),
+            commitment: None,
             format: None,
             unit_shape: None,
             registration: Vec::new(),

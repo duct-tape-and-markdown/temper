@@ -71,9 +71,23 @@ export interface EdgeField {
  * (`assembly.ts`), so one embedded type means the same thing in every body that admits
  * it. A `nested-file` child names its host per member ({@link MemberInit}'s `host`) —
  * the unit its path composes under.
+ *
+ * An `at` locus may declare a `commitment` class of `local`: per-machine and
+ * uncommitted — the kind is declared and reviewed, its members' documents are not. The
+ * class is a *file* locus's own fact, which is why only `at` spells it. A local locus is
+ * layout-only (the document is the governed source, read at check under the declared
+ * layout; `emit` writes nothing there), and its members' rows never enter the lock —
+ * they derive at read time under the kind the lock declares. Absent is the other class
+ * and the default: committed, where the kind and its members' documents are reviewed
+ * together and `emit` owns the bytes.
  */
 export type Locus =
-  | { readonly kind: "at"; readonly root: string; readonly glob: string }
+  | {
+      readonly kind: "at";
+      readonly root: string;
+      readonly glob: string;
+      readonly commitment?: "local";
+    }
   | { readonly kind: "embedded" }
   | { readonly kind: "nested-file" };
 
@@ -144,7 +158,9 @@ export interface KindFacts {
   readonly name: string;
   /** The declared provider authority, when the kind qualifies by one. */
   readonly provider?: string;
-  /** Fact 2, locus — where members live. */
+  /** Fact 2, locus — where members live, and for a file locus whether their documents
+   * are committed: a `local` commitment class declares the kind reviewed and its
+   * members' documents not. */
   readonly locus: Locus;
   /** Fact 3a, projection — the artifact format; omitted for a kind that declares none. */
   readonly format?: Format;

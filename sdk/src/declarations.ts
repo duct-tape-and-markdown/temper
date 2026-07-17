@@ -232,7 +232,8 @@ function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefine
 /**
  * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and a
  * nested-file kind neither (its path composes from its host's unit and the host
- * template's pattern, so it governs no glob), `templates` names the embedded kinds the
+ * template's pattern, so it governs no glob). A file locus's `commitment` class rides
+ * the same spelling, absent for the committed default. `templates` names the embedded kinds the
  * corpus admits over it, and `content` lowers a declared layout (absent for a
  * `file`-content kind). A registration kind extends the row with its `shape` marker and
  * `collection_address`.
@@ -249,6 +250,7 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     provider: facts.provider,
     governs_root: governs?.root,
     governs_glob: governs?.glob,
+    commitment: governs?.commitment,
     format: facts.format,
     unit_shape: unitShapeLabel(facts),
     registration: registrationLabels(facts.registration),
