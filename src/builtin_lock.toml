@@ -342,8 +342,17 @@ kind = "marketplace"
 predicate = "required"
 field = "owner"
 severity = "required"
-guidance = "A marketplace names its maintainer: `owner.name` is required and `owner.email` is optional. This clause decides the `owner` object's presence — that its `name` is filled is a rule the clause algebra cannot yet address, since a nested object's keys are not reachable by a clause; the `Marketplace` type holds that bar for an SDK author."
-cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-16)"
+guidance = "A marketplace names its maintainer. This clause decides the `owner` object's presence; the clause below decides that its `name` is filled."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "marketplace.required.owner.name"
+kind = "marketplace"
+predicate = "required"
+field = "owner.name"
+severity = "required"
+guidance = "`owner.name` is the maintainer or team behind the catalog, and it is required — an `owner` object carrying only `email` does not satisfy the schema. `owner.email` beside it is optional."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-17)"
 
 [[declaration.clause]]
 label = "marketplace.required.plugins"
@@ -351,8 +360,26 @@ kind = "marketplace"
 predicate = "required"
 field = "plugins"
 severity = "required"
-guidance = "The `plugins` array is the catalog — a marketplace without it lists nothing. Each entry needs a `name` and a `source`; that per-entry rule is not addressable by a clause today (an array's elements are not reachable), so the `Marketplace` type carries it instead. An empty array is a valid, if empty, catalog."
-cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)"
+guidance = "The `plugins` array is the catalog — a marketplace without it lists nothing. An empty array is a valid, if empty, catalog."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "marketplace.required.plugins[*].name"
+kind = "marketplace"
+predicate = "required"
+field = "plugins[*].name"
+severity = "required"
+guidance = "Every catalog entry declares a `name` — the plugin identifier users type when installing (`/plugin install my-plugin@marketplace`), kebab-case and without spaces. An entry with no name cannot be installed, and this clause names the entry that omitted it by its own index."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "marketplace.required.plugins[*].source"
+kind = "marketplace"
+predicate = "required"
+field = "plugins[*].source"
+severity = "required"
+guidance = "Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Which source form it is (a relative path, or one of the `github`/`url`/`git-subdir`/`npm` objects) is a union no clause can yet decide; the `MarketplaceSource` type carries that bar for an SDK author. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)"
 
 [[declaration.clause]]
 label = "mcp-server.enum.type"

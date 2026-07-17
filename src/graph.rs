@@ -122,10 +122,10 @@ pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagn
             for target in edge_targets(source, &edge.field) {
                 // The finding names the *authored* spelling, never the normalized
                 // identity — the author has to find what they wrote.
-                let resolved = target_identity(target, &edge.to)
+                let resolved = target_identity(&target, &edge.to)
                     .is_some_and(|(kind, identity)| resolves(by_kind, kind, identity));
                 if !resolved {
-                    diagnostics.push(dangling(edge, source.id.as_str(), target));
+                    diagnostics.push(dangling(edge, source.id.as_str(), &target));
                 }
             }
         }
@@ -956,7 +956,7 @@ pub(crate) fn resolved_edges(
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
-                let Some((kind, identity)) = target_identity(target, &edge.to) else {
+                let Some((kind, identity)) = target_identity(&target, &edge.to) else {
                     continue;
                 };
                 // A dangling reference loads nothing — no resolved edge.
@@ -1233,11 +1233,11 @@ fn is_admissible(edge: &Edge, by_kind: &BTreeMap<&str, &[Features]>) -> bool {
 /// artifact: a scalar field names one target, a list field names each of several,
 /// and an absent field (or a map, which carries no name) names none. Read off
 /// [`Features`] — a declared field, never grepped prose.
-fn edge_targets<'a>(source: &'a Features, field: &str) -> Vec<&'a str> {
+fn edge_targets(source: &Features, field: &str) -> Vec<String> {
     match source.field(field) {
         None | Some(FeatureValue::Map) => Vec::new(),
-        Some(FeatureValue::List(items)) => items.iter().map(String::as_str).collect(),
-        Some(value @ FeatureValue::Scalar { .. }) => value.as_scalar().into_iter().collect(),
+        Some(FeatureValue::List(items)) => items,
+        Some(FeatureValue::Scalar { text, .. }) => vec![text],
     }
 }
 
@@ -1354,10 +1354,11 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    use serde_json::{Value as JsonValue, json};
+
     use crate::check::Severity;
     use crate::compose::Edge;
     use crate::contract::{Clause, Severity as ClauseSeverity};
-    use crate::extract::ValueType;
     use crate::roster;
 
     /// A `Features` carrying a name (its `id`) and, optionally, a `routes_to`
@@ -1367,7 +1368,7 @@ mod tests {
         if let Some(target) = routes_to {
             fields.insert(
                 "routes_to".to_string(),
-                FeatureValue::scalar(ValueType::String, target),
+                JsonValue::String(target.to_string()),
             );
         }
         Features {
@@ -1466,10 +1467,9 @@ mod tests {
         // A `routes_to` list names two targets; one resolves and one dangles, so a
         // single finding fires for the dangling element only.
         let mut style = node("style", None);
-        style.fields.insert(
-            "routes_to".to_string(),
-            FeatureValue::List(vec!["standards".to_string(), "absent".to_string()]),
-        );
+        style
+            .fields
+            .insert("routes_to".to_string(), json!(["standards", "absent"]));
         let edges = [routes_to_edge()];
         let rules = [style];
         let skills = [node("standards", None)];
@@ -1608,10 +1608,9 @@ mod tests {
         // The dangling arc loads nothing, and the resolving arc is acyclic — clean.
         // (Route resolution owns the dangling `absent` finding, not `acyclic`.)
         let mut style = node("style", None);
-        style.fields.insert(
-            "routes_to".to_string(),
-            FeatureValue::List(vec!["standards".to_string(), "absent".to_string()]),
-        );
+        style
+            .fields
+            .insert("routes_to".to_string(), json!(["standards", "absent"]));
         let edges = [routes_to_edge()];
         let rules = [style];
         let skills = [node("standards", None)];
@@ -1626,10 +1625,9 @@ mod tests {
         // `skill standards` routes back to `style` — a real `style → standards →
         // style` cycle. The dangling arc must not suppress it.
         let mut style = node("style", None);
-        style.fields.insert(
-            "routes_to".to_string(),
-            FeatureValue::List(vec!["standards".to_string(), "absent".to_string()]),
-        );
+        style
+            .fields
+            .insert("routes_to".to_string(), json!(["standards", "absent"]));
         let edges = [routes_to_edge(), skill_to_rule_edge()];
         let rules = [style];
         let skills = [node("standards", Some("style"))];
@@ -1920,7 +1918,7 @@ mod tests {
         let mut fields = BTreeMap::new();
         fields.insert(
             "paths".to_string(),
-            FeatureValue::scalar(ValueType::String, "**/*.rs"),
+            JsonValue::String("**/*.rs".to_string()),
         );
         let member = Features {
             id: "rust".to_string(),

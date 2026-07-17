@@ -38,6 +38,12 @@
 //! ride no channel here. The emitted validation keywords are therefore *exactly*
 //! the decidable clauses the editor can decide against a single artifact's
 //! frontmatter.
+//!
+//! A clause whose `field` addresses past the top level (`owner.name`,
+//! `plugins[*].source`) names no property of this object, so it rides neither channel:
+//! a nested key spelled as a top-level one would have the editor demand a key the
+//! format never documents. The gate decides those clauses; the schema says only what an
+//! editor can check against the flat object in front of it.
 
 use std::collections::BTreeSet;
 
@@ -61,6 +67,16 @@ pub fn emit(contract: &Contract) -> Value {
     let mut forbidden: Vec<String> = Vec::new();
 
     for clause in &contract.clauses {
+        // A clause whose `field` addresses past the top level names no property of this
+        // schema: `owner.name` is a key of the *`owner` object*, and `plugins[*].source`
+        // one of each array element. Spelling either as a top-level `required` key or
+        // `properties` entry would have the editor demand a key the format never
+        // documents — a forged squiggle at the keystroke, which is the one thing the
+        // validation channel may never emit. The gate still decides them; the schema
+        // carries the subset an editor can check against a flat frontmatter object.
+        if !addresses_a_property(&clause.predicate) {
+            continue;
+        }
         match &clause.predicate {
             Predicate::Required { field } => push_unique(&mut required, field),
             Predicate::Type { field, kinds } => {
@@ -139,6 +155,9 @@ pub fn emit(contract: &Contract) -> Value {
     // names no frontmatter property, so it rides no channel here, exactly as those
     // predicates' validation does not. Absent guidance ⇒ no `description`.
     for clause in &contract.clauses {
+        if !addresses_a_property(&clause.predicate) {
+            continue;
+        }
         if let (Some(guidance), Some(field)) =
             (&clause.guidance, clause.predicate.documented_field())
         {
@@ -168,6 +187,20 @@ pub fn emit(contract: &Contract) -> Value {
         schema.insert("allOf".to_string(), Value::Array(clauses));
     }
     Value::Object(schema)
+}
+
+/// Whether this predicate's `field` names a **top-level property** of the frontmatter
+/// object this schema describes — true for a bare name, false for a path that steps into
+/// an object or grains over an array's elements.
+///
+/// A predicate that documents no frontmatter property (`forbidden_keys`, the body and
+/// cross-artifact ones) addresses none either way, so it passes through to the per-
+/// predicate mapping below, which is where its silence is already decided.
+fn addresses_a_property(predicate: &Predicate) -> bool {
+    let Some(field) = predicate.documented_field() else {
+        return true;
+    };
+    crate::address::FieldPath::parse(field).is_ok_and(|path| path.is_bare_name())
 }
 
 /// The JSON-Schema `type` keyword for a `type` clause's declared set. JSON Schema

@@ -294,7 +294,19 @@ pub struct Features {
     /// Frontmatter fields by name — the typed fields *and* the `extra` keys, so
     /// a clause resolves `name`/`description`/`version` or any unknown key
     /// (e.g. for `forbidden_keys`) through one generic lookup.
-    pub fields: BTreeMap<String, FeatureValue>,
+    ///
+    /// Each value is retained **as parsed**, never flattened: a clause addresses a field
+    /// by a path that may step into an object or grain over an array's elements
+    /// ([`Features::locate`]), so the nesting has to survive extraction. Projection to
+    /// the [`FeatureValue`] the predicates read happens at the read edge
+    /// ([`json_to_feature`]), on the node the path located rather than on the top-level
+    /// value alone.
+    ///
+    /// A retained value is arbitrary parsed JSON, and the binding says exactly that: the
+    /// TS face narrows before it reads, because typing the value is the *contract*'s job
+    /// and no consumer of this map knows the kind yet.
+    #[ts(type = "{ [key in string]: unknown }")]
+    pub fields: BTreeMap<String, JsonValue>,
     /// The artifact body's line count (for `max_lines`).
     pub body_lines: usize,
     /// The ATX headings (`#`..`######`) in the body, in document order, with the
@@ -358,9 +370,13 @@ pub struct Features {
 impl Features {
     /// Resolve a frontmatter field by name — the generic accessor a clause's
     /// `field` reference goes through, so the engine holds no per-kind opinion.
+    ///
+    /// Flat by name, never a path: this is the top-level lookup the extraction face and
+    /// the read family ask for. A clause's addressing goes through [`Features::locate`],
+    /// which reaches the same value for a bare name and walks nesting for a path.
     #[must_use]
-    pub fn field(&self, name: &str) -> Option<&FeatureValue> {
-        self.fields.get(name)
+    pub fn field(&self, name: &str) -> Option<FeatureValue> {
+        self.fields.get(name).map(json_to_feature)
     }
 
     /// Whether a frontmatter field/key by this name is present (for `required`
@@ -368,6 +384,62 @@ impl Features {
     #[must_use]
     pub fn has_field(&self, name: &str) -> bool {
         self.fields.contains_key(name)
+    }
+
+    /// The member's fields as the one JSON object an addressing path is rooted at.
+    ///
+    /// Built per call rather than held: the fields are the retained parse, and this tool
+    /// reads kilobyte files — a clone per clause costs nothing a reader should pay for in
+    /// indirection.
+    #[must_use]
+    fn root(&self) -> JsonValue {
+        JsonValue::Object(
+            self.fields
+                .iter()
+                .map(|(name, value)| (name.clone(), value.clone()))
+                .collect(),
+        )
+    }
+
+    /// Every value `path` addresses on this member, each paired with the concrete address
+    /// it resolved to — one for a path of name segments, one per element under each
+    /// `[*]`. Empty when the path resolves nowhere: absent, never errored.
+    #[must_use]
+    pub fn locate(&self, path: &crate::address::FieldPath) -> Vec<(String, FeatureValue)> {
+        let root = self.root();
+        path.locate(&root)
+            .into_iter()
+            .map(|(address, value)| (address, json_to_feature(value)))
+            .collect()
+    }
+
+    /// Whether each node `path`'s parent addresses carries `path`'s trailing key — the
+    /// presence face, paired with the concrete address the key would have had.
+    ///
+    /// An absent key locates no node, so presence cannot be read off [`Features::locate`]:
+    /// it is the *parent* that must be located and then asked. A path ending in `[*]`
+    /// names elements rather than a key and yields nothing here; admissibility refuses a
+    /// presence clause spelled that way, so no live clause reaches it.
+    #[must_use]
+    pub fn locate_presence(&self, path: &crate::address::FieldPath) -> Vec<(String, bool)> {
+        let Some((parent, leaf)) = path.split_leaf() else {
+            return Vec::new();
+        };
+        let root = self.root();
+        parent
+            .locate(&root)
+            .into_iter()
+            .map(|(address, value)| {
+                let address = if address.is_empty() {
+                    leaf.to_string()
+                } else {
+                    format!("{address}.{leaf}")
+                };
+                // Only an object carries a key to be present: an array or a scalar met
+                // where the path expects one answers "absent", never a forged hit.
+                (address, value.get(leaf).is_some())
+            })
+            .collect()
     }
 
     /// Every nested member's leaf as a fully-qualified [`MemberAddress`] paired with
@@ -880,37 +952,6 @@ fn skip_code_span(chars: &[char], start: usize) -> usize {
         }
     }
     after_open
-}
-
-/// Resolve a dotted **key-path** (`a.b.c`) against a parsed frontmatter map,
-/// walking nested tables to the leaf value — the traversal the `field` extraction
-/// primitive promises. The first segment resolves in
-/// the top-level map; each further segment descends into the value's object, so a
-/// settings kind's nested `permissions.defaultMode` reads its leaf. A single-segment
-/// path is an ordinary flat lookup, so the common case is unchanged.
-///
-/// Returns `None` — **absent, never errored** — when any segment fails to resolve:
-/// a missing key, or a non-object value met before the leaf (a scalar or list has
-/// no sub-key to walk into). Kind-blind: the returned leaf carries its own parsed
-/// kind through [`json_to_feature`], so a nested read preserves the source scalar
-/// kind exactly as a flat one does.
-///
-/// `pub(crate)` so the [`crate::kind`] `field` primitive walks the identical path
-/// rather than a second traversal that could drift.
-pub(crate) fn resolve_key_path<'a>(
-    frontmatter: &'a BTreeMap<String, JsonValue>,
-    key_path: &str,
-) -> Option<&'a JsonValue> {
-    let mut segments = key_path.split('.');
-    // The first segment resolves in the top-level frontmatter map; a path with no
-    // `.` is a single segment, so this is the flat lookup for the common case.
-    let mut current = frontmatter.get(segments.next()?)?;
-    for segment in segments {
-        // Only an object has a sub-key to descend into — a scalar or list met before
-        // the leaf leaves the path unresolved (absent), never a forged read.
-        current = current.as_object()?.get(segment)?;
-    }
-    Some(current)
 }
 
 /// Project an `extra` frontmatter value into a [`FeatureValue`], preserving its

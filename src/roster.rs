@@ -161,7 +161,6 @@ mod tests {
 
     use crate::check::Severity;
     use crate::contract::{Clause, Predicate, Severity as ClauseSeverity};
-    use crate::extract::{FeatureValue, ValueType};
 
     /// Judge a roster's opt-in selections — the composition `main` runs, minus the
     /// by-kind selections no requirement's `membership` can name.
@@ -393,7 +392,7 @@ mod tests {
         if let Some(model) = model {
             f.fields.insert(
                 "model".to_string(),
-                FeatureValue::scalar(ValueType::String, model),
+                serde_json::Value::String(model.to_string()),
             );
         }
         f

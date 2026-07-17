@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use temper::compose::Requirement;
-use temper::extract::{EmbeddedMember, FeatureValue, Features, ValueType};
+use temper::extract::{EmbeddedMember, Features};
 use temper::read::{self, CustomMember};
 
 /// A member's [`Features`] as the read family reads them: its id, the requirements it
@@ -24,7 +24,7 @@ fn feature(id: &str, satisfies: &[&str]) -> Features {
     let mut fields = BTreeMap::new();
     fields.insert(
         "description".to_string(),
-        FeatureValue::scalar(ValueType::String, "d"),
+        serde_json::Value::String("d".to_string()),
     );
     Features {
         id: id.to_string(),

@@ -5,25 +5,14 @@ expression: features
 Features {
     id: "coordinate",
     fields: {
-        "allowed-tools": List(
-            [
-                "Task",
-                "Read",
-                "Edit",
-            ],
-        ),
-        "description": Scalar {
-            kind: String,
-            text: "Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work.",
-        },
-        "license": Scalar {
-            kind: String,
-            text: "MIT",
-        },
-        "name": Scalar {
-            kind: String,
-            text: "coordinate",
-        },
+        "allowed-tools": Array [
+            String("Task"),
+            String("Read"),
+            String("Edit"),
+        ],
+        "description": String("Use when driving a complex task through an agent team — parallel exploration across independent axes converging on a shared artifact, with an adversarial reviewer gate. NOT for single-axis or research-only work."),
+        "license": String("MIT"),
+        "name": String("coordinate"),
     },
     body_lines: 20,
     headings: [

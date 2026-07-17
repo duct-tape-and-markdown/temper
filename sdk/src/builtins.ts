@@ -835,24 +835,18 @@ const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
  * catalog published under a name that later becomes reserved stops loading for every user
  * who already added it. That is the one clause here worth more than a lint.
  *
- * **The documented rules below the top level are absent, pending a vocabulary addition** —
- * the same shape of hold `pluginManifestDefaultContract` names for its own two, and the
- * reason is one gap, not three:
+ * **One documented rule below the top level is still absent, pending a vocabulary
+ * addition** — the same shape of hold `pluginManifestDefaultContract` names for its own
+ * two:
  *
- * - **`owner.name` required.** The clause algebra addresses a field by top-level key; a
- *   nested object projects to an opaque `FeatureValue::Map` whose inner keys the extractor
- *   discards, so no clause can name `owner.name`. `required("owner")` — the presence of
- *   the object — is the decidable slice, and it ships below.
- * - **Each `plugins[]` entry requires `name` and `source`.** An array projects to a list of
- *   stringified elements, so a clause cannot range *into* an entry. `required("plugins")`
- *   is the decidable slice.
- * - **The `source` union.** Needs both of the above plus a discriminated-union predicate:
- *   the relative-path form's leading `./`, the four object forms' `source` discriminator
- *   and their required fields. None of it is addressable today.
+ * - **The `source` union.** The docs type `source` as `string|object` and give the object
+ *   four forms; deciding *which* — the relative-path form's leading `./`, each object
+ *   form's own discriminator and required fields — needs a discriminated-union predicate
+ *   the vocabulary does not spell. `required("plugins[*].source")` — that a source is
+ *   named at all — is the decidable slice, and it ships below.
  *
- * The TypeScript types above hold every one of those bars for an SDK author — `Marketplace`
- * makes `owner.name` and each entry's `name`/`source` non-optional, and `MarketplaceSource`
- * is the union — so what is unguarded is the hand-written catalog, not the authored one.
+ * The TypeScript type `MarketplaceSource` holds that bar for an SDK author, so what is
+ * unguarded is the hand-written catalog, not the authored one.
  *
  * Deliberately absent as undecidable, and never a clause (`specs/intent.md`, invariant 2):
  * the docs *also* block names that "impersonate official marketplaces" (`official-claude-plugins`,
@@ -897,14 +891,32 @@ export const marketplaceDefaultContract: readonly Clause[] = [
   clause(required("owner"), {
     severity: "required",
     guidance:
-      "A marketplace names its maintainer: `owner.name` is required and `owner.email` is optional. This clause decides the `owner` object's presence — that its `name` is filled is a rule the clause algebra cannot yet address, since a nested object's keys are not reachable by a clause; the `Marketplace` type holds that bar for an SDK author.",
-    cite: "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-16)",
+      "A marketplace names its maintainer. This clause decides the `owner` object's presence; the clause below decides that its `name` is filled.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-17)",
+  }),
+  clause(required("owner.name"), {
+    severity: "required",
+    guidance:
+      "`owner.name` is the maintainer or team behind the catalog, and it is required — an `owner` object carrying only `email` does not satisfy the schema. `owner.email` beside it is optional.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#owner-fields (retrieved 2026-07-17)",
   }),
   clause(required("plugins"), {
     severity: "required",
     guidance:
-      "The `plugins` array is the catalog — a marketplace without it lists nothing. Each entry needs a `name` and a `source`; that per-entry rule is not addressable by a clause today (an array's elements are not reachable), so the `Marketplace` type carries it instead. An empty array is a valid, if empty, catalog.",
-    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-16)",
+      "The `plugins` array is the catalog — a marketplace without it lists nothing. An empty array is a valid, if empty, catalog.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#required-fields (retrieved 2026-07-17)",
+  }),
+  clause(required("plugins[*].name"), {
+    severity: "required",
+    guidance:
+      "Every catalog entry declares a `name` — the plugin identifier users type when installing (`/plugin install my-plugin@marketplace`), kebab-case and without spaces. An entry with no name cannot be installed, and this clause names the entry that omitted it by its own index.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)",
+  }),
+  clause(required("plugins[*].source"), {
+    severity: "required",
+    guidance:
+      "Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Which source form it is (a relative path, or one of the `github`/`url`/`git-subdir`/`npm` objects) is a union no clause can yet decide; the `MarketplaceSource` type carries that bar for an SDK author. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`.",
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)",
   }),
 ];
 

@@ -113,10 +113,28 @@ pub enum Severity {
 /// every variant is unambiguously true or false — so a violation is always a
 /// true positive, which is what earns the hard gate.
 ///
+/// ## The field a predicate names
+///
+/// A value predicate's `field` is an **addressing path** ([`crate::address`]): name
+/// segments walk into an object (`owner.name`), and `[*]` grains over an array's
+/// elements (`plugins[*].source`), so one clause decides once per element and indicts
+/// each offender by its own address. That subset — names and `[*]`, nothing else — is
+/// the whole surface, and [`crate::engine::admissibility`] refuses the rest rather than
+/// evaluating it: an author names *where* a value lives, never a pattern that matches
+/// it, and the RFC engine underneath stays mechanics.
+///
+/// [`Predicate::ForbiddenKeys`] and [`Predicate::MustDefine`] name a top-level **key**
+/// instead, and the set predicates' `field` is read by their own judges over a
+/// selection.
+///
 /// Not `Eq`: [`Predicate::Range`] carries `f64` bounds (only `PartialEq`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Predicate {
     /// `required`: the named field must be present.
+    ///
+    /// Presence is asked of the path's trailing name segment, so a path ending in `[*]`
+    /// names elements rather than a key and is inadmissible — there would be nothing to
+    /// be absent.
     Required {
         /// The field that must be present.
         field: String,

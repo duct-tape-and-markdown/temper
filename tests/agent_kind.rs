@@ -19,6 +19,7 @@ use temper::builtin;
 use temper::builtin_kind;
 use temper::contract::{Charset, Predicate};
 use temper::engine;
+use temper::extract::FeatureValue;
 use temper::frontmatter::Member;
 use temper::import;
 use temper::kind::{Registration, UnitShape};
@@ -127,11 +128,17 @@ fn an_agent_member_extracts_its_declared_field_schema() {
     let features = builtin_kind::features(&kind, &unit, &[]);
 
     assert_eq!(
-        features.field("name").and_then(|f| f.as_scalar()),
+        features
+            .field("name")
+            .as_ref()
+            .and_then(FeatureValue::as_scalar),
         Some("reviewer")
     );
     assert_eq!(
-        features.field("description").and_then(|f| f.as_scalar()),
+        features
+            .field("description")
+            .as_ref()
+            .and_then(FeatureValue::as_scalar),
         Some("Use when reviewing a pull request for correctness.")
     );
 }

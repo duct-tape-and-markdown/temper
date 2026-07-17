@@ -35,15 +35,21 @@ sha2 = "0.10"
 # a regex compiler — specs/process/engineering.md, "Libraries before hand-rolls").
 globset = "0.4"
 
-# Contract engine: the `pattern` primitive (adopt the solved mechanic — never
-# hand-roll regex; specs/model/contract.md "bespoke closed algebra" decision).
+# The charset mechanics behind `allowed_chars` — hidden, never an author-facing
+# `pattern` clause (adopt the solved mechanic rather than hand-roll it).
 regex = "1"
+# The RFC 9535 engine behind a clause's field addressing — hidden the same way `regex`
+# hides under `allowed_chars` and `globset` under the governs glob, never a hand-rolled
+# path walker (specs/process/engineering.md, "Libraries before hand-rolls").
+# `default-features = false` drops the function extensions and their `regex`: they exist
+# only inside filter expressions, which the declared subset refuses at admissibility.
+serde_json_path = { version = "0.7", default-features = false }
 
-# Interchange schema, generated Rust-first from the manifest IR (`src/schema/interchange.rs`):
-# schemars derives the JSON Schema 2020-12, ts-rs the TypeScript types both implementations
-# version against (specs/distribution.md, acquisition Decision; ratified
-# reconcile, inbox item 2b "schema generation Rust-first").
+# Interchange schema, generated Rust-first from the IR (`src/schema.rs`): schemars derives
+# the JSON Schema 2020-12 the `schema` verb emits (specs/distribution.md, acquisition
+# Decision).
 schemars = "1"
+# The TS↔Rust seam bindings under `sdk/src/generated/`.
 # `no-serde-warnings`: the seam's `NestedMemberRow.collections` carries a
 # `#[serde(deserialize_with)]` ts-rs cannot read (the field's TS is pinned with
 # `#[ts(as)]` instead) — silence the parse notice for that deliberate override.
@@ -53,8 +59,8 @@ ts-rs = { version = "12", features = ["no-serde-warnings"] }
 # Golden import/apply fixtures (specs/model/pipeline.md, "Install"). `filters` redacts the per-machine
 # absolute source path from the import-surface snapshot.
 insta = { version = "1", features = ["filters"] }
-# Build a nested-frontmatter `Unit` in the extraction-equivalence test's key-path
-# case — the same parsed shape the yaml-frontmatter adapter yields.
+# Build a nested-frontmatter `Unit` in the addressing tests — the same parsed shape the
+# yaml-frontmatter adapter yields.
 serde_json = "1"
 # Test temp dirs (CLAUDE.md, "Tech stack") — the RAII builder behind
 # tests/common::tmpdir and every in-src `#[cfg(test)]` module's own temp dir.

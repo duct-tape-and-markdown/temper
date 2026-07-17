@@ -1138,15 +1138,16 @@ mod embedded_edge_sources {
 mod reachability {
     use std::collections::BTreeMap;
 
+    use serde_json::Value as JsonValue;
     use temper::check::Severity;
-    use temper::extract::{FeatureValue, Features, ValueType};
+    use temper::extract::Features;
     use temper::graph::{ResolvedEdge, reachable};
     use temper::kind::Registration;
 
     /// A member carrying an id and, optionally, one frontmatter field — the only inputs
     /// the reachability predicate reads (the id for the finding, the named registration
     /// field for the edge). Everything else is inert.
-    fn member(id: &str, field: Option<(&str, FeatureValue)>) -> Features {
+    fn member(id: &str, field: Option<(&str, JsonValue)>) -> Features {
         let mut fields = BTreeMap::new();
         if let Some((name, value)) = field {
             fields.insert(name.to_string(), value);
@@ -1200,15 +1201,12 @@ mod reachability {
             "standards",
             Some((
                 "description",
-                FeatureValue::scalar(ValueType::String, "Use when styling the code."),
+                JsonValue::String("Use when styling the code.".to_string()),
             )),
         )];
         let rules = [member(
             "style",
-            Some((
-                "paths",
-                FeatureValue::scalar(ValueType::String, "src/**/*.rs"),
-            )),
+            Some(("paths", JsonValue::String("src/**/*.rs".to_string()))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
@@ -1226,7 +1224,7 @@ mod reachability {
         // whitespace-only — the harness has nothing to load, a dead inbound edge.
         let skills = [member(
             "standards",
-            Some(("description", FeatureValue::scalar(ValueType::String, " "))),
+            Some(("description", JsonValue::String(" ".to_string()))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::from([("skill", vec![description_trigger("description")])]);
@@ -1252,10 +1250,7 @@ mod reachability {
         // the supplied repo file-set — the harness activates it never.
         let rules = [member(
             "style",
-            Some((
-                "paths",
-                FeatureValue::scalar(ValueType::String, "docs/**/*.md"),
-            )),
+            Some(("paths", JsonValue::String("docs/**/*.md".to_string()))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
         let registrations = BTreeMap::from([("rule", vec![paths_match("paths")])]);
@@ -1277,7 +1272,7 @@ mod reachability {
         let absent = member("global", None);
         let blank = member(
             "blank",
-            Some(("paths", FeatureValue::scalar(ValueType::String, "   "))),
+            Some(("paths", JsonValue::String("   ".to_string()))),
         );
         let rules = [absent, blank];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
@@ -1295,7 +1290,7 @@ mod reachability {
         // so nothing fires. `temper` never invents an edge the kind did not declare.
         let skills = [member(
             "standards",
-            Some(("description", FeatureValue::scalar(ValueType::String, ""))),
+            Some(("description", JsonValue::String("".to_string()))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations: BTreeMap<&str, Vec<Registration>> = BTreeMap::new();
@@ -1313,10 +1308,7 @@ mod reachability {
         let memories = [member("root", None)];
         let rules = [member(
             "scoped",
-            Some((
-                "paths",
-                FeatureValue::scalar(ValueType::String, "nowhere/**/*.md"),
-            )),
+            Some(("paths", JsonValue::String("nowhere/**/*.md".to_string()))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("memory", &memories[..]), ("rule", &rules[..])]);
@@ -1336,11 +1328,11 @@ mod reachability {
         let skills = [
             member(
                 "importer",
-                Some(("description", FeatureValue::scalar(ValueType::String, " "))),
+                Some(("description", JsonValue::String(" ".to_string()))),
             ),
             member(
                 "target",
-                Some(("description", FeatureValue::scalar(ValueType::String, " "))),
+                Some(("description", JsonValue::String(" ".to_string()))),
             ),
         ];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
@@ -1365,10 +1357,7 @@ mod reachability {
             .map(|n| {
                 member(
                     &format!("r{n}"),
-                    Some((
-                        "paths",
-                        FeatureValue::scalar(ValueType::String, "nowhere/**/*.md"),
-                    )),
+                    Some(("paths", JsonValue::String("nowhere/**/*.md".to_string()))),
                 )
             })
             .collect();
@@ -1398,7 +1387,7 @@ mod reachability {
         // nothing fires even though the description-trigger channel alone would.
         let skills = [member(
             "deploy",
-            Some(("description", FeatureValue::scalar(ValueType::String, " "))),
+            Some(("description", JsonValue::String(" ".to_string()))),
         )];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
         let registrations = BTreeMap::from([(

@@ -1238,15 +1238,16 @@ pub struct Extraction {
 /// extractable*, so a clause over its feature is a true positive.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Primitive {
-    /// `field` — project the frontmatter value at the `key` **key-path** into the
-    /// named field feature (kind-preserving). A dotted path (`a.b.c`) walks nested
-    /// tables to the leaf (`extract::resolve_key_path`); a bare key is the flat
-    /// lookup. Unresolved (a missing segment, or a scalar met before the leaf) ⇒ the
-    /// feature is not yielded — absent, never errored — mirroring how a skill's
-    /// optional `version` is omitted when unset.
+    /// `field` — retain the frontmatter value at `key` as the named field feature,
+    /// exactly as parsed. An absent key ⇒ the feature is not yielded — absent, never
+    /// errored — mirroring how a skill's optional `version` is omitted when unset.
+    ///
+    /// Retention, never traversal: the value keeps its nesting whole, and reaching into
+    /// it is the *clause*'s to spell — a `field` addressing path walks an object and
+    /// grains over an array's elements (`crate::address`). One home for path walking, and
+    /// it is the one the RFC engine backs.
     Field {
-        /// The frontmatter key-path read, and the name the feature is keyed by (the
-        /// whole dotted path, so a clause references the nested field as `a.b.c`).
+        /// The frontmatter key read, and the name the feature is keyed by.
         key: String,
     },
     /// `headings` — the body's ATX headings, in document order
@@ -1318,12 +1319,8 @@ impl Primitive {
     fn apply(&self, unit: &Unit, features: &mut Features) {
         match self {
             Primitive::Field { key } => {
-                // Walk the dotted key-path to its leaf (a flat lookup for a single
-                // segment); absent — not errored — when the path doesn't resolve.
-                if let Some(value) = extract::resolve_key_path(&unit.frontmatter, key) {
-                    features
-                        .fields
-                        .insert(key.clone(), extract::json_to_feature(value));
+                if let Some(value) = unit.frontmatter.get(key) {
+                    features.fields.insert(key.clone(), value.clone());
                 }
             }
             Primitive::Headings => features.headings = extract::body_headings(&unit.body),
@@ -1584,10 +1581,10 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         // projector: a string stays `string`, an integer keeps `integer`.
         assert_eq!(
             features.field("name"),
-            Some(&FeatureValue::scalar(ValueType::String, "demo"))
+            Some(FeatureValue::scalar(ValueType::String, "demo"))
         );
         assert_eq!(
-            features.field("priority").map(FeatureValue::kind),
+            features.field("priority").map(|value| value.kind()),
             Some(ValueType::Integer)
         );
         // The body loci are untouched — this extractor composes only `field`.

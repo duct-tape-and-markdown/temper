@@ -24,7 +24,19 @@ export type Severity = "required" | "advisory";
 export interface Predicate {
   /** The predicate's clause key (`required`, `max_len`, `max_lines`, …). */
   readonly key: string;
-  /** The field (or marker) the predicate constrains, when it names one. */
+  /**
+   * The field (or marker) the predicate constrains, when it names one.
+   *
+   * A value predicate's `field` is an **addressing path**: name segments walk into an
+   * object (`owner.name`), and `[*]` is the each-grain over an array's elements, so
+   * `plugins[*].source` decides once per entry and indicts each offending one by its own
+   * address. Nothing else is spellable — an index, a slice, a filter, and a recursive
+   * descent are all refused when the contract is checked, not silently evaluated. The
+   * subset is the whole surface on purpose: a clause names *where* a value lives, never
+   * a pattern that matches it.
+   *
+   * `forbidden_keys` and `must_define` name a top-level **key**, not a path.
+   */
   readonly field?: string;
   /** The predicate's scalar bounds, keyed per predicate (`min`/`max`,
    * `incoming_min`/`incoming_max`/`outgoing_min`/`outgoing_max`). */
@@ -68,8 +80,13 @@ export interface Charset {
   readonly chars?: string;
 }
 
-// Node-scope predicates.
-/** A field or marker is present. */
+// Node-scope predicates. Each takes an addressing path as its `field` — see
+// `Predicate.field` for the subset an author may spell.
+/**
+ * A field or marker is present. Presence is asked of the path's trailing name segment,
+ * so `required("plugins[*].source")` fires once per entry that omits it — and a path
+ * ending in `[*]` names elements rather than a key, which is refused.
+ */
 export const required = (field: string): Predicate => ({ key: "required", field });
 /**
  * The field's parsed source kind is one of the declared ones. `kinds` is a set: a

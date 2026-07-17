@@ -1914,12 +1914,7 @@ fn embedded_member_features(
     let fields = row
         .leaves
         .iter()
-        .map(|(name, text)| {
-            (
-                name.clone(),
-                extract::FeatureValue::scalar(extract::ValueType::String, text),
-            )
-        })
+        .map(|(name, text)| (name.clone(), serde_json::Value::String(text.clone())))
         .collect();
     extract::Features {
         id: row.key.clone(),

@@ -136,33 +136,26 @@ fn a_fenced_primitive_over_a_body_with_no_fence_yields_none() {
     assert!(extraction.extract(&unit).fenced_blocks.is_empty());
 }
 
-/// A key-path `field` primitive walks nested frontmatter tables to the leaf — the
-/// traversal its doc-comment promises, the settings kind's
-/// nested-key consumer. The leaf preserves its source scalar kind, and an unresolved
-/// path is **absent, never errored** — a missing segment or a scalar met before the
-/// leaf yields no feature, exactly as an unset optional field does.
+/// A `field` primitive **retains** its frontmatter value as parsed — nesting whole, so
+/// the clause that addresses into it has something to walk (`tests/field_addressing.rs`
+/// judges that face). An absent key is **absent, never errored**, exactly as an unset
+/// optional field is.
 #[test]
-fn a_field_primitive_reads_a_nested_key_path_over_a_units_frontmatter() {
+fn a_field_primitive_retains_its_frontmatter_value_as_parsed() {
     let extraction = Extraction::new(vec![
         Primitive::Field {
-            key: "permissions.defaultMode".to_string(),
-        },
-        Primitive::Field {
-            key: "permissions.retries".to_string(),
+            key: "permissions".to_string(),
         },
         Primitive::Field {
             key: "name".to_string(),
         },
         Primitive::Field {
-            key: "permissions.missing.leaf".to_string(),
-        },
-        Primitive::Field {
-            key: "name.nope".to_string(),
+            key: "absent".to_string(),
         },
     ]);
 
     // A JSON-manifest settings shape: a nested `permissions` table over a top-level
-    // scalar, the exact carriage the key-path half serves (entry note, 07-04).
+    // scalar.
     let serde_json::Value::Object(frontmatter) = serde_json::json!({
         "name": "settings",
         "permissions": {
@@ -181,30 +174,27 @@ fn a_field_primitive_reads_a_nested_key_path_over_a_units_frontmatter() {
 
     let features = extraction.extract(&unit);
 
-    // The nested string leaf reads over the `a.b` key-path, keyed by the whole path,
-    // preserving its source scalar kind (`string`, not a collapsed container).
+    // The nested table survives extraction whole — its keys, and each leaf's own source
+    // kind, are still there to be addressed. A flattening read would have kept the
+    // top-level kind and dropped everything under it.
     assert_eq!(
-        features.field("permissions.defaultMode"),
-        Some(&FeatureValue::scalar(ValueType::String, "acceptEdits"))
+        features.fields.get("permissions"),
+        Some(&serde_json::json!({"defaultMode": "acceptEdits", "retries": 3}))
     );
-    // A nested integer leaf keeps `integer` — the source kind survives the walk.
+    // The feature the top-level lookup projects is still the container's own kind.
     assert_eq!(
-        features
-            .field("permissions.retries")
-            .map(FeatureValue::kind),
-        Some(ValueType::Integer)
-    );
-    // A bare key stays the flat lookup — the common case is unchanged.
-    assert_eq!(
-        features.field("name"),
-        Some(&FeatureValue::scalar(ValueType::String, "settings"))
+        features.field("permissions").map(|v| v.kind()),
+        Some(ValueType::Map)
     );
 
-    // Absent, never errored: a missing segment past a real table, and a scalar met
-    // before the leaf (`name` is a string, so `name.nope` has no sub-key) both yield
-    // no feature — extraction stays total.
-    assert!(features.field("permissions.missing.leaf").is_none());
-    assert!(features.field("name.nope").is_none());
+    // A bare key is the flat lookup, kind-preserving as ever.
+    assert_eq!(
+        features.field("name"),
+        Some(FeatureValue::scalar(ValueType::String, "settings"))
+    );
+
+    // Absent, never errored — extraction stays total.
+    assert!(features.field("absent").is_none());
 
     // Order-stable across re-extraction — a pure function of the surface.
     assert_eq!(extraction.extract(&unit).fields, features.fields);

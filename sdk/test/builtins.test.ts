@@ -335,19 +335,20 @@ test("marketplace is a json-document file kind at a glob its plugin-manifest sib
   });
 });
 
-test("marketplaceDefaultContract gates the reserved-names deny list and the top-level slice it can address", () => {
-  // `name`'s presence, emptiness, charset and the reserved deny list, plus the presence
-  // of the two required objects. The rules *below* the top level — `owner.name`, each
-  // `plugins[]` entry's `name`/`source`, the `source` union — are not addressable by a
-  // clause today, and the contract's header names that hold rather than forging clauses.
+test("marketplaceDefaultContract gates the reserved-names deny list and reaches below the top level", () => {
+  // `name`'s presence, emptiness, charset and the reserved deny list, then the two
+  // required objects and the rules *inside* them the addressing subset reaches. The one
+  // rule still out of reach — the `source` union — is named in the contract's header and
+  // in the clause an author meets it at, never forged into a clause.
   assert.deepEqual(
     marketplaceDefaultContract.map((entry) => entry.predicate.key),
-    ["required", "min_len", "allowed_chars", "deny", "required", "required"],
+    ["required", "min_len", "allowed_chars", "deny", "required", "required", "required", "required", "required"],
   );
   // Every clause is an error: each is a documented rule that stops a catalog loading.
   assert.ok(marketplaceDefaultContract.every((entry) => entry.severity === "required"));
 
-  const [presence, empty, charset, reserved, owner, plugins] = marketplaceDefaultContract;
+  const [presence, empty, charset, reserved, owner, ownerName, plugins, entryName, entrySource] =
+    marketplaceDefaultContract;
   assert.deepEqual(presence.predicate, { key: "required", field: "name" });
   assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
   assert.deepEqual(charset.predicate, {
@@ -357,6 +358,12 @@ test("marketplaceDefaultContract gates the reserved-names deny list and the top-
   });
   assert.deepEqual(owner.predicate, { key: "required", field: "owner" });
   assert.deepEqual(plugins.predicate, { key: "required", field: "plugins" });
+
+  // The three the addressing subset bought: a name segment walks into `owner`, and `[*]`
+  // grains over the catalog so each entry is judged on its own.
+  assert.deepEqual(ownerName.predicate, { key: "required", field: "owner.name" });
+  assert.deepEqual(entryName.predicate, { key: "required", field: "plugins[*].name" });
+  assert.deepEqual(entrySource.predicate, { key: "required", field: "plugins[*].source" });
 
   // The deny list is the load-bearing clause: it is the documented reserved set entire,
   // transcribed from the page rather than sampled, and every name is kebab-case so each
@@ -387,16 +394,15 @@ test("marketplaceDefaultContract gates the reserved-names deny list and the top-
   // And the guidance carries why the clause outranks a lint: the list is re-checked on
   // every load, so a name that *becomes* reserved strands users who already added you.
   assert.match(reserved.guidance ?? "", /every load/);
-  // The two presence clauses each name the sub-field rule they cannot reach, so the
-  // hold is stated where an author meets it, not only in the module header.
-  assert.match(owner.guidance ?? "", /owner\.name/);
-  assert.match(plugins.guidance ?? "", /source/);
+  // The one rule still out of reach is named at the clause an author meets it at — the
+  // hold is stated where it bites, not only in the module header.
+  assert.match(entrySource.guidance ?? "", /union no clause can yet decide/);
 
   // Cited and dated, every one.
   for (const entry of marketplaceDefaultContract) {
     assert.match(
       entry.cite ?? "",
-      /^https:\/\/code\.claude\.com\/docs\/en\/plugin-marketplaces#.* \(retrieved 2026-07-16\)$/,
+      /^https:\/\/code\.claude\.com\/docs\/en\/plugin-marketplaces#.* \(retrieved 2026-07-1[67]\)$/,
     );
   }
 });

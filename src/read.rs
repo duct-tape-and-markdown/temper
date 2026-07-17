@@ -1446,7 +1446,7 @@ mod impact_tests {
     //! e2e-proven in `tests/read_verbs.rs`.
 
     use super::*;
-    use crate::extract::{EmbeddedMember, FeatureValue, ValueType};
+    use crate::extract::EmbeddedMember;
 
     /// A member's [`Features`] as `impact` reads them: its id, the requirements it opts
     /// into, and its `description` field (a blank one is a dead description-trigger
@@ -1457,7 +1457,7 @@ mod impact_tests {
         if let Some(text) = description {
             fields.insert(
                 "description".to_string(),
-                FeatureValue::scalar(ValueType::String, text),
+                serde_json::Value::String(text.to_string()),
             );
         }
         Features {

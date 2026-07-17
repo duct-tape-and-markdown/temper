@@ -149,8 +149,57 @@ pub enum Locus {
 pub(crate) fn inadmissibilities(predicate: &Predicate, locus: &Locus) -> Vec<String> {
     let mut messages: Vec<String> = judgeless(predicate).into_iter().collect();
     messages.extend(bodyless(predicate, locus));
+    messages.extend(unaddressable(predicate));
     messages.extend(vacuities(predicate));
     messages
+}
+
+/// The refusal when the clause's `field` falls outside the declared addressing subset,
+/// else `None`.
+///
+/// The subset — name segments and `[*]` — is what keeps the RFC 9535 engine underneath
+/// hidden mechanics rather than an author-facing pattern language, and a bound that is
+/// not enforced is not a bound: a filter or a slice fails the contract here rather than
+/// quietly evaluating.
+///
+/// A **presence** clause carries the one extra rule: its path must end in a name segment,
+/// because presence is asked of a *key*. `required("plugins[*]")` names elements, so
+/// there is no key to be absent and the clause could never fire.
+fn unaddressable(predicate: &Predicate) -> Option<String> {
+    let field = addressed_field(predicate)?;
+    let path = match crate::address::FieldPath::parse(field) {
+        Ok(path) => path,
+        Err(refusal) => return Some(refusal),
+    };
+    if matches!(predicate, Predicate::Required { .. }) && path.split_leaf().is_none() {
+        return Some(format!(
+            "`required` clause on field `{field}` addresses an array's elements rather \
+             than a key, so no key of it can be absent; a presence clause's path ends in \
+             a name segment (`plugins[*].source`)"
+        ));
+    }
+    None
+}
+
+/// The `field` this predicate addresses by an [`crate::address::FieldPath`] — the
+/// per-member value predicates, the ones whose `field` is a path rather than a bare key.
+///
+/// `forbidden_keys` and `must_define` name *keys*, not paths, and the set predicates'
+/// `field` is read by their own judges over a selection, so none of them lands here.
+fn addressed_field(predicate: &Predicate) -> Option<&str> {
+    match predicate {
+        Predicate::Required { field }
+        | Predicate::Optional { field }
+        | Predicate::Type { field, .. }
+        | Predicate::MinLen { field, .. }
+        | Predicate::MaxLen { field, .. }
+        | Predicate::Range { field, .. }
+        | Predicate::Enum { field, .. }
+        | Predicate::Deny { field, .. }
+        | Predicate::AllowedChars { field, .. }
+        | Predicate::GlobValid { field } => Some(field),
+        _ => None,
+    }
 }
 
 /// The fence message when `predicate` reads a feature `locus` carries none of, else
@@ -362,10 +411,10 @@ impl Selection<'_> {
     /// Every selected member's `field` value that is a scalar — the projection the
     /// whole-grain field predicates decide over. A member missing the field carries no
     /// value, so it contributes none.
-    fn values<'f>(&'f self, field: &str) -> impl Iterator<Item = (&'f str, &'f str)> {
+    fn values<'f>(&'f self, field: &str) -> impl Iterator<Item = (&'f str, String)> {
         self.members.iter().filter_map(move |(_, features)| {
-            let value = features.field(field).and_then(FeatureValue::as_scalar)?;
-            Some((features.id.as_str(), value))
+            let value = features.field(field)?;
+            Some((features.id.as_str(), value.as_scalar()?.to_string()))
         })
     }
 }
@@ -450,7 +499,7 @@ fn out_of_band(
 /// is silently skipped: a missing field is no collision. Values are grouped in a
 /// [`std::collections::BTreeMap`] so the finding set is stable across runs.
 fn duplicates(selection: &Selection, clause: &Clause, field: &str) -> Vec<Diagnostic> {
-    let mut by_value: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    let mut by_value: BTreeMap<String, Vec<&str>> = BTreeMap::new();
     for (id, value) in selection.values(field) {
         by_value.entry(value).or_default().push(id);
     }
@@ -489,7 +538,7 @@ fn out_of_set(
     target: &str,
 ) -> Vec<Diagnostic> {
     let source = Selector::OptIn(target.to_string());
-    let allowed: BTreeSet<&str> = selections
+    let allowed: BTreeSet<String> = selections
         .iter()
         .filter(|other| other.selector == source)
         .flat_map(|other| other.values(field))
@@ -602,9 +651,25 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // A value/presence predicate is the *only* owner of its field's
         // presence; the other field predicates stay silent when the field is
         // absent so one missing field yields one finding, not a cascade.
-        Predicate::Required { field } => Outcome::check(features.has_field(field), || {
-            format!("required field `{field}` is absent")
-        }),
+        //
+        // Presence is asked of the path's *parent*, since an absent key locates no node
+        // of its own: `plugins[*].source` fires once per entry that omits it.
+        Predicate::Required { field } => match addressing(field) {
+            None => Outcome::Indeterminate,
+            Some(path) => {
+                let absent: Vec<String> = features
+                    .locate_presence(&path)
+                    .into_iter()
+                    .filter(|(_, present)| !present)
+                    .map(|(address, _)| format!("required field `{address}` is absent"))
+                    .collect();
+                if absent.is_empty() {
+                    Outcome::Holds
+                } else {
+                    Outcome::Violated(absent)
+                }
+            }
+        },
 
         // `optional` records that a key is part of the declared schema; it is
         // always satisfied — its presence or absence is never a violation.
@@ -615,73 +680,60 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         // `string|array` is gated by the set, never by picking one of the two. An
         // absent field is the `required` clause's concern, so `type` stays silent on
         // absence (like the other field predicates).
-        Predicate::Type { field, kinds } => match features.field(field).map(FeatureValue::kind) {
-            None => Outcome::Holds,
-            Some(actual) => Outcome::check(kinds.contains(&actual), || {
+        Predicate::Type { field, kinds } => addressed(features, field, |address, value| {
+            let actual = value.kind();
+            (!kinds.contains(&actual)).then(|| {
                 format!(
-                    "field `{field}` is `{}` but the contract declares `{}`",
+                    "field `{address}` is `{}` but the contract declares `{}`",
                     actual.name(),
                     declared_kinds(kinds)
                 )
-            }),
-        },
+            })
+        }),
 
-        Predicate::MinLen { field, min } => match scalar(features, field) {
-            None => Outcome::Holds,
-            Some(value) => {
-                let len = value.chars().count();
-                Outcome::check(len >= *min, || {
-                    format!("field `{field}` is {len} characters (min {min})")
-                })
-            }
-        },
+        Predicate::MinLen { field, min } => addressed(features, field, |address, value| {
+            let len = value.as_scalar()?.chars().count();
+            (len < *min).then(|| format!("field `{address}` is {len} characters (min {min})"))
+        }),
 
-        Predicate::MaxLen { field, max } => match scalar(features, field) {
-            None => Outcome::Holds,
-            Some(value) => {
-                let len = value.chars().count();
-                Outcome::check(len <= *max, || {
-                    format!("field `{field}` is {len} characters (max {max})")
-                })
-            }
-        },
+        Predicate::MaxLen { field, max } => addressed(features, field, |address, value| {
+            let len = value.as_scalar()?.chars().count();
+            (len > *max).then(|| format!("field `{address}` is {len} characters (max {max})"))
+        }),
 
         // `range` bounds a *numeric* field to `[min, max]`. It fires only when the
         // field is present, parsed as `integer`/`number`, and falls outside the
         // bound; it stays silent on absence (the `required` clause's concern) and
         // on a non-numeric kind (a `type` clause owns that mismatch) so one wrong
         // field yields one finding, not a cascade.
-        Predicate::Range { field, min, max } => match features.field(field) {
-            Some(value) if matches!(value.kind(), ValueType::Integer | ValueType::Number) => {
-                match value.as_scalar().and_then(|text| text.parse::<f64>().ok()) {
-                    Some(n) => Outcome::check((*min..=*max).contains(&n), || {
-                        format!("field `{field}` value {n} is outside the range [{min}, {max}]")
-                    }),
-                    // The value type says numeric but the text would not parse —
-                    // don't fabricate a finding over a value we cannot read.
-                    None => Outcome::Holds,
-                }
+        Predicate::Range { field, min, max } => addressed(features, field, |address, value| {
+            if !matches!(value.kind(), ValueType::Integer | ValueType::Number) {
+                return None;
             }
-            // Absent, or a non-numeric kind: not this predicate's concern.
-            _ => Outcome::Holds,
-        },
+            // The value type says numeric but the text would not parse — don't
+            // fabricate a finding over a value we cannot read.
+            let n = value.as_scalar()?.parse::<f64>().ok()?;
+            (!(*min..=*max).contains(&n))
+                .then(|| format!("field `{address}` value {n} is outside the range [{min}, {max}]"))
+        }),
 
-        Predicate::Enum { field, values } => match scalar(features, field) {
-            None => Outcome::Holds,
-            Some(value) => Outcome::check(values.iter().any(|v| v == value), || {
+        Predicate::Enum { field, values } => addressed(features, field, |address, value| {
+            let text = value.as_scalar()?;
+            (!values.iter().any(|v| v == text)).then(|| {
                 format!(
-                    "field `{field}` value `{value}` is not one of [{}]",
+                    "field `{address}` value `{text}` is not one of [{}]",
                     values.join(", ")
                 )
-            }),
-        },
+            })
+        }),
 
-        Predicate::Deny { field, values } => match scalar(features, field) {
-            None => Outcome::Holds,
-            Some(value) => Outcome::check(!values.iter().any(|v| v == value), || {
-                format!("field `{field}` value `{value}` is denied")
-            }),
-        },
+        Predicate::Deny { field, values } => addressed(features, field, |address, value| {
+            let text = value.as_scalar()?;
+            values
+                .iter()
+                .any(|v| v == text)
+                .then(|| format!("field `{address}` value `{text}` is denied"))
+        }),
 
         // One finding per offending key, so each forbidden key points at itself.
         Predicate::ForbiddenKeys { keys } => {
@@ -697,32 +749,41 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
             }
         }
 
-        Predicate::AllowedChars { field, charset } => match scalar(features, field) {
-            None => Outcome::Holds,
-            Some(value) => {
-                let bad: BTreeSet<char> = value.chars().filter(|&c| !charset.allows(c)).collect();
-                Outcome::check(bad.is_empty(), || {
+        Predicate::AllowedChars { field, charset } => {
+            addressed(features, field, |address, value| {
+                let bad: BTreeSet<char> = value
+                    .as_scalar()?
+                    .chars()
+                    .filter(|&c| !charset.allows(c))
+                    .collect();
+                (!bad.is_empty()).then(|| {
                     let rendered: String = bad.iter().collect();
-                    format!("field `{field}` has characters outside the allowed set: {rendered}")
+                    format!("field `{address}` has characters outside the allowed set: {rendered}")
                 })
-            }
-        },
+            })
+        }
 
         // `glob-valid` checks every glob the field carries parses under the one
         // shared `globset` surface (`crate::kind::compile_glob`, brace-aware). An
         // unparseable pattern matches nothing silently, so a dead scope becomes a
         // finding — one per offending glob, each naming itself. Silent on absence
         // (the `required` clause's concern).
-        Predicate::GlobValid { field } => match features.field(field) {
-            None => Outcome::Holds,
-            Some(value) => {
-                let bad: Vec<String> = field_globs(value)
+        Predicate::GlobValid { field } => match addressing(field) {
+            None => Outcome::Indeterminate,
+            Some(path) => {
+                let bad: Vec<String> = features
+                    .locate(&path)
                     .into_iter()
-                    .filter(|glob| crate::kind::compile_glob(glob).is_none())
-                    .map(|glob| {
-                        format!(
-                            "field `{field}` glob `{glob}` does not parse under globset, so it silently matches nothing"
-                        )
+                    .flat_map(|(address, value)| {
+                        field_globs(&value)
+                            .into_iter()
+                            .filter(|glob| crate::kind::compile_glob(glob).is_none())
+                            .map(|glob| {
+                                format!(
+                                    "field `{address}` glob `{glob}` does not parse under globset, so it silently matches nothing"
+                                )
+                            })
+                            .collect::<Vec<String>>()
                     })
                     .collect();
                 if bad.is_empty() {
@@ -783,7 +844,11 @@ fn decide(predicate: &Predicate, features: &Features, all: &[Features]) -> Outco
         }
 
         Predicate::NameMatchesDir => {
-            match (scalar(features, "name"), features.source_dir.as_deref()) {
+            let name = features.field("name");
+            match (
+                name.as_ref().and_then(FeatureValue::as_scalar),
+                features.source_dir.as_deref(),
+            ) {
                 (Some(name), Some(dir)) => Outcome::check(name == dir, || {
                     format!("name `{name}` does not match its directory `{dir}`")
                 }),
@@ -860,10 +925,43 @@ fn declared_kinds(kinds: &BTreeSet<ValueType>) -> String {
         .join("|")
 }
 
-/// The scalar text of a named field, or `None` if it is absent or a list — the
-/// generic accessor every value predicate (`min_len`, `enum`, …) reads through.
-fn scalar<'a>(features: &'a Features, field: &str) -> Option<&'a str> {
-    features.field(field).and_then(FeatureValue::as_scalar)
+/// The parsed addressing path a clause's `field` spells, or `None` when it falls outside
+/// the declared subset.
+///
+/// `None` is unreachable on an admissible run — [`admissibility`] refuses an out-of-subset
+/// path before any member is judged — so its callers land on
+/// [`Outcome::Indeterminate`]: no pass, no finding, exactly as the other fenced
+/// predicates do.
+fn addressing(field: &str) -> Option<crate::address::FieldPath> {
+    crate::address::FieldPath::parse(field).ok()
+}
+
+/// Judge `verdict` over every value the clause's `field` path addresses on this member —
+/// one node for a path of name segments, one per element under a `[*]`, so an each-grain
+/// clause indicts each offending element by its own address.
+///
+/// `verdict` returns the violation message, or `None` where the value is not this
+/// predicate's to indict (a container under a scalar predicate, a non-numeric under
+/// `range`). A path that addresses nothing yields no node, so the clause holds silently —
+/// absence is the `required` clause's concern.
+fn addressed(
+    features: &Features,
+    field: &str,
+    verdict: impl Fn(&str, &FeatureValue) -> Option<String>,
+) -> Outcome {
+    let Some(path) = addressing(field) else {
+        return Outcome::Indeterminate;
+    };
+    let messages: Vec<String> = features
+        .locate(&path)
+        .into_iter()
+        .filter_map(|(address, value)| verdict(&address, &value))
+        .collect();
+    if messages.is_empty() {
+        Outcome::Holds
+    } else {
+        Outcome::Violated(messages)
+    }
 }
 
 /// The glob strings a field value carries — each element of a list, or a lone
@@ -897,6 +995,8 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
+    use serde_json::{Value as JsonValue, json};
+
     use crate::check::{Severity, any_error};
     use crate::contract::{Charset, Clause, Severity as ClauseSeverity};
     use crate::extract::ValueType;
@@ -905,7 +1005,7 @@ mod tests {
     /// count, and source directory.
     fn features(
         id: &str,
-        fields: &[(&str, FeatureValue)],
+        fields: &[(&str, JsonValue)],
         body_lines: usize,
         source_dir: Option<&str>,
     ) -> Features {
@@ -936,10 +1036,10 @@ mod tests {
         f
     }
 
-    /// A scalar field value (kind `string`; the existing scalar predicates read
-    /// only the text, so the kind is incidental to these tests).
-    fn scalar(text: &str) -> FeatureValue {
-        FeatureValue::scalar(ValueType::String, text)
+    /// A `string` field value (the existing scalar predicates read only the text, so
+    /// the source kind is incidental to these tests).
+    fn scalar(text: &str) -> JsonValue {
+        JsonValue::String(text.to_string())
     }
 
     /// A [`Clause`] over `predicate` at `severity`, addressed under `owner` — the
@@ -1028,12 +1128,7 @@ mod tests {
         };
 
         // The field's preserved source kind differs from the declared one: fires.
-        let mismatch = features(
-            "demo",
-            &[("count", FeatureValue::scalar(ValueType::String, "7"))],
-            1,
-            None,
-        );
+        let mismatch = features("demo", &[("count", json!("7"))], 1, None);
         let diags = run(predicate(), mismatch);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "skill.type");
@@ -1042,12 +1137,7 @@ mod tests {
         assert!(diags[0].message.contains("integer"));
 
         // The kind matches the declaration: silent.
-        let matched = features(
-            "demo",
-            &[("count", FeatureValue::scalar(ValueType::Integer, "7"))],
-            1,
-            None,
-        );
+        let matched = features("demo", &[("count", json!(7))], 1, None);
         assert!(run(predicate(), matched).is_empty());
 
         // An absent field is the `required` clause's concern, not `type`'s.
@@ -1060,12 +1150,7 @@ mod tests {
             field: "tags".to_string(),
             kinds: BTreeSet::from([ValueType::Map]),
         };
-        let as_list = features(
-            "demo",
-            &[("tags", FeatureValue::List(vec!["a".to_string()]))],
-            1,
-            None,
-        );
+        let as_list = features("demo", &[("tags", json!(["a"]))], 1, None);
         assert_eq!(run(container, as_list).len(), 1);
     }
 
@@ -1076,29 +1161,14 @@ mod tests {
             field: "skills".to_string(),
             kinds: BTreeSet::from([ValueType::String, ValueType::List]),
         };
-        let as_string = features(
-            "demo",
-            &[("skills", FeatureValue::scalar(ValueType::String, "./s/"))],
-            1,
-            None,
-        );
+        let as_string = features("demo", &[("skills", json!("./s/"))], 1, None);
         assert!(run(union(), as_string).is_empty());
-        let as_list = features(
-            "demo",
-            &[("skills", FeatureValue::List(vec!["./s/".to_string()]))],
-            1,
-            None,
-        );
+        let as_list = features("demo", &[("skills", json!(["./s/"]))], 1, None);
         assert!(run(union(), as_list).is_empty());
 
         // A kind outside the set fires once, and the message names the whole declared
         // set — an author told only "not `string`" cannot see the other form is open.
-        let as_bool = features(
-            "demo",
-            &[("skills", FeatureValue::scalar(ValueType::Boolean, "true"))],
-            1,
-            None,
-        );
+        let as_bool = features("demo", &[("skills", json!(true))], 1, None);
         let diags = run(union(), as_bool);
         assert_eq!(diags.len(), 1);
         assert_eq!(
@@ -1124,12 +1194,7 @@ mod tests {
             field: "count".to_string(),
             kinds: BTreeSet::from([ValueType::Integer]),
         };
-        let wrong = features(
-            "demo",
-            &[("count", FeatureValue::scalar(ValueType::String, "7"))],
-            1,
-            None,
-        );
+        let wrong = features("demo", &[("count", json!("7"))], 1, None);
         let diags = run(single, wrong);
         assert_eq!(diags.len(), 1);
         assert_eq!(
@@ -1165,40 +1230,20 @@ mod tests {
         };
 
         // A numeric field past the upper bound fires once, naming the clause.
-        let over = features(
-            "demo",
-            &[("score", FeatureValue::scalar(ValueType::Integer, "150"))],
-            1,
-            None,
-        );
+        let over = features("demo", &[("score", json!(150))], 1, None);
         let diags = run(predicate(), over);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "skill.range");
 
         // Below the lower bound fires too — a fractional `number` is in scope.
-        let under = features(
-            "demo",
-            &[("score", FeatureValue::scalar(ValueType::Number, "-0.5"))],
-            1,
-            None,
-        );
+        let under = features("demo", &[("score", json!(-0.5))], 1, None);
         assert_eq!(run(predicate(), under).len(), 1);
 
         // Within the inclusive bound (and exactly on each edge): silent.
-        let within = features(
-            "demo",
-            &[("score", FeatureValue::scalar(ValueType::Integer, "42"))],
-            1,
-            None,
-        );
+        let within = features("demo", &[("score", json!(42))], 1, None);
         assert!(run(predicate(), within).is_empty());
-        for edge in ["0", "100"] {
-            let at_edge = features(
-                "demo",
-                &[("score", FeatureValue::scalar(ValueType::Integer, edge))],
-                1,
-                None,
-            );
+        for edge in [0, 100] {
+            let at_edge = features("demo", &[("score", json!(edge))], 1, None);
             assert!(run(predicate(), at_edge).is_empty(), "edge {edge} holds");
         }
 
@@ -1208,12 +1253,7 @@ mod tests {
 
         // A non-numeric kind is a `type` clause's concern: `range` stays silent
         // rather than fire on a value it does not own — no cascade.
-        let non_numeric = features(
-            "demo",
-            &[("score", FeatureValue::scalar(ValueType::String, "150"))],
-            1,
-            None,
-        );
+        let non_numeric = features("demo", &[("score", json!("150"))], 1, None);
         assert!(run(predicate(), non_numeric).is_empty());
     }
 
@@ -1888,14 +1928,7 @@ mod tests {
         // one valid one: one finding per broken entry, none for the valid one.
         let broken = features(
             "demo",
-            &[(
-                "paths",
-                FeatureValue::List(vec![
-                    "src/**/*.rs".to_string(),
-                    "[".to_string(),
-                    "a[b".to_string(),
-                ]),
-            )],
+            &[("paths", json!(["src/**/*.rs", "[", "a[b"]))],
             1,
             None,
         );
@@ -1906,13 +1939,7 @@ mod tests {
         // Brace expansion is in scope — a valid `{a,b}` alternation passes.
         let valid = features(
             "demo",
-            &[(
-                "paths",
-                FeatureValue::List(vec![
-                    "src/**/*.{rs,toml}".to_string(),
-                    "docs/*.md".to_string(),
-                ]),
-            )],
+            &[("paths", json!(["src/**/*.{rs,toml}", "docs/*.md"]))],
             1,
             None,
         );

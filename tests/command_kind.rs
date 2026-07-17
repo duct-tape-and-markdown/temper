@@ -114,7 +114,7 @@ fn a_command_member_extracts_the_skills_declared_field_schema() {
     // off a `SKILL.md`.
     assert_eq!(
         features.field("description"),
-        Some(&FeatureValue::scalar(
+        Some(FeatureValue::scalar(
             ValueType::String,
             "Deploy the application to production."
         ))

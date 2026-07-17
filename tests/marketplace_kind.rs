@@ -11,13 +11,12 @@
 //! published under a name that later becomes reserved stops loading for every user who
 //! already added it.
 //!
-//! **The documented rules below the top level are not gateable today**, and this module
-//! pins that boundary rather than implying coverage it lacks
-//! (`the_rules_below_the_top_level_are_not_gateable_today`): a clause addresses a field by
-//! top-level key, an object projects to an opaque map and an array to a list of stringified
-//! elements, so `owner.name`, each `plugins[]` entry's `name`/`source`, and the `source`
-//! union are all unreachable. `sdk/src/builtins.ts` (`marketplaceDefaultContract`) names the
-//! whole hold; the `Marketplace` TypeScript type holds those bars for an SDK author.
+//! The documented rules *below* the top level are gated here too — `owner.name` and each
+//! `plugins[]` entry's `name`/`source`, reached by the clause addressing subset. One rule
+//! is still out of reach and this module pins that boundary rather than implying coverage
+//! it lacks: which form a `source` is remains a union no clause spells, so an undocumented
+//! form passes. `sdk/src/builtins.ts` (`marketplaceDefaultContract`) names that hold; the
+//! `MarketplaceSource` TypeScript type holds the bar for an SDK author.
 
 use std::fs;
 
@@ -243,24 +242,16 @@ fn a_catalog_missing_owner_or_plugins_is_a_finding() {
 }
 
 #[test]
-fn the_rules_below_the_top_level_are_not_gateable_today() {
-    let harness = common::tmpdir("marketplace-nested-hold");
-    // Every documented rule below the top level is violated at once: `owner` carries no
-    // `name`, the first entry has no `source`, the second no `name`, and the third names a
-    // `source` form the docs do not document. Claude Code refuses all four; temper's gate
-    // sees none of them.
+fn the_documented_rules_below_the_top_level_fail_through_the_real_gate() {
+    let harness = common::tmpdir("marketplace-nested");
+    // Three documented rules below the top level, violated at once: `owner` carries no
+    // `name`, the first entry no `source`, the second no `name`. Claude Code refuses each,
+    // and so does the gate — `owner.name` walks the object, `plugins[*].name`/`.source`
+    // grain over the catalog.
     //
-    // Not an oversight — a vocabulary bound this test pins. A clause addresses a field by
-    // *top-level key*: `crate::extract::json_to_feature` projects a nested object to an
-    // opaque `FeatureValue::Map` (its inner keys discarded) and an array to a list of
-    // stringified elements, so no clause can name `owner.name` or range into `plugins[]`.
-    // `required("owner")`/`required("plugins")` are the decidable slice, and they pass here
-    // because both keys are present.
-    //
-    // When a nested-path predicate and its extractor land, this test flips: it is the
-    // boundary marker, not a blessing of the gap. `sdk/src/builtins.ts`
-    // (`marketplaceDefaultContract`) names the hold; the `Marketplace` TypeScript type
-    // makes every one of these a compile error for an SDK author.
+    // The third entry names a `source` form the docs do not document (`ftp`). That one
+    // still passes, and deliberately: which form a source is remains a union no clause
+    // spells, and it is the one hold `marketplaceDefaultContract`'s header still names.
     write_marketplace_json(
         &harness,
         r#"{
@@ -277,14 +268,46 @@ fn the_rules_below_the_top_level_are_not_gateable_today() {
 
     let (findings, ok) = check_harness(&harness);
     assert!(
-        ok,
-        "the nested rules are beyond the clause algebra's reach today: {findings:?}"
+        !ok,
+        "each violated rule is an error-severity finding: {findings:?}"
     );
-    // The member is read and checked — the rules simply cannot be expressed, which is a
-    // different thing from the catalog being skipped.
+
+    // `owner.name` — the nested key, named by its own path.
+    assert!(
+        findings.iter().any(|f| f.contains("owner.name")),
+        "{findings:?}"
+    );
+    // The each-grain findings name the offending *entry* by its index, so an author with a
+    // fifty-plugin catalog is pointed at the one that is wrong rather than at `plugins`.
+    assert!(
+        findings.iter().any(|f| f.contains("plugins[0].source")),
+        "{findings:?}"
+    );
+    assert!(
+        findings.iter().any(|f| f.contains("plugins[1].name")),
+        "{findings:?}"
+    );
+    // The entries that carry the field are not indicted — the grain fires per element,
+    // never once for the array.
+    assert!(
+        !findings.iter().any(|f| f.contains("plugins[2]")),
+        "the third entry names both fields; only its source *form* is unchecked: {findings:?}"
+    );
+}
+
+#[test]
+fn a_well_formed_catalog_passes_every_addressing_clause() {
+    // The real-shaped catalog above fills `owner.name` and every entry's `name`/`source`,
+    // so the paths that fire on the broken one are silent here: the each-grain is a gate,
+    // not a tax on a correct catalog.
+    let harness = common::tmpdir("marketplace-clean");
+    write_marketplace_json(&harness, MARKETPLACE_JSON);
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(ok, "a documented-shape catalog is clean: {findings:?}");
     assert!(
         findings.iter().any(|f| f.contains("marketplace (1)")),
-        "{findings:?}"
+        "the catalog is read and checked, not skipped: {findings:?}"
     );
 }
 

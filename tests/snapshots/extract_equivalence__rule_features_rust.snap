@@ -5,12 +5,10 @@ expression: features
 Features {
     id: "rust",
     fields: {
-        "paths": List(
-            [
-                "src/**/*.rs",
-                "tests/**/*.rs",
-            ],
-        ),
+        "paths": Array [
+            String("src/**/*.rs"),
+            String("tests/**/*.rs"),
+        ],
     },
     body_lines: 8,
     headings: [

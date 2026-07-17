@@ -472,7 +472,7 @@ pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRo
         features
             .fields
             .entry(key.clone())
-            .or_insert_with(|| extract::json_to_feature(value));
+            .or_insert_with(|| value.clone());
     }
     features
 }
@@ -871,19 +871,22 @@ Body line two.\n",
         // The documented fields come off the composed `field` primitives.
         assert_eq!(
             features.field("name"),
-            Some(&FeatureValue::scalar(ValueType::String, "demo"))
+            Some(FeatureValue::scalar(ValueType::String, "demo"))
         );
         // Permissive extraction: the unknown keys ride into the same feature map, so a
         // `forbidden_keys` clause can range over a project convention on a known artifact.
         assert_eq!(
             features.field("allowed-tools"),
-            Some(&FeatureValue::List(vec![
+            Some(FeatureValue::List(vec![
                 "Bash".to_string(),
                 "Read".to_string()
             ]))
         );
         assert_eq!(
-            features.field("priority").and_then(FeatureValue::as_scalar),
+            features
+                .field("priority")
+                .as_ref()
+                .and_then(FeatureValue::as_scalar),
             Some("7")
         );
 
@@ -920,7 +923,7 @@ disable-model-invocation: true\n\
         // clause can range over them exactly like `name`/`description`.
         assert_eq!(
             features.field("disable-model-invocation"),
-            Some(&FeatureValue::scalar(ValueType::Boolean, "true"))
+            Some(FeatureValue::scalar(ValueType::Boolean, "true"))
         );
         // Absent when the author never sets it — never a phantom default.
         assert!(!features.has_field("user-invocable"));
@@ -946,7 +949,7 @@ disable-model-invocation: true\n\
         let features = rule_features(&unit);
         assert_eq!(
             features.field("paths"),
-            Some(&FeatureValue::List(vec!["src/**/*.rs".to_string()]))
+            Some(FeatureValue::List(vec!["src/**/*.rs".to_string()]))
         );
         // `placement` reads the imported source directory off provenance, carried
         // through the surface — `rules`, not the projected surface directory.
