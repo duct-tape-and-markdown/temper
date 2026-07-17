@@ -183,7 +183,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. MANIFEST-SEGMENT-REAP (2a2d583) and STAR-SEGMENT-LOCUS (2a89535) shipped (reap-ledger / splice-name regions settled on disk); coexists with the open EMBEDDED-EXTENT-CAPTURE (NestedMemberRow) region on drift.rs — struct-disjoint from this RequirementRow region. (EXTENT shipped 4bdb796.)"
+          "description": "The wire/lock row. `RequirementRow.verified_by: Option<String>` (~2877, the `ts_rs::TS` derive that sources the generated TS) becomes the typed `verifier` column (a nested serde-tagged verifier, `#[serde(default)]`); its `to_table` serialization (~3725-3727) writes the species sub-table and `from_table` (~3751) reads it back. MANIFEST-SEGMENT-REAP (2a2d583), STAR-SEGMENT-LOCUS (2a89535), and EMBEDDED-EXTENT-CAPTURE (7cf9ff0) shipped (reap-ledger / splice-name / NestedMemberRow span-column regions settled on disk) — all struct-disjoint from this RequirementRow region. (EXTENT shipped 4bdb796.)"
         },
         {
           "path": "src/main.rs",
