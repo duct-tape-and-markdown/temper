@@ -1,53 +1,53 @@
 # Plan state
 
 - Spec derived through: a571973
-- Audited through: 01337ff
-- Residue swept through: 01337ff
-- This tick: RECONCILE eb2776d..01337ff — one build commit (83fa520,
-  MENTION-REACHABLE-PREDICATE), audited and swept in one pass; the window is
-  small enough that the split would have been theatre. **Audit: the predicate
-  shipped real, verified on disk, not from the log.** `Predicate::
-  MentionReachable { scope_field, gate_field }` lives in `src/contract.rs:277`,
-  admitted at `contract.rs:391`, vacuity-fenced in `engine.rs:292-301`, judged
-  in `graph.rs:320-410` beside `degree`, with `mentionReachable()` exported at
-  `sdk/src/contract.ts:137` and the `gate` column spelled across
-  `drift.rs:2463`, the ts-rs binding, and `declarations.ts:85`. **Both blockedBy
-  gates open** — MENTION-REACHABLE-RULE-CLAUSE and EDGE-TARGET-SET, disjoint in
-  files, so both are pickable side by side. **The audit's one substantive
-  finding: what shipped is not what MENTION-REACHABLE-RULE-CLAUSE's summary
-  said.** 83fa520 recorded that 0028's literal "target registers by
-  `paths-match`" reading selects rules and never skills on this tree, and
-  shipped the field-argument reading instead — the trigger is the target's gate
-  FIELD carrying globs, hard-coding no kind. The entry said "over `paths` to a
-  skill's `paths`"; the adoption is `mentionReachable("paths", "paths")` and
-  fires on any mentioned member whose `paths` gates, skill and rule alike. Entry
-  re-worded to the shipped reading rather than left encoding the ruling's
-  superseded literal one — a summary a build phase would have had to silently
-  reinterpret is a gap, not a detail. **Sweep: no new residue.** The window
-  named no retirement, and the build's own cut-corner disclosure ("No default
-  contract adopts it yet") is the queued RULE-CLAUSE, not a gap. `schema.rs`'s
-  silent keyword channel is reasoned, not omitted. Verified the new judge reads
-  `ResolvedEdge.to` (a `(kind, id)` tuple), never `compose::Edge.to` — so it
-  adds no reader EDGE-TARGET-SET must move, and that entry's file list stands
-  unchanged. **Line-cite reconciliation was the tick's real work:** 83fa520
-  moved `graph.rs` +142, `tests/graph.rs` +166, `drift.rs` +11, `main.rs` +10,
-  `compose.rs` +3, and both SDK sites +1/+2, so every cite in EDGE-TARGET-SET
-  and IMPORT-HOP-CAP-CITE was re-derived by reading the regions, not by
-  arithmetic. Spec cursor copied forward verbatim: the delta is dry and this
-  tick derived no spec.
-- Queue: 4 entries, every gate re-tested at this HEAD — 2 pickable
-  (MENTION-REACHABLE-RULE-CLAUSE, EDGE-TARGET-SET), disjoint from each other in
-  files, so they run beside each other; 2 parked on human acts
-  (IMPORT-HOP-CAP-CITE: a hop-depth probe — park holds, nothing ruled the
-  semantics, cites re-derived at graph.rs:65. PACKAGING-CHANNELS-REMAINDER:
-  Apple notarizing + the v0.1 tag — no release act in the window, park unmoved).
+- Audited through: 53519b9
+- Residue swept through: 53519b9
+- This tick: RECONCILE 01337ff..53519b9 — two build commits
+  (MENTION-REACHABLE-RULE-CLAUSE, EDGE-TARGET-SET), audited and swept in one
+  pass. **Audit: both shipped real, verified on disk.**
+  `mentionReachable("paths", "paths")` is adopted into `rule`'s default
+  contract at `sdk/src/builtins.ts:667` — advisory, guidance carrying the
+  literal-containment leniency and both remedies, cite re-fetched 2026-07-16
+  with the probe evidence (2.1.211) recorded rather than softened — and it
+  matches the field-argument reading last tick re-worded the entry to, not the
+  superseded literal one. `Edge.to` is `Vec<String>` at `compose.rs:55`, with
+  the empty set refusing at load and the SDK holding the same bar in the type
+  (`readonly [string, ...string[]]`, `kind.ts:53`). Both entries dropped by
+  their ship commits; nothing left to drop. **Both parks re-tested and both
+  hold:** no ruling touched the hop semantics (dry delta, empty inbox), and no
+  release act landed — `git tag -l` carries the four era tags alone, crate
+  0.1.0 vs npm 0.0.7, `release.yml:7-9` states the darwin + channel-3 deferral
+  verbatim. **Sweep's one finding, filed: EXAMPLE-EDGE-TARGET-SET-SPELLING.**
+  3db8c25's own disclosure named `examples/base-harness/.temper/kinds.ts` as
+  still authoring the pre-set `to` spelling and called it "outside this fence"
+  — that half is wrong on disk: `examples/**` sits inside build's writable
+  fence (`.flume/chain.ts:223`), so it routes as an ordinary entry rather than
+  waiting on a human `docs(example):` act. Both fields (135, 182) are type
+  errors against the SDK tuple today; they are latent, not red, because
+  **nothing gates the example tree** — `rg` over `tests/`, `src/`, `sdk/`,
+  `.github/` finds no reference to `examples/` at all, which is why the
+  widening landed green with its own exemplar stale. **One rider discharged,
+  and its record is deleted:** EDGE-TARGET-SET carried the `compose::effective`
+  straggler named in its `files[].description` and re-worded it off the dead
+  symbol — `rg effective src/compose.rs` is now clean, and with the
+  `contract.rs` half already closed the whole record dies. The precedent it
+  cost three entries to learn holds a fourth time: name the rider in the entry,
+  or opening the file discharges nothing. Spec cursor copied forward verbatim:
+  the delta is dry and this tick derived no spec.
+- Queue: 3 entries — 1 pickable (EXAMPLE-EDGE-TARGET-SET-SPELLING, alone in
+  `examples/**` and disjoint from everything queued); 2 parked on human acts
+  (IMPORT-HOP-CAP-CITE: a hop-depth probe — park holds, cites re-derived by
+  reading at graph.rs:65/525-526/624-625/649-652 and tests/graph.rs:1356, which
+  1b9a6af moved when it lifted that file's helpers into `tests/common`.
+  PACKAGING-CHANNELS-REMAINDER: Apple notarizing + the v0.1 tag — park unmoved).
   The queue's one file overlap is EDGE-TARGET-SET × IMPORT-HOP-CAP-CITE on
-  `src/graph.rs`, inert while the latter is parked: EDGE-TARGET-SET landing will
-  move the hop cites a third time, and re-deriving them is that reconcile's job.
+  `src/graph.rs` — **retired this tick**: EDGE-TARGET-SET shipped, so the
+  parked entry is the sole claimant of that file and its cites are current.
 
 Plan continues: no — the inbox is empty, `.flume/refactor/` holds its README
 alone, the spec delta is dry (`git log a571973..HEAD -- specs/` is empty), and
 this tick reconciled the window to HEAD, so no input below it is live. Build
-takes over: two entries are pickable and disjoint. The one friction capture on
-disk (`build-import-hop-cap-cite-disagrees-with-live-docs.md`) is already fully
+takes over: one entry is pickable. The one friction capture on disk
+(`build-import-hop-cap-cite-disagrees-with-live-docs.md`) is already fully
 routed as IMPORT-HOP-CAP-CITE's park reason and is the human's to read.

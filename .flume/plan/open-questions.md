@@ -13,12 +13,6 @@ tax.
 
 ## Open forks
 
-- `(local-overrides)` — OPEN. The committed-plus-gitignored personal-override
-  layer has no stated spelling in the assembly model (`specs/model/pipeline.md`,
-  "The SDK" — the harness is one composed value). Candidates: a local harness
-  module composed by convention, or an engine-side severity overlay. Blocks
-  nothing until someone needs a personal override.
-
 - `(eval-capability)` — OPEN, strategic, parked past launch. Harness evals: a
   requirement carries prose intent and a verifier edge
   (`specs/model/contract.md`, "requirement"), and the graph gives eval
@@ -126,7 +120,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  01337ff: both dead trees still spelled (121/140), in a file the window never
+  53519b9: both dead trees still spelled (121/140), in a file the window never
   touched and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -152,8 +146,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   route-resolving deferred mentions) yet left every strand doc comment as
   unchanged context — undischarged; the `why` comment at 270 stayed above the
   hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. Re-verified on disk at reconcile HEAD 01337ff — all five
-  unmoved (`read.rs` untouched in this window), and no queued entry edits
+  495/633/770/1172. Re-verified on disk at reconcile HEAD 53519b9 — all five
+  unmoved (`read.rs` untouched in this window too), and no queued entry edits
   `read.rs`, so it still has no carrier.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
@@ -170,7 +164,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. Lines
-  re-verified on disk at reconcile HEAD 01337ff (unmoved; `prose.ts` untouched
+  re-verified on disk at reconcile HEAD 53519b9 (unmoved; `prose.ts` untouched
   in this window and edited by no queued entry — still no carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
@@ -187,34 +181,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
   at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45)
-  at reconcile HEAD 01337ff — no queued entry edits `Cargo.toml`, so it still
+  at reconcile HEAD 53519b9 — no queued entry edits `Cargo.toml`, so it still
   has no carrier.
-
-- **4144b20's retirement of `compose::effective` left one surviving one-line
-  comment straggler.** `src/compose.rs:234` ("Unlike `effective`, …") cites
-  the retired symbol by name inside `default_contract_from_rows`'s test doc
-  comment. Behavior and symbols correct; doc-comment staleness only. It rides
-  whichever entry next opens `compose.rs` — never standalone. **It now has a
-  carrier, and the carrier names it: EDGE-TARGET-SET** widens `Edge.to` at 52
-  in this same file, and its `files[].description` carries the straggler
-  explicitly, per the precedent below — a carrier that merely opens the file
-  discharges nothing. Found at residue sweep HEAD d029d4b; re-verified on disk
-  at reconcile HEAD 01337ff, where 83fa520 shifted it 233 → 234 (`Edge.to`
-  itself unmoved at 52) and the retirement re-checked clean: no `fn effective`
-  survives in `compose.rs`, and the `effective contract` hits in
-  `main.rs`/`drift.rs`/`install.rs` are the ordinary English word, never the
-  retired symbol.
-  **The `src/contract.rs` half is discharged** — 28ad61f rewrote
-  `Predicate::target`'s doc (now `documented_field`, contract.rs:494) and the
-  retired severity-flip layer's "for layering purposes" vocabulary is gone
-  from the file. It discharged on the shape this record spent two entries
-  learning: a carrier named in *this file* is not read at build time, and only
-  an entry naming the rider in its own `files[].description` discharges one —
-  GLOB-VALIDITY-PREDICATE (46b8cd1) and FORMAT-OMITS-EDGE-CLAUSE (13c58ed)
-  each opened contract.rs under no such naming and left the straggler, while
-  PREDICATE-SELECTION-ALGEBRA carried it named and closed it. Twice proven
-  now, with NESTED-FILE-LOCUS/91c288c (the `drift.rs:570` rider): name the
-  rider in the entry, or it does not discharge.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

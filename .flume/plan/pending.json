@@ -1,5 +1,35 @@
 [
   {
+    "tag": "EXAMPLE-EDGE-TARGET-SET-SPELLING",
+    "summary": "`examples/base-harness` still authors the retired single-kind `to` spelling — two latent type errors against the SDK's non-empty-set tuple, caught by no gate",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "examples/base-harness/.temper/kinds.ts",
+          "description": "The two bare-string `to` fields become one-element sets — the lossless spelling of the same declaration, not a semantic change: `edgeFields: [{ field: \"implemented-by\", to: \"source\" }]` (135) → `to: [\"source\"]`, and `edgeFields: [{ field: \"superseded-by\", to: \"decision\" }]` (182) → `to: [\"decision\"]`. Both are type errors against the shipped SDK today: 3db8c25 widened `EdgeField.to` to `readonly [string, ...string[]]` (`sdk/src/kind.ts:53`), and a bare string does not inhabit that tuple. They are latent rather than red because nothing typechecks this tree — the example carries no tsconfig, and `rg` over `tests/`, `src/`, `sdk/`, and `.github/` finds no reference to `examples/` at all. contract.md's `edge` section is the intent the exemplar must teach: a kind declares the field's target as a non-empty set of kinds."
+        },
+        {
+          "path": "examples/base-harness/.temper/lock.toml",
+          "description": "Re-emitted whole, never hand-patched (`specs/model/pipeline.md`, 'The lock': the lock is tool-written whole and emit is its sole producer). The two bare-string rows — `to = \"decision\"` (320) and `to = \"source\"` (326) — rewrite canonical as arrays once `kinds.ts` re-spells. This is the canonical rewrite the lock's own upgrade contract owes (a committed bare `to` reads losslessly as the one-element set, the file is never patched, and the next emit rewrites it whole), never a repair of something broken: 3db8c25 verified `check` over this exact lock exits 0 unpatched on the legacy read. Emit needs the workspace SDK built and installed (`pnpm -C sdk install && pnpm -C sdk build`, then `npm -C examples/base-harness/.temper install`), the same bootstrap `CLAUDE.md` states for `.temper/`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`examples/base-harness/.temper/kinds.ts` declares both edge fields' `to` as one-element sets, so the exemplar typechecks against the SDK's `readonly [string, ...string[]]` and teaches the spelling contract.md's `edge` section declares; the re-emitted `lock.toml` carries both `to` rows in canonical array form; `temper check examples/base-harness` exits 0; `cargo test` and `pnpm --dir sdk test` stay green. No gate enforces the example tree — state that plainly rather than implying CI holds it.",
+    "notes": "3db8c25's own disclosure called this 'outside this fence' — but `examples/**` IS inside build's writable fence (`.flume/chain.ts:223`), so it routes as an ordinary entry, not a human `docs(example):` act. Nothing references `examples/` from any gated tree, so this drift is silent by construction and will recur on the next model widening; whether the exemplar earns a gate is a separate question this entry does not answer. scoped at 53519b9."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -16,11 +46,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. All cites re-derived at 01337ff, which moved this file +142. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (628-669) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (655), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 526-527 ('hop-capped at [`MAX_IMPORT_HOPS`] as the format documents') and 625-626 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 650-653 ('capped at the format's import recursion depth')."
+          "description": "The constant and the cite that justifies it. All cites re-derived at 53519b9, which moved this file again. `MAX_IMPORT_HOPS = 5` (65) sits under a doc (61-64) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (627) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (654), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 525-526 ('hop-capped at [`MAX_IMPORT_HOPS`] as the format documents') and 624-625 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 649-652 ('capped at the format's import recursion depth')."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1402, re-derived at 01337ff from the 1238 it was last scoped at) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1405-1407) spells 'the format's five-hop import recursion' and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
+          "description": "`the_import_closure_is_hop_capped` (1356, re-derived at 53519b9 from the 1402 it was last scoped at — 1b9a6af lifted this file's private harness helpers into `tests/common` and rewired it, moving the region) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding (1386-1388) — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1357-1361) spells 'capped at the format's five-hop import recursion' (1359) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number."
         }
       ],
       "retire": []
@@ -33,7 +63,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 01337ff and holds — nothing ruled the hop semantics. 83fa520 moved graph.rs (+142) and tests/graph.rs (+166) without touching the constant or its cites, so every line cite above is re-derived while the claim is unchanged: `MAX_IMPORT_HOPS` reads 5 at graph.rs:65 under a cite claiming five. Stays parked: the constant may still be wrong, the one thing keeping it out of the staleness-rider class. rescoped 4a33911; re-cited 01337ff."
+    "notes": "Park re-tested at 53519b9 and holds — nothing ruled the hop semantics (dry spec delta, empty inbox). 3db8c25/1b9a6af moved graph.rs and tests/graph.rs without touching the constant or its cites, so every line cite above is re-derived by reading while the claim is unchanged: `MAX_IMPORT_HOPS` reads 5 at graph.rs:65 under a cite claiming five. Stays parked: the constant may still be wrong, the one thing keeping it out of the staleness-rider class. rescoped 4a33911; re-cited 53519b9."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +90,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 0c25b2c and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 53519b9 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. scoped at b676656."
   }
 ]
