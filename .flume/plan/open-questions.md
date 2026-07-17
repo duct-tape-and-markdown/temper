@@ -37,14 +37,17 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 14c5de4: no
+  dir by `temper bundle` on every run? Re-verified at 4084dcd: no
   `.claude-plugin/` exists here, so both kinds will govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
   BUNDLE-EMIT-THROUGH-KINDS, which routes `bundle`'s writers through the kinds
   without any committed manifest. Blocked in fact until the three 0031 kinds
-  ship; `.claude/` is human `chore(harness):` territory (CLAUDE.md, "The two
-  harnesses"), so this lands as a human act or not at all. No dependents.
+  ship — **two of three now do**: `installed-plugin` (9f22de2) and
+  `plugin-manifest` (c68f625) are both in `all_kinds()`, leaving
+  MARKETPLACE-KIND the last. `.claude/` is human `chore(harness):` territory
+  (CLAUDE.md, "The two harnesses"), so this lands as a human act or not at
+  all. No dependents.
 
 - `(closed-surface-predicate)` — OPEN, model question, registered 07-16 from
   the drained refactor capture (`build-type-predicate-cannot-cross-the-lock`,
@@ -61,8 +64,9 @@ tax.
   reads the closed vocabulary, and `specs/model/contract.md` ("clause") makes
   that a deliberate language change — a corpus decision, never a build tick's
   to invent. Nothing is broken by leaving it open: `sdk/src/builtins.ts`
-  (605-620) names the hold in `pluginManifestDefaultContract`'s header, the
-  honest "almost-empty default contract" posture `specs/builtins.md` sanctions.
+  (599-627, re-read on disk 21e003a — the record said 605-620) names the hold
+  in `pluginManifestDefaultContract`'s header, the honest "almost-empty
+  default contract" posture `specs/builtins.md` sanctions.
   Distinct from TYPE-PREDICATE-ROUND-TRIPS, the sibling *wiring* gap the same
   capture named — that one adds no predicate and is filed, not forked. No
   dependents.
@@ -125,7 +129,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  14c5de4: both dead trees still spelled (121/140), in a file this window never
+  4084dcd: both dead trees still spelled (121/140), in a file that window never
   touched either and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -148,9 +152,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
   comment lines — no queued entry opens `prose.ts` — never standalone. All ten
-  lines re-verified exact on disk at reconcile HEAD 14c5de4 (unmoved;
-  `prose.ts` untouched in this window too and edited by no queued entry —
-  still no carrier). The
+  lines re-verified on disk at reconcile HEAD 4084dcd (unmoved; `prose.ts`
+  untouched in that window too and edited by no queued entry — still no
+  carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
@@ -165,9 +169,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
-  at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45,
-  unmoved) at reconcile HEAD 14c5de4 — no queued entry edits `Cargo.toml`, so
-  it still has no carrier.
+  at residue sweep HEAD a932bb0; re-verified on disk (the cite still sits at
+  42) at reconcile HEAD 4084dcd — no queued entry edits `Cargo.toml`, so it
+  still has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
