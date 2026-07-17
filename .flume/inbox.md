@@ -18,3 +18,12 @@ routing.
   refuses. The cwd rule (run emit with cwd = the harness root) is
   documented in EXAMPLE-EDGE-TARGET-SET-SPELLING's entry as a stopgap,
   not a fix. observed at 3c1a58c
+- SDK crash, found field-verifying 0028: a `file()` value composed inside
+  `blocks()` throws a raw `TypeError: Cannot convert undefined or null to
+  object` (`resolveMemberLeaves`, emit.js:220 via `renderMemberBlock` —
+  the block dispatcher reads it as an embedded member and dereferences
+  absent `leaves`). Whether the spelling is legal is the entry's first
+  question — if a file's contents may interleave as a block, resolve it;
+  if not, refuse with a typed error naming the block index and what
+  `blocks()` admits. Either way an unhandled TypeError from authored
+  input violates loud-or-nothing. observed at c86d649
