@@ -28,7 +28,7 @@ use crate::extract::host_address;
 use crate::hash::sha256_hex;
 use crate::import::{RollupEntry, write_rollup};
 use crate::install;
-use crate::kind::{Content, Layout, LayoutRegion, content_from_row};
+use crate::kind::{Content, Format, Layout, LayoutRegion, content_from_row, format_from_row};
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
 /// a source or lock that fails to read, write, parse, or reproduce deterministically.
@@ -563,6 +563,9 @@ struct Projection {
     kind: String,
     name: String,
     source_path: PathBuf,
+    /// The kind's declared projection format, selecting the canonical write face the
+    /// member's bytes are rendered through. `None` for a kind declaring none.
+    format: Option<Format>,
     /// The desired header fields in canonical order (known fields first, then the
     /// preserved unknown keys). The whole set is re-emitted into a fresh
     /// frontmatter block — the projection is regenerated, never patched.
@@ -983,6 +986,7 @@ pub fn emit(
             kind: member.kind.clone(),
             name: member.name.clone(),
             source_path,
+            format: format_from_row(facts)?,
             fields: member.fields.clone(),
             body,
         });
@@ -1665,6 +1669,7 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
         .unwrap_or_default();
 
     let desired = normalize_lf(&project_bytes(
+        projection.format,
         &projection.fields,
         &projection.body,
         &placements,
@@ -1675,6 +1680,7 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     // authoring (a timestamp, an unordered map surfacing into a field) is a loud
     // failure here, never a silent churn the next `emit` would rewrite.
     let second_pass = normalize_lf(&project_bytes(
+        projection.format,
         &projection.fields,
         &projection.body,
         &placements,
@@ -1707,20 +1713,33 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     Ok((row(EmitOutcome::Emitted), hash))
 }
 
-/// Re-emit the desired projection deterministically: a fresh `---`-delimited
-/// frontmatter block carrying install's preserved `placements` (the schema modeline,
-/// the managed-by note — in on-disk order), then every desired field in order, then
-/// the surface body byte-for-byte.
+/// Re-emit the desired projection deterministically through the canonical write face
+/// `format` names — **the one write dispatch**, the read side's [`read_file_unit`] match
+/// mirrored: a `json-document` kind renders its fields as the whole JSON artifact, every
+/// other file kind renders a `---`-delimited frontmatter block over its body. Both
+/// determinism passes route through here, so a per-call-site format match cannot exist to
+/// disagree with this one.
 ///
 /// The authored content is *generated*, not patched — a hand-edited
 /// field is not preserved (that is drift, routed to the authored source). Install's
 /// metadata comments are the one exception the caller feeds in: they ride `install`,
 /// never `emit`, so emit round-trips the ones
-/// already on disk rather than dropping them. An artifact with no fields (a rule that
+/// already on disk rather than dropping them. A JSON document carries none by
+/// construction — install places its metadata as a frontmatter comment or a markdown
+/// banner, neither of which a JSON artifact's bytes can hold — so that face takes no
+/// `placements` and drops nothing. An artifact with no fields (a rule that
 /// carries no `paths`/unknown keys, a memory `CLAUDE.md`) projects to its body alone —
 /// no frontmatter block, so install's metadata there is a block-level HTML-comment
 /// banner heading the body, round-tripped the same way.
-fn project_bytes(fields: &[(String, JsonValue)], body: &str, placements: &[String]) -> String {
+fn project_bytes(
+    format: Option<Format>,
+    fields: &[(String, JsonValue)],
+    body: &str,
+    placements: &[String],
+) -> String {
+    if let Some(Format::JsonDocument) = format {
+        return crate::json_manifest::write_document(&fields.iter().cloned().collect());
+    }
     if fields.is_empty() {
         // A frontmatterless projection: install's banner, if any, heads the body with
         // one blank line between; otherwise the body alone.
@@ -3799,9 +3818,9 @@ mod tests {
         // With no placements a frontmatterless projection is its body alone; with
         // install's banner it heads the body, one blank line between — the bytes
         // install placed, so a re-emit reports Unchanged instead of stripping it.
-        assert_eq!(project_bytes(&[], body, &[]), body);
+        assert_eq!(project_bytes(None, &[], body, &[]), body);
         assert_eq!(
-            project_bytes(&[], body, std::slice::from_ref(&banner)),
+            project_bytes(None, &[], body, std::slice::from_ref(&banner)),
             format!("{banner}\n\n{body}")
         );
     }

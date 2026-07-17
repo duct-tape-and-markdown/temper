@@ -677,10 +677,7 @@ impl CustomKind {
     /// corruption rejected at load.
     pub fn from_kind_fact_row(row: &KindFactRow) -> Result<Self, LockRowError> {
         Ok(CustomKind {
-            format: match &row.format {
-                Some(label) => Some(kind_vocab(label, "format", format_from_label(label))?),
-                None => None,
-            },
+            format: format_from_row(row)?,
             unit_shape: match &row.unit_shape {
                 Some(label) => Some(kind_vocab(
                     label,
@@ -883,6 +880,20 @@ fn unit_shape_from_label(label: &str) -> Option<UnitShape> {
     (name == "named-field").then(|| UnitShape::NamedField {
         field: field.to_string(),
     })
+}
+
+/// Lift a [`KindFactRow`]'s declared format label into its typed [`Format`] — `None` for
+/// a kind that declares none. [`content_from_row`]'s peer, for a caller holding a row
+/// rather than a whole [`CustomKind`].
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when the label falls outside the closed vocabulary.
+pub(crate) fn format_from_row(row: &KindFactRow) -> Result<Option<Format>, LockRowError> {
+    match &row.format {
+        Some(label) => Ok(Some(kind_vocab(label, "format", format_from_label(label))?)),
+        None => Ok(None),
+    }
 }
 
 /// Lift a [`KindFactRow`]'s content facts into typed [`Content`]. The `shape` marker wins

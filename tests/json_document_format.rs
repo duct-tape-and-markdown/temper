@@ -13,11 +13,14 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 mod common;
 
-use temper::drift::{ClauseRow, Declarations, KindFactRow};
+use serde_json::json;
+use temper::drift::{
+    ClauseRow, Declarations, EmitOptions, EmitOutcome, KindFactRow, Payload, PayloadMember,
+};
 use temper::json_manifest::{DocumentMember, write_document};
 use temper::kind::{CustomKind, Extraction, Governs, UnitShape};
 
@@ -34,6 +37,11 @@ const PLUGIN_JSON: &str = r#"{
   "version": "1.2.0"
 }
 "#;
+
+/// The peer-branch fixtures' bodies: a `yaml-frontmatter` rule and a formatless memory
+/// file, the two shapes the JSON face must leave untouched.
+const RULE_BODY: &str = "# Rust conventions\n\nErrors via miette/thiserror.\n";
+const MEMORY_BODY: &str = "# Project\n\nMemory body.\n";
 
 /// Write a plugin manifest at the real `.claude-plugin/plugin.json` locus — never a layout
 /// invented for the test's convenience (`.claude/rules/rust.md`).
@@ -241,6 +249,121 @@ fn the_dispatch_still_judges_a_json_document_that_omits_a_required_field() {
         run.output
     );
     assert!(run.output.contains("description"), "{}", run.output);
+}
+
+/// The fixture kind's member as the seam carries it — the same four fields the read face
+/// surfaces off [`PLUGIN_JSON`], handed to `emit` in a deliberately unsorted order the
+/// write face's canonical key order must impose.
+fn plugin_member() -> PayloadMember {
+    PayloadMember {
+        kind: "plugin-manifest".to_string(),
+        name: "formatter".to_string(),
+        host: None,
+        fields: vec![
+            ("version".to_string(), json!("1.2.0")),
+            ("name".to_string(), json!("formatter")),
+            (
+                "description".to_string(),
+                json!("Formats the tree on demand"),
+            ),
+            ("author".to_string(), json!({ "name": "Ada Lovelace" })),
+        ],
+        body: String::new(),
+        source_path: None,
+    }
+}
+
+/// A `<harness>/.temper` pair — `emit` derives the projection root from the workspace
+/// dir's parent, the seam's own topology.
+fn workspace(label: &str) -> (PathBuf, PathBuf) {
+    let harness = common::tmpdir(label);
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+    (harness, into)
+}
+
+#[test]
+fn emit_projects_a_json_document_member_through_the_canonical_write_face() {
+    // The write half of the dispatch: undispatched, `emit` renders a `---`-fenced
+    // frontmatter block over every file member — at a `.json` path, bytes no reader
+    // (Claude Code's or temper's own) can load. Revert the dispatch and this case fails on
+    // the very first assert.
+    let (harness, into) = workspace("json-document-emit");
+    let payload = Payload {
+        version: temper::drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![plugin_kind_row()],
+            ..Declarations::default()
+        },
+        members: vec![plugin_member()],
+    };
+
+    let report = temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(report.entries.len(), 1);
+    assert_eq!(report.entries[0].outcome, EmitOutcome::Emitted);
+
+    let projected = harness.join(".claude-plugin").join("plugin.json");
+    let emitted = fs::read_to_string(&projected).unwrap();
+    assert_eq!(emitted, PLUGIN_JSON);
+    assert!(
+        !emitted.starts_with("---"),
+        "a JSON document never carries a frontmatter block: {emitted}"
+    );
+
+    // The projection closes the loop: the read face loads the emitted bytes back as the
+    // same member the payload carried, so `emit` writes what `check` reads.
+    let reread = DocumentMember::read(&plugin_kind(), &projected).unwrap();
+    assert_eq!(reread.id, "formatter");
+    assert_eq!(
+        reread.fields.keys().map(String::as_str).collect::<Vec<_>>(),
+        vec!["author", "description", "name", "version"]
+    );
+
+    // A re-emit is byte-identical and reports the idempotent no-op — the determinism pair
+    // routes through the one dispatch, so the JSON face is held to it too.
+    let second = temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(second.entries[0].outcome, EmitOutcome::Unchanged);
+    assert_eq!(fs::read_to_string(&projected).unwrap(), PLUGIN_JSON);
+}
+
+#[test]
+fn the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were() {
+    // The dispatch's other branches, pinned: `yaml-frontmatter` and a kind declaring no
+    // format keep today's bytes — a frontmatter block over a body, and a body alone. The
+    // format decides the face; it does not perturb the faces it did not select.
+    let (harness, into) = workspace("json-document-emit-peers");
+    let payload = Payload {
+        version: temper::drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                common::rule_kind_facts(None, &[]),
+                common::kind_facts("memory", ".", "CLAUDE.md"),
+            ],
+            ..Declarations::default()
+        },
+        members: vec![
+            common::rule_member("rust", Some(&["src/**/*.rs"]), RULE_BODY),
+            PayloadMember {
+                kind: "memory".to_string(),
+                name: "CLAUDE".to_string(),
+                host: None,
+                fields: Vec::new(),
+                body: MEMORY_BODY.to_string(),
+                source_path: None,
+            },
+        ],
+    };
+
+    temper::drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    assert_eq!(
+        fs::read_to_string(harness.join(".claude/rules/rust.md")).unwrap(),
+        format!("---\npaths: [\"src/**/*.rs\"]\n---\n{RULE_BODY}")
+    );
+    assert_eq!(
+        fs::read_to_string(harness.join("CLAUDE.md")).unwrap(),
+        MEMORY_BODY
+    );
 }
 
 #[test]
