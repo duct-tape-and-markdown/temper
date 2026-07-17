@@ -16,18 +16,21 @@ tax.
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:958-969, re-read at 0c3cbcb) names the `source` union
+  (`sdk/src/builtins.ts`:958-969, re-read at a2e48aa) names the `source` union
   as needing "a discriminated-union predicate the vocabulary does not spell":
   the relative-path form's leading `./`, each object form's own discriminator
-  and required fields. **The prediction this record made has played out twice
-  on disk** — FIELD-ADDRESSING-RFC-9535-SUBSET shipped (aaf70f1) and the two
-  addressable holds beside it discharged; CLOSED-KEYS-CLAUSE shipped (7fae62e)
-  and `pluginManifestDefaultContract`'s own last hold went with it, its header
-  now reading "The whole profile ships … nothing decidable is held". Each time
-  this bullet stayed. It is the marketplace contract's *only* hold, and once
-  SHAPE-PREDICATE retires the skill's two it is the last hold anywhere in the
-  provider face: `required("plugins[*].source")` — that a source
-  is named at all — ships as the decidable slice, and which of the five
+  and required fields. **The prediction this record made has now played out
+  three times, and the third exhausted it** — FIELD-ADDRESSING-RFC-9535-SUBSET
+  (aaf70f1) discharged the two addressable holds; CLOSED-KEYS-CLAUSE (7fae62e)
+  took `pluginManifestDefaultContract`'s last one; SHAPE-PREDICATE (0927979)
+  retired the skill's two, and `skillDefaultContract`'s header now reads
+  "Nothing decidable is held" (`builtins.ts`:1057). Each time this bullet
+  stayed. **It is now what it predicted it would become: the last hold
+  anywhere in the provider face** — verified at a2e48aa, the sole surviving
+  "pending a vocabulary addition" sentence in the file (960), and its own
+  header was rewritten by that ship to name its widening directly rather than
+  point at a sibling's. `required("plugins[*].source")` — that a source is
+  named at all — ships as the decidable slice, and which of the five
   documented forms a value is, and whether that form's own required fields are
   filled, no predicate decides. `marketplace_kind.rs` pins the boundary
   deliberately: a catalog naming an undocumented `ftp` source still passes.
@@ -36,9 +39,11 @@ tax.
   not a hold). The question is whether
   that fifth widening is ever ratified — a vocabulary addition is a deliberate
   language change (`model/contract.md`, "clause"), never plan's to derive and
-  never build's to invent. Nothing is broken by leaving it open: the union is
-  guarded for an SDK author by the `MarketplaceSource` type today, and what is
-  unguarded is the hand-written catalog. No dependents.
+  never build's to invent. With no sibling hold left to ride a wave beside, it
+  gets no free carrier: it is ratified deliberately or it stands. Nothing is
+  broken by leaving it open: the union is guarded for an SDK author by the
+  `MarketplaceSource` type today, and what is unguarded is the hand-written
+  catalog. No dependents.
 
 - `(settings-local-kind)` — OPEN, human's call, registered 07-16 from 0032's
   own Consequences: "The claude-code face's `settings.local.json` is the first
@@ -176,8 +181,9 @@ condition arrives, it is the next break. If work touches one, surface it.
 
 - **One stale cite, ride-only, never an entry.**
   Comment and citation staleness never files a standalone entry; it rides
-  whichever entry next opens the file — and the rule has now paid out twice
-  running, which is why this record keeps shrinking rather than growing. The
+  whichever entry next opens the file — and the rule has now paid out three
+  times running, which is why this record keeps shrinking rather than growing.
+  The
   `sdk/src/prose.ts` half retired at 9409a6c (SDK-BLOCKS-FILE-REFUSAL,
   42a2dd1, cut all ten pre-recut narration lines). The `Cargo.toml` half
   **retires here, discharged on disk at 385c429**:
@@ -199,12 +205,12 @@ condition arrives, it is the next break. If work touches one, surface it.
     entry NAMES it, never when a file is merely opened, which is why the
     carrier this waits for must carry it in its scope. No queued entry opens
     `src/roster.rs` today; it waits, and never becomes an entry of its own.
-    Cite re-read on disk at 0c3cbcb.
-  A second cite went stale in the same window and is **already carried, so it
-  gets no line here**: 7fae62e retired `pluginManifestDefaultContract`'s hold,
-  falsifying `marketplaceDefaultContract`'s header sentence (958-960) that
-  points at "the same shape of hold `pluginManifestDefaultContract` names for
-  its own two". SHAPE-PREDICATE opens that file and names it in scope.
+    Cite re-read on disk at a2e48aa.
+  The `sdk/src/builtins.ts` cite this record carried last tick **discharged
+  exactly as the rule predicts**: 7fae62e falsified `marketplaceDefaultContract`'s
+  header sentence, SHAPE-PREDICATE was given it in scope, and 0927979 landed it —
+  the header at 960 now names its own widening rather than a sibling's retired
+  hold, verified on disk at a2e48aa. It never became an entry.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
   `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"

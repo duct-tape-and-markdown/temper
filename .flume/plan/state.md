@@ -1,65 +1,66 @@
 # Plan state
 
 - Spec derived through: 832f015
-- Audited through: 0c3cbcb
-- Residue swept through: 0c3cbcb
-- This tick: DRAIN the refactor capture SHAPE-PREDICATE filed
-  (`build-schema-docs-channel-single-slot.md`, observed 94012c4) — the
-  directory held a live capture, so the inbox job outranked the window's
-  reconciliation. Filed SCHEMA-DOCS-CHANNEL-ACCUMULATES; capture deleted.
-  **The claim verified at HEAD, and the sharper number is worse than the
-  report's.** Not off the log: `src/schema.rs`'s docs-channel loop (169-186)
-  `insert`s `description` per clause into the shared property map, and
-  `insert` is last-writer-wins, so a field's 2nd..Nth guided clause overwrites
-  its predecessor with nothing reporting the loss. Confirmed empirically by
-  running the shipped binary rather than reading the code alone: `temper
-  schema --kind skill` shows `description` carrying only the `shape`
-  teaching — the spec's 1024-cap prose is gone from hover — and `name`
-  carrying only `deny`'s, five teachings behind it dropped.
-  **Scope re-derived from the clause data, not the report.** The capture named
-  one field; counting the built-in lock's guided clauses over the eleven
-  predicates `documented_field` answers gives **8 live dropped teachings**
-  (`skill.name` 5, `skill.description` 3 — the `schema` verb models `skill`
-  and `rule` alone) and **14 latent** (`command.name` 5, `command.description`
-  3, `marketplace.name` 3, `plugin-manifest.name` 2, `agent.name` 1) that land
-  the moment those kinds get a schema face. **One report claim did not
-  survive**: `rule.paths` looks like a two-clause field but is not affected —
-  `mention-reachable` returns `None` from `documented_field`
-  (`src/contract.rs`), so it never writes. Scoped to the verified gap, not the
-  reported one.
-  The entry cites `engineering.md`, "One job, one home" on the report's own
-  logic: `push_subschema` (`schema.rs`:318) is the accumulation home
-  SHAPE-PREDICATE built for this exact hazard on `pattern` one channel over,
-  and the docs loop is that hazard's twin. Join over pick-a-winner is the
-  corpus's call, not the queue's — `builtins.md` binds guidance to ride "the
-  clause value itself, so it cannot dangle from the check it explains", and
-  the pick-a-winner alternative needs a rule for which clause wins that
-  nothing states; author order decides by accident today. No fork registered:
-  the corpus already rules this.
-  **Closing checklist moved one gate.** DIAL-KIND rested on SHAPE-PREDICATE,
-  which shipped inside this window (0927979) and left the queue with the ship
-  commit — a gate pointing at a tag no longer in it. Verified on disk before
-  opening, not from the log: `Predicate::Shape` (`contract.rs`:241), its
-  decoder arm (473), the `schema.rs` arm (121), and `tests/shape_predicate.rs`
-  all present. It is now `open` — the fifth wave head in a row to open this
-  way — so the queue carries **2 pickable, disjoint** entries. DIAL-KIND's two
-  SDK cites (`sdk/src/builtins.ts` +24, `sdk/src/index.ts` +1: `shape` at 50)
-  went stale in the same window; the entry says so in place rather than
-  reading as freshly scoped, and they re-stamp at next tick's audit — which is
-  where that motion belongs, not smuggled into a drain tick.
-  Cursors copied forward verbatim: the audit and sweep of `0c3cbcb..a2e48aa`
-  are untouched, and a capture drain is not an audit.
-- Queue: 5 entries, **2 pickable** — SCHEMA-DOCS-CHANNEL-ACCUMULATES (ordered
-  first: a live defect in a shipped channel, one file, disjoint from the wave)
-  and DIAL-KIND. CHECK-ANNOUNCES chains behind the dial on `src/main.rs`; no
-  entry rests on a fork. Two parked.
+- Audited through: a2e48aa
+- Residue swept through: a2e48aa
+- This tick: RECONCILE `0c3cbcb..a2e48aa` — one build commit (SHAPE-PREDICATE,
+  0927979) touching `src/`, `tests/`, and `sdk/`. Both motions ran; both
+  cursors advance.
+  **Audit.** Verified on disk, not from the log. `Predicate::Shape`
+  (`contract.rs`:241) with its closed `Shape` enum, `from_name` decode, the
+  `drift.rs` `shape` column (2768), the `engine.rs` judge (828), and
+  `tests/shape_predicate.rs` all present — SHAPE-PREDICATE is genuinely shipped
+  and was already dropped from the queue. No pending entry's work is done.
+  Every gate re-tested against disk rather than carried: CHECK-ANNOUNCES still
+  chains behind DIAL-KIND on `src/main.rs`; IMPORT-HOP-CAP-CITE's park holds —
+  nothing ruled the hop semantics and `graph.rs`:59 still reads 5;
+  PACKAGING's park holds on every clause — `git tag -l` carries the four era
+  tags and no version tag, crate 0.1.0 vs npm 0.0.7, `release.yml`:7-9 states
+  the deferral verbatim, and `git diff 0c3cbcb..a2e48aa -- .github/` is empty.
+  **The two SDK cites this tick owed are re-stamped**, which is the whole
+  reason last tick deferred them here rather than smuggling them into a drain:
+  `sdk/src/builtins.ts` is now 1421 lines with the two `shape` clauses at 1091
+  and 1127 and the marketplace header rewritten at 960 — and **nothing DIAL-KIND
+  needs moved**, since its cite is the subpath rule the file states at 9;
+  `sdk/src/index.ts` holds `closedKeys` at 29 and `shape` at 50 as read.
+  DIAL-KIND's staleness note is gone rather than re-worded — the entry now
+  reads as scoped, because it is.
+  **Sweep — one gap filed, ADDRESSED-FIELD-FENCE-EXHAUSTIVE.** The window's
+  own diff is the evidence: SHAPE-PREDICATE hand-added `Predicate::Shape` to
+  **three** parallel matches answering one relation — which predicates carry a
+  field. Two are exhaustive methods on `Predicate` (`target` 619,
+  `documented_field` 663) and would have failed the build if missed; the third,
+  `engine.rs`'s `addressed_field` (197), ends `_ => None` (210) and would not.
+  That wildcard sits on the admissibility path — `unaddressable` (176) reads it
+  to refuse a clause whose field leaves the declared RFC 9535 subset, and its
+  own doc states the stake: "a bound that is not enforced is not a bound". A
+  forgotten arm there is silently admitted, which is the failure the fence
+  exists to prevent. `addressed_field` is also the newest of the three — added
+  at aaf70f1 as a free function beside two existing methods, naming neither,
+  which `engineering.md` requires of a new surface beside a near-duplicate.
+  **Filed honestly as structural, not live**: every current predicate is listed
+  correctly, so nothing is broken today. The entry forbids the tempting merge
+  into `documented_field` (identical arm lists, distinct intents — collapsing
+  them conflates two facts free to diverge) and fences `bodyless`/`judgeless`
+  out of scope as opt-in lists rather than duplicates.
+  **The fork board moved without a new fork.** `(source-union-predicate)`
+  became what it predicted: the skill's two holds retired, so the marketplace's
+  `source` union is now the **last hold anywhere in the provider face** —
+  verified as the sole surviving "pending a vocabulary addition" sentence
+  (`builtins.ts`:960). It stays OPEN: a vocabulary addition is a deliberate
+  language change, never plan's to derive. Recorded that it now has no sibling
+  hold to ride a wave beside — it is ratified deliberately or it stands.
+  The ride-only cite record paid out a **third** time and shrank again:
+  SHAPE-PREDICATE carried the marketplace-header cite it was given and landed
+  it, never becoming an entry. `src/roster.rs`:473 remains the class's last
+  orphan, re-read at a2e48aa; no queued entry opens that file, so it waits.
+- Queue: 6 entries, **3 pickable and disjoint** —
+  SCHEMA-DOCS-CHANNEL-ACCUMULATES (`src/schema.rs`, a live defect in a shipped
+  channel), ADDRESSED-FIELD-FENCE-EXHAUSTIVE (`src/engine.rs`), DIAL-KIND.
+  CHECK-ANNOUNCES chains behind the dial on `src/main.rs`; no entry rests on a
+  fork. Two parked.
 
-Plan continues: yes — post-ship reconciliation of `0c3cbcb..a2e48aa` (both
-cursors sit at 0c3cbcb; SHAPE-PREDICATE's ship is unaudited and unswept). The
-window is one build commit touching `src/`, `tests/`, and `sdk/`, and it
-carries known audit work already named above: DIAL-KIND's two stale SDK cites,
-the `(source-union-predicate)` record's now-true antecedent — the skill's two
-holds retired (`builtins.ts`:1058 reads "Nothing decidable is held"), leaving
-the marketplace's `source` union the last hold in the provider face, the
-prediction's third payout — and the `builtins.ts` re-cite the marketplace
-header rewrite implies.
+Plan continues: no — every input is serviced. Inbox empty, no refactor
+captures, spec delta empty (cursor at 832f015 with no `specs/` commit past it),
+and `0c3cbcb..a2e48aa` is reconciled on both motions with both cursors
+advanced. Build takes over: three pickable, disjoint entries.
