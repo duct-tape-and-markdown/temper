@@ -16,17 +16,20 @@ tax.
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:849-851, re-read at db85b0f) names the `source` union as
-  needing "both of the above **plus a discriminated-union predicate**": the
-  relative-path form's leading `./`, the four object forms' `source`
-  discriminator and their required fields. 0033's widening 2 makes
-  `plugins[*].source` **addressable** — `required` and `type` over it become
-  spellable — and stops there; which of the five documented forms a value is,
-  and whether that form's own required fields are filled, no predicate
-  decides. So after FIELD-ADDRESSING-RFC-9535-SUBSET ships, the bullet stays
-  as a hold rather than discharging, which is admissible precisely because it
-  already names its closing widening (`builtins.md`, "Default contracts": a
-  hold with no named closing widening is not a hold). The question is whether
+  (`sdk/src/builtins.ts`:838-847, re-read at 385c429) names the `source` union
+  as needing "a discriminated-union predicate the vocabulary does not spell":
+  the relative-path form's leading `./`, each object form's own discriminator
+  and required fields. **The prediction this record made has now played out on
+  disk** — FIELD-ADDRESSING-RFC-9535-SUBSET shipped (aaf70f1), the two
+  addressable holds beside it discharged, and this bullet stayed, rewritten as
+  the contract's *only* hold: `required("plugins[*].source")` — that a source
+  is named at all — ships as the decidable slice, and which of the five
+  documented forms a value is, and whether that form's own required fields are
+  filled, no predicate decides. `marketplace_kind.rs` pins the boundary
+  deliberately: a catalog naming an undocumented `ftp` source still passes.
+  The hold is admissible precisely because it names its closing widening
+  (`builtins.md`, "Default contracts": a hold with no named closing widening is
+  not a hold). The question is whether
   that fifth widening is ever ratified — a vocabulary addition is a deliberate
   language change (`model/contract.md`, "clause"), never plan's to derive and
   never build's to invent. Nothing is broken by leaving it open: the union is
@@ -167,35 +170,28 @@ condition arrives, it is the next break. If work touches one, surface it.
   the record below spent two entries learning, proven a third time: the rider
   discharges when an entry names it, and not when a file is merely opened.
 
-- **Two stale cites, one now carried — ride-only, never an entry.**
+- **One stale cite, ride-only, never an entry.**
   Comment and citation staleness never files a standalone entry; it rides
-  whichever entry next opens the file. The `sdk/src/prose.ts` record that sat
-  here for four entries is **retired, discharged on disk at 9409a6c**:
-  SDK-BLOCKS-FILE-REFUSAL (42a2dd1) carried the rider it was given and cut all
-  ten pre-recut narration lines — `rg` over the file for `law N` / `posture N`
-  / `15-kinds` / `20-surface` now returns nothing. That closes the class the
-  record tracked. Sweeping the same class across `src/` + `sdk/src/` still
-  leaves exactly two lines, both re-read on disk at db85b0f — but **one now
-  has a carrier**, which is the ride-only rule working rather than a gap:
-  - `Cargo.toml`:37-39 and 42-45 — **carried, no longer orphaned.** 37-39
-    sells `regex` as "the `pattern` primitive", a predicate that does not
-    exist and that the corpus refuses outright; 42-45 cites
-    `src/schema/interchange.rs` (the module is `src/schema.rs`; no `schema/`
-    dir exists) and assigns ts-rs the interchange-TS role the seam bindings
-    superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
-    36a7662; `src/schema.rs` is schemars-only).
-    FIELD-ADDRESSING-RFC-9535-SUBSET adds `serde_json_path` to this file and
-    names both riders in its first edit — filed at 6f72a3b, which is what
-    retired this record's old "no queued entry opens either file" claim.
-    Found at sweep HEAD a932bb0.
-  - `src/roster.rs`:470 — **the last orphan of its class**: the doc comment on
+  whichever entry next opens the file — and the rule has now paid out twice
+  running, which is why this record keeps shrinking rather than growing. The
+  `sdk/src/prose.ts` half retired at 9409a6c (SDK-BLOCKS-FILE-REFUSAL,
+  42a2dd1, cut all ten pre-recut narration lines). The `Cargo.toml` half
+  **retires here, discharged on disk at 385c429**:
+  FIELD-ADDRESSING-RFC-9535-SUBSET (aaf70f1) opened the file to add
+  `serde_json_path`, carried both riders it was given, and landed them — `regex`
+  now reads "the charset mechanics behind `allowed_chars` — hidden, never an
+  author-facing `pattern` clause" (36-38), and the schemars/ts-rs note cites
+  `src/schema.rs` with ts-rs holding its live `sdk/src/generated/` seam role
+  (48-55). Sweeping the class across `src/` + `sdk/src/` now leaves exactly
+  one line:
+  - `src/roster.rs`:469 — **the last orphan of its class**: the doc comment on
     the `membership_roster` test helper cites `` `10-contracts.md` ``, a file
     0001 deleted. The sentence's claim is live — a `target` names a declared
     requirement — so the cite comes out, never gets re-pointed at a surviving
     file. No queued entry opens `src/roster.rs`; it waits for one, and never
-    becomes an entry of its own. Cite re-read on disk at db85b0f, still 470 —
-    but re-read rather than carried, because an orphan's address drifts under
-    the ride-only rule (6d145fa moved it 465→470 while this record slept).
+    becomes an entry of its own. Cite re-read on disk at 385c429 — 470→469,
+    an orphan's address drifting under the ride-only rule exactly as
+    6d145fa moved it 465→470 while this record slept.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
   `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"
