@@ -16,7 +16,7 @@ tax.
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:958-969, re-read at a2e48aa) names the `source` union
+  (`sdk/src/builtins.ts`:955-969, re-read at 8fc5e21) names the `source` union
   as needing "a discriminated-union predicate the vocabulary does not spell":
   the relative-path form's leading `./`, each object form's own discriminator
   and required fields. **The prediction this record made has now played out
@@ -26,8 +26,9 @@ tax.
   retired the skill's two, and `skillDefaultContract`'s header now reads
   "Nothing decidable is held" (`builtins.ts`:1057). Each time this bullet
   stayed. **It is now what it predicted it would become: the last hold
-  anywhere in the provider face** — verified at a2e48aa, the sole surviving
-  "pending a vocabulary addition" sentence in the file (960), and its own
+  anywhere in the provider face** — re-verified at 8fc5e21, the sole surviving
+  "pending a vocabulary addition" hold in the file (the sentence wraps 959-960;
+  grep the phrase across the line break, not on one line), and its own
   header was rewritten by that ship to name its widening directly rather than
   point at a sibling's. `required("plugins[*].source")` — that a source is
   named at all — ships as the decidable slice, and which of the five
@@ -53,7 +54,12 @@ tax.
   `settings.local.json` kind? The "can it" half is now **built, not merely
   ruled** — 0034's three derivations all ship (bce89b7, 09ef5ea, 6e7b958), so
   a local JSON kind would be gated in place under `json-document` and its
-  always-gitignored document actually found by the walk. Ship-or-not is all
+  always-gitignored document actually found by the walk. **The dial itself now
+  ships** (eaee2af; `temper_dial()`, `src/builtin_kind.rs`:388, read at
+  8fc5e21), so this record's own framing — "beyond the dial itself" — now names
+  a shape proven end to end in code rather than one merely derivable: a
+  `settings.local.json` kind would be the second instance of a live pattern,
+  not the first of an untried one. Ship-or-not is all
   that remains, and it costs no upstream work.
   Nothing is broken by leaving it open: the file is ungoverned today and
   no member declares it. No dependents.
@@ -205,7 +211,14 @@ condition arrives, it is the next break. If work touches one, surface it.
     entry NAMES it, never when a file is merely opened, which is why the
     carrier this waits for must carry it in its scope. No queued entry opens
     `src/roster.rs` today; it waits, and never becomes an entry of its own.
-    Cite re-read on disk at a2e48aa.
+    Cite re-read on disk at 8fc5e21, still 473.
+  The rule paid out a **fourth** time this tick, and for the first time on a
+  cite the sweep itself surfaced: `src/main.rs`:1047 calls the selection loop
+  "The second and last dial site" while four `dial.apply` sites exist
+  (886, 932, 997, 1059) — the dial ship's own new comment, loose on a literal
+  count. It is handed to CHECK-ANNOUNCES, which opens `src/main.rs` and reads
+  the very `dialed` set that comment governs. Named in scope, so it discharges;
+  it never became an entry.
   The `sdk/src/builtins.ts` cite this record carried last tick **discharged
   exactly as the rule predicts**: 7fae62e falsified `marketplaceDefaultContract`'s
   header sentence, SHAPE-PREDICATE was given it in scope, and 0927979 landed it —

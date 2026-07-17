@@ -7,8 +7,7 @@
       "section": "Layers"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DIAL-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +15,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict. Two of the three are already assembled and need no re-derivation: `assemble_lock_family` (1457) returns the `LockFamily` (1426-1436) carrying both the local-locus read-time rows and `joined_clauses`, read once before any consumer. The joined third is the live gap b753358 named and deferred here by name: it shipped the join with every finding carrying its layer in the address (`<label>@<layer>`, `qualify_layer_label` at 1546), so a layer that produces no finding gates silently today — exactly what this closes. The file is untouched across 0c3cbcb..a2e48aa, so these addresses carry from last tick's re-read."
+          "description": "The check run announces the three uncommitted-or-joined inputs by name: each active local member, each dialed clause (by its label), each joined lock. The announcement is unconditional — a run judged by inputs review never saw says so, whatever the verdict. Nothing of it is built: `rg announce src/ tests/` is empty at 8fc5e21. All three inputs are now assembled and need no re-derivation, which is what the dial's ship changed in this entry's favour. `assemble_lock_family` (1512) returns the `LockFamily` (1474), read once before any consumer, carrying `declarations`, `joined_clauses` (1484 — each already addressed under the layer that carried it, `qualify_layer_label` at 1629), and, new since the dial shipped, `dial` (1491). The dialed third is assembled too: `dialed` (830) accumulates every label the dial reached across its four `apply` sites (886, 932, 997, 1059) and is final at `dial.refusals` (1061), so the announcement reads that set rather than re-deriving it. The local-member third is the one that needs a value retained rather than a fresh read: `assemble_lock_family` resolves each local kind's units (`resolve_kind_units`, 1256) and keeps only the derived rows, dropping the unit ids — announce them by retaining them on `LockFamily` beside the rows they produced, never by re-walking the kind's glob. One rider (comment staleness, the ride-only class — it discharges only because this entry opens the file and names it): the comment at 1047 calls the selection loop \"The second and last dial site\" while four `dial.apply` sites exist; correct it to the count, or to the two-class reading it means."
         },
         {
           "path": "src/reporter.rs",
-          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line. The file is untouched across 0c3cbcb..a2e48aa, so all three addresses carry from last tick's re-read."
+          "description": "Every reporter renders one diagnostic source (`specs/distribution.md`): `session_start` (65), `github` (141), `sarif` (172) each carry the announcement in their own shape rather than one reporter growing a private line. The file is untouched across a2e48aa..8fc5e21, so all three addresses carry from last tick's re-read."
         }
       ],
       "retire": []
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "`check` announces every active local member, every dialed clause, and every joined lock (pipeline.md, \"Layers\"). `cargo test` green.",
-    "notes": "Last of 0032's five — it announces what the other four introduce, so it is honest only once they exist. The joined-lock third is **built and unannounced** (b753358), the first of the three to reach that state; scope is unchanged, and the commit body should say so. Serialized behind the dial (shares `src/main.rs`). scoped f1d97e4; cites carry from 0c3cbcb."
+    "notes": "Last of 0032's five — it announces what the other four introduce, and all four now exist: DIAL-KIND shipped (eaee2af), discharging this entry's `blockedBy`. The premise moved in its favour — all three thirds are built-and-unannounced now, where last tick only the joined lock was, so this is announcement with no re-derivation. Carries one ride-only comment fix, named in the `src/main.rs` description. scoped at 8fc5e21; every address re-read this tick."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -52,11 +51,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (621) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (648), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 519 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 618-620 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 643-646 ('capped at the format's import recursion depth'). The file is untouched across 0c3cbcb..a2e48aa, so every address carries from last tick's re-read."
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (621) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (648), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 519 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 618-620 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 643-646 ('capped at the format's import recursion depth'). The file is untouched across 0c3cbcb..8fc5e21, so every address carries from last tick's re-read."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1349) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1350-1354) spells 'capped at the format's five-hop import recursion' (1352) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. The file is untouched across 0c3cbcb..a2e48aa, so the addresses carry from last tick's re-read."
+          "description": "`the_import_closure_is_hop_capped` (1349) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1350-1354) spells 'capped at the format's five-hop import recursion' (1352) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. The file is untouched across 0c3cbcb..8fc5e21, so the addresses carry from last tick's re-read."
         }
       ],
       "retire": []
@@ -69,7 +68,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at a2e48aa and holds — nothing ruled the hop semantics. The window touched neither file, so every address carries from last tick's re-read rather than being re-derived. The constant is still 5 on disk (`graph.rs`:59, re-read this tick), so the park's subject is untouched — and may still be wrong. rescoped 4a33911; re-cited 53519b9; park re-tested a2e48aa."
+    "notes": "Park re-tested at 8fc5e21 and holds — nothing ruled the hop semantics. The window touched neither file, so every address carries from last tick's re-read. The constant is still 5 on disk (`graph.rs`:59, re-read this tick), so the park's subject is untouched — and may still be wrong. A build-side friction capture records the same disagreement; it is the human's to read, not plan's to drain. rescoped 4a33911; park re-tested 8fc5e21."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -96,6 +95,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at a2e48aa, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. `git diff 0c3cbcb..a2e48aa -- .github/` is empty. scoped b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 8fc5e21, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. `git diff a2e48aa..8fc5e21 -- .github/` is empty. scoped b676656."
   }
 ]
