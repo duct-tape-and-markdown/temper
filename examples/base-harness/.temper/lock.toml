@@ -317,13 +317,13 @@ value = "warn"
 fact = "edge"
 from = "superseded-decision"
 field = "superseded-by"
-to = "decision"
+to = ["decision"]
 
 [[declaration.assembly]]
 fact = "edge"
 from = "system"
 field = "implemented-by"
-to = "source"
+to = ["source"]
 
 [[declaration.satisfies]]
 member = "hook:PreToolUse"

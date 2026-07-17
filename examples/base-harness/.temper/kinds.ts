@@ -132,7 +132,7 @@ export const system: KindDefinition<System> = kind<System>({
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "always" }],
-  edgeFields: [{ field: "implemented-by", to: "source" }],
+  edgeFields: [{ field: "implemented-by", to: ["source"] }],
 });
 
 /**
@@ -179,7 +179,7 @@ export const supersededDecision: KindDefinition<SupersededDecision> = kind<Super
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "always" }],
-  edgeFields: [{ field: "superseded-by", to: "decision" }],
+  edgeFields: [{ field: "superseded-by", to: ["decision"] }],
 });
 
 /**
