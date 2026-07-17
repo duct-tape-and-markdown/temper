@@ -1,45 +1,5 @@
 [
   {
-    "tag": "TAP-VERB-EVENT-RECORD",
-    "summary": "Ship 0037's `temper tap` verb + its versioned JSONL event record: reads a hook payload from stdin, appends one record (identity + discriminant, never prose) to the uncommitted per-machine log",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Telemetry"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/tap.rs",
-          "description": "The tap verb's home + the versioned JSONL event-record type (register `pub mod tap;` in `src/lib.rs`, ~27-57). The record is the ENGINE'S OWN record, the lock/emit-payload category (0037 amended 5b6b6f2) — NOT a member, no declared format, no lock row: a plain struct carrying a version tag (`TAP_RECORD_VERSION`, versioned in lockstep with the binary — the `SEAM_VERSION` precedent, `src/drift.rs`:547) plus the event's identity + minimal discriminant only: the member/path the event names, the load reason, the session id (pipeline.md 'Telemetry'). NEVER captured prose — no tool output, no prompt text, no message bodies (intent.md invariant, pipeline.md). Serialize one record per line (JSONL) and an APPEND writer that appends a single record — never rewrites the file, so parallel sessions interleave lines safely (pipeline.md 'Telemetry'). The log is per-machine, uncommitted, never an emit input or target — the local class's guarantees by PLACEMENT: an uncommitted path under the workspace honoring the ignore posture (the dial precedent, `.temper/dial.toml`; exact filename is build's HOW, decidable on disk). Deserialize + a version-tolerant whole-log reader (`read_log` -> records plus a count of older-`TAP_RECORD_VERSION` records tolerated, never a silent skip, never a hard error) and a `pub(crate)` log-path locator ride here beside the writer — ONE home for the record's IO ('A shared concept is one type', engineering.md 9a18907); the field strand (slice 4) is the record's sole reader and narrates the count `read_log` returns, editing no byte of this file (the gate resolves its edits against existing files only)."
-        },
-        {
-          "path": "tests/tap.rs",
-          "description": "The feature's fixture home (one per feature, `tests/rust.md`). Assert: a sample hook payload on stdin yields one appended JSONL record carrying the extracted identity + discriminant and NO prose; the record round-trips (write then read back the current version); two appends produce two lines and never rewrite the file (parallel-safe append); a record an older `TAP_RECORD_VERSION` wrote deserializes tolerated — surfaced/countable, never a silent skip or a hard error (the lock version-skew tolerance precedent, `src/drift.rs`:3365). Model the stdin-payload drive on `tests/cli.rs`/`tests/install.rs` guard-payload fixtures."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Add a `Tap` variant to the `Command` enum (~180, after `Guard`) and its dispatch arm (~354, mirroring `Guard`): read the Claude Code hook payload from stdin (`io::Read::read_to_string(&mut io::stdin(), ...)`, ~373), extract the event's identity + minimal discriminant per its lifecycle event, and append one record via `src/tap.rs`. Exit zero (a tap is advisory recording, never a gate). The payload→record field extraction per lifecycle event (InstructionsLoaded / Skill-under-PostToolUse / UserPromptExpansion / PostToolUse) is an EXTERNAL FACT — cite code.claude.com/docs/en/hooks and re-verify against live docs at encode (collaboration.md external-fact bar). NOTE the seven-verbs identity: `temper tap` is an 8th CLI subcommand; the 'Seven verbs ship' line lives in `CLAUDE.md`/`.temper` (a human chore(harness) projection, outside this entry's fence) — flag it in the commit body, do not edit it here."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/tap.rs",
-        "asserts": "`temper tap` over a sample hook payload appends one versioned JSONL record carrying the event's identity + minimal discriminant and no prose; the record round-trips; two appends interleave as two lines without rewriting the file; an older-version record deserializes tolerated (countable, never silent-skipped or fatal)"
-      }
-    ],
-    "acceptance": "`temper tap` reads a hook payload from stdin and appends one machine-written JSONL record — the event's identity + minimal discriminant (member/path, load reason, session id), never captured prose — to the per-machine uncommitted log, exiting zero. The record is the engine's own record (no member, no declared format), versioned in lockstep with the binary (SEAM_VERSION precedent); an append is a single record that never rewrites the file, so parallel sessions interleave lines; an older record version reads tolerated, never silent-skipped (pipeline.md, 'Telemetry'; 0037 amended). `cargo test` green.",
-    "notes": "0037 slice 1+3 of 5 (amended 5b6b6f2): tap verb + record's versioned shape. Writer + version-tolerant read_log round-trip it here. (tap-log-format) resolved: the log is the engine's own record, not a member. Slice 4 (field strand) is the record's sole READER — type + IO here, narration there (9a18907). EMBEDDED-EDGE shipped 0d84244 → open; Command-enum/dispatch region disjoint from the open set's main.rs touchers. `temper tap` = 8th verb; 'seven verbs' is chore(harness)/.temper. scoped 36f3fd8."
-  },
-  {
     "tag": "TELEMETRY-FIELD-STRAND",
     "summary": "0037 field strand (slice 4): `explain` reads the tap log and narrates event counts + denominators joined to members through the lock — evidence narrated never judged, older records counted not skipped",
     "per": {
@@ -78,74 +38,6 @@
     ],
     "acceptance": "`explain` narrates a field strand beside why/impact/context — the per-machine tap log's event counts and denominators joined to members through the same lock declarations the gate reads, evidence narrated never judged; a record an older tap wrote surfaces as a count in the narration, an absent log narrates none, and `explain` never gates and exits zero (contract.md, 'Read verbs'; 0037 amended). `cargo test` green.",
     "notes": "0037 slice 4 of 5 (amended 5b6b6f2): the tap record's sole reader. Type + writer + version-tolerant read_log live in TAP-VERB's src/tap.rs (one home for record IO); this slice is the pure explain-side consumer — no src/tap.rs edit, so the references-resolve gate holds (the prior attempts scoped the reader into the not-yet-created src/tap.rs and reverted). Joins events to members through the lock as the gate reads them (READ-EDGE-UNIFY), never mined for structure. blockedBy TAP-VERB."
-  },
-  {
-    "tag": "SETTINGS-LOCAL-KIND",
-    "summary": "Ship `settings-local` (0036): `.claude/settings.local.json`, a json-document at the local commitment class — read in place, gated, never emitted; documented keys typed, residue opaque",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The shipped kinds"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/settings_local_kind.rs",
-          "description": "The new kind's fixture home (one per shipped kind, `tests/rust.md`), modeled on `tests/plugin_manifest_kind.rs` (json-document file member) crossed with `tests/dial_kind.rs` (local locus). Fixtures at the real layout `.claude/settings.local.json` (never an invented path): the kind owns the file as a `json-document` whose top-level keys are its fields; identity is the fixed singleton path (`unitShape: file`, stem `settings.local`, no identity field); the discovery override finds the always-gitignored document and `check` derives its rows AT READ TIME while emit writes nothing at its path (the local-locus contract, dial precedent — `tests/local_locus.rs` is the generic-machinery home and needs no edit); the documented-key clauses fire on their violations and the unschematized residue passes opaque; and `check` announces the active member (`src/check.rs` `Announcement.local_members`). Each format fact cites the live settings docs."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Add the `settingsLocal` kind + a `SettingsLocal` interface + `settingsLocalDefaultContract`, modeled on `pluginManifest` (~593) with the local commitment lifted from `sdk/src/dial.ts`:70. Kind: `locus: { kind: 'at', root: '.claude', glob: 'settings.local.json', commitment: 'local' }`, `format: 'json-document'`, `unitShape: 'file'` (singleton identity from the fixed stem — no `identityField`), `registration: []`. The `SettingsLocal` interface types the DOCUMENTED top-level keys and names the unschematized residue opaque (the plugin-manifest interface pattern). `settingsLocalDefaultContract` carries the documented-profile clauses the LIVE settings docs settle — FETCH code.claude.com/docs/en/settings and cite+date each clause (external-fact bar); near-empty is admissible if the format documents little decidable schema (the installed-plugin / almost-empty-contract precedent, builtins.md 'Default contracts'). Fields, not members (0036): a locally-registered hook or enablement stays opaque residue named as such, never a modeled member."
-        },
-        {
-          "path": "sdk/src/claude-code.ts",
-          "description": "Export `settingsLocal`, `settingsLocalDefaultContract`, and the `SettingsLocal` type from the provider face (type block ~11-24, value block ~25-48), following the `pluginManifest` export — a `.claude/` artifact rides the claude-code subpath, never dial's root export."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "The engine's read-side def so `check` can extract the local document. Add `claude_code_settings_local()` modeled on `claude_code_plugin_manifest()` (~323) — `Format::JsonDocument`, `UnitShape::File`, the documented-key `Extraction` (opaque residue named as such) — with `.local()` appended as `temper_dial()` does (~405), and register it in `all_kinds()` (~412). `src/kind.rs` carries `Commitment::Local` + `Format::JsonDocument` already — no edit there."
-        },
-        {
-          "path": "src/builtin_lock.rs",
-          "description": "The pure loader's two hard-coded kind-name lists gain `settings-local`: the sorted roster assertion (~52-68) and the clause-kind match (~100-113). No loader logic changes — data-driven over the lock."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Re-derives (regenerated data, never hand-edited rows — see the file header): a new `[[declaration.kind]]` block (`commitment = 'local'`, `format = 'json-document'`) plus its default-contract `[[declaration.clause]]` rows. Separately, the file's HAND-AUTHORED header prose updates by hand: the kind enumeration and counts (~13-26), and the two now-falsified 'the one kind' claims — `dial` as 'the one kind ... declaring a `local` commitment class' (~33-36) and `plugin-manifest` as 'the one kind ... at the `json-document` format' (~50-60) — each now names a second."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "The re-derivation seam: `MEMBERLESS_BUILTIN_PROGRAM` binds `settings-local` via `expect` — add the import (~31-55) and its `{ kind: settingsLocal, clauses: settingsLocalDefaultContract }` entry (~57-72). This is what re-emits the rows `src/builtin_lock.toml` embeds; run `pnpm --dir sdk build` then `cargo test --test builtin_lock_frozen` to exercise the cross-language seam (`sdk.md`, 'The engine seam')."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "Extend the emitted-declaration-row fixtures to carry the new `settings-local` kind fact + its default-contract clause rows. Mechanical, following the roster."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Add `settingsLocal` / `settingsLocalDefaultContract` to the audited import + array (~19-45) so the 'well-formed clause array' and 'non-empty cite' sweeps cover it (~49-66), plus a per-kind assertion that `settings-local` is a local-locus json-document kind at `.claude/settings.local.json` (following the `mcpServer`/`marketplace` per-kind assertions ~136)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/settings_local_kind.rs",
-        "asserts": "`settings-local` owns `.claude/settings.local.json` as a json-document at the local commitment class; the discovery override finds the gitignored document and `check` derives its rows at read time; emit writes nothing at its path; the documented-key clauses fire and the opaque residue passes; the active member is announced"
-      },
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the embedded `src/builtin_lock.toml` byte-matches the SDK re-emission once `settings-local` joins the memberless program — the frozen-lock seam holds with the new kind fact + default-contract rows"
-      }
-    ],
-    "acceptance": "`settings-local` is a shipped kind: `.claude/settings.local.json` read as a json-document at the local commitment class — discovered under the ignore override, gated in place, never an emit input or target, its rows derived at read time and its presence announced (builtins.md, 'The shipped kinds'; 0036). Documented keys are typed with cited clauses; a locally-registered hook or enablement stays opaque residue named as such, never a modeled member. The built-in lock re-derives to carry the new kind + default contract and the frozen-lock seam holds. `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "Routes 0036 (63e1f22): its sole Consequences bullet — kind, default contract, fixture under the discovery override — is this one atomic entry. (settings-local-kind) fork already absent from open-questions; no deletion owed. EXTENT shipped 4bdb796 → open; disjoint from all open entries. No per-key settings schema exists today — the default contract is authored fresh from the live settings docs, cited. src/{builtin,contract,kind}.rs unchanged, data-driven. scoped at 4cc3081."
   },
   {
     "tag": "VERIFIER-TYPED",
