@@ -189,10 +189,23 @@ pub struct CheckRun {
 
 impl CheckRun {
     /// Returns the github-reporter finding lines — each one `::error`/`::warning …`.
+    /// An announced input is not a finding and rides `::notice`, so it is not one of
+    /// these ([`CheckRun::announcements`] is its reader).
     pub fn findings(&self) -> Vec<String> {
+        self.workflow_commands("::error", "::warning")
+    }
+
+    /// Returns the github-reporter announcement lines — each one `::notice …`, naming
+    /// one input that judged the run beyond the committed harness.
+    pub fn announcements(&self) -> Vec<String> {
+        self.workflow_commands("::notice", "::notice")
+    }
+
+    /// The output's workflow-command lines opening with either prefix.
+    fn workflow_commands(&self, one: &str, other: &str) -> Vec<String> {
         self.output
             .lines()
-            .filter(|line| line.starts_with("::"))
+            .filter(|line| line.starts_with(one) || line.starts_with(other))
             .map(str::to_string)
             .collect()
     }

@@ -266,14 +266,14 @@ fn main() -> miette::Result<ExitCode> {
             // different place than it discovers the corpus from, nor from a different
             // place than the session-start reporter does.
             let harness_path = harness.or(root).unwrap_or_else(|| PathBuf::from("."));
-            let diagnostics = harness_diagnostics(&harness_path, &layers)?;
+            let (diagnostics, announced) = harness_diagnostics(&harness_path, &layers)?;
 
             match reporter {
-                Reporter::Terminal => print!("{}", check::render(&diagnostics)),
-                Reporter::Github => print!("{}", reporter::github(&diagnostics)),
-                Reporter::Sarif => println!("{}", reporter::sarif(&diagnostics)),
+                Reporter::Terminal => print!("{}", check::render(&diagnostics, &announced)),
+                Reporter::Github => print!("{}", reporter::github(&diagnostics, &announced)),
+                Reporter::Sarif => println!("{}", reporter::sarif(&diagnostics, &announced)),
                 Reporter::SessionStart => {
-                    println!("{}", reporter::session_start(&diagnostics));
+                    println!("{}", reporter::session_start(&diagnostics, &announced));
                 }
             }
 
@@ -789,7 +789,7 @@ fn resolve_harness_path(path: &Path) -> miette::Result<HarnessPath> {
 fn harness_diagnostics(
     harness_path: &Path,
     layers: &[PathBuf],
-) -> miette::Result<Vec<check::Diagnostic>> {
+) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
     match resolve_harness_path(harness_path)? {
         HarnessPath::Root { workspace, .. } => gate(&workspace, harness_path, layers),
         HarnessPath::Workspace { enclosing } => gate(harness_path, &enclosing, layers),
@@ -798,7 +798,8 @@ fn harness_diagnostics(
 }
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
-/// by-kind contracts — the shared gate behind both `check` and the session-start
+/// by-kind contracts, with the [`check::Announcement`] of the inputs that judged it —
+/// the shared gate behind both `check` and the session-start
 /// reporter. `harness_root` is the
 /// directory a member's source path and a `verified_by` path resolve against (the
 /// CWD for a two-step `check`, the harness path for the one-shot gate). `layers` names
@@ -807,7 +808,7 @@ fn gate(
     workspace: &Path,
     harness_root: &Path,
     layers: &[PathBuf],
-) -> miette::Result<Vec<check::Diagnostic>> {
+) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
     // The assembly's own declared facts — requirements and edges — ride the lock's
     // declaration rows: `emit` is the sole
     // producer, this is the gate's one read of it.
@@ -822,6 +823,8 @@ fn gate(
     let LockFamily {
         declarations,
         joined_clauses,
+        joined_locks,
+        local_members,
         dial,
     } = assemble_lock_family(harness_root, &committed, layers)?;
     // Every address the dial reached, accumulated across the contracts and selections
@@ -1044,7 +1047,8 @@ fn gate(
     // universal binding are the same algebra, so neither can be judged in isolation.
     let mut selections = roster::selections(&requirements, &by_kind);
     selections.extend(kind_selections(&contracts, &by_kind));
-    // The second and last dial site. A requirement's own clauses reach a judge only here,
+    // The last of the dial's four sites, and the only one over selections rather than
+    // contracts. A requirement's own clauses reach a judge only here,
     // as does the each-grain narrowing clause its `kind` facet sources — both are
     // synthesized past the contracts above, so dialing those alone would leave a
     // requirement's findings the one family an author could read an address off and not
@@ -1059,6 +1063,15 @@ fn gate(
         dialed.extend(dial.apply(mode, &mut selection.clauses));
     }
     diagnostics.extend(dial.refusals(&dialed));
+
+    // Every dial site has run, so `dialed` is final and the three thirds are all in hand:
+    // what judged this run beyond the committed harness, assembled here rather than
+    // re-derived by whichever reporter renders it.
+    let announcement = check::Announcement {
+        local_members,
+        dialed_clauses: dialed.into_iter().collect(),
+        joined_locks,
+    };
 
     // The selection grain: `count` / `unique` / `membership` whole, `kind` each.
     diagnostics.extend(engine::judge(&selections));
@@ -1145,7 +1158,7 @@ fn gate(
     diagnostics.extend(drift::layout_import_stale(workspace)?);
     diagnostics.extend(drift::include_stale(workspace)?);
 
-    Ok(diagnostics)
+    Ok((diagnostics, announcement))
 }
 
 /// This kind's effective declaration: the committed lock's own kind-fact row when the
@@ -1482,6 +1495,15 @@ struct LockFamily {
     /// *is* — they only add checks over what it already declares — and a consumer that
     /// reads them as the corpus's own would let a layer redefine the corpus.
     joined_clauses: Vec<drift::ClauseRow>,
+    /// Every lock this invocation joined, as `--layer` spelled it — the locks the rows
+    /// above came off, kept beside them because a lock that carried no clause joined the
+    /// run just the same and the announcement names the lock, never its contents.
+    joined_locks: Vec<String>,
+    /// Every local member the assembly read, by `<kind>:<id>` address, retained here
+    /// beside the rows its read produced: the documents are uncommitted, so no consumer
+    /// below can find them again short of re-walking the kind's glob — a second read that
+    /// could disagree with this one about which members exist.
+    local_members: Vec<String>,
     /// This machine's own dial: the severities it re-reads the clauses above at. Read
     /// with the rest of the family for the same one-read reason, and kept apart from both
     /// row sets for the joined clauses': a dial declares nothing about what this harness
@@ -1515,19 +1537,30 @@ fn assemble_lock_family(
     layers: &[PathBuf],
 ) -> miette::Result<LockFamily> {
     let mut assembled = committed.clone();
+    // Sorted, so the announced set reads the same whatever order a kind's locus walk
+    // happened to yield.
+    let mut local_members: BTreeSet<String> = BTreeSet::new();
     for kind in declared_kinds(committed)?.values() {
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
         }
         let units = resolve_kind_units(kind, harness_root, committed)?;
         let rows = local_document_rows(kind, &units, committed)?;
+        local_members.extend(
+            units
+                .iter()
+                .map(|unit| extract::host_address(&kind.name, &unit.id)),
+        );
         assembled.nested_members.extend(rows.nested);
         assembled.satisfies.extend(rows.satisfies);
     }
+    let joined = read_layer_clauses(layers)?;
     Ok(LockFamily {
         dial: read_dial(harness_root, committed)?,
         declarations: assembled,
-        joined_clauses: read_layer_clauses(layers)?,
+        joined_clauses: joined.clauses,
+        joined_locks: joined.locks,
+        local_members: local_members.into_iter().collect(),
     })
 }
 
@@ -1578,8 +1611,18 @@ fn layer_lock_path(layer: &Path) -> PathBuf {
     }
 }
 
+/// The locks an invocation joined, and the clause rows they carried.
+struct JoinedLayers {
+    /// Each joined lock, as the invocation spelled it — the same spelling every clause
+    /// below is addressed under, and deduped on the same identity, so a lock named twice
+    /// is one layer here too.
+    locks: Vec<String>,
+    /// Every joined clause row, addressed under the layer that carried it.
+    clauses: Vec<drift::ClauseRow>,
+}
+
 /// The clause rows of every lock `layers` names, each addressed under the layer that
-/// carried it.
+/// carried it, with the locks themselves.
 ///
 /// Only the clause family joins. A layer hardens the gate over *this* corpus; the rows
 /// that say what this corpus is — its kinds, its members' fills, its requirements — stay
@@ -1594,8 +1637,11 @@ fn layer_lock_path(layer: &Path) -> PathBuf {
 /// layer silently gating nothing is the one outcome fail-closed forbids. (The *host*
 /// lock's absence is legitimate — an unadopted harness has none — which is why that read
 /// tolerates it and this one cannot.)
-fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<Vec<drift::ClauseRow>> {
-    let mut joined = Vec::new();
+fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<JoinedLayers> {
+    let mut joined = JoinedLayers {
+        locks: Vec::new(),
+        clauses: Vec::new(),
+    };
     let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
     for layer in layers {
         let path = layer_lock_path(layer);
@@ -1614,8 +1660,9 @@ fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<Vec<drift::ClauseRow
         })?;
         let spelling = layer.display().to_string();
         for row in drift::parse_declarations(&path, &text)?.clauses {
-            joined.push(qualify_layer_label(row, &spelling));
+            joined.clauses.push(qualify_layer_label(row, &spelling));
         }
+        joined.locks.push(spelling);
     }
     Ok(joined)
 }

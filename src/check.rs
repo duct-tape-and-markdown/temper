@@ -135,11 +135,88 @@ impl miette::Diagnostic for Diagnostic {
     }
 }
 
+/// The inputs that judged a run beyond the committed harness — the three uncommitted-or-
+/// joined families, named so a verdict can never rest on something content review never
+/// saw without saying so.
+///
+/// Assembled once by the gate and rendered by every reporter. Empty is the ordinary case:
+/// a harness with no local member, no dial entry that reached a clause, and no joined
+/// lock was judged by its committed lock alone, and there is nothing to announce.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Announcement {
+    /// Every active local member, by the `<kind>:<id>` address its findings name it by.
+    pub local_members: Vec<String>,
+    /// Every clause the dial re-weighed, by the address the dial entry spelled. An entry
+    /// that reached no clause is a dial refusal, not an announcement — nothing was judged
+    /// through it.
+    pub dialed_clauses: Vec<String>,
+    /// Every lock this invocation joined, as it was spelled at `--layer`. One entry per
+    /// lock, whatever number of clauses it carried: the lock is what was joined.
+    pub joined_locks: Vec<String>,
+}
+
+/// The family label of an announced [`Announcement::local_members`] entry.
+const LOCAL_MEMBER: &str = "local member";
+
+/// The family label of an announced [`Announcement::dialed_clauses`] entry.
+const DIALED_CLAUSE: &str = "dialed clause";
+
+/// The family label of an announced [`Announcement::joined_locks`] entry.
+const JOINED_LOCK: &str = "joined lock";
+
+/// The sentence that leads a rendered announcement.
+pub const ANNOUNCEMENT_HEADING: &str = "judged by inputs the committed harness does not carry:";
+
+impl Announcement {
+    /// Whether nothing was announced — the run was judged by the committed harness alone.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.local_members.is_empty()
+            && self.dialed_clauses.is_empty()
+            && self.joined_locks.is_empty()
+    }
+
+    /// Every announced input as a `(family, name)` pair, in layer-stack order: the members
+    /// this machine holds, the clauses its dial re-weighed, then the locks the invocation
+    /// joined on top. The one vocabulary every reporter names these inputs by — each
+    /// reporter chooses the envelope, never the words.
+    #[must_use]
+    pub fn entries(&self) -> Vec<(&'static str, &str)> {
+        [
+            (LOCAL_MEMBER, &self.local_members),
+            (DIALED_CLAUSE, &self.dialed_clauses),
+            (JOINED_LOCK, &self.joined_locks),
+        ]
+        .into_iter()
+        .flat_map(|(family, names)| names.iter().map(move |name| (family, name.as_str())))
+        .collect()
+    }
+
+    /// The plain-text block: [`ANNOUNCEMENT_HEADING`], then one indented `<family>: <name>`
+    /// line per input. The empty string when there is nothing to announce, so a caller
+    /// concatenates it unconditionally.
+    #[must_use]
+    pub fn render(&self) -> String {
+        if self.is_empty() {
+            return String::new();
+        }
+        let mut out = format!("{ANNOUNCEMENT_HEADING}\n");
+        for (family, name) in self.entries() {
+            out.push_str(&format!("  {family}: {name}\n"));
+        }
+        out
+    }
+}
+
 /// Render diagnostics for the terminal with miette's graphical handler — the same
-/// presentation the crate's hard errors use.
-pub fn render(diagnostics: &[Diagnostic]) -> String {
+/// presentation the crate's hard errors use, led by the [`Announcement`] so what judged
+/// the run is read before its findings are.
+pub fn render(diagnostics: &[Diagnostic], announcement: &Announcement) -> String {
     let handler = GraphicalReportHandler::new();
-    let mut out = String::new();
+    let mut out = announcement.render();
+    if !out.is_empty() {
+        out.push('\n');
+    }
     for diagnostic in diagnostics {
         // Writing to a `String` never fails; fall back to the bare message if a
         // future handler ever does, so a render hiccup can't swallow a finding.
@@ -180,11 +257,51 @@ mod tests {
     #[test]
     fn render_surfaces_the_rule_code_and_message() {
         let diagnostic = Diagnostic::error("skill.name-format", "demo", "name has uppercase");
-        let rendered = render(std::slice::from_ref(&diagnostic));
+        let rendered = render(std::slice::from_ref(&diagnostic), &Announcement::default());
 
         assert!(rendered.contains("skill.name-format"));
         assert!(rendered.contains("name has uppercase"));
         // The artifact rides along on the help line.
         assert!(rendered.contains("demo"));
+        // Nothing beyond the committed harness judged this run, so the render says
+        // nothing extra.
+        assert!(!rendered.contains(ANNOUNCEMENT_HEADING));
+    }
+
+    #[test]
+    fn render_leads_with_the_announced_inputs() {
+        let announcement = Announcement {
+            local_members: vec!["dial:workstation".to_string()],
+            dialed_clauses: vec!["skill.max_lines".to_string()],
+            joined_locks: vec!["/org/lock.toml".to_string()],
+        };
+        let rendered = render(&[], &announcement);
+
+        assert!(rendered.starts_with(ANNOUNCEMENT_HEADING));
+        assert!(rendered.contains("local member: dial:workstation"));
+        assert!(rendered.contains("dialed clause: skill.max_lines"));
+        assert!(rendered.contains("joined lock: /org/lock.toml"));
+    }
+
+    #[test]
+    fn an_announcement_is_empty_only_when_every_family_is() {
+        assert!(Announcement::default().is_empty());
+        for announcement in [
+            Announcement {
+                local_members: vec!["dial:workstation".to_string()],
+                ..Default::default()
+            },
+            Announcement {
+                dialed_clauses: vec!["skill.max_lines".to_string()],
+                ..Default::default()
+            },
+            Announcement {
+                joined_locks: vec!["/org/lock.toml".to_string()],
+                ..Default::default()
+            },
+        ] {
+            assert!(!announcement.is_empty());
+            assert_eq!(announcement.entries().len(), 1);
+        }
     }
 }

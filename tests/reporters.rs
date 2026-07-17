@@ -12,12 +12,18 @@
 //! does) pins the verdict invariant: `check --reporter sarif` on a *failing*
 //! surface prints SARIF and *still exits non-zero* — a reporter reshapes
 //! presentation, never the gate's exit code.
+//!
+//! Third, also at the CLI, the **announcement**: a run judged by an input the
+//! committed harness does not carry names it — every active local member, every
+//! dialed clause, every joined lock — and a run judged by the committed harness
+//! alone says nothing extra.
 
 mod common;
 
 use std::process::Command;
 
-use temper::check::Diagnostic;
+use temper::check::{Announcement, Diagnostic};
+use temper::drift::Declarations;
 use temper::reporter;
 
 /// A mixed diagnostic set — one blocking error and one advisory warn — so a single
@@ -36,7 +42,7 @@ fn diagnostic_set() -> Vec<Diagnostic> {
 #[test]
 fn github_emits_one_workflow_command_line_per_finding_with_the_rule_as_title() {
     let diagnostics = diagnostic_set();
-    let rendered = reporter::github(&diagnostics);
+    let rendered = reporter::github(&diagnostics, &Announcement::default());
 
     let lines: Vec<&str> = rendered.lines().collect();
     assert_eq!(
@@ -72,7 +78,7 @@ fn github_escapes_workflow_command_metacharacters() {
         "artifact",
         "first line\nsecond line 100%",
     )];
-    let rendered = reporter::github(&diagnostics);
+    let rendered = reporter::github(&diagnostics, &Announcement::default());
 
     assert_eq!(
         rendered.lines().count(),
@@ -90,7 +96,8 @@ fn github_escapes_workflow_command_metacharacters() {
 fn sarif_is_valid_json_with_the_temper_driver_and_one_result_per_diagnostic() {
     let diagnostics = diagnostic_set();
     let log: serde_json::Value =
-        serde_json::from_str(&reporter::sarif(&diagnostics)).expect("SARIF must be valid JSON");
+        serde_json::from_str(&reporter::sarif(&diagnostics, &Announcement::default()))
+            .expect("SARIF must be valid JSON");
 
     assert_eq!(log["version"], "2.1.0");
     assert_eq!(
@@ -129,10 +136,11 @@ fn sarif_is_valid_json_with_the_temper_driver_and_one_result_per_diagnostic() {
 fn both_reporters_are_pure_presentations_of_the_diagnostic_set() {
     // An empty diagnostic set: github emits nothing, and sarif is still a valid
     // one-run log with an empty results array — neither invents a finding.
-    assert_eq!(reporter::github(&[]), "");
+    assert_eq!(reporter::github(&[], &Announcement::default()), "");
 
     let log: serde_json::Value =
-        serde_json::from_str(&reporter::sarif(&[])).expect("empty SARIF is valid JSON");
+        serde_json::from_str(&reporter::sarif(&[], &Announcement::default()))
+            .expect("empty SARIF is valid JSON");
     assert_eq!(log["runs"][0]["tool"]["driver"]["name"], "temper");
     assert_eq!(
         log["runs"][0]["results"]
@@ -186,6 +194,79 @@ fn check_reporter_sarif_prints_sarif_and_still_exits_non_zero_on_a_failing_surfa
     assert!(
         !run.ok,
         "check --reporter sarif on a failing surface must still exit non-zero"
+    );
+}
+
+// --- The announcement: which inputs judged this run ---------------------------
+
+/// A dial naming a clause the shipped `skill` contract really carries, so the entry
+/// reaches one and is announced — a label that reached nothing is a refusal, and
+/// nothing was judged through it.
+const DIAL: &str = "name = \"workstation\"\n\
+\n\
+[[clause]]\n\
+label = \"skill.max_lines\"\n\
+severity = \"required\"\n";
+
+#[test]
+fn a_run_announces_every_local_member_dialed_clause_and_joined_lock() {
+    // A clean surface: what the run announces is independent of its verdict, so the
+    // three announced inputs here are all there is to read.
+    let harness = common::tmpdir("announce-all-three");
+    common::write_skill(&harness, "coordinate", &common::clean_skill("coordinate"));
+    common::write_lock(&harness, Declarations::default());
+    // The dial document is both thirds this machine contributes: a local member of the
+    // shipped `dial` kind, and the source of the dialed clause.
+    common::write_sibling(&harness, ".temper/dial.toml", DIAL);
+
+    // An org corpus whose lock the invocation joins. It declares no clause of its own:
+    // the announcement names the lock that was joined, never the clauses it carried, and
+    // an empty one joined the run just the same.
+    let org = common::tmpdir("announce-org");
+    common::write_lock(&org, Declarations::default());
+    let layer = org.join(".temper").join("lock.toml");
+
+    let run = common::check_in(
+        &harness,
+        &[
+            "--harness",
+            harness.to_str().unwrap(),
+            "--layer",
+            layer.to_str().unwrap(),
+        ],
+        Some("github"),
+    );
+    let announced = run.announcements().join("\n");
+
+    assert!(
+        announced.contains("local member: dial:workstation"),
+        "the local member's document is uncommitted, so the run says it read it, \
+         got:\n{announced}"
+    );
+    assert!(
+        announced.contains("dialed clause: skill.max_lines"),
+        "the machine re-weighed a clause, so the run says which, got:\n{announced}"
+    );
+    assert!(
+        announced.contains(&format!("joined lock: {}", layer.display())),
+        "the invocation joined a lock, so the run says so — spelled as the `--layer` \
+         argument named it, got:\n{announced}"
+    );
+}
+
+#[test]
+fn a_run_judged_by_the_committed_harness_alone_announces_nothing() {
+    let harness = common::tmpdir("announce-nothing");
+    common::write_skill(&harness, "coordinate", &common::clean_skill("coordinate"));
+    common::write_lock(&harness, Declarations::default());
+
+    let run = common::check_harness_in(&harness, Some("github"));
+
+    assert!(
+        run.announcements().is_empty(),
+        "no local member, no dial, no joined lock ⇒ nothing beyond the committed \
+         harness judged this run, and nothing extra is said:\n{}",
+        run.output
     );
 }
 

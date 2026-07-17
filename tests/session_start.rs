@@ -17,7 +17,7 @@ use std::process::Command;
 
 mod common;
 
-use temper::check::Diagnostic;
+use temper::check::{Announcement, Diagnostic};
 use temper::reporter::{self, ADDITIONAL_CONTEXT_CAP};
 
 /// The binary under test, located by Cargo at compile time.
@@ -394,7 +394,7 @@ fn the_reporter_caps_additional_context_at_10k() {
         .map(|i| Diagnostic::error("required", format!("artifact-{i}"), &long))
         .collect();
 
-    let rendered = reporter::session_start(&diagnostics);
+    let rendered = reporter::session_start(&diagnostics, &Announcement::default());
     let payload: serde_json::Value =
         serde_json::from_str(&rendered).expect("even a capped payload is valid JSON");
     let context = payload["hookSpecificOutput"]["additionalContext"]
