@@ -13,26 +13,6 @@ tax.
 
 ## Open forks
 
-- `(extent-subsumes-max-lines)` — OPEN, human's/session's call, registered
-  07-17 routing decision 0035. 0035 adds `extent` (render-side size, lines or
-  characters) and rules its measurement axis explicitly: render-side is what a
-  budget must measure, source-side is **rejected** ("measures what the author
-  wrote, not what the harness pays"). But the vocabulary already ships
-  `max_lines` — a source-side, each-grain, lines-only body cap evaluated on
-  `features.body_lines` (`src/engine.rs`:895) and adopted in shipped default
-  contracts (`maxLines(500)`/`maxLines(200)` in `sdk/src/builtins.ts`). So
-  0035's own ruling puts `max_lines` in question — it is the rejected
-  measurement for a lines budget — yet the decision never names it or its
-  retirement. The question: does the render-side `extent` retire `max_lines`
-  (migrating the shipped defaults from `maxLines` to `extent`), or do the two
-  coexist (source-body-lines vs rendered-projection genuinely differ once a
-  reference resolves)? Retiring a vocabulary word and rewriting shipped
-  defaults is a deliberate language change (`model/contract.md`, "clause"),
-  never plan's to derive and never build's to invent — EXTENT-PREDICATE adds
-  `extent` beside `max_lines` and names the coexistence per engineering.md, so
-  nothing is broken by leaving this open. Resolution returns through the inbox.
-  No dependents.
-
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header

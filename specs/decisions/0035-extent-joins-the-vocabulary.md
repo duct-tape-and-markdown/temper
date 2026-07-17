@@ -66,3 +66,23 @@ admissibility for the unit. The inbox demand note discharges into it.
 No shipped default contract adopts extent — budgets are authored
 opinion, and the shipped defaults stay opinion-free; this is an
 author-facing word.
+
+## Amended — 2026-07-17 — extent subsumes max_lines
+
+Plan's routing caught what the ruling missed: the vocabulary already
+shipped `max_lines` — source-side, lines-only, each-grain over the
+authored body (`features.body_lines`) — and 0035's own measurement
+ruling rejects source-side counting for budgets, indicting the shipped
+word. Ruled same day: **`extent` subsumes `max_lines`, which retires.**
+Two words for "how long is this", split by which side of emit they
+count, is the duplicate-surface disease — and for the prose bodies the
+shipped defaults cap, emit is verbatim, so the two counts barely
+differ. The shipped defaults re-spell (`maxLines(500)` /
+`maxLines(200)` become extent budgets over the same selections) — which
+supersedes this record's own Consequences sentence "no shipped default
+contract adopts extent": the subsumption carries the *existing* cited
+budgets across, and what stays true is that no *new* budget opinion
+enters the defaults. The deriving entry defines the measured span and
+carries the shift in its guidance. Retirement is loud where it lands: a lock still carrying
+`max_lines` refuses at load — the closed vocabulary's ordinary
+behavior, never a silent migration shim. Plan derives the entry.
