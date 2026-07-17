@@ -16,7 +16,7 @@ tax.
 - `(source-union-predicate)` — OPEN, non-blocking, registered 07-16 routing
   0033. 0033 closes four holds; a fifth survives its own wave, and the corpus
   does not rule it. `marketplaceDefaultContract`'s header
-  (`sdk/src/builtins.ts`:955-969, re-read at 8fc5e21) names the `source` union
+  (`sdk/src/builtins.ts`:955-969, re-read at b85df4a) names the `source` union
   as needing "a discriminated-union predicate the vocabulary does not spell":
   the relative-path form's leading `./`, each object form's own discriminator
   and required fields. **The prediction this record made has now played out
@@ -26,7 +26,8 @@ tax.
   retired the skill's two, and `skillDefaultContract`'s header now reads
   "Nothing decidable is held" (`builtins.ts`:1057). Each time this bullet
   stayed. **It is now what it predicted it would become: the last hold
-  anywhere in the provider face** — re-verified at 8fc5e21, the sole surviving
+  anywhere in the provider face** — re-verified at b85df4a (`sdk/` untouched
+  across 8fc5e21..b85df4a, so the addresses carry), the sole surviving
   "pending a vocabulary addition" hold in the file (the sentence wraps 959-960;
   grep the phrase across the line break, not on one line), and its own
   header was rewritten by that ship to name its widening directly rather than
@@ -56,10 +57,16 @@ tax.
   a local JSON kind would be gated in place under `json-document` and its
   always-gitignored document actually found by the walk. **The dial itself now
   ships** (eaee2af; `temper_dial()`, `src/builtin_kind.rs`:388, read at
-  8fc5e21), so this record's own framing — "beyond the dial itself" — now names
+  b85df4a), so this record's own framing — "beyond the dial itself" — now names
   a shape proven end to end in code rather than one merely derivable: a
   `settings.local.json` kind would be the second instance of a live pattern,
-  not the first of an untried one. Ship-or-not is all
+  not the first of an untried one. **The pattern's last leg closed at
+  b85df4a**: CHECK-ANNOUNCES shipped (dab85aa), so a local member is read,
+  gated, *and* named in the verdict — `LockFamily.local_members`
+  (`src/main.rs`:1506) retains every local member the assembly read, by
+  `<kind>:<id>`, and the announcement carries it whatever the verdict. A
+  `settings.local.json` kind would inherit that announcement free, with no
+  surface of its own. Ship-or-not is all
   that remains, and it costs no upstream work.
   Nothing is broken by leaving it open: the file is ungoverned today and
   no member declares it. No dependents.
@@ -174,9 +181,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   reclassification is now proven, not predicted:** CHECK-RUNNER-REMAINDER
   shipped (a9a21a9), edited this very file at 49, and left the fixtures
   standing — the third entry to open it and correctly not touch it (after
-  664a522 and CHECK-ARG-HALF-GATE 4256274). That fold shifted the cites two
-  lines (121/140 → 122/141, fn 111 → 113); the numbers above are re-read on
-  disk at 8913b59, not carried forward. Not a rider awaiting a carrier; a
+  664a522 and CHECK-ARG-HALF-GATE 4256274). CHECK-ANNOUNCES (dab85aa) is now
+  the **fourth**, touching only lines 17 and 394 to thread `Announcement`
+  through `session_start` — the fixtures untouched, and unshifted with them.
+  The numbers above are re-read on disk at b85df4a (fn 113, cites 122/141),
+  not carried forward. Not a rider awaiting a carrier; a
   question awaiting a human.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
@@ -187,7 +196,7 @@ condition arrives, it is the next break. If work touches one, surface it.
 
 - **One stale cite, ride-only, never an entry.**
   Comment and citation staleness never files a standalone entry; it rides
-  whichever entry next opens the file — and the rule has now paid out three
+  whichever entry next opens the file — and the rule has now paid out four
   times running, which is why this record keeps shrinking rather than growing.
   The
   `sdk/src/prose.ts` half retired at 9409a6c (SDK-BLOCKS-FILE-REFUSAL,
@@ -211,14 +220,18 @@ condition arrives, it is the next break. If work touches one, surface it.
     entry NAMES it, never when a file is merely opened, which is why the
     carrier this waits for must carry it in its scope. No queued entry opens
     `src/roster.rs` today; it waits, and never becomes an entry of its own.
-    Cite re-read on disk at 8fc5e21, still 473.
-  The rule paid out a **fourth** time this tick, and for the first time on a
-  cite the sweep itself surfaced: `src/main.rs`:1047 calls the selection loop
-  "The second and last dial site" while four `dial.apply` sites exist
-  (886, 932, 997, 1059) — the dial ship's own new comment, loose on a literal
-  count. It is handed to CHECK-ANNOUNCES, which opens `src/main.rs` and reads
-  the very `dialed` set that comment governs. Named in scope, so it discharges;
-  it never became an entry.
+    Cite re-read on disk at b85df4a, still 473 (`src/roster.rs` untouched
+    across the window).
+  The rule's **fourth** payout — its first on a cite the sweep itself
+  surfaced — **landed**: `src/main.rs`:1047 called the selection loop "The
+  second and last dial site" while four `dial.apply` sites existed. It was
+  handed to CHECK-ANNOUNCES in scope, and dab85aa carried it: the comment now
+  reads "The last of the dial's four sites, and the only one over selections
+  rather than contracts" (`src/main.rs`:1050-1051, read at b85df4a) — the
+  loose literal count replaced by the one axis that makes the site last. Named
+  in scope, so it discharged; it never became an entry. That is four payouts
+  running, and the rule's condition has never once failed: **every** discharge
+  came from an entry that NAMED the cite, and none from a file merely opened.
   The `sdk/src/builtins.ts` cite this record carried last tick **discharged
   exactly as the rule predicts**: 7fae62e falsified `marketplaceDefaultContract`'s
   header sentence, SHAPE-PREDICATE was given it in scope, and 0927979 landed it —
