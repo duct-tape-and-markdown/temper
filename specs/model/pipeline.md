@@ -185,7 +185,11 @@ the lock names as projections, so with no lock nothing is a projection.
 The single adoption verb. It opens with the discovery report — findings
 first, ceremony after: what the walk finds, members by kind, and what the
 built-in default contract says about them. Discovery honors the repository's
-ignore rules — an ignored file is by declaration not authored here — and
+ignore rules — an ignored file is by declaration not authored here, with
+one scoped override: a committed local-locus kind's `governs` declaration
+is itself the authorship claim over its per-machine documents, so
+discovery sees them despite ignore rules or the workspace skip, there and
+only there (decision 0034) — and
 stops at a nested governed root: a directory carrying its own
 `.temper/lock.toml` is its own corpus, and its members are never the
 parent's. Reaching into one is a verb aimed at it on purpose, never the

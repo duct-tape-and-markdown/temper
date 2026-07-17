@@ -133,9 +133,10 @@ members all the way down.
   unschematized keys remains as opaque fields, named as such.
 - Claude Code's artifact levels — user, project, project-local, enterprise —
   are peer forests of one shape, merged at runtime by the surface per
-  documented, cited per-kind precedence. temper governs the project forest;
-  an ignored local file is by declaration not authored here; another level
-  is another target path, never a model change.
+  documented, cited per-kind precedence. temper governs the project forest,
+  including the local-locus members its committed kinds declare (decision
+  0034, and `pipeline.md` for the discovery override); another level is
+  another target path, never a model change.
 - The engine is corpus-generic — any corpus of authored artifacts can be
   modeled as members and gated — but exactly one governed corpus ships: the
   harness. A second corpus is a feature, never a founding assumption.

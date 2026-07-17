@@ -73,3 +73,29 @@ reduces to ship-or-not — one posture left, gated in place. Plan derives:
 the `local_locus_fault` re-cut (40619a0 shipped the fence as written and
 pre-declared exactly this), the `toml-document` read face, and behind
 them DIAL-KIND and CHECK-ANNOUNCES-THE-LOCK-FAMILY unblock.
+
+## Amended — 2026-07-17 — discovery's presumption yields to the declaration
+
+The ruling's own sweep found the two remaining fences built on the
+pre-local world, both in discovery (`src/import.rs`): the
+gitignore-honoring walk has no local-class awareness — and a local
+member's document is, in real use, always gitignored
+(`settings.local.json` is ignored by the product's own convention) —
+and the walk categorically skips the workspace dir, where `contract.md`
+ratifies the dial's path (`.temper/dial.toml`). So the shipped class
+finds its members only in fixtures where the file happens to be
+tracked, and the dial is doubly unreachable: rows silently fail to
+derive — the fail-open silence invariant 6 forbids.
+
+One corollary closes both, human-ruled 2026-07-17: **a committed
+local-locus kind's `governs` declaration overrides discovery's
+presumptions — gitignore and the workspace skip — for exactly its own
+scope.** The reviewed declaration is the authorship claim over its
+unreviewed documents. "An ignored file is by declaration not authored
+here" survives untouched for committed kinds, and install's adoption
+walk keeps the presumption whole — adoption never converts a local
+document into a committed member. Plan derives the walk carve-out with
+the coupled landmine named: `local_document_rows`' silent none for
+non-layout local kinds (`src/main.rs:1394`) re-cuts in the same entry
+as `local_locus_fault`, or a JSON local kind passes admissibility and
+silently yields zero rows.
