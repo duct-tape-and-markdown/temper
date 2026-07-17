@@ -135,8 +135,9 @@ verified where it is honestly verifiable: CI re-emits and byte-compares.
 
 The committed anchor: tool-written whole, never patched, and emit is its sole
 producer. The gate reads declarations from nowhere but the **lock family**:
-the committed lock, the read-time rows of local-locus layout members whose
-kinds it declares, and the locks the invocation joins (decision 0032) — no
+the committed lock, the read-time rows of local-locus members whose
+kinds it declares, and the locks the invocation joins (decisions 0032,
+0034) — no
 verb compiles a committed declaration row anywhere else. Two row families: **provenance**
 — per member, source path plus content hash, and the byte hash of each
 emitted artifact: the fingerprints drift compares — and **declaration rows**
