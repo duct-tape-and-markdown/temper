@@ -13,7 +13,9 @@ use std::collections::BTreeSet;
 use serde_json::json;
 
 use temper::check::{Diagnostic, Severity, any_error};
-use temper::contract::{self, Clause, Contract, Predicate, Severity as ClauseSeverity};
+use temper::contract::{
+    self, Charset, Clause, Contract, Predicate, Severity as ClauseSeverity, Shape,
+};
 use temper::engine::{self, Locus};
 use temper::extract::{Features, ValueType};
 
@@ -239,9 +241,15 @@ fn a_path_beyond_the_declared_subset_is_inadmissible_rather_than_skipped() {
         );
     }
 
-    // Every predicate that addresses a field is fenced, not just `required`.
+    // *Every* predicate that addresses a field is fenced, not merely the ones a past
+    // author remembered to list. The compiler holds the structural half — `addressed_field`
+    // names every arm, so a new field-carrying predicate cannot reach the tree without
+    // answering it — and this list is the behavioral half: each one, refused.
     for predicate in [
         Predicate::Required {
+            field: "plugins[0]".to_string(),
+        },
+        Predicate::Optional {
             field: "plugins[0]".to_string(),
         },
         Predicate::Type {
@@ -252,9 +260,33 @@ fn a_path_beyond_the_declared_subset_is_inadmissible_rather_than_skipped() {
             field: "plugins[0]".to_string(),
             min: 1,
         },
+        Predicate::MaxLen {
+            field: "plugins[0]".to_string(),
+            max: 8,
+        },
+        Predicate::Range {
+            field: "plugins[0]".to_string(),
+            min: 1.0,
+            max: 8.0,
+        },
         Predicate::Enum {
             field: "plugins[0]".to_string(),
             values: vec!["a".to_string()],
+        },
+        Predicate::Deny {
+            field: "plugins[0]".to_string(),
+            values: vec!["a".to_string()],
+        },
+        Predicate::AllowedChars {
+            field: "plugins[0]".to_string(),
+            charset: Charset {
+                ranges: vec![('a', 'z')],
+                chars: BTreeSet::new(),
+            },
+        },
+        Predicate::Shape {
+            field: "plugins[0]".to_string(),
+            shape: Shape::HyphenPlacement,
         },
         Predicate::GlobValid {
             field: "plugins[0]".to_string(),

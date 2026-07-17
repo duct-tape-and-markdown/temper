@@ -194,6 +194,10 @@ fn unaddressable(predicate: &Predicate) -> Option<String> {
 ///
 /// `forbidden_keys` and `must_define` name *keys*, not paths, and the set predicates'
 /// `field` is read by their own judges over a selection, so none of them lands here.
+///
+/// The match names every arm rather than defaulting: a bound that is not enforced is not
+/// a bound, and a wildcard would admit the next field-carrying predicate with an
+/// unaddressable path instead of asking its author this question at compile time.
 fn addressed_field(predicate: &Predicate) -> Option<&str> {
     match predicate {
         Predicate::Required { field }
@@ -207,7 +211,26 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::AllowedChars { field, .. }
         | Predicate::Shape { field, .. }
         | Predicate::GlobValid { field } => Some(field),
-        _ => None,
+        // A key or a body marker, not a path — there is nothing for the addressing
+        // subset to range over.
+        Predicate::ForbiddenKeys { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::ClosedKeys
+        | Predicate::MaxLines { .. }
+        | Predicate::RequireSections { .. }
+        | Predicate::SectionContains { .. }
+        | Predicate::NameMatchesDir
+        | Predicate::UniqueName
+        | Predicate::DependencyExists
+        // The set predicates' `field` is read by their own judges over a resolved
+        // selection, never parsed as a member-local path.
+        | Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::Kind { .. }
+        | Predicate::MentionReachable { .. }
+        | Predicate::FormatPlacesEdges => None,
     }
 }
 
