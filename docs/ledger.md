@@ -38,7 +38,7 @@ hard.
   `examples/base-harness/` (third cut shipped 549969f); built-in-kind doc
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
   then channel 3.
-- On John: behavioral-horizon note into `docs/horizons.md` if wanted;
+- On John:
   Apple Developer notarizing (decide at release); USPTO name screen;
   CHANGELOG for the shipped 0.0.x npm cuts.
 

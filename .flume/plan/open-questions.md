@@ -13,24 +13,6 @@ tax.
 
 ## Open forks
 
-- `(eval-capability)` — OPEN, strategic, parked past launch. Harness evals: a
-  requirement carries prose intent and a verifier edge
-  (`specs/model/contract.md`, "requirement"), and the graph gives eval
-  selection for free (impact → which evals re-run). If ever built: a verifier
-  type and/or the behavioral remainder made concrete — probabilistic, NEVER a
-  well-formedness check or the hard gate (`specs/intent.md`, invariant 2 / "The
-  honest bound"). Do not let it near the launch wedge.
-  **Field evidence, 07-16:** behavior is the unverified half — `check` proves
-  structure, and the consumer campaign's two highest-value facts (the
-  `skill_listing` herald, `paths`-gate channel semantics — the evidence that
-  ruled 0028) were unknowable from structure and cost hand-built headless
-  probes (transcript-verified, 2.1.210). So the fork's cost side is now
-  measured, not assumed. `Requirement.verifiedBy` is already
-  in the model, dormant. Unchanged: this is a quarter-scale bet, parked past
-  launch, and `docs/horizons.md` is where a human carries it — plan does not
-  write that page.
-
-
 - `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
   harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
   rulesync's portability as an architecture side effect (`specs/intent.md`,
