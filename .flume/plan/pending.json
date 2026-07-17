@@ -20,19 +20,19 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "`Format` (the enum at 488, re-read at e81c758) carries exactly one variant today, and its doc (484-487) calls `YamlFrontmatter` 'the first and only harvested entry'. `JsonDocument` is the second, and that sentence is rewritten to state what stays true rather than left narrating a retired count. `format_from_label` (836-841) gains the `\"json-document\"` label; an unknown label stays a load error. Identity reuses `UnitShape::NamedField { field }` (the third variant, 508-512) — a JSON document's identity is read from a declared top-level key, not the filename stem — so its doc, which says 'frontmatter field', re-words to the fact that survives both formats: the identity is read from a declared field, whichever format carries it. No new unit shape."
+          "description": "`Format` (the enum at 503, re-cited at 63e5b97 — 9f22de2 moved this file) carries exactly one variant today, and its doc (496-501) calls `YamlFrontmatter` 'the first and only harvested entry' (498-499). `JsonDocument` is the second, and that sentence is rewritten to state what stays true rather than left narrating a retired count. `format_from_label` (858-863) gains the `\"json-document\"` label; an unknown label stays a load error. Identity reuses `UnitShape::NamedField { field }` (the third variant, 526-530) — a JSON document's identity is read from a declared top-level key, not the filename stem — so its doc, which says 'frontmatter field' at both 523-525 and 528, re-words to the fact that survives both formats: the identity is read from a declared field, whichever format carries it. No new unit shape. The `Format::YamlFrontmatter` doc-link at 73 rides along if its sentence stops being true."
         },
         {
           "path": "src/main.rs",
-          "description": "**The dispatch that makes `format` load-bearing, and the heart of this entry.** Verified at e81c758: nothing in the tree branches on `Format` — `rg 'Format::YamlFrontmatter'` finds only constructions, the label parse, and one test assert. Today's adapter dispatch is the 3-arm match at 1160 over `(content, collection_address, governs)`: a fields-only kind with a collection address reads through `manifest_units`, a nested-file kind through `discover_nested_file`, and **every other file kind falls through to `read_file_unit` unconditionally** — the frontmatter/layout adapter, whatever the kind's declared format says. `json-document` is the first format that makes the declared fact decide anything, so a file kind declaring it must route to the JSON adapter here. Keep it one dispatch: a per-call-site match on format is the second-implementation residue class (`specs/process/engineering.md`, 'One job, one home'). The comment at 1155-1159, which narrates the two-way split as the whole story, moves with the code."
+          "description": "**The dispatch that makes `format` load-bearing, and the heart of this entry.** Re-verified at 63e5b97: nothing in the tree branches on `Format` — `rg 'Format::YamlFrontmatter'` finds only four constructions (`src/builtin_kind.rs:73/120/142/175`), the label parse (`src/kind.rs:860`), two doc-links (73/499), and one test assert (1576). Today's adapter dispatch is the 3-arm match at 1160 (unmoved by the window) over `(content, collection_address, governs)`: a fields-only kind with a collection address reads through `manifest_units`, a nested-file kind through `discover_nested_file`, and **every other file kind falls through to `read_file_unit` unconditionally** — the frontmatter/layout adapter, whatever the kind's declared format says. `json-document` is the first format that makes the declared fact decide anything, so a file kind declaring it must route to the JSON adapter here. Keep it one dispatch: a per-call-site match on format is the second-implementation residue class (`specs/process/engineering.md`, 'One job, one home'). The comment at 1155-1159, which narrates the two-way split as the whole story, moves with the code."
         },
         {
           "path": "src/json_manifest.rs",
-          "description": "The one home for JSON mechanics: the module is already 'the generic JSON-manifest adapter — `frontmatter.rs`'s peer for structured config', with a read face (160/248) and a canonical whole-manifest write face. A second JSON reader beside it is the duplicate-surface disease — extend this module. The new case is a **container-as-member** read: no collection address, so every top-level key is the member's own field rather than opaque residue, and identity comes from the declared identity field. The write face renders one member's fields back as the whole document, LF-terminated (`specs/model/pipeline.md`: line endings are layout). Both faces stay pure, holding the header's idempotence keystone."
+          "description": "The one home for JSON mechanics: the module is already 'the generic JSON-manifest adapter — `frontmatter.rs`'s peer for structured config', with a read face (`read` at 163, `read_kind` at 251 — re-cited at 63e5b97) and a canonical whole-manifest write face (`write_manifest`, 288). A second JSON reader beside it is the duplicate-surface disease — extend this module. The new case is a **container-as-member** read: no collection address, so every top-level key is the member's own field rather than opaque residue, and identity comes from the declared identity field. The write face renders one member's fields back as the whole document, LF-terminated (`specs/model/pipeline.md`: line endings are layout). Both faces stay pure, holding the header's idempotence keystone."
         },
         {
           "path": "sdk/src/kind.ts",
-          "description": "`export type Format = \"yaml-frontmatter\"` (17) becomes the two-label union. The `format` field's doc (142-143, 'omitted for a frontmatterless kind') narrates the retired one-format world and re-words. `tsc` rejects an unknown label at the keystroke, the same closed vocabulary the engine's load guard holds."
+          "description": "`export type Format = \"yaml-frontmatter\"` (17, unmoved) becomes the two-label union. The `format` field's doc (144-145, 'omitted for a frontmatterless kind' — re-cited at 63e5b97) narrates the retired one-format world and re-words. `tsc` rejects an unknown label at the keystroke, the same closed vocabulary the engine's load guard holds."
         },
         {
           "path": "src/drift.rs",
@@ -49,7 +49,7 @@
       }
     ],
     "acceptance": "`json-document` is the format inventory's second entry, in the closed vocabulary on both sides of the seam (Rust `Format`, SDK `Format`), implemented once and generically in the engine (`specs/model/representation.md`, 'kind': a kind is data, its extractor composed from that data). A kind's declared format now decides which adapter reads it, at the one dispatch — the fact stops being decorative. The JSON mechanics live in `src/json_manifest.rs`, extended, not re-implemented beside it. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), which names it: plugin-manifest is 'a file member at `.claude-plugin/plugin.json`, JSON document format (a deliberate format-inventory addition — format mechanics are engine code)'. Ships ahead of its two consumers because one entry is one gate-sized commit; the fixture-only proof is the shape the nested-file locus took before `supporting-doc` counted it. Blocker INSTALLED-PLUGIN-KIND shipped (9f22de2); gate released. scoped at e81c758."
+    "notes": "Derived from decision 0031 (16ce347), which names it: plugin-manifest is 'JSON document format (a deliberate format-inventory addition — format mechanics are engine code)'. Ships ahead of its two consumers because one entry is one gate-sized commit; the fixture-only proof is the shape the nested-file locus took before `supporting-doc` counted it. Blocker INSTALLED-PLUGIN-KIND shipped (9f22de2); gate released. scoped at e81c758; every cite above re-derived on disk at 63e5b97."
   },
   {
     "tag": "PLUGIN-MANIFEST-KIND",
@@ -73,7 +73,7 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "`claude_code_plugin_manifest()` joins `all_kinds()` (281): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"plugin.json\" }`, and no collection address — it owns its file. A distinct glob from every sibling's, so `governs_collision_diagnostics` (`src/main.rs:1801`) is satisfied by construction. Cite `code.claude.com/docs/en/plugins-reference` with the retrieval date at encode time."
+          "description": "`claude_code_plugin_manifest()` joins `all_kinds()` (315, re-cited at 63e5b97 — 9f22de2 moved it): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"plugin.json\" }`, and no collection address — it owns its file. A distinct glob from every sibling's, so `governs_collision_diagnostics` (`src/main.rs:1801`) is satisfied by construction. Cite `code.claude.com/docs/en/plugins-reference` with the retrieval date at encode time."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -101,7 +101,7 @@
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "The row-count-exact kind-fact walk: the new row and its `json-document` format label."
+          "description": "The row-count-exact kind-fact walk: the new row and its `json-document` format label. `the_embedded_lock_kind_facts_match_todays_hand_written_kinds` asserts `declarations.kinds.len()` — **9 at 63e5b97** (2093; 9f22de2 moved it 8 → 9), so it moves to 10 here. The engine roster and `specs/builtins.md`'s 'Ten kinds ship' count different sets and are not each other's check: `supporting-doc` ships without joining that enumeration (as `requirement` does), so the walk's number is always the corpus's plus one. Read the assert, never the arithmetic."
         }
       ],
       "retire": []
@@ -114,7 +114,7 @@
       }
     ],
     "acceptance": "`plugin-manifest` ships as `specs/builtins.md`'s roster declares it — the pack's identity at `.claude-plugin/plugin.json`, a JSON document, identity from `name`, the one required field, kebab-case — with a default contract mirroring the strictest documented profile (`claude plugin validate --strict`), every clause decidable, severity-declared, guided, cited and dated. This repo authors no `.claude-plugin/` today, so the kind counts zero members here and that is honest, not a gap (the `supporting-doc (0)` precedent). `temper check .` exits 0; `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), the producer half. Its warrant is not speculative demand: `temper bundle` already writes this exact file ungated (`src/bundle.rs:185`), so the product emits a format it refuses to check — temper's own bar failing in temper. Serialized behind PLUGIN-JSON-DOCUMENT-FORMAT (needs the format) and ahead of MARKETPLACE-KIND (both edit `builtin_kind.rs`, `builtins.ts`, `builtin_lock.toml`, and the two lock tests). scoped at e81c758."
+    "notes": "Derived from decision 0031 (16ce347), the producer half. Its warrant is not speculative demand: `temper bundle` already writes this exact file ungated (`src/bundle.rs:185`), so the product emits a format it refuses to check — temper's own bar failing in temper. Serialized behind PLUGIN-JSON-DOCUMENT-FORMAT (needs the format) and ahead of MARKETPLACE-KIND (both edit `builtin_kind.rs`, `builtins.ts`, `builtin_lock.toml`, and the two lock tests). scoped at e81c758; re-cited 63e5b97."
   },
   {
     "tag": "MARKETPLACE-KIND",
@@ -138,7 +138,7 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "`claude_code_marketplace()` joins `all_kinds()` (281): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"marketplace.json\" }` — a distinct glob from `plugin-manifest`'s, so the two file kinds never contend. Cite `code.claude.com/docs/en/plugin-marketplaces` with the retrieval date at encode time."
+          "description": "`claude_code_marketplace()` joins `all_kinds()` (315, re-cited at 63e5b97 — 9f22de2 moved it): `format: Some(Format::JsonDocument)`, `unit_shape: NamedField { field: \"name\" }`, `governs { root: \".claude-plugin\", glob: \"marketplace.json\" }` — a distinct glob from `plugin-manifest`'s, so the two file kinds never contend. Cite `code.claude.com/docs/en/plugin-marketplaces` with the retrieval date at encode time."
         },
         {
           "path": "src/builtin_lock.toml",
@@ -154,7 +154,7 @@
         },
         {
           "path": "sdk/src/claude-code.ts",
-          "description": "The provider face exports the kind value, its type, and its default contract. With this entry the roster reads ten (`specs/builtins.md`: 'Ten kinds ship. Seven are file members') — verify the count on disk rather than trusting the arithmetic."
+          "description": "The provider face exports the kind value, its type, and its default contract. With this entry `specs/builtins.md`'s roster is filled: 'Ten kinds ship. Seven are file members' — seven file kinds (skill, command, agent, rule, memory, plugin-manifest, marketplace) plus three registration kinds (hook, mcp-server, installed-plugin). The engine's `all_kinds()` holds **eleven** at that point, because `supporting-doc` ships outside the enumeration; the two numbers are both right and neither checks the other. Verify on disk."
         },
         {
           "path": "sdk/test/builtins.test.ts",
@@ -166,7 +166,7 @@
         },
         {
           "path": "tests/lock_declaration_rows.rs",
-          "description": "The row-count-exact kind-fact walk: ten kind rows."
+          "description": "The row-count-exact kind-fact walk: the `kinds.len()` assert (2093 at 63e5b97) moves to **eleven**, not ten — `supporting-doc` ships without joining `specs/builtins.md`'s enumeration (as `requirement` does), so the engine roster runs one above the corpus's ten. Read the assert on disk at pick-up; do not trust this number sight-unseen."
         }
       ],
       "retire": []
@@ -178,8 +178,8 @@
         "asserts": "a `.claude-plugin/marketplace.json` reads as one member with identity from `name`; a reserved name, a missing `owner.name`, and a `plugins[]` entry missing `name` or `source` are each findings; every documented `source` form resolves and an undocumented one is a finding"
       }
     ],
-    "acceptance": "`marketplace` ships as `specs/builtins.md`'s roster declares it, completing the ten-kind roster decision 0031 ratified: `temper check .` reports ten kinds and exits 0. Its default contract holds the strictest documented profile with every clause decidable, severity-declared, guided, cited and dated; the impersonation rule ships as guidance, never a clause. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
-    "notes": "Derived from decision 0031 (16ce347), the producer half's second kind. Same warrant as its sibling: `temper bundle` writes this file ungated today (`src/bundle.rs:191`). Serialized behind PLUGIN-MANIFEST-KIND — both edit `builtin_kind.rs`, `builtins.ts`, `claude-code.ts`, `builtin_lock.toml`, `builtin_lock.rs`, and the two lock tests. scoped at e81c758."
+    "acceptance": "`marketplace` ships as `specs/builtins.md`'s roster declares it, completing the ten-kind roster decision 0031 ratified — the seven file kinds and three registration kinds that page enumerates, `supporting-doc` shipping beside them outside the count. `temper check .` exits 0. Its default contract holds the strictest documented profile with every clause decidable, severity-declared, guided, cited and dated; the impersonation rule ships as guidance, never a clause. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `pnpm --dir sdk test` green.",
+    "notes": "Derived from decision 0031 (16ce347), the producer half's second kind. Same warrant as its sibling: `temper bundle` writes this file ungated today (`src/bundle.rs:191`). Serialized behind PLUGIN-MANIFEST-KIND — both edit `builtin_kind.rs`, `builtins.ts`, `claude-code.ts`, `builtin_lock.toml`, `builtin_lock.rs`, and the two lock tests. scoped at e81c758; cites re-derived 63e5b97, and the stale 'ten kind rows' arithmetic this entry carried corrected against the assert on disk."
   },
   {
     "tag": "BUNDLE-EMIT-THROUGH-KINDS",
@@ -251,7 +251,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at e81c758 and holds — nothing ruled the hop semantics (the window's one spec commit is 0031, which touches no import mechanics; inbox empty). Cites unchanged since 53519b9 re-derived them: `MAX_IMPORT_HOPS` reads 5 at graph.rs:65 under a cite claiming five. Stays parked: the constant may still be wrong. NOTE: INSTALLED-PLUGIN-KIND now edits both files — its regions are disjoint from these, but re-verify the line cites at unpark. rescoped 4a33911; re-cited 53519b9."
+    "notes": "Park re-tested at 63e5b97 and holds — nothing ruled the hop semantics (b8396d4, the 0028 errata, touches no import mechanics; inbox empty). INSTALLED-PLUGIN-KIND edited `src/graph.rs` only at 690+ (`dead_registration`'s enablement arm): every cite above is disjoint and unmoved, verified this tick. `MAX_IMPORT_HOPS` still reads 5 at 65 under a cite claiming five. Stays parked: the constant may still be wrong. rescoped 4a33911; re-cited 53519b9; re-verified 63e5b97."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -278,6 +278,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at e81c758 and holds on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 63e5b97, holding on every clause: `git tag -l` carries only the four era tags and no version tag, crate 0.1.0 vs npm 0.0.7, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. Channel 3's publish is the release act; BUNDLE-EMIT-THROUGH-KINDS is the orthogonal question of how those bytes are produced. scoped at b676656."
   }
 ]

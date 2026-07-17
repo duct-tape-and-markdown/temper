@@ -37,7 +37,7 @@ tax.
   promote one. The question: does this repo commit a `.claude-plugin/` tree as
   `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
   authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Verified at e81c758: no
+  dir by `temper bundle` on every run? Re-verified at 63e5b97: no
   `.claude-plugin/` exists here, so both kinds will govern globs this repo
   matches with zero members (honest, the `supporting-doc (0)` precedent), and
   nothing is broken by leaving this open. Distinct from
@@ -103,37 +103,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   live test code asserting stray old-format files are ignored. Two entries
   (664a522, CHECK-ARG-HALF-GATE 4256274) have opened the file and left them;
   no queued entry opens it, so it waits. Re-verified on disk at reconcile HEAD
-  b3a1636: both dead trees still spelled (121/140), in a file the window never
-  touched and no queued entry edits.
+  63e5b97: both dead trees still spelled (121/140), in a file this window never
+  touched either and no queued entry edits.
   **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
   (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
   `packages/{rule,memory}.anthropic/PACKAGE.md` files; `rg` over the file finds
   neither. Nine entries had opened builtins.ts and left them — the same lesson
   the record below spent two entries learning, proven a third time: the rider
   discharges when an entry names it, and not when a file is merely opened.
-
-- **`src/read.rs`'s read-strand doc comments spell retired CLI verbs.** The
-  one-read-verb ruling (39a4833, contract.md/pipeline.md "Read verbs")
-  already shipped in code: the CLI has one read verb `explain` (main.rs
-  `Command::Explain`, doc "The one read verb"), with `why`/`impact`/`context`/
-  `requirements` as internal strands of `read::explain`, and read.rs:192
-  already documents the four-spelling→`explain` unification. But the
-  individual strand doc comments still spell `temper why <member>`
-  (read.rs:270), `temper impact <member>`/`<leaf-address>` (495/633),
-  `temper context <address>` (770), and `temper requirements [<name>]` (1172)
-  as if each were its own CLI command. Vocabulary staleness only — the verb is
-  `explain`, the strands are correctly-named internal functions. Rides
-  whichever entry next opens read.rs (no queued entry does), never standalone.
-  Found deriving 39a4833 at HEAD be3bd27. MENTION-ROUTE-RESOLVE-AT-CHECK
-  (8eb39fb) then opened read.rs (+25 in the `why` region, 298-440:
-  route-resolving deferred mentions) yet left every strand doc comment as
-  unchanged context — undischarged; the `why` comment at 270 stayed above the
-  hunks and unmoved, the four below shifted +25, 470/608/745/1147 →
-  495/633/770/1172. **It has a carrier at last:** INSTALLED-PLUGIN-KIND edits
-  `read.rs` (the new `Registration` variant lights up `explain`'s match arms)
-  and names all five lines in its `files[].description` — the entry names the
-  rider, which is what discharges it; a file merely opened has left it twice.
-  Delete this record when that entry lands with the five reconciled.
 
 - **Pre-recut vocabulary survives in `sdk/src/prose.ts`'s doc comments.**
   0001's retirement map (law → invariant/spine rule, posture → retired,
@@ -148,9 +125,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   entries have now opened `prose.ts` and left every narration line as
   unchanged context (the precedent: the rider discharges on *reconciliation*,
   never on the file being opened). Rides whichever entry next reconciles the
-  comment lines — no queued entry opens `prose.ts` — never standalone. Lines
-  re-verified on disk at reconcile HEAD b3a1636 (unmoved; `prose.ts` untouched
-  in this window and edited by no queued entry — still no carrier). The
+  comment lines — no queued entry opens `prose.ts` — never standalone. All ten
+  lines re-verified exact on disk at reconcile HEAD 63e5b97 (unmoved;
+  `prose.ts` untouched in this window too and edited by no queued entry —
+  still no carrier). The
   `sdk/src/kind.ts:257` "posture 3" half of this record is
   **discharged**: TEMPLATE-FILE-CHILD-FACT (794678f) carried it — 0025 made
   "posture" a consumer-declared member type, not a body-authoring mode number,
@@ -165,9 +143,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   superseded (ts-rs's live job is the `sdk/src/generated/` seam home,
   36a7662; `src/schema.rs` is schemars-only). Comment staleness — rides
   whichever entry next opens `Cargo.toml`, never a standalone entry. Found
-  at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45)
-  at reconcile HEAD b3a1636 — no queued entry edits `Cargo.toml`, so it still
-  has no carrier.
+  at residue sweep HEAD a932bb0; re-verified on disk (the comment spans 42-45,
+  unmoved) at reconcile HEAD 63e5b97 — no queued entry edits `Cargo.toml`, so
+  it still has no carrier.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story
