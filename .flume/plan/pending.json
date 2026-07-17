@@ -168,6 +168,37 @@
     "notes": "0038 Consequences bullet 2, from inbox (centercode, observed 4cc3081; re-verified — window shipped only extent). NOT directory-shape: a lone conventions.md inside a skill's dir can't claim that dir (skill owns it) — it needs a lone file borrowing the segment for identity, hence the file-branch splice widening. Widens UnitShape (shared enum); consumers named in files[], exhaustive matches refuse to compile until answered. Shares drift.rs/main.rs/declarations.ts with queued entries."
   },
   {
+    "tag": "GAUNTLET-CORPUS",
+    "summary": "Ship the gauntlet corpus (9a18907): one kitchen-sink SDK harness holding every legal composition, emit+check insta-snapshotted so a feature's composition seam shows as a snapshot diff at ship time",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "The gauntlet corpus"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "The one in-tree kitchen-sink fixture harness (engineering.md 'The gauntlet corpus'). Author ONE real-SDK harness program composing every composition the model claims legal that ships today, drive it through `emit` then `check`, and `insta`-snapshot BOTH faces — the emitted projection tree and the check diagnostics — so a composition seam a later feature opens surfaces as a snapshot diff at ship time. Drive it through the existing real-SDK seam `common::wire_sdk_harness(label, program)` (`tests/common/mod.rs`:127 — authors `.temper/harness.ts`, vendors the built SDK) plus `common::vendor_sdk`, run `emit` and then `common::check_harness` over the result; NEVER a second corpus-driver minted beside these ('One job, one home'). The program composes the four compositions the corpus names, each already a shipped feature: (1) a composed layout body over a templated host — a spec-kind document graining into embedded members over a nested-file host; (2) embedded edges carrying a `paths` scope on BOTH endpoints (the EMBEDDED-EDGE seam family's home composition); (3) a partially-declared manifest — a settings.json declaring fewer members than the discovered on-disk file (the MANIFEST-SEGMENT-REAP composition); (4) a local-locus member under ignore rules (the dial precedent, `tests/dial_kind.rs`/`tests/local_locus.rs`). Each format/layout fact an external fact — cite where the fixture asserts it. New snapshots land under `tests/snapshots/gauntlet__*`. This is the harness the queued feature entries extend where their feature meets the others — TEMPLATE-DISCOVERY-CARVE's declared-locus-meets-template cell and STAR-SEGMENT-LOCUS's starred-segment cell name it as their natural home (each falls back to `tests/nested_member.rs` until this lands); this entry ships the BASE harness only, not those cells."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "a single kitchen-sink SDK harness holding every legal composition (templated host with a composed layout body, embedded edges scoped on both endpoints, a partially-declared manifest, a local member under ignore) emits and checks to stable insta snapshots — the projection tree and the check diagnostics both pinned, so a later feature's composition seam appears as a snapshot diff"
+      }
+    ],
+    "acceptance": "One in-tree kitchen-sink harness composes every composition the model claims legal today — composed bodies over templated hosts, embedded edges scoped on both endpoints, a partially-declared manifest, local members under ignore — and `emit` + `check` are `insta`-snapshotted over it, driven through `common::wire_sdk_harness`, so a later feature's composition seam surfaces as a snapshot diff at ship time and each feature entry that adds a composable surface extends it (engineering.md, 'The gauntlet corpus'). `pnpm --dir sdk build` (fixtures vendor the built SDK) + `cargo test` green.",
+    "notes": "9a18907's sole plan derivation (the 'shared concept is one type' patch): the gauntlet entry the commit body names. The three in-flight centercode fixes already carry the type rule in their scoping (variant-of-shared-type, exhaustive matches, consumer-audit) — no re-derivation owed. The pending-entry consumer-audit bullet shipped in 9a18907 as its own chore(harness) .temper projection. Base harness only; feature cells ride their own entries. Real-SDK seam via wire_sdk_harness. scoped at de91db8."
+  },
+  {
     "tag": "TAP-VERB-EVENT-RECORD",
     "summary": "Ship 0037's `temper tap` verb + its versioned JSONL event record: reads a hook payload from stdin, appends one record (identity + discriminant, never prose) to the uncommitted per-machine log",
     "per": {
