@@ -54,26 +54,6 @@ tax.
   launch, and `docs/horizons.md` is where a human carries it — plan does not
   write that page.
 
-- `(plugin-author-dogfood)` — OPEN, human's call, registered 07-16 from
-  decision 0031's own Consequences: "Temper's own repo becomes a **candidate**
-  plugin-author corpus once the producer kinds exist — the dogfood extends to
-  the surface it ships." A candidate is not a requirement, and plan does not
-  promote one. The question: does this repo commit a `.claude-plugin/` tree as
-  `plugin-manifest` + `marketplace` members of its own `.temper/` harness —
-  authored, gated, and emitted — rather than assembled fresh into an output
-  dir by `temper bundle` on every run? Re-verified at 9409a6c: no
-  `.claude-plugin/` exists here, so both kinds govern globs this repo
-  matches with zero members (honest, the `supporting-doc (0)` precedent), and
-  nothing is broken by leaving this open. Distinct from
-  BUNDLE-EMIT-THROUGH-KINDS, which **shipped** (0e7dca2) and routes `bundle`'s
-  writers through the kinds into an output dir, with no committed manifest —
-  so it moved nothing here. **The blocked-in-fact clause is discharged:
-  all three 0031 kinds now ship** — `installed-plugin` (9f22de2),
-  `plugin-manifest` (c68f625), `marketplace` (c74aab9), each verified in
-  `all_kinds()` on disk (`src/builtin_kind.rs:374-382`). Nothing but the ruling
-  holds it now. `.claude/` is human `chore(harness):` territory (CLAUDE.md,
-  "The two harnesses"), so this lands as a human act or not at all. No
-  dependents.
 
 - `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
   harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
