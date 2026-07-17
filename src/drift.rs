@@ -574,11 +574,13 @@ pub struct Payload {
     pub members: Vec<PayloadMember>,
 }
 
-/// The desired projection of one member: its identity, the harness-rooted path it
+/// The desired projection of one member: its identity, the harness-relative path it
 /// projects to, and its fields/body.
 struct Projection {
     kind: String,
     name: String,
+    /// The path the artifact projects to, relative to the harness root — the lock's own
+    /// vocabulary. [`emit_one`] joins it onto the harness root to reach disk.
     source_path: PathBuf,
     /// The kind's declared projection format, selecting the canonical write face the
     /// member's bytes are rendered through. `None` for a kind declaring none.
@@ -607,6 +609,24 @@ pub(crate) fn to_lock_path(path: &Path) -> String {
 /// projection reads ownerless and is mass-reaped.
 fn normalize_lock_path(path: &str) -> String {
     path.replace('\\', "/").trim_start_matches("./").to_string()
+}
+
+/// The harness root a `.temper` workspace sits inside (`<harness>/.temper` → `<harness>`):
+/// the base every lock row is spelled relative to, and the base a reader joins a row back
+/// onto to reach disk.
+///
+/// `.` when the workspace names no parent segment. `./.temper` and `.temper` name one
+/// surface, but their raw `parent()`s differ (`.` vs the empty path) — left alone that
+/// forks a row's spelling between two emits of the same workspace, and an empty root
+/// cannot be made absolute, which would silently spell a relativized target absolute
+/// instead ([`harness_relative`]). Lexical normalization plus the `.` floor collapses both
+/// to one root.
+fn harness_root_of(workspace_dir: &Path) -> PathBuf {
+    let normalized = crate::graph::normalize_path(workspace_dir);
+    match normalized.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+        _ => PathBuf::from("."),
+    }
 }
 
 /// `relative` joined under a locus `root`, dropping the `.` a root-locus kind carries.
@@ -829,16 +849,12 @@ pub fn emit(
         .into());
     }
 
-    // `./.temper` and `.temper` name one surface, but their `parent()` differ (`.`
-    // vs the empty path) — which forks every owned path's lock spelling (`./docs/…`
-    // vs `docs/…`) between two emits of the same workspace, so a live byte-faithful
-    // projection the prior lock owns reads as ownerless and is reaped. Lexically
-    // normalizing first drops the leading `./`, so harness_root derives identically
-    // either way.
-    let normalized_workspace = crate::graph::normalize_path(workspace_dir);
-    let harness_root = normalized_workspace
-        .parent()
-        .unwrap_or_else(|| Path::new("."));
+    // Every path this pass books — member index keys, projection paths, manifest keys,
+    // owned paths, every lock row — is spelled relative to the harness root, and the root
+    // is joined back on only where disk is actually touched. The lock is committed and a
+    // verb may be aimed at a harness from any cwd, so a row that baked in the cwd prefix
+    // this emit happened to run under would resolve from nowhere else.
+    let harness_root = harness_root_of(workspace_dir);
     let kind_facts: BTreeMap<&str, &KindFactRow> = payload
         .declarations
         .kinds
@@ -850,7 +866,7 @@ pub fn emit(
     // against, built over every member before any projection is derived: an import may
     // point at a member that appears later in the list, so the whole map must be on hand
     // first. Keyed by lexically-normalized path so a resolved target joins it cleanly.
-    let member_index = member_path_index(&payload.members, &kind_facts, harness_root)?;
+    let member_index = member_path_index(&payload.members, &kind_facts)?;
 
     // The composed-prose includes each host member declares, grouped by host address in
     // authored order — the same order the body's include slots carry, so the k-th slot
@@ -887,6 +903,7 @@ pub fn emit(
     // `governs`): each carries its declared collection segments and, when a container
     // member projects to the same path, that member's opaque residue. Built before the
     // member loop so a container member is recognized by path as the loop reaches it.
+    // Keyed harness-relative, the vocabulary a member's own projection path speaks.
     let mut manifests: BTreeMap<PathBuf, ManifestBuild> = BTreeMap::new();
     for registration in &payload.declarations.registrations {
         let facts =
@@ -896,14 +913,12 @@ pub fn emit(
                     kind: registration.kind.clone(),
                     member: registration.key.clone(),
                 })?;
-        let path = manifest_target_path(harness_root, facts).ok_or_else(|| {
-            DriftError::NestedFileLocus {
-                kind: registration.kind.clone(),
-                member: registration.key.clone(),
-                detail: "it declares a collection address, and a manifest's host file lives at \
+        let path = manifest_target_path(facts).ok_or_else(|| DriftError::NestedFileLocus {
+            kind: registration.kind.clone(),
+            member: registration.key.clone(),
+            detail: "it declares a collection address, and a manifest's host file lives at \
                          the governs path this kind has none of"
-                    .to_string(),
-            }
+                .to_string(),
         })?;
         let collection = collection_key_of(&registration.key_path);
         let segment = manifests
@@ -952,12 +967,8 @@ pub fn emit(
                     kind: member.kind.clone(),
                     member: member.name.clone(),
                 })?;
-        let source_path = harness_root.join(member_projection_path(
-            facts,
-            &member.name,
-            member.host.as_deref(),
-            &kind_facts,
-        )?);
+        let source_path =
+            member_projection_path(facts, &member.name, member.host.as_deref(), &kind_facts)?;
         // A container member of a represented manifest: its typed fields are the manifest's
         // opaque residue, and the whole file is regenerated by the write face below — never
         // projected as a frontmatter-and-body text artifact.
@@ -968,8 +979,14 @@ pub fn emit(
         }
         if let Content::Layout(layout) = content_from_row(facts)? {
             let edge_fields = layout_edge_fields(&payload.declarations.assembly, &member.kind)?;
-            let derivation =
-                derive_layout_rows(&layout, member, &source_path, &member_index, &edge_fields)?;
+            let derivation = derive_layout_rows(
+                &layout,
+                member,
+                &source_path,
+                &harness_root,
+                &member_index,
+                &edge_fields,
+            )?;
             layout_rows.extend(derivation.nested);
             layout_import_rows.extend(derivation.imports);
             layout_satisfies.extend(derivation.satisfies);
@@ -1000,9 +1017,16 @@ pub fn emit(
             Some(includes) => {
                 let mut contents = Vec::with_capacity(includes.len());
                 for include in includes {
-                    let relative = harness_relative(&include.source_path, harness_root);
-                    let (row, bytes) =
-                        resolve_source_dependency(&host, &relative, harness_root, &member_index)?;
+                    // The SDK resolves an include's target absolutely; the row is spelled
+                    // against the harness root, so it resolves under a harness at any path.
+                    let relative = harness_relative(&include.source_path, &harness_root);
+                    let (row, bytes) = resolve_source_dependency(
+                        &host,
+                        &relative,
+                        Path::new("."),
+                        &harness_root,
+                        &member_index,
+                    )?;
                     contents.push(String::from_utf8(bytes).map_err(|_| {
                         DriftError::IncludeNotUtf8 {
                             member: host.clone(),
@@ -1030,13 +1054,12 @@ pub fn emit(
     // kind cannot be placed, and one colliding with a differing value already present would
     // shed a value — each refused loud, never dropped (invariant 6).
     for row in &payload.declarations.settings {
-        let path =
-            manifest_path_for(&row.manifest, &kind_facts, harness_root).ok_or_else(|| {
-                DriftError::UnplaceableSettings {
-                    manifest: row.manifest.clone(),
-                    key: row.key.clone(),
-                }
-            })?;
+        let path = manifest_path_for(&row.manifest, &kind_facts).ok_or_else(|| {
+            DriftError::UnplaceableSettings {
+                manifest: row.manifest.clone(),
+                key: row.key.clone(),
+            }
+        })?;
         let residue = &mut manifests.entry(path).or_default().residue;
         match residue.get(&row.key) {
             Some(existing) if existing != &row.value => {
@@ -1072,15 +1095,18 @@ pub fn emit(
     // disk. Both sides normalized: `owned_paths` came through `to_lock_path`, and
     // an older lock's raw row spelling gets the same canonicalization here, so a
     // `./`-prefixed row still joins its live projection.
-    let mut orphans: Vec<(ProvenanceRow, EmitOutcome)> = Vec::new();
+    let mut orphans: Vec<(ProvenanceRow, PathBuf, EmitOutcome)> = Vec::new();
     let mut any_survivor = false;
     for row in read_prior_provenance(workspace_dir) {
         if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
             any_survivor = true;
             continue;
         }
-        if let Some(outcome) = classify_orphan(&row)? {
-            orphans.push((row, outcome));
+        // The row is harness-relative, so the file it names is under the root this emit
+        // targets — never under whatever cwd the emit happens to run from.
+        let disk_path = harness_root.join(&row.source_path);
+        if let Some(outcome) = classify_orphan(&disk_path, &row.emit_hash)? {
+            orphans.push((row, disk_path, outcome));
         }
     }
 
@@ -1088,11 +1114,11 @@ pub fn emit(
     // projection while emitting nothing in its place refuses, unless the author
     // spells the teardown. A genuine single-orphan reap keeps a survivor, so it
     // never trips this — the guard fires only when the whole prior tree reads
-    // ownerless at once (the `--into` re-root's signature), never on a spelling
-    // mismatch the normalized join already heals.
+    // ownerless at once, never on a spelling mismatch the normalized join already
+    // heals.
     let reaping = orphans
         .iter()
-        .filter(|(_, outcome)| *outcome == EmitOutcome::Reaped)
+        .filter(|(_, _, outcome)| *outcome == EmitOutcome::Reaped)
         .count();
     if !any_survivor && reaping >= 2 && !options.teardown {
         return Err(DriftError::TotalReapWave { count: reaping }.into());
@@ -1135,7 +1161,7 @@ pub fn emit(
     let mut entries = Vec::with_capacity(projections.len() + orphans.len());
     let mut rollups: BTreeMap<String, Vec<RollupEntry>> = BTreeMap::new();
     for projection in &projections {
-        let (entry, hash) = emit_one(projection, options.dry_run)?;
+        let (entry, hash) = emit_one(projection, &harness_root, options.dry_run)?;
         rollups
             .entry(projection.kind.clone())
             .or_default()
@@ -1152,7 +1178,7 @@ pub fn emit(
     // written like any other projection — its container member's rollup row carries the
     // fingerprint drift compares.
     for (path, build) in &manifests {
-        let (entry, hash) = emit_manifest(path, build, options.dry_run)?;
+        let (entry, hash) = emit_manifest(path, &harness_root, build, options.dry_run)?;
         if let Some((kind, name)) = &build.container {
             rollups.entry(kind.clone()).or_default().push(RollupEntry {
                 name: name.clone(),
@@ -1168,17 +1194,17 @@ pub fn emit(
     // the cliff check so a refused wave never removed a file. A drifted orphan is
     // left on disk and only reported: deleting hand-touched bytes is never the safe
     // default. Under `--dry-run` nothing is removed; the outcome stands regardless.
-    for (row, outcome) in orphans {
+    for (row, disk_path, outcome) in orphans {
         if outcome == EmitOutcome::Reaped && !options.dry_run {
-            fs::remove_file(&row.source_path).map_err(|source| DriftError::Remove {
-                path: PathBuf::from(&row.source_path),
+            fs::remove_file(&disk_path).map_err(|source| DriftError::Remove {
+                path: disk_path.clone(),
                 source,
             })?;
         }
         entries.push(EmitEntry {
             kind: row.kind,
             name: row.name,
-            source_path: PathBuf::from(&row.source_path),
+            source_path: disk_path,
             outcome,
         });
     }
@@ -1220,26 +1246,22 @@ struct ManifestBuild {
     container: Option<(String, String)>,
 }
 
-/// The on-disk path a manifest kind's host file lives at — its `governs` locus joined onto
-/// the harness root. A manifest kind's glob is a concrete filename (`settings.json`,
-/// `.mcp.json`), so this is the file its registration members surface inside and the path
-/// the canonical write face regenerates. `None` for a kind governing no locus at all — a
-/// nested file kind has no host file to register inside.
-fn manifest_target_path(harness_root: &Path, facts: &KindFactRow) -> Option<PathBuf> {
+/// The harness-relative path a manifest kind's host file lives at — its `governs` locus. A
+/// manifest kind's glob is a concrete filename (`settings.json`, `.mcp.json`), so this is
+/// the file its registration members surface inside and the path the canonical write face
+/// regenerates. `None` for a kind governing no locus at all — a nested file kind has no
+/// host file to register inside.
+fn manifest_target_path(facts: &KindFactRow) -> Option<PathBuf> {
     let root = facts.governs_root.as_deref()?;
     let glob = facts.governs_glob.as_deref()?;
-    Some(harness_root.join(join_locus(root, glob)))
+    Some(join_locus(root, glob))
 }
 
-/// The on-disk path the manifest named `manifest` lives at, resolved through any in-play
-/// kind that declares it as its collection address's host — the same `governs`-joined path
-/// [`manifest_target_path`] gives a registration kind. `None` when no in-play kind declares
-/// the manifest, so its residue has nowhere to land.
-fn manifest_path_for(
-    manifest: &str,
-    kind_facts: &BTreeMap<&str, &KindFactRow>,
-    harness_root: &Path,
-) -> Option<PathBuf> {
+/// The harness-relative path the manifest named `manifest` lives at, resolved through any
+/// in-play kind that declares it as its collection address's host — the same `governs`
+/// locus [`manifest_target_path`] gives a registration kind. `None` when no in-play kind
+/// declares the manifest, so its residue has nowhere to land.
+fn manifest_path_for(manifest: &str, kind_facts: &BTreeMap<&str, &KindFactRow>) -> Option<PathBuf> {
     kind_facts
         .values()
         .find(|facts| {
@@ -1248,7 +1270,7 @@ fn manifest_path_for(
                 .as_ref()
                 .is_some_and(|address| address.manifest == manifest)
         })
-        .and_then(|facts| manifest_target_path(harness_root, facts))
+        .and_then(|facts| manifest_target_path(facts))
 }
 
 /// The top-level manifest collection key a registration's key-path label names — the
@@ -1265,10 +1287,12 @@ fn collection_key_of(key_path: &str) -> String {
 /// double-emit reproduces every byte; nothing is written under `dry_run`. An ownerless
 /// manifest (no container member) is labelled by its filename under a `manifest` kind.
 fn emit_manifest(
-    path: &Path,
+    locus: &Path,
+    harness_root: &Path,
     build: &ManifestBuild,
     dry_run: bool,
 ) -> Result<(EmitEntry, String), DriftError> {
+    let path = &harness_root.join(locus);
     let segments: Vec<crate::json_manifest::CollectionSegment> = build
         .segments
         .iter()
@@ -1393,14 +1417,16 @@ fn derive_layout_rows(
     layout: &Layout,
     member: &PayloadMember,
     source_path: &Path,
+    harness_root: &Path,
     member_index: &BTreeMap<PathBuf, String>,
     edge_fields: &BTreeSet<String>,
 ) -> miette::Result<LayoutDerivation> {
-    let body = fs::read_to_string(source_path).map_err(|source| DriftError::Read {
-        path: source_path.to_path_buf(),
+    let disk_path = harness_root.join(source_path);
+    let body = fs::read_to_string(&disk_path).map_err(|source| DriftError::Read {
+        path: disk_path.clone(),
         source,
     })?;
-    let reading = layout.read(&body, source_path, edge_fields)?;
+    let reading = layout.read(&body, &disk_path, edge_fields)?;
     let host = host_address(&member.kind, &member.name);
 
     // A `satisfies` edge slot's entries are the host's own fill claims, keyed by its
@@ -1427,7 +1453,8 @@ fn derive_layout_rows(
             continue;
         };
         let base_dir = source_path.parent().unwrap_or_else(|| Path::new("."));
-        let (row, _bytes) = resolve_source_dependency(&host, target, base_dir, member_index)?;
+        let (row, _bytes) =
+            resolve_source_dependency(&host, target, base_dir, harness_root, member_index)?;
         imports.push(row);
     }
 
@@ -1454,15 +1481,21 @@ fn derive_layout_rows(
 }
 
 /// Resolve one prose reference — a layout region's `import` or a composed-prose
-/// `include` — to its target file's contents, fingerprint it, and return the bytes. The
-/// reference resolves against **raw disk**, `target` joined onto `base_dir` (the
-/// referencing document's directory for a layout import, the harness root for an include
-/// whose SDK-resolved path was relativized against it), never the ignore-filtered
-/// discovery view. A target absent from disk is a dangling reference, refused loud. When
-/// the resolved path is a member's own projection, the edge names that member; a plain
-/// repository file carries a content dependency but no member edge (an empty `target`).
-/// The returned bytes are the same read the fingerprint hashes, so a splicing caller
-/// pulls exactly the bytes it fingerprinted (one read, no time-of-check gap).
+/// `include` — to its target file's contents, fingerprint it, and return the bytes.
+///
+/// `target` joins onto `base_dir` — both harness-relative: the referencing document's own
+/// directory for a layout import, `.` for an include whose SDK-resolved absolute path was
+/// relativized against the root ([`harness_relative`]). That resolved path is what the row
+/// records and what the member index is keyed by; `harness_root` joins it back on to reach
+/// **raw disk**, never the ignore-filtered discovery view. The two are split because the
+/// row is committed and the read is not: a row spelling the emit's cwd resolves under no
+/// other one.
+///
+/// A target absent from disk is a dangling reference, refused loud. When the resolved path
+/// is a member's own projection, the edge names that member; a plain repository file
+/// carries a content dependency but no member edge (an empty `target`). The returned bytes
+/// are the same read the fingerprint hashes, so a splicing caller pulls exactly the bytes
+/// it fingerprinted (one read, no time-of-check gap).
 ///
 /// # Errors
 /// Returns [`DriftError::DanglingImport`] when the target does not exist, or
@@ -1471,21 +1504,23 @@ fn resolve_source_dependency(
     host: &str,
     target: &str,
     base_dir: &Path,
+    harness_root: &Path,
     member_index: &BTreeMap<PathBuf, String>,
 ) -> Result<(LayoutImportRow, Vec<u8>), DriftError> {
     let resolved = crate::graph::normalize_path(&base_dir.join(target));
-    let bytes = match fs::read(&resolved) {
+    let disk_path = harness_root.join(&resolved);
+    let bytes = match fs::read(&disk_path) {
         Ok(bytes) => bytes,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
             return Err(DriftError::DanglingImport {
                 member: host.to_string(),
                 import: target.to_string(),
-                path: resolved,
+                path: disk_path,
             });
         }
         Err(source) => {
             return Err(DriftError::Read {
-                path: resolved,
+                path: disk_path,
                 source,
             });
         }
@@ -1500,11 +1535,12 @@ fn resolve_source_dependency(
 }
 
 /// Re-express an include's SDK-resolved absolute `target` as a path relative to
-/// `harness_root`, so [`resolve_source_dependency`] joins it back onto `harness_root`
-/// the way a projection path is built — the resolved path then matches the member index
-/// and lands in the lock with the same absoluteness (relative when emit ran against a
-/// relative workspace, so the committed lock stays portable). A target outside the
-/// harness tree keeps its absolute form, still readable, just unrooted.
+/// `harness_root` — the one home for that transform, and the only place a path enters
+/// this pass already absolute. The result matches the member index and rides the lock in
+/// the same harness-relative vocabulary a projection path is spelled in, so the committed
+/// row resolves under the harness wherever it sits. A target outside the harness tree
+/// keeps its absolute form, still readable, just unrooted (joining it back onto any root
+/// is a no-op).
 fn harness_relative(target: &str, harness_root: &Path) -> String {
     let target_abs = std::path::absolute(target).unwrap_or_else(|_| PathBuf::from(target));
     let root_abs = std::path::absolute(harness_root).unwrap_or_else(|_| harness_root.to_path_buf());
@@ -1539,8 +1575,8 @@ fn splice_includes(host: &str, body: &str, contents: &[String]) -> Result<String
     Ok(out)
 }
 
-/// The projection-path → `kind:name` index every member contributes, keyed by
-/// lexically-normalized path so a resolved layout import joins it the way
+/// The projection-path → `kind:name` index every member contributes, keyed by the
+/// lexically-normalized harness-relative path so a resolved layout import joins it the way
 /// [`resolve_source_dependency`] resolves its target. A member whose kind the payload carries
 /// no fact for is skipped — the [`emit`] loop reports that fault where it dispatches.
 ///
@@ -1551,19 +1587,18 @@ fn splice_includes(host: &str, body: &str, contents: &[String]) -> Result<String
 fn member_path_index(
     members: &[PayloadMember],
     kind_facts: &BTreeMap<&str, &KindFactRow>,
-    harness_root: &Path,
 ) -> Result<BTreeMap<PathBuf, String>, DriftError> {
     let mut index = BTreeMap::new();
     for member in members {
         let Some(facts) = kind_facts.get(member.kind.as_str()) else {
             continue;
         };
-        let path = crate::graph::normalize_path(&harness_root.join(member_projection_path(
+        let path = crate::graph::normalize_path(&member_projection_path(
             facts,
             &member.name,
             member.host.as_deref(),
             kind_facts,
-        )?));
+        )?);
         index.insert(path, host_address(&member.kind, &member.name));
     }
     Ok(index)
@@ -1624,21 +1659,24 @@ fn read_prior_provenance(workspace_dir: &Path) -> Vec<ProvenanceRow> {
     rows
 }
 
-/// Classify one lock-known projection whose owning member is gone, touching no
-/// disk state: the on-disk bytes are hashed against the row's recorded
+/// Classify one lock-known projection whose owning member is gone, mutating no
+/// disk state: the bytes at `disk_path` — the row's harness-relative path already
+/// joined onto the root this emit targets — are hashed against the row's recorded
 /// `emit_hash` to tell `Reaped` (byte-faithful — temper wrote every byte, so
 /// deleting it loses nothing authored) from `OrphanDrift` (hand-touched — left
 /// in place and reported, never silently deleted). A file already absent yields
 /// `None`: there is nothing left to act on. The reap wave is decided over this
 /// classification before any deletion runs, so the cliff refusal never has to
 /// undo one.
-fn classify_orphan(row: &ProvenanceRow) -> Result<Option<EmitOutcome>, DriftError> {
-    let path = PathBuf::from(&row.source_path);
-    match fs::read(&path) {
-        Ok(bytes) if sha256_hex(&bytes) == row.emit_hash => Ok(Some(EmitOutcome::Reaped)),
+fn classify_orphan(disk_path: &Path, emit_hash: &str) -> Result<Option<EmitOutcome>, DriftError> {
+    match fs::read(disk_path) {
+        Ok(bytes) if sha256_hex(&bytes) == emit_hash => Ok(Some(EmitOutcome::Reaped)),
         Ok(_) => Ok(Some(EmitOutcome::OrphanDrift)),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(source) => Err(DriftError::Read { path, source }),
+        Err(source) => Err(DriftError::Read {
+            path: disk_path.to_path_buf(),
+            source,
+        }),
     }
 }
 
@@ -1671,11 +1709,18 @@ fn normalize_lf(text: &str) -> String {
 /// emitted output is drift routed to the source (`config.stale`/the guard surface
 /// it), not a mergeable conflict. The on-disk read decides only `Emitted` vs the
 /// idempotent `Unchanged`.
-fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String), DriftError> {
+fn emit_one(
+    projection: &Projection,
+    harness_root: &Path,
+    dry_run: bool,
+) -> Result<(EmitEntry, String), DriftError> {
+    // The projection path is harness-relative (the lock's vocabulary); disk is reached
+    // under the root this emit targets, and the report names the file it actually wrote.
+    let disk_path = harness_root.join(&projection.source_path);
     let row = |outcome| EmitEntry {
         kind: projection.kind.clone(),
         name: projection.name.clone(),
-        source_path: projection.source_path.clone(),
+        source_path: disk_path.clone(),
         outcome,
     };
 
@@ -1685,12 +1730,12 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     // re-emit. Those metadata lines ride `install`, never `emit`, so a re-emit round-trips the ones
     // already on disk instead of clobbering them. An absent source carries no
     // placements and is not a conflict: emit writes it.
-    let current = match fs::read(&projection.source_path) {
+    let current = match fs::read(&disk_path) {
         Ok(bytes) => Some(bytes),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
         Err(source) => {
             return Err(DriftError::Read {
-                path: projection.source_path.clone(),
+                path: disk_path.clone(),
                 source,
             });
         }
@@ -1719,7 +1764,7 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     ));
     if second_pass != desired {
         return Err(DriftError::Nondeterministic {
-            path: projection.source_path.clone(),
+            path: disk_path.clone(),
         });
     }
 
@@ -1729,17 +1774,15 @@ fn emit_one(projection: &Projection, dry_run: bool) -> Result<(EmitEntry, String
     }
 
     if !dry_run {
-        if let Some(parent) = projection.source_path.parent() {
+        if let Some(parent) = disk_path.parent() {
             fs::create_dir_all(parent).map_err(|source| DriftError::Write {
                 path: parent.to_path_buf(),
                 source,
             })?;
         }
-        fs::write(&projection.source_path, desired.as_bytes()).map_err(|source| {
-            DriftError::Write {
-                path: projection.source_path.clone(),
-                source,
-            }
+        fs::write(&disk_path, desired.as_bytes()).map_err(|source| DriftError::Write {
+            path: disk_path.clone(),
+            source,
         })?;
     }
     Ok((row(EmitOutcome::Emitted), hash))
@@ -1996,6 +2039,7 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
     };
 
     let mut findings = Vec::new();
+    let harness_root = harness_root_of(workspace_dir);
     // The lock's top-level keys are kind names, each an array of provenance rows; ranging
     // over every one covers built-in and custom kinds alike without a hardcoded set.
     for (_kind, item) in doc.as_table().iter() {
@@ -2012,7 +2056,9 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
             };
             // Only a present-and-differing projection is stale: a source that is gone
             // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
-            let Ok(bytes) = fs::read(source_path) else {
+            // The row is harness-relative, so it resolves under the harness this check
+            // was aimed at, whatever the cwd.
+            let Ok(bytes) = fs::read(harness_root.join(source_path)) else {
                 continue;
             };
             if sha256_hex(&bytes) != emit_hash {
@@ -2170,8 +2216,12 @@ fn source_dep_stale(
     noun: &str,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let mut findings = Vec::new();
+    // Each row is harness-relative (or absolute, for a target outside the tree, which a
+    // join leaves alone), so the fingerprinted target resolves under the harness this
+    // check was aimed at rather than under the cwd it runs from.
+    let harness_root = harness_root_of(workspace_dir);
     for row in source_deps(workspace_dir, family)? {
-        match fs::read(&row.source_path) {
+        match fs::read(harness_root.join(&row.source_path)) {
             Ok(bytes) if sha256_hex(&bytes) == row.import_hash => {}
             Ok(_) => findings.push(crate::check::Diagnostic::warn(
                 rule,
@@ -2238,7 +2288,9 @@ pub struct EmitOwnedEntry {
     pub kind: String,
     /// The member's name.
     pub name: String,
-    /// The projected artifact's on-disk path.
+    /// The projected artifact's path as the lock spells it: relative to the harness root.
+    /// A consumer reaching disk joins it onto the root it was aimed at; the guard matches
+    /// it as a suffix of an absolute `file_path` (`install::matches_projection`).
     pub path: PathBuf,
 }
 

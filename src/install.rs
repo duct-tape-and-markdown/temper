@@ -608,8 +608,11 @@ fn evaluate_placements(
 
     // The note is applied first so the modeline stays the leading frontmatter line.
     for target in targets {
-        let source = fs::read_to_string(&target.path).map_err(|source| InstallError::Read {
-            path: target.path.clone(),
+        // A lock row names its path against the harness root, so it is joined onto the
+        // root this install was aimed at — never resolved against the ambient cwd.
+        let path = root.join(&target.path);
+        let source = fs::read_to_string(&path).map_err(|source| InstallError::Read {
+            path: path.clone(),
             source,
         })?;
         let mut current = source;
@@ -620,16 +623,16 @@ fn evaluate_placements(
         // kind). Content drives the choice — `project_note` declines a frontmatterless
         // source, and the banner is confined to markdown, where an HTML comment is inert.
         let noted = project_note(&current).or_else(|| {
-            is_markdown_path(&target.path)
+            is_markdown_path(&path)
                 .then(|| project_banner(&current))
                 .flatten()
         });
         if let Some(desired) = noted {
-            let outcome = drift::place(&target.path, &desired, None, dry_run)?;
+            let outcome = drift::place(&path, &desired, None, dry_run)?;
             entries.push(InstallEntry {
                 placement: NOTE,
                 outcome,
-                path: target.path.clone(),
+                path: path.clone(),
             });
             current = desired;
         }
@@ -638,12 +641,12 @@ fn evaluate_placements(
         // end: the modeline lands only once its schema artifact actually exists.
         if schema_artifact_exists(root, &target.kind)
             && let Some(desired) =
-                project_modeline(&current, &schema_ref(root, &target.path, &target.kind))
+                project_modeline(&current, &schema_ref(root, &path, &target.kind))
         {
             entries.push(InstallEntry {
                 placement: MODELINE,
-                outcome: drift::place(&target.path, &desired, None, dry_run)?,
-                path: target.path,
+                outcome: drift::place(&path, &desired, None, dry_run)?,
+                path,
             });
         }
     }

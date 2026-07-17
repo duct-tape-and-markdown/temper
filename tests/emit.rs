@@ -908,14 +908,12 @@ fn the_emit_report_distinguishes_reaped_from_drifted_orphan() {
 }
 
 #[test]
-fn an_into_reroot_that_strands_every_live_projection_refuses_the_total_reap_wave() {
-    // An adopted harness's lock owns its projections at the current root. An
-    // `emit --into <nested>` re-roots the projection tree: the carried lock still
-    // names the old-root files — byte-faithful, every one — while the new pass
-    // owns paths under the nested root, so every prior projection reads ownerless
-    // at once. That whole-tree teardown refuses at the cliff (decision 0024) and
-    // deletes nothing, unless the author spells `--teardown`.
-    let (harness, into) = workspace("reroot-wave");
+fn a_lock_carried_to_a_second_root_owns_that_root_and_strands_nothing() {
+    // Every row is harness-root-relative, so a lock is a statement about its harness
+    // and not about the tree the emit that wrote it happened to run over. Carried to a
+    // second root, its rows name that root's own files: the second harness emits its
+    // whole tree, the first is not the second's business, and neither is stranded.
+    let (harness, into) = workspace("carried-lock");
     let payload = with_both_members();
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
@@ -923,54 +921,79 @@ fn an_into_reroot_that_strands_every_live_projection_refuses_the_total_reap_wave
     let skill = harness.join(".claude/skills/coordinate/SKILL.md");
     assert!(rust.is_file() && skill.is_file());
 
-    // The re-root: a nested workspace carrying the same lock, whose absolute rows
-    // still own the old-root projections while the new pass owns the nested tree.
     let nested = harness.join("inner").join(".temper");
     fs::create_dir_all(&nested).unwrap();
     fs::copy(into.join("lock.toml"), nested.join("lock.toml")).unwrap();
 
-    let err = drift::emit(&payload, &nested, EmitOptions::default()).unwrap_err();
+    let report = drift::emit(&payload, &nested, EmitOptions::default()).unwrap();
+
+    assert!(
+        !report
+            .entries
+            .iter()
+            .any(|e| e.outcome == EmitOutcome::Reaped),
+        "the carried rows resolve under the root this emit targets, so nothing reads \
+         ownerless and nothing is reaped: {:?}",
+        report.entries
+    );
+    assert!(
+        harness.join("inner/.claude/rules/rust.md").is_file(),
+        "the second root's tree lands under it"
+    );
+    assert!(
+        rust.is_file() && skill.is_file(),
+        "the first root's projections are untouched — a second harness never reaches \
+         into one it does not own"
+    );
+}
+
+#[test]
+fn a_payload_owning_nothing_over_a_live_tree_refuses_the_total_reap_wave() {
+    // Every member gone from the program at once, while the lock's projections all sit
+    // byte-faithful on disk: the whole prior tree reads ownerless and would be deleted
+    // with nothing emitted in its place. That teardown refuses at the cliff (decision
+    // 0024) and deletes nothing, unless the author spells it.
+    let (harness, into) = workspace("total-wave");
+    drift::emit(&with_both_members(), &into, EmitOptions::default()).unwrap();
+
+    let rust = harness.join(".claude/rules/rust.md");
+    let skill = harness.join(".claude/skills/coordinate/SKILL.md");
+    assert!(rust.is_file() && skill.is_file());
+
+    let memberless = basic_payload(Vec::new());
+    let err = drift::emit(&memberless, &into, EmitOptions::default()).unwrap_err();
     assert!(
         err.to_string().contains("refusing to reap"),
-        "the re-root refuses the total-reap wave with the finding stated: {err}"
+        "the wave refuses with the finding stated: {err}"
     );
     assert!(
         rust.is_file() && skill.is_file(),
         "the refused wave deletes nothing — every live projection stays intact"
     );
-    assert!(
-        !harness.join("inner/.claude/rules/rust.md").exists(),
-        "the cliff refusal fires before a byte is written — no re-rooted projection lands"
-    );
 
-    // Spelled teardown: the author names the wave on purpose, and it proceeds —
-    // the stranded old-root projections are reaped and the tree lands anew.
+    // Spelled teardown: the author names the wave on purpose, and it proceeds.
     let report = drift::emit(
-        &payload,
-        &nested,
+        &memberless,
+        &into,
         EmitOptions {
             teardown: true,
             ..Default::default()
         },
     )
     .unwrap();
-    assert!(
+    assert_eq!(
         report
             .entries
             .iter()
             .filter(|e| e.outcome == EmitOutcome::Reaped)
-            .count()
-            == 2,
-        "the spelled teardown reaps both stranded old-root projections: {:?}",
+            .count(),
+        2,
+        "the spelled teardown reaps both projections: {:?}",
         report.entries
     );
     assert!(
         !rust.exists() && !skill.exists(),
-        "the spelled teardown reaps the stranded old-root projections"
-    );
-    assert!(
-        harness.join("inner/.claude/rules/rust.md").is_file(),
-        "the re-rooted tree lands under the nested root"
+        "the spelled teardown reaps the whole tree"
     );
 }
 
@@ -1068,11 +1091,10 @@ static CWD_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[test]
 fn emitting_into_a_dot_slash_workspace_never_reaps_a_projection_a_bare_lock_owns() {
-    // The prior lock spells owned paths off `.temper` (harness_root `""`); a re-emit
-    // into `./.temper` (harness_root `"."` before normalization) spells them
-    // `./.claude/…` — a mismatch that would strand every live projection as an
-    // ownerless orphan and reap the freshly written bytes. Both spellings name one
-    // surface, so nothing is reaped and every member stays Unchanged.
+    // `.temper` and `./.temper` name one surface, but their raw `parent()`s differ —
+    // left to fork, the two emits would spell one owned path two ways, strand every
+    // live projection as an ownerless orphan, and reap the freshly written bytes.
+    // Nothing is reaped and every member stays Unchanged.
     let harness = common::tmpdir("dot-slash-workspace");
     fs::create_dir_all(harness.join(".temper")).unwrap();
 
@@ -1169,6 +1191,118 @@ fn a_lock_whose_rows_are_dot_slash_spelled_matches_its_live_projections_and_reap
     assert!(
         !rewritten.contains("source_path = \"./"),
         "the next emit rewrites the lock whole in canonical `./`-free form: {rewritten}"
+    );
+}
+
+#[test]
+fn a_lock_emitted_from_a_foreign_cwd_carries_the_rows_of_one_emitted_at_the_harness_root() {
+    // `--into`'s only non-default use is naming a workspace off the cwd, so the cwd an
+    // emit happens to run under must reach no row: the lock is committed, and a row
+    // carrying the prefix `examples/base-harness/` resolves from the repo root and
+    // nowhere else. Same payload, two cwds, one set of bytes.
+    let at_root = common::tmpdir("cwd-rows-at-root");
+    let from_parent = common::tmpdir("cwd-rows-from-parent");
+    fs::create_dir_all(at_root.join(".temper")).unwrap();
+    fs::create_dir_all(from_parent.join(".temper")).unwrap();
+    let payload = with_both_members();
+
+    let guard = CWD_MUTEX.lock().unwrap();
+    let original_cwd = std::env::current_dir().unwrap();
+
+    // Lane A: cwd = the harness root — the one spelling already committed on disk.
+    std::env::set_current_dir(&at_root).unwrap();
+    let at_root_report = drift::emit(&payload, Path::new(".temper"), EmitOptions::default());
+
+    // Lane B: cwd = the harness's parent, the workspace named off it — the shape that
+    // re-based every row before, silently and at exit 0.
+    std::env::set_current_dir(from_parent.parent().unwrap()).unwrap();
+    let named_off_cwd = PathBuf::from(from_parent.file_name().unwrap()).join(".temper");
+    let foreign_report = drift::emit(&payload, &named_off_cwd, EmitOptions::default());
+
+    std::env::set_current_dir(&original_cwd).unwrap();
+    drop(guard);
+
+    let at_root_report = at_root_report.unwrap();
+    let foreign_report = foreign_report.unwrap();
+
+    let at_root_lock = fs::read_to_string(at_root.join(".temper/lock.toml")).unwrap();
+    let foreign_lock = fs::read_to_string(from_parent.join(".temper/lock.toml")).unwrap();
+    assert_eq!(
+        at_root_lock, foreign_lock,
+        "the same payload emits the same lock bytes from any cwd"
+    );
+    assert!(
+        at_root_lock.contains("source_path = \".claude/rules/rust.md\""),
+        "every row is spelled against the harness root, never the cwd: {at_root_lock}"
+    );
+
+    for report in [&at_root_report, &foreign_report] {
+        assert!(
+            !report
+                .entries
+                .iter()
+                .any(|e| e.outcome == EmitOutcome::Reaped),
+            "a first emit over a fresh harness reaps nothing: {:?}",
+            report.entries
+        );
+    }
+    assert!(
+        from_parent.join(".claude/rules/rust.md").is_file(),
+        "the projection lands under the targeted harness, not under the cwd"
+    );
+}
+
+#[test]
+fn a_re_emit_from_a_foreign_cwd_joins_the_prior_rows_under_the_targeted_root() {
+    // The reap join is the row-reading side of the same contract: a row names a path
+    // under the harness the verb was aimed at. Emit once with the workspace named off a
+    // parent cwd, then re-emit the same harness from a cwd it does not sit under — the
+    // prior rows must still find their files, or a live projection reads ownerless
+    // while a dropped member's stays on disk forever.
+    let harness = common::tmpdir("foreign-cwd-reemit");
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+
+    let guard = CWD_MUTEX.lock().unwrap();
+    let original_cwd = std::env::current_dir().unwrap();
+
+    std::env::set_current_dir(harness.parent().unwrap()).unwrap();
+    let named_off_cwd = PathBuf::from(harness.file_name().unwrap()).join(".temper");
+    let first = drift::emit(&with_both_members(), &named_off_cwd, EmitOptions::default());
+
+    // Back to a cwd the harness sits nowhere under, and aim the re-emit at it by path.
+    std::env::set_current_dir(&original_cwd).unwrap();
+    let report = drift::emit(
+        &coordinate_only(),
+        &harness.join(".temper"),
+        EmitOptions::default(),
+    );
+    drop(guard);
+
+    first.unwrap();
+    let report = report.unwrap();
+
+    assert_eq!(
+        outcome(&report, "coordinate"),
+        EmitOutcome::Unchanged,
+        "the live projection the prior lock owns joins its row and survives: {:?}",
+        report.entries
+    );
+    assert!(
+        harness.join(".claude/skills/coordinate/SKILL.md").is_file(),
+        "the surviving projection is never reaped"
+    );
+
+    // The other side of the same join: the dropped member's row resolves under the
+    // targeted root too, so its stranded projection is found and reaped.
+    assert_eq!(
+        outcome(&report, "rust"),
+        EmitOutcome::Reaped,
+        "the dropped member's row resolves under the targeted root: {:?}",
+        report.entries
+    );
+    assert!(
+        !harness.join(".claude/rules/rust.md").exists(),
+        "the reap deletes the file the row names under the harness, not under the cwd"
     );
 }
 
