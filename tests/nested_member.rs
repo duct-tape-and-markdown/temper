@@ -430,7 +430,13 @@ fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
         skill_templating("reference-doc", "*.md"),
     )]);
 
-    let found = temper::import::discover_nested_file(&harness, &child, &kinds).unwrap();
+    let found = temper::import::discover_nested_file(
+        &harness,
+        &child,
+        &kinds,
+        temper::import::LocalOverride::Honored,
+    )
+    .unwrap();
 
     // The companion doc surfaces as the skill's child, carrying the host unit its path
     // composed under; `scripts/run.sh` matches no `*.md` and the host's own `SKILL.md` is
@@ -443,9 +449,14 @@ fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
     // no template names surfaces nothing, off the identical tree.
     let unnamed = nested_file_kind("appendix");
     assert!(
-        temper::import::discover_nested_file(&harness, &unnamed, &kinds)
-            .unwrap()
-            .is_empty()
+        temper::import::discover_nested_file(
+            &harness,
+            &unnamed,
+            &kinds,
+            temper::import::LocalOverride::Honored
+        )
+        .unwrap()
+        .is_empty()
     );
 }
 
@@ -464,7 +475,13 @@ fn a_file_the_hosts_pattern_does_not_match_is_discovered_as_no_member() {
         skill_templating("reference-doc", "PLAYBOOK.md"),
     )]);
 
-    let found = temper::import::discover_nested_file(&harness, &child, &kinds).unwrap();
+    let found = temper::import::discover_nested_file(
+        &harness,
+        &child,
+        &kinds,
+        temper::import::LocalOverride::Honored,
+    )
+    .unwrap();
     assert_eq!(
         found.iter().map(|unit| &unit.file).collect::<Vec<_>>(),
         vec![&unit.join("PLAYBOOK.md")]
@@ -486,7 +503,13 @@ fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_d
         .expect("supporting-doc ships as a built-in kind")
         .clone();
 
-    let found = temper::import::discover_nested_file(&harness, &child, &kinds).unwrap();
+    let found = temper::import::discover_nested_file(
+        &harness,
+        &child,
+        &kinds,
+        temper::import::LocalOverride::Honored,
+    )
+    .unwrap();
 
     // `PLAYBOOK.md` is the skill's child, carrying the host unit its path composed under.
     // The host's own `SKILL.md` is the host member, never its own child, and

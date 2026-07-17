@@ -55,8 +55,13 @@ fn discovery_over_the_embedded_governs_finds_nested_agent_files() {
     write_agent(&harness, "review/reviewer.md", "reviewer");
 
     let kind = agent_kind();
-    let found =
-        import::discover_kind_files(&harness, &kind, kind.governs.as_ref().unwrap()).unwrap();
+    let found = import::discover_kind_files(
+        &harness,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        import::LocalOverride::Honored,
+    )
+    .unwrap();
 
     assert_eq!(
         found,

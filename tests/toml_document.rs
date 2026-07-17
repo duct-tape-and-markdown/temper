@@ -12,8 +12,9 @@
 //! refuses nothing, which is the case the refusal must not break.
 //!
 //! The locus is the suite's own (`.claude/local/*.toml`), for the reason
-//! `tests/local_locus.rs` states: no shipped kind declares the class yet, and the ratified
-//! `.temper/dial.toml` sits where discovery excludes temper's own surface.
+//! `tests/local_locus.rs` states: no shipped kind declares the class yet. These cases drive
+//! the face's `read` directly, so the locus is only where a fixture sits — the walk that
+//! reaches the ratified `.temper/dial.toml` is that suite's.
 
 use std::fs;
 use std::path::{Path, PathBuf};

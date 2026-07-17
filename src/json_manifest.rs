@@ -392,10 +392,15 @@ impl Manifest {
         let (Some(address), Some(governs)) = (&kind.collection_address, &kind.governs) else {
             return Ok(Vec::new());
         };
-        crate::import::discover_kind_files(harness, kind, governs)?
-            .iter()
-            .map(|file| Manifest::read(file, &[address]))
-            .collect()
+        crate::import::discover_kind_files(
+            harness,
+            kind,
+            governs,
+            crate::import::LocalOverride::Honored,
+        )?
+        .iter()
+        .map(|file| Manifest::read(file, &[address]))
+        .collect()
     }
 }
 

@@ -20,7 +20,25 @@ use ignore::WalkBuilder;
 use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 
 use crate::drift::Declarations;
-use crate::kind::{CustomKind, Governs, UnitShape};
+use crate::kind::{Commitment, CustomKind, Governs, UnitShape};
+
+/// Whether a walk lets a committed local-locus kind's `governs` declaration override
+/// discovery's two presumptions — the repository's ignore rules and the workspace skip.
+/// The declaration is reviewed while the documents under it are not, so it is itself the
+/// authorship claim over them; a walk that presumed otherwise would find a real
+/// per-machine document only by accident.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LocalOverride {
+    /// The declaration governs: a local-locus kind's documents are discovered though the
+    /// repo ignores them or they sit under the workspace. Every read-side walk — the
+    /// gate's and the manifest face's — takes this, so a local member's rows derive
+    /// rather than silently failing to.
+    Honored,
+    /// The presumptions stay whole whatever a kind declares. Adoption's walk takes this:
+    /// it converts what it finds into a committed member module, and a local document is
+    /// never that.
+    Withheld,
+}
 
 /// Errors raised while discovering or rolling up a harness's members.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
@@ -96,10 +114,11 @@ pub(crate) fn discover_builtin(
     harness: &Path,
     kind: &CustomKind,
     kinds: &BTreeMap<String, CustomKind>,
+    over: LocalOverride,
 ) -> Result<Vec<PathBuf>, ImportError> {
     match &kind.governs {
-        Some(governs) => discover_kind_files(harness, kind, governs),
-        None => Ok(discover_nested_file(harness, kind, kinds)?
+        Some(governs) => discover_kind_files(harness, kind, governs, over),
+        None => Ok(discover_nested_file(harness, kind, kinds, over)?
             .into_iter()
             .map(|unit| unit.file)
             .collect()),
@@ -130,6 +149,10 @@ pub struct NestedFileUnit {
 /// in. A host's entry file is that host's own member and never its own child, so a pattern
 /// matching it collects nothing.
 ///
+/// A child sits inside its host's unit, so the host's commitment class is what decides
+/// whether `over` lets discovery's presumptions be overridden here: the child kind
+/// governs no locus of its own and so declares no class of its own.
+///
 /// # Errors
 ///
 /// Returns an [`ImportError`] if a host's locus or unit cannot be enumerated.
@@ -137,8 +160,8 @@ pub fn discover_nested_file(
     harness: &Path,
     kind: &CustomKind,
     kinds: &BTreeMap<String, CustomKind>,
+    over: LocalOverride,
 ) -> Result<Vec<NestedFileUnit>, ImportError> {
-    let discoverable = discoverable_paths(harness);
     let mut found = Vec::new();
     for host in kinds.values() {
         let (Some(pattern), Some(governs)) =
@@ -149,8 +172,9 @@ pub fn discover_nested_file(
         if host.unit_shape != Some(UnitShape::Directory) {
             continue;
         }
+        let discoverable = discoverable_paths(harness, local_governs(host, over));
         let root = harness.join(&governs.root);
-        for entry in discover_kind_files(harness, host, governs)? {
+        for entry in discover_kind_files(harness, host, governs, over)? {
             let Some(host_unit) = unit_dir(&root, &entry) else {
                 continue;
             };
@@ -200,6 +224,10 @@ fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
 /// bare-root-skill convention still applies wherever `skill`'s locus is walked from.
 /// [`discover_builtin`] is the thin caller that always walks the kind's own governs.
 ///
+/// `over` decides whether the kind's own commitment class may override discovery's
+/// presumptions for this walk; the `kind` is what carries that class, which is why the
+/// generalized scan cannot decide it off `governs` alone.
+///
 /// # Errors
 ///
 /// Returns an [`ImportError`] if a directory under `governs.root` cannot be
@@ -208,8 +236,9 @@ pub fn discover_kind_files(
     harness: &Path,
     kind: &CustomKind,
     governs: &Governs,
+    over: LocalOverride,
 ) -> Result<Vec<PathBuf>, ImportError> {
-    let mut files = discover_kind_units(harness, governs)?;
+    let mut files = discover_kind_units(harness, governs, local_governs(kind, over))?;
     if kind.name == "skill" {
         let bare = harness.join("SKILL.md");
         if bare.is_file() {
@@ -219,6 +248,13 @@ pub fn discover_kind_files(
         }
     }
     Ok(files)
+}
+
+/// Whether `kind`'s walk lets its `governs` declaration override discovery's
+/// presumptions — a local locus under a walk that honors the override, and nothing else.
+/// The `governs` locus alone cannot answer it: the commitment class is the kind's column.
+fn local_governs(kind: &CustomKind, over: LocalOverride) -> bool {
+    over == LocalOverride::Honored && kind.commitment == Some(Commitment::Local)
 }
 
 /// Discover a kind's units under `<harness>/<governs.root>/` by matching the
@@ -231,12 +267,18 @@ pub fn discover_kind_files(
 /// yields an empty list (a declared kind whose corpus does not exist on this
 /// harness). Data-driven discovery — the locus is the kind's own `governs`
 /// declaration, never a hardwired path.
-fn discover_kind_units(harness: &Path, governs: &Governs) -> Result<Vec<PathBuf>, ImportError> {
-    // A member is authored content; an ignored file is by declaration not authored
-    // here, so discovery sees only what the repo's ignore rules leave in — else a
-    // `**` glob would import a vendored dep's memory file. Resolved off the harness (repo) root so a
-    // root `.gitignore` governs every kind's walk, whatever its `governs.root` depth.
-    let discoverable = discoverable_paths(harness);
+fn discover_kind_units(
+    harness: &Path,
+    governs: &Governs,
+    local_governs: bool,
+) -> Result<Vec<PathBuf>, ImportError> {
+    // A member is authored content; an ignored file is by declaration not authored here,
+    // so discovery sees only what the repo's ignore rules leave in — else a `**` glob
+    // would import a vendored dep's memory file. A local-locus kind's own walk is the one
+    // exception, and its `governs` says so: `local_governs` carries that scope in.
+    // Resolved off the harness (repo) root so a root `.gitignore` governs every kind's
+    // walk, whatever its `governs.root` depth.
+    let discoverable = discoverable_paths(harness, local_governs);
     scan_locus(&harness.join(&governs.root), &governs.glob, &discoverable)
 }
 
@@ -327,41 +369,44 @@ fn collect_glob(
     Ok(())
 }
 
-/// The set of paths under `harness` that discovery may see — every file and directory
-/// the repo's ignore rules leave in, with `.git/` and the surface workspace
-/// (`.temper/`) always excluded — the surface holds temper's own authored
-/// modules and lock, never a harness member, and being committed (not
-/// gitignored) it would otherwise enter the discoverable set on its own.
-/// Discovery also stops at a **nested governed root**: a subdirectory below the
-/// harness root that carries its own `.temper/lock.toml` is its own corpus, so the
-/// walk skips descending it — its members are never the parent's. The harness root's
-/// own lock must not self-fence, so the skip keys off walk depth, not the name.
-/// Built with
-/// ripgrep's `ignore` engine so nested `.gitignore` files, negation, and precedence are
-/// honored rather than hand-rolled. Only git's own declaration counts: the machine-global
-/// and ripgrep-specific (`.ignore`) sources are off, and parent directories above the
-/// harness are not consulted — the harness is the per-project boundary. `require_git` is
-/// off so a `.gitignore` is honored even when the harness is not itself a git checkout
-/// (a sub-tree, or a test fixture). Paths are normalized so a `.`-rooted `governs`
-/// (`root = "."`) compares equal to the walk's harness-relative entries.
-fn discoverable_paths(harness: &Path) -> BTreeSet<PathBuf> {
+/// The set of paths under `harness` that a walk for a kind whose locus `local_governs`
+/// may see. Two presumptions prune it, and the flag waives **both, together**: the
+/// repo's ignore rules — an ignored file is by declaration not authored here — and the
+/// surface workspace (`.temper/`), which holds temper's own modules and lock and, being
+/// committed rather than gitignored, would otherwise enter the set on its own. A
+/// local-locus kind's `governs` is the reviewed claim over its unreviewed documents, so
+/// for its walk neither presumption stands: a real per-machine document is always
+/// gitignored, and one may sit under the workspace. The waiver needs no path scoping —
+/// the set is only ever consulted under the walking kind's own locus.
+///
+/// Two fences are not presumptions and hold for every walk: `.git/`, and a **nested
+/// governed root** — a subdirectory below the harness root carrying its own
+/// `.temper/lock.toml` is its own corpus, so the walk never descends it. The harness
+/// root's own lock must not self-fence, so that skip keys off walk depth, not the name.
+///
+/// Built with ripgrep's `ignore` engine so nested `.gitignore` files, negation, and
+/// precedence are honored rather than hand-rolled. Only git's own declaration counts:
+/// the machine-global and ripgrep-specific (`.ignore`) sources are off, and parent
+/// directories above the harness are not consulted — the harness is the per-project
+/// boundary. `require_git` is off so a `.gitignore` is honored even when the harness is
+/// not itself a git checkout (a sub-tree, or a test fixture). Paths are normalized so a
+/// `.`-rooted `governs` (`root = "."`) compares equal to the walk's harness-relative
+/// entries.
+fn discoverable_paths(harness: &Path, local_governs: bool) -> BTreeSet<PathBuf> {
     let mut allowed = BTreeSet::new();
     let walk = WalkBuilder::new(harness)
         .hidden(false) // `.claude/` is a dotdir the harness lives in — never hide it.
         .parents(false)
         .ignore(false)
         .git_global(false)
-        .git_ignore(true)
-        .git_exclude(true)
+        .git_ignore(!local_governs)
+        .git_exclude(!local_governs)
         .require_git(false)
-        .filter_entry(|entry| {
-            // The surface workspace is committed, not gitignored, so without an
-            // explicit skip a `**` glob (e.g. `memory`'s `**/CLAUDE.md`) would walk
-            // into it and count its contents as harness members — the surface is
-            // categorically not a harness member.
-            if entry.file_name() == OsStr::new(".git")
-                || entry.file_name() == OsStr::new(crate::WORKSPACE_DIR)
-            {
+        .filter_entry(move |entry| {
+            if entry.file_name() == OsStr::new(".git") {
+                return false;
+            }
+            if !local_governs && entry.file_name() == OsStr::new(crate::WORKSPACE_DIR) {
                 return false;
             }
             // Depth 0 is the harness root itself: its own `.temper/lock.toml` governs
@@ -568,7 +613,8 @@ Last line, no newline.";
 
         // The skill locus (`.claude/skills` + `*/SKILL.md`) yields the `SKILL.md`
         // files themselves — the subdir glob descended one level.
-        let skills = discover_builtin(&harness, &skill_kind, &no_hosts()).unwrap();
+        let skills =
+            discover_builtin(&harness, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
         assert_eq!(
             skills,
             vec![
@@ -578,7 +624,8 @@ Last line, no newline.";
         );
 
         // The rule locus (`.claude/rules` + `*.md`) is flat — immediate `*.md` files.
-        let rules = discover_builtin(&harness, &rule_kind, &no_hosts()).unwrap();
+        let rules =
+            discover_builtin(&harness, &rule_kind, &no_hosts(), LocalOverride::Honored).unwrap();
         assert_eq!(
             rules,
             vec![
@@ -609,7 +656,8 @@ Last line, no newline.";
             Extraction::new(Vec::new()),
         );
 
-        let found = discover_builtin(&harness, &memory, &no_hosts()).unwrap();
+        let found =
+            discover_builtin(&harness, &memory, &no_hosts(), LocalOverride::Honored).unwrap();
         assert_eq!(found, vec![harness.join("mem").join("CLAUDE.md")]);
     }
 
@@ -634,7 +682,7 @@ Last line, no newline.";
             root: "things".to_string(),
             glob: "*/THING.md".to_string(),
         };
-        let found = discover_kind_units(&harness, &governs).unwrap();
+        let found = discover_kind_units(&harness, &governs, false).unwrap();
         assert_eq!(
             found,
             vec![
@@ -642,6 +690,73 @@ Last line, no newline.";
                 root.join("beta").join("THING.md"),
             ]
         );
+    }
+
+    /// A `dial` kind governing `.claude/local/*.md`, `local` where `commitment` says so —
+    /// the synthetic stand-in the two walks below are driven with. No embedded kind
+    /// declares the class yet, so the `Withheld` fence install passes is only falsifiable
+    /// against a kind built here.
+    fn dial_kind(commitment: Option<Commitment>) -> CustomKind {
+        let mut kind = CustomKind::new(
+            "dial",
+            Governs {
+                root: ".claude/local".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        );
+        kind.commitment = commitment;
+        kind
+    }
+
+    /// A harness whose `.gitignore` names the dial locus, carrying one document under it —
+    /// a real per-machine document's shape, which is always an ignored one.
+    fn ignored_dial_harness(slug: &str) -> PathBuf {
+        let harness = tmpdir(slug);
+        fs::create_dir_all(harness.join(".claude").join("local")).unwrap();
+        fs::write(harness.join(".gitignore"), ".claude/local/\n").unwrap();
+        fs::write(
+            harness.join(".claude").join("local").join("dial.md"),
+            "mode: advisory\n",
+        )
+        .unwrap();
+        harness
+    }
+
+    #[test]
+    fn a_withheld_walk_keeps_the_presumptions_whole_for_a_local_kind() {
+        // The seam install's adoption walk rides: it converts what it finds into a
+        // committed member module, so the override the read side honors is withheld there
+        // and the ignore rules stand whatever the kind declares. The `Honored` half is the
+        // falsifier — without it the assertion below would hold for a walk that had simply
+        // failed to find anything.
+        let harness = ignored_dial_harness("dial-withheld");
+        let local = dial_kind(Some(Commitment::Local));
+
+        let adopted = discover_builtin(&harness, &local, &no_hosts(), LocalOverride::Withheld);
+        assert_eq!(adopted.unwrap(), Vec::<PathBuf>::new());
+
+        let read = discover_builtin(&harness, &local, &no_hosts(), LocalOverride::Honored);
+        assert_eq!(
+            read.unwrap(),
+            vec![harness.join(".claude").join("local").join("dial.md")]
+        );
+    }
+
+    #[test]
+    fn an_honored_walk_overrides_the_presumptions_for_a_local_kind_and_no_other() {
+        // The override is the kind's own commitment class, not the walk's mode: the same
+        // ignored document under the same locus stays invisible to a committed kind, whose
+        // members' bytes are reviewed and so are never ignored ones.
+        let harness = ignored_dial_harness("dial-committed");
+
+        let committed = discover_builtin(
+            &harness,
+            &dial_kind(None),
+            &no_hosts(),
+            LocalOverride::Honored,
+        );
+        assert_eq!(committed.unwrap(), Vec::<PathBuf>::new());
     }
 
     #[test]
@@ -653,7 +768,8 @@ Last line, no newline.";
         fs::write(harness.join("SKILL.md"), DEMO).unwrap();
 
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let found = discover_builtin(&harness, &skill_kind, &no_hosts()).unwrap();
+        let found =
+            discover_builtin(&harness, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
         assert_eq!(found, vec![harness.join("SKILL.md")]);
     }
 
@@ -699,7 +815,8 @@ Last line, no newline.";
             Extraction::new(Vec::new()),
         );
 
-        let found = discover_builtin(&harness, &memory, &no_hosts()).unwrap();
+        let found =
+            discover_builtin(&harness, &memory, &no_hosts(), LocalOverride::Honored).unwrap();
         assert_eq!(found, vec![harness.join("CLAUDE.md")]);
     }
 
@@ -716,7 +833,8 @@ Last line, no newline.";
         fs::create_dir_all(harness.join(".claude").join("skills").join("empty")).unwrap();
 
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let found = discover_builtin(&harness, &skill_kind, &no_hosts()).unwrap();
+        let found =
+            discover_builtin(&harness, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
         assert_eq!(
             found,
             vec![
@@ -746,7 +864,7 @@ Last line, no newline.";
 
         // `coordinate`'s companion doc, and nothing from `demo` (which carries none) or the
         // hosts' own `SKILL.md` entry files.
-        let found = discover_builtin(&harness, &child, &kinds).unwrap();
+        let found = discover_builtin(&harness, &child, &kinds, LocalOverride::Honored).unwrap();
         assert_eq!(
             found,
             vec![

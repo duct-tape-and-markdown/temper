@@ -1197,7 +1197,12 @@ fn resolve_kind_units(
         (_, _, None) => {
             let kinds = declared_kinds(declarations)?;
             let mut child_units = Vec::new();
-            for found in import::discover_nested_file(harness_root, &overlaid, &kinds)? {
+            for found in import::discover_nested_file(
+                harness_root,
+                &overlaid,
+                &kinds,
+                import::LocalOverride::Honored,
+            )? {
                 child_units.push(read_file_unit(
                     &overlaid,
                     &found.file,
@@ -1210,7 +1215,12 @@ fn resolve_kind_units(
         (_, _, Some(governs)) => {
             let base = harness_root.join(&governs.root);
             let mut file_units = Vec::new();
-            for file in import::discover_kind_files(harness_root, kind, governs)? {
+            for file in import::discover_kind_files(
+                harness_root,
+                kind,
+                governs,
+                import::LocalOverride::Honored,
+            )? {
                 file_units.push(read_file_unit(&overlaid, &file, &base, &edge_fields)?);
             }
             file_units

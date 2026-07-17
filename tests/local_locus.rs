@@ -1,8 +1,13 @@
 //! The file locus's `local` commitment class: per-machine and uncommitted — the kind is
 //! declared and reviewed, its members' documents are not.
 //!
-//! Three faces of the one class:
+//! Four faces of the one class:
 //!
+//! - **discovery** sees a local kind's documents despite the two presumptions it prunes
+//!   on — the repo's ignore rules and the workspace skip — because the reviewed `governs`
+//!   is the authorship claim over them. There and only there: a committed kind's walk
+//!   keeps both, as do `.git/` and the nested-governed-root stop, which are fences rather
+//!   than presumptions about authorship.
 //! - **check** reads a local member's document in place under whatever format its kind
 //!   declares and gates it, deriving the rows the lock never carries — a layout's
 //!   collection members and `satisfies` fills — at read time, under the kind the
@@ -13,10 +18,9 @@
 //! - **admissibility** fences the class to a *file* locus and nothing else: the class
 //!   rules the read side, so every declared format serves it.
 //!
-//! The fixture kind is a `dial` governing `.claude/local/*.md`. No shipped kind declares
-//! the class yet — the first one's face is an open fork — so the locus here is the
-//! suite's own, chosen to sit in the real `.claude/` tree rather than at `.temper/`,
-//! which discovery excludes as temper's own surface.
+//! The fixture kind is a `dial`, at `.claude/local/*.md` where the locus itself is not
+//! what a case is about and at the ratified `.temper/dial.toml` where it is. No shipped
+//! kind declares the class yet — the first one's face is an open fork.
 
 use std::fs;
 
@@ -368,6 +372,163 @@ fn a_local_kind_under_a_non_layout_format_is_admissible_and_its_members_rows_der
     assert!(
         findings.iter().any(|f| f.contains("advisory")),
         "the finding carries the value read off the document: {findings:?}"
+    );
+}
+
+/// A frontmatter-face `dial` at `root`/`glob` under `commitment`, plus the `enum` clause
+/// its documents breach. The clause is the probe every discovery case below reads: the
+/// lock declares the kind and nothing about any member's fields, so a finding naming
+/// `advisory` is a document the walk reached and read, and silence is a walk that never
+/// found it — the two outcomes invariant 6 forbids conflating.
+fn discovery_probe(root: &str, glob: &str, commitment: Option<&str>) -> Declarations {
+    Declarations {
+        kinds: vec![KindFactRow {
+            commitment: commitment.map(str::to_string),
+            format: Some("yaml-frontmatter".to_string()),
+            ..common::kind_facts("dial", root, glob)
+        }],
+        clauses: vec![drift::ClauseRow {
+            kind: Some("dial".to_string()),
+            field: Some("mode".to_string()),
+            values: Some(vec!["block".to_string()]),
+            ..common::clause("enum", "required")
+        }],
+        ..Default::default()
+    }
+}
+
+/// A document the probe's clause breaches — the per-machine content, at whatever path a
+/// case seats it.
+const PROBE_DOC: &str = "---\nmode: advisory\n---\n\nThe machine's own dial.\n";
+
+#[test]
+fn a_local_kinds_document_is_discovered_though_the_gitignore_names_it() {
+    // A real per-machine document is *always* an ignored one — that is what per-machine
+    // means — so a walk pruning on the repo's ignore rules would find a local member only
+    // where the fixture happened to leave it tracked. The reviewed `governs` is the
+    // authorship claim over these documents, and it is what overrides the presumption.
+    let harness = scaffold(
+        "local-gitignored",
+        discovery_probe(".claude/local", "*.md", Some("local")),
+    );
+    common::write_sibling(&harness, ".gitignore", ".claude/local/\n");
+    common::write_sibling(&harness, ".claude/local/dial.md", PROBE_DOC);
+
+    let (findings, ok) = common::check_harness(&harness);
+
+    assert_eq!(
+        common::findings_for(&findings, "dial.enum.mode").len(),
+        1,
+        "the ignored document is discovered, read, and gated: {findings:?}"
+    );
+    assert!(
+        !ok,
+        "the document's `mode` breaches the clause: {findings:?}"
+    );
+}
+
+#[test]
+fn a_committed_kinds_member_under_the_same_ignore_rule_stays_undiscovered() {
+    // The override is the *local* class's, and nothing else's: one column apart from the
+    // case above, the same ignored document at the same locus is invisible. A committed
+    // kind's members are reviewed bytes, so an ignored file under its locus is by
+    // declaration not authored here.
+    let harness = scaffold(
+        "committed-gitignored",
+        discovery_probe(".claude/local", "*.md", None),
+    );
+    common::write_sibling(&harness, ".gitignore", ".claude/local/\n");
+    common::write_sibling(&harness, ".claude/local/dial.md", PROBE_DOC);
+
+    let (findings, ok) = common::check_harness(&harness);
+
+    assert!(
+        common::findings_for(&findings, "dial.enum.mode").is_empty(),
+        "the ignore rule stands for a committed kind: {findings:?}"
+    );
+    assert!(ok, "nothing was discovered to gate: {findings:?}");
+}
+
+#[test]
+fn a_local_kind_governing_under_the_workspace_is_discovered_though_the_walk_skips_it() {
+    // The workspace skip is discovery's second presumption — the surface holds temper's
+    // own modules and lock, never a harness member — and the ratified dial lands at
+    // `.temper/dial.toml`, right under it. The `governs` declaration overrides that skip
+    // for exactly this kind's walk, so the dial's own locus is reachable; the rest of the
+    // surface stays what it was, since the discoverable set is only consulted under the
+    // walking kind's locus.
+    let harness = common::tmpdir("local-workspace");
+    fs::create_dir_all(harness.join(".temper")).unwrap();
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![KindFactRow {
+                commitment: Some("local".to_string()),
+                format: Some("toml-document".to_string()),
+                unit_shape: Some("named-field(name)".to_string()),
+                ..common::kind_facts("dial", ".temper", "dial.toml")
+            }],
+            clauses: vec![drift::ClauseRow {
+                kind: Some("dial".to_string()),
+                field: Some("mode".to_string()),
+                values: Some(vec!["block".to_string()]),
+                ..common::clause("enum", "required")
+            }],
+            ..Default::default()
+        },
+    );
+    common::write_sibling(
+        &harness,
+        ".temper/dial.toml",
+        "name = \"workstation\"\nmode = \"advisory\"\n",
+    );
+
+    let (findings, ok) = common::check_harness(&harness);
+
+    assert_eq!(
+        common::findings_for(&findings, "dial.enum.mode").len(),
+        1,
+        "the dial under the workspace is discovered and read: {findings:?}"
+    );
+    assert!(
+        findings.iter().any(|f| f.contains("workstation")),
+        "the finding names the member read off the document: {findings:?}"
+    );
+    assert!(!ok, "the dial's `mode` breaches the clause: {findings:?}");
+}
+
+#[test]
+fn a_local_kinds_walk_still_stops_at_git_and_at_a_nested_governed_root() {
+    // The override reaches the two presumptions the declaration answers and no further.
+    // `.git/` is not a presumption about authorship, and a directory carrying its own
+    // `.temper/lock.toml` is its own corpus whatever the walking kind declares — neither
+    // fence is the local class's to lift.
+    let harness = scaffold(
+        "local-fences",
+        discovery_probe(".claude/local", "**/*.md", Some("local")),
+    );
+    common::write_sibling(&harness, ".gitignore", ".claude/local/\n");
+    common::write_sibling(&harness, ".claude/local/dial.md", PROBE_DOC);
+    // A vendored sub-harness under the locus: its own lock makes its members its own.
+    common::write_sibling(&harness, ".claude/local/vendored/.temper/lock.toml", "");
+    common::write_sibling(
+        &harness,
+        ".claude/local/vendored/vendored-dial.md",
+        PROBE_DOC,
+    );
+    common::write_sibling(&harness, ".claude/local/.git/git-dial.md", PROBE_DOC);
+
+    let (findings, _ok) = common::check_harness(&harness);
+
+    let breaches = common::findings_for(&findings, "dial.enum.mode");
+    assert_eq!(
+        breaches.len(),
+        1,
+        "only the locus's own document is the walk's: {findings:?}"
+    );
+    assert!(
+        breaches[0].contains("dial") && !breaches[0].contains("vendored-dial"),
+        "the fenced documents are not this corpus's members: {breaches:?}"
     );
 }
 

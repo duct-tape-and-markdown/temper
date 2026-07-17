@@ -53,6 +53,7 @@ fn discovery_over_the_embedded_governs_finds_the_command_file() {
         &harness,
         &command_kind,
         command_kind.governs.as_ref().unwrap(),
+        import::LocalOverride::Honored,
     )
     .unwrap();
 

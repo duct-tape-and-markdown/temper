@@ -313,6 +313,12 @@ impl DiscoveryReport {
 /// host's units at the host template's pattern, so its own row of the report is a
 /// function of another kind's declaration.
 ///
+/// Adoption's walk withholds the local-locus override the read side honors
+/// ([`import::LocalOverride`]): what this report finds becomes a committed member module
+/// and its artifact a projection, and a local kind's per-machine document is neither —
+/// its authored home never moves. So the ignore rules and the workspace skip stand here
+/// whatever a kind declares.
+///
 /// # Errors
 /// Returns a [`miette::Report`] if the embedded kind set fails to load or a kind's
 /// discovery walk fails to read a directory.
@@ -320,7 +326,7 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
     let kinds = builtin_kind::definitions()?;
     for kind in kinds.values() {
-        let files = import::discover_builtin(root, kind, &kinds)?;
+        let files = import::discover_builtin(root, kind, &kinds, import::LocalOverride::Withheld)?;
         members.insert(kind.name.clone(), files);
     }
     Ok(DiscoveryReport { members })
