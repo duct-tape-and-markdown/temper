@@ -29,11 +29,16 @@ hard.
 
 ## Parked (pointers only)
 
-- flume runtime bug (John, `@dtmd/flume`): a build worktree's `git commit`
-  resolved to `main`'s HEAD 3× in one tick (friction capture drained
-  07-18, full text in git history; likely stale GIT_DIR/GIT_WORK_TREE or
-  tool-cwd mismatch). Prompt-side stopgap shipped in build.md; the
-  runtime fix is upstream.
+- flume runtime bug (John, `@dtmd/flume`): build-agent git/file ops
+  escape the worktree to the root checkout — 3 manifestations 07-18:
+  wrong-branch commits (friction capture, drained), a stray root edit
+  (install.rs), and a root copy of an entry's own diff that then
+  BLOCKED that entry's cherry-pick (contract.rs; entry survived in
+  pending, stray discarded). Likely stale GIT_DIR/GIT_WORK_TREE or
+  tool-cwd mismatch. Prompt stopgaps in build.md (commit + write
+  fences, both post-dating manifestation 3's agents); runtime fix is
+  upstream, and the escalation: it now costs shipped waves, not just
+  cleanup.
 - flume runtime gap (John, `@dtmd/flume`): no cross-process loop lock —
   two `flume loop` supervisors ran ~1h against one state root (07-18,
   operator error; history stayed linear on timing luck). A pidfile/lock
