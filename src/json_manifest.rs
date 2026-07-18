@@ -159,18 +159,7 @@ impl DocumentMember {
         source_file: &Path,
         raw: &str,
     ) -> Result<Self, JsonManifestError> {
-        let source_hash = crate::hash::sha256_hex(raw.as_bytes());
-        let value: JsonValue =
-            serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
-                path: source_file.to_path_buf(),
-                detail: err.to_string(),
-            })?;
-        let JsonValue::Object(document) = value else {
-            return Err(JsonManifestError::Malformed {
-                path: source_file.to_path_buf(),
-                detail: "document top level is not a JSON object".to_string(),
-            });
-        };
+        let (source_hash, document) = parse_top_level_object(source_file, raw, "document")?;
 
         // A named-field document reads its id from a declared top-level key (a manifest's
         // `name`); a `file`-shaped one is a singleton at a fixed path, so its identity is
@@ -315,6 +304,29 @@ fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError> {
     Ok(string)
 }
 
+/// Parse JSON bytes and require a top-level object, returning the source hash and the parsed
+/// object map. The noun parameter is used in error messages to distinguish the context
+/// (e.g., "document" vs "manifest").
+fn parse_top_level_object(
+    source_file: &Path,
+    raw: &str,
+    noun: &str,
+) -> Result<(String, serde_json::Map<String, JsonValue>), JsonManifestError> {
+    let source_hash = crate::hash::sha256_hex(raw.as_bytes());
+    let value: JsonValue =
+        serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
+            path: source_file.to_path_buf(),
+            detail: err.to_string(),
+        })?;
+    let JsonValue::Object(object) = value else {
+        return Err(JsonManifestError::Malformed {
+            path: source_file.to_path_buf(),
+            detail: format!("{noun} top level is not a JSON object"),
+        });
+    };
+    Ok((source_hash, object))
+}
+
 impl Manifest {
     /// Read the JSON manifest at `source_file`, walking each of `addresses` into its
     /// declared collection to infer that collection's registration members, and keeping
@@ -354,19 +366,7 @@ impl Manifest {
         raw: &str,
         addresses: &[&CollectionAddress],
     ) -> Result<Self, JsonManifestError> {
-        let source_hash = crate::hash::sha256_hex(raw.as_bytes());
-
-        let value: JsonValue =
-            serde_json::from_str(raw).map_err(|err| JsonManifestError::Malformed {
-                path: source_file.to_path_buf(),
-                detail: err.to_string(),
-            })?;
-        let JsonValue::Object(manifest) = value else {
-            return Err(JsonManifestError::Malformed {
-                path: source_file.to_path_buf(),
-                detail: "manifest top level is not a JSON object".to_string(),
-            });
-        };
+        let (source_hash, manifest) = parse_top_level_object(source_file, raw, "manifest")?;
 
         // Each declared address walks into its collection; the top-level keys it consumes
         // are tracked so the residue that stays opaque excludes them.
