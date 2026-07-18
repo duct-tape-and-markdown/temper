@@ -941,7 +941,7 @@ fn decide(
                     .locate(&path)
                     .into_iter()
                     .flat_map(|(address, value)| {
-                        field_globs(&value)
+                        crate::graph::extract_globs(&value)
                             .into_iter()
                             .filter(|glob| crate::kind::compile_glob(glob).is_none())
                             .map(|glob| {
@@ -1150,17 +1150,6 @@ fn addressed(
         Outcome::Holds
     } else {
         Outcome::Violated(messages)
-    }
-}
-
-/// The glob strings a field value carries — each element of a list, or a lone
-/// scalar read as a single glob (a `paths` authored as one string). A map carries
-/// none; a type mismatch there is the `type` clause's concern, not this one's.
-fn field_globs(value: &FeatureValue) -> Vec<&str> {
-    match value {
-        FeatureValue::List(items) => items.iter().map(String::as_str).collect(),
-        FeatureValue::Scalar { text, .. } => vec![text.as_str()],
-        FeatureValue::Map => Vec::new(),
     }
 }
 
@@ -2220,6 +2209,30 @@ mod tests {
         // An absent field is the `required` clause's concern, not this one's.
         let absent = features("demo", &[], 1, None);
         assert!(run(predicate(), absent).is_empty());
+
+        // A whitespace-padded glob is now judged trimmed: the shared extractor's
+        // trim semantics apply, so a valid glob with padding is trimmed to its valid core.
+        // Before consolidation, field_globs returned untrimmed strings, and a glob like
+        // `"  src/**/*.rs  "` (padded valid pattern) might fail differently than after trimming.
+        // This test pins the new behavior: padded globs are trimmed before validation.
+        let padded_valid = features(
+            "demo",
+            &[("paths", json!(["  src/**/*.rs  ", "  docs/*.md  "]))],
+            1,
+            None,
+        );
+        assert!(
+            run(predicate(), padded_valid).is_empty(),
+            "padded valid globs pass after trimming"
+        );
+
+        // A padded unparseable glob still fails after trimming, but the failure is on the trimmed value.
+        let padded_invalid = features("demo", &[("paths", json!(["  [  "]))], 1, None);
+        assert_eq!(
+            run(predicate(), padded_invalid).len(),
+            1,
+            "padded invalid glob fails on trimmed value"
+        );
     }
 
     #[test]

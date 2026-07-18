@@ -781,6 +781,30 @@ fn field_is_blank(member: &Features, field: &str) -> bool {
     }
 }
 
+/// The glob strings a value carries: each element of a list, or a lone scalar
+/// read as a single glob. A map carries none; a type mismatch there is another
+/// clause's concern, not this one's. Each glob is trimmed, and blank/whitespace-only
+/// entries are dropped — a whitespace-padded glob would compile as a literal-space
+/// pattern silently matching nothing, and is better judged trimmed.
+pub(crate) fn extract_globs(value: &FeatureValue) -> Vec<String> {
+    match value {
+        FeatureValue::List(items) => items
+            .iter()
+            .map(|glob| glob.trim().to_string())
+            .filter(|glob| !glob.is_empty())
+            .collect(),
+        FeatureValue::Scalar { text, .. } => {
+            let glob = text.trim();
+            if glob.is_empty() {
+                Vec::new()
+            } else {
+                vec![glob.to_string()]
+            }
+        }
+        FeatureValue::Map => Vec::new(),
+    }
+}
+
 /// The registration globs a member declares on `field`: a scalar names one glob, a list
 /// names each of several, and an absent field or a map (which carries no glob) names
 /// none. Read off [`Features`] — a declared field, never grepped. Declaring none is
@@ -790,19 +814,7 @@ fn field_is_blank(member: &Features, field: &str) -> bool {
 fn declared_globs(member: &Features, field: &str) -> Vec<String> {
     match member.field(field) {
         None | Some(FeatureValue::Map) => Vec::new(),
-        Some(FeatureValue::Scalar { text, .. }) => {
-            let glob = text.trim();
-            if glob.is_empty() {
-                Vec::new()
-            } else {
-                vec![glob.to_string()]
-            }
-        }
-        Some(FeatureValue::List(items)) => items
-            .iter()
-            .map(|glob| glob.trim().to_string())
-            .filter(|glob| !glob.is_empty())
-            .collect(),
+        Some(value) => extract_globs(&value),
     }
 }
 
