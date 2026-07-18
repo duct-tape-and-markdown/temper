@@ -1,34 +1,31 @@
 # Plan state
 
 - Spec derived through: 7739b91
-- Audited through: ac93a2e
-- Residue swept through: ac93a2e
-- This tick: RECONCILED d1af9a5..HEAD (post-ship). Window shipped three build
-  entries — KNOWN-MARKETPLACE-KIND (4dd7cfb), TELEMETRY-FIELD-STRAND (542f4a6),
-  TELEMETRY-HOOK-PROJECTION (7b26b4e) — all already dropped from pending by
-  build. AUDIT (verified live on disk): known-marketplace ships as a `Registry`
-  registration member (`claude_code_known_marketplace()` builtin_kind.rs:326,
-  `knownMarketplace` builtins.ts:542, `extraKnownMarketplaces.*` collection
-  address); the field strand joins the tap log to members through lock
-  declarations in explain's member arm (`field()` read.rs:1457, wired at :260);
-  tap hooks synthesize at emit (`tapHookRows` emit.ts:649 + declarations.ts).
-  Stale-gate re-test: KNOWN-MARKETPLACE-KIND shipped, so its dependent
-  KNOWN-MARKETPLACE-EDGE re-gated blockedBy->OPEN — anchors survive
-  (installedPlugin builtins.ts:476, un-rangeable doc 491/501,
-  claude_code_installed_plugin builtin_kind.rs:293; graph.rs edge-resolver home
-  confirmed at pick-up). Both parks re-tested at HEAD and hold:
-  MAX_IMPORT_HOPS still 5 + 2026-07-02 cite (graph.rs:54-59, const region
-  untouched — the window's graph.rs edit was `dead_registration` gaining
-  `Registry` at 707-722); no v0.1 tag, crate 0.1.0, `.github/` empty in window.
-  SWEEP: no residue. The `Registration` widening (new `Registry` variant) is
-  exhaustive across every consumer — `dead_registration` (graph.rs:718-722)
-  and the string->variant parser (kind.rs:1216) both answer it by construction;
-  the `_ => None` arms over Registration are string-parser tails, not partial
-  enumerations. Field strand / `tapHookRows` reuse the lock-join surface, no
-  duplicate. Both cursors -> HEAD (ac93a2e).
-- Queue: 3 entries — 1 pickable OPEN (KNOWN-MARKETPLACE-EDGE, sole open entry,
-  no disjointness conflict); 2 parked (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER).
+- Audited through: 8d75682
+- Residue swept through: 8d75682
+- This tick: RECONCILED ac93a2e..HEAD (post-ship). Window shipped one build
+  entry — KNOWN-MARKETPLACE-EDGE (247c346), already dropped from pending by
+  build. AUDIT (verified live on disk): the marketplace half of an
+  enablement's `<plugin>@<marketplace>` key now resolves as a declared edge to
+  the known-marketplace member (decision 0039) — `MARKETPLACE_FIELD` +
+  `identity_edge` fold the half off the composite key (kind.rs:229/274),
+  `installed-plugin` carries the `known-marketplace` relationship
+  (builtin_kind.rs:306-313), the edge rides the built-in lock as an assembly
+  fact (builtin_lock.toml:1069-1073), and json_manifest folds it onto member
+  features (json_manifest.rs:95-101). `installed_plugin_kind` (6) + `gauntlet`
+  green. No blockedBy entries to unblock; no open fork resolved. Both parks
+  re-tested at HEAD and hold: MAX_IMPORT_HOPS still 5 + 2026-07-02 cite
+  (graph.rs:55-59, const region untouched in window); no v0.1 tag (only era
+  tags), crate 0.1.0, `.github/` empty across ac93a2e..HEAD.
+  SWEEP: no residue. The edge widening reuses the generic field-edge path (no
+  graph resolver change); `identity_edge` holds an exhaustive match over
+  `CollectionKeyPath` (EnabledPlugins folds, the other three return None) — a
+  new key path answers it by construction, no `_` arm. `identity_edge` sits
+  beside `key_field` as a second fold (marketplace vs event), not a duplicate
+  of one job. Both cursors -> HEAD (8d75682).
+- Queue: 2 entries — 0 pickable OPEN; 2 parked (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER), each on human action.
 
 Plan continues: no — window reconciled through HEAD, inbox + spec-delta empty;
-1 pickable open entry (KNOWN-MARKETPLACE-EDGE), build takes over.
+zero pickable open entries (both remaining parked on human action), loop
+hibernates.
