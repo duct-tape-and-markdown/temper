@@ -146,24 +146,6 @@ pub fn walk_count() -> usize {
     WALKS.with(Cell::get)
 }
 
-thread_local! {
-    /// Per-thread count of directory reads the per-kind glob scan opens from disk. The
-    /// shared discovery walk ([`discoverable_paths`]) is the sole filesystem enumeration;
-    /// the scan derives each kind's matches from that walk's in-memory index
-    /// ([`Discoverable`]) and opens no directory of its own, so this stays zero across a run
-    /// however many kinds discover. It is the count-pin's decidable witness that no kind
-    /// re-walks the tree — a scan reintroducing a `fs::read_dir` bumps it off zero.
-    static READ_DIRS: Cell<usize> = const { Cell::new(0) };
-}
-
-/// This thread's per-kind scan directory-read count. Read before and after a check run: a
-/// zero delta pins that discovery derives every kind's members from the one shared walk's
-/// index, opening no directory per kind.
-#[must_use]
-pub fn read_dir_count() -> usize {
-    READ_DIRS.with(Cell::get)
-}
-
 /// Discover a built-in `kind`'s source files at whichever locus it declares — the same
 /// data-driven scan a custom kind would get, so `skill`/`rule` are no longer hardwired
 /// paths (the emit face's locus is the read face's scan root).
