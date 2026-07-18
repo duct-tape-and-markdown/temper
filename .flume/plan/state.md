@@ -5,13 +5,14 @@
 - Audited through: 3561798 — unchanged.
 - Residue swept through: 3561798 — unchanged.
 - Posture swept through: formats next (mid-rotation) — foundation
-  skip-forwarded (untouched since 2d1c5a6), model swept this tick.
-- This tick: POSTURE SWEEP — model subsystem (kind.rs/contract.rs/
-  compose.rs/schema.rs/roster.rs). 1 pending entry filed
-  (ROSTER-DOCUMENTED-EVENTS-CONSOLIDATE), 1 refactor capture filed
-  (plan-kind-cohesion.md).
-- Queue: 48 pending (+1), 8 pickable OPEN, 37 blockedBy, 3 parked.
-  Refactor captures: 1 live. Friction: 0 live. Inbox: 0 notes.
+  skip-forwarded (untouched since 2d1c5a6), model swept prior tick.
+- This tick: INBOX — drained 1 live refactor capture
+  (plan-kind-cohesion.md, re-verified unchanged at HEAD) into 1 pending
+  entry (KIND-GLOB-CACHE-FOUNDATION-PLACEMENT, parked — needs an
+  architecture.md ruling on address.rs as the glob cache's home before
+  the move is mechanical); capture file deleted. Inbox itself empty.
+- Queue: 49 pending (+1), 8 pickable OPEN, 37 blockedBy, 4 parked.
+  Refactor captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
 Plan continues: yes — unrouted spec delta (78d43d3) and the posture
 sweep's mid-rotation continuation (formats next) both shape next tick.
