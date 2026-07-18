@@ -7,6 +7,10 @@
 //! [`CustomKind::new`] — and validated as any kind is; this module only sources its
 //! facts from Rust literals instead of a parsed header. Identity is flat: a kind's bare
 //! name is its whole identity, so the kinds below never collide.
+//!
+//! This module is also the home for known Claude Code surfaces — the curated registry
+//! of documented surfaces (`.claude/settings.json`, `.mcp.json`) that no built-in kind
+//! governs, used by the coverage note to flag gaps in harness coverage.
 
 use std::collections::BTreeMap;
 
@@ -20,6 +24,95 @@ use crate::kind::{
     Primitive, Registration, Template, Unit,
 };
 use crate::tap::TapEvent;
+
+/// The Claude Code harness root directory.
+pub const CLAUDE_ROOT: &str = ".claude";
+
+/// A known Claude Code harness surface temper's built-in kinds do not govern — an
+/// external fact carrying its citation at the point of claim
+/// (.claude/rules/collaboration.md, "External facts are cited").
+pub struct KnownSurface {
+    /// The surface's path relative to the harness root (slash-separated).
+    pub path: &'static str,
+    /// Whether the path is a directory (`.claude/agents/`) or a single file
+    /// (`.claude/settings.json`) — fixes both the on-disk probe and the governance test.
+    pub is_dir: bool,
+    /// A one-line description of what the surface holds, for the advisory message.
+    pub holds: &'static str,
+    /// The Claude Code docs the surface's existence and locus are claimed from.
+    pub source: &'static str,
+    /// The manifest's named top-level segments, when it is a manifest a segment kind can
+    /// govern a slice of. Each names its display word and the manifest collection key a
+    /// kind governs it under (`None` for a segment no kind ever models — the perpetual
+    /// opaque residue). Empty for a surface with no segment model: `.mcp.json` is wholly
+    /// one collection, so its governance is binary (whole-manifest kind or nothing).
+    pub segments: &'static [Segment],
+}
+
+/// One named top-level segment of a manifest — the unit a partial-governance finding
+/// reasons over.
+pub struct Segment {
+    /// The segment's display word, named in the advisory message.
+    pub name: &'static str,
+    /// The manifest collection key a kind governs this segment under, or `None` when no
+    /// kind ever models it (permissions, env — genuinely unschematized residue).
+    pub collection_key: Option<&'static str>,
+}
+
+/// The Claude Code settings docs, retrieved 2026-07-16 — the shared citation for the
+/// curated surfaces below, each of which is documented there.
+pub const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-16)";
+
+/// The curated known-surface list. Every entry is a documented Claude Code surface
+/// (verified against the settings docs, [`SETTINGS_DOC`]) that **no built-in kind
+/// governs**: skills live under `.claude/skills/` (the `skill` kind), commands under
+/// `.claude/commands/` (the `command` kind), subagents under `.claude/agents/` (the
+/// `agent` kind), rules under `.claude/rules/` (the `rule` kind), and memory under
+/// `CLAUDE.md` (the `memory` kind), so those loci are deliberately absent —
+/// governance already covers them.
+/// Hooks are **not** a directory: they are configured inside
+/// `settings.json`, so the settings entry covers them and no invented `.claude/hooks/`
+/// locus appears (a false locus would be the exact uncited guess collaboration.md
+/// forbids). A `specs/` corpus is likewise absent: it is not a Claude Code surface,
+/// and temper models it with *custom* kinds (`intent`/`architecture`/`process`), so
+/// hardcoding it as ungoverned would fire a false positive on temper's own harness.
+pub const KNOWN_SURFACES: &[KnownSurface] = &[
+    KnownSurface {
+        path: ".claude/settings.json",
+        is_dir: false,
+        holds: "Claude Code project settings — permissions, env, hooks, and enabled plugins",
+        source: SETTINGS_DOC,
+        segments: &[
+            Segment {
+                name: "permissions",
+                collection_key: None,
+            },
+            Segment {
+                name: "env",
+                collection_key: None,
+            },
+            Segment {
+                name: "hooks",
+                collection_key: Some("hooks"),
+            },
+            Segment {
+                name: "enabledPlugins",
+                collection_key: Some("enabledPlugins"),
+            },
+            Segment {
+                name: "extraKnownMarketplaces",
+                collection_key: Some("extraKnownMarketplaces"),
+            },
+        ],
+    },
+    KnownSurface {
+        path: ".mcp.json",
+        is_dir: false,
+        holds: "Claude Code project MCP server configuration",
+        source: SETTINGS_DOC,
+        segments: &[],
+    },
+];
 
 /// The skill surface's field schema — the documented frontmatter fields plus the
 /// markdown-structure primitives, shared verbatim by `skill` and `command`
@@ -84,7 +177,7 @@ fn claude_code_skill() -> CustomKind {
         ..CustomKind::new(
             "skill",
             Governs {
-                root: ".claude/skills".to_string(),
+                root: format!("{}/skills", CLAUDE_ROOT),
                 glob: "*/SKILL.md".to_string(),
             },
             skill_extraction(),
@@ -127,7 +220,7 @@ fn claude_code_command() -> CustomKind {
         ..CustomKind::new(
             "command",
             Governs {
-                root: ".claude/commands".to_string(),
+                root: format!("{}/commands", CLAUDE_ROOT),
                 glob: "*.md".to_string(),
             },
             skill_extraction(),
@@ -153,7 +246,7 @@ fn claude_code_agent() -> CustomKind {
         ..CustomKind::new(
             "agent",
             Governs {
-                root: ".claude/agents".to_string(),
+                root: format!("{}/agents", CLAUDE_ROOT),
                 glob: "**/*.md".to_string(),
             },
             Extraction::new(vec![
@@ -184,7 +277,7 @@ fn claude_code_rule() -> CustomKind {
         ..CustomKind::new(
             "rule",
             Governs {
-                root: ".claude/rules".to_string(),
+                root: format!("{}/rules", CLAUDE_ROOT),
                 glob: "*.md".to_string(),
             },
             Extraction::new(vec![
@@ -245,7 +338,7 @@ fn claude_code_hook() -> CustomKind {
         ..CustomKind::new(
             "hook",
             Governs {
-                root: ".claude".to_string(),
+                root: CLAUDE_ROOT.to_string(),
                 glob: "settings.json".to_string(),
             },
             Extraction::new(Vec::new()),
@@ -317,7 +410,7 @@ fn claude_code_installed_plugin() -> CustomKind {
         ..CustomKind::new(
             "installed-plugin",
             Governs {
-                root: ".claude".to_string(),
+                root: CLAUDE_ROOT.to_string(),
                 glob: "settings.json".to_string(),
             },
             Extraction::new(Vec::new()),
@@ -350,7 +443,7 @@ fn claude_code_known_marketplace() -> CustomKind {
         ..CustomKind::new(
             "known-marketplace",
             Governs {
-                root: ".claude".to_string(),
+                root: CLAUDE_ROOT.to_string(),
                 glob: "settings.json".to_string(),
             },
             Extraction::new(Vec::new()),
@@ -435,7 +528,7 @@ fn claude_code_settings_local() -> CustomKind {
         ..CustomKind::new(
             "settings-local",
             Governs {
-                root: ".claude".to_string(),
+                root: CLAUDE_ROOT.to_string(),
                 glob: "settings.local.json".to_string(),
             },
             Extraction::new(Vec::new()),
