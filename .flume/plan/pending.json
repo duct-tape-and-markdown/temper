@@ -1,40 +1,16 @@
 [
   {
-    "tag": "WALK-SHARE-RUN-COUNT-PIN",
-    "summary": "Retrofit a run-level count-pin: a full check run walks each consulted discovery flavor once. Today only a cache-level unit test pins the mechanism, not that the run threads one Discovery.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "The shared walk's count-pin lives cache-level today: `flavors_walked` (93, `#[cfg(test)]`, private) is asserted `== 1` inside one `discover_builtin` scenario (test at 1077). That pins the Discovery *mechanism* — given one shared cache, N kind discoveries cost one walk per flavor. It never pins that a real check run threads a single `Discovery` (constructed at `main.rs:518`) through every discovery call, so a code path that builds a second cache mid-run would regress the walk count while the cache test stayed green. Add the run-level pin: over a full run each consulted flavor is walked exactly once. `flavors_walked` is private+cfg(test), so make the walk count observable through the path a run takes — a test seam on the run, or a src-level test driving the pipeline — build's call. This is engineering.md's 'one walk per run' count, held decidably (a count, never a clock)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "a full check run's discovery walks each consulted flavor exactly once — the run-level work count, not just the cache mechanism; a second Discovery accidentally constructed mid-run fails it"
-      }
-    ],
-    "acceptance": "A full check run's discovery walks each consulted flavor exactly once, pinned by a work count (never a wall-clock threshold) at run granularity. `cargo test` green.",
-    "notes": "Retrofit for the shipped DISCOVERY-WALK-SHARE (d1af9a5): the pin at import.rs:1077 is cache-level; this pins that the run USES the shared cache (threads one Discovery from main.rs:518). engineering.md, 'the pin is a count, never a clock'. A small multi-kind harness suffices — no 17k fixture. If CHECK-RESIDUAL-DIAGNOSIS's cut hoists per-kind work into the walk, reconcile the pins (consolidation, not a second test). scoped at 810da42."
-  },
-  {
     "tag": "CHECK-RESIDUAL-DIAGNOSIS",
     "summary": "Measure-first: a generated 17k-file fixture with coarse phase timing names check's 22s-residual dominant cost; the numbers pick the cut and the fix lands with its count-pin.",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "Cost scale is hoisted, and pinned by count"
     },
-    "gate": { "kind": "blockedBy", "tag": "WALK-SHARE-RUN-COUNT-PIN" },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "WALK-SHARE-RUN-COUNT-PIN"
+    },
+    "dependsOnForks": [],
     "files": {
       "new": [
         {
