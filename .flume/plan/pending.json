@@ -1,49 +1,5 @@
 [
   {
-    "tag": "CHECK-RESIDUAL-DIAGNOSIS",
-    "summary": "Measure-first: a generated 17k-file fixture with coarse phase timing names check's 22s-residual dominant cost; the numbers pick the cut and the fix lands with its count-pin.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "tests/check_cost.rs",
-          "description": "A generated large-tree fixture (17k-file shape, the gauntlet's sibling), built in a tempdir at test time and NEVER committed (engineering.md: 'synthetic input at consumer scale, built at test time, never committed'). Runs `check` over it with coarse per-phase timing to name where the 22s residual concentrates — the numbers go in the commit body. Holds the work-count pin the measured cut earns (e.g. one glob compiled per distinct glob, or no file read twice in a phase) — deterministic and machine-independent, never a wall-clock assertion. If the tree generator is reusable, its home is `tests/common/mod.rs` (engineering.md, 'one home') — build's call."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Top candidate from the fork's list (archived at a8bb83d): `scan_locus` (399) runs `collect_glob` (429) per kind over the shared discoverable set — one match pass per kind, `collect_glob` a hand-rolled per-segment walk over the discoverable set (not a globset compile) invoked per kind. If the numbers name this, hoist/share the per-kind work (share the scan; compile each distinct glob once) and count-pin it. The shared discoverable set is already hoisted (Discovery struct+impl, 51-96, walked once per flavor per run by `discoverable_paths` at 505, count-pinned via `walk_count` 64 — WALK-SHARE-RUN-COUNT-PIN, 73d5757); this is the per-kind re-scan ON TOP of it. Addresses re-read at HEAD."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Read-side candidate: per-file reads across the discovered set. If the timing names this, the cut and its count-pin ('no file read twice in a phase') land here."
-        },
-        {
-          "path": "src/hash.rs",
-          "description": "Read-side candidate: content hashing per file. Cut and pinned only if the numbers point here. Measure-first — build cuts the ONE dominant cost the timing names among these candidates and surfaces it (never guesses); a cost outside the fork's named candidates routes back rather than silently expanding scope."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "the measured dominant cost is cut and guarded by a work-count pin (one glob compiled per distinct glob / no file read twice in a phase) — deterministic and machine-independent, never a wall-clock threshold"
-      }
-    ],
-    "acceptance": "check's 22s residual is diagnosed on a generated 17k-file tree with the phase numbers recorded in the commit body; the dominant cost is cut; a work-count pin (never a clock) guards the cut. `cargo test` green; no committed fixture, no corpus perf bar.",
-    "notes": "Resolves the deleted (check-residual-owner) fork (ruled 810da42); candidate list at a8bb83d. DISCOVERY-WALK-SHARE halved check on a 16,814-file repo (41s->22s); the 22s residual has no named owner. Measure-first — the numbers pick the cut (engineering.md, 'Diagnosis is measure-first'). Fixture generated at test time, never committed. WALK-SHARE-RUN-COUNT-PIN shipped 73d5757 (walk_count pin live in import.rs); unblocked to OPEN. scoped at 810da42, addresses re-read at HEAD."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
