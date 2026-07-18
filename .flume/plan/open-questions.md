@@ -66,6 +66,32 @@ tax.
   to `test_support`-built kinds (removes the edge cleanly) versus
   amending the map to scope the exception to test code. No dependents.
 
+- `(extract-foundation-edge)` — OPEN, architecture. `specs/process/
+  architecture.md` (663e03f) declares foundation's invariant "depends on
+  nothing internal — holds today (`check`, `extract`, `tap`, `hash` import
+  no sibling)," naming `extract` clean. Verified false on disk at HEAD
+  5b4701c: `src/extract.rs`'s `nested_members_from_rows`/
+  `embedded_member_from_row` (764, 778) take `crate::drift::NestedMemberRow`
+  as a real parameter type — `drift` is the `pipeline` subsystem, not a
+  foundation sibling — and `manifest_members` (1015) branches on
+  `crate::kind::CollectionKeyPath` (1022, 1032) while
+  `enablement_member_fields` (1075) reads `crate::kind::ENABLEMENT_FIELD`
+  (1077, 1095) — `kind` is the `model` subsystem. The module's own header
+  (22-23) states a narrower, longstanding boundary ("no dependency on
+  `crate::contract`") that the code actually honors; architecture.md's
+  broader "nothing internal" claim does not match. Same shape as the two
+  edges architecture.md already declares in tension with itself
+  (`drift-install-edge`, `frontmatter-builtin-kind-edge`): resolve by moving
+  the two `drift`-typed functions down into `drift.rs` (pipeline depending
+  on foundation, the invariant's intended direction) and finding a home for
+  `manifest_members`'s `kind.rs` dependencies, or by amending the invariant
+  text to admit `extract.rs`'s real, narrower boundary — "the entry's
+  design question," not plan's to invent. Routed from
+  `.flume/refactor/plan-extract-foundation-boundary.md` (observed 04610b1,
+  re-verified unmoved at 5b4701c — no commits touched `src/extract.rs`,
+  `src/drift.rs`, `src/kind.rs`, or `specs/process/architecture.md` in
+  between). No dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
