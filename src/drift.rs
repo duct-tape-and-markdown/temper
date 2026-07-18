@@ -1830,9 +1830,22 @@ fn resolve_source_dependency(
 /// row resolves under the harness wherever it sits. A target outside the harness tree
 /// keeps its absolute form, still readable, just unrooted (joining it back onto any root
 /// is a no-op).
+///
+/// Resolves both paths canonically to handle symlink hopping consistently with how the
+/// SDK resolves targets: when a symlink sits between the cwd and the harness, the two
+/// sides' lexical absolutization can diverge, failing to strip. Canonicalization unifies
+/// them before stripping, so the row is harness-relative regardless of symlinks in the cwd.
 fn harness_relative(target: &str, harness_root: &Path) -> String {
-    let target_abs = std::path::absolute(target).unwrap_or_else(|_| PathBuf::from(target));
-    let root_abs = std::path::absolute(harness_root).unwrap_or_else(|_| harness_root.to_path_buf());
+    let target_path = PathBuf::from(target);
+    // Try canonicalizing both sides to resolve symlinks consistently. The SDK canonicalizes
+    // targets via fs::canonicalize (via import.meta.url resolution), so our root must too.
+    // Fallback to pure lexical absolutization if either path doesn't exist yet.
+    let target_abs = fs::canonicalize(&target_path)
+        .or_else(|_| std::path::absolute(&target_path))
+        .unwrap_or(target_path);
+    let root_abs = fs::canonicalize(harness_root)
+        .or_else(|_| std::path::absolute(harness_root))
+        .unwrap_or_else(|_| harness_root.to_path_buf());
     match target_abs.strip_prefix(&root_abs) {
         Ok(relative) => to_lock_path(relative),
         Err(_) => to_lock_path(&target_abs),

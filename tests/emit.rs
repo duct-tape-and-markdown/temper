@@ -1016,6 +1016,26 @@ fn coordinate_only() -> Payload {
     )])
 }
 
+// A payload with a skill member that includes another file via composed-prose include.
+// The member body carries one include slot (U+0001) that will splice the target's contents.
+fn with_composed_prose_include() -> (Payload, String) {
+    let include_target_content = "# Included Content\n\nThis is included prose.";
+    let member_body = format!(
+        "# Coordinate\n\n{}\n\nMore prose after include.",
+        "\u{0001}"
+    );
+    let mut payload = basic_payload(vec![common::skill_member(
+        "coordinate",
+        "Use when coordinating agents across axes.",
+        &member_body,
+    )]);
+    payload.declarations.includes.push(drift::IncludeRow {
+        member: "skill:coordinate".to_string(),
+        source_path: "/absolute/path/to/included.md".to_string(),
+    });
+    (payload, include_target_content.to_string())
+}
+
 #[test]
 fn re_emitting_after_a_member_is_removed_reaps_an_untouched_projection() {
     let (harness, into) = workspace("reap-clean");
@@ -1471,6 +1491,112 @@ fn a_lock_emitted_from_a_foreign_cwd_carries_the_rows_of_one_emitted_at_the_harn
         from_parent.join(".claude/rules/rust.md").is_file(),
         "the projection lands under the targeted harness, not under the cwd"
     );
+}
+
+#[test]
+fn a_lock_with_composed_prose_includes_emitted_from_a_foreign_cwd_is_harness_relative() {
+    // Extends the foreign-cwd test to cover the one row family the prior test proves nothing
+    // about: composed-prose includes. A member's include row carries an absolute source_path
+    // resolved by the SDK; emit must spell it harness-relative in the lock, regardless of
+    // the cwd. Before the fix, a foreign-cwd invocation would silently bake the raw absolute
+    // path instead, degrading downstream to an unowned-file finding.
+    let at_root = common::tmpdir("include-cwd-rows-at-root");
+    let from_parent = common::tmpdir("include-cwd-rows-from-parent");
+    fs::create_dir_all(at_root.join(".temper")).unwrap();
+    fs::create_dir_all(from_parent.join(".temper")).unwrap();
+
+    let (payload, include_target) = with_composed_prose_include();
+
+    // Create the include target file under each harness so the same payload can be emitted
+    // from either location.
+    let included_md_at_root = at_root.join("included.md");
+    let included_md_from_parent = from_parent.join("included.md");
+    fs::write(&included_md_at_root, &include_target).unwrap();
+    fs::write(&included_md_from_parent, &include_target).unwrap();
+
+    let guard = CWD_MUTEX.lock().unwrap();
+    let original_cwd = std::env::current_dir().unwrap();
+
+    // Lane A: cwd = the harness root
+    std::env::set_current_dir(&at_root).unwrap();
+    // Update the payload's include source_path to point at the file we just created
+    let mut payload_at_root = payload.clone();
+    payload_at_root.declarations.includes[0].source_path =
+        included_md_at_root.to_string_lossy().to_string();
+    let at_root_report = drift::emit(
+        &payload_at_root,
+        Path::new(".temper"),
+        EmitOptions::default(),
+    );
+
+    // Lane B: cwd = the harness's parent
+    std::env::set_current_dir(from_parent.parent().unwrap()).unwrap();
+    let named_off_cwd = PathBuf::from(from_parent.file_name().unwrap()).join(".temper");
+    let mut payload_from_parent = payload;
+    payload_from_parent.declarations.includes[0].source_path =
+        included_md_from_parent.to_string_lossy().to_string();
+    let foreign_report = drift::emit(&payload_from_parent, &named_off_cwd, EmitOptions::default());
+
+    std::env::set_current_dir(&original_cwd).unwrap();
+    drop(guard);
+
+    let at_root_report = at_root_report.unwrap();
+    let foreign_report = foreign_report.unwrap();
+
+    let at_root_lock = fs::read_to_string(at_root.join(".temper/lock.toml")).unwrap();
+    let foreign_lock = fs::read_to_string(from_parent.join(".temper/lock.toml")).unwrap();
+    assert_eq!(
+        at_root_lock, foreign_lock,
+        "composed-prose includes emit byte-identical locks from any cwd"
+    );
+
+    // The critical assertion: the include row's source_path must be harness-relative, not
+    // a raw absolute path baked by a foreign-cwd invocation. The lock spelling should match
+    // regardless of which cwd the emit ran under.
+    let include_section_pattern = "[[declaration.include]]";
+    assert!(
+        at_root_lock.contains(include_section_pattern),
+        "the lock carries an include row: {at_root_lock}"
+    );
+    // The source_path should be harness-relative (a simple filename in this case), not
+    // an absolute path like /tmp/...
+    let lines: Vec<&str> = at_root_lock.lines().collect();
+    let mut found_source_path = false;
+    for (i, line) in lines.iter().enumerate() {
+        if line.trim() == "[[declaration.include]]" {
+            // Look for source_path in the rows following this marker
+            for line_after in &lines[(i + 1)..] {
+                if line_after.starts_with("[[") {
+                    break; // Next section
+                }
+                if let Some(path_val) = line_after.strip_prefix("source_path = ") {
+                    found_source_path = true;
+                    assert!(
+                        !path_val.starts_with("\"/") && !path_val.starts_with("\"C:\\"),
+                        "the include's source_path must be harness-relative, not an absolute filesystem path: {path_val}"
+                    );
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    assert!(
+        found_source_path,
+        "lock should contain an include row with source_path"
+    );
+
+    // Both emissions should succeed with no reaped entries
+    for report in [&at_root_report, &foreign_report] {
+        assert!(
+            !report
+                .entries
+                .iter()
+                .any(|e| e.outcome == EmitOutcome::Reaped),
+            "includes don't cause spurious reaps: {:?}",
+            report.entries
+        );
+    }
 }
 
 #[test]
