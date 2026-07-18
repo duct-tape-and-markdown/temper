@@ -466,16 +466,7 @@ pub fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, Frontmatt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::builtin_kind;
-    use crate::test_support::tmpdir;
-
-    fn skill_kind() -> CustomKind {
-        builtin_kind::definition("skill").unwrap().unwrap()
-    }
-
-    fn rule_kind() -> CustomKind {
-        builtin_kind::definition("rule").unwrap().unwrap()
-    }
+    use crate::test_support::{rule_kind, skill_kind, tmpdir};
 
     const SKILL: &str = "---\n\
 name: demo\n\
