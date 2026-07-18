@@ -80,7 +80,8 @@ impl FieldPath {
 
     /// This path's author-facing spelling.
     #[must_use]
-    pub fn spelling(&self) -> &str {
+    #[allow(dead_code)]
+    fn spelling(&self) -> &str {
         &self.spelling
     }
 
