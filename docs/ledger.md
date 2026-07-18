@@ -34,6 +34,13 @@ hard.
   07-18, full text in git history; likely stale GIT_DIR/GIT_WORK_TREE or
   tool-cwd mismatch). Prompt-side stopgap shipped in build.md; the
   runtime fix is upstream.
+- LSP-ahead-of-grep rule (parked 07-18, condition-gated): ruled right in
+  principle — semantic queries (references, goto-def) get semantic
+  tools; rg keeps prose/cites (the provider-fact lens needs literals).
+  Blocked: the LSP tool hard-hangs this environment (2 lockups, plugin
+  LSP servers). Encode only after a references query answers live AND
+  inside a headless tick, plus a cold-index cost read (per-worktree
+  rust-analyzer vs the cargo-gate contention trap).
 - flume runtime gap (John, `@dtmd/flume`): no cross-process loop lock —
   two `flume loop` supervisors ran ~1h against one state root (07-18,
   operator error; history stayed linear on timing luck). A pidfile/lock
