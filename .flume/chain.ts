@@ -583,12 +583,19 @@ const withTickMetrics = (inner: Agent): Agent => ({
       if (line) {
         const r = JSON.parse(line);
         const u = r.usage ?? {};
+        const phase = /^Phase:\s*(\S+)/m.exec(opts.prompt)?.[1] ?? "unknown";
         appendFileSync(
           METRICS_PATH,
           `${JSON.stringify({
             at: new Date().toISOString(),
-            phase: /^Phase:\s*(\S+)/m.exec(opts.prompt)?.[1] ?? "unknown",
-            entry: /"tag":\s*"([A-Z0-9-]+)"/.exec(opts.prompt)?.[1],
+            phase,
+            // Only build ticks own an entry; plan's prompt inlines all of
+            // pending.json, so an unconditional grep tags plan with the
+            // first entry it happens to quote.
+            entry:
+              phase === "build"
+                ? /"tag":\s*"([A-Z0-9-]+)"/.exec(opts.prompt)?.[1]
+                : undefined,
             turns: r.num_turns,
             duration_ms: r.duration_ms,
             input_tokens: u.input_tokens,

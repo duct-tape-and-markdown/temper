@@ -76,8 +76,12 @@ managed-metadata vocabulary, imported downward by both); `frontmatter
 build synthetic kinds from `test_support`; `extract`'s upward imports
 dissolve when its lock-row lifters land in `drift` and its
 manifest-collection grammar (both faces) lands in `json_manifest`.
-Until the entries ship, the edges stand here as declared debt — the
-map is intent, and intent loses to a better argument, never to drift.
+A fourth surfaced in the next sweep rotation and is ruled the same
+way (2026-07-18): `normalize_path` is pure path vocabulary homed in
+`graph` (judges) with all external callers in pipeline — it moves to
+`address` (foundation), where its shape already lives. Until the
+entries ship, the edges stand here as declared debt — the map is
+intent, and intent loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
 
