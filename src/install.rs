@@ -129,7 +129,7 @@ pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projecte
 /// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest is
 /// co-owned: a write touching only opaque residue conforms and passes, so the finding names the
 /// contract broken, not the file edited. States the same binding limit verbatim.
-pub const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code writes; other tools writes are not bound by it.";
+const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code writes; other tools writes are not bound by it.";
 
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path`
 /// value under a `.claude/` locus, captured so the guard can test it for lock-declared
