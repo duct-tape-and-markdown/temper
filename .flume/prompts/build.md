@@ -67,7 +67,10 @@ place you commit.** Never rebase onto or merge from `main`, never push a trunk
 ref, never `cd` to the root checkout to commit — if `main` has moved since your
 worktree was created, ignore it; reconciling is the dispatcher's job, and a
 commit made anywhere but this branch bypasses the gates and is lost to ship
-bookkeeping.
+bookkeeping. **Verify the target before every commit**: `git rev-parse
+--abbrev-ref HEAD` must name this worktree's `flume/<tag>` branch — on a
+mismatch, stop and report it as a blocker instead of committing; a
+wrong-branch commit is silently lost, and retrying it burns the tick.
 
 Gates run automatically after your commit: `cargo fmt --check` (afterCommit),
 then `cargo clippy -D warnings`, `cargo test`, and `pnpm --dir sdk test`

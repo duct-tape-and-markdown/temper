@@ -29,6 +29,12 @@ hard.
 
 ## Parked (pointers only)
 
+- flume runtime bug (John, `@dtmd/flume`): a build worktree's `git commit`
+  resolved to `main`'s HEAD 3× in one tick (friction capture drained
+  07-18, full text in git history; likely stale GIT_DIR/GIT_WORK_TREE or
+  tool-cwd mismatch). Prompt-side stopgap shipped in build.md; the
+  runtime fix is upstream.
+
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
 - Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
