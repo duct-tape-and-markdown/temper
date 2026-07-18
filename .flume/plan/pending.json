@@ -911,6 +911,46 @@
     "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE for shared install.rs safety (pending-entry.md) — no functional dependency. scoped at ad66e46."
   },
   {
+    "tag": "BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE",
+    "summary": "bundle.rs re-declares install.rs's SESSION_START_COMMAND const and re-inlines its session_start_group() JSON shape — one job, authored twice",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "INSTALL-PLACEMENT-KIND-ENUM"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`session_start_group` (1114-1116, private, `json!({ \"hooks\": [ { \"type\": \"command\", \"command\": SESSION_START_COMMAND } ] })`) is the canonical builder of the exec-form `SessionStart` hook group, called at this file's own 904, 979, 1023, 1031. `SESSION_START_COMMAND` itself (88, `pub const`) is already shared correctly — `tests/session_start.rs:360` reads it as `temper::install::SESSION_START_COMMAND`. Widen `session_start_group` from private to `pub(crate)` so `bundle.rs` can call it instead of re-deriving its return shape inline (no other change: same body, same call sites)."
+        },
+        {
+          "path": "src/bundle.rs",
+          "description": "`const SESSION_START_COMMAND` (63, doc comment 58-62) is a second, byte-identical copy of `install::SESSION_START_COMMAND` (grep-verified same literal string `\"temper check . --reporter session-start\"`), and `hooks_manifest` (284-296) independently inlines `{ \"SessionStart\": [ { \"hooks\": [ { \"type\": \"command\", \"command\": SESSION_START_COMMAND } ] } ] }` — the identical object `install::session_start_group()` already builds, one array-wrap deeper. Delete the local `const` and its doc comment; change `hooks_manifest` to `json!({ \"SessionStart\": [crate::install::session_start_group()] })`, dropping the hand-inlined inner shape. Update this file's own inline test `manifests_are_well_formed_json` (~430, `SESSION_START_COMMAND` reference) to read `crate::install::SESSION_START_COMMAND` instead of the deleted local const. No behavior change: identical command string, identical emitted JSON shape."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "the bundle's `hooks/hooks.json` still carries `[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0][\"command\"]` equal to the exec-form check command (asserted ~63), and the byte-identical-to-canonical-write assertion (~217-222) stays green — the consolidation is call-site-only, no change to the emitted bytes"
+      },
+      {
+        "path": "src/bundle.rs",
+        "asserts": "manifests_are_well_formed_json stays green reading install's const instead of the deleted local copy"
+      }
+    ],
+    "acceptance": "bundle.rs carries no private SESSION_START_COMMAND const and no inline re-derivation of the SessionStart hook-group JSON shape; both read/call install.rs's existing SESSION_START_COMMAND and session_start_group (widened to pub(crate)). No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Serialized behind INSTALL-PLACEMENT-KIND-ENUM, the last chain entry touching install.rs, for shared-file safety (pending-entry.md). Also shares bundle.rs with the already-open, queue-front BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE (lines 317/402 there, unrelated symbols) — ships first regardless, no blockedBy needed. scoped at b710f2d."
+  },
+  {
     "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE",
     "summary": "kind.rs ships three pub fns with zero callers anywhere outside their own file — Commitment::label, Content::label, CustomKind::qualified_name — prune per the export-earns-its-consumer bar",
     "per": {
