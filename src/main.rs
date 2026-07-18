@@ -380,10 +380,11 @@ fn main() -> miette::Result<ExitCode> {
             // `compose::EnforcementMode`'s own default, and falls back to binding any
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
-            let mode = mode_from_lock(&workspace_dir)?;
+            let declarations = drift::read_declarations(&workspace_dir)?;
+            let mode = mode_from_declarations(&declarations)?;
             let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
-            let manifests = guarded_manifests(&workspace_dir)?;
+            let manifests = guarded_manifests(&declarations)?;
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
 
@@ -632,31 +633,14 @@ fn explain(target: &str) -> miette::Result<String> {
     ))
 }
 
-/// Read the `guard`'s enforcement mode live off a harness's lock:
-/// the root member's `mode`
-/// fact in `<workspace_dir>/lock.toml`'s assembly declaration rows. An unrepresented
-/// harness (no lock, or one predating the field) reads
-/// [`compose::EnforcementMode::default`] — `warn` — matching the lock-less
-/// "nothing to bind" posture everywhere else in this module. A present `mode` fact
-/// whose value is outside the closed `{note, warn, block}` vocabulary rejects loud
-/// rather than degrading to the default — a corrupt lock must never silently soften a
-/// declared `block` to `warn`.
-///
-/// # Errors
-///
-/// Returns the read error when the lock cannot be read or parsed, and a
-/// [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an unrecognized value.
-fn mode_from_lock(workspace_dir: &Path) -> miette::Result<compose::EnforcementMode> {
-    mode_from_declarations(&drift::read_declarations(workspace_dir)?)
-}
-
 /// The enforcement mode `declarations` declare, for a caller that has already read them —
 /// [`gate`], which needs the mode to decide whether a dialed softening binds and must
 /// never reach a second verdict on the posture from a second read.
 ///
 /// # Errors
 ///
-/// As [`mode_from_lock`], less the read itself.
+/// Returns a [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an
+/// unrecognized value outside the closed `{note, warn, block}` vocabulary.
 fn mode_from_declarations(
     declarations: &drift::Declarations,
 ) -> miette::Result<compose::EnforcementMode> {
@@ -690,14 +674,15 @@ fn mode_from_declarations(
 ///
 /// # Errors
 ///
-/// Propagates the lock read/clause-lift errors [`gate`]'s own contract resolution raises.
-fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::GuardedManifest>> {
-    let declarations = drift::read_declarations(workspace_dir)?;
+/// Propagates the clause-lift errors [`gate`]'s own contract resolution raises.
+fn guarded_manifests(
+    declarations: &drift::Declarations,
+) -> miette::Result<Vec<install::GuardedManifest>> {
     let builtin_defs = builtin_kind::definitions();
 
     let mut manifests = Vec::new();
     for kind in builtin_defs.values() {
-        let kind = overlay_builtin_kind(kind, &declarations)?;
+        let kind = overlay_builtin_kind(kind, declarations)?;
         let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
         else {
             continue;
@@ -711,7 +696,7 @@ fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::Guarde
         });
     }
 
-    let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
+    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
     for row in custom_rows {
         let kind = CustomKind::from_kind_fact_row(row)?;
         let (Some(address), Some(path)) = (kind.collection_address.clone(), manifest_path(&kind))
