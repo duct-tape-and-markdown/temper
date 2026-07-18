@@ -1435,5 +1435,103 @@
     ],
     "acceptance": "architecture.md's codemap either names a home (or homes) for the seven judges and gate/explain's own shape, or affirms main.rs keeping them as an accepted, named cost — a human ratification either way.",
     "notes": "Residual of the ruled MAIN-THIN-DISPATCH-COHESION chain (inbox, observed a8dd112): the two pieces the ruling itself flagged as ambiguous, parked rather than guessed. Does not block the chain's other two entries."
+  },
+  {
+    "tag": "TAP-PAYLOAD-SCHEMA-SPLIT",
+    "summary": "tap.rs (foundation) hardcodes Claude Code's hook-payload schema inline — the payload-to-TapEvent classification is provider knowledge and moves to the provider face",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/tap.rs",
+          "description": "`record_from_payload` (126-171, doc 117-124) matches Claude Code's raw hook payload shape inline: `hook_event_name` values `\"InstructionsLoaded\"`/`\"UserPromptExpansion\"`/`\"PostToolUse\"` (138,144,149), the `tool_name == \"Skill\"` special case and its `tool_input.skill` field path (150-159), and the field names `file_path`/`load_reason`/`command_name`/`tool_name` — all cited as an external fact at the point of claim (131-137, `code.claude.com/docs/en/hooks`, retrieved 2026-07-17) but living in `tap`, a foundation module (`architecture.md`'s codemap: 'leaf vocabulary with no internal dependencies ... nothing here knows what a harness is'). Per the 0042 frame applied one level up (ruled, inbox observed ab01fb4): this is provider knowledge embedded as literals outside the provider face, invisible to the import graph. Extract the classification match (138-162) into a function the provider face owns (verify at pickup whether `builtin.rs` or `builtin_kind.rs` already holds analogous cited payload/format facts, per that module's existing convention), returning `(TapEvent, String, Option<String>)` or equivalent; `record_from_payload` calls it and keeps the version/session assembly, `TapRecord`/`TapEvent`/`TapError`/`TAP_RECORD_VERSION`, and the log-path/append/read IO — the module's own doc comment (1-10) already frames IO as tap's one home, unaffected by this split. Exact function signature and whether `TapEvent` itself (the recognized-event vocabulary, not the raw-payload matching) also moves is a judgment call for build — name the choice in the commit body; `TapEvent`'s own doc comments (34-44) already read as generic lifecycle vocabulary, not Claude-Code-specific spelling, so the default expectation is that only the raw-field matching moves, not the enum."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/tap.rs",
+        "asserts": "tap_extracts_each_lifecycle_event (72) and an_unrecognized_payload_records_nothing_and_exits_zero (107) stay green calling record_from_payload unchanged — the split is call-site-only, identical classification behavior"
+      }
+    ],
+    "acceptance": "src/tap.rs's record_from_payload no longer inlines Claude Code's hook-payload field names/event values; the classification lives in the provider face and tap.rs calls it, keeping only the record vocabulary and IO. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Routed from inbox (RULED, session standing delegation, observed ab01fb4): the 0042 frame ('did we widen at the wrong level') applied at subsystem level to embedded provider knowledge, now a standing posture-sweep lens. Design is pre-decided; only the exact seam shape is build's call."
+  },
+  {
+    "tag": "COVERAGE-KNOWN-SURFACES-RELOCATE",
+    "summary": "coverage_note.rs (judges) compiles a cited Claude Code surface registry plus a hardcoded .claude scan root — both are provider knowledge and relocate to the provider face",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Codemap — the engine (`src/`)"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage_note.rs",
+          "description": "`KNOWN_SURFACES` (87-..., doc 74-86, `const KNOWN_SURFACES: &[KnownSurface]`) is a curated registry of documented Claude Code surfaces (`.claude/settings.json`, `.claude/agents`, etc.), each row citing `SETTINGS_DOC` (72, `code.claude.com/docs/en/settings`, retrieved 2026-07-16) — this file's own module doc (15-17) already names it 'an external fact.' `claude_entries` (256-...) additionally hardcodes the scan root `root.join(\".claude\")` (256) independently of the provider face's own repeated declaration of the same root (`builtin_kind.rs`'s `Governs { root: \".claude\".to_string(), .. }` at lines 245, 317, 350, 435, 826). architecture.md's codemap names the provider face's job precisely: 'the shipped kinds and their cited format facts' (`builtin`, `builtin_kind`) — `KNOWN_SURFACES`, the `KnownSurface`/`Segment` types, and the `.claude` scan root all fit that description exactly but live in `judges` instead. Move `KnownSurface`, `Segment`, `KNOWN_SURFACES`, and `SETTINGS_DOC` to the provider face (verify at pickup: `builtin_kind.rs`, beside the shipped kind definitions and their own format cites, is the natural fit); `coverage_note.rs` consumes them as loaded data (an import, not a local const) and derives its `.claude` scan root from the same provider-declared root the built-in kinds already use instead of a second hardcoded literal at line 256. Exact re-export/threading shape is a judgment call for build, named in the commit body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/coverage.rs",
+        "asserts": "existing known-surface coverage findings (an unmodeled `.mcp.json`, a partially-governed `settings.json`) stay byte-identical — the move is location-only, no change to which surfaces are named or cited"
+      },
+      {
+        "path": "tests/coverage_note.rs",
+        "asserts": "the file's own inline coverage-note tests (grep at pickup, e.g. the KNOWN_SURFACES-driven fixtures around lines 590-930) stay green reading the relocated const through its new import"
+      }
+    ],
+    "acceptance": "KNOWN_SURFACES, its supporting types, and the .claude scan root live in the provider face; coverage_note.rs consumes them as loaded data rather than declaring its own copy of Claude Code surface knowledge. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Routed from inbox (RULED, session standing delegation, observed ab01fb4): the 0042 frame applied at subsystem level to embedded provider knowledge, now a standing posture-sweep lens. Design is pre-decided; only the exact module home/threading shape is build's call."
+  },
+  {
+    "tag": "GUARD-DECLARED-LOCUS-FILTER",
+    "summary": "install.rs's guard filter admits only .claude/ paths by regex, so a declared-locus kind outside .claude escapes silently — derive the filter from lock-declared targets",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`GUARD_PATH_MATCH` (140, doc 134-139: 'the extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path` value under a `.claude/` locus') is consumed by `claude_file_path` (714-722), called from `guard` (692-710) as the first gate before consulting `targets: Option<&[drift::EmitOwnedEntry]>` (695, the lock's emit-owned projection set, doc 678-684). Since the regex hard-admits only `.claude/`-rooted paths before `targets` is ever consulted, a declared-locus kind whose `governs` root sits outside `.claude` (0038 layout kinds) can have its emit-owned projection written to unguarded — the `file_path` never matches the regex, so `claude_file_path` returns `None` and `guard` (697-699) allows it silently, regardless of what `targets` declares. Per the 0042 frame (ruled, inbox observed ab01fb4): the filter should derive from the lock's own declared targets (already threaded into `guard` as `targets`) rather than a provider-shaped `.claude/` regex decided ahead of them; the `.claude` regex survives only as the documented no-lock fallback `guard`'s own doc (680-684) already names ('`targets` is `None` for a harness with no `lock.toml` at all ... the guard falls back to binding any `.claude/` `file_path`'). Rework `guard`/`claude_file_path` so that when `targets: Some(_)`, the `file_path` extraction (or its match test) is driven by the declared target paths themselves rather than requiring a `.claude/` match first; `GUARD_PATH_MATCH`'s regex stays, scoped explicitly to the `targets: None` fallback branch. Exact extraction shape (a looser `file_path`-capturing regex plus a target-path suffix test, replacing today's `.claude/`-gated one) is a judgment call for build, named in the commit body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a new case proves a PreToolUse payload naming a lock-declared emit-owned target OUTSIDE .claude/ is bound by the guard (not silently allowed), alongside existing coverage that a .claude/ path outside any declared target stays allowed and the no-lock fallback still binds any .claude/ file_path"
+      }
+    ],
+    "acceptance": "temper guard binds a PreToolUse write against any lock-declared emit-owned target, not only .claude/-rooted ones; the .claude/ regex survives only as the documented no-lock fallback. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Routed from inbox (RULED, standing delegation, observed ab01fb4). Serialized behind BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE, the last chain entry touching install.rs, for shared-file safety — no functional dependency. A declared-locus kind outside .claude currently escapes the guard silently, a real gap, not just a shape defect."
   }
 ]
