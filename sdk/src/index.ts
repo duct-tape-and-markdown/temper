@@ -53,6 +53,7 @@ export {
   type,
   unique,
   uniqueName,
+  when,
 } from "./contract.js";
 
 // The engine room — kinds as typed constructors, plus the embedded-member value

@@ -263,15 +263,38 @@ export const degree = (bounds: {
 };
 
 /**
+ * A guarded clause — a predicate (restricted to `type` or `enum`) that acts as a
+ * guard, with a body of ordinary clauses that fire only where the guard holds.
+ * The guard and body share the guard's address binding: the body's field paths
+ * evaluate at the concrete element address the guard locates.
+ *
+ * The guard must be a `type` or `enumOf` predicate, named for the decidable
+ * field it addresses. Neither is enforced here; emit validates admissibility.
+ */
+export function when(guard: Predicate, body: readonly Clause[]): Clause {
+  return {
+    predicate: { key: "when" },
+    severity: "required",
+    when_guard: guard,
+    when_body: body,
+  };
+}
+
+/**
  * A clause — a predicate the author marks with a severity, the just-in-time
  * guidance the predicate cannot encode, and the external-fact `cite` that makes
- * a maintained floor auditable.
+ * a maintained floor auditable. A `when` clause carries an additional guard
+ * predicate and a body of nested clauses that fire only where the guard holds.
  */
 export interface Clause {
   readonly predicate: Predicate;
   readonly severity: Severity;
   readonly guidance?: string;
   readonly cite?: string;
+  /** The guard predicate for a `when` clause; absent for all others. */
+  readonly when_guard?: Predicate;
+  /** The nested body clauses for a `when` clause; absent for all others. */
+  readonly when_body?: readonly Clause[];
 }
 
 /** Compose a clause value — a predicate under a declared severity, with optional guidance/cite. */

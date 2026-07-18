@@ -2813,6 +2813,82 @@ fn the_same_program_emits_the_same_clause_labels() {
     );
 }
 
+/// A `when`-carrying `ClauseRow` (guard plus nested body) round-trips through
+/// `emit` and `read_declarations`, preserving the guard-and-body shape. The guard's
+/// predicate key and arguments ride the shared columns; the body is a nested array
+/// of clause rows.
+#[test]
+fn a_when_clause_row_round_trips_the_lock() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        guard_predicate: Some("enum".to_string()),
+        field: Some("source".to_string()),
+        values: Some(vec!["./path".to_string(), "object".to_string()]),
+        body: Some(vec![ClauseRow {
+            unit: None,
+            label: None,
+            kind: None,
+            field: Some("url".to_string()),
+            ..common::clause("required", "required")
+        }]),
+        ..common::clause("when", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("when-guard-body", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the when clause with guard and body formats
+    // stably across the round trip.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let when_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "when")
+        .expect("the when clause row round-trips");
+
+    // Guard predicate and arguments are preserved.
+    assert_eq!(when_row.guard_predicate.as_deref(), Some("enum"));
+    assert_eq!(when_row.field.as_deref(), Some("source"));
+    assert_eq!(
+        when_row.values.as_deref(),
+        Some(vec!["./path".to_string(), "object".to_string()].as_slice())
+    );
+
+    // Body is preserved as nested rows.
+    assert_eq!(when_row.body.as_ref().map(|b| b.len()), Some(1));
+    let body_clause = &when_row.body.as_ref().unwrap()[0];
+    assert_eq!(body_clause.predicate, "required");
+    assert_eq!(body_clause.field.as_deref(), Some("url"));
+
+    // The guard lifts through predicate_from_row.
+    let guard_predicate = contract::predicate_from_row(&ClauseRow {
+        guard_predicate: when_row.guard_predicate.clone(),
+        field: when_row.field.clone(),
+        values: when_row.values.clone(),
+        ..common::clause("enum", "required")
+    })
+    .expect("guard lifts");
+    assert_eq!(
+        guard_predicate,
+        Predicate::Enum {
+            field: "source".to_string(),
+            values: vec!["./path".to_string(), "object".to_string()],
+        }
+    );
+}
+
 #[test]
 fn a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud() {
     // Two rows of one predicate over one field of one kind reduce to one address, so

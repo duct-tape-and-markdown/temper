@@ -19,12 +19,14 @@ import {
   mustDefine,
   optional,
   range,
+  required,
   requireSections,
   script,
   sectionContains,
   telemetry,
   text,
   unique,
+  when,
 } from "../src/index.js";
 import type { Predicate, Requirement } from "../src/index.js";
 import { compileDeclarations } from "../src/declarations.js";
@@ -231,4 +233,41 @@ test("requireSections composes a heading-list predicate landing its sections col
   });
   const row = skillClauseRow(requireSections(["Installation", "Example"]));
   assert.deepEqual(row.sections, ["Installation", "Example"]);
+});
+
+test("when composes a guarded clause with a guard predicate and a body of clauses", () => {
+  const guardClause = enumOf("source", ["./path", "{ plugin: ... }"]);
+  const bodyClause = clause(required("object"), { severity: "required" });
+  const whenClause = when(guardClause, [bodyClause]);
+
+  assert.equal(whenClause.predicate.key, "when");
+  assert.equal(whenClause.severity, "required");
+  assert.deepEqual(whenClause.when_guard, guardClause);
+  assert.deepEqual(whenClause.when_body, [bodyClause]);
+});
+
+test("when round-trips through compileDeclarations with the guard and body landed", () => {
+  const h = harness({
+    members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
+    expect: [
+      {
+        kind: skill,
+        clauses: [
+          when(enumOf("source", ["./path", "object"]), [
+            clause(required("url"), { severity: "required" }),
+          ]),
+        ],
+      },
+    ],
+  });
+
+  const rows = compileDeclarations(h).clauses.filter((row) => row.kind === "skill" && row.predicate === "when");
+  assert.equal(rows.length, 1, "exactly one when row");
+
+  const row = rows[0]!;
+  assert.equal(row.guard_predicate, "enum");
+  assert.deepEqual(row.values, ["./path", "object"]);
+  assert.equal(row.body?.length, 1);
+  assert.equal(row.body?.[0]?.predicate, "required");
+  assert.equal(row.body?.[0]?.field, "url");
 });

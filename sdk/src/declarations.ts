@@ -64,6 +64,41 @@ export type {
  */
 function clauseRow(clause: Clause, kind?: string): ClauseRow {
   const { predicate } = clause;
+
+  // For a `when` clause, extract the guard predicate's key and arguments,
+  // then convert the body to nested rows.
+  if (predicate.key === "when") {
+    const guardPredicate = clause.when_guard;
+    if (!guardPredicate) {
+      throw new Error("when clause missing guard predicate");
+    }
+
+    // Build a row for the guard predicate's arguments, then copy those fields
+    // into this row alongside the guard_predicate and body.
+    const guardRow = clauseRow({ predicate: guardPredicate, severity: clause.severity }, undefined);
+
+    return {
+      kind,
+      predicate: "when",
+      severity: clause.severity,
+      guidance: clause.guidance,
+      cite: clause.cite,
+      field: guardRow.field,
+      guard_predicate: guardRow.predicate,
+      value_type: guardRow.value_type,
+      shape: guardRow.shape,
+      bound: guardRow.bound,
+      unit: guardRow.unit,
+      charset: guardRow.charset,
+      keys: guardRow.keys,
+      values: guardRow.values,
+      range: guardRow.range,
+      section: guardRow.section,
+      sections: guardRow.sections,
+      body: clause.when_body ? clause.when_body.map((c) => clauseRow(c, undefined)) : undefined,
+    };
+  }
+
   return {
     kind,
     predicate: predicate.key,

@@ -1498,6 +1498,12 @@ fn stamp_clause_label(row: &mut ClauseRow, owner: Option<&str>) {
         &row.predicate,
         row.field.as_deref(),
     ));
+    // Recursively stamp labels on nested body clauses in a `when` clause.
+    if let Some(body) = &mut row.body {
+        for nested in body {
+            stamp_clause_label(nested, None);
+        }
+    }
 }
 
 /// One represented manifest under construction during [`emit`]: its declared collection
