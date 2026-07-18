@@ -1,5 +1,6 @@
 //! The read family — one CLI verb, [`explain`], over four traversals of the
-//! requirement↔`satisfies` edge and the graph `check` already carries.
+//! requirement↔`satisfies` edge and the graph `check` already carries, plus a
+//! telemetry field strand over the per-machine tap log.
 //!
 //! [`explain`] resolves its one positional target across three namespaces — member,
 //! requirement, leaf-grain address (`(explain-target-disambiguation)`, ruled
@@ -42,7 +43,7 @@
 //! Edge narration already ranges over every kind (it reads the gate's resolved edge
 //! set, READ-EDGE-UNIFY), so only the `satisfies` walk widens here.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Write;
 
 use crate::compose::{Edge, Requirement};
@@ -51,6 +52,7 @@ use crate::document::Satisfies;
 use crate::extract::{Features, MemberAddress};
 use crate::graph::{self, ResolvedEdge};
 use crate::kind::Registration;
+use crate::tap::{TapEvent, TapRecord};
 
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
 /// into filling (each with its authored rationale) — the caller-threaded
@@ -206,6 +208,11 @@ fn resolve<'a>(
 /// leaf-grain answer reports separately from fallout. Every one is the identical input
 /// the gate's own predicates range over (READ-EDGE-UNIFY), so `explain` cannot disagree
 /// with a green `check`.
+///
+/// `tap_records` and `tap_older_version` are the per-machine tap log's readout — the
+/// evidence [`field`] narrates for a member target. They join to members through the
+/// same `by_kind` corpus above, never a private read, so a green `check` and a field
+/// strand cannot disagree.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 pub fn explain(
@@ -219,6 +226,8 @@ pub fn explain(
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
     citations: &[Citation],
+    tap_records: &[TapRecord],
+    tap_older_version: usize,
     target: &str,
 ) -> String {
     match resolve(by_kind, roster, target) {
@@ -244,6 +253,14 @@ pub fn explain(
             ));
             out.push('\n');
             out.push_str(&context(by_kind, citations, name));
+            // The field strand is evidence, not a gate: an absent/empty log narrates
+            // nothing (an empty string), so it is only joined when the tap log carried
+            // records to narrate.
+            let field_strand = field(tap_records, tap_older_version, by_kind, name);
+            if !field_strand.is_empty() {
+                out.push('\n');
+                out.push_str(&field_strand);
+            }
             out
         }
         Species::Requirement(name) => requirements(custom, roster, by_kind, Some(name)),
@@ -1434,6 +1451,100 @@ fn coverage_state(required: bool, satisfier_count: usize) -> String {
         (true, count) => format!("required, filled by {count} member(s)"),
         (false, 0) => "advisory, and unfilled — never a gate".to_string(),
         (false, count) => format!("advisory, filled by {count} member(s)"),
+    }
+}
+
+/// `explain`'s **field** strand — narrate the local telemetry the tap recorded for
+/// `member`: its per-event counts and the denominators they range against, both joined
+/// to members through the same `by_kind` corpus the gate reads (READ-EDGE-UNIFY), so the
+/// strand cannot disagree with a green `check`. Evidence narrated, never judged: it
+/// reports what fired and scores nothing, and no verdict enters an exit code.
+///
+/// An absent or empty log narrates no field strand at all — an empty string, so the
+/// caller joins nothing: absent evidence is silence, not a section reading "zero". A
+/// present log naming no member still narrates the strand, stating plainly that nothing
+/// named it. A record an older tap wrote surfaces as a counted line, never a silent skip.
+#[must_use]
+pub fn field(
+    records: &[TapRecord],
+    older_version: usize,
+    by_kind: &BTreeMap<&str, &[Features]>,
+    member: &str,
+) -> String {
+    // Absent/empty log: no evidence to narrate.
+    if records.is_empty() && older_version == 0 {
+        return String::new();
+    }
+
+    // The lock's declared member ids — the join key. A record enters a denominator only
+    // when its identity names a member the lock declares (the `by_kind` corpus the gate
+    // reads), so an event naming a tool or path no kind declares never counts against the
+    // members: the join is through the lock, never a raw string tally.
+    let declared: HashSet<&str> = by_kind
+        .values()
+        .flat_map(|members| members.iter())
+        .map(|features| features.id.as_str())
+        .collect();
+
+    // Per event: this member's count (numerator) against every lock-joined record's count
+    // (denominator). A `BTreeMap` keyed by the record's event label for stable output.
+    let mut tallies: BTreeMap<&'static str, (usize, usize)> = BTreeMap::new();
+    for record in records {
+        if !declared.contains(record.identity.as_str()) {
+            continue;
+        }
+        let entry = tallies.entry(event_label(record.event)).or_default();
+        entry.1 += 1;
+        if record.identity == member {
+            entry.0 += 1;
+        }
+    }
+
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "Member `{member}` — its local telemetry (evidence narrated, never judged):\n"
+    );
+
+    let named: Vec<(&str, usize, usize)> = tallies
+        .iter()
+        .filter(|(_, (numerator, _))| *numerator > 0)
+        .map(|(label, (numerator, denominator))| (*label, *numerator, *denominator))
+        .collect();
+    if named.is_empty() {
+        let _ = writeln!(out, "No tap event in the log names it.");
+    } else {
+        let _ = writeln!(
+            out,
+            "Tap events naming it, each counted against every event of that kind the log \
+             joins to a declared member:"
+        );
+        for (label, numerator, denominator) in named {
+            let _ = writeln!(out, "  • `{label}` — {numerator} of {denominator}");
+        }
+    }
+
+    if older_version > 0 {
+        let plural = if older_version == 1 { "line" } else { "lines" };
+        let _ = writeln!(
+            out,
+            "Older records: {older_version} {plural} an older tap wrote — counted, never \
+             silently skipped."
+        );
+    }
+
+    out
+}
+
+/// The record vocabulary's label for a [`TapEvent`] — the snake_case name the tap log
+/// carries, so the field strand narrates each event under the same name the record was
+/// written with.
+fn event_label(event: TapEvent) -> &'static str {
+    match event {
+        TapEvent::InstructionsLoaded => "instructions_loaded",
+        TapEvent::SkillInvoked => "skill_invoked",
+        TapEvent::UserPromptExpansion => "user_prompt_expansion",
+        TapEvent::ToolUse => "tool_use",
     }
 }
 

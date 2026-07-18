@@ -603,6 +603,11 @@ fn explain(target: &str) -> miette::Result<String> {
     // producer yet, so the set is empty.
     let citations: Vec<read::Citation> = Vec::new();
 
+    // The per-machine tap log at the workspace log path — the evidence the field strand
+    // narrates. An absent log yields an empty readout (never an error), so the strand
+    // narrates none.
+    let readout = tap::read_log(&workspace)?;
+
     Ok(read::explain(
         &custom_members,
         &roster,
@@ -614,6 +619,8 @@ fn explain(target: &str) -> miette::Result<String> {
         &repo_files,
         &directive_edges,
         &citations,
+        &readout.records,
+        readout.older_version,
         target,
     ))
 }

@@ -14,6 +14,9 @@ use std::collections::BTreeMap;
 use temper::compose::Requirement;
 use temper::extract::{EmbeddedMember, Features};
 use temper::read::{self, CustomMember};
+use temper::tap::{self, TAP_RECORD_VERSION, TapEvent, TapRecord};
+
+mod common;
 
 /// A member's [`Features`] as the read family reads them: its id, the requirements it
 /// opts into, and a `description` field (so `impact`'s reachability strand has a
@@ -68,6 +71,20 @@ fn explain(
     roster: &BTreeMap<String, Requirement>,
     target: &str,
 ) -> String {
+    explain_over_log(custom, by_kind, roster, &[], 0, target)
+}
+
+/// Call `read::explain` with a tap-log readout threaded in — the field strand's inputs.
+/// The bare [`explain`] helper is this with an absent log (empty records, no older
+/// records), the no-field-strand case every non-telemetry scenario reads against.
+fn explain_over_log(
+    custom: &[CustomMember],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    roster: &BTreeMap<String, Requirement>,
+    tap_records: &[TapRecord],
+    tap_older_version: usize,
+    target: &str,
+) -> String {
     let registrations = BTreeMap::new();
     read::explain(
         custom,
@@ -80,6 +97,8 @@ fn explain(
         &[],
         &[],
         &[],
+        tap_records,
+        tap_older_version,
         target,
     )
 }
@@ -369,6 +388,132 @@ mod default_contract_binding {
         assert!(out.contains("binds the `adr` default contract"), "{out}");
         assert!(!out.contains("binds the `skill` default contract"), "{out}");
     }
+}
+
+/// Append `records` to a fresh workspace through the real tap writer, then read them
+/// back — driving the field strand off the true on-disk record shape and the reader's own
+/// older-version counting, never a hand-built readout.
+fn tap_readout(records: &[TapRecord]) -> tap::LogReadout {
+    let workspace = common::tmpdir("field-strand");
+    for record in records {
+        tap::append(&workspace, record).unwrap();
+    }
+    tap::read_log(&workspace).unwrap()
+}
+
+/// A tap record naming `identity` under `event`, written at `version` — a `version` below
+/// `TAP_RECORD_VERSION` exercises the reader's older-version toleration.
+fn tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord {
+    TapRecord {
+        version,
+        session: "sess".to_string(),
+        event,
+        identity: identity.to_string(),
+        reason: None,
+    }
+}
+
+#[test]
+fn a_member_target_narrates_its_tap_event_counts_and_denominators() {
+    // Two skill members share the `skill_invoked` denominator; a `tool_use` for a tool no
+    // kind declares (`Bash`) joins to no member, so it never enters a denominator — the
+    // join is through the lock, never a raw string tally.
+    let skills = [feature("deploy", &[]), feature("audit", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    let readout = tap_readout(&[
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "audit"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "audit"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "Bash"),
+    ]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "deploy",
+    );
+    assert!(
+        out.contains("its local telemetry"),
+        "the member target carries a field strand: {out}"
+    );
+    assert!(
+        out.contains("`skill_invoked` — 3 of 5"),
+        "the member's counts + denominators are joined through the lock: {out}"
+    );
+    assert!(
+        !out.contains("tool_use"),
+        "an event naming no declared member is never counted against the members: {out}"
+    );
+    // The field strand is joined beside — never in place of — the other member strands.
+    assert!(
+        out.contains("everything that holds it in place"),
+        "why's forward walk still narrates: {out}"
+    );
+}
+
+#[test]
+fn an_older_version_record_surfaces_as_a_count_never_a_silent_skip() {
+    let skills = [feature("deploy", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    // One current record and one an older tap wrote, both naming `deploy`. The older one
+    // still materializes, so it is counted in the totals AND surfaced as an older line.
+    let readout = tap_readout(&[
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "deploy"),
+        tap_record(TAP_RECORD_VERSION - 1, TapEvent::SkillInvoked, "deploy"),
+    ]);
+    assert_eq!(
+        readout.older_version, 1,
+        "the reader counts the older record: {readout:?}"
+    );
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "deploy",
+    );
+    assert!(
+        out.contains("Older records: 1 line an older tap wrote"),
+        "the older record surfaces as a counted line: {out}"
+    );
+    assert!(
+        out.contains("never") && out.contains("skipped"),
+        "the older record is counted, never silently skipped: {out}"
+    );
+    assert!(
+        out.contains("`skill_invoked` — 2 of 2"),
+        "the older record is counted in the totals, not dropped: {out}"
+    );
+}
+
+#[test]
+fn an_absent_log_narrates_no_field_strand_and_explain_still_reads() {
+    let skills = [feature("deploy", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    // The bare `explain` helper threads an absent log (an empty readout).
+    let out = explain(&[], &by_kind, &roster, "deploy");
+    assert!(
+        !out.contains("its local telemetry"),
+        "an absent log narrates no field strand at all: {out}"
+    );
+    // The member still narrates whole — `explain` returns normally, so `main` exits zero.
+    assert!(
+        out.contains("everything that holds it in place"),
+        "the other strands still narrate over an absent log: {out}"
+    );
 }
 
 /// `why`'s edge narration route-resolves mentions against the same corpus the gate's
