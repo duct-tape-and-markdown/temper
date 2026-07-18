@@ -25,7 +25,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value as JsonValue;
@@ -307,14 +306,13 @@ pub enum JsonManifestError {
 /// Read a file and decode it as UTF-8, mapping I/O and encoding errors to [`JsonManifestError`].
 /// Shared by [`Manifest::read`] and [`DocumentMember::read`].
 fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError> {
-    let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io {
-        path: source_file.to_path_buf(),
-        source,
+    let (_bytes, string) = crate::hash::read_utf8(source_file).map_err(|err| match err {
+        crate::hash::ReadUtf8Error::Io { path, source } => JsonManifestError::Io { path, source },
+        crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
+            JsonManifestError::NotUtf8 { path, source }
+        }
     })?;
-    String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 {
-        path: source_file.to_path_buf(),
-        source,
-    })
+    Ok(string)
 }
 
 impl Manifest {
@@ -520,6 +518,8 @@ fn render_object(members: &[(&str, JsonValue)]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
     use crate::extract::ValueType;
     use crate::kind::{CollectionKeyPath, Extraction, Governs};

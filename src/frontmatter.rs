@@ -17,7 +17,6 @@
 //! of the authored source bytes, the source-drift anchor.
 
 use std::ffi::OsStr;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use gray_matter::Pod;
@@ -169,15 +168,15 @@ impl Member {
         source_file: &Path,
         base: &Path,
     ) -> Result<Self, FrontmatterError> {
-        let bytes = fs::read(source_file).map_err(|source| FrontmatterError::Io {
-            path: source_file.to_path_buf(),
-            source,
+        let (bytes, raw) = crate::hash::read_utf8(source_file).map_err(|err| match err {
+            crate::hash::ReadUtf8Error::Io { path, source } => {
+                FrontmatterError::Io { path, source }
+            }
+            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
+                FrontmatterError::NotUtf8 { path, source }
+            }
         })?;
         let source_hash = crate::hash::sha256_hex(&bytes);
-        let raw = String::from_utf8(bytes).map_err(|source| FrontmatterError::NotUtf8 {
-            path: source_file.to_path_buf(),
-            source,
-        })?;
 
         let parsed = parse_frontmatter(&raw).map_err(|detail| FrontmatterError::Malformed {
             path: source_file.to_path_buf(),
@@ -412,6 +411,8 @@ pub fn fold_file_id(base: &Path, source_file: &Path) -> Result<String, Frontmatt
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
     use crate::test_support::{rule_kind, skill_kind, tmpdir};
 

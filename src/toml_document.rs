@@ -10,7 +10,6 @@
 //! (decision 0034). `emit` refuses a member declaring it rather than reaching for a writer
 //! that is not there.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value as JsonValue;
@@ -31,13 +30,11 @@ use crate::kind::{CustomKind, UnitShape};
 /// [`TomlDocumentError::NoDeclaredIdentity`] if `kind` declares no identity field for its
 /// document to be named by.
 pub fn read(kind: &CustomKind, source_file: &Path) -> Result<DocumentMember, TomlDocumentError> {
-    let bytes = fs::read(source_file).map_err(|source| TomlDocumentError::Io {
-        path: source_file.to_path_buf(),
-        source,
-    })?;
-    let raw = String::from_utf8(bytes).map_err(|source| TomlDocumentError::NotUtf8 {
-        path: source_file.to_path_buf(),
-        source,
+    let (_bytes, raw) = crate::hash::read_utf8(source_file).map_err(|err| match err {
+        crate::hash::ReadUtf8Error::Io { path, source } => TomlDocumentError::Io { path, source },
+        crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
+            TomlDocumentError::NotUtf8 { path, source }
+        }
     })?;
     parse(kind, source_file, &raw)
 }
