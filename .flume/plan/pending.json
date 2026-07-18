@@ -1204,5 +1204,73 @@
     ],
     "acceptance": "One shared glob-string extractor serves both graph.rs's reachability judge and engine.rs's glob-valid predicate, holding declared_globs' ruled trim/filter semantics (07a9c04); declared_globs and field_globs collapse to the one implementation, no new blank-entry finding class. `cargo test` and `cargo clippy --all-targets -- -D warnings` green. The commit body states the observable delta (whitespace-padded globs now judged trimmed).",
     "notes": "Unparked (inbox, observed 07a9c04): the ruling names the shared semantics — declared_globs' trim/filter, both judges consuming one filtered set — closing the design-call park. Serialized behind NORMALIZE-PATH-SUBSYSTEM-PLACEMENT, sharing graph.rs. Also shares engine.rs with the separately-queued, already-open ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH — schema's single-tag blockedBy can't express both waits; that entry should ship first regardless. scoped at 07a9c04."
+  },
+  {
+    "tag": "DRIFT-WRITE-PLACEMENT-CONSOLIDATE",
+    "summary": "drift.rs's write_placement (mkdir+write+DriftError::Write) is reimplemented inline in emit_manifest and emit_one instead of calling the existing helper",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`write_placement` (2298-2309, doc 2295-2297) is the named helper for 'create the parent dirs, write the bytes, map both failures to `DriftError::Write`' — called at its own call sites (2265, 2290) inside the placement-apply path. `emit_manifest` (1475-1486) and `emit_one` (2071-2082) each reimplement the identical body inline instead of calling it: the same `fs::create_dir_all(parent).map_err(|source| DriftError::Write { path: parent.to_path_buf(), source })?` followed by `fs::write(path, desired.as_bytes()).map_err(|source| DriftError::Write { path: path.to_path_buf(), source })?`, each already wrapped in the same `if !dry_run { .. }` guard `write_placement`'s own callers use — three copies of one job in one file. Replace both inline blocks with `write_placement(path, &desired)?` (emit_manifest) and `write_placement(&disk_path, &desired)?` (emit_one), inside their existing `if !dry_run` guards. No behavior change: identical mkdir/write/error-map sequence, same error variant, same paths."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "dry_run_reports_the_outcome_but_writes_nothing (250) and a_represented_manifest_emits_whole_through_the_write_face_not_json_splice (524) stay green — the consolidation is call-site-only, identical mkdir/write/error behavior for both the member-projection and manifest emit paths"
+      }
+    ],
+    "acceptance": "emit_manifest and emit_one both call the existing write_placement helper instead of each carrying its own inline mkdir+write+DriftError::Write block; the job has exactly one implementation in src/drift.rs. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping pipeline (posture rotation: formats done, pipeline this tick). Serialized behind NORMALIZE-PATH-SUBSYSTEM-PLACEMENT, last chain entry touching drift.rs by array position (pending-entry.md, 'Disjoint, or serialized'). DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE also touches drift.rs on a parallel branch off EXTRACT-FOUNDATION-BOUNDARY-RESTORE — single-tag blockedBy can't express both waits; expected to ship independently regardless. scoped at 69e7571."
+  },
+  {
+    "tag": "READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE",
+    "summary": "read.rs's DIRECTIVE_FIELD_LABEL duplicates graph.rs's private DIRECTIVE_FIELD const byte-for-byte, self-documented as a mirror instead of one shared value",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`DIRECTIVE_FIELD` (43, doc 40-42, 'Lets a reader tell a directive edge from a declared reference edge in the one resolved-edge set') is a private const, consumed only within this file (894). Widen its visibility to `pub(crate)` so `read.rs` can import it directly instead of carrying its own duplicate string. No other change."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`DIRECTIVE_FIELD_LABEL` (1226, doc 1223-1225, 'the mirror of `graph`'s private `DIRECTIVE_FIELD`') duplicates `graph::DIRECTIVE_FIELD`'s value (`\"at-import\"`) byte-for-byte, with no compiler-checked link between the two — a future rename of one would silently desync the other. Delete the const and its doc comment; requalify its two use sites — the production narration inside `impact` (1191) and the inline test helper `directive` (1601-1607, used at 1652) — to `crate::graph::DIRECTIVE_FIELD` (a qualified reference, or a `use crate::graph::DIRECTIVE_FIELD;` import). No behavior change: identical string value."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/read.rs",
+        "asserts": "removing_an_imported_member_unbacks_the_import (1642) stays green — its assertion on the rendered `imports it via `@at-import`` text is unaffected by which module owns the constant"
+      }
+    ],
+    "acceptance": "read.rs carries no private DIRECTIVE_FIELD_LABEL; its two use sites read graph::DIRECTIVE_FIELD (widened to pub(crate)) instead of a hand-maintained duplicate. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping pipeline (posture rotation: formats done, pipeline this tick); DIRECTIVE_FIELD_LABEL's own doc comment already concedes it mirrors graph's const, but nothing ever consolidated them. Serialized behind GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, last chain entry touching graph.rs — its blockedBy chain already passes through GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE, read.rs's only other pending toucher, so one blocker covers both files. scoped at 69e7571."
   }
 ]
