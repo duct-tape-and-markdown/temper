@@ -19,8 +19,8 @@ emit_hash = "ddb4decb257e084003e6785c16b902b56a13ed737d58a2eb3d03a4618031b3f2"
 [[rule]]
 name = "pending-entry"
 source_path = ".claude/rules/pending-entry.md"
-source_hash = "68b88c3e5e68d2c8d618b7c7be82309f876fa22c2d04b642ea2892bed9d04236"
-emit_hash = "68b88c3e5e68d2c8d618b7c7be82309f876fa22c2d04b642ea2892bed9d04236"
+source_hash = "3185a91e839456a323d1b0aa5e02075e652bbdf85769fd45945aea807065df3f"
+emit_hash = "3185a91e839456a323d1b0aa5e02075e652bbdf85769fd45945aea807065df3f"
 
 [[rule]]
 name = "plan-state"
