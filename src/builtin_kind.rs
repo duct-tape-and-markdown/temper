@@ -509,18 +509,6 @@ pub fn definition(name: &str) -> Result<Option<CustomKind>, KindError> {
     Ok(all_kinds().into_iter().find(|kind| kind.name == name))
 }
 
-/// The built-in kind a bare `name` resolves to, named by its own bare label — kept for
-/// call sites that ask for a kind's identity rather than its full definition. Always
-/// equal to `name` itself when the kind is embedded, since there is no provider axis
-/// to resolve through.
-///
-/// # Errors
-///
-/// Never fails; the `Result` is kept for API stability.
-pub fn qualified(name: &str) -> Result<Option<String>, KindError> {
-    Ok(definition(name)?.map(|kind| kind.name))
-}
-
 /// Every embedded built-in kind, keyed by its bare name — the compiled default
 /// program's kind roster. Infallible — every entry is Rust data.
 ///
@@ -753,25 +741,6 @@ mod tests {
         assert_eq!(doc.collection_address, None);
         // It hosts nothing: the nesting stops one layer down.
         assert!(doc.templates.is_empty());
-    }
-
-    #[test]
-    fn qualified_names_every_embedded_kind_by_its_own_bare_name() {
-        // No provider axis left to resolve through — a bare name's qualified identity
-        // is always itself.
-        for bare in [
-            "agent",
-            "command",
-            "hook",
-            "mcp-server",
-            "skill",
-            "supporting-doc",
-            "rule",
-            "memory",
-        ] {
-            assert_eq!(qualified(bare).unwrap().as_deref(), Some(bare));
-        }
-        assert!(qualified("spec").unwrap().is_none());
     }
 
     #[test]
