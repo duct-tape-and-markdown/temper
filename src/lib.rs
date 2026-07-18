@@ -54,6 +54,7 @@ pub mod reporter;
 pub mod roster;
 pub mod schema;
 pub mod tap;
+pub mod telemetry;
 #[cfg(test)]
 pub(crate) mod test_support;
 pub mod toml_document;
