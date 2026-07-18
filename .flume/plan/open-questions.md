@@ -117,12 +117,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Zero live orphans at HEAD (d1af9a5):** the last one, `src/roster.rs`'s
-  `membership_roster` doc comment citing the 0001-deleted `10-contracts.md`,
-  discharged at 2fc2291 — VERIFIER-TYPED opened roster.rs for its verifier
-  dispatch and cut the cite in scope, exactly the ride-only rule's predicted
-  resolution. When the next stale cite surfaces, it rides; until then this
-  record carries only the exclusion class below.
+  **One live orphan at HEAD (5af93d9)**, surfaced sweeping foundation this
+  tick: `src/json_splice.rs`'s module header claims install.rs as "the sole
+  consumer," but json_manifest.rs now also calls apply_edits/object_shape/
+  insert_member/pretty_at — no pending entry currently opens json_splice.rs,
+  so per the rule it rides the next one that does rather than filing here.
+  The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
+  the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
+  opened roster.rs for its verifier dispatch and cut the cite in scope,
+  exactly the ride-only rule's predicted resolution.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` /
   `10-contracts.md` strings, `src/read.rs`'s `20-surface` member ids,
