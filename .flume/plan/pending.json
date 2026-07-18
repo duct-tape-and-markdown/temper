@@ -47,6 +47,41 @@
     "notes": "Drained from .flume/refactor/build-discovery-infallible-result-plumbing.md (observed 8b06146, cut 0bc0ee9). Pure subtraction, no 'Loud or nothing' fork — flatten() tolerance settled pre-SCAN (f419987), discovery was already infallible. Refile of 648fba5, reverted: its `files.retire` named a symbol string, not a path, tripping the fence gate. Fixed: ReadDir removal is now prose inside the import.rs edit, retire: []. scoped at 1126033."
   },
   {
+    "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
+    "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Three fns duplicate the same 'walk the committed lock's declaration rows' job, each independently opening `lock.toml`, tolerant-parsing it as `DocumentMut`, ranging over every top-level `(kind, item)` pair, filtering to `item.as_array_of_tables()`, and pulling columns via `row.get(..).and_then(Item::as_str)`: `read_prior_provenance` (fn 1918, loop 1928-1946, requires name+source_path+emit_hash, returns `Vec<ProvenanceRow>`), `config_stale` (fn 2342, loop 2355-2384, same three columns, inlines the staleness diagnostic instead of returning rows), `emit_owned_targets` (fn 2614, loop 2624-2641, only name+source_path, returns `Vec<EmitOwnedEntry>`). Their doc comments already cross-reference each other's tolerant-absence behavior (1916-1917, 2611-2612) — the duplication is self-aware in the code but never consolidated. Add a private `fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow>` (raw, all-`Option` columns: kind, name, source_path, emit_hash) that opens and parses the lock once and does the `(kind, item)`/`as_array_of_tables` walk once; have each of the three public fns `filter_map` over its rows instead of re-deriving the walk — `config_stale`'s and `emit_owned_targets`' looser column requirements fall out of a narrower filter each. Same-file fn-level unification — the home stays `drift.rs`, this is not a new module. Consumers (`src/install.rs`, `src/main.rs`, `tests/install.rs`) call only the three public fns — no signature change, no ripple. Re-verified at HEAD 7132213 (unmoved since b8fc7ca, when observed)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the config_stale(...).is_empty() assertions (536, 607) stay green — the shared walk's config_stale filter/map preserves the same tolerant-absence behavior"
+      },
+      {
+        "path": "tests/emit.rs",
+        "asserts": "re_emitting_after_a_member_is_removed_leaves_a_hand_edited_projection_and_reports_drift and the_emit_report_distinguishes_reaped_from_drifted_orphan stay green — these exercise read_prior_provenance/emit_owned_targets through the reap path with byte-identical output"
+      }
+    ],
+    "acceptance": "read_prior_provenance, config_stale, and emit_owned_targets all filter/map over one shared walk_lock_rows helper; no behavior change (engineering.md, 'One job, one home': a second implementation of one job is residue, subtracted rather than carried). `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Drained from .flume/refactor/plan-drift-lock-row-walk-triplication.md (observed b8fc7ca, found while re-orienting off live disk during the prior tick). Pure internal consolidation, no public API change, no test file additions needed — existing tests pin the behavior. scoped at 7132213."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
