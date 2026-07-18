@@ -7,8 +7,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "`KindError` (1480, `pub enum KindError {}`) is an empty enum — its own doc comment (1475-1478) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users now that `qualified` is pruned, shipped in 84197e5) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
+          "description": "`KindError` (1470, `pub enum KindError {}`) is an empty enum — its own doc comment (1465-1468) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users now that `qualified` is pruned, shipped in 84197e5) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
         },
         {
           "path": "src/builtin_kind.rs",
@@ -117,7 +116,7 @@
       }
     ],
     "acceptance": "builtin_kind::definition returns Option<CustomKind> and builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, with no Result wrapper; KindError is gone from src/kind.rs. No behavior change (engineering.md, 'One job, one home': vacuous Result plumbing around a lookup that can never fail is subtracted, not carried — the DISCOVERY-INFALLIBLE-RESULT-COLLAPSE precedent for this exact shape). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "The class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs. Reconciled 2026-07-18: blocker shipped (84197e5) — verified on disk; builtin_kind.rs citations refreshed for shifted lines, every other cited file unmoved. Re-blocked rather than opened bare: straight-to-open collides with KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE (open, also edits kind.rs) — serialized per pending-entry.md, no functional dependency. scoped at 1f6afe5."
+    "notes": "The class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs. Reconciled 2026-07-18: blocker KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE shipped (f713a08). Re-verified on disk: kind.rs's KindError shifted 1480→1470 (matches the ship's -10 net line change), builtin_kind.rs/bundle.rs/import.rs/install.rs/main.rs and every cited test file unmoved (untouched by the ship). No currently-open entry shares a file with this one. Opened. scoped at f713a08."
   },
   {
     "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH",

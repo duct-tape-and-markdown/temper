@@ -1,44 +1,44 @@
 # Plan state
 
 - Spec derived through: 4adb1fb
-- Audited through: 1f6afe5
-- Residue swept through: 1f6afe5
-- Posture swept through: HEAD (this commit) — the re-verification pass
-  1f6afe5's ship opened (pipeline, judges, provider all touched) is
-  complete: pipeline quiet, judges filed work (posture-sweep judges
-  tick), provider re-verified this tick and is quiet too. The new
-  rotation cycle (foundation → model → formats → pipeline → judges →
-  provider → verbs) opens fresh at foundation next tick.
-- This tick: CLOSING CHECKLIST — no live input in any job. Verified on
-  disk, not assumed: `git log 4adb1fb..HEAD -- specs/` (spec delta)
-  empty; `git log 1f6afe5..HEAD -- src/ tests/ sdk/src/` (post-ship
-  reconciliation window) empty; `git log ab4c07d..HEAD -- src/ sdk/src/
-  tests/` (posture-sweep re-arm window — the cursor already names HEAD
-  itself) empty; inbox empty; no live refactor captures. Every commit
-  since 1f6afe5 is a `plan:` commit touching only `.flume/plan/**`. Ran
-  the closing checklist: the 8 pickable OPEN entries remain pairwise
-  disjoint on files (tap.rs, address.rs, kind.rs, frontmatter.rs,
-  json_manifest.rs+toml_document.rs, engine.rs, dial.rs, drift.rs — no
-  two share a file); the 4 parked entries' reasons are unchanged and
-  untouched by any commit; the 16 blockedBy chain links still resolve to
-  live tags. Nothing to restamp on the queue itself — a genuinely
-  unchanged tick.
-- Queue: 28 pending, 8 pickable OPEN (TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE,
-  ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE,
-  KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE,
-  FRONTMATTER-COMPANIONS-ZERO-CONSUMER-PRUNE,
+- Audited through: f713a08
+- Residue swept through: f713a08
+- Posture swept through: 4e9d87a — unadvanced this tick (job 3 ran, not
+  job 4). Forward window `git log 4e9d87a..HEAD -- src/ sdk/src/ tests/`
+  is now non-empty: the build ship touched src/address.rs, src/tap.rs
+  (foundation), src/kind.rs (model), src/frontmatter.rs (formats) — so
+  foundation, next in rotation, is live again next tick.
+- This tick: POST-SHIP RECONCILIATION, window 1f6afe5..f713a08. Audit:
+  verified on disk (not just the log) that all four shipped prunes
+  landed as described — tap.rs's LOG_FILENAME private (34f8ab1),
+  address.rs's FieldPath::spelling private (78048d7), kind.rs's
+  member_document removed (8c1d03d), frontmatter.rs's companions field
+  + scan_companions removed (c1341fc); `cargo test` and `cargo clippy
+  --all-targets -- -D warnings` both green; metrics.jsonl glanced, the
+  four build ticks sit in the normal smart-zone (14-23 turns, 2-9k
+  output tokens). Sweep: no retirement named in this window beyond the
+  four prunes themselves; no new residue found. Stale-gate re-test:
+  BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE's blockedBy named
+  KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE, which shipped this window —
+  re-verified every cited file on disk (kind.rs's KindError shifted
+  1480→1470, matching the ship's -10 net line change; builtin_kind.rs
+  508/519 and bundle.rs/import.rs/install.rs/main.rs and every cited
+  test file unmoved), confirmed no currently-open entry shares a file
+  with it, and opened it.
+- Queue: 24 pending, 5 pickable OPEN (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
   DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH,
   ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH, DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE,
-  DRIFT-LOCK-ROW-WALK-CONSOLIDATION), 16 chained blockedBy, 4 parked on
-  human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
+  DRIFT-LOCK-ROW-WALK-CONSOLIDATION — pairwise disjoint on files: kind.rs+
+  builtin_kind.rs+bundle.rs+import.rs+install.rs+main.rs+tests/*,
+  json_manifest.rs+toml_document.rs, engine.rs, dial.rs, drift.rs), 15
+  chained blockedBy (unchanged links, all still resolve to live tags), 4
+  parked on human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
   GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, NORMALIZE-PATH-SUBSYSTEM-
-  PLACEMENT). Unchanged this tick.
+  PLACEMENT — reasons unchanged, untouched this window).
   Open forks: (multi-harness-projection), (lazy-grounds) unchanged.
   Refactor captures: none live. Inbox empty.
 
-Plan continues: no — every job is quiet: no spec delta, no post-ship
-window, posture-sweep not re-armed (its cursor is HEAD, and re-arms only
-once a commit past it touches src/, sdk/src/, or tests/), inbox and
-captures empty. Build should work the 8 pickable OPEN entries; plan
-re-wakes on the next inbox line, specs/ commit, or src/sdk/tests-touching
-ship.
+Plan continues: yes — posture-sweep re-armed: the ship touching
+address.rs/tap.rs (foundation), kind.rs (model), frontmatter.rs
+(formats) since the last sweep at 4e9d87a makes foundation, next in
+rotation, live for the following tick.
