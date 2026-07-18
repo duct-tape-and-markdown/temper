@@ -117,19 +117,24 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Two live orphans at HEAD (c1b0f51).** `src/json_splice.rs`'s module
+  **Three live orphans at HEAD (790de01).** `src/json_splice.rs`'s module
   header (surfaced 5af93d9, sweeping foundation) claims install.rs as "the
   sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
   json_splice.rs, so per the rule it rides the next one that does rather
   than filing here. `src/drift.rs`'s `RawLockRow` doc comment (1947-1952,
-  surfaced this tick's post-ship sweep of 4e46eac..c1b0f51) still names
+  surfaced the 4e46eac..c1b0f51 post-ship sweep) still names
   `[read_prior_provenance]` in its intra-doc link list; DRIFT-EMIT-LOCK-
   PARSE-HOIST (112b188) renamed that fn to `read_prior_provenance_from_doc`.
   Several pending entries already chain onto drift.rs (PLACEMENT-MODULE-
   EXTRACTION, EXTRACT-FOUNDATION-BOUNDARY-RESTORE, DRIFT-SOURCE-DEP-PARSE-
   HOIST…) but none names this docblock, so it rides whichever one first
-  does.
+  does. `src/document.rs`'s `item_to_json` doc comment (surfaced this
+  tick's posture sweep of formats) cites "the built-in adapters'
+  `json_to_toml_value`" as the function's inverse-of; that function was
+  cut in 664a522, before 6618b47 even wrote the citing sentence — stale
+  from the moment it was authored. No pending entry currently opens
+  document.rs, so it rides whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,

@@ -5,56 +5,51 @@
   is now fully routed.
 - Audited through: c1b0f51 — advanced from 4e46eac.
 - Residue swept through: c1b0f51 — advanced from 4e46eac.
-- Posture swept through: formats next (mid-rotation) — a fresh cycle
-  opened this tick. foundation bulk-skipped (quiet: `git log
-  fe3ff3f..c1b0f51 -- src/check.rs src/extract.rs src/hash.rs
-  src/address.rs src/tap.rs src/json_splice.rs` empty, git-log test only,
-  no file read); model read and swept (touched: kind.rs by dcdfbff's
-  declared_fields exhaustive-match ship) — quiet-on-clean.
-- This tick: POSTURE SWEEP — model subsystem (`src/kind.rs`,
-  `src/contract.rs`, `src/compose.rs`, `src/schema.rs`, `src/roster.rs`),
-  touched by dcdfbff (declared_fields's exhaustive-match rewrite,
-  ship-audited last tick). All five files read whole against every
-  `specs/process/engineering.md` section plus the sweep's cohesion/dead-
-  plumbing lenses. compose.rs/schema.rs/roster.rs clean — no exhaustive-
-  match fallthrough over a Rust enum (schema.rs's own `Predicate` match at
-  85-165 already names every variant), no zero-consumer export (`rg`-
-  confirmed a consumer outside its own module for every checked `pub` item:
-  `glob_leaf`, `Charset::allows`, `Shape::demand`, `ranges_over_selection`,
-  `edge_field_slots`, `surface_subdir`, `local_locus_fault`,
-  `overlay_content`, `nested_file`, `spans_whole_manifest`, `key_field`,
-  `collection_key`, `glob_compile_count`, `with_joined_clauses`), no
-  duplicate matcher/normalizer. kind.rs/contract.rs: every already-queued
-  finding re-verified still true (KIND-ZERO-CONSUMER-EXPORTS-PRUNE's
-  `Commitment::label`/`Content::label`/`CustomKind::qualified_name` still
-  grep-confirmed zero-consumer; CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH's
-  `declared_keys` `_ => None` at line 741 still stands beside `target`/
-  `documented_field`'s exhaustive style; CONTRACT-REQUIRE-SECTIONS-
-  ROUNDTRIP's `requireSections()` still takes no argument in
-  sdk/src/contract.ts) — each entry's cited line range is within ±1 of
-  the current file (kind.rs's post-945 insertions from dcdfbff land after
-  every cited site here, so nothing shifted materially; the ±1 is the
-  same rounding already present across this corpus's citations, not real
-  drift, so no correction filed). The `_ => None`/`_ => {}` arms
-  elsewhere in kind.rs/contract.rs/compose.rs (format_from_label,
-  unit_shape_from_label, commitment_from_label,
-  collection_key_path_from_label, registration_from_label,
-  severity_from_label, `Shape`/`ExtentUnit::from_name`,
-  `predicate_from_row`, `charset_from_row`) are all closed-vocabulary
-  *string label* parsers, not consumers of a shared Rust enum — outside
-  this section's exhaustive-match bar by the section's own scoping.
-  Verdict: quiet-on-clean. Rotation advances to formats — also touched in
-  the same window (8f96918's json_manifest.rs parse consolidation) — so
-  next tick sweeps it (one touched subsystem read per tick; formats was
-  not read this tick).
+- Posture swept through: pipeline next (mid-rotation) — formats read and
+  swept this tick (touched: json_manifest.rs by 8f96918's top-level-
+  object-parse consolidation) — quiet-on-clean.
+- This tick: POSTURE SWEEP — formats subsystem (`src/frontmatter.rs`,
+  `src/document.rs`, `src/json_manifest.rs`, `src/toml_document.rs`),
+  touched by 8f96918 (ship-audited two ticks ago). All four files read
+  whole against every `specs/process/engineering.md` section plus the
+  sweep's cohesion/dead-plumbing lenses. Zero-consumer check: every
+  checked `pub`/`pub(crate)` item `rg`-confirmed a consumer outside its
+  own module — `fold_file_id` (main.rs), `closing_delimiter` (install.rs,
+  three call sites), `item_to_json` (toml_document.rs), `Satisfies::new`
+  (main.rs, read.rs, tests), `write_document`/`write_manifest`/
+  `CollectionSegment` (drift.rs, bundle.rs, tests), `DocumentMember`'s
+  read/parse/to_unit and `Manifest`'s read/parse/read_kind (main.rs,
+  drift.rs, install.rs, coverage_note.rs, tests), `toml_document::read`
+  (main.rs). Exhaustive-match check: all three `UnitShape` matches
+  (frontmatter.rs:186-223, json_manifest.rs:168-190, toml_document.rs:
+  53-64) name every variant explicitly, no `_` arm; the one bare `_ =>`
+  in the subsystem (frontmatter.rs:307, inside `parse_frontmatter`) is
+  over `gray_matter`'s own `Pod` enum, not a temper-owned shared type —
+  out of the section's scope, consistent with last tick's closed-
+  vocabulary-parser exclusion. No duplicate matcher/normalizer beyond
+  the one already consolidated by 8f96918 (`parse_top_level_object`,
+  shared by `Manifest::parse`/`DocumentMember::parse`). One stale-cite
+  orphan surfaced (not a pending entry — ride-only per the fork-lifecycle
+  rule): `document.rs`'s `item_to_json` doc comment cites a
+  `json_to_toml_value` function that `664a522` deleted before `6618b47`
+  even wrote the citing sentence; recorded as a third live orphan in
+  `open-questions.md` alongside the standing `json_splice.rs`/`drift.rs`
+  pair, riding whichever entry next opens `document.rs`. Verdict:
+  quiet-on-clean, no new pending entry. Checked ahead: pipeline is not
+  clean-skippable — `git log 662cf07..HEAD -- src/drift.rs src/import.rs
+  src/read.rs src/builtin_lock.rs` shows three touches since its own
+  last full sweep (0282dc7's lock-row-walk consolidation, 72daab3's
+  harness_relative canonicalization, 112b188's lock.toml parse hoist,
+  all in drift.rs) — next tick reads it whole rather than skipping.
 - Queue: 28 pending — unchanged (no entry filed, dropped, or edited this
-  tick; posture sweep found nothing new). 1 pickable OPEN
-  (PLACEMENT-MODULE-EXTRACTION), 25 chained blockedBy (all resolving to
-  live tags), 2 parked on human action (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER). Open forks unchanged:
-  (multi-harness-projection), (lazy-grounds), neither touched. Refactor
-  captures: 0 live. Friction: 0 live. Inbox: 0 notes.
+  tick; posture sweep found nothing new beyond the ride-only orphan
+  above). 1 pickable OPEN (PLACEMENT-MODULE-EXTRACTION), 25 chained
+  blockedBy (all resolving to live tags), 2 parked on human action
+  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks
+  unchanged: (multi-harness-projection), (lazy-grounds), neither
+  touched. Refactor captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — the posture sweep is still mid-rotation (formats
-next, already known touched by 8f96918) and no commit past c1b0f51 has
-landed to re-trigger reconciliation, so the sweep is the next live input.
+Plan continues: yes — the posture sweep is still mid-rotation (pipeline
+next, already known touched by 0282dc7/72daab3/112b188) and no commit
+past c1b0f51 has landed to re-trigger reconciliation, so the sweep is
+the next live input.
