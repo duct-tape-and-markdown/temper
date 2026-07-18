@@ -2,20 +2,26 @@ import { emit, harness } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
+import { rule_forkLifecycle } from "./rules/fork-lifecycle.ts";
 import { rule_pendingEntry } from "./rules/pending-entry.ts";
+import { rule_planState } from "./rules/plan-state.ts";
+import { rule_postureSweep } from "./rules/posture-sweep.ts";
 import { rule_publicProse } from "./rules/public-prose.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
 import { hook_fmtOnWrite, hook_guard, hook_sessionStart } from "./hooks.ts";
 
-// The two requirements below are load-bearing, not documentation: emit
-// refuses if either loses its satisfier (sdk/test/refusals.test.ts, "an
-// unfilled required requirement"). .flume/prompts/plan.md's/build.md's
-// prose still names each member by identifier outside any gate — that
-// residual is cosmetic (neither's trigger mechanism reads the prose) and
-// tracked as evidence on the ".flume/ is ungoverned by temper" entry in
-// .flume/plan/open-questions.md, not re-litigated here.
+// The requirements below are load-bearing, not documentation: emit
+// refuses if any loses its satisfier (sdk/test/refusals.test.ts, "an
+// unfilled required requirement"). The flume prompts are thin by design
+// — doctrine lives in these paths-scoped rules, loading exactly when the
+// governed file is touched (the pending-entry precedent, generalized
+// 07-17); a prompt paragraph that duplicates a rule is drift. Prompt
+// prose still names members by identifier outside any gate — that
+// residual is cosmetic (no trigger mechanism reads the prose) and
+// tracked on the ".flume/ is ungoverned by temper" record, not
+// re-litigated here.
 //
 // friction-capture-procedure carries no `kind:` constraint: Requirement.kind
 // is KindDefinition<object>, and skill's own Skill.description is required,
@@ -33,11 +39,29 @@ const program = harness({
       prose: "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture",
       required: true,
     },
+    "plan-state-discipline": {
+      prose: "flume's plan phase needs state.md's schema, cursor copy-forward, and marker mechanics as a rule scoped to .flume/plan/state.md — the prompt stays thin",
+      kind: rule,
+      required: true,
+    },
+    "fork-lifecycle-discipline": {
+      prose: "any actor touching open-questions.md needs the open-forks-only lifecycle (encode + delete, DATUMs to commit bodies, kept-on-purpose semantics) as a rule scoped to that file",
+      kind: rule,
+      required: true,
+    },
+    "posture-sweep-discipline": {
+      prose: "the posture sweep needs its administering discipline (pages-as-authority, verified-on-disk, routing, rotation) as a rule scoped to the posture pages it reads",
+      kind: rule,
+      required: true,
+    },
   },
   members: [
     memory_CLAUDE,
     rule_collaboration,
+    rule_forkLifecycle,
     rule_pendingEntry,
+    rule_planState,
+    rule_postureSweep,
     rule_publicProse,
     rule_rust,
     rule_sdk,

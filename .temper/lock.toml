@@ -11,10 +11,28 @@ source_hash = "a8bb717defb4eb8743165841966293d60b9d267622647d112df25da8291c8207"
 emit_hash = "a8bb717defb4eb8743165841966293d60b9d267622647d112df25da8291c8207"
 
 [[rule]]
+name = "fork-lifecycle"
+source_path = ".claude/rules/fork-lifecycle.md"
+source_hash = "ddb4decb257e084003e6785c16b902b56a13ed737d58a2eb3d03a4618031b3f2"
+emit_hash = "ddb4decb257e084003e6785c16b902b56a13ed737d58a2eb3d03a4618031b3f2"
+
+[[rule]]
 name = "pending-entry"
 source_path = ".claude/rules/pending-entry.md"
 source_hash = "a2f1a5383db49bd0a1ec048d9910a8ec98fad26c8b93f5390214dc2b9d674ac3"
 emit_hash = "a2f1a5383db49bd0a1ec048d9910a8ec98fad26c8b93f5390214dc2b9d674ac3"
+
+[[rule]]
+name = "plan-state"
+source_path = ".claude/rules/plan-state.md"
+source_hash = "f12ab6bc1717fb79f667eed64d42f13aa153a09b68d46d027a1e115c65be6c86"
+emit_hash = "f12ab6bc1717fb79f667eed64d42f13aa153a09b68d46d027a1e115c65be6c86"
+
+[[rule]]
+name = "posture-sweep"
+source_path = ".claude/rules/posture-sweep.md"
+source_hash = "a41cf5d17f6ee17dbd574c3b56e39e8912cc672fbd60d50f6ece060a1f97371e"
+emit_hash = "a41cf5d17f6ee17dbd574c3b56e39e8912cc672fbd60d50f6ece060a1f97371e"
 
 [[rule]]
 name = "public-prose"
@@ -74,6 +92,12 @@ registration = ["user-invoked", "description-trigger(description)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
 
 [[declaration.requirement]]
+name = "fork-lifecycle-discipline"
+kind = "rule"
+required = true
+prose = "any actor touching open-questions.md needs the open-forks-only lifecycle (encode + delete, DATUMs to commit bodies, kept-on-purpose semantics) as a rule scoped to that file"
+
+[[declaration.requirement]]
 name = "friction-capture-procedure"
 required = true
 prose = "an agent that hits harness friction or touches structural debt it can't fix now needs a description-triggered procedure (a skill) for filing the capture"
@@ -84,13 +108,37 @@ kind = "rule"
 required = true
 prose = "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json"
 
+[[declaration.requirement]]
+name = "plan-state-discipline"
+kind = "rule"
+required = true
+prose = "flume's plan phase needs state.md's schema, cursor copy-forward, and marker mechanics as a rule scoped to .flume/plan/state.md — the prompt stays thin"
+
+[[declaration.requirement]]
+name = "posture-sweep-discipline"
+kind = "rule"
+required = true
+prose = "the posture sweep needs its administering discipline (pages-as-authority, verified-on-disk, routing, rotation) as a rule scoped to the posture pages it reads"
+
 [[declaration.assembly]]
 fact = "mode"
 value = "warn"
 
 [[declaration.satisfies]]
+member = "rule:fork-lifecycle"
+requirement = "fork-lifecycle-discipline"
+
+[[declaration.satisfies]]
 member = "rule:pending-entry"
 requirement = "pending-entry-discipline"
+
+[[declaration.satisfies]]
+member = "rule:plan-state"
+requirement = "plan-state-discipline"
+
+[[declaration.satisfies]]
+member = "rule:posture-sweep"
+requirement = "posture-sweep-discipline"
 
 [[declaration.satisfies]]
 member = "skill:capture-friction"
