@@ -8,7 +8,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE"
+      "tag": "KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +16,11 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "`KindError` (1479-1480, `pub enum KindError {}`) is an empty enum — its own doc comment (1475-1478) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users once `qualified` is pruned by BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE, the entry this one is serialized behind) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
+          "description": "`KindError` (1480, `pub enum KindError {}`) is an empty enum — its own doc comment (1475-1478) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users now that `qualified` is pruned, shipped in 84197e5) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "Drop the now-dead `KindError` import at 16-18. `definition` (508-510, its own `# Errors` section at 504-507 already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') and `definitions` (531-536, same concession at 527-530) both wrap an infallible lookup over `all_kinds()` — a bare `Vec` literal, no I/O — in `Result<_, KindError>`; every call site across the tree immediately `?`s or `.unwrap()`s it away, never inspecting an `Err` arm nothing can construct. Change `definition` to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }` and `definitions` to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping each `Ok(...)` wrap and its now-false `# Errors` doc section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 600, 662, 696, 701, 725, 779, 825, 839, 865, 905, 972, 1030, 1053, 1090 (972/1030/1053/1090 each carry a doubled `.unwrap().unwrap()` today — one `.unwrap()` survives, for the inner `Option`)."
+          "description": "Re-verified post-84197e5 (the `qualified`-prune ship shifted every line past 509). Drop the now-dead `KindError` import from the `use crate::kind::{ .. };` block (16-19). `definition` (508-510, its own `# Errors` section already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') and `definitions` (519-524, same concession) both wrap an infallible lookup over `all_kinds()` — a bare `Vec` literal, no I/O — in `Result<_, KindError>`; every call site across the tree immediately `?`s or `.unwrap()`s it away, never inspecting an `Err` arm nothing can construct. Change `definition` to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }` and `definitions` to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping each `Ok(...)` wrap and its now-false `# Errors` doc section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 588, 650, 684, 689 (`definitions()`), 713, 748, 794, 834, 874 (each currently `.unwrap().expect(..)` or `.unwrap().is_none()` — drop the outer `.unwrap()`), plus 808, 941, 999, 1022, 1059 (each currently a doubled `.unwrap().unwrap()` — one `.unwrap()` survives, for the inner `Option`)."
         },
         {
           "path": "src/bundle.rs",
@@ -117,7 +117,7 @@
       }
     ],
     "acceptance": "builtin_kind::definition returns Option<CustomKind> and builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, with no Result wrapper; KindError is gone from src/kind.rs. No behavior change (engineering.md, 'One job, one home': vacuous Result plumbing around a lookup that can never fail is subtracted, not carried — the DISCOVERY-INFALLIBLE-RESULT-COLLAPSE precedent for this exact shape). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the `model` subsystem (posture rotation: foundation done, model this tick) grep-verifying kind.rs's pub surface; the dead-Result shape is the class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs's discover_* family, unnoticed here until BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE's own removal cleared this neighborhood. Serialized behind it for shared builtin_kind.rs safety (pending-entry.md) — no functional dependency. scoped at 0dd9892."
+    "notes": "The class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs. Reconciled 2026-07-18: blocker shipped (84197e5) — verified on disk; builtin_kind.rs citations refreshed for shifted lines, every other cited file unmoved. Re-blocked rather than opened bare: straight-to-open collides with KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE (open, also edits kind.rs) — serialized per pending-entry.md, no functional dependency. scoped at 1f6afe5."
   },
   {
     "tag": "TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE",
