@@ -71,6 +71,10 @@ bookkeeping. **Verify the target before every commit**: `git rev-parse
 --abbrev-ref HEAD` must name this worktree's `flume/<tag>` branch — on a
 mismatch, stop and report it as a blocker instead of committing; a
 wrong-branch commit is silently lost, and retrying it burns the tick.
+The same discipline binds **every file write**: absolute paths must live
+under this worktree's root, never the root checkout — a root-checkout
+edit is invisible to your branch and lands as stray drift for someone
+else to clean up.
 
 Gates run automatically after your commit: `cargo fmt --check` (afterCommit),
 then `cargo clippy -D warnings`, `cargo test`, and `pnpm --dir sdk test`
