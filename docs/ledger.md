@@ -29,24 +29,15 @@ hard.
 
 ## Parked (pointers only)
 
-- flume runtime bug (John, `@dtmd/flume`): build-agent git/file ops
-  escape the worktree to the root checkout — 3 manifestations 07-18:
-  wrong-branch commits (friction capture, drained), a stray root edit
-  (install.rs), and a root copy of an entry's own diff that then
-  BLOCKED that entry's cherry-pick (contract.rs; entry survived in
-  pending, stray discarded). Likely stale GIT_DIR/GIT_WORK_TREE or
-  tool-cwd mismatch. Prompt stopgaps in build.md (commit + write
-  fences, both post-dating manifestation 3's agents); runtime fix is
-  upstream, and the escalation: it now costs shipped waves, not just
-  cleanup. Smoking gun 07-18: a live tick observed with cwd =
-  @dtmd/flume/dist — the dispatcher corrupts spawn cwds under
-  concurrent batches. Session-side: build concurrency dropped to
-  singleton in chain.ts until fixed; restore fanout after.
-- flume runtime gap (John, `@dtmd/flume`): no cross-process loop lock —
-  two `flume loop` supervisors ran ~1h against one state root (07-18,
-  operator error; history stayed linear on timing luck). A pidfile/lock
-  refusing the second loop is the fix; session-side, launches now
-  pgrep-check first.
+- flume 0.3.1 publish (John): both 07-18 runtime fixes are LIVE via a
+  patched installed dist in temper's node_modules (ephemeral — a
+  reinstall wipes it) and mirrored on flume branch
+  fix/worktree-escape-and-loop-lock (written against 0.2.0 source;
+  reconcile with wherever 0.3.0's source lives). Fix 1: worktrees
+  relocate outside the repo (FLUME_WORKTREES_DIR; temper's chain sets
+  ~/.cache/flume-worktrees/<repo>) — root cause of the stray writes
+  was models deriving the root checkout from the worktree path prefix.
+  Fix 2: loop pidfile lock refuses a second supervisor.
 
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.

@@ -61,6 +61,12 @@ covers when to reach for it).
 
 # OUTPUT
 
+**Your checkout is an isolated worktree, and `pwd` is its root.** Every
+repo-relative path in the entry resolves against it. Absolute paths are
+constructed from `pwd` output only — never from a path seen in a file,
+an error message, or `git worktree list`; the main checkout's path is
+not yours, and one write there corrupts trunk state outside your gates.
+
 One commit on this worktree's branch, prefixed `build:`. Imperative subject; the
 body explains *why*, not a restatement of the spec. **Your branch is the only
 place you commit.** Never rebase onto or merge from `main`, never push a trunk

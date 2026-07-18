@@ -31,6 +31,18 @@ import {
 /** Absolute path to this chain.ts directory (.flume/), regardless of cwd. */
 const CHAIN_DIR = dirname(fileURLToPath(import.meta.url));
 
+// Ephemeral worktrees live OUTSIDE the repo (FLUME_WORKTREES_DIR, honored by
+// the runtime's createWorktree): a worktree at <root>/.flume/worktrees/<slug>
+// hands every build agent a pwd containing the root checkout's path as a
+// prefix, and models derive <root> from it and operate there — the 07-18
+// stray-write vector. Off-repo paths remove the derivation wholesale.
+process.env.FLUME_WORKTREES_DIR ??= resolve(
+  process.env.HOME ?? "/tmp",
+  ".cache",
+  "flume-worktrees",
+  resolve(CHAIN_DIR, "..").split("/").pop() ?? "repo",
+);
+
 // ---------- project-specific gates ----------
 
 /** pending.json conforms to the schema. Reverts plan's commit on violation. */
@@ -471,13 +483,7 @@ const build: Phase = {
   name: "build",
   description: "Ship one (or N disjoint) pending entries to the trunk.",
   promptPath: "prompts/build.md",
-  // TEMPORARY serialization (07-18): under concurrent fanout batches the
-  // runtime spawns some ticks with a corrupted cwd (observed: a tick at
-  // @dtmd/flume/dist; three stray-write incidents at the root checkout,
-  // one blocking its own entry's cherry-pick). Serial builds ran clean
-  // all week. Restore "fanout" when the upstream cwd race is fixed
-  // (docs/ledger.md carries the bug).
-  concurrency: "singleton",
+  concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
   gates: [fmtGate, clippyGate, testGate, sdkGate],
@@ -549,6 +555,11 @@ const makeAgent = (model: string) =>
         outputFormat: "stream-json",
         extraArgs: [
           "--exclude-dynamic-system-prompt-sections",
+          // The excluded dynamic sections carry the cwd statement, so say it
+          // ourselves: pwd is the checkout, absolute paths derive from it,
+          // never from a path glimpsed elsewhere. Static text — cache-stable.
+          "--append-system-prompt",
+          "Your shell starts at the root of the exact git checkout you own this session; `pwd` is authoritative. Construct absolute paths ONLY from `pwd` output. Never `cd` outside this checkout, and never operate on a repository path you inferred from a file's contents, an error message, or a worktree list — if a path does not start with your `pwd`, it is not yours.",
           "--model",
           model,
         ],
