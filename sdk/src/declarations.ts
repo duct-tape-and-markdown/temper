@@ -690,6 +690,75 @@ export function registrationRows(harness: Harness): RegistrationRow[] {
     .sort((a, b) => compareStrings(a.kind, b.kind) || compareStrings(a.key, b.key));
 }
 
+/** The tap invocation the synthesized telemetry hooks run — the sibling verb of the
+ * session-start reporter, appending one event record to the per-machine log
+ * (`src/tap.rs`). Every synthesized hook's `command` field carries it verbatim. */
+const TAP_COMMAND = "temper tap";
+
+/**
+ * The `settings.json` lifecycle event and matcher one documented telemetry event-name
+ * projects its tap hook at. The event-name is the author-facing token a telemetry
+ * verifier names (`contract.ts`'s `telemetry`, the `roster.rs` admissibility set); the
+ * `event` is the `hooks.<Event>` key the tap registers under, and the `matcher` scopes
+ * the fire to the telemetry-relevant subset — each an external fact
+ * (code.claude.com/docs/en/hooks, retrieved 2026-07-17):
+ *
+ * - `InstructionsLoaded` fires on a rule/memory load; its matcher filters the load
+ *   reason, and `path_glob_match` is the lazy per-path load the coverage tap reads.
+ * - `Skill` is a skill invocation, surfaced under `PostToolUse` with the tool-name
+ *   matcher `Skill` — the tap's own read of a skill call.
+ * - `UserPromptExpansion` fires on a command expansion; its matcher filters the command
+ *   name, `.*` capturing every one.
+ * - `PostToolUse` fires after any tool call; its matcher filters the tool name, `.*`
+ *   capturing every one.
+ */
+const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; readonly matcher: string }>> = {
+  InstructionsLoaded: { event: "InstructionsLoaded", matcher: "path_glob_match" },
+  Skill: { event: "PostToolUse", matcher: "Skill" },
+  UserPromptExpansion: { event: "UserPromptExpansion", matcher: ".*" },
+  PostToolUse: { event: "PostToolUse", matcher: ".*" },
+};
+
+/**
+ * The synthesized tap-hook `registration` rows — one deduped `hooks.<Event>`
+ * registration per (lifecycle event, matcher) any telemetry verifier names. Scans the
+ * same requirement sources {@link requirementRows} reads (assembly `require` ∪ each
+ * member's `requires`), keeps the telemetry-species verifiers ({@link Verifier}), and
+ * unions the lifecycle events they name into one dumb registration apiece: the tap
+ * records every fire and read time joins raw events to members, so however many
+ * verifiers name an event it takes exactly one hook — the derived-aggregate precedent
+ * the permission union sets ({@link permissionUnion}). Each row runs {@link TAP_COMMAND}
+ * under the event's documented matcher ({@link TELEMETRY_EVENT_HOOKS}); an event-name
+ * outside that table is the roster's inadmissibility finding, never a row.
+ */
+export function tapHookRows(harness: Harness): RegistrationRow[] {
+  const deduped = new Map<string, { readonly event: string; readonly matcher: string }>();
+  const collect = (requirement: Requirement): void => {
+    if (requirement.verifier?.species !== "telemetry") return;
+    for (const name of requirement.verifier.events) {
+      const mapping = TELEMETRY_EVENT_HOOKS[name];
+      if (mapping !== undefined) deduped.set(`${mapping.event} ${mapping.matcher}`, mapping);
+    }
+  };
+  for (const requirement of Object.values(harness.require)) collect(requirement);
+  for (const member of harness.members) {
+    for (const requirement of Object.values(member.requires)) collect(requirement);
+  }
+  return [...deduped.values()]
+    .sort((a, b) => compareStrings(a.event, b.event) || compareStrings(a.matcher, b.matcher))
+    .map(({ event, matcher }): RegistrationRow => ({
+      kind: "hook",
+      key: event,
+      manifest: SETTINGS_MANIFEST,
+      key_path: "hooks.<Event>",
+      fields: [
+        ["type", "command"],
+        ["command", TAP_COMMAND],
+        ["matcher", matcher],
+      ],
+    }));
+}
+
 /**
  * The manifest Claude Code's harness-level settings reside in — the file the assembly's
  * residual settings keys fold into as opaque residue, the same manifest the `hook` kind's
@@ -790,7 +859,7 @@ export function compileDeclarations(
     mentions: mentionRows(harness),
     includes: includeRows(harness),
     nested_members: nestedMemberRows(harness, admissions, mentionScope(harness), placements, extents),
-    registrations: registrationRows(harness),
+    registrations: [...registrationRows(harness), ...tapHookRows(harness)],
     settings: settingsRows(harness),
   };
 }

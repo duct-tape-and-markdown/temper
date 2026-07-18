@@ -603,6 +603,57 @@ fn a_represented_manifest_emits_whole_through_the_write_face_not_json_splice() {
 }
 
 #[test]
+fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_loop() {
+    let (harness, into) = workspace("tap-hook-matcher-group");
+
+    // A synthesized tap-hook row — the shape the SDK derives from a telemetry verifier
+    // (`sdk/src/declarations.ts`'s `tapHookRows`): `kind` hook, a `matcher` field, the
+    // `temper tap` command. The engine projects it through the same registration loop a
+    // hook member rides, no engine change — a `Skill` invocation is surfaced under
+    // `PostToolUse` with the tool-name matcher.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![hook_kind_facts()],
+            registrations: vec![RegistrationRow {
+                kind: "hook".to_string(),
+                key: "PostToolUse".to_string(),
+                manifest: "settings.json".to_string(),
+                key_path: "hooks.<Event>".to_string(),
+                fields: vec![
+                    ("type".to_string(), serde_json::json!("command")),
+                    ("command".to_string(), serde_json::json!("temper tap")),
+                    ("matcher".to_string(), serde_json::json!("Skill")),
+                ],
+            }],
+            ..Default::default()
+        },
+        members: Vec::new(),
+    };
+
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // The `matcher` field lifts to the group level — `hooks.PostToolUse` is the array of
+    // matcher groups Claude Code loads, each `{matcher, hooks:[{…handler}]}` — proving the
+    // engine projects the SDK-synthesized row unchanged.
+    let mut entries = std::collections::BTreeMap::new();
+    entries.insert(
+        "PostToolUse".to_string(),
+        serde_json::json!([
+            { "matcher": "Skill", "hooks": [ { "type": "command", "command": "temper tap" } ] }
+        ]),
+    );
+    let segment = json_manifest::CollectionSegment {
+        collection_key: "hooks".to_string(),
+        entries,
+    };
+    let expected = json_manifest::write_manifest(&[segment], &std::collections::BTreeMap::new());
+
+    let manifest_path = harness.join(".claude").join("settings.json");
+    assert_eq!(fs::read_to_string(&manifest_path).unwrap(), expected);
+}
+
+#[test]
 fn harness_settings_residue_folds_into_settings_json_beside_the_hooks_segment() {
     let (harness, into) = workspace("settings-residue");
 

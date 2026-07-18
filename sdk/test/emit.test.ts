@@ -31,6 +31,7 @@ import {
   renderText,
   required,
   script,
+  telemetry,
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
@@ -1554,6 +1555,104 @@ test("a harness with no residual settings carries an empty settings family", () 
   const result = emit(projectedHarness());
   assert.deepEqual(result.settings, []);
   assert.deepEqual(JSON.parse(result.seam).declarations.settings, []);
+});
+
+// ---------------------------------------------------------------------------
+// Telemetry — a requirement's telemetry verifier synthesizes deduped tap
+// `hooks.<Event>` registrations, one per lifecycle event, matcher + command cited.
+// ---------------------------------------------------------------------------
+
+test("a telemetry verifier projects one tap hook per lifecycle event, deduped across verifiers naming the same event", () => {
+  const h = harness({
+    members: [
+      rule({
+        name: "rust",
+        paths: ["src/**/*.rs"],
+        prose: text`
+          # Rust conventions
+
+          The house standards.
+        `,
+        requires: {
+          // A second verifier naming the same \`Skill\` event: its hook dedupes against the
+          // assembly's, so the shared \`PostToolUse\`/\`Skill\` registration stays one row.
+          "skill-fires": { prose: "the coordinate skill fires", verifier: telemetry(["Skill"]) },
+        },
+      }),
+    ],
+    require: {
+      "rules-load": {
+        prose: "the rust rules load and the coordinate skill fires",
+        verifier: telemetry(["InstructionsLoaded", "Skill"]),
+      },
+    },
+  });
+
+  const result = emit(h);
+
+  // One dumb registration per (lifecycle event, matcher) any verifier names — \`Skill\`
+  // surfaces under \`PostToolUse\` with the tool-name matcher, \`InstructionsLoaded\` under its
+  // own event with the load-reason matcher — deduped across the two verifiers naming \`Skill\`.
+  assert.deepEqual(result.registrations, [
+    {
+      kind: "hook",
+      key: "InstructionsLoaded",
+      collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+      fields: [
+        ["type", "command"],
+        ["command", "temper tap"],
+        ["matcher", "path_glob_match"],
+      ],
+    },
+    {
+      kind: "hook",
+      key: "PostToolUse",
+      collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+      fields: [
+        ["type", "command"],
+        ["command", "temper tap"],
+        ["matcher", "Skill"],
+      ],
+    },
+  ]);
+
+  // The same synthesized rows ride the seam's `registration` declaration family — the one
+  // source the `EmitResult` sibling maps from, so the two cannot disagree, and the engine
+  // projects them through its existing registration loop, no engine change.
+  const seam = JSON.parse(result.seam);
+  assert.deepEqual(
+    seam.declarations.registrations.map((r: { kind: string; key: string }) => `${r.kind}:${r.key}`),
+    ["hook:InstructionsLoaded", "hook:PostToolUse"],
+  );
+});
+
+test("a telemetry verifier naming every documented event synthesizes each event's tap hook", () => {
+  const h = harness({
+    members: [],
+    require: {
+      "full-tap": {
+        prose: "the tap records every documented lifecycle event",
+        verifier: telemetry(["InstructionsLoaded", "Skill", "UserPromptExpansion", "PostToolUse"]),
+      },
+    },
+  });
+
+  // \`Skill\` and \`PostToolUse\` both ride the \`PostToolUse\` event but with distinct matchers
+  // (the Skill tool vs every tool), so each keeps its own registration.
+  assert.deepEqual(
+    emit(h).registrations.map((r) => [r.key, r.fields.find(([f]) => f === "matcher")?.[1]]),
+    [
+      ["InstructionsLoaded", "path_glob_match"],
+      ["PostToolUse", ".*"],
+      ["PostToolUse", "Skill"],
+      ["UserPromptExpansion", ".*"],
+    ],
+  );
+});
+
+test("a script verifier synthesizes no tap hook", () => {
+  const result = emit(fullHarness());
+  assert.deepEqual(result.registrations, []);
 });
 
 // ---------------------------------------------------------------------------
