@@ -1,72 +1,94 @@
 # Plan state
 
-- Spec derived through: 506c34c — decision 0042 ("the entry declares
-  its shape") routed 506c34c's tick; unchanged, not this tick's job.
+- Spec derived through: 506c34c — unchanged, not this tick's job.
 - Audited through: 64828d9 — unchanged, not this tick's job.
 - Residue swept through: 64828d9 — unchanged, not this tick's job.
-- Posture swept through: verbs next (mid-rotation) — provider read
-  and swept this tick.
-- This tick: POSTURE SWEEP. Inbox empty, no refactor captures, no
-  spec-delta commits past 506c34c, and `git log 64828d9..HEAD -- src/
-  tests/ sdk/` empty (post-ship reconciliation not live) — job 4 was
-  the first live input. Rotation: `judges` skip-forwarded last tick
-  (quiet since fe3ff3f), landing on `provider`
-  (src/builtin.rs, src/builtin_kind.rs, sdk/src/builtins.ts,
-  sdk/src/claude-code.ts) — touched since its own last sweep (fe3ff3f)
-  by 404b73a (extract-foundation-boundary-restore, narrowed
-  builtin_kind.rs's call sites to drift::) and 516f8f6 (collapsed
-  definitions()'s Result wrapper). Read both pages
+- Posture swept through: 2d1c5a6 — verbs ticked this tick and closes
+  the rotation pass (foundation done, model done, formats done,
+  pipeline quiet-on-clean, judges bulk-skipped, provider done last
+  tick, verbs this tick — 4 new findings). All seven subsystems from
+  architecture.md's codemap now covered. A fresh cycle (foundation →
+  model → formats → pipeline → judges → provider → verbs) opens next
+  time the sweep re-arms.
+- This tick: POSTURE SWEEP — verbs subsystem (`src/main.rs`,
+  `src/install.rs`, `src/bundle.rs`, `src/lib.rs`, `src/test_support.rs`),
+  touched since its own last sweep (8003aad) by 278ae4c
+  (install-projection-match-consolidate) and 404b73a
+  (extract-foundation-boundary-restore). Read both pages
   (specs/process/engineering.md whole, specs/process/architecture.md's
-  codemap) and the full current state of all four files (a
-  general-purpose agent did the first pass census, independently
-  re-verified before filing) against every engineering.md section plus
-  the cohesion/dead-plumbing sweep lenses (embedded-provider-knowledge
-  is N/A here — this subsystem *is* the provider face the lens
-  protects other subsystems from leaking into).
-  - One real, verified finding: **BUILTIN-KIND-SURFACE-UNIT-CONSOLIDATE**
-    — builtin_kind.rs's inline `#[cfg(test)]` module declares a private
-    `surface_unit` (885-901) that is a byte-for-byte body duplicate of
-    `tests/common::surface_unit` (mod.rs:460-476), when this same test
-    module already imports `crate::test_support::tmpdir` (574) — the
-    crate's own designated shared-fixture home for in-src unit tests
-    (test_support.rs's own header names exactly this job). Filed
-    against "One job, one home" (test-scaffolding bullet), blockedBy
-    KIND-ENTRY-SHAPE-DATA-DECLARE for shared builtin_kind.rs safety
-    (pending-entry.md, "Disjoint, or serialized") — TAP-PAYLOAD-SCHEMA-
-    SPLIT also touches the file and is open/queue-front, ships first
-    regardless, noted rather than double-chained.
-  - Checked clean or already covered, not re-filed: export census
-    (every pub item in builtin.rs/builtin_kind.rs and every
-    builtins.ts/claude-code.ts export has a real outside caller); no
-    `match` statements in either Rust file, so no `_ =>` exhaustiveness
-    risk; the architecture invariant ("the provider face is data the
-    engine loads, never a dependency of the model") holds — kind.rs/
-    json_manifest.rs reference builtin_kind::features only via
-    doc-comment intra-links, never a real `use`; builtin_kind::
-    definitions()'s redundant in-run calls already covered by
-    GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST; builtin.rs's contract_for_kind
-    duplicate of compose::default_contract_from_rows already covered by
-    BUILTIN-CONTRACT-FOR-KIND-CONSOLIDATE; KIND-ENTRY-SHAPE-DATA-DECLARE/
-    JSON-MANIFEST-ENTRY-SHAPE-DISPATCH/GRAPH-ENABLEMENT-FIELD-RETIRE/
-    BUILTINS-DEFAULT-CONTRACT-HOLDS-CLOSE all still correctly pending,
-    untouched by this tick's window; no fresh stale-cite instances (all
-    citation dates 2026-07-15/16/17, consistent with today); no
-    collision with any "Kept on purpose" asymmetry.
-  - Rotation continued forward in the same tick per the skip-forward
-    rule: checked `verbs` (main.rs, install.rs, bundle.rs, lib.rs,
-    test_support.rs) against its own last-sweep baseline (8003aad) —
-    `git log 8003aad..HEAD` names 278ae4c and 404b73a touching
-    install.rs/main.rs, so `verbs` is itself touched, not quiet. The
-    rotation does not close this tick; it stops at `provider` (already
-    read) and the cursor lands on `verbs` as the next live subsystem —
-    unread this tick, per the one-touched-subsystem-per-tick bound.
-- Queue: 45 pending (+1 this tick, BUILTIN-KIND-SURFACE-UNIT-CONSOLIDATE,
-  blockedBy KIND-ENTRY-SHAPE-DATA-DECLARE). 9 pickable OPEN (unchanged
-  — the new entry is blockedBy), 33 chained blockedBy, 3 parked on
-  human action. Open forks unchanged: (multi-harness-projection),
-  (lazy-grounds), neither touched this tick. Refactor captures: 0 live.
-  Friction: 0 live. Inbox: 0 notes.
+  codemap) and the full current state of all five files (a
+  general-purpose agent did the first pass census — cross-checked
+  against every already-queued entry touching these files and the
+  open-questions "Kept on purpose" list — independently re-verified on
+  disk before filing) against every engineering.md section plus the
+  cohesion/dead-plumbing/embedded-provider-knowledge sweep lenses.
+  lib.rs/test_support.rs clean. Four new findings, all mechanical:
+  - **INSTALL-ERROR-ZERO-CONSUMER-PRUNE** — install.rs's `InstallError`
+    enum (168) is `pub` with zero consumer outside its own module; every
+    fallible pub fn in the file returns `miette::Result<T>`, never
+    naming the concrete type. Same shape as the shipped GRAPH-WORLD-
+    ZERO-CONSUMER-PRUNE precedent. Serialized behind GUARD-DECLARED-
+    LOCUS-FILTER, the tail of the existing install.rs chain.
+  - **BUNDLE-ERROR-ZERO-CONSUMER-PRUNE** — bundle.rs's `BundleError`
+    enum (140) is the identical zero-consumer shape. Filed open.
+  - **BUNDLE-MANIFEST-PATH-GOVERNS-DERIVE** — bundle.rs's `write_member`
+    (309) takes a hardcoded `.claude-plugin/plugin.json` /
+    `marketplace.json` literal at each call site instead of deriving it
+    from the kind's own `Governs` locus, already declared and cited in
+    builtin_kind.rs (376-379, 406-408) — two sources of truth for one
+    manifest's location. Serialized behind BUNDLE-ERROR-ZERO-CONSUMER-
+    PRUNE for shared bundle.rs safety.
+  - **MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST** — `Command::Guard`'s
+    handler independently calls `drift::read_declarations` twice
+    (via `mode_from_lock` at 382 and `guarded_manifests` at 385) —
+    a full re-read-and-reparse of lock.toml within one CLI invocation,
+    untouched by any of the five queued `*-PARSE-HOIST` entries (all
+    scoped to `gate()`/`explain()`, verified against their files[]).
+    `guarded_manifests` does nothing else with `workspace_dir`, so it
+    can take `&Declarations` directly — the sibling
+    `mode_from_declarations` already exists for exactly this shape.
+    No runtime count-pin available (`read_declarations` doesn't feed
+    drift's `lock_read_count`/`lock_parse_count` counters, the same gap
+    DRIFT-SOURCE-DEP-PARSE-HOIST's own pin will face); proven
+    structurally instead, the named exception per "A fix ships the test
+    that would have caught it." Serialized behind DRIFT-SOURCE-DEP-
+    PARSE-HOIST since it and MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT are
+    already both open over main.rs — chaining here avoids a third
+    simultaneous open edit to the same file.
+  - Checked clean or already covered, not re-filed: full export census
+    across all five files (every remaining pub item has a real outside
+    caller); no `_ =>` wildcards over a shared enum in these files; the
+    "main carries dispatch only" invariant already has its own tracked
+    exceptions (MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT,
+    MAIN-CORPUS-ASSEMBLY-TO-COMPOSE, MAIN-JUDGE-VERB-HOME-RULING);
+    install.rs's GUARD_PATH_MATCH regex (714) is a libraries-before-
+    hand-rolls candidate but collides with GUARD-DECLARED-LOCUS-FILTER's
+    own ruling to keep it scoped as-is — not re-opened; the orphaned
+    `placement_lines` doc comment (install.rs 1646-1652, open-questions'
+    "one stale cite, ride-only" record) confirmed still present,
+    unchanged, riding per the documented rule, not re-reported; no fresh
+    embedded-provider-knowledge leak beyond the governs-path finding
+    above.
+- Queue: 49 pending (+4 this tick: INSTALL-ERROR-ZERO-CONSUMER-PRUNE,
+  BUNDLE-ERROR-ZERO-CONSUMER-PRUNE, BUNDLE-MANIFEST-PATH-GOVERNS-DERIVE,
+  MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST). 10 pickable OPEN, 36
+  chained blockedBy, 3 parked on human action. This tick's new open
+  entry (BUNDLE-ERROR-ZERO-CONSUMER-PRUNE) is file-disjoint from every
+  other open entry — verified. **Pre-existing gap surfaced, not this
+  tick's to fix**: DRIFT-SOURCE-DEP-PARSE-HOIST and MAIN-LOCK-ROW-
+  CONSTRUCTORS-TO-DRIFT are both already `open` and both edit
+  src/main.rs and src/drift.rs — pending-entry.md's "Disjoint, or
+  serialized" bar unmet since before this tick (neither entry's own
+  filing tick is this one). MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST
+  was deliberately chained behind DRIFT-SOURCE-DEP-PARSE-HOIST rather
+  than left open, to avoid adding a third simultaneous main.rs edit —
+  but the pre-existing pair stands unresolved; a future tick should
+  serialize one behind the other. Open forks unchanged:
+  (multi-harness-projection), (lazy-grounds), neither touched this
+  tick. Refactor captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — the posture-sweep rotation is mid-cycle: `verbs`
-is touched since its own last sweep (8003aad, by 278ae4c/404b73a) and
-is the next live subsystem to read and sweep.
+Plan continues: no — the posture rotation closes this tick (all seven
+subsystems covered this cycle), no spec delta past 506c34c, and no
+post-ship reconciliation window past 64828d9. Next wake re-arms the
+rotation once a forward window touches a subsystem, or a spec/post-ship
+input goes live.

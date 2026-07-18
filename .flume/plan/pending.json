@@ -358,6 +358,69 @@
     "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Serialized behind INSTALL-PLACEMENT-KIND-ENUM, the last chain entry touching install.rs, for shared-file safety (pending-entry.md). Also shares bundle.rs with the already-open, queue-front BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE (lines 317/402 there, unrelated symbols) — ships first regardless, no blockedBy needed. scoped at b710f2d."
   },
   {
+    "tag": "BUNDLE-ERROR-ZERO-CONSUMER-PRUNE",
+    "summary": "bundle.rs's BundleError enum is pub with zero consumer outside its own module — narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "`BundleError` (140, `pub enum BundleError`, doc 138) is grep-verified zero-consumer outside this file across src/, tests/, sdk/ — `run` (201) and `write_member`/its sibling write helpers (its only internal callers, returning `Result<(), BundleError>`) all stay within bundle.rs; `run` itself returns `miette::Result<BundleReport>`, converting via `?` at the pub boundary, so the concrete error type never crosses the module boundary. Same shape as the shipped GRAPH-WORLD-ZERO-CONSUMER-PRUNE/INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE precedents. Drop `pub` from `BundleError`, leaving it module-private; its intra-doc links (307-308, `write_member`'s own Errors section) stay valid within the same crate build."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "existing bundle coverage (the_cli_bundle_verb_composes_the_plugin, bundle_report_names_shipped_artifacts_over_an_empty_surface, and the module's other tests) stays green — the narrowing is visibility-only"
+      }
+    ],
+    "acceptance": "BundleError is a private enum in src/bundle.rs, not pub. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
+    "notes": "Found sweeping the verbs subsystem (posture rotation). Serialized against BUNDLE-MANIFEST-PATH-GOVERNS-DERIVE for shared bundle.rs safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency; that entry chains blockedBy this one. scoped at 2d1c5a6."
+  },
+  {
+    "tag": "BUNDLE-MANIFEST-PATH-GOVERNS-DERIVE",
+    "summary": "bundle.rs's write_member takes a hardcoded relative manifest path instead of deriving it from the kind's own declared Governs locus, duplicating builtin_kind.rs's cited fact",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Derived state is computed, never stored beside its source"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUNDLE-ERROR-ZERO-CONSUMER-PRUNE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/bundle.rs",
+          "description": "`run`'s two `write_member` calls (206-212, 213-219) pass `Path::new(\".claude-plugin/plugin.json\")` and `Path::new(\".claude-plugin/marketplace.json\")` as literals. Both are byte-identical to the `Governs { root: \".claude-plugin\", glob: \"plugin.json\"/\"marketplace.json\" }` already declared on `claude_code_plugin_manifest`/`claude_code_marketplace` (builtin_kind.rs:376-379 citing code.claude.com/docs/en/plugins-reference retrieved 2026-07-16, :406-408 citing code.claude.com/docs/en/plugin-marketplaces retrieved 2026-07-16). `write_member` (309-324) already fetches the kind's `definition` (316) to read `.format` but ignores its `.governs`, taking the path as a separate `relative: &Path` parameter (311) instead — the path is a value computable from state `write_member` already holds, hand-authored a second time at each call site instead. Fix: drop the `relative` parameter, derive it inside `write_member` from `definition.governs` (`Path::new(&governs.root).join(&governs.glob)`), refusing loud (a `BundleError` variant) if a kind passed here declares no `governs` — the exact refusal shape is build's call, named in the commit body. Update both call sites to drop their now-redundant `Path::new(...)` argument."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/bundle.rs",
+        "asserts": "the_kinded_manifests_are_rendered_by_their_kinds_write_face and the_published_manifests_bytes_are_pinned stay green at the same .claude-plugin/plugin.json and .claude-plugin/marketplace.json paths — the derivation is signature-only, no output path changes"
+      }
+    ],
+    "acceptance": "write_member derives its write path from the kind's declared Governs locus instead of taking it as a caller-supplied literal; a relocation of either kind's governs (e.g. via overlay_builtin_kind) changes bundle's output path without a second edit here. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping the verbs subsystem (posture rotation) — two sources of truth for one manifest's location. Serialized behind BUNDLE-ERROR-ZERO-CONSUMER-PRUNE for shared bundle.rs safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 2d1c5a6."
+  },
+  {
     "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE",
     "summary": "kind.rs ships three pub fns with zero callers anywhere outside their own file — Commitment::label, Content::label, CustomKind::qualified_name — prune per the export-earns-its-consumer bar",
     "per": {
@@ -1096,6 +1159,38 @@
     "notes": "Found sweeping pipeline, second rotation pass (posture rotation: formats done, pipeline this tick — a fresh full read since 0282dc7/72daab3/112b188 touched drift.rs). Distinct from DRIFT-SOURCE-DEP-PARSE-HOIST (source_deps' own layout_import/include family) — this is config_stale's separate walk_lock_rows path plus walk_lock_rows's own duplicate read+parse body. Serialized behind DRIFT-SOURCE-DEP-PARSE-HOIST, whose gate()-side doc-threading this builds directly on. scoped at 7ac498a."
   },
   {
+    "tag": "MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST",
+    "summary": "Command::Guard reads and parses lock.toml's declarations twice per invocation — mode_from_lock and guarded_manifests each independently call drift::read_declarations",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DRIFT-SOURCE-DEP-PARSE-HOIST"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`Command::Guard`'s handler (368-425) calls `mode_from_lock(&workspace_dir)` (382), which calls `drift::read_declarations` (642-644) — a full `fs::read_to_string` + TOML parse — then separately calls `guarded_manifests(&workspace_dir)` (385), which calls `drift::read_declarations` again (688) on the identical path: an independent second read+parse of the same file within one CLI invocation. `mode_from_lock` already has a sibling `mode_from_declarations` (652-661) built for exactly a caller holding declarations already (its own doc: 'a caller that has already read them — gate, which needs the mode... and must never reach a second verdict on the posture from a second read'), but Command::Guard doesn't use it. `guarded_manifests` (687) does nothing else with `workspace_dir` beyond that one read (grep-verified — its body only uses the returned `declarations`), so its signature can take `&drift::Declarations` directly. Fix: Command::Guard reads declarations once, calls `mode_from_declarations(&declarations)` for the mode and passes the same `&declarations` into a re-signatured `guarded_manifests`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture and guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one stay green — the hoist is signature-only, no change to guard's mode/manifest resolution"
+      }
+    ],
+    "acceptance": "Command::Guard's handler parses the workspace's lock.toml declarations exactly once per invocation; guarded_manifests takes &drift::Declarations instead of workspace_dir. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping verbs (posture rotation) — untouched by the five queued *-PARSE-HOIST entries, all scoped to gate()/explain(). No runtime count-pin: read_declarations doesn't feed drift's lock_read_count()/lock_parse_count() counters — proven structurally instead, the named exception per 'A fix ships the test that would have caught it.' Serialized behind DRIFT-SOURCE-DEP-PARSE-HOIST since it and MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT are already both open over main.rs. scoped at 2d1c5a6."
+  },
+  {
     "tag": "DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST",
     "summary": "emit()'s manifest_segment_reaps and emit_manifest each independently read the same on-disk manifest file per represented manifest, within one emit() pass",
     "per": {
@@ -1537,6 +1632,38 @@
     ],
     "acceptance": "temper guard binds a PreToolUse write against any lock-declared emit-owned target, not only .claude/-rooted ones; the .claude/ regex survives only as the documented no-lock fallback. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Routed from inbox (RULED, standing delegation, observed ab01fb4). Serialized behind BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE, the last chain entry touching install.rs, for shared-file safety — no functional dependency. A declared-locus kind outside .claude currently escapes the guard silently, a real gap, not just a shape defect."
+  },
+  {
+    "tag": "INSTALL-ERROR-ZERO-CONSUMER-PRUNE",
+    "summary": "install.rs's InstallError enum is pub with zero consumer outside its own module — narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GUARD-DECLARED-LOCUS-FILTER"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`InstallError` (168, `pub enum InstallError`, doc 163-167) is grep-verified zero-consumer outside this file across src/, tests/, sdk/ — every fallible pub fn in this module (`run`, `guard`, `discover`, `gate_installed`, …) returns `miette::Result<T>`, never `Result<T, InstallError>`, so the concrete type never crosses the module boundary; internal callers (`read_optional` 844, `fresh_settings`/`hoisted_settings` 882/891/922, `write_scaffold_file` 1407, `ensure_node_available` 1426, `ensure_dependency` 1470, `ensure_package_json` 1493) all stay within install.rs and convert to `miette::Report` via `?` at the pub boundary. Same shape as the shipped GRAPH-WORLD-ZERO-CONSUMER-PRUNE/INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE precedents. Drop `pub` from `InstallError`, leaving it module-private; its two intra-doc links (line 30's module header, line 385's `run` doc) stay valid since rustdoc resolves private intra-links within the same crate build."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the module's existing error-path coverage (read/write/settings-parse failures surfacing as miette diagnostics) stays green — the narrowing is visibility-only, no error variant or message changes"
+      }
+    ],
+    "acceptance": "InstallError is a private enum in src/install.rs, not pub. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
+    "notes": "Found sweeping the verbs subsystem (posture rotation). Serialized behind GUARD-DECLARED-LOCUS-FILTER, the last entry in the existing install.rs chain, for shared-file safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 2d1c5a6."
   },
   {
     "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE",
