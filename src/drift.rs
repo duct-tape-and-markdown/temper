@@ -27,7 +27,6 @@ use toml_edit::{
 use crate::extract::host_address;
 use crate::hash::sha256_hex;
 use crate::import::{RollupEntry, write_rollup};
-use crate::install;
 use crate::kind::{
     CollectionAddress, Commitment, Content, Format, Layout, LayoutRegion,
     collection_address_from_row, commitment_from_row, content_from_row, format_from_row,
@@ -2151,7 +2150,7 @@ fn emit_one(
     };
     let placements = current
         .as_deref()
-        .map(|bytes| install::placement_lines(&String::from_utf8_lossy(bytes)))
+        .map(|bytes| crate::placement::placement_lines(&String::from_utf8_lossy(bytes)))
         .unwrap_or_default();
 
     let render = || {

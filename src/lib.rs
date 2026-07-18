@@ -48,6 +48,7 @@ pub mod install;
 pub mod json_manifest;
 pub(crate) mod json_splice;
 pub mod kind;
+pub(crate) mod placement;
 pub mod read;
 pub mod reporter;
 pub mod roster;

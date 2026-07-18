@@ -50,6 +50,7 @@ use crate::import;
 use crate::json_manifest;
 use crate::json_splice::{self, Edit};
 use crate::kind::{self, CollectionAddress, CustomKind};
+use crate::placement::{BANNER_MARKER, MODELINE_MARKER, NOTE_MARKER};
 
 /// The SDK program's entry file — scaffolded once by the lift, run by every
 /// subsequent `emit`.
@@ -137,23 +138,6 @@ pub const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of 
 /// conservative — a false negative routes to CI (the backstop wall), a false positive
 /// would block honest work.
 const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*\.claude/[^"]*)""#;
-
-/// The managed-by note's stable marker — the comment prefix that *locates* an already
-/// placed note (so a second `install` never duplicates it); whether that note is then
-/// left verbatim or re-placed keys on the line's bytes vs [`NOTE_COMMENT`], not this
-/// prefix (`project_note`, content-drift-aware).
-const NOTE_MARKER: &str = "# temper: managed projection";
-
-/// The banner form's stable marker — the block-level HTML comment prefix that *locates*
-/// an already placed banner on a frontmatterless projection, the [`NOTE_MARKER`]
-/// counterpart for a body that carries no frontmatter to hold the `#` note
-/// (`project_banner`, content-drift-aware).
-const BANNER_MARKER: &str = "<!-- temper: managed projection";
-
-/// The schema modeline's stable marker — the frontmatter comment prefix `install` keys
-/// its idempotence on and `emit` keys its preservation on, so both projectors agree on
-/// which line is the modeline.
-const MODELINE_MARKER: &str = "# yaml-language-server:";
 
 /// The managed-by note itself: a frontmatter comment stating the file is generated and
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
@@ -1660,34 +1644,6 @@ fn is_markdown_path(path: &Path) -> bool {
 /// carries install's metadata instead of dropping it: install owns *placing and
 /// auditing* them, emit only *preserves* what is already there. Empty when `source`
 /// carries none.
-pub(crate) fn placement_lines(source: &str) -> Vec<String> {
-    if let Some(rest) = source.strip_prefix("---\n")
-        && let Some((inner, _)) = frontmatter::closing_delimiter(rest)
-    {
-        return inner
-            .lines()
-            .filter(|line| is_placement_comment(line))
-            .map(str::to_string)
-            .collect();
-    }
-    // Frontmatterless: install's banner rides the head of the body, not a frontmatter
-    // block. Return it so emit re-places it exactly as it re-places the `#` note.
-    source
-        .lines()
-        .next()
-        .filter(|line| line.trim_start().starts_with(BANNER_MARKER))
-        .map(|line| vec![line.to_string()])
-        .unwrap_or_default()
-}
-
-/// Whether `line` is one of install's managed metadata comments — the schema modeline
-/// or the managed-by note. The single predicate install's idempotence and emit's
-/// preservation share, so the two projectors never disagree on which lines are install's.
-fn is_placement_comment(line: &str) -> bool {
-    let trimmed = line.trim_start();
-    trimmed.starts_with(MODELINE_MARKER) || trimmed.starts_with(NOTE_MARKER)
-}
-
 /// Render an install outcome for the terminal: the represent decision and any
 /// scaffold/emit summary, then one `<outcome>  <placement>  <path>` line per
 /// placement entry, then a one-line tally — mirroring [`drift::render_emit`].
@@ -1885,13 +1841,5 @@ mod tests {
             ".claude/rules/collaboration.md"
         )));
         assert!(!is_markdown_path(Path::new(".mcp.json")));
-    }
-
-    #[test]
-    fn placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source() {
-        let source = format!("{NOTE_BANNER}\n\n# Project\n\nMemory body.\n");
-        assert_eq!(placement_lines(&source), vec![NOTE_BANNER.to_string()]);
-        // A bare frontmatterless body carries no placement.
-        assert!(placement_lines("# Project\n\nMemory body.\n").is_empty());
     }
 }
