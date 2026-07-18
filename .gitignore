@@ -30,3 +30,4 @@ sdk/node_modules/
 # Secrets — never committed (plan ticks stage with `git add -A`)
 .env
 .env.*
+/.flume/loop.pid
