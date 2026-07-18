@@ -142,92 +142,6 @@
     "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick). Serialized behind GATE-MANIFEST-SHARED-READ-HOIST, the last entry in the existing chain touching json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at e733883."
   },
   {
-    "tag": "BUILTIN-CONTRACT-FOR-KIND-CONSOLIDATE",
-    "summary": "builtin.rs's contract_for_kind hand-rolls compose.rs's default_contract_from_rows' filter-by-kind/build-Contract shape over the embedded lock instead of calling it",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin.rs",
-          "description": "contract_for_kind (36-48) filters builtin_lock::declarations().clauses by row.kind.as_deref() == Some(kind), maps each row through this file's own private clause_from_row wrapper (25-30, itself only compose::clause_from_row(row).expect(...)), collects, and builds Contract{name: kind.to_string(), clauses, guidance: None} — the identical filter/map/collect/construct shape compose.rs's default_contract_from_rows (141-155) already implements over the committed lock's rows, down to the same Contract field construction; the two differ only in trusting the embedded rows to never error versus propagating ClauseRowError. compose.rs's own doc comment (132-133) already names the two as 'the same lift ... run here over the committed lock's [rows]', but the code duplicates the shape rather than sharing it. Replace contract_for_kind's body with a call to compose::default_contract_from_rows(&builtin_lock::declarations().clauses, kind), unwrapped via .expect() carrying the existing panic message unchanged ('the embedded built-in lock declares only required/advisory severities and this projection's supported predicates, each carrying its required argument'), and delete the now-unused private clause_from_row wrapper (18-30, doc included) along with any import it alone required."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/contract_template.rs",
-        "asserts": "the_shipped_built_in_packages_are_admissible stays green and non-vacuous over the whole embedded roster — every kind's floor contract is byte-identical after routing through the shared lift"
-      },
-      {
-        "path": "tests/rule_contract.rs",
-        "asserts": "the exact pinned decidable clause vector for rule's embedded floor is unchanged by the refactor"
-      }
-    ],
-    "acceptance": "builtin.rs's contract_for_kind calls compose::default_contract_from_rows instead of re-implementing its filter/collect/construct-Contract shape; the local clause_from_row wrapper is gone. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the provider subsystem (posture rotation: pipeline done, provider this tick; provider's only touch since its last sweep at fe3ff3f is 516f8f6, already-shipped, no residue). Serialized behind CONTRACT-WHEN-GUARD-CLAUSE-FORM, the sole queue entry touching builtin.rs, for shared-file safety — no functional dependency; that entry's files[] already flags this exact duplication as a to-verify item, so this resolves it first. scoped at 7622f13."
-  },
-  {
-    "tag": "CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP",
-    "summary": "SDK gains a `when(guard, body)` clause constructor and lock round-trip for decision 0041's guard form; declarations.ts/generated types/root export updated",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/contract.ts",
-          "description": "The `Predicate` interface (24-79) and its constructor functions (node-scope predicates at 96-227, e.g. `type` 110-114, `enumOf` 187-191 — both restricted-to candidates for the guard) gain a new `when(guard: Predicate, body: readonly Clause[]): Clause`-shaped export, following the file's own JSDoc-plus-`export const camelName = (...): T => ({...})` pattern. Restrict `guard` to `type`/`enumOf`-shaped predicates the way build's chosen Rust representation admits — either at the TypeScript type level or via the same emit-time admissibility check the engine performs (never silently accepting a third predicate as a guard). Signature and return type mirror whichever Rust shape CONTRACT-WHEN-GUARD-CLAUSE-FORM lands; verify before implementing. Also add the `leading-dot-slash` variant to `sdk/src/generated/Shape.ts` (machine-generated via the ts-rs export test — regenerate, never hand-edit) feeding `shape()` (125-136)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`clauseRow` (65-116, doc 51-64) maps each `Predicate` field to its `ClauseRow` column via `predicate.key === \"...\"` branches. Add the `when` branch: emit the guard's own predicate columns (reusing the existing per-predicate columns the guard's own key already populates, e.g. `value_type`/`values`) plus the body's nested rows, recursing `clauseRow` over each body clause — matching whichever nested-row shape `ClauseRow` lands in drift.rs."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Export `when` from the root alongside the other predicate/clause constructors (25-56, alphabetical list — inserts between `uniqueName` and `type`, or wherever alphabetization lands it)."
-        },
-        {
-          "path": "sdk/test/contract.test.ts",
-          "description": "New test following the `skillClauseRow` helper pattern (77-87, e.g. the `enumOf` test at 105-113): `when(enumOf(...), [required(...)])` composes the documented `Predicate`/`ClauseRow` shape, and the mixed-array binding case (one string-form, one object-form element) round-trips through `compileDeclarations` with the body firing only at the guarded element."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "A round-trip test analogous to the `require_sections` precedent CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP establishes: push a `when`-carrying `ClauseRow` (guard plus a nested body) through `emit` and `read_declarations`, asserting `compose::clause_from_row` decodes it back into the same guard-and-body shape with the same elements."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/contract.test.ts",
-        "asserts": "when(guard, body) composes the documented Predicate/ClauseRow shape and the mixed-array binding case round-trips through compileDeclarations, matching the engine's own gauntlet cell"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a when-carrying ClauseRow round-trips through emit + read_declarations back into the same guard-and-body shape, the same bar CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's round-trip test sets for require_sections"
-      }
-    ],
-    "acceptance": "An SDK author calls when(guard, body) composing a guarded clause; it emits through declarations.ts into the lock's ClauseRow shape, and the Rust read side decodes it back losslessly into the same guard-and-body value — closing decision 0041's SDK half. `pnpm --dir sdk test` and `cargo test` green.",
-    "notes": "Decision 0041, SDK half. Blocked by CONTRACT-WHEN-GUARD-CLAUSE-FORM since ts-rs generates ClauseRow.ts from the Rust struct and this entry's round-trip test needs the Rust decode side settled first. Exact TS signature/type restriction is build's call, matching whichever Rust representation lands upstream."
-  },
-  {
     "tag": "BUILTINS-DEFAULT-CONTRACT-HOLDS-CLOSE",
     "summary": "Re-examine the three shipped default-contract holds against decision 0041's widened vocabulary — marketplace's source union, mcp-server's transport fields, hook's per-event schema",
     "per": {
@@ -235,8 +149,7 @@
       "section": "Default contracts"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -341,41 +254,6 @@
     ],
     "acceptance": "within one emit() run, each represented manifest's on-disk file is read exactly once, shared between the segment-reap diff and the Unchanged/Emitted decision. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Found sweeping pipeline, second rotation pass. Distinct from JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE/GATE-MANIFEST-SHARED-READ-HOIST (those are gate()/explain()'s per-governing-kind reads of settings.json outside emit) — this is emit()'s own double-read of one manifest file within its own pass. Serialized behind DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST, both touching drift.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 7ac498a."
-  },
-  {
-    "tag": "IMPORT-READ-DIRS-VACUOUS-PIN-RETIRE",
-    "summary": "READ_DIRS's guarded fs::read_dir call site was cut at 0bc0ee9 — the counter can never move, so check_cost.rs's read_dirs==0 assertion is vacuous; retire counter, getter, assertion",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A green verdict is proven non-vacuous"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "Retire the `READ_DIRS` thread_local (118-126, doc: 'a scan reintroducing a fs::read_dir bumps it off zero') and its getter `read_dir_count()` (128-134). `rg 'fs::read_dir\\b' src/` returns zero call sites anywhere in the crate — the guarded site 0bc0ee9 removed was the only one that ever existed, and `collect_glob` (419) derives every kind's matches from the in-memory `Discoverable` index, never the filesystem. The counter is structurally unconstructable to nonzero; nothing wires it, nothing can."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "Drop `read_dirs_before`/`read_dirs` (148,154), the `{read_dirs}` term in the phase-1 `eprintln!` (170), and the `read_dirs == 0` `assert_eq!` block (194-203) it backs. The module doc (1-10) frames the invariant as one the test 'decides by counts' alongside the two live pins (`compiles`, `walks`) it keeps — reword the sentence naming `read_dirs` to state only what those two still assert."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob still pins the two live counts (glob compiles <= 32, walks <= 2) and prints its diagnosis without a read_dirs term — no assertion claims a count nothing in the crate can move"
-      }
-    ],
-    "acceptance": "src/import.rs carries no READ_DIRS counter or read_dir_count() getter; tests/check_cost.rs's diagnosis and assertions name only the two live pins. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Drained from .flume/refactor/plan-import-read-dirs-vacuous-pin.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs tests/check_cost.rs is empty at 0388334, claim unchanged). Serialized behind IMPORT-DECLARED-GOVERNED-PATHS-HOIST, the chain's last entry touching src/import.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 0388334."
   },
   {
     "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT",
