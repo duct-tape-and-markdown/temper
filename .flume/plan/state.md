@@ -3,24 +3,25 @@
 - Spec derived through: 810da42
 - Audited through: 21dbdc0
 - Residue swept through: 21dbdc0
-- This tick: POST-SHIP RECONCILIATION — window 11a2815..HEAD carried the
-  WALK-SHARE-RUN-COUNT-PIN build (73d5757) + its ship (21dbdc0). AUDIT: the
-  run-level walk pin is live on disk — `walk_count`/`flavors_walked` in
-  import.rs, the `a_full_check_run_walks_each_consulted_flavor_once` test in
-  main.rs (two flavors, two walks); the ship commit already dropped the entry
-  from pending. Its downstream CHECK-RESIDUAL-DIAGNOSIS was `blockedBy` it —
-  blocker shipped, so flipped to OPEN and its import.rs addresses refreshed
-  (walk-share added ~20 lines: scan_locus 379->399, collect_glob 429,
-  Discovery struct+impl 51-96, discoverable_paths 505, walk_count 64). SWEEP:
-  the window's only code is the walk-pin (import.rs/main.rs) — no retirement,
-  no second-implementation residue, no corpus disagreement. Parks re-tested on
-  disk and hold: the window touched neither graph.rs (hop-cap still 5 /
-  2026-07-02) nor .github/ (packaging). Both cursors advanced to HEAD.
-- Queue: 3 pending — 1 pickable OPEN (CHECK-RESIDUAL-DIAGNOSIS, unblocked
-  this tick), 2 parked on human action (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER). Open forks: (multi-harness-projection),
-  (lazy-grounds).
+- This tick: INBOX — drained refactor capture build-per-kind-scan-rewalk.md
+  (observed a4cffee) into SCAN-SHARE-DISCOVERABLE-SET. Verified the claim at
+  HEAD (5c9e63c): import.rs unmoved since a4cffee (the glob memo 12fc95e
+  landed in kind.rs), so the capture's addresses hold — `collect_glob`
+  (import.rs:429) still walks the filesystem per kind via `read_entries`
+  (554), using the shared `discoverable` set (`discoverable_paths` 505,
+  memoized by `Discovery` 51) only as a membership filter, not the
+  enumeration source; the `**` loci re-traverse whole subtrees per kind.
+  Consolidation: derive each kind's matches by glob-matching the in-memory
+  set, recording file-vs-dir (which `discoverable_paths` drops at 536-538,
+  but the WalkBuilder entry carries via file_type) at walk time. Contained to
+  import.rs — the set's only readers are its own scan_locus/collect_glob.
+  Measure-first bar already met by check_cost.rs; count-pin the read_dir
+  re-walk to zero. gate OPEN, no fork blocks it. Capture deleted (git is the
+  archive).
+- Queue: 3 pending — 1 pickable OPEN (SCAN-SHARE-DISCOVERABLE-SET), 2 parked
+  on human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open
+  forks: (multi-harness-projection), (lazy-grounds).
 
-Plan continues: no — reconciliation is the last input and the window is fully
-reconciled; inbox empty, spec cursor at the last specs commit. A pickable OPEN
-entry (CHECK-RESIDUAL-DIAGNOSIS) waits — build takes over.
+Plan continues: yes — post-ship reconciliation of window 21dbdc0..HEAD (the
+glob-memo build 12fc95e shipped as 5c9e63c, unaudited/unswept; cursors still
+at 21dbdc0). One job per tick — inbox took precedence this tick.
