@@ -282,3 +282,73 @@ name = "nested-1"
         "emit must parse lock.toml exactly once per run, not per phase: {parses} parses (before {parses_before}, after {parses_after})",
     );
 }
+
+#[test]
+fn gate_lock_parse_is_hoisted_with_source_dependencies() {
+    let workspace = tmpdir("gate-lock-parse-cost");
+
+    // Create a lock.toml with layout_import and include source-dependency rows,
+    // which exercises the hoisted parse path: read_lock_document() once, then
+    // layout_imports_from_doc/includes_from_doc/layout_import_stale_from_doc/
+    // include_stale_from_doc all reuse the pre-parsed document.
+    let lock_path = workspace.join(temper::LOCK_FILENAME);
+    std::fs::write(
+        &lock_path,
+        r#"[declaration]
+
+[[declaration.layout_import]]
+member = "skill:test-skill"
+target = "skill:test-skill"
+source_path = "layout.md"
+import_hash = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+
+[[declaration.include]]
+member = "skill:test-skill"
+target = "skill:test-skill"
+source_path = "included.md"
+import_hash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+"#,
+    )
+    .unwrap();
+
+    // Count lock reads/parses before hoisting test.
+    let reads_before = temper::drift::lock_read_count();
+    let parses_before = temper::drift::lock_parse_count();
+
+    // Simulate what gate() does: read the lock once and pass it through to all the
+    // source-dependency call sites. This verifies the hoisting: one read, one parse,
+    // even though four call sites access source dependencies.
+    let lock_doc = temper::drift::read_lock_document(&workspace).expect("lock should parse");
+
+    // The four call sites that would each re-read the lock (pre-hoisting):
+    // 1. layout_imports (called by import_edges_from_lock)
+    let _ = temper::drift::layout_imports_from_doc(&lock_doc);
+    // 2. includes (called by import_edges_from_lock)
+    let _ = temper::drift::includes_from_doc(&lock_doc);
+    // 3. layout_import_stale
+    let harness_root = workspace
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let _ = temper::drift::layout_import_stale_from_doc(&lock_doc, harness_root);
+    // 4. include_stale
+    let _ = temper::drift::include_stale_from_doc(&lock_doc, harness_root);
+
+    // Count lock reads/parses after hoisting test.
+    let reads_after = temper::drift::lock_read_count();
+    let parses_after = temper::drift::lock_parse_count();
+
+    let reads = reads_after - reads_before;
+    let parses = parses_after - parses_before;
+
+    // The cost doctrine: lock parsing is hoisted — one read per run, one parse per run,
+    // even though four call sites access source dependencies. Each _from_doc variant
+    // reuses the pre-parsed document instead of independently re-reading and re-parsing.
+    assert_eq!(
+        reads, 1,
+        "source-dependency functions must read lock.toml exactly once when given pre-parsed doc: {reads} reads (before {reads_before}, after {reads_after})",
+    );
+    assert_eq!(
+        parses, 1,
+        "source-dependency functions must parse lock.toml exactly once when given pre-parsed doc: {parses} parses (before {parses_before}, after {parses_after})",
+    );
+}

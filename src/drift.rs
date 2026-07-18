@@ -701,7 +701,7 @@ fn normalize_lock_path(path: &str) -> String {
 /// cannot be made absolute, which would silently spell a relativized target absolute
 /// instead ([`harness_relative`]). Lexical normalization plus the `.` floor collapses both
 /// to one root.
-fn harness_root_of(workspace_dir: &Path) -> PathBuf {
+pub fn harness_root_of(workspace_dir: &Path) -> PathBuf {
     let normalized = crate::graph::normalize_path(workspace_dir);
     match normalized.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
@@ -1224,7 +1224,7 @@ pub fn emit(
     // Read and parse the lock document once for reuse across the reap-diff and
     // layer-drop checks below — whole-input work hoists parsing per run, never
     // recomputed per phase (engineering.md, "Cost scale is hoisted").
-    let lock_doc = read_lock_document(workspace_dir);
+    let lock_doc = read_lock_document_for_emit(workspace_dir);
 
     // Classify every prior projection the payload no longer owns without touching
     // disk. Both sides normalized: `owned_paths` came through `to_lock_path`, and
@@ -2021,11 +2021,11 @@ struct ProvenanceRow {
     emit_hash: String,
 }
 
-/// Read and parse the lock document once, returning it for reuse across emit's phases.
+/// Read and parse the lock document once for emit, returning it for reuse across emit's phases.
 /// A missing lock or read/parse failure yields an empty document that will produce
 /// empty results when queried, matching the tolerant-read behavior of the helpers
 /// that consume lock data.
-fn read_lock_document(workspace_dir: &Path) -> DocumentMut {
+fn read_lock_document_for_emit(workspace_dir: &Path) -> DocumentMut {
     let path = workspace_dir.join(crate::LOCK_FILENAME);
     match fs::read_to_string(&path) {
         Ok(text) => {
@@ -2562,6 +2562,23 @@ fn source_dep_row(row: &Table) -> Result<LayoutImportRow, RowError> {
     })
 }
 
+/// Extract every source-dependency row under `family_key` from an already-parsed lock
+/// document — the fingerprinted content dependencies emit wrote, read back for the drift
+/// comparison and the reference-edge lift. A missing or malformed row is surfaced loud.
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present dependency row is malformed.
+pub(crate) fn source_deps_from_doc(
+    doc: &DocumentMut,
+    family_key: &str,
+) -> Result<Vec<LayoutImportRow>, DriftError> {
+    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+        return Ok(Vec::new());
+    };
+    Ok(family(table, family_key, source_dep_row)?)
+}
+
 /// Every source-dependency row a lock at `workspace_dir` carries under `family_key` — the
 /// fingerprinted content dependencies emit wrote, read back for the drift comparison and
 /// the reference-edge lift. A missing lock or an absent family yields none; a present
@@ -2578,16 +2595,15 @@ fn source_deps(workspace_dir: &Path, family_key: &str) -> Result<Vec<LayoutImpor
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(source) => return Err(DriftError::LockRead { path, source }),
     };
+    increment_lock_reads();
     let doc = text
         .parse::<DocumentMut>()
         .map_err(|source| DriftError::LockParse {
             path: path.clone(),
             source,
         })?;
-    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
-        return Ok(Vec::new());
-    };
-    Ok(family(table, family_key, source_dep_row)?)
+    increment_lock_parses();
+    source_deps_from_doc(&doc, family_key)
 }
 
 /// Every layout-import row a lock at `workspace_dir` carries — the layout sources'
@@ -2598,6 +2614,16 @@ fn source_deps(workspace_dir: &Path, family_key: &str) -> Result<Vec<LayoutImpor
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
 pub fn layout_imports(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError> {
     source_deps(workspace_dir, LAYOUT_IMPORT_FAMILY)
+}
+
+/// Every layout-import row from an already-parsed lock document — the layout sources'
+/// fingerprinted content dependencies, for the drift comparison and the import-edge lift.
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present row is malformed.
+pub fn layout_imports_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, DriftError> {
+    source_deps_from_doc(doc, LAYOUT_IMPORT_FAMILY)
 }
 
 /// Every composed-prose include row a lock at `workspace_dir` carries — the include
@@ -2611,6 +2637,17 @@ pub fn includes(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError
     source_deps(workspace_dir, INCLUDE_FAMILY)
 }
 
+/// Every composed-prose include row from an already-parsed lock document — the include
+/// targets' fingerprinted content dependencies, for the drift comparison and the
+/// include-edge lift (folded into the same `import`-locus edge set as a layout import).
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present row is malformed.
+pub fn includes_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, DriftError> {
+    source_deps_from_doc(doc, INCLUDE_FAMILY)
+}
+
 /// The drift findings for a workspace's source dependencies under `family`: a
 /// fingerprinted target whose bytes no longer match the lock's `import_hash` — the target
 /// moved and `emit` has not re-run — or one no longer readable, the dependency gone. One
@@ -2621,18 +2658,25 @@ pub fn includes(workspace_dir: &Path) -> Result<Vec<LayoutImportRow>, DriftError
 /// # Errors
 ///
 /// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
-fn source_dep_stale(
-    workspace_dir: &Path,
+/// The drift findings for source dependencies under `family` from an already-parsed
+/// document: a fingerprinted target whose bytes no longer match the lock's `import_hash` —
+/// the target moved and `emit` has not re-run — or one no longer readable, the dependency
+/// gone. One `warn` finding per drifted dependency (under `rule`, its target described as
+/// a `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
+/// the drift is surfaced, never a hard gate the author did not declare.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if a present row is malformed.
+pub fn source_dep_stale_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
     family: &str,
     rule: &str,
     noun: &str,
 ) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     let mut findings = Vec::new();
-    // Each row is harness-relative (or absolute, for a target outside the tree, which a
-    // join leaves alone), so the fingerprinted target resolves under the harness this
-    // check was aimed at rather than under the cwd it runs from.
-    let harness_root = harness_root_of(workspace_dir);
-    for row in source_deps(workspace_dir, family)? {
+    for row in source_deps_from_doc(doc, family)? {
         match fs::read(harness_root.join(&row.source_path)) {
             Ok(bytes) if sha256_hex(&bytes) == row.import_hash => {}
             Ok(_) => findings.push(crate::check::Diagnostic::warn(
@@ -2656,6 +2700,30 @@ fn source_dep_stale(
     Ok(findings)
 }
 
+fn source_dep_stale(
+    workspace_dir: &Path,
+    family: &str,
+    rule: &str,
+    noun: &str,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(source) => return Err(DriftError::LockRead { path, source }),
+    };
+    increment_lock_reads();
+    let doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
+    increment_lock_parses();
+    let harness_root = harness_root_of(workspace_dir);
+    source_dep_stale_from_doc(&doc, &harness_root, family, rule, noun)
+}
+
 /// The drift findings for a workspace's layout imports — a moved or unreadable import
 /// target, surfaced as a `warn` under `layout.import-stale`.
 ///
@@ -2673,6 +2741,25 @@ pub fn layout_import_stale(
     )
 }
 
+/// The drift findings for layout imports from an already-parsed lock document — a moved
+/// or unreadable import target, surfaced as a `warn` under `layout.import-stale`.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if a present row is malformed.
+pub fn layout_import_stale_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    source_dep_stale_from_doc(
+        doc,
+        harness_root,
+        LAYOUT_IMPORT_FAMILY,
+        "layout.import-stale",
+        "layout import",
+    )
+}
+
 /// The drift findings for a workspace's composed-prose includes — a moved or unreadable
 /// include target, surfaced as a `warn` under `prose.include-stale`.
 ///
@@ -2682,6 +2769,25 @@ pub fn layout_import_stale(
 pub fn include_stale(workspace_dir: &Path) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
     source_dep_stale(
         workspace_dir,
+        INCLUDE_FAMILY,
+        "prose.include-stale",
+        "prose include",
+    )
+}
+
+/// The drift findings for composed-prose includes from an already-parsed lock document —
+/// a moved or unreadable include target, surfaced as a `warn` under `prose.include-stale`.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if a present row is malformed.
+pub fn include_stale_from_doc(
+    doc: &DocumentMut,
+    harness_root: &Path,
+) -> Result<Vec<crate::check::Diagnostic>, DriftError> {
+    source_dep_stale_from_doc(
+        doc,
+        harness_root,
         INCLUDE_FAMILY,
         "prose.include-stale",
         "prose include",
@@ -3470,6 +3576,36 @@ impl Declarations {
             doc["declaration"] = Item::Table(table);
         }
     }
+}
+
+/// Read and parse a workspace's lock.toml, incrementing the read/parse counters to pin
+/// hoisting (once per run, shared across all call sites). A missing lock yields an empty
+/// document; a malformed lock is an error. The parsed document can be passed to
+/// `*_from_doc` functions to avoid re-reading the lock.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock exists but cannot be read or parsed as TOML.
+pub fn read_lock_document(workspace_dir: &Path) -> miette::Result<DocumentMut> {
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            increment_lock_reads();
+            increment_lock_parses();
+            return Ok(DocumentMut::new());
+        }
+        Err(source) => return Err(DriftError::LockRead { path, source }.into()),
+    };
+    increment_lock_reads();
+    let doc = text
+        .parse::<DocumentMut>()
+        .map_err(|source| DriftError::LockParse {
+            path: path.clone(),
+            source,
+        })?;
+    increment_lock_parses();
+    Ok(doc)
 }
 
 /// Read the lock's declaration-row family back into a typed [`Declarations`]:

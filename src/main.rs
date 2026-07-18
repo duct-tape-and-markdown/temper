@@ -40,6 +40,7 @@ use temper::roster;
 use temper::schema;
 use temper::tap;
 use temper::toml_document;
+use toml_edit::DocumentMut;
 
 /// The SDK surface workspace under the cwd — the emit `--into` default and the
 /// path `schema` / `explain` / `bundle` read the committed lock from.
@@ -521,6 +522,9 @@ fn explain(target: &str) -> miette::Result<String> {
     // kind's governs locus off *this*.
     // No layers: `explain` narrates what this corpus declares. A policy layer is the
     // invocation's own, and the invocation here is a read.
+    // Parse the lock document once for reuse across source-dependency checks, hoisting
+    // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
+    let lock_doc = drift::read_lock_document(&workspace)?;
     let LockFamily { declarations, .. } =
         assemble_lock_family(&discovery, &drift::read_declarations(&workspace)?, &[])?;
 
@@ -584,7 +588,10 @@ fn explain(target: &str) -> miette::Result<String> {
     // narrating a dangling mention as the gate's route finding rather than a resolved edge,
     // so a read cannot disagree with the gate (READ-EDGE-UNIFY).
     let mut mention_edges = mention_edges_from_declarations(&declarations);
-    mention_edges.extend(import_edges_from_lock(&workspace)?);
+    mention_edges.extend(import_edges_from_lock_with_doc(
+        &workspace,
+        Some(&lock_doc),
+    )?);
 
     // The world's inbound registration channel set into each built-in kind — the same
     // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
@@ -844,7 +851,7 @@ fn harness_diagnostics(
 /// directory a member's source path and a script verifier's path resolve against (the
 /// CWD for a two-step `check`, the harness path for the one-shot gate). `layers` names
 /// the policy locks this invocation joins, top of the layer stack.
-fn gate(
+pub fn gate(
     workspace: &Path,
     harness_root: &Path,
     layers: &[PathBuf],
@@ -856,6 +863,9 @@ fn gate(
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
     let committed = drift::read_declarations(workspace)?;
+    // Parse the lock document once for reuse across source-dependency checks, hoisting
+    // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
+    let lock_doc = drift::read_lock_document(workspace)?;
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
     // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one
@@ -888,7 +898,7 @@ fn gate(
     // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
     // at emit), each lifted off the lock's own declaration family.
     let mut mention_edges = mention_edges_from_declarations(&declarations);
-    mention_edges.extend(import_edges_from_lock(workspace)?);
+    mention_edges.extend(import_edges_from_lock_with_doc(workspace, Some(&lock_doc))?);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
@@ -1204,9 +1214,16 @@ fn gate(
     // The source-dependency freshness facts: a fingerprinted layout-import or
     // composed-prose include target whose bytes no longer match the lock — the target
     // moved and `emit` has not re-run. Advisory, the same `warn` posture `config.stale`
-    // takes over a drifted projection.
-    diagnostics.extend(drift::layout_import_stale(workspace)?);
-    diagnostics.extend(drift::include_stale(workspace)?);
+    // takes over a drifted projection. Use the pre-parsed lock document to avoid re-reading.
+    let harness_root_for_staleness = drift::harness_root_of(workspace);
+    diagnostics.extend(drift::layout_import_stale_from_doc(
+        &lock_doc,
+        &harness_root_for_staleness,
+    )?);
+    diagnostics.extend(drift::include_stale_from_doc(
+        &lock_doc,
+        &harness_root_for_staleness,
+    )?);
 
     Ok((diagnostics, announcement))
 }
@@ -2551,22 +2568,31 @@ fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<gr
     graph::resolved_mention_edges(&mentions)
 }
 
-/// The lock's prose source dependencies — layout imports and composed-prose includes —
-/// lifted into [`graph::ResolvedEdge`]s, the import-locus mirror of
-/// [`mention_edges_from_declarations`], read off the lock's own
-/// `[declaration.layout_import]`/`[declaration.include]` families (engine-derived at emit,
-/// not payload rows). Both fold into the one `import`-locus edge set. A reference
-/// resolving to a plain repository file names no member, so it carries no address and
-/// reaches no edge here — its content dependency is still fingerprinted for drift.
+/// Extract import edges from an already-parsed lock document, or read from workspace
+/// if document is not provided. When a pre-parsed document is provided, it avoids
+/// redundant reads/parses.
 ///
 /// # Errors
 ///
-/// Returns a [`drift::DriftError`] when the lock cannot be read/parsed or a present
-/// source-dependency row is malformed.
-fn import_edges_from_lock(workspace_dir: &Path) -> miette::Result<Vec<graph::ResolvedEdge>> {
-    let imports: Vec<graph::ImportDeclaration> = drift::layout_imports(workspace_dir)?
+/// Returns a [`drift::DriftError`] when a present source-dependency row is malformed.
+fn import_edges_from_lock_with_doc(
+    workspace_dir: &Path,
+    doc: Option<&DocumentMut>,
+) -> miette::Result<Vec<graph::ResolvedEdge>> {
+    let (layouts, includes) = if let Some(doc) = doc {
+        (
+            drift::layout_imports_from_doc(doc)?,
+            drift::includes_from_doc(doc)?,
+        )
+    } else {
+        (
+            drift::layout_imports(workspace_dir)?,
+            drift::includes(workspace_dir)?,
+        )
+    };
+    let imports: Vec<graph::ImportDeclaration> = layouts
         .into_iter()
-        .chain(drift::includes(workspace_dir)?)
+        .chain(includes)
         .filter(|row| !row.target.is_empty())
         .map(|row| graph::ImportDeclaration {
             member: row.member,
