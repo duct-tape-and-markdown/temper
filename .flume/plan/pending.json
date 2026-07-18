@@ -199,57 +199,6 @@
     "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE (the definitions()/KindError half of a split made this tick — see its notes) and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety; no functional dependency. scoped at 08b5a27."
   },
   {
-    "tag": "FORMAT-READ-UTF8-DECODE-CONSOLIDATE",
-    "summary": "Four copies of one fs::read+UTF-8-decode job span formats — json_manifest.rs's two (filed), frontmatter.rs's, toml_document.rs's — consolidate to one primitive",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/hash.rs",
-          "description": "Add a shared read+decode primitive alongside the existing `sha256_hex` (which frontmatter's copy already calls on the same raw bytes this primitive would read) — e.g. `pub(crate) fn read_utf8(path: &Path) -> Result<(Vec<u8>, String), ReadUtf8Error>` returning the raw bytes and decoded string together (or a closure-parameterized variant each format maps to its own error enum) so a caller needing the hash gets it from the same read. Exact shape (bare io::Error/FromUtf8Error pair vs error-constructor closures vs a small shared error type each format's own enum wraps) is a judgment call for build — name the choice in the commit body."
-        },
-        {
-          "path": "src/frontmatter.rs",
-          "description": "`Member::from_source_rooted` (167-180) inlines `fs::read` -> `map_err(FrontmatterError::Io)` -> `String::from_utf8` -> `map_err(FrontmatterError::NotUtf8)`, with `crate::hash::sha256_hex(&bytes)` sandwiched between (176). Route through the new shared primitive in src/hash.rs, keeping its own `FrontmatterError` mapping and the hash step (now reading the bytes the primitive already returned, rather than a second implicit read)."
-        },
-        {
-          "path": "src/toml_document.rs",
-          "description": "`read` (33-42) inlines the identical `fs::read` -> `map_err(TomlDocumentError::Io)` -> `String::from_utf8` -> `map_err(TomlDocumentError::NotUtf8)` pair, no hash step. Route through the same shared primitive, keeping its own `TomlDocumentError` mapping."
-        },
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`read_to_string` (309-318, private, doc: 'Shared by `Manifest::read` and `DocumentMember::read`') already consolidated this file's own two fs::read + String::from_utf8 copies (JSON-MANIFEST-READ-DECODE-CONSOLIDATE, shipped). Route it through the new shared primitive in src/hash.rs too — closing all four copies of the job to the one home there, keeping `JsonManifestError`'s own mapping at this file's boundary."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/json_document_format.rs",
-        "asserts": "DocumentMember::read's existing malformed/missing-identity coverage stays green — the consolidation is signature-only, no change to error variants or messages"
-      },
-      {
-        "path": "tests/toml_document.rs",
-        "asserts": "read's existing coverage (malformed TOML, missing identity value, no-declared-identity refusal) stays green"
-      },
-      {
-        "path": "tests/manifest_adapter.rs",
-        "asserts": "Manifest::read's existing coverage stays green"
-      }
-    ],
-    "acceptance": "One shared read+UTF-8-decode primitive in src/hash.rs serves frontmatter.rs, toml_document.rs, and json_manifest.rs's two read paths; no format keeps its own forked fs::read+String::from_utf8 boilerplate. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Drained from .flume/refactor/plan-format-read-decode-duplication.md (observed 9e197d6). Not folded into JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own reasoning (file-local shape doesn't fit a cross-format primitive); that entry has since shipped (785abd7), unblocking this one. TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE has also shipped, so no other open entry still shares toml_document.rs. Re-verified on disk: frontmatter.rs:167-180, toml_document.rs:33-42 unmoved. scoped at 785abd7."
-  },
-  {
     "tag": "JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE",
     "summary": "json_manifest.rs's Manifest::parse and DocumentMember::parse each duplicate the same hash+parse+require-object job — consolidate into one shared helper",
     "per": {
@@ -284,37 +233,6 @@
     ],
     "acceptance": "DocumentMember::parse and Manifest::parse both call one shared parse_top_level_object helper in src/json_manifest.rs instead of each carrying its own hash+parse+object-check block; error variants and messages are byte-identical to today's. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick — not clean-skippable per d577bdf/d65af7d in the prior window). Serialized behind FORMAT-READ-UTF8-DECODE-CONSOLIDATE, the only currently-open entry touching json_manifest.rs — no functional dependency, file-disjointness only (pending-entry.md, 'Disjoint, or serialized'). scoped at cd286da."
-  },
-  {
-    "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
-    "summary": "check.rs's ANNOUNCEMENT_HEADING is pub but read only by its own render() and its own inline tests — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "`ANNOUNCEMENT_HEADING` (168, `pub const ANNOUNCEMENT_HEADING: &str = \"judged by inputs the committed harness does not carry:\"`) has exactly one production reader — `Announcement::render` in this same file (203, `format!(\"{ANNOUNCEMENT_HEADING}\\n\")`) — plus this file's own inline tests (268, `!rendered.contains(ANNOUNCEMENT_HEADING)`; 280, `rendered.starts_with(ANNOUNCEMENT_HEADING)`) — grep-verified zero hits anywhere else in src/, tests/, sdk/. Same shape as the shipped TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE / ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE / DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE / GRAPH-WORLD-ZERO-CONSUMER-PRUNE precedent (a pub item earning only its own module's use plus its own inline tests). Drop `pub` from `ANNOUNCEMENT_HEADING`, leaving it a module-private const readable from `render` and its own inline tests unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/check.rs",
-        "asserts": "render_leads_with_the_announced_inputs (272) and render_surfaces_the_rule_code_and_message's negative assertion (258, asserting the heading is absent when nothing was announced) stay green — the narrowing is visibility-only, render's rendered text is unchanged"
-      }
-    ],
-    "acceptance": "ANNOUNCEMENT_HEADING is a private const in src/check.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the foundation subsystem (posture rotation, re-arming on the ship touching address.rs/tap.rs). extract.rs, also foundation per architecture.md's codemap, carries no new finding beyond its already-queued EXTRACT-FOUNDATION-BOUNDARY-RESTORE upward-dependency debt — its other pub items all have a live external consumer. Disjoint from every other pending entry (no other queued entry touches check.rs). scoped at e09b1ba."
   },
   {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
