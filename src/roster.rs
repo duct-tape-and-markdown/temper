@@ -11,9 +11,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::builtin;
 use crate::check::Diagnostic;
-use crate::compose::{Requirement, Verifier};
+use crate::compose::{Requirement, Verifier, kind_narrowing_clause};
 use crate::engine::{self, Selection, Selector};
 use crate::extract::Features;
 
@@ -54,7 +53,7 @@ fn candidates<'a>(by_kind: &BTreeMap<&'a str, &'a [Features]>) -> Vec<(&'a str, 
 /// Every requirement's **opt-in selection**: the members that opt in via `satisfies`,
 /// each tagged with its own kind label, bound to the requirement's own clauses plus the
 /// each-grain `kind` narrowing its `kind` facet sources
-/// ([`builtin::kind_narrowing_clause`]).
+/// ([`kind_narrowing_clause`]).
 ///
 /// The opt-in join is the *only* filter: a requirement's `kind` facet never narrows the
 /// members (that would be a second selector, and selectors do not compose) — it sources
@@ -76,7 +75,7 @@ pub fn selections<'a>(
             let mut clauses: Vec<_> = requirement
                 .kind
                 .iter()
-                .map(|kind| builtin::kind_narrowing_clause(&requirement.name, kind))
+                .map(|kind| kind_narrowing_clause(&requirement.name, kind))
                 .collect();
             clauses.extend(requirement.clauses.iter().cloned());
             Selection {
@@ -101,7 +100,7 @@ pub fn selections<'a>(
 /// Three decidable clauses:
 ///
 /// - **(a)** a typed requirement's `kind` names a kind `temper` models, else the
-///   each-grain clause it sources ([`builtin::kind_narrowing_clause`]) can never hold
+///   each-grain clause it sources ([`kind_narrowing_clause`]) can never hold
 ///   for any satisfier — an unfillable selector, regardless of `required` (fillability
 ///   itself is kind-blind now: any opt-in artifact, of any modeled kind, satisfies
 ///   coverage; naming an unmodeled kind only ever breaks the *narrowing* clause).

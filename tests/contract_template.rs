@@ -236,12 +236,12 @@ fn the_shipped_built_in_packages_are_admissible() {
 // the each-grain clause a typed requirement's `kind` facet sources instead of
 // narrowing the candidate set.
 
-/// The shipped `kind` clause parses/loads: [`temper::builtin::kind_narrowing_clause`]
+/// The shipped `kind` clause parses/loads: [`temper::compose::kind_narrowing_clause`]
 /// synthesizes it at `required` severity from a bare kind label, and it carries the
 /// closed-vocabulary `Predicate::Kind` shape with no guidance/cite of its own.
 #[test]
 fn the_kind_narrowing_clause_loads_at_required_severity() {
-    let clause = temper::builtin::kind_narrowing_clause("approved-model", "skill");
+    let clause = temper::compose::kind_narrowing_clause("approved-model", "skill");
     assert_eq!(clause.severity, Severity::Required);
     assert_eq!(
         clause.predicate,
@@ -258,7 +258,7 @@ fn the_kind_narrowing_clause_loads_at_required_severity() {
 /// kind-blind satisfier set.
 #[test]
 fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
-    let clause = temper::builtin::kind_narrowing_clause("approved-model", "skill");
+    let clause = temper::compose::kind_narrowing_clause("approved-model", "skill");
     let requirement = temper::compose::Requirement {
         name: "planner".to_string(),
         prose: None,

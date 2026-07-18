@@ -271,6 +271,34 @@ pub fn severity_from_label(label: &str) -> Option<contract::Severity> {
     }
 }
 
+/// The shipped each-grain clause a typed requirement's `kind` facet sources —
+/// "every satisfier is kind K" at `required` severity. The mechanism — the predicate shape and its `required`
+/// severity — ships fixed with the requirement facet; only `kind` is
+/// per-requirement author data, so [`crate::roster::selections`] calls this to
+/// synthesize the clause fresh from [`Requirement::kind`] every run
+/// rather than storing it on the requirement.
+///
+/// Synthesized rather than lifted, so its address is derived here from the same grammar
+/// emit stamps a written row with — `requirement` is the owner, since the clause is the
+/// requirement's demand and not the narrowed kind's.
+#[must_use]
+pub fn kind_narrowing_clause(requirement: &str, kind: &str) -> contract::Clause {
+    let predicate = contract::Predicate::Kind {
+        kind: kind.to_string(),
+    };
+    contract::Clause {
+        label: contract::clause_label(
+            Some(&contract::requirement_owner(requirement)),
+            predicate.key(),
+            None,
+        ),
+        severity: contract::Severity::Required,
+        predicate,
+        guidance: None,
+        source: None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
