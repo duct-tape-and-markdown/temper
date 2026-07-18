@@ -858,7 +858,9 @@ fn gate(
     let committed = drift::read_declarations(workspace)?;
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
-    // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost.
+    // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one
+    // cache is threaded through every discovery call below; a run walks each consulted
+    // flavor exactly once, pinned at run granularity by [`import::walk_count`].
     let discovery = import::Discovery::new(harness_root);
     // The dial's softening is inert under `block`, so the mode is resolved before any
     // contract is, and off the same declarations the family assembles from — a run whose
@@ -2602,6 +2604,44 @@ mod tests {
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
         assert!(files.iter().any(|f| f == "CLAUDE.md"));
+    }
+
+    /// The run-level count-pin (`engineering.md`, "Cost scale is hoisted, and pinned by
+    /// count"): a whole check run walks each consulted discovery flavor exactly once. The
+    /// cache-level pin in `import.rs` proves N kind discoveries over one shared cache cost
+    /// one walk per flavor; this pins that the *run* actually rides a single shared cache.
+    /// `gate` threads one `Discovery` through every discovery call, so over the run the
+    /// global walk count advances by exactly the flavors consulted — a code path that
+    /// built a second `Discovery` mid-run would walk off its own cache and overshoot. The
+    /// run consults both flavors: committed kinds (skill, rule, …) ride the standard
+    /// flavor, the local-locus kinds (settings-local, dial) ride the local one — two
+    /// flavors, two walks, never a third. The walk count is per-thread, so the delta is
+    /// this run's alone whatever else runs concurrently.
+    #[test]
+    fn a_full_check_run_walks_each_consulted_flavor_once() {
+        let harness = tmpdir("run-walk-pin");
+        let skill = harness.join(".claude").join("skills").join("coordinate");
+        fs::create_dir_all(&skill).unwrap();
+        fs::write(
+            skill.join("SKILL.md"),
+            "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+        )
+        .unwrap();
+        let rules = harness.join(".claude").join("rules");
+        fs::create_dir_all(&rules).unwrap();
+        fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+
+        // The raw-harness gate: workspace and harness root are the one path, exactly as
+        // `harness_diagnostics` dispatches a bare harness.
+        let before = import::walk_count();
+        gate(&harness, &harness, &[]).unwrap();
+        let walks = import::walk_count() - before;
+
+        assert_eq!(
+            walks, 2,
+            "a whole run must walk each consulted flavor exactly once — one shared cache \
+             threaded through the run, never a per-kind or per-call re-walk",
+        );
     }
 
     /// One `nested_member` row of a `citation` kind declaring the edges `edges` names,

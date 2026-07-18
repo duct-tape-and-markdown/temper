@@ -11,7 +11,7 @@
 //! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
 //! every write is content-derived, name-sorted, and overwrites in place.
 
-use std::cell::OnceCell;
+use std::cell::{Cell, OnceCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
@@ -93,6 +93,26 @@ impl<'a> Discovery<'a> {
     fn flavors_walked(&self) -> usize {
         usize::from(self.local.get().is_some()) + usize::from(self.standard.get().is_some())
     }
+}
+
+thread_local! {
+    /// Per-thread count of discovery tree-walks: every [`discoverable_paths`] call bumps
+    /// it. The walk is single-threaded on its caller's thread, so this counts one run's
+    /// walks in isolation — a concurrent run on another test thread cannot perturb it. A
+    /// whole run shares one [`Discovery`], so its walks memoize per flavor and the count's
+    /// delta across a run is exactly the number of flavors that run consulted, each walked
+    /// once. A second `Discovery` built mid-run walks off its own cache rather than the
+    /// run's threaded one, so the delta overshoots: the run-level count-pin's observable,
+    /// decidable and machine-independent, never a wall-clock threshold.
+    static WALKS: Cell<usize> = const { Cell::new(0) };
+}
+
+/// This thread's discovery walk count. Read before and after a check run and compare the
+/// delta to the flavors that run consults, pinning that whole-input discovery work
+/// computes once per flavor per run rather than per kind or per call site.
+#[must_use]
+pub fn walk_count() -> usize {
+    WALKS.with(Cell::get)
 }
 
 /// Errors raised while discovering or rolling up a harness's members.
@@ -483,6 +503,7 @@ fn collect_glob(
 /// `.`-rooted `governs` (`root = "."`) compares equal to the walk's harness-relative
 /// entries.
 fn discoverable_paths(harness: &Path, local_governs: bool) -> BTreeSet<PathBuf> {
+    WALKS.with(|w| w.set(w.get() + 1));
     let mut allowed = BTreeSet::new();
     let walk = WalkBuilder::new(harness)
         .hidden(false) // `.claude/` is a dotdir the harness lives in — never hide it.
