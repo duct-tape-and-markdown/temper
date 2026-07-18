@@ -1,67 +1,5 @@
 [
   {
-    "tag": "GRAPH-WORLD-ZERO-CONSUMER-PRUNE",
-    "summary": "graph.rs's world() is pub(crate) but called only from reachable() in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`world` (79-81, `pub(crate) fn world() -> Node { (\"world\".to_string(), \"world\".to_string()) }`, doc 72-78) has zero caller anywhere in src/, tests/, sdk/ outside this file's own `reachable` (554, `let world = world();`) plus its own inline test (1970, `assert_eq!(world(), (\"world\".to_string(), \"world\".to_string()))`) — grep-verified zero hits for `world()` calls anywhere else. Same shape as the shipped ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE precedent (a pub item called only from one function in its own file). Drop `pub(crate)` from `world`, leaving it a module-private fn callable from `reachable` and its own inline test unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/graph.rs",
-        "asserts": "reachable's existing coverage and the inline world() assertion at 1970 stay green — the narrowing is visibility-only"
-      }
-    ],
-    "acceptance": "world is a private fn in src/graph.rs, not pub(crate). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the judges subsystem (posture rotation, re-verifying subsystems 1f6afe5's ship touched). Serialized behind GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE for shared graph.rs safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 4baa5c4."
-  },
-  {
-    "tag": "GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST",
-    "summary": "gate()/explain() resolve every kind's members via resolve_kind_units twice per run — the two-greens dispatch, then collect_directive_members again",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`resolve_kind_units` (fn 1319, doc comment 1302-1318: 'the one corpus both gate and explain range over') walks a kind's governs locus and reads+parses every member file off disk — whole-input work scaling with the harness's member count. `gate()` (847) and `explain()` (513) each invoke it TWICE per kind, per run: once through the two-greens dispatch — `gate()`'s built-in loop (917-945) calls `kind_features` (1518-1529, which calls `resolve_kind_units` at 1524) per built-in kind at 938, and its custom-kind loop (974-989) calls it per custom kind at 982; `explain()` reaches the same built-in path via `builtin_features_by_kind` (1843-1853, calling `kind_features` per kind) at line 532, and inlines a direct `resolve_kind_units` call for custom kinds at 556 — and a second time through `collect_directive_members` (2166-2197, called by `gate()` at 1004 and `explain()` at 599), which independently re-derives `builtin_kind::definitions()` (2171, already held as `builtin_defs` in both callers), re-calls `resolve_kind_units` per built-in kind (2173) and per custom kind (2186), and re-runs `partition_kind_rows` (2183, already computed at gate():955/explain():549) to get the same custom-kind rows a second time. Every member document in the corpus is read from disk and parsed twice per `gate()`/`explain()` invocation. Secondary, same functions: `gate()` also calls `builtin_kind::definitions()` a second time inline at ~1193 as an argument to `coverage_note::check`, discarding the already-computed `builtin_defs` (cheap, in-memory, but fixable alongside). Fix: thread the units/features `kind_features`'s callers already resolve into `collect_directive_members` instead of a second `resolve_kind_units` pass — the exact carrying shape (widening `kind_features`'s return to keep each unit's `source_path` beside its `Features`, or having callers hold the `Vec<Unit>` alongside) is a judgment call for build; name the choice in the commit body."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "a fixture with at least one built-in-kind member and one custom-kind member proves resolve_kind_units's per-kind file-read/parse work runs exactly once per gate()/explain() invocation — a count-pin instrumented the way import::walk_count()/kind::glob_compile_count() already are in this file, not a wall-clock threshold"
-      }
-    ],
-    "acceptance": "gate() and explain() each resolve every kind's members off disk exactly once per invocation; collect_directive_members consumes that shared resolution instead of re-deriving it via a second resolve_kind_units/partition_kind_rows/builtin_kind::definitions() pass. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). resolve_kind_units's own doc comment already claims single-corpus sourcing the code doesn't structurally guarantee. Serialized behind GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE, the last entry in the existing chain touching main.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at ad66e46."
-  },
-  {
     "tag": "COVERAGE-NOTE-LOCK-PARSE-HOIST",
     "summary": "coverage_note::check's with_locked_kinds re-reads and re-parses lock.toml inside gate(), which already parsed the identical file into `committed` moments earlier",
     "per": {
@@ -69,8 +7,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -236,8 +173,7 @@
       "section": "Invariants — stated as absences"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-WORLD-ZERO-CONSUMER-PRUNE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -896,42 +832,6 @@
     "notes": "Drained from .flume/refactor/plan-import-read-dirs-vacuous-pin.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs tests/check_cost.rs is empty at 0388334, claim unchanged). Serialized behind IMPORT-DECLARED-GOVERNED-PATHS-HOIST, the chain's last entry touching src/import.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 0388334."
   },
   {
-    "tag": "READ-VERB-STRAND-COHESION",
-    "summary": "read.rs's telemetry field strand (field/event_label, zero shared machinery) extracts to a new pipeline module; the four explain traversals stay under read's one-verb framing",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Growth rules"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/telemetry.rs",
-          "description": "`field` (1464-1537) and `event_label` (1538-1545) move here verbatim — a new pipeline-subsystem module beside tap.rs's record type; declares 'pipeline' as its subsystem in the commit body per Growth rules."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "explain()'s dispatch (259) calls the new module instead of the local `field`; the module header (1-3) drops the 'plus a telemetry field strand' clause, framing itself as the four traversals alone."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "the field-strand scenarios (tap_readout, tap_record, and the no-field-strand baseline) keep passing unchanged — the move is location-only"
-      }
-    ],
-    "acceptance": "The field strand lives in its own pipeline module; read.rs's module doc names only the four traversals. cargo test green.",
-    "notes": "Ruled via inbox (observed a8dd112): only the field strand extracts (shares zero machinery — accidental cohabitation); the Species-dispatched four traversals are real cohesion, ruled to stay. READ-CONTEXT-MEMBER-CITER-GRAIN shipped (e5b1fa1) — unblocked, but still collides on src/read.rs with the now-open GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE; reserialized behind it instead (pending-entry.md, 'Disjoint, or serialized'). Codemap listing follows next human specs/ pass. scoped at 612f2a5."
-  },
-  {
     "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT",
     "summary": "main.rs's row→model constructors over drift's own Row types move beside the lock-row reading they interpret, into drift.rs",
     "per": {
@@ -1124,37 +1024,6 @@
     ],
     "acceptance": "explain's dispatch body lives in src/read.rs (its own 'read verbs' resolution' home) under a name that doesn't collide with read::explain's existing target-species resolution; main.rs's CLI dispatch calls it, no logic left behind. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308."
-  },
-  {
-    "tag": "INSTALL-ERROR-ZERO-CONSUMER-PRUNE",
-    "summary": "install.rs's InstallError enum is pub with zero consumer outside its own module — narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`InstallError` (168, `pub enum InstallError`, doc 163-167) is grep-verified zero-consumer outside this file across src/, tests/, sdk/ — every fallible pub fn in this module (`run`, `guard`, `discover`, `gate_installed`, …) returns `miette::Result<T>`, never `Result<T, InstallError>`, so the concrete type never crosses the module boundary; internal callers (`read_optional` 844, `fresh_settings`/`hoisted_settings` 882/891/922, `write_scaffold_file` 1407, `ensure_node_available` 1426, `ensure_dependency` 1470, `ensure_package_json` 1493) all stay within install.rs and convert to `miette::Report` via `?` at the pub boundary. Same shape as the shipped GRAPH-WORLD-ZERO-CONSUMER-PRUNE/INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE precedents. Drop `pub` from `InstallError`, leaving it module-private; its two intra-doc links (line 30's module header, line 385's `run` doc) stay valid since rustdoc resolves private intra-links within the same crate build."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "the module's existing error-path coverage (read/write/settings-parse failures surfacing as miette diagnostics) stays green — the narrowing is visibility-only, no error variant or message changes"
-      }
-    ],
-    "acceptance": "InstallError is a private enum in src/install.rs, not pub. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
-    "notes": "Found sweeping the verbs subsystem (posture rotation). Serialized behind GUARD-DECLARED-LOCUS-FILTER, the last entry in the existing install.rs chain, for shared-file safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 2d1c5a6."
   },
   {
     "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE",
