@@ -43,14 +43,14 @@ emit_hash = "a9ff49b47ff62d221ccda83a21406bc7ce2ec97c74cd8f97c46048ee4114148a"
 [[rule]]
 name = "rust"
 source_path = ".claude/rules/rust.md"
-source_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
-emit_hash = "9c52eaef2342a43deb88fdca244f9950dd29850c4b0c733fa5baf55a01ede5c8"
+source_hash = "6599fd4d85b0ae603c45e4fa408a5f7bcfdb0daad099a1859320f6a45c311e6e"
+emit_hash = "6599fd4d85b0ae603c45e4fa408a5f7bcfdb0daad099a1859320f6a45c311e6e"
 
 [[rule]]
 name = "sdk"
 source_path = ".claude/rules/sdk.md"
-source_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
-emit_hash = "9a67548dfcc0bdd17fd55dcba6efe934ceab862826dc3c6d7fe0f0b74eeba465"
+source_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
+emit_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
 
 [[skill]]
 name = "capture-friction"

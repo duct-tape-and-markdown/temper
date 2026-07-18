@@ -36,5 +36,9 @@ alongside the cargo trio.
 - The comment taxonomy and churn rules of the rust rule apply unchanged
   (`.claude/rules/rust.md`, "Style & structure"): comment only what the code
   can't say, no spec-path citations, headers shrink on touch.
+- The rust rule's Navigation mapping applies unchanged too (same file,
+  "Navigation"): semantic questions (references, definitions) go to LSP
+  (typescript-language-server here), prose and cites to `rg`, and a file
+  you edit gets Read whole.
 - Tests are framework-free `node --test` files in `sdk/test/*.test.ts`
   (`node:assert`), compiled by the same `tsc` pass as the source.

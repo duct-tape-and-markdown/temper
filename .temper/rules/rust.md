@@ -73,7 +73,26 @@ are flume gates, so a violation reverts the commit.
   a build — before calling the pass done; a green build proves nothing about
   fixture strings.
 
-## Round-trip discipline (the core invariant)
+## Navigation — semantic questions get semantic tools
+
+- **Who calls/reads this** (blast radius, consolidation, an enumeration's
+  other consumers) → LSP `findReferences`/`incomingCalls`, never `rg`
+  alone: grep over-matches prose and strings and under-matches trait
+  dispatch and re-exports — both errors are scope lies in an entry's
+  `files[]`.
+- **Where is this defined / what is its type** → LSP
+  `goToDefinition`/`hover` instead of Read-and-hunt through a
+  2,000-line module.
+- **Prose, cites, string literals, provider-fact hunts** → `rg` — no
+  language server sees comments, and half this tree's load-bearing
+  content lives there.
+- **A module you are about to edit** → Read it; navigation locates,
+  it never substitutes for reading what you change.
+- The server indexes in the background: the first semantic query of a
+  fresh session may return empty — retry it after a beat (or lead
+  with `documentSymbol` to confirm the server is up). Several
+  questions amortize the warm-up; a single trivial lookup a grep
+  answers doesn't warrant it.
 
 - Markdown bodies and companion files are copied **byte-for-byte** — never
   re-rendered. Only structured headers are rewritten, via `toml_edit` (preserves
