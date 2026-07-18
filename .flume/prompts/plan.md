@@ -89,9 +89,8 @@ chosen job half-done — the job is the atom.
    two motions over the same window:
    - **Audit:** verify on disk what shipped (read the files, never the log
      alone), drop pending entries whose work is done, glance the window's
-     ticks in `.flume/metrics.jsonl` against the smart zone (an entry whose
-     build tick far overran it was oversized — an audit finding that folds
-     into the next derivation's slicing), and re-test every
+     ticks in `.flume/metrics.jsonl` (the sizing discipline is the
+     `pending-entry` rule's smart-zone bullet), and re-test every
      stale gate: a `parked` reason, a `blockedBy`, an open-question's
      "rides X" routing each name a condition — verify the condition NOW; if
      the blocker shipped, the work behind it is derivable this tick.
