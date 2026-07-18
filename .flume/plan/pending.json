@@ -250,8 +250,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALL-PLACEMENT-KIND-ENUM"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -280,7 +279,7 @@
       }
     ],
     "acceptance": "bundle.rs carries no private SESSION_START_COMMAND const and no inline re-derivation of the SessionStart hook-group JSON shape; both read/call install.rs's existing SESSION_START_COMMAND and session_start_group (widened to pub(crate)). No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Serialized behind INSTALL-PLACEMENT-KIND-ENUM, the last chain entry touching install.rs, for shared-file safety (pending-entry.md). Also shares bundle.rs with the already-open, queue-front BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE (lines 317/402 there, unrelated symbols) — ships first regardless, no blockedBy needed. scoped at b710f2d."
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Unblocked: INSTALL-PLACEMENT-KIND-ENUM shipped 2741c6c — premise re-verified true (Placement enum, session_start_group still private) on disk. No other open entry touches install.rs or bundle.rs. rescoped 863e506."
   },
   {
     "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP",
@@ -290,8 +289,7 @@
       "section": "The lock"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -328,7 +326,7 @@
       }
     ],
     "acceptance": "An SDK author can call requireSections([...]) with real heading names, the emitted lock round-trips them through a new sections ClauseRow column, and predicate_from_row decodes a require_sections row back into Predicate::RequireSections { sections } — closing the one predicate in the closed vocabulary whose lock declaration rows (pipeline.md, 'The lock') could not carry its own argument. `cargo test` (Rust) and `pnpm --dir sdk test` (SDK gate) green.",
-    "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry — its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Serialized behind CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH for shared contract.rs/drift.rs safety. scoped at 4adb1fb."
+    "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry — its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Unblocked: CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH shipped a59dc80 — premise re-verified true (declared_keys exhaustive on disk). rescoped 863e506."
   },
   {
     "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE",
@@ -926,7 +924,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "IMPORT-ROLLUP-WRITER-PLACEMENT"
+      "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE"
     },
     "dependsOnForks": [],
     "files": {
@@ -955,7 +953,7 @@
       }
     ],
     "acceptance": "config_stale consumes the same shared parsed lock document gate() already holds instead of independently re-reading/re-parsing lock.toml; walk_lock_rows calls read_lock_document + walk_lock_rows_from_doc instead of duplicating the read+parse body. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping pipeline (posture rotation). Distinct from DRIFT-SOURCE-DEP-PARSE-HOIST's layout_import/include family. That shipped (3561798) holding gate()'s lock_doc as assumed, but renamed read_lock_document to read_lock_document_for_emit and added a new fallible pub read_lock_document (3589) — re-scoped against both on disk. walk_lock_rows keeps the renamed tolerant fn. Blocked behind IMPORT-ROLLUP-WRITER-PLACEMENT for drift.rs safety. scoped at 3561798."
+    "notes": "Found sweeping pipeline (posture rotation). Distinct from DRIFT-SOURCE-DEP-PARSE-HOIST's layout_import/include family (shipped 3561798) — re-scoped against read_lock_document_for_emit/read_lock_document (3589) on disk. walk_lock_rows keeps the renamed tolerant fn. Unblocked: IMPORT-ROLLUP-WRITER-PLACEMENT shipped ab2e822. Reserialized behind DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE (both touch drift.rs), avoiding collision with CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's chain. rescoped 863e506."
   },
   {
     "tag": "DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST",
@@ -1170,7 +1168,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "IMPORT-ROLLUP-WRITER-PLACEMENT"
+      "tag": "DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST"
     },
     "dependsOnForks": [],
     "files": {
@@ -1195,7 +1193,7 @@
       }
     ],
     "acceptance": "The six row→model constructors live in drift.rs; main.rs calls them via drift::. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "First of the ruled MAIN-THIN-DISPATCH-COHESION chain (a8dd112): row→model constructors move beside the lock-row reading they interpret. Re-verified against shipped DRIFT-SOURCE-DEP-PARSE-HOIST (3561798): import_edges_from_lock renamed to import_edges_from_lock_with_doc, gained a doc param — cite corrected, move itself unchanged. Blocked behind IMPORT-ROLLUP-WRITER-PLACEMENT (both edit src/drift.rs) to clear this tick's disjointness sweep. scoped at 3561798."
+    "notes": "First of the ruled MAIN-THIN-DISPATCH-COHESION chain (a8dd112): row→model constructors move beside the lock-row reading they interpret. Re-verified against DRIFT-SOURCE-DEP-PARSE-HOIST (3561798, renamed import_edges_from_lock_with_doc) — cite corrected, move unchanged. Unblocked: IMPORT-ROLLUP-WRITER-PLACEMENT shipped ab2e822. Reserialized behind DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST, last chain entry on drift.rs, avoiding CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's chain. rescoped 863e506."
   },
   {
     "tag": "MAIN-CORPUS-ASSEMBLY-TO-COMPOSE",
@@ -1538,7 +1536,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "IMPORT-ROLLUP-WRITER-PLACEMENT"
+      "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT"
     },
     "dependsOnForks": [],
     "files": {
@@ -1607,7 +1605,7 @@
       }
     ],
     "acceptance": "CollectionAddress carries a closed entry-shape fact as kind data (object/scalar/group-array); the four shipped registration kinds declare their real shape with the citations they already carry; the lock row and SDK mirror round-trip it losslessly. Nothing dispatches on it yet — this entry is purely additive, no behavior change. cargo test, cargo clippy --all-targets -- -D warnings, and pnpm --dir sdk test all green.",
-    "notes": "Derived from decision 0042, Consequences bullets 1, 3, 4. kind.rs/drift.rs cites corrected for line shifts the shipped KIND-ZERO-CONSUMER-EXPORTS-PRUNE and DRIFT-SOURCE-DEP-PARSE-HOIST left (3561798). Blocked behind IMPORT-ROLLUP-WRITER-PLACEMENT (shared drift.rs) rather than the shipped kind.rs tag — also conflicts with open TAP-PAYLOAD-SCHEMA-SPLIT over builtin_kind.rs, a second live collision the single-tag schema can't express; re-check at either's ship. scoped at 3561798."
+    "notes": "Derived from decision 0042, Consequences bullets 1, 3, 4. kind.rs/drift.rs cites corrected for line shifts KIND-ZERO-CONSUMER-EXPORTS-PRUNE and DRIFT-SOURCE-DEP-PARSE-HOIST left (3561798). Unblocked: IMPORT-ROLLUP-WRITER-PLACEMENT shipped ab2e822. Reserialized behind MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT, last chain entry on drift.rs. Still conflicts with open TAP-PAYLOAD-SCHEMA-SPLIT over builtin_kind.rs — single-tag blockedBy can't express both waits; re-check at either's ship. rescoped 863e506."
   },
   {
     "tag": "JSON-MANIFEST-ENTRY-SHAPE-DISPATCH",
