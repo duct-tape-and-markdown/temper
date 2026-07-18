@@ -42,15 +42,13 @@ pub fn read(kind: &CustomKind, source_file: &Path) -> Result<DocumentMember, Tom
     parse(kind, source_file, &raw)
 }
 
-/// Read a document straight from its `raw` text rather than off disk — the split
-/// [`crate::json_manifest::DocumentMember::parse`] takes, for the same reason: pending
-/// content is read through the one soundness boundary the disk read rides. `source_file`
-/// labels the provenance and any diagnostic; nothing is read from it.
+/// Read a document straight from its `raw` text rather than off disk.
+/// `source_file` labels the provenance and any diagnostic; nothing is read from it.
 ///
 /// # Errors
 ///
 /// As [`read`], less the I/O and UTF-8 failures `raw` has already passed.
-pub fn parse(
+fn parse(
     kind: &CustomKind,
     source_file: &Path,
     raw: &str,
