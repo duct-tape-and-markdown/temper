@@ -165,7 +165,7 @@ const DIALED_CLAUSE: &str = "dialed clause";
 const JOINED_LOCK: &str = "joined lock";
 
 /// The sentence that leads a rendered announcement.
-pub const ANNOUNCEMENT_HEADING: &str = "judged by inputs the committed harness does not carry:";
+const ANNOUNCEMENT_HEADING: &str = "judged by inputs the committed harness does not carry:";
 
 impl Announcement {
     /// Whether nothing was announced — the run was judged by the committed harness alone.
