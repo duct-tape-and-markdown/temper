@@ -1893,6 +1893,61 @@ fn member_path_index(
     Ok(index)
 }
 
+/// One raw row from the lock's declaration table — all fields as Options, since
+/// [`read_prior_provenance`], [`config_stale`], and [`emit_owned_targets`] each
+/// require different subsets of the columns (name+source_path+emit_hash,
+/// name+source_path+emit_hash, and name+source_path respectively). A single
+/// `walk_lock_rows` does the file read and lock parse once; each consumer
+/// filter_maps over rows to extract its required columns.
+struct RawLockRow {
+    /// The member's kind (bare name — `"skill"`, `"rule"`, …).
+    kind: String,
+    /// The member's name, absent if the row's `name` column is missing or malformed.
+    name: Option<String>,
+    /// The projection's on-disk path as the lock recorded it, absent if missing or malformed.
+    source_path: Option<String>,
+    /// The projection's last-emitted fingerprint, absent if the row's `emit_hash` column is missing or malformed.
+    emit_hash: Option<String>,
+}
+
+/// Walk the committed lock's declaration rows once, reading the lock file and
+/// parsing every `[[<kind>]]` array-of-tables entry — returns all columns
+/// (as Options) for each row. A missing or malformed lock yields no rows.
+fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow> {
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return Vec::new();
+    };
+
+    let mut rows = Vec::new();
+    for (kind, item) in doc.as_table().iter() {
+        let Some(table_rows) = item.as_array_of_tables() else {
+            continue;
+        };
+        for row in table_rows.iter() {
+            rows.push(RawLockRow {
+                kind: kind.to_string(),
+                name: row
+                    .get("name")
+                    .and_then(Item::as_str)
+                    .map(|s| s.to_string()),
+                source_path: row
+                    .get("source_path")
+                    .and_then(Item::as_str)
+                    .map(|s| s.to_string()),
+                emit_hash: row
+                    .get("emit_hash")
+                    .and_then(Item::as_str)
+                    .map(|s| s.to_string()),
+            });
+        }
+    }
+    rows
+}
+
 /// One provenance row read back off a workspace's prior `lock.toml` — the same
 /// `name`/`source_path`/`emit_hash` columns [`config_stale`] and
 /// [`emit_owned_targets`] already read, kept here as owned scalars since this
@@ -1916,36 +1971,22 @@ struct ProvenanceRow {
 /// rows — the same tolerant-read absence [`config_stale`]/[`emit_owned_targets`]
 /// take: nothing to compare against forges no reap, no drift finding.
 fn read_prior_provenance(workspace_dir: &Path) -> Vec<ProvenanceRow> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let Ok(text) = fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-    let Ok(doc) = text.parse::<DocumentMut>() else {
-        return Vec::new();
-    };
-
-    let mut rows = Vec::new();
-    for (kind, item) in doc.as_table().iter() {
-        let Some(table_rows) = item.as_array_of_tables() else {
-            continue;
-        };
-        for row in table_rows.iter() {
-            let (Some(name), Some(source_path), Some(emit_hash)) = (
-                row.get("name").and_then(Item::as_str),
-                row.get("source_path").and_then(Item::as_str),
-                row.get("emit_hash").and_then(Item::as_str),
-            ) else {
-                continue;
+    walk_lock_rows(workspace_dir)
+        .into_iter()
+        .filter_map(|raw| {
+            let (Some(name), Some(source_path), Some(emit_hash)) =
+                (raw.name, raw.source_path, raw.emit_hash)
+            else {
+                return None;
             };
-            rows.push(ProvenanceRow {
-                kind: kind.to_string(),
-                name: name.to_string(),
-                source_path: source_path.to_string(),
-                emit_hash: emit_hash.to_string(),
-            });
-        }
-    }
-    rows
+            Some(ProvenanceRow {
+                kind: raw.kind,
+                name,
+                source_path,
+                emit_hash,
+            })
+        })
+        .collect()
 }
 
 /// Classify one lock-known projection whose owning member is gone, mutating no
@@ -2340,46 +2381,29 @@ const CONFIG_STALE_RULE: &str = "config.stale";
 /// in-place member cannot drift.
 #[must_use]
 pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let Ok(text) = fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-    let Ok(doc) = text.parse::<DocumentMut>() else {
-        return Vec::new();
-    };
-
     let mut findings = Vec::new();
     let harness_root = harness_root_of(workspace_dir);
-    // The lock's top-level keys are kind names, each an array of provenance rows; ranging
-    // over every one covers built-in and custom kinds alike without a hardcoded set.
-    for (_kind, item) in doc.as_table().iter() {
-        let Some(rows) = item.as_array_of_tables() else {
+    for raw in walk_lock_rows(workspace_dir) {
+        let (Some(name), Some(source_path), Some(emit_hash)) =
+            (raw.name, raw.source_path, raw.emit_hash)
+        else {
             continue;
         };
-        for row in rows.iter() {
-            let (Some(name), Some(source_path), Some(emit_hash)) = (
-                row.get("name").and_then(Item::as_str),
-                row.get("source_path").and_then(Item::as_str),
-                row.get("emit_hash").and_then(Item::as_str),
-            ) else {
-                continue;
-            };
-            // Only a present-and-differing projection is stale: a source that is gone
-            // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
-            // The row is harness-relative, so it resolves under the harness this check
-            // was aimed at, whatever the cwd.
-            let Ok(bytes) = fs::read(harness_root.join(source_path)) else {
-                continue;
-            };
-            if sha256_hex(&bytes) != emit_hash {
-                findings.push(crate::check::Diagnostic::warn(
-                    CONFIG_STALE_RULE,
- source_path,
-                    format!(
-                        "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
-                    ),
+        // Only a present-and-differing projection is stale: a source that is gone
+        // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
+        // The row is harness-relative, so it resolves under the harness this check
+        // was aimed at, whatever the cwd.
+        let Ok(bytes) = fs::read(harness_root.join(&source_path)) else {
+            continue;
+        };
+        if sha256_hex(&bytes) != emit_hash {
+            findings.push(crate::check::Diagnostic::warn(
+                CONFIG_STALE_RULE,
+ &source_path,
+                format!(
+                    "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                ),
  ));
-            }
         }
     }
     findings
@@ -2612,34 +2636,19 @@ pub struct EmitOwnedEntry {
 /// bind" absence [`config_stale`] treats identically.
 #[must_use]
 pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let Ok(text) = fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-    let Ok(doc) = text.parse::<DocumentMut>() else {
-        return Vec::new();
-    };
-
-    let mut targets = Vec::new();
-    for (kind, item) in doc.as_table().iter() {
-        let Some(rows) = item.as_array_of_tables() else {
-            continue;
-        };
-        for row in rows.iter() {
-            let (Some(name), Some(source_path)) = (
-                row.get("name").and_then(Item::as_str),
-                row.get("source_path").and_then(Item::as_str),
-            ) else {
-                continue;
+    walk_lock_rows(workspace_dir)
+        .into_iter()
+        .filter_map(|raw| {
+            let (Some(name), Some(source_path)) = (raw.name, raw.source_path) else {
+                return None;
             };
-            targets.push(EmitOwnedEntry {
-                kind: kind.to_string(),
-                name: name.to_string(),
+            Some(EmitOwnedEntry {
+                kind: raw.kind,
+                name,
                 path: PathBuf::from(source_path),
-            });
-        }
-    }
-    targets
+            })
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------

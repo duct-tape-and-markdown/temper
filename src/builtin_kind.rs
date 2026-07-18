@@ -500,13 +500,8 @@ fn all_kinds() -> Vec<CustomKind> {
 
 /// The built-in kind a bare `name` resolves to, or `None` if none carries it. Bare
 /// name is the whole identity now, so this is a plain lookup.
-///
-/// # Errors
-///
-/// Never fails; the `Result` is kept for API stability (every call site already
-/// threads `?` through it).
-pub fn definition(name: &str) -> Result<Option<CustomKind>, KindError> {
-    Ok(all_kinds().into_iter().find(|kind| kind.name == name))
+pub fn definition(name: &str) -> Option<CustomKind> {
+    all_kinds().into_iter().find(|kind| kind.name == name)
 }
 
 /// Every embedded built-in kind, keyed by its bare name — the compiled default
@@ -585,7 +580,7 @@ mod tests {
 
     #[test]
     fn skill_definition_matches_the_hand_authored_kind() {
-        let skill = definition("skill").unwrap().expect("skill is embedded");
+        let skill = definition("skill").expect("skill is embedded");
 
         assert_eq!(skill.name, "skill");
         assert_eq!(
@@ -647,7 +642,7 @@ mod tests {
 
     #[test]
     fn rule_definition_matches_the_hand_authored_kind() {
-        let rule = definition("rule").unwrap().expect("rule is embedded");
+        let rule = definition("rule").expect("rule is embedded");
 
         assert_eq!(rule.name, "rule");
         assert_eq!(
@@ -681,7 +676,7 @@ mod tests {
 
     #[test]
     fn an_unknown_kind_name_is_none() {
-        assert!(definition("spec").unwrap().is_none());
+        assert!(definition("spec").is_none());
     }
 
     #[test]
@@ -710,9 +705,7 @@ mod tests {
 
     #[test]
     fn supporting_doc_is_a_prose_only_nested_file_kind_governing_no_glob() {
-        let doc = definition("supporting-doc")
-            .unwrap()
-            .expect("supporting-doc is embedded");
+        let doc = definition("supporting-doc").expect("supporting-doc is embedded");
 
         assert_eq!(doc.name, "supporting-doc");
         // The nested-file locus: neither half is the child's — its path composes from
@@ -745,7 +738,7 @@ mod tests {
 
     #[test]
     fn agent_definition_matches_the_hand_authored_kind() {
-        let agent = definition("agent").unwrap().expect("agent is embedded");
+        let agent = definition("agent").expect("agent is embedded");
 
         assert_eq!(agent.name, "agent");
         assert_eq!(
@@ -791,7 +784,7 @@ mod tests {
 
     #[test]
     fn command_definition_matches_the_hand_authored_kind() {
-        let command = definition("command").unwrap().expect("command is embedded");
+        let command = definition("command").expect("command is embedded");
 
         assert_eq!(command.name, "command");
         assert_eq!(
@@ -805,11 +798,7 @@ mod tests {
         // the skill surface, not a second schema.
         assert_eq!(
             command.extraction.primitives(),
-            definition("skill")
-                .unwrap()
-                .unwrap()
-                .extraction
-                .primitives()
+            definition("skill").unwrap().extraction.primitives()
         );
         assert_eq!(command.relationships, Vec::<Edge>::new());
         // File-shaped, like `rule` — identity is the filename stem, no `name` field
@@ -831,7 +820,7 @@ mod tests {
     fn hook_definition_is_a_fields_only_manifest_kind_at_the_hooks_collection_address() {
         use crate::kind::{CollectionAddress, CollectionKeyPath, Content};
 
-        let hook = definition("hook").unwrap().expect("hook is embedded");
+        let hook = definition("hook").expect("hook is embedded");
 
         assert_eq!(hook.name, "hook");
         // Discovered off the `.claude/settings.json` manifest locus, never a file tree of
@@ -871,9 +860,7 @@ mod tests {
     {
         use crate::kind::{CollectionAddress, CollectionKeyPath, Content};
 
-        let mcp = definition("mcp-server")
-            .unwrap()
-            .expect("mcp-server is embedded");
+        let mcp = definition("mcp-server").expect("mcp-server is embedded");
 
         assert_eq!(mcp.name, "mcp-server");
         // Discovered off the root `.mcp.json` manifest locus, never a file tree of its own.
@@ -938,7 +925,7 @@ priority: 7\n\
 Body line two.\n",
         )
         .unwrap();
-        let skill = definition("skill").unwrap().unwrap();
+        let skill = definition("skill").unwrap();
         let mut member =
             crate::frontmatter::Member::from_source(&skill, &src.join("SKILL.md")).unwrap();
         // The authored representation edge — surfaced by the driver, kept out of `fields`.
@@ -996,7 +983,7 @@ disable-model-invocation: true\n\
 # Deploy\n",
         )
         .unwrap();
-        let skill = definition("skill").unwrap().unwrap();
+        let skill = definition("skill").unwrap();
         let member =
             crate::frontmatter::Member::from_source(&skill, &src.join("SKILL.md")).unwrap();
         let unit = surface_unit(&member);
@@ -1019,7 +1006,7 @@ disable-model-invocation: true\n\
         let parent = tmpdir("rule-driver");
         let rules = parent.join("rules");
         std::fs::create_dir_all(&rules).unwrap();
-        let rule = definition("rule").unwrap().unwrap();
+        let rule = definition("rule").unwrap();
 
         std::fs::write(
             rules.join("rust.md"),
@@ -1056,7 +1043,7 @@ disable-model-invocation: true\n\
         let parent = tmpdir("rule-nested-members");
         let rules = parent.join("rules");
         std::fs::create_dir_all(&rules).unwrap();
-        let rule = definition("rule").unwrap().unwrap();
+        let rule = definition("rule").unwrap();
         std::fs::write(rules.join("uses-directive.md"), "# Rule\n\nBody.\n").unwrap();
         let member =
             crate::frontmatter::Member::from_source(&rule, &rules.join("uses-directive.md"))

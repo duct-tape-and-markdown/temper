@@ -41,9 +41,7 @@ const CLEAN_MCP: &str = r#"{
 }"#;
 
 fn mcp_server_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("mcp-server")
-        .unwrap()
-        .expect("mcp-server is embedded")
+    builtin_kind::definition("mcp-server").expect("mcp-server is embedded")
 }
 
 #[test]

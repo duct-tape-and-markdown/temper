@@ -42,9 +42,7 @@ fn write_agent(root: &std::path::Path, relative: &str, name: &str) -> PathBuf {
 }
 
 fn agent_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("agent")
-        .unwrap()
-        .expect("agent is embedded")
+    builtin_kind::definition("agent").expect("agent is embedded")
 }
 
 #[test]

@@ -313,8 +313,7 @@ fn write_member(
     fields: &BTreeMap<String, JsonValue>,
     files: &mut Vec<PathBuf>,
 ) -> Result<(), BundleError> {
-    // `definition`'s error is uninhabited, so a miss is the only failure to distinguish.
-    let Ok(Some(definition)) = crate::builtin_kind::definition(kind) else {
+    let Some(definition) = crate::builtin_kind::definition(kind) else {
         return Err(BundleError::MissingKind { kind });
     };
     let fields: Vec<(String, JsonValue)> = fields.clone().into_iter().collect();
@@ -399,7 +398,7 @@ mod tests {
         fs::create_dir_all(&skill_dir).unwrap();
         fs::write(skill_dir.join("SKILL.md"), OPERATE_SKILL).unwrap();
 
-        let kind = crate::builtin_kind::definition("skill").unwrap().unwrap();
+        let kind = crate::builtin_kind::definition("skill").unwrap();
         let member =
             crate::frontmatter::Member::from_source(&kind, &skill_dir.join("SKILL.md")).unwrap();
         assert_eq!(member.id, "temper");

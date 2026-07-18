@@ -473,7 +473,6 @@ fn a_lock_reconstructed_kind_resolves_the_same_embedded_members_as_its_live_decl
 fn skill_templating(child: &str, pattern: &str) -> CustomKind {
     builtin_kind::definition("skill")
         .unwrap()
-        .unwrap()
         .overlay_templates(&[TemplateRow {
             kind: child.to_string(),
             path: Some(pattern.to_string()),

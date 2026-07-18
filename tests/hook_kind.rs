@@ -45,9 +45,7 @@ const CLEAN_SETTINGS: &str = r#"{
 }"#;
 
 fn hook_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("hook")
-        .unwrap()
-        .expect("hook is embedded")
+    builtin_kind::definition("hook").expect("hook is embedded")
 }
 
 #[test]

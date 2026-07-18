@@ -38,9 +38,7 @@ const SETTINGS_LOCAL_JSON: &str = r#"{
 "#;
 
 fn settings_local_kind() -> temper::kind::CustomKind {
-    temper::builtin_kind::definition("settings-local")
-        .unwrap()
-        .expect("settings-local is embedded")
+    temper::builtin_kind::definition("settings-local").expect("settings-local is embedded")
 }
 
 /// The settings-local kind's lock-shaped fact row — a local-class json-document `file` kind

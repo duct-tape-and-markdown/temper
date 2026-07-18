@@ -46,9 +46,7 @@ const MARKETPLACE_JSON: &str = r#"{
 "#;
 
 fn marketplace_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("marketplace")
-        .unwrap()
-        .expect("marketplace is embedded")
+    builtin_kind::definition("marketplace").expect("marketplace is embedded")
 }
 
 #[test]
@@ -78,9 +76,8 @@ fn the_marketplace_kind_owns_its_file_at_a_glob_its_sibling_never_contends_for()
     assert_eq!(marketplace.registration, Vec::<Registration>::new());
 
     // The two `.claude-plugin` kinds share a root and are separated by their globs alone.
-    let manifest = builtin_kind::definition("plugin-manifest")
-        .unwrap()
-        .expect("plugin-manifest is embedded");
+    let manifest =
+        builtin_kind::definition("plugin-manifest").expect("plugin-manifest is embedded");
     let (marketplace_governs, manifest_governs) = (
         marketplace.governs.expect("marketplace governs a locus"),
         manifest.governs.expect("plugin-manifest governs a locus"),

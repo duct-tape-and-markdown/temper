@@ -1171,8 +1171,8 @@ fn skill_rule_kind_facts() -> Vec<temper::drift::KindFactRow> {
 }
 
 fn payload_from_harness(harness: &Path) -> temper::drift::Payload {
-    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
-    let rule_kind = temper::builtin_kind::definition("rule").unwrap().unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap();
+    let rule_kind = temper::builtin_kind::definition("rule").unwrap();
 
     let skill_path = harness
         .join(".claude")

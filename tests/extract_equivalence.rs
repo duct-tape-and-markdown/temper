@@ -41,7 +41,7 @@ fn fixture(rel: &str) -> PathBuf {
 /// nested sections, and the imported directory name.
 #[test]
 fn skill_features_over_a_real_skill_fixture() {
-    let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
+    let skill_kind = builtin_kind::definition("skill").unwrap();
     let skill = Member::from_source(&skill_kind, &fixture("skills/coordinate").join("SKILL.md"))
         .expect("the coordinate skill fixture should parse");
     let unit = common::skill_surface_unit(&skill);
@@ -205,7 +205,7 @@ fn a_field_primitive_retains_its_frontmatter_value_as_parsed() {
 /// nested sections, and the discovered `rules` directory.
 #[test]
 fn rule_features_over_a_paths_rule_fixture() {
-    let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+    let rule_kind = builtin_kind::definition("rule").unwrap();
     let rule = Member::from_source(&rule_kind, &fixture("rules/rust.md"))
         .expect("the rust rule fixture should parse");
     let unit = common::surface_unit(&rule);
@@ -218,7 +218,7 @@ fn rule_features_over_a_paths_rule_fixture() {
 /// whole file as the byte-faithful body.
 #[test]
 fn rule_features_over_a_no_frontmatter_rule_fixture() {
-    let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+    let rule_kind = builtin_kind::definition("rule").unwrap();
     let rule = Member::from_source(&rule_kind, &fixture("rules/collaboration.md"))
         .expect("the collaboration rule fixture should parse");
     let unit = common::surface_unit(&rule);

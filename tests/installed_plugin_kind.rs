@@ -43,9 +43,7 @@ const SETTINGS_NO_PLUGINS: &str = r#"{
 }"#;
 
 fn installed_plugin_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("installed-plugin")
-        .unwrap()
-        .expect("installed-plugin is embedded")
+    builtin_kind::definition("installed-plugin").expect("installed-plugin is embedded")
 }
 
 /// A `.claude/settings.json` where two enabled plugins name a marketplace the registry
@@ -267,9 +265,7 @@ fn the_marketplace_half_of_an_enablement_key_is_a_declared_edge_to_known_marketp
 
     let plugins = features_of(&plugin, &harness);
     let marketplaces = features_of(
-        &builtin_kind::definition("known-marketplace")
-            .unwrap()
-            .expect("known-marketplace is embedded"),
+        &builtin_kind::definition("known-marketplace").expect("known-marketplace is embedded"),
         &harness,
     );
 

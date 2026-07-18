@@ -74,7 +74,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
     let mut report = String::new();
     for dir in &fixtures {
         let name = dir.file_name().unwrap().to_string_lossy();
-        let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+        let skill_kind = temper::builtin_kind::definition("skill").unwrap();
         let skill = Member::from_source(&skill_kind, &dir.join("SKILL.md"))
             .expect("fixture skill should parse");
         // Read features off the projected surface member document through the generic
@@ -97,7 +97,7 @@ fn check_reproduces_the_expected_diagnostic_set() {
 /// reproduces the projection with no diff.
 #[test]
 fn acceptance_check_then_reemit_is_a_no_diff() {
-    let skill_kind = temper::builtin_kind::definition("skill").unwrap().unwrap();
+    let skill_kind = temper::builtin_kind::definition("skill").unwrap();
     let skill =
         Member::from_source(&skill_kind, &common::fixture("coordinate").join("SKILL.md")).unwrap();
 

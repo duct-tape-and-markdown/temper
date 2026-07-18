@@ -1626,7 +1626,7 @@ fn read_dial(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<dial::Dial> {
-    let Some(kind) = builtin_kind::definition(dial::KIND)? else {
+    let Some(kind) = builtin_kind::definition(dial::KIND) else {
         return Ok(dial::Dial::default());
     };
     Ok(dial::Dial::from_features(&kind_features(

@@ -46,9 +46,7 @@ const SETTINGS_NO_MARKETPLACES: &str = r#"{
 }"#;
 
 fn known_marketplace_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("known-marketplace")
-        .unwrap()
-        .expect("known-marketplace is embedded")
+    builtin_kind::definition("known-marketplace").expect("known-marketplace is embedded")
 }
 
 /// The kind's members projected through the shared read-time fold — the same `Features` a

@@ -46,9 +46,7 @@ fn discovery_over_the_embedded_governs_finds_the_command_file() {
     write_command(&harness, "coordinate", DEPLOY_COMMAND);
     write_command(&harness, "deploy", DEPLOY_COMMAND);
 
-    let command_kind = builtin_kind::definition("command")
-        .unwrap()
-        .expect("command is embedded");
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
     let found = import::discover_kind_files(
         &import::Discovery::new(&harness),
         &command_kind,
@@ -70,9 +68,7 @@ fn a_command_file_folds_into_a_member_with_file_stem_identity() {
     let harness = common::tmpdir("deploy");
     let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
 
-    let command_kind = builtin_kind::definition("command")
-        .unwrap()
-        .expect("command is embedded");
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
     let member = Member::from_source(&command_kind, &source).unwrap();
 
     // File-stem identity — like `rule`, not the `name`-field identity a directory-
@@ -82,9 +78,7 @@ fn a_command_file_folds_into_a_member_with_file_stem_identity() {
 
 #[test]
 fn a_command_member_registers_on_both_documented_invocation_channels() {
-    let command_kind = builtin_kind::definition("command")
-        .unwrap()
-        .expect("command is embedded");
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
 
     assert_eq!(
         command_kind.registration,
@@ -102,9 +96,7 @@ fn a_command_member_extracts_the_skills_declared_field_schema() {
     let harness = common::tmpdir("deploy-schema");
     let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
 
-    let command_kind = builtin_kind::definition("command")
-        .unwrap()
-        .expect("command is embedded");
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
     let member = Member::from_source(&command_kind, &source).unwrap();
     let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&command_kind, &unit, &[]);

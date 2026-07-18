@@ -38,9 +38,7 @@ const PLUGIN_JSON: &str = r#"{
 "#;
 
 fn plugin_manifest_kind() -> temper::kind::CustomKind {
-    builtin_kind::definition("plugin-manifest")
-        .unwrap()
-        .expect("plugin-manifest is embedded")
+    builtin_kind::definition("plugin-manifest").expect("plugin-manifest is embedded")
 }
 
 #[test]

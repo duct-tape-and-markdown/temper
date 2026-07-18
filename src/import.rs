@@ -717,8 +717,8 @@ Last line, no newline.";
         let harness = tmpdir("gov-src");
         write_fixture_harness(&harness);
 
-        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+        let skill_kind = builtin_kind::definition("skill").unwrap();
+        let rule_kind = builtin_kind::definition("rule").unwrap();
 
         // The skill locus (`.claude/skills` + `*/SKILL.md`) yields the `SKILL.md`
         // files themselves — the subdir glob descended one level.
@@ -898,7 +898,7 @@ Last line, no newline.";
         fs::create_dir_all(&harness).unwrap();
         fs::write(harness.join("SKILL.md"), DEMO).unwrap();
 
-        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
+        let skill_kind = builtin_kind::definition("skill").unwrap();
         let found = discover_builtin(
             &Discovery::new(&harness),
             &skill_kind,
@@ -971,7 +971,7 @@ Last line, no newline.";
         .unwrap();
         fs::create_dir_all(harness.join(".claude").join("skills").join("empty")).unwrap();
 
-        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
+        let skill_kind = builtin_kind::definition("skill").unwrap();
         let found = discover_builtin(
             &Discovery::new(&harness),
             &skill_kind,
@@ -996,7 +996,6 @@ Last line, no newline.";
         write_fixture_harness(&harness);
 
         let host = builtin_kind::definition("skill")
-            .unwrap()
             .unwrap()
             .overlay_templates(&[TemplateRow {
                 kind: "reference-doc".to_string(),
@@ -1031,10 +1030,9 @@ Last line, no newline.";
         let harness = tmpdir("shared-walk");
         write_fixture_harness(&harness);
 
-        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+        let skill_kind = builtin_kind::definition("skill").unwrap();
+        let rule_kind = builtin_kind::definition("rule").unwrap();
         let host = builtin_kind::definition("skill")
-            .unwrap()
             .unwrap()
             .overlay_templates(&[TemplateRow {
                 kind: "reference-doc".to_string(),
