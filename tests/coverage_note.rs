@@ -230,15 +230,15 @@ fn a_harness_with_only_modeled_surfaces_flags_no_unmodeled_surface() {
 
 #[test]
 fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kinds() {
-    // The note reads `<root>/.temper/lock.toml` for any custom kind's `governs` beyond
-    // the built-ins. That read must be loud: a corrupt lock silently reading as "no
+    // A corrupt lock must reject loud when read — a corrupt lock silently reading as "no
     // kinds declared" would drop the locked-kind suppression (LOCK-READ-SWALLOW-LOUD).
-    // Driven directly against the library, since the CLI gate reads the same lock a
-    // step earlier — this pins the note's own read, the swept swallow.
+    // The locked kind rows now come from the caller's own read, so a corrupt lock fails
+    // at read time, before check runs. A missing lock degrades to an empty slice, and check
+    // succeeds with just the built-in kinds.
     let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
 
-    // (1) A corrupt (unparseable) lock rejects loud rather than degrading to
-    // built-ins-only suppression.
+    // (1) A corrupt (unparseable) lock rejects loud when read — this happens before
+    // check() is called, since the caller must now provide the parsed kind rows.
     let corrupt = common::tmpdir("coverage-note-corrupt-lock");
     fs::create_dir_all(corrupt.join(".temper")).unwrap();
     fs::write(
@@ -246,16 +246,17 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
         "this is not = = valid toml",
     )
     .unwrap();
+    let corrupt_read = drift::read_declarations(&corrupt.join(".temper"));
     assert!(
-        coverage_note::check(&corrupt, &empty_kinds, &BTreeMap::new()).is_err(),
-        "a corrupt lock must reject loud, not degrade to built-ins-only suppression"
+        corrupt_read.is_err(),
+        "a corrupt lock must reject loud when read"
     );
 
-    // (2) A genuinely missing lock still degrades to the built-in kinds alone — the
-    // note succeeds and still flags an ungoverned present surface.
+    // (2) A genuinely missing lock still degrades to an empty slice — the note succeeds
+    // with just the built-in kinds and still flags an ungoverned present surface.
     let missing = common::tmpdir("coverage-note-missing-lock");
     common::write_mcp_json(&missing, "{}");
-    let diagnostics = coverage_note::check(&missing, &empty_kinds, &BTreeMap::new())
+    let diagnostics = coverage_note::check(&missing, &empty_kinds, &BTreeMap::new(), &[])
         .expect("a missing lock degrades to the built-in kinds, never an error");
     assert!(
         diagnostics
@@ -276,7 +277,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     let ungoverned = common::tmpdir("mcp-wholly-ungoverned");
     common::write_mcp_json(&ungoverned, "{}");
     let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
-    let bare = coverage_note::check(&ungoverned, &empty_kinds, &BTreeMap::new()).unwrap();
+    let bare = coverage_note::check(&ungoverned, &empty_kinds, &BTreeMap::new(), &[]).unwrap();
     let mcp = bare
         .iter()
         .find(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")
@@ -293,7 +294,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     let governed = common::tmpdir("mcp-wholly-governed");
     common::write_mcp_json(&governed, "{}");
     let builtins = temper::builtin_kind::definitions();
-    let full = coverage_note::check(&governed, &builtins, &BTreeMap::new()).unwrap();
+    let full = coverage_note::check(&governed, &builtins, &BTreeMap::new(), &[]).unwrap();
     assert!(
         full.iter()
             .all(|d| !(d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")),

@@ -42,24 +42,24 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// Compute the wedge's advisory coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind checked-member count the gate already loaded,
-/// keyed by each kind's bare row label; `kinds` is the built-in kind set. The
-/// gap check additionally reads `root`'s own committed lock for any kind it
-/// declares beyond those built-ins, so a locked custom kind's `governs` suppresses
-/// a known surface exactly as a built-in's does. Returns `warn`-severity
-/// diagnostics only (never `error`, never a session-start verdict): a summary of
-/// what was checked, then one finding per known Claude Code surface present on
-/// disk that no in-scope kind governs — so the gate's silence about an unmodeled
-/// surface never reads as "checked".
+/// keyed by each kind's bare row label; `kinds` is the built-in kind set.
+/// `locked_kinds` are the kind-fact rows from the committed lock (an empty slice for
+/// an unadopted harness), so a locked custom kind's `governs` suppresses a known
+/// surface exactly as a built-in's does. Returns `warn`-severity diagnostics only
+/// (never `error`, never a session-start verdict): a summary of what was checked,
+/// then one finding per known Claude Code surface present on disk that no in-scope
+/// kind governs — so the gate's silence about an unmodeled surface never reads as
+/// "checked".
 ///
 /// # Errors
 ///
-/// Returns an error when `root`'s committed lock cannot be read or parsed, or when a
-/// lock-declared kind row cannot be lifted — a corrupt lock is loud here, never a
-/// silent degrade to built-ins-only suppression.
+/// Returns an error when a lock-declared kind row cannot be lifted — a corrupt lock
+/// is loud here, never a silent degrade to built-ins-only suppression.
 pub fn check(
     root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
+    locked_kinds: &[crate::drift::KindFactRow],
 ) -> miette::Result<Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
 
@@ -90,7 +90,7 @@ pub fn check(
     // The governing set is the built-ins plus every kind the committed lock declares,
     // so a locked custom kind (e.g. a `widget` kind rooted at `.claude`, selecting
     // `settings.json`) suppresses the surface it governs exactly as a built-in does.
-    let governing_kinds = with_locked_kinds(root, kinds)?;
+    let governing_kinds = with_locked_kinds(kinds, locked_kinds)?;
     for surface in KNOWN_SURFACES {
         if !present(root, surface) {
             continue;
@@ -194,23 +194,21 @@ fn claude_entries(root: &Path) -> Vec<(String, bool)> {
         .collect()
 }
 
-/// `kinds` plus every kind `root`'s committed lock declares that is not already in
-/// `kinds` — so a locked custom kind's `governs` locus joins the built-ins for the
-/// unmodeled-surface suppression below. A missing lock declares no kinds and degrades to
-/// `kinds` alone; a present kind row outside its closed vocabulary rejects loud.
+/// `kinds` plus every kind row in `locked_kinds` that is not already in `kinds` — so
+/// a locked custom kind's `governs` locus joins the built-ins for the unmodeled-surface
+/// suppression below. An empty `locked_kinds` slice degrades to `kinds` alone; a
+/// kind row outside its closed vocabulary rejects loud.
 ///
 /// # Errors
 ///
-/// Returns an error when the committed lock cannot be read or parsed, or when a
-/// declared kind row cannot be lifted — a corrupt lock never silently reads as "no
-/// kinds declared", which would drop the locked-kind suppression.
+/// Returns an error when a declared kind row cannot be lifted — a corrupt row is loud
+/// here, never a silent degrade to built-ins-only suppression.
 fn with_locked_kinds(
-    root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
+    locked_kinds: &[crate::drift::KindFactRow],
 ) -> miette::Result<BTreeMap<String, CustomKind>> {
     let mut merged = kinds.clone();
-    let locked = drift::read_declarations(&root.join(crate::WORKSPACE_DIR))?;
-    for row in &locked.kinds {
+    for row in locked_kinds {
         if !merged.contains_key(&row.name) {
             merged.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
         }
@@ -454,6 +452,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &[],
         )
         .unwrap();
         let summary = diagnostics
@@ -476,6 +475,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &[],
         )
         .unwrap();
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
@@ -494,6 +494,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &[],
         )
         .unwrap();
         let summary = diagnostics.iter().find(|d| d.rule == CHECKED_RULE).unwrap();
@@ -601,7 +602,8 @@ mod tests {
         std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
 
         let counts = BTreeMap::from([("widget".to_string(), 0usize)]);
-        let diagnostics = check(&root, &builtin_set(), &counts).unwrap();
+        let locked = crate::drift::read_declarations(&root.join(crate::WORKSPACE_DIR)).unwrap();
+        let diagnostics = check(&root, &builtin_set(), &counts, &locked.kinds).unwrap();
 
         assert!(
             diagnostics
@@ -617,7 +619,8 @@ mod tests {
         std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
         let counts = BTreeMap::new();
-        let diagnostics = check(&root, &builtin_set(), &counts).unwrap();
+        // No lock exists, so pass an empty slice for locked_kinds
+        let diagnostics = check(&root, &builtin_set(), &counts, &[]).unwrap();
 
         assert!(
             diagnostics
@@ -642,7 +645,7 @@ mod tests {
         .unwrap();
 
         let kinds = BTreeMap::from([("hook".to_string(), hook_kind())]);
-        let diagnostics = check(&root, &kinds, &BTreeMap::new()).unwrap();
+        let diagnostics = check(&root, &kinds, &BTreeMap::new(), &[]).unwrap();
 
         let finding = diagnostics
             .iter()
@@ -786,7 +789,7 @@ mod tests {
         std::fs::create_dir_all(root.join(".claude")).unwrap();
         std::fs::write(root.join(".claude/.clauignore"), "").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
 
         let matches: Vec<_> = diagnostics
             .iter()
@@ -802,7 +805,7 @@ mod tests {
         let root = tmpdir("governed-locus");
         std::fs::create_dir_all(root.join(".claude/skills")).unwrap();
 
-        let diagnostics = check(&root, &builtin_set(), &BTreeMap::new()).unwrap();
+        let diagnostics = check(&root, &builtin_set(), &BTreeMap::new(), &[]).unwrap();
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -823,7 +826,7 @@ mod tests {
         .unwrap();
         std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -847,7 +850,7 @@ mod tests {
         std::fs::write(root.join(".claude/.gitignore"), "ignored-stray.md\n").unwrap();
         std::fs::write(root.join(".claude/ignored-stray.md"), "").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
+        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
 
         assert!(
             diagnostics

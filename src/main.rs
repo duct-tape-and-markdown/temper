@@ -1210,13 +1210,15 @@ pub fn gate(
 
     // The wedge's advisory coverage note: state which kinds checked how many members,
     // and name the known Claude Code surfaces present on disk that no kind — built-in
-    // or locked custom, the note reads the lock for the latter — governs, so the
-    // gate's silence about an unmodeled surface never reads as "checked". Warn-only —
-    // it leaves the run's exit code and the session-start verdict unchanged.
+    // or locked custom — governs, so the gate's silence about an unmodeled surface never
+    // reads as "checked". Warn-only — it leaves the run's exit code and the session-start
+    // verdict unchanged. Threads the already-parsed `committed.kinds` to avoid a redundant
+    // lock re-parse (COVERAGE-NOTE-LOCK-PARSE-HOIST).
     diagnostics.extend(coverage_note::check(
         harness_root,
         &builtin_kind::definitions(),
         &member_counts,
+        &committed.kinds,
     )?);
 
     // The freshness fact: a committed projection
