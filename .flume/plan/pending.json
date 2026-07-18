@@ -82,6 +82,38 @@
     "notes": "Drained from .flume/refactor/plan-drift-lock-row-walk-triplication.md (observed b8fc7ca, found while re-orienting off live disk during the prior tick). Pure internal consolidation, no public API change, no test file additions needed — existing tests pin the behavior. scoped at 7132213."
   },
   {
+    "tag": "DRIFT-EMIT-LOCK-PARSE-HOIST",
+    "summary": "emit() parses lock.toml twice per run — read_prior_provenance (reap-diff) and read_declarations (layer-drop check) each independently open+parse it; hoist to one shared parse",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1197) calls `read_prior_provenance` (fn 1918, opens+parses the lock at 1919-1925 fresh) and the layer-drop check (1244-1247) calls `read_declarations` (fn 3398, opens+parses the lock again at 3399-3407 via `parse_declarations` -> the private `declarations_from_doc` at 3439, which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run — the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Land after DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry's `walk_lock_rows` establishes the doc-based-extractor shape this entry's provenance-row side should follow rather than re-deriving. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows and the layer-drop nested-member counts from that one parsed `DocumentMut` — `declarations_from_doc` already accepts one; give the provenance side an equivalent doc-scoped extractor. Re-verified at HEAD c2eca2d (drift.rs unchanged since b8fc7ca)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "an emit run over a fixture whose lock.toml exercises both the reap-diff and layer-drop-check paths reads/parses lock.toml exactly once — a count pin, the same doctrine this file's discovery-walk/glob-compile pins already established, never a wall-clock threshold"
+      }
+    ],
+    "acceptance": "emit() reads and parses the workspace's lock.toml exactly once per invocation; the reap-diff provenance rows and the layer-drop nested-member count both derive from that one parse. No behavior change (engineering.md, 'Cost scale is hoisted': whole-input work computes once per run and is shared, never recomputed per call site). `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry unifies three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table) — different row families, same file, same run. Serialized after it so this entry's doc-based provenance extractor sits beside `walk_lock_rows`, not duplicating its shape. scoped at c2eca2d."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
