@@ -63,41 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE",
-    "summary": "read.rs's DIRECTIVE_FIELD_LABEL duplicates graph.rs's private DIRECTIVE_FIELD const byte-for-byte, self-documented as a mirror instead of one shared value",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`DIRECTIVE_FIELD` (43, doc 40-42, 'Lets a reader tell a directive edge from a declared reference edge in the one resolved-edge set') is a private const, consumed only within this file (894). Widen its visibility to `pub(crate)` so `read.rs` can import it directly instead of carrying its own duplicate string. No other change."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`DIRECTIVE_FIELD_LABEL` (1226, doc 1223-1225, 'the mirror of `graph`'s private `DIRECTIVE_FIELD`') duplicates `graph::DIRECTIVE_FIELD`'s value (`\"at-import\"`) byte-for-byte, with no compiler-checked link between the two — a future rename of one would silently desync the other. Delete the const and its doc comment; requalify its two use sites — the production narration inside `impact` (1191) and the inline test helper `directive` (1601-1607, used at 1652) — to `crate::graph::DIRECTIVE_FIELD` (a qualified reference, or a `use crate::graph::DIRECTIVE_FIELD;` import). No behavior change: identical string value."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/read.rs",
-        "asserts": "removing_an_imported_member_unbacks_the_import (1642) stays green — its assertion on the rendered `imports it via `@at-import`` text is unaffected by which module owns the constant"
-      }
-    ],
-    "acceptance": "read.rs carries no private DIRECTIVE_FIELD_LABEL; its two use sites read graph::DIRECTIVE_FIELD (widened to pub(crate)) instead of a hand-maintained duplicate. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping pipeline (posture rotation: formats done, pipeline this tick); DIRECTIVE_FIELD_LABEL's own doc comment already concedes it mirrors graph's const, but nothing ever consolidated them. Serialized behind GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, last chain entry touching graph.rs — its blockedBy chain already passes through GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE, read.rs's only other pending toucher, so one blocker covers both files. scoped at 69e7571."
-  },
-  {
     "tag": "GATE-MANIFEST-SHARED-READ-HOIST",
     "summary": "gate()/explain() re-read+re-parse a manifest file (settings.json) once per governing kind, and coverage_note reads it again for coverage — hoist to one shared parse per file per run",
     "per": {
@@ -177,41 +142,6 @@
     "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick). Serialized behind GATE-MANIFEST-SHARED-READ-HOIST, the last entry in the existing chain touching json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at e733883."
   },
   {
-    "tag": "ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH",
-    "summary": "engine.rs's bodyless/judgeless/vacuities fall through `_ =>` over Predicate instead of naming every variant like sibling addressed_field does in the same file",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "Three admissibility-fence functions over the closed `Predicate` enum (27 variants) close their match with a wildcard instead of naming every variant, unlike this file's `addressed_field` (201-235, doc 198-200: 'The match names every arm rather than defaulting: a bound that is not enforced is not a bound, and a wildcard would admit the next field-carrying predicate ... instead of asking its author this question at compile time') and the file's own `decide`/`judge` dispatch, both already exhaustive. `bodyless` (256-272) matches only `RequireSections`/`SectionContains`/`NameMatchesDir` then `_ => return None` (264) — a future body-derived predicate added without updating this match silently skips the embedded-locus fence instead of 'degrading to a check that never ran', the very failure its own doc warns against. `judgeless` (278-287) matches only `DependencyExists` then `_ => None` (285). `vacuities` (297-408) guards 13 variants (`ClosedKeys`, `Enum`, `Deny`, `ForbiddenKeys`, `Type`, `RequireSections`, `SectionContains`, `Range`, `Count`, `Membership`, `Degree`, `Kind`, `MentionReachable`) then falls through `_ => Vec::new()` (407) for the remaining 14 (`Required`, `Optional`, `MinLen`, `MaxLen`, `AllowedChars`, `Shape`, `Extent`, `MustDefine`, `NameMatchesDir`, `UniqueName`, `DependencyExists`, `Unique`, `GlobValid`, `FormatPlacesEdges`). Replace each wildcard with one pipe-grouped arm naming every unmatched variant explicitly, mapped to the same fallback value (`None` for bodyless/judgeless, `Vec::new()` for vacuities) — mirroring addressed_field's style. No behavior change: every currently-unmatched variant already produces the wildcard's value."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "existing inline tests over bodyless/judgeless/vacuities (embedded-locus fence, dependency-exists hold, closed-keys/enum/range/degree/mention-reachable vacuity cases) pass unchanged at the new exhaustive matches — the rewrite is exhaustiveness-only"
-      },
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "a_body_shaped_clause_bound_to_an_embedded_kind_fails_admissibility stays green — exercises bodyless's fence end to end"
-      }
-    ],
-    "acceptance": "bodyless, judgeless, and vacuities each name every Predicate variant explicitly in their match, no `_` wildcard arm remains in any of the three, matching the exhaustive style addressed_field already holds over the same enum in the same file. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the judges subsystem (posture rotation: pipeline done, judges this tick). Same shape as the already-queued KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH/CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH precedent (a `_ =>` fallback over a shared enum beside an already-exhaustive sibling match in the same file). Serialized behind GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, last chain entry touching engine.rs, for shared-file safety — no functional dependency. scoped at 662cf07."
-  },
-  {
     "tag": "CONTRACT-WHEN-GUARD-CLAUSE-FORM",
     "summary": "The clause algebra gains `when`: a guard predicate (enum/type) over an addressable field conditioning a body of ordinary clauses, one shared address binding, no nesting (decision 0041)",
     "per": {
@@ -219,8 +149,7 @@
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -513,8 +442,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
