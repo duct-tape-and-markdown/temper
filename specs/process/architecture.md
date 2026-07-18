@@ -27,11 +27,14 @@ appears in exactly one.
 - **foundation** — leaf vocabulary with no internal dependencies:
   `check` (the diagnostic types every judge speaks), `extract`
   (markdown/heading mechanics), `hash`, `address`, `tap` (the telemetry
-  record), `json_splice`. Nothing here knows what a harness is.
+  record), `json_splice`, `glob` (the one compile-memoized glob engine
+  every walker shares — ruled 07-18, landing). Nothing here knows what
+  a harness is.
 - **model** — what a harness IS: `kind` (the kind algebra),
   `contract` (clauses, predicates, selections), `compose` (member
   composition), `schema` (the interchange face), `roster` (membership
-  resolution).
+  resolution), `layout` (the layout-document reader — split from
+  `kind`, ruled 07-18, landing).
 - **formats** — external format mechanics, implemented once
   (`representation.md`, "kind"): `frontmatter`, `document`,
   `json_manifest`, `toml_document`.
@@ -68,13 +71,15 @@ appears in exactly one.
 - **`main` carries dispatch only** — corpus assembly and judgment live
   in the library.
 
-One edge in today's tree stands in tension with this map, ruled to
-resolve toward it (2026-07-18, entry queued): `normalize_path` is
-pure path vocabulary homed in `graph` (judges) with all external
-callers in pipeline — it moves to `address` (foundation), where its
-shape already lives. Three earlier edges ruled the same way (0040)
-have shipped and are history, not debt. The map is intent, and intent
-loses to a better argument, never to drift.
+Two edges in today's tree stand in tension with this map, each ruled
+to resolve toward it (2026-07-18, entries queued): `normalize_path`
+is pure path vocabulary homed in `graph` (judges) with all external
+callers in pipeline — it moves to `address` (foundation); and the
+glob-compilation cache in `kind` is crate-wide leaf infrastructure
+whose own doc names callers across three subsystems — it moves to
+the `glob` foundation module above. Three earlier edges ruled the
+same way (0040) have shipped and are history, not debt. The map is
+intent, and intent loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
 
