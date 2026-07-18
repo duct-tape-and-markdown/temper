@@ -1,33 +1,34 @@
 # Plan state
 
 - Spec derived through: 7739b91
-- Audited through: d1af9a5
-- Residue swept through: d1af9a5
-- This tick: RECONCILED 68fae5c..HEAD (post-ship). Window shipped three build
-  entries: DISCOVERY-WALK-SHARE (16c1716), VERIFIER-TYPED (2fc2291),
-  COVERAGE-SEGMENT-PRESENCE (536dd48) — all already dropped from pending by
-  build. AUDIT (verified live on disk): the verifier is now a species-tagged
-  union (`Verifier.Script`|`Verifier.Telemetry`, generated Verifier.ts;
-  `requirement.verifier` on RequirementRow); no `verifiedBy` symbol survives;
-  consumers hold exhaustive 2-variant matches (roster.rs 146/155/168, drift.rs
-  3961/3965 — no `_` arm). DISCOVERY-WALK-SHARE consolidated to one
-  `discoverable_paths` walk (import.rs:485, local_governs flavor);
-  COVERAGE-SEGMENT-PRESENCE to one present-keys classifier (coverage_note.rs).
-  Stale-gate re-test: VERIFIER-TYPED shipped, so its three dependents —
-  KNOWN-MARKETPLACE-KIND, TELEMETRY-FIELD-STRAND, TELEMETRY-HOOK-PROJECTION —
-  re-gated blockedBy->OPEN (anchors confirmed present; pairwise file-disjoint,
-  safe to fan out). KNOWN-MARKETPLACE-EDGE stays blockedBy KNOWN-MARKETPLACE-KIND.
-  Both parks re-tested at HEAD and hold: MAX_IMPORT_HOPS still 5 + 2026-07-02
-  cite unmoved (graph.rs 55-59); no v0.1 tag, crate 0.1.0, `.github/` empty in
-  window. SWEEP: no residue — the verifier retype leaves no partial enumeration
-  or duplicate surface; requirement_roster tests green. The roster.rs cite
-  rider (`10-contracts.md`, ride-only class) discharged at 2fc2291 as predicted
-  — open-questions record trimmed to zero live orphans. Both cursors -> HEAD.
-- Queue: 6 entries — 3 pickable OPEN (KNOWN-MARKETPLACE-KIND,
-  TELEMETRY-FIELD-STRAND, TELEMETRY-HOOK-PROJECTION — pairwise file-disjoint);
-  1 blockedBy (KNOWN-MARKETPLACE-EDGE->KIND); 2 parked (IMPORT-HOP-CAP-CITE,
+- Audited through: ac93a2e
+- Residue swept through: ac93a2e
+- This tick: RECONCILED d1af9a5..HEAD (post-ship). Window shipped three build
+  entries — KNOWN-MARKETPLACE-KIND (4dd7cfb), TELEMETRY-FIELD-STRAND (542f4a6),
+  TELEMETRY-HOOK-PROJECTION (7b26b4e) — all already dropped from pending by
+  build. AUDIT (verified live on disk): known-marketplace ships as a `Registry`
+  registration member (`claude_code_known_marketplace()` builtin_kind.rs:326,
+  `knownMarketplace` builtins.ts:542, `extraKnownMarketplaces.*` collection
+  address); the field strand joins the tap log to members through lock
+  declarations in explain's member arm (`field()` read.rs:1457, wired at :260);
+  tap hooks synthesize at emit (`tapHookRows` emit.ts:649 + declarations.ts).
+  Stale-gate re-test: KNOWN-MARKETPLACE-KIND shipped, so its dependent
+  KNOWN-MARKETPLACE-EDGE re-gated blockedBy->OPEN — anchors survive
+  (installedPlugin builtins.ts:476, un-rangeable doc 491/501,
+  claude_code_installed_plugin builtin_kind.rs:293; graph.rs edge-resolver home
+  confirmed at pick-up). Both parks re-tested at HEAD and hold:
+  MAX_IMPORT_HOPS still 5 + 2026-07-02 cite (graph.rs:54-59, const region
+  untouched — the window's graph.rs edit was `dead_registration` gaining
+  `Registry` at 707-722); no v0.1 tag, crate 0.1.0, `.github/` empty in window.
+  SWEEP: no residue. The `Registration` widening (new `Registry` variant) is
+  exhaustive across every consumer — `dead_registration` (graph.rs:718-722)
+  and the string->variant parser (kind.rs:1216) both answer it by construction;
+  the `_ => None` arms over Registration are string-parser tails, not partial
+  enumerations. Field strand / `tapHookRows` reuse the lock-join surface, no
+  duplicate. Both cursors -> HEAD (ac93a2e).
+- Queue: 3 entries — 1 pickable OPEN (KNOWN-MARKETPLACE-EDGE, sole open entry,
+  no disjointness conflict); 2 parked (IMPORT-HOP-CAP-CITE,
   PACKAGING-CHANNELS-REMAINDER).
 
 Plan continues: no — window reconciled through HEAD, inbox + spec-delta empty;
-3 pickable open entries (KNOWN-MARKETPLACE-KIND, TELEMETRY-FIELD-STRAND,
-TELEMETRY-HOOK-PROJECTION), build takes over.
+1 pickable open entry (KNOWN-MARKETPLACE-EDGE), build takes over.

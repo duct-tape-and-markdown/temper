@@ -7,8 +7,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KNOWN-MARKETPLACE-KIND"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "The marketplace half of an installed-plugin's `plugin@marketplace` enablement key is a declared edge resolving to the known-marketplace member it names by identity — an enablement naming a marketplace no registration declares is a finding, never a convention (builtins.md, 'The shipped kinds'; decision 0039). `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "0039 derivation (the enablement-key edge, 0029 by-name addressing). blockedBy KNOWN-MARKETPLACE-KIND (the edge target + shared builtins.ts/builtin_kind.rs/graph.rs regions) — the chain EDGE->KIND->VERIFIER-TYPED serializes graph.rs. Splits the composite enablement key into (plugin, marketplace) halves. Field-edge lowering is generic SDK data (no declarations.ts touch). scoped at 152526c."
+    "notes": "0039 derivation (enablement-key edge, 0029 by-name addressing). Unblocked: KNOWN-MARKETPLACE-KIND shipped (4dd7cfb) — edge target `known-marketplace` exists (builtin_kind.rs:326, builtins.ts:542). Anchors re-verified at HEAD: installedPlugin builtins.ts:476, un-rangeable doc 491/501, claude_code_installed_plugin builtin_kind.rs:293. Splits the composite key into (plugin, marketplace) halves; field-edge lowering is generic SDK data. scoped 152526c."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
