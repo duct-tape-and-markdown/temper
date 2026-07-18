@@ -9,9 +9,12 @@ When running the posture sweep (plan's job 4), this discipline binds:
   of `specs/process/engineering.md`, the subsystem roster from
   `specs/process/architecture.md`'s codemap. Nothing is swept from a
   remembered list.
-- One subsystem per tick. On a subsystem untouched since its last
-  sweep, skip forward; **quiet-on-clean is the normal verdict**,
-  recorded by advancing the rotation alone.
+- At most one **touched** subsystem is read and swept per tick — that
+  is the context bound. Untouched-since-last-sweep subsystems (the
+  forward `git log` window is the test, no file reads) **skip forward
+  in bulk within the same tick**; a rotation over a quiet tree closes
+  in one tick, never one tick per skip. **Quiet-on-clean is the normal
+  verdict**, recorded by advancing the rotation alone.
 - A violation counts only when **verified on disk this tick**, cited by
   symbol and line. Beyond the pages' own sections, cohesion (a module
   carrying jobs that want separate homes) and dead plumbing
