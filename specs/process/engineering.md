@@ -86,3 +86,43 @@ expectations — decidably:
   time, never committed — names where the cost concentrates before any
   cut; the numbers pick the cut, never the guess, and the fix lands
   with its count-pin.
+
+## A green verdict is proven non-vacuous
+
+Three field incidents in one week were the same silence: a judge whose
+input set collapsed to zero kept passing — a test asserting over a
+derivation that yielded nothing, a bound reachability clause ranging
+over an emptied edge family, a coverage advisory classifying a registry
+instead of the file it spoke about. Loud-or-nothing (intent.md,
+invariant 6) gets its code-level enforcement here:
+
+- **A vacuity pin rides every judge test**: the fixture asserts the
+  judged set was populated — `n > 0` of the thing the test exists to
+  judge — before asserting the verdict. A test that passes over zero of
+  its subject is not a test, and is residue fileable against this
+  section.
+- A judge whose selection may be legitimately empty asserts the empty
+  case **explicitly**, in its own test — vacuous-by-design is spelled,
+  never inherited.
+
+## A fix ships the test that would have caught it
+
+The cost section's "lands with its count-pin," generalized past
+performance: every defect fix includes a test that **fails on the
+pre-fix tree** — a walk fix with its walk-count pin, a seam fix with
+its gauntlet cell, a false green with its real assertion. The entry's
+tests[] names it and the commit body says what it pins. A fix whose
+regression genuinely cannot be pinned decidably says so out loud in the
+commit body — the named exception, never the default.
+
+## An export earns its consumer
+
+Public surface with no consumer is residue: an export born as
+scaffolding outlives its scaffold and becomes API someone must
+excavate later. Grep-verifiable, so the sweep holds it mechanically:
+
+- An SDK root export, a `pub` item, a widened `pub(crate)` — each needs
+  a caller outside its own module (a test counts). Zero-consumer
+  surface is fileable against this section.
+- A seam opened for a planned second consumer carries that consumer's
+  name at the export site; when the plan dies, the export dies with it.
