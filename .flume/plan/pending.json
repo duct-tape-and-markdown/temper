@@ -164,6 +164,41 @@
     "notes": "Found sweeping the `formats` subsystem (posture rotation, formats next after model). frontmatter.rs's provider dependency is already queued (FRONTMATTER-TEST-SYNTHETIC-KINDS); json_manifest.rs's dead `Discovery` variant is already queued (DISCOVERY-INFALLIBLE-RESULT-COLLAPSE); toml_document.rs is clean. Disjoint from every other queue entry's files. scoped at 15bf420."
   },
   {
+    "tag": "READ-EXPLAIN-STRAND-VISIBILITY-NARROW",
+    "summary": "read.rs's impact/context/requirements/field explain-strands are pub with zero consumer outside explain() in the same file — narrow to private, matching why's earned pub",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Four `pub fn`s carry no caller outside this file: `impact` (593), `context` (856), `requirements` (1254), `field` (1468) — each documented in its own doc comment as `explain`'s named strand (module doc 10-17: 'requirements walks it in reverse', 'impact narrates the blast radius', 'context emits the declared neighborhood') and called only from `explain` (218, the sole dispatcher) within this same file. Grep-verified zero hits for `read::impact`/`read::context`/`read::requirements`/`read::field` across src/, tests/, sdk/; `tests/read_verbs.rs` (the file's own integration coverage) calls `read::why` (353, 554, 583) and `read::explain` (89) directly but never these four — unlike `why` (320), which earns its `pub` through those real external callers, these four's only reachable path from outside the module is through `explain`'s dispatch. The file's only inline test module, `impact_tests` (1552), exercises `impact` from within the same file — an in-module test, per the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent ('outside kind.rs's own inline tests'), does not earn a wider-than-needed visibility. Narrow `impact`, `context`, `requirements`, and `field` from `pub fn` to module-private `fn` — no `pub(crate)` needed, no sibling module calls them. Leave `why` and `explain` (both real exports) untouched, and leave the intra-doc links (`[requirements]`/`[impact]`/`[context]`/`[field]`) as-is — they resolve identically at private visibility since every reference sits within this same file."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "existing explain()/why() coverage stays green — the narrowing is visibility-only, explain's composed output over impact/context/requirements/field is unchanged"
+      },
+      {
+        "path": "src/read.rs",
+        "asserts": "impact_tests (1552) keeps passing calling impact() from within the same module at its new private visibility"
+      }
+    ],
+    "acceptance": "impact, context, requirements, and field are private fns in src/read.rs, not pub; why and explain keep their pub visibility. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the `pipeline` subsystem (posture rotation: pipeline this tick, after formats). Disjoint from every other queue entry's files (read.rs touched nowhere else). scoped at 20b7b21."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {
@@ -335,6 +370,46 @@
     ],
     "acceptance": "extract.rs imports no crate-internal sibling (foundation-clean); the lock-row lifters live in drift.rs and the manifest-collection grammar (both read and write faces) lives in json_manifest.rs, with manifest_members/entry_fields/hook_member_fields/enablement_member_fields private and enablement_entry_value/hook_matcher_group pub(crate) for drift — reconciling the narrower EXTRACT-PRIVATE-COLLECTION-DECODERS ask at the functions' new homes rather than at extract (0040, Consequences). architecture.md's foundation invariant holds without qualification. `cargo test` and `cargo clippy -D warnings` green.",
     "notes": "Decision 0040, point 3 — supersedes/retires EXTRACT-PRIVATE-COLLECTION-DECODERS: its enablement_member_fields/hook_member_fields private-fn ask folds into this entry's acceptance at the functions' new home, json_manifest.rs, per 0040's Consequences naming that reconciliation. Serialized behind PLACEMENT-MODULE-EXTRACTION for shared drift.rs edits (pending-entry.md) — also shares json_manifest.rs/main.rs with DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, upstream in the chain. scoped at f404e48."
+  },
+  {
+    "tag": "DRIFT-SOURCE-DEP-PARSE-HOIST",
+    "summary": "gate() and explain() each re-read-and-reparse lock.toml several times per invocation via source_deps' own independent parse — hoist to the already-parsed declarations document",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`source_deps` (2472) does its own `fs::read_to_string` + `.parse::<DocumentMut>()` of `lock.toml`, independent of `read_declarations`'s (3398) own full parse via `declarations_from_doc` (3439, which already takes a parsed `&DocumentMut` — the doc-scoped-extractor shape DRIFT-EMIT-LOCK-PARSE-HOIST establishes for the provenance side, upstream in this chain). `source_deps` is called by `layout_imports` (2497), `includes` (2508), and — via `source_dep_stale` (2522) — by `layout_import_stale` (2563) and `include_stale` (2580): four independent re-reads/re-parses on top of `read_declarations`'s own. Within one `gate()` invocation (src/main.rs) this lands as 5 full parses of the same file in one run: `read_declarations` (main.rs:858), `layout_imports`+`includes` via `import_edges_from_lock` (main.rs:891), then `layout_import_stale`+`include_stale` (main.rs:1208-1209) — each a fresh read+parse; `explain()` (main.rs:513, 525, 587) repeats the same pattern minus the two staleness calls. `Declarations` (struct 2668) does not currently carry the `layout_import`/`include` lock families read back from disk — `includes: Vec<IncludeRow>` (2691) is documented seam-inbound-only, 'never written back into this declaration table, so a lock round-trip reads it empty' — which is why `source_deps` re-parses independently rather than filtering an already-parsed set. Fix: extend `declarations_from_doc` (or a parallel doc-scoped extractor, the same pattern DRIFT-EMIT-LOCK-PARSE-HOIST establishes) to lift the `[declaration.layout_import]`/`[declaration.include]` families from the one already-parsed document, and have `layout_imports`/`includes`/`source_dep_stale` filter that in-memory set instead of each independently opening and parsing the file. Land after EXTRACT-FOUNDATION-BOUNDARY-RESTORE, the last entry in the existing chain to touch this file, so this entry's extractor sits beside the settled post-move shape rather than racing it."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`gate()` (847) and `explain()` (513) each call `drift::read_declarations` once and then separately call `import_edges_from_lock` (2563, calling `drift::layout_imports` then `drift::includes`) — two more independent parses on top of the first — and `gate()` additionally calls `drift::layout_import_stale`/`drift::include_stale` (1208-1209), two more still. Once `source_deps`'s callees read off the shared parsed document instead, thread the already-parsed document/`Declarations` value through these call sites rather than re-deriving it — the same one-parse-per-run shape `read_declarations`'s own call already establishes for the rest of the declaration family."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "a check run over a fixture whose lock.toml carries layout-import and include source-dependency rows reads/parses lock.toml exactly once per gate() invocation — a count pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
+      },
+      {
+        "path": "tests/emit.rs",
+        "asserts": "existing layout-import-stale / include-stale drift findings stay byte-identical — the hoist is signature-only, no behavior change to the staleness comparison"
+      }
+    ],
+    "acceptance": "gate() and explain() each parse the workspace's lock.toml exactly once per invocation; layout_imports/includes/layout_import_stale/include_stale all derive from that one parse rather than each independently re-reading the file. No behavior change (engineering.md, 'Cost scale is hoisted'). `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Found sweeping `pipeline` (posture rotation, after formats). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (top-level [[<kind>]] provenance walk) and DRIFT-EMIT-LOCK-PARSE-HOIST (emit()'s own double-parse) — this is the source_deps family (layout_import/include) on the gate()/explain() read path, unnamed by either. Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE, last in-chain entry touching both drift.rs and main.rs. scoped at 20b7b21."
   },
   {
     "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE",
