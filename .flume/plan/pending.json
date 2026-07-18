@@ -1,49 +1,5 @@
 [
   {
-    "tag": "PLACEMENT-MODULE-EXTRACTION",
-    "summary": "0040's drift→install edge dissolves — the managed-metadata marker vocabulary moves from install.rs to a new flat `placement` pipeline module; drift and install both import it downward",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/placement.rs",
-          "description": "New flat pipeline-subsystem module (0040, decision point 1; architecture.md's pipeline codemap gains `placement`). Carries the recognizer vocabulary presently in src/install.rs: the three marker constants `MODELINE_MARKER` (156), `NOTE_MARKER` (145), `BANNER_MARKER` (151), plus `is_placement_comment` (1686-1689) and the pub(crate) `placement_lines` (1663-1681) — moved verbatim, `pub(crate)` preserved on `placement_lines` since `drift::emit_one` calls it across the module boundary. `GUARD_MARKER`/`GUARD_MATCHER`/`GUARD_COMMAND`/`GUARD_PATH_MATCH`/`NOTE_COMMENT`/`NOTE_BANNER` stay in install.rs — they are the guard's own detection constants and the placing wording, not the managed-metadata recognizer vocabulary this module owns. The inline test `placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source` (install.rs:1891-1896) moves here with it."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "Remove the three moved constants (145,151,156), `placement_lines` (1663-1681), and `is_placement_comment` (1686-1689) plus their moved test — replace with `use crate::placement::{MODELINE_MARKER, NOTE_MARKER, BANNER_MARKER};` (or `crate::placement::`-qualified calls). `project_modeline` (1573), `project_note` (1603), and `project_banner` (1631) keep their placing logic and wording (`NOTE_COMMENT` 161, `NOTE_BANNER` 169) but read the three markers off the new module — install imports the vocabulary downward, exactly as drift's emit does (0040)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`emit_one`'s placement read (2154, `install::placement_lines`) becomes `crate::placement::placement_lines`; the `use crate::install;` import (30) — drift.rs's only other reference to `install` is the prose-only doc pointer at 2706 (`install::matches_projection`, unrelated to the moved vocabulary; `matches_projection` stays in install, used by the guard) — drops once the real call moves, dissolving the `drift → install` edge architecture.md declares (0040). Leave the 2706 doc pointer as prose (no code dependency), rewording only if it reads stale once the import is gone; say which in the commit body."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/placement.rs",
-        "asserts": "the moved placement_lines/is_placement_comment tests (round-trips a frontmatterless banner, empty on an unmarked body) pass unchanged from their new home"
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "existing modeline/note/banner placement + config_stale/gate_installed coverage stays green — the move is location-only, no behavior change"
-      }
-    ],
-    "acceptance": "`src/drift.rs` carries no `crate::install` import; the managed-metadata marker vocabulary lives in a new flat `src/placement.rs` (pipeline subsystem, architecture.md's codemap gains it); install imports the vocabulary downward for its own placing functions. `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Decision 0040, point 1. DRIFT-EMIT-LOCK-PARSE-HOIST shipped (c1b0f51) — unblocked this tick. Cites re-verified against HEAD and corrected: install.rs's five fn/test cites each shift -1 from f404e48 scoping (62559ef, 516f8f6 touched install.rs since); drift.rs's emit_one call site and matches_projection doc pointer shift 2034→2154, 2603→2706. Serialized behind by EXTRACT-FOUNDATION-BOUNDARY-RESTORE (shared drift.rs) per pending-entry.md, 'Disjoint, or serialized'. scoped at c1b0f51."
-  },
-  {
     "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE",
     "summary": "extract.rs's upward imports into drift/kind dissolve — lock-row lifters move to drift.rs, the manifest-collection grammar moves to json_manifest.rs; extract returns foundation-clean (0040)",
     "per": {
