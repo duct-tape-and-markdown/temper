@@ -1030,7 +1030,7 @@ pub fn emit(
             // entry object: nest this member's fields into one group and append it under
             // the event, so members sharing an event accumulate into the one array (the
             // flat object a naive insert would write is silently ignored).
-            let group = crate::extract::hook_matcher_group(&registration.fields);
+            let group = crate::json_manifest::hook_matcher_group(&registration.fields);
             if let JsonValue::Array(groups) = segment
                 .entry(registration.key.clone())
                 .or_insert_with(|| JsonValue::Array(Vec::new()))
@@ -1044,7 +1044,7 @@ pub fn emit(
             // does not document.
             segment.insert(
                 registration.key.clone(),
-                crate::extract::enablement_entry_value(&registration.fields),
+                crate::json_manifest::enablement_entry_value(&registration.fields),
             );
         } else {
             let entry_value: JsonValue = registration
@@ -4445,6 +4445,57 @@ fn collections_from_array(array: &Array) -> Result<Vec<CollectionEntryRow>, RowE
     Ok(out)
 }
 
+/// Lift [`NestedMemberRow`]s into typed [`crate::extract::EmbeddedMember`]s that match
+/// a given host address. Filters rows to the host's address and applies
+/// `embedded_member_from_row` to each, expanding one-layer-deep collection nesting and
+/// projecting to the typed member shape. The projection mirrors the retired fence fold:
+/// a row's flat, ordered `collections` column expands into nested members, one per
+/// entry, in order.
+///
+/// A row can only be read off the lock file, which is written by code under our
+/// control (the `emit` crate). Row data never enters from user input — the address
+/// match admits only rows a prior harness authored (never hand-edited,
+/// "not the database"): a row exists only because an SDK program declared it, so the
+/// address match is the whole admissibility check, no declared-template leniency layer
+/// on top.
+#[must_use]
+pub(crate) fn nested_members_from_rows(
+    host: &str,
+    rows: &[NestedMemberRow],
+) -> Vec<crate::extract::EmbeddedMember> {
+    rows.iter()
+        .filter(|row| row.host == host)
+        .map(embedded_member_from_row)
+        .collect()
+}
+
+/// Lift one [`NestedMemberRow`] into its typed
+/// [`crate::extract::EmbeddedMember`]: the row's flat, ordered `collections` column expands one
+/// layer deep into nested `EmbeddedMember`s, one per entry, in the row's own
+/// order — the same one-layer shape the retired fence fold produced.
+fn embedded_member_from_row(row: &NestedMemberRow) -> crate::extract::EmbeddedMember {
+    use crate::extract::EmbeddedMember;
+    EmbeddedMember {
+        kind: row.kind.clone(),
+        key: row.key.clone(),
+        leaves: row.leaves.clone(),
+        members: row
+            .collections
+            .iter()
+            .map(|entry| crate::extract::EmbeddedMemberCollectionEntry {
+                collection: entry.collection.clone(),
+                key: entry.key.clone(),
+                member: EmbeddedMember {
+                    kind: entry.collection.clone(),
+                    key: entry.key.clone(),
+                    leaves: entry.leaves.clone(),
+                    members: Vec::new(),
+                },
+            })
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4556,5 +4607,61 @@ mod tests {
     fn strip_verbatim_prefix_leaves_a_non_verbatim_path_untouched() {
         let stripped = strip_verbatim_prefix(Path::new("/repo/.temper/harness.ts"));
         assert_eq!(stripped, PathBuf::from("/repo/.temper/harness.ts"));
+    }
+
+    fn decision_row() -> NestedMemberRow {
+        NestedMemberRow {
+            host: "decision:05-surface-authority".to_string(),
+            kind: "decision".to_string(),
+            key: "surface-authority".to_string(),
+            leaves: BTreeMap::from([(
+                "chosen".to_string(),
+                "the composition surface is canonical".to_string(),
+            )]),
+            collections: vec![CollectionEntryRow {
+                collection: "rejected".to_string(),
+                key: "baked-projection".to_string(),
+                leaves: BTreeMap::from([(
+                    "because".to_string(),
+                    "a stamping projector breaks law 5".to_string(),
+                )]),
+            }],
+            placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
+        }
+    }
+
+    #[test]
+    fn nested_members_from_rows_matches_only_the_named_host_address() {
+        let rows = vec![decision_row()];
+
+        let matched = nested_members_from_rows("decision:05-surface-authority", &rows);
+        assert_eq!(matched.len(), 1);
+        assert!(nested_members_from_rows("decision:some-other", &rows).is_empty());
+    }
+
+    #[test]
+    fn nested_members_from_rows_lifts_leaves_and_one_layer_of_collections() {
+        let rows = vec![decision_row()];
+        let members = nested_members_from_rows("decision:05-surface-authority", &rows);
+
+        let member = &members[0];
+        assert_eq!(member.kind, "decision");
+        assert_eq!(member.key, "surface-authority");
+        assert_eq!(
+            member.leaves.get("chosen").map(String::as_str),
+            Some("the composition surface is canonical")
+        );
+
+        let entry = member
+            .members
+            .iter()
+            .find(|entry| entry.collection == "rejected" && entry.key == "baked-projection")
+            .expect("the collection entry is lifted");
+        assert_eq!(
+            entry.member.leaves.get("because").map(String::as_str),
+            Some("a stamping projector breaks law 5")
+        );
     }
 }

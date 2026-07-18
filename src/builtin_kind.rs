@@ -536,7 +536,7 @@ pub fn rule_features(unit: &Unit) -> Features {
 /// frontmatter key the composed primitives did not name into the feature map, and
 /// resolve `unit`'s own nested members off `nested_members` — the lock's declared
 /// [`NestedMemberRow`] family, matched by this member's `kind:name` address
-/// ([`extract::nested_members_from_rows`]). The **permissive extraction**: an unknown
+/// ([`crate::drift::nested_members_from_rows`]). The **permissive extraction**: an unknown
 /// key on a known artifact is already extracted, so a clause (a `forbidden_keys`) can
 /// range over it. The closed algebra cannot enumerate unknown keys, so this bulk
 /// preservation is the adapter's, while each documented field is the composed
@@ -553,7 +553,7 @@ pub fn rule_features(unit: &Unit) -> Features {
 #[must_use]
 pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRow]) -> Features {
     let mut features = kind.extract(unit);
-    features.nested_members = extract::nested_members_from_rows(
+    features.nested_members = crate::drift::nested_members_from_rows(
         &extract::host_address(&kind.name, &unit.id),
         nested_members,
     );

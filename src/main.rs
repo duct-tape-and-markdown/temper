@@ -2068,7 +2068,7 @@ fn satisfies_label_admissibility(
 /// must be an embedded kind some host declares — a `templates` column entry or a layout
 /// member collection's `member_kind`. A row of a kind no host templates is an orphan the
 /// by-kind corpus ([`embedded_features_by_kind`]) would unmodel while the host-address read
-/// ([`extract::nested_members_from_rows`]) still carries it — the two disagreeing over one
+/// ([`drift::nested_members_from_rows`]) still carries it — the two disagreeing over one
 /// committed lock. Reject it here, naming the kind and its host, the same malformed-lock
 /// class as two rows wearing one label.
 fn nested_member_admissibility(declarations: &drift::Declarations) -> Vec<check::Diagnostic> {
