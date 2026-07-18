@@ -128,6 +128,68 @@
     "notes": "Found sweeping the `provider` subsystem (posture rotation: judges done, provider this tick). Disjoint from every other currently-open queue entry's files — EXTRACT-FOUNDATION-BOUNDARY-RESTORE also edits builtin_kind.rs (a doc-comment requalify at `features`, no line overlap) but sits blockedBy a chain, never open alongside this one. scoped at 06fcdb2."
   },
   {
+    "tag": "TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE",
+    "summary": "tap.rs's LOG_FILENAME pub const has zero consumer anywhere — even its own tests hardcode the literal — narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/tap.rs",
+          "description": "`LOG_FILENAME` (26, `pub const LOG_FILENAME: &str = \"tap.jsonl\"`) has zero consumer anywhere in the tree — grep-verified across src/, tests/, sdk/: its only reference is its own use inside `log_path` (114, same file, `workspace_dir.join(LOG_FILENAME)`). Not even this file's own inline scaffolding or `tests/tap.rs` reads it back — `tests/tap.rs` (66, 99, 173, 198) each independently hardcode the literal `\"tap.jsonl\"` string rather than importing the const, so there is no in-module-test consumer either, a cleaner cut than the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent's 'inline test doesn't earn pub' bar — here nothing at all reads it besides its own declaration site. Drop `pub` from `LOG_FILENAME`, leaving it a module-private const read only by `log_path`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/tap.rs",
+        "asserts": "every existing tap-log test (append/read/older-version-toleration coverage) stays green — the narrowing is visibility-only, log_path's resolved path is unchanged"
+      }
+    ],
+    "acceptance": "LOG_FILENAME is a private const in src/tap.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
+    "notes": "Found sweeping the `foundation` subsystem (posture rotation: new cycle opens; foundation first). Disjoint from every other queue entry's files (tap.rs touched nowhere else). scoped at fb49bc4."
+  },
+  {
+    "tag": "ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE",
+    "summary": "address.rs's FieldPath::spelling accessor is pub but called only from its own inline test module — zero outside consumer; narrow to private",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/address.rs",
+          "description": "`FieldPath::spelling` (83-85, `pub fn spelling(&self) -> &str { &self.spelling }`, doc comment 81) has zero caller anywhere in src/, tests/, sdk/ outside this file's own `mod tests` (365, 373 — both asserting `parent.spelling()` after `split_leaf`) — grep-verified zero hits for `.spelling()` anywhere else in the tree. Every other internal use of the path's text reads the private `spelling` field directly (`self.spelling` in `parse`/`split_leaf`), never through this accessor. Per the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent ('outside kind.rs's own inline tests' — an in-module test does not earn a wider-than-needed visibility), narrow `spelling` from `pub fn` to module-private `fn`; the two inline-test call sites keep compiling unchanged at the narrower visibility."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/address.rs",
+        "asserts": "split_leaf_names_the_parent_and_the_key_a_presence_check_asks_for (363-373) keeps passing calling spelling() from within the same module at its new private visibility"
+      }
+    ],
+    "acceptance": "FieldPath::spelling is a private method in src/address.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
+    "notes": "Found sweeping the `foundation` subsystem (posture rotation: new cycle opens; foundation first). Disjoint from every other queue entry's files (address.rs touched nowhere else). scoped at fb49bc4."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {

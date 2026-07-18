@@ -3,54 +3,50 @@
 - Spec derived through: 4adb1fb
 - Audited through: 2f44341
 - Residue swept through: 2f44341
-- Posture swept through: ad66e46 — rotation closed (foundation, model,
-  formats, pipeline, judges, provider, verbs all swept this cycle);
-  foundation next cycle
-- This tick: POST-SHIP RECONCILIATION over `60faee0..2f44341` (`git log
-  60faee0..HEAD -- src/ sdk/src/ tests/`: 4 build commits, all shipped by
-  `2f44341`). Audit: read each shipped commit's diff and the resulting
-  files on disk. `62559ef` (DISCOVERY-INFALLIBLE-RESULT-COLLAPSE) collapses
-  six `discover_*` signatures to bare collections, retires
-  `ImportError::ReadDir` and `JsonManifestError::Discovery` — grep-verified
-  zero remaining references to either. `5ad2e61`
-  (FRONTMATTER-TEST-SYNTHETIC-KINDS) swaps frontmatter.rs's test fixtures
-  to synthetic kinds built in test_support.rs, dissolving the
-  frontmatter→builtin_kind test-only edge architecture.md names as debt.
-  `394b03f` (ROSTER-BUILTIN-KIND-NARROWING-RELOCATE) moves
-  `kind_narrowing_clause` from builtin.rs (provider) to compose.rs (model),
-  dropping roster.rs's upward `builtin` import. `6618b47`
-  (DOCUMENT-RETIRED-FENCE-SURFACE-PRUNE) prunes the zero-consumer `+++`
-  Document/DocumentError machinery from document.rs — grep-verified no
-  surviving reference; `TomlDocumentError` (an unrelated live type) is the
-  only near-name-match. `cargo test` (all crates) and `cargo clippy
-  --all-targets -- -D warnings` both green at HEAD. No residue found; all
-  four pending entries were already removed from pending.json by the ship
-  commit itself. Re-tested every stale gate per the audit motion:
-  DRIFT-LOCK-ROW-WALK-CONSOLIDATION's blocker, DISCOVERY-INFALLIBLE-RESULT-
-  COLLAPSE, shipped — its citations (src/drift.rs, tests/install.rs,
-  tests/emit.rs) are unmoved since f404e48 (`git diff f404e48..2f44341`
-  empty on all three), so it reopens unchanged. No other blockedBy/parked
-  gate's named condition cleared (every other blocker tag is still
-  unshipped; the two parked entries' human-action conditions still hold).
-  Glanced `.flume/metrics.jsonl`: DISCOVERY-INFALLIBLE-RESULT-COLLAPSE cost
-  9 plan-phase rows plus 1 build-phase row this window — the largest entry
-  in the window, consistent with its 4-file+tests blast radius; nothing
-  anomalous beyond what the entry's own scope predicted, so no new sizing
-  signal to act on. Aside, not actionable this tick: architecture.md's
-  "declared debt" paragraph names three tension edges; the
-  frontmatter→builtin_kind one is now resolved in code (5ad2e61) while the
-  other two (drift→install, extract's upward imports) are not — the
-  paragraph is one-third stale prose a future `specs:` session should trim,
-  never a plan-tick edit (spec-system.md, "Change ceremony": specs commits
-  are the session's, not an autonomous phase's).
-- Queue: 19 pending — 5 pickable OPEN (READ-EXPLAIN-STRAND-VISIBILITY-
+- Posture swept through: foundation done — model next
+- This tick: POSTURE SWEEP. Jobs 1-3 quiet: inbox and refactor-captures
+  empty; `git log 4adb1fb..HEAD -- specs/` empty (no spec delta); `git log
+  2f44341..HEAD -- src/ sdk/src/ tests/` empty (no post-ship window to
+  audit or sweep — the sole intervening commit, fb49bc4, is plan-only).
+  Job 4 was live: `Posture swept through: ad66e46` named a rotation-closed
+  sha, but `ad66e46..HEAD -- src/ sdk/src/ tests/` touched src/ (the four
+  build commits the prior tick's post-ship audit already reconciled), so
+  the condition for opening a new cycle held — swept `foundation`
+  (architecture.md codemap: `check`, `extract`, `hash`, `address`, `tap`,
+  `json_splice`), the new cycle's first subsystem. Read all six files;
+  `hash.rs`/`json_splice.rs`/`check.rs` clean on every engineering.md
+  lens — every `pub`/`pub(crate)` item grep-verified to a real external
+  caller (`sha256_hex` from drift/frontmatter/json_manifest/toml_document;
+  every `json_splice` fn from install.rs/json_manifest.rs;
+  `Diagnostic`/`Announcement`/`Severity`/`render`/`any_error` all
+  consumed outside check.rs). `extract.rs`'s upward imports into
+  drift/kind are the already-tracked architecture.md debt
+  (EXTRACT-FOUNDATION-BOUNDARY-RESTORE, chained) — not re-filed. Two
+  fresh zero-consumer exports surfaced, both verified on disk (symbol,
+  line, grep for consumers) before filing:
+  - `tap::LOG_FILENAME` (26) — zero consumer anywhere in src/, tests/,
+    sdk/, not even its own tests: `tests/tap.rs` (66,99,173,198) each
+    hardcode the literal `"tap.jsonl"` rather than importing the const →
+    filed `TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE`.
+  - `address::FieldPath::spelling` (83-85) — pub accessor called only
+    from this file's own `mod tests` (365,373); every internal use reads
+    the private `spelling` field directly → filed
+    `ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE`, same
+    export-earns-its-consumer bar the queue's three existing
+    visibility-narrow entries already establish as precedent.
+  Both new entries are single-file, `open`, and share no path with any
+  other queued entry (tap.rs and address.rs touched nowhere else in the
+  queue) — disjoint per pending-entry.md.
+- Queue: 21 pending — 7 pickable OPEN (READ-EXPLAIN-STRAND-VISIBILITY-
   NARROW, ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE,
   REPORTER-SEVERITY-WORD-CONSOLIDATE, BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-
-  PRUNE, DRIFT-LOCK-ROW-WALK-CONSOLIDATION — newly reopened this tick, all
-  disjoint files), 12 chained blockedBy (DRIFT-LOCK-ROW-WALK-CONSOLIDATION
-  → DRIFT-EMIT-LOCK-PARSE-HOIST → PLACEMENT-MODULE-EXTRACTION →
-  {EXTRACT-FOUNDATION-BOUNDARY-RESTORE → {KIND-ZERO-CONSUMER-EXPORTS-
-  PRUNE → CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH →
+  PRUNE, TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE (new),
+  ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE (new),
+  DRIFT-LOCK-ROW-WALK-CONSOLIDATION; all disjoint files), 12 chained
+  blockedBy (DRIFT-LOCK-ROW-WALK-CONSOLIDATION → DRIFT-EMIT-LOCK-PARSE-
+  HOIST → PLACEMENT-MODULE-EXTRACTION → {EXTRACT-FOUNDATION-BOUNDARY-
+  RESTORE → {KIND-ZERO-CONSUMER-EXPORTS-PRUNE →
+  CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH →
   CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, DRIFT-SOURCE-DEP-PARSE-HOIST →
   GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE → GATE-KIND-UNITS-DOUBLE-RESOLVE-
   HOIST}, INSTALL-PROJECTION-MATCH-CONSOLIDATE → INSTALL-GUARD-MANIFEST-
@@ -59,8 +55,6 @@
   (multi-harness-projection), (lazy-grounds) unchanged. No live refactor
   captures; inbox empty.
 
-Plan continues: yes — the posture-sweep rotation's cursor (`ad66e46`) now
-sits behind a forward window (`ad66e46..HEAD -- src/ sdk/src/ tests/`) that
-touched multiple subsystems (this tick's four ship commits), so the next
-tick opens the new cycle at `foundation`, the first subsystem in rotation
-order.
+Plan continues: yes — posture sweep resumes at `model`
+(`kind`/`contract`/`compose`/`schema`/`roster`), the roster's next
+subsystem, once nothing above it is live.
