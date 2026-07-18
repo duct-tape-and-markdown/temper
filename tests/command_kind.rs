@@ -54,8 +54,7 @@ fn discovery_over_the_embedded_governs_finds_the_command_file() {
         &command_kind,
         command_kind.governs.as_ref().unwrap(),
         import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
 
     assert_eq!(
         found,

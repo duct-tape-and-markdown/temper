@@ -1355,7 +1355,7 @@ fn resolve_kind_units(
                 &overlaid,
                 &kinds,
                 import::LocalOverride::Honored,
-            )? {
+            ) {
                 child_units.push(read_file_unit(
                     &overlaid,
                     &found.file,
@@ -1369,7 +1369,7 @@ fn resolve_kind_units(
             let base = disc.harness().join(&governs.root);
             let mut file_units = Vec::new();
             for file in
-                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)?
+                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
             {
                 file_units.push(read_file_unit(&overlaid, &file, &base, &edge_fields)?);
             }

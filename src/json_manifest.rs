@@ -309,11 +309,6 @@ pub enum JsonManifestError {
         /// The top-level key the id was to be read from.
         field: String,
     },
-
-    /// The manifest kind's source files could not be discovered off the harness.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Discovery(#[from] crate::import::ImportError),
 }
 
 impl Manifest {
@@ -433,7 +428,7 @@ impl Manifest {
             kind,
             governs,
             crate::import::LocalOverride::Honored,
-        )?
+        )
         .iter()
         .map(|file| Manifest::read(file, &[address]))
         .collect()

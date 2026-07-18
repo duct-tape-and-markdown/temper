@@ -329,7 +329,7 @@ pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     // ([`import::Discovery`]).
     let disc = import::Discovery::new(root);
     for kind in kinds.values() {
-        let files = import::discover_builtin(&disc, kind, &kinds, import::LocalOverride::Withheld)?;
+        let files = import::discover_builtin(&disc, kind, &kinds, import::LocalOverride::Withheld);
         members.insert(kind.name.clone(), files);
     }
     Ok(DiscoveryReport { members })

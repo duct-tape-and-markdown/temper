@@ -108,14 +108,12 @@ fn discover_all(
             Some(governs) => {
                 let base = harness.join(&governs.root);
                 for file in import::discover_kind_files(disc, kind, governs, LocalOverride::Honored)
-                    .unwrap()
                 {
                     out.push((kind.clone(), file, base.clone()));
                 }
             }
             None => {
                 for unit in import::discover_nested_file(disc, kind, &kinds, LocalOverride::Honored)
-                    .unwrap()
                 {
                     out.push((kind.clone(), unit.file, unit.host_unit));
                 }

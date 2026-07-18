@@ -525,8 +525,7 @@ fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
 
     // The companion doc surfaces as the skill's child, carrying the host unit its path
     // composed under; `scripts/run.sh` matches no `*.md` and the host's own `SKILL.md` is
@@ -545,7 +544,6 @@ fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
             &kinds,
             temper::import::LocalOverride::Honored
         )
-        .unwrap()
         .is_empty()
     );
 }
@@ -570,8 +568,7 @@ fn a_file_the_hosts_pattern_does_not_match_is_discovered_as_no_member() {
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
     assert_eq!(
         found.iter().map(|unit| &unit.file).collect::<Vec<_>>(),
         vec![&unit.join("PLAYBOOK.md")]
@@ -613,8 +610,7 @@ fn a_declared_kinds_exact_path_carves_its_path_out_of_a_host_template() {
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
 
     // `PLAYBOOK.md` is the skill's only `supporting-doc` child: the template glob would
     // have swept up `conventions.md` too, but the declared kind's locus carves it out, so
@@ -668,8 +664,7 @@ fn a_starred_segment_kind_keys_one_member_per_directory_by_its_segment() {
         &kind,
         &governs,
         temper::import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
 
     // One member per matching directory — the skills' own `SKILL.md` and companions match
     // `*/conventions.md` nowhere and stay this kind's non-members.
@@ -713,8 +708,7 @@ fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_d
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
 
     // `PLAYBOOK.md` is the skill's child, carrying the host unit its path composed under.
     // The host's own `SKILL.md` is the host member, never its own child, and

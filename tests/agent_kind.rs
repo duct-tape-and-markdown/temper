@@ -61,8 +61,7 @@ fn discovery_over_the_embedded_governs_finds_nested_agent_files() {
         &kind,
         kind.governs.as_ref().unwrap(),
         import::LocalOverride::Honored,
-    )
-    .unwrap();
+    );
 
     assert_eq!(
         found,
