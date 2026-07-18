@@ -1,66 +1,41 @@
 # Plan state
 
-- Spec derived through: f7d870c
+- Spec derived through: 4adb1fb
 - Audited through: 60faee0
 - Residue swept through: 60faee0
 - Posture swept through: model done — formats next
-- This tick: POSTURE SWEEP. Nothing live above it: inbox/refactor-captures
-  empty, no specs/ commits past f7d870c, no src/sdk/src/tests/ commits past
-  60faee0 (`git log 60faee0..HEAD -- src/ sdk/src/ tests/` empty). Rotation
-  resumed at `model` (`kind`, `contract`, `compose`, `schema`, `roster` per
-  architecture.md's codemap) — swept via a read-only agent pass over the
-  five files against every engineering.md lens plus the architecture
-  invariants, then every candidate finding re-verified myself on disk
-  (symbol, line, grep for consumers) per the posture-sweep rule's "verified
-  on disk this tick" bar before filing. Two lenses turned up nothing
-  (libraries-before-hand-rolls, cost-hoisting, green-verdict-non-vacuous);
-  one candidate (gauntlet-corpus coverage of contract.rs's node-set
-  predicates) was discarded on closer read — gauntlet.rs's own doc names
-  its job as the four *structural composition* seams, not general
-  predicate coverage, so the absence isn't residue against that section.
-  Four findings held up and were filed:
-  - `roster.rs` (model) imports `crate::builtin` (provider) solely for
-    `kind_narrowing_clause`, a generic clause-builder with no Claude-Code
-    data — architecture.md's literal invariant ("the provider face is
-    ... never a dependency of the model") — → filed
-    `ROSTER-BUILTIN-KIND-NARROWING-RELOCATE` (open, disjoint: touches
-    builtin.rs/compose.rs/roster.rs/tests/contract_template.rs, none
-    shared with any other entry). Noted but not fixed: roster.rs's
-    separate `crate::engine` import is roster's own doc-justified
-    delegation to the judge algebra, and architecture.md states no
-    model-never-depends-on-judges rule — surfaced in the entry's notes
-    for a human read, not filed as residue.
-  - `kind.rs` ships three zero-consumer `pub` items (`Commitment::label`,
-    `Content::label`, `CustomKind::qualified_name` — grep-verified no
-    caller outside kind.rs's own inline tests) — engineering.md, "An
-    export earns its consumer" → filed `KIND-ZERO-CONSUMER-EXPORTS-PRUNE`.
-  - `contract.rs`'s `declared_keys` uses a `_ => None` wildcard where its
-    two neighbors (`target`, `documented_field`) over the same `Predicate`
-    enum exhaustively name every variant — engineering.md, "A shared
-    concept is one type" → filed `CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH`.
-  - `Predicate::RequireSections` ships a half-built round trip: the SDK
-    `requireSections()` takes no `sections` argument (unlike
-    `dependencyExists`, whose absent constructor is explicitly documented
-    as a deliberate hold, this one names no such thing), `ClauseRow` has
-    no column for it, and `predicate_from_row` has no decode arm — yet
-    `engine.rs` fully implements and tests its judging with hand-built
-    Rust data. Verified end to end (contract.ts, declarations.ts's
-    `clauseRow` mapper, drift.rs's `ClauseRow` struct, contract.rs's
-    `predicate_from_row`) before filing → `CONTRACT-REQUIRE-SECTIONS-
-    ROUNDTRIP`, cited to pipeline.md's "The lock" (a declaration row
-    family that cannot carry its own predicate's argument).
-  Chain safety (pending-entry.md, "Disjoint, or serialized"): the last
-  three new entries all eventually touch a file the existing
-  DISCOVERY→...→EXTRACT-FOUNDATION-BOUNDARY-RESTORE chain touches
-  (kind.rs, contract.rs transitively) or each other (contract.rs,
-  drift.rs), and the schema's single-tag `blockedBy` can't express two
-  independent priors, so all three chain linearly behind
-  EXTRACT-FOUNDATION-BOUNDARY-RESTORE: `KIND-ZERO-CONSUMER-EXPORTS-PRUNE`
-  → `CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH` →
-  `CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP`. `ROSTER-BUILTIN-KIND-NARROWING-
-  RELOCATE` shares no file with anything else queued, so it stays `open`
-  alongside the two already-open entries.
-- Queue: 12 pending — 3 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-
+- This tick: SPEC DELTA. Job 1 (inbox/refactor-captures) quiet. Job 2 was
+  live: 4adb1fb (`specs: two postures join the page`) sits past the
+  `f7d870c` cursor — it is 4adb1fb's own child, so it was already on disk
+  when last tick (a83fe23) ran; that tick took POSTURE SWEEP instead
+  (jumping job order) and left the cursor stale at f7d870c. Not
+  re-litigated — corrected by servicing the still-live delta now, before
+  resuming rotation.
+  4adb1fb adds two `engineering.md` sections — "Derived state is computed,
+  never stored beside its source" and "The fix lands at the mechanism" —
+  from John pointing `/simplify`'s four lenses at the unwinding effort and
+  finding two (reuse, efficiency) already encoded and two with no home.
+  Process-doc addition, no Decision (`specs/decisions/` newest is still
+  0040, confirmed on disk), so no Consequences checklist applies. Routed
+  with no new entries, same shape as 6b80e24's routing (7132213):
+  - "Derived state is computed" is the code-level twin of pipeline.md's
+    already-routed "Emit — derived facts are computed, never authored
+    twice"; the commit body names no unresolved incident and the pending
+    queue holds no matching live report.
+  - "The fix lands at the mechanism" cites its own already-shipped proof
+    in its own text — the discovery-override precedent (decision 0034),
+    predating this codification.
+  Ongoing enforcement for both is the posture sweep, which already reads
+  engineering.md live (b8fc7ca) — no prompt edit owed. The model
+  subsystem's sweep (a83fe23, this tick's parent commit) ran with both
+  sections already in the corpus, so the rotation position (`formats`
+  next) is unaffected by this routing. Cursor advances to 4adb1fb, the
+  newest `specs/` commit — delta fully closed. Audit/sweep cursors held
+  verbatim at 60faee0 (job order precedent 0356dba): `git log
+  60faee0..HEAD -- src/ sdk/src/ tests/` is empty, so holding skips
+  nothing.
+- Queue: 12 pending, all unchanged by this tick (pending.json untouched) —
+  3 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-
   COLLAPSE, FRONTMATTER-TEST-SYNTHETIC-KINDS, ROSTER-BUILTIN-KIND-
   NARROWING-RELOCATE; all disjoint files), 7 chained blockedBy
   (DRIFT-LOCK-ROW-WALK-CONSOLIDATION → DRIFT-EMIT-LOCK-PARSE-HOIST →
