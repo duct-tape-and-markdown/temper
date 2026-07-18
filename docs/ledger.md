@@ -38,7 +38,10 @@ hard.
   tool-cwd mismatch. Prompt stopgaps in build.md (commit + write
   fences, both post-dating manifestation 3's agents); runtime fix is
   upstream, and the escalation: it now costs shipped waves, not just
-  cleanup.
+  cleanup. Smoking gun 07-18: a live tick observed with cwd =
+  @dtmd/flume/dist — the dispatcher corrupts spawn cwds under
+  concurrent batches. Session-side: build concurrency dropped to
+  singleton in chain.ts until fixed; restore fanout after.
 - flume runtime gap (John, `@dtmd/flume`): no cross-process loop lock —
   two `flume loop` supervisors ran ~1h against one state root (07-18,
   operator error; history stayed linear on timing luck). A pidfile/lock

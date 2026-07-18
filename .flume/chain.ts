@@ -471,7 +471,13 @@ const build: Phase = {
   name: "build",
   description: "Ship one (or N disjoint) pending entries to the trunk.",
   promptPath: "prompts/build.md",
-  concurrency: "fanout",
+  // TEMPORARY serialization (07-18): under concurrent fanout batches the
+  // runtime spawns some ticks with a corrupted cwd (observed: a tick at
+  // @dtmd/flume/dist; three stray-write incidents at the root checkout,
+  // one blocking its own entry's cherry-pick). Serial builds ran clean
+  // all week. Restore "fanout" when the upstream cwd race is fixed
+  // (docs/ledger.md carries the bug).
+  concurrency: "singleton",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
   gates: [fmtGate, clippyGate, testGate, sdkGate],
