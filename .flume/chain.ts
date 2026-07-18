@@ -431,21 +431,28 @@ const plan: Phase = {
     return { PENDING_SCHEMA: renderSchemaForPrompt() };
   },
   handoff(result) {
-    // Plan re-wakes itself when state.md ends with `Plan continues: yes`
-    // (PROTOCOL.md "Plan continuation marker"). Otherwise hand to build if
-    // anything is pickable, else hibernate.
-    let planContinues = false;
+    // Plan re-wakes itself when state.md ends with `Plan continues: yes`.
+    // `after-build` yields the loop to a ready build wave first and resumes
+    // planning when the wave hands back — legal only when the sole remaining
+    // live job is non-queue-shaping (the posture sweep; the plan-state rule
+    // owns the vocabulary). Otherwise hand to build if anything is pickable,
+    // else hibernate.
+    let marker = "";
     try {
       const stateText = readFileSync(
         resolve(CHAIN_DIR, "plan", "state.md"),
         "utf8",
       );
-      planContinues = /^Plan continues:\s*yes\b/im.test(stateText);
+      marker =
+        /^Plan continues:\s*(yes|after-build|no)\b/im
+          .exec(stateText)?.[1]
+          ?.toLowerCase() ?? "";
     } catch {
       // state.md missing — treat as stable.
     }
-    if (planContinues) return ["plan"];
     const hasPickable = result.pendingAfter.some((e) => e.gate.kind === "open");
+    if (marker === "after-build") return hasPickable ? ["build"] : ["plan"];
+    if (marker === "yes") return ["plan"];
     return hasPickable ? ["build"] : [];
   },
 };
