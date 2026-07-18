@@ -796,6 +796,42 @@
     "notes": "Found sweeping judges (pipeline done, judges this tick) via coverage_note.rs's manifest_top_level_keys, whose doc concedes the redundancy unfixed — tracing it surfaced deeper per-kind duplication in main.rs/json_manifest.rs. Serialized behind JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE, last chain entry touching both, whose read_kind narrowing this builds on. Shares coverage_note.rs with COVERAGE-NOTE-GOVERNS-FILE-LEAF-CONSOLIDATE too; ships independently. scoped at 662cf07."
   },
   {
+    "tag": "JSON-MANIFEST-MEMBERS-ZERO-CONSUMER-PRUNE",
+    "summary": "json_manifest.rs's manifest_members is pub(crate) but called only from Manifest::parse in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GATE-MANIFEST-SHARED-READ-HOIST"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`manifest_members` (538-564, `pub(crate)`, doc 519-537) has exactly one call site anywhere in the tree — `Manifest::parse` (378, same file) — plus its own inline tests (942-1051, e.g. `manifest_members_walk_each_entry_raw_and_skip_a_non_object` at 942); grep-verified zero hits in src/, tests/, sdk/ outside this file (kind.rs:213's mention is an intra-doc link, not a call — see that file's edit below). Its sibling grammar fns moved from extract.rs in the same commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE) were narrowed correctly there — `enablement_member_fields`/`hook_member_fields` are already private, called only in-module — but `manifest_members` kept the `pub(crate)` visibility without ever gaining a cross-module caller at its new address, the same shape the shipped GRAPH-WORLD-ZERO-CONSUMER-PRUNE and KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedents already pruned (a `pub`/`pub(crate)` item called only from one function in its own file). Drop `pub(crate)`, leaving `manifest_members` module-private — `Manifest::parse` and the inline tests are unaffected (private items stay visible to a module's own child `tests` mod). The doc comment's justifying line (536-537, 'pub(crate) so the JSON manifest adapter reads a collection address's members off the one grammar the frontmatter path also parses to') names no real external consumer — the 'JSON manifest adapter' it gestures at *is* this module — so drop that clause along with the visibility rather than leaving a stale rationale for a narrowed fn."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`ENABLEMENT_FIELD`'s doc comment (211-213, '...the read face that names it ([`crate::json_manifest::manifest_members`])...') carries an intra-doc link to the item this entry makes private — unresolvable once `manifest_members` loses `pub(crate)`, since rustdoc cannot link to a private item from another module. Reword to a plain code-span reference (`` `json_manifest::manifest_members` ``, no brackets) rather than ship a broken intra-doc link."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/json_manifest.rs",
+        "asserts": "manifest_members_walk_each_entry_raw_and_skip_a_non_object, enablement_members_carry_the_scalar_value_and_re_render_identically, and hook_members_decompose_the_matcher_group_array_and_re_nest_identically all stay green — the narrowing is visibility-only, no behavior change to the function"
+      }
+    ],
+    "acceptance": "manifest_members is a private fn in src/json_manifest.rs, not pub(crate); kind.rs's ENABLEMENT_FIELD doc comment no longer carries an intra-doc link to it. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick). Serialized behind GATE-MANIFEST-SHARED-READ-HOIST, the last entry in the existing chain touching json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at e733883."
+  },
+  {
     "tag": "ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH",
     "summary": "engine.rs's bodyless/judgeless/vacuities fall through `_ =>` over Predicate instead of naming every variant like sibling addressed_field does in the same file",
     "per": {
