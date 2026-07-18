@@ -265,17 +265,13 @@ fn governs(kind: &CustomKind, path: &str, is_dir: bool) -> bool {
         if is_dir || !address.key_path.spans_whole_manifest() {
             return false;
         }
-        let (parent, leaf) = split_file(path);
-        return normalize_root(&governs.root) == parent
-            && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf));
+        return governs_file_leaf(governs, path);
     }
     let root = normalize_root(&governs.root);
     if is_dir {
         root == path || root.starts_with(&format!("{path}/"))
     } else {
-        let (parent, leaf) = split_file(path);
-        root == parent
-            && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))
+        governs_file_leaf(governs, path)
     }
 }
 
@@ -290,10 +286,7 @@ fn governs_segment(kind: &CustomKind, path: &str, is_dir: bool) -> Option<&'stat
     if is_dir || address.key_path.spans_whole_manifest() {
         return None;
     }
-    let (parent, leaf) = split_file(path);
-    (normalize_root(&governs.root) == parent
-        && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf)))
-    .then(|| address.key_path.collection_key())
+    governs_file_leaf(governs, path).then(|| address.key_path.collection_key())
 }
 
 /// A manifest's segment-level coverage — the three-way verdict the finding branches on.
@@ -382,6 +375,13 @@ fn segment_coverage(
 /// partial-governance message agrees with its comma-joined segment list.
 fn verb(n: usize) -> &'static str {
     if n == 1 { "is" } else { "are" }
+}
+
+/// Whether a file path matches a `governs` locus's root and glob-leaf filter.
+fn governs_file_leaf(governs: &crate::kind::Governs, path: &str) -> bool {
+    let (parent, leaf) = split_file(path);
+    normalize_root(&governs.root) == parent
+        && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))
 }
 
 /// A `governs.root` reduced to a comparable relative path: leading `./` and any
