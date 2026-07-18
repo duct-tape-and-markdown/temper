@@ -134,6 +134,46 @@
     "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE (the definitions()/KindError half of a split made this tick — see its notes) and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety; no functional dependency. scoped at 08b5a27."
   },
   {
+    "tag": "MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH",
+    "summary": "main.rs's read_file_unit falls through `_` over Format instead of naming every variant like sibling local_document_rows does in the same file",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`read_file_unit` (1425-1451) matches `(&kind.content, &kind.format)`: the `Content::Layout` arm ignores format via `_` legitimately (a layout body's read never consults format), but the `Content::File | Content::Fields` arms name `Some(Format::JsonDocument)` (1433) and `Some(Format::TomlDocument)` (1436) explicitly, then fall through `(kind::Content::File | kind::Content::Fields, _) => {...}` (1439) for the rest — a wildcard silently covering both `None` and `Some(Format::YamlFrontmatter)`. A sibling match over the identical `Format` enum four functions below in this same file, `local_document_rows` (1776-1787), is already exhaustive: `Some(Format::YamlFrontmatter | Format::JsonDocument | Format::TomlDocument) | None => return Ok(...)`. drift.rs's `project_bytes` (2156-2170) — engineering.md's own cited precedent for this exact enum — is exhaustive the same way: `Some(Format::YamlFrontmatter) | None => {}`. A future fourth `Format` variant would silently route through `read_file_unit`'s frontmatter branch instead of refusing to compile, exactly the seam defect the precedent exists to close. Replace the wildcard at 1439 with `(kind::Content::File | kind::Content::Fields, Some(kind::Format::YamlFrontmatter) | None) => {...}`, mirroring `local_document_rows`'s own style over the same enum. No behavior change: `YamlFrontmatter` and unset already took this branch."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/json_document_format.rs",
+        "asserts": "existing json-document member reads through `temper check` stay green — exercises read_file_unit's now-explicit JsonDocument arm unchanged"
+      },
+      {
+        "path": "tests/toml_document.rs",
+        "asserts": "existing toml-document member reads through `temper check` stay green — exercises the TomlDocument arm unchanged"
+      },
+      {
+        "path": "tests/cli.rs",
+        "asserts": "check_is_clean_for_a_well_formed_skill and check_dispatches_the_rule_kind_to_the_rule_contract stay green — exercise the newly-explicit YamlFrontmatter/None arm; the rewrite is exhaustiveness-only"
+      }
+    ],
+    "acceptance": "read_file_unit's match names every Format variant explicitly for the File/Fields content arm, no `_` wildcard remains there, matching the exhaustive style local_document_rows and drift::project_bytes already hold over the same enum. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping the verbs subsystem (posture rotation, triggered by 0282dc7 touching main.rs/bundle.rs). install.rs/bundle.rs/lib.rs/test_support.rs re-verified clean; every already-queued verbs finding re-verified still true at its cited lines. Serialized behind BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE, the queue-front open entry touching main.rs, for shared-file safety — no functional dependency. scoped at fe3ff3f."
+  },
+  {
     "tag": "JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE",
     "summary": "json_manifest.rs's Manifest::parse and DocumentMember::parse each duplicate the same hash+parse+require-object job — consolidate into one shared helper",
     "per": {

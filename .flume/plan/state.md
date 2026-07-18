@@ -5,39 +5,47 @@
   is now fully routed.
 - Audited through: 73c76ca — unchanged; no commit past it has landed.
 - Residue swept through: 73c76ca — unchanged; no commit past it has landed.
-- Posture swept through: verbs next (mid-rotation) — judges bulk-skipped
-  this tick (quiet: `git log cc1a40b..HEAD -- src/engine.rs src/graph.rs
-  src/dial.rs src/coverage.rs src/coverage_note.rs src/display.rs
-  src/reporter.rs` empty, git-log test only, no file read); provider read
-  and swept (touched: 0282dc7 edited src/builtin_kind.rs) — quiet-on-clean.
-- This tick: POSTURE SWEEP — provider (`src/builtin.rs`,
-  `src/builtin_kind.rs`). Judges skipped forward in bulk per the rule
-  (untouched since cc1a40b). Provider was touched (0282dc7's
-  `builtin_kind::definition` API-shape edit), so it does not bulk-skip:
-  read both files in full against every `specs/process/engineering.md`
-  section plus the sweep's own cohesion/dead-plumbing lenses. No `_ =>`
-  fallthrough in either file; every pub export
-  (`contract`/`contracts`/`definition`/`definitions`/`skill_features`/
-  `rule_features`) grep-confirmed a consumer outside its own module; no
-  duplicate matcher/normalizer against another module; `all_kinds()`'s
-  per-call reconstruction is fixed-size Rust-literal data, not tree-scaled
-  work, so the cost-hoist section doesn't reach it. The one live shape —
-  `definitions()` wraps an infallible lookup in `Result<_, KindError>`,
-  confirmed verbatim at lines 501-519 (the doc comment says so itself: "the
-  `Result` is kept for API stability") — already matches
-  BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE; no entry edit needed. Verdict:
-  quiet-on-clean. Rotation advances to verbs — also touched by 0282dc7
-  (main.rs/bundle.rs), so next tick sweeps it (one touched subsystem read
-  per tick; verbs was not read this tick).
-- Queue: 33 pending — unchanged (no entry filed, dropped, or edited this
-  tick; posture sweep found nothing new). 3 pickable OPEN
-  (DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK, BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE,
-  JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE — pairwise file-disjoint),
-  28 chained blockedBy (all resolving to live tags), 2 parked on human
-  action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks:
+- Posture swept through: fe3ff3f — verbs ticked this tick and closes the
+  rotation pass (foundation done, model done, formats done, pipeline
+  quiet, judges bulk-skipped, provider quiet-on-clean, verbs this tick —
+  1 new finding). All seven subsystems from architecture.md's codemap now
+  covered. A fresh cycle (foundation → model → formats → pipeline →
+  judges → provider → verbs) opens next time the sweep re-arms.
+- This tick: POSTURE SWEEP — verbs subsystem (`src/main.rs`,
+  `src/install.rs`, `src/bundle.rs`, `src/lib.rs`, `src/test_support.rs`),
+  triggered by 0282dc7 touching main.rs/bundle.rs. All five files read
+  whole against every `specs/process/engineering.md` section plus the
+  sweep's cohesion/dead-plumbing lenses. lib.rs/test_support.rs clean.
+  bundle.rs clean (its `SESSION_START_COMMAND` duplicate against
+  install.rs's own is already tracked, BUNDLE-INSTALL-SESSION-START-SHAPE-
+  CONSOLIDATE, re-verified still true). install.rs: every already-queued
+  finding re-verified still true at its cited lines (matches_projection/
+  manifest_write_findings' duplicate normalizer — INSTALL-PROJECTION-
+  MATCH-CONSOLIDATE; GUARD_MANIFEST_MESSAGE zero-consumer — INSTALL-GUARD-
+  MANIFEST-MESSAGE-PRUNE; InstallEntry.placement's wildcard fallback —
+  INSTALL-PLACEMENT-KIND-ENUM); nothing new. main.rs: one new finding —
+  MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH. `read_file_unit`'s
+  `Content::File | Content::Fields` arms name `Format::JsonDocument` and
+  `Format::TomlDocument` explicitly then fall through a `_` wildcard
+  (1439) covering `YamlFrontmatter`/`None` — non-exhaustive over the
+  `Format` enum, unlike this same file's `local_document_rows` four
+  functions below (1776-1787, already exhaustive over the identical
+  enum) and drift.rs's `project_bytes` (2156-2170), engineering.md's own
+  cited precedent for this enum. Filed `blockedBy`
+  BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE, the queue-front open entry
+  already sharing main.rs, for disjointness.
+- Queue: 34 pending (+1) — MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH
+  filed. 3 pickable OPEN (DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK,
+  BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE,
+  JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE — pairwise
+  file-disjoint), 29 chained blockedBy (all resolving to live tags), 2
+  parked on human action (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER). Open forks unchanged:
   (multi-harness-projection), (lazy-grounds), neither touched. Refactor
   captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — the posture sweep is still mid-rotation (verbs
-next, already known touched by 0282dc7) and no commit past 73c76ca has
-landed to re-trigger reconciliation, so the sweep is the next live input.
+Plan continues: no — the posture rotation closes this tick (all seven
+subsystems covered this cycle), no spec delta past 2d66fc9, and no
+post-ship reconciliation window past 73c76ca. Next wake re-arms the
+rotation once a forward window touches a subsystem, or a spec/post-ship
+input goes live.
