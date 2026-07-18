@@ -1,7 +1,7 @@
 [
   {
-    "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE",
-    "summary": "builtin_kind::definition wraps an infallible name lookup in Result<_, KindError> — collapse to bare Option<CustomKind>; definitions() is a separate chained entry",
+    "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE",
+    "summary": "builtin_kind::definitions wraps an infallible full-roster lookup in Result<_, KindError> — collapse to bare BTreeMap and delete the now-fully-dead KindError enum",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -15,107 +15,7 @@
       "edit": [
         {
           "path": "src/builtin_kind.rs",
-          "description": "`definition` (508-510, doc 501-507, its own `# Errors` section already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') wraps an infallible lookup over `all_kinds()` in `Result<_, KindError>`; every call site immediately `?`s or `.unwrap()`s it away. Change to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }`, dropping the `Ok(...)` wrap and the now-false `# Errors` section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 588, 650, 684, 713, 748, 794, 808, 834, 874 (each currently `.unwrap().expect(..)`, `.unwrap().is_none()`, or a chained `.unwrap()`), plus 941, 999, 1022, 1059 (each currently a doubled `.unwrap().unwrap()` — one `.unwrap()` survives, for the inner `Option`). Leave `definitions()` (519-524), its call site (689), and the `KindError` import (16-19) untouched — `definitions()` is still one live producer of `KindError` until the chained BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE lands."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "317: `let Ok(Some(definition)) = crate::builtin_kind::definition(kind) else { .. }` becomes `let Some(definition) = crate::builtin_kind::definition(kind) else { .. }`, dropping the now-stale comment above it ('`definition`'s error is uninhabited, so a miss is the only failure to distinguish' — no error exists at all once this lands). 402: `crate::builtin_kind::definition(\"skill\").unwrap().unwrap()` drops its now-redundant outer `.unwrap()`."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Eight inline-test call sites (720, 721, 901, 974, 998, 1034, 1035, 1036) each drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)`, keeping the inner one for the `Option`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "One call site: `read_dial`'s `let Some(kind) = builtin_kind::definition(dial::KIND)? else { .. }` (1629) — only the `?` drops, the `else` arm stays."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 77 and 100."
-        },
-        {
-          "path": "tests/known_marketplace_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 49."
-        },
-        {
-          "path": "tests/command_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 49, 73, 85, 105."
-        },
-        {
-          "path": "tests/settings_local_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 41."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 46, 270."
-        },
-        {
-          "path": "tests/nested_member.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 474 only — line 700 calls `definitions()` and belongs to the chained BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE."
-        },
-        {
-          "path": "tests/marketplace_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 49, 81."
-        },
-        {
-          "path": "tests/extract_equivalence.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 44, 208, 221."
-        },
-        {
-          "path": "tests/mcp_server_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 44."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 48."
-        },
-        {
-          "path": "tests/agent_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 45."
-        },
-        {
-          "path": "tests/plugin_manifest_kind.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 41."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 1174, 1175."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/builtin_kind.rs",
-        "asserts": "every inline test over definition (embedded-kind lookup by name, unknown name, each per-kind fixture) yields the same values at the new infallible signature"
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "the existing definition(...)-driven install/re-install coverage stays green — the collapse is signature-only, no behavior change"
-      }
-    ],
-    "acceptance": "builtin_kind::definition returns Option<CustomKind> directly, no Result wrapper. definitions() and KindError are untouched here, left for the chained BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Split from the prior combined entry: a build attempt at that tag (metrics.jsonl, 2026-07-18T12:14Z, 181 turns/~765s/~19.5M cache-read tokens) never shipped — its 22-file blast radius was oversized per pending-entry.md's smart-zone bullet, after four earlier plan-phase ticks already re-touched it. Split by function (definition vs definitions), each its own gate-sized commit. scoped at d40a9f8."
-  },
-  {
-    "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE",
-    "summary": "builtin_kind::definitions wraps an infallible full-roster lookup in Result<_, KindError> — collapse to bare BTreeMap and delete the now-fully-dead KindError enum",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`definitions` (519-524, doc 512-518, same 'Never fails' concession as `definition`'s) wraps an infallible full-roster build in `Result<_, KindError>`. Once the chained BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE lands, `definitions` is `KindError`'s last producer. Change to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping the `Ok(...)` wrap and the now-false `# Errors` section. Update the one remaining inline test call site (689, `definitions_enumerates_the_embedded_kind_set_by_bare_name`) to drop its outer `.unwrap()`. Drop `KindError` from the `use crate::kind::{ .. };` import block (16-19) — nothing in this file constructs it anymore."
+          "description": "`definitions` (507-513 doc, 514-519 fn, same 'Never fails' concession as `definition`'s, already collapsed) wraps an infallible full-roster build in `Result<_, KindError>`. `definitions` is `KindError`'s last producer now that `definition` collapsed (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE, shipped). Change to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping the `Ok(...)` wrap and the now-false `# Errors` section. Update the one remaining inline test call site (684, `definitions_enumerates_the_embedded_kind_set_by_bare_name` at 683) to drop its outer `.unwrap()`. Drop `KindError` from the `use crate::kind::{ .. };` import block (16-19) — nothing in this file constructs it anymore."
         },
         {
           "path": "src/kind.rs",
@@ -143,7 +43,7 @@
         },
         {
           "path": "tests/nested_member.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 700 — line 474 calls `definition(...)` and was the prior chained entry's."
+          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 699 — line 474 calls `definition(...)` (already collapsed) and is not this entry's."
         }
       ],
       "retire": []
@@ -160,7 +60,7 @@
       }
     ],
     "acceptance": "builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, no Result wrapper; KindError is gone from src/kind.rs (its last producer collapsed here). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Second half of the definition/definitions split — see BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE's notes for why it was split. Blocked on that entry landing first: both edit src/builtin_kind.rs, and KindError's deletion here depends on it leaving definitions() as sole remaining producer. scoped at d40a9f8."
+    "notes": "Second half of the definition/definitions split — see BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE's shipped history for why it was split (0282dc7, combined with the drift.rs lock-row-walk consolidation in one build session). Reconciled: definition()'s collapse is confirmed on disk (builtin_kind.rs:503-505), unblocking this entry. Line citations re-verified at 88da37f. scoped at 88da37f."
   },
   {
     "tag": "KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH",
@@ -206,8 +106,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "FORMAT-READ-UTF8-DECODE-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -215,7 +114,7 @@
       "edit": [
         {
           "path": "src/json_manifest.rs",
-          "description": "`DocumentMember::parse` (158-174) and `Manifest::parse` (359-371) each independently: hash `raw.as_bytes()` via `crate::hash::sha256_hex`, `serde_json::from_str(raw)` into a `JsonValue` mapping a parse error to `JsonManifestError::Malformed`, then require the top-level value be `JsonValue::Object` else return `JsonManifestError::Malformed` with a noun-specific message ('document top level is not a JSON object' vs 'manifest top level is not a JSON object') — the identical three-step job, two authored copies differing only in the local binding name and that one word. Factor a shared private fn, e.g. `fn parse_top_level_object(source_file: &Path, raw: &str, noun: &str) -> Result<(String, serde_json::Map<String, JsonValue>), JsonManifestError>` returning the source hash and the parsed object map, building the message as `format!(\"{noun} top level is not a JSON object\")`; have `DocumentMember::parse` call it with `\"document\"` and `Manifest::parse` call it with `\"manifest\"`, each keeping its own downstream logic (identity-field lookup vs address-driven member walk) unchanged. No behavior change: identical error variant, byte-identical message text per caller. Land after FORMAT-READ-UTF8-DECODE-CONSOLIDATE (a different job — bytes-to-String, not string-to-object — but the same file) for shared-file safety."
+          "description": "`DocumentMember::parse` (157-173) and `Manifest::parse` (352-369) each independently: hash `raw.as_bytes()` via `crate::hash::sha256_hex`, `serde_json::from_str(raw)` into a `JsonValue` mapping a parse error to `JsonManifestError::Malformed`, then require the top-level value be `JsonValue::Object` else return `JsonManifestError::Malformed` with a noun-specific message ('document top level is not a JSON object' vs 'manifest top level is not a JSON object') — the identical three-step job, two authored copies differing only in the local binding name and that one word. Factor a shared private fn, e.g. `fn parse_top_level_object(source_file: &Path, raw: &str, noun: &str) -> Result<(String, serde_json::Map<String, JsonValue>), JsonManifestError>` returning the source hash and the parsed object map, building the message as `format!(\"{noun} top level is not a JSON object\")`; have `DocumentMember::parse` call it with \"document\" and `Manifest::parse` call it with \"manifest\", each keeping its own downstream logic (identity-field lookup vs address-driven member walk) unchanged. No behavior change: identical error variant, byte-identical message text per caller."
         }
       ],
       "retire": []
@@ -232,14 +131,14 @@
       }
     ],
     "acceptance": "DocumentMember::parse and Manifest::parse both call one shared parse_top_level_object helper in src/json_manifest.rs instead of each carrying its own hash+parse+object-check block; error variants and messages are byte-identical to today's. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick — not clean-skippable per d577bdf/d65af7d in the prior window). Serialized behind FORMAT-READ-UTF8-DECODE-CONSOLIDATE, the only currently-open entry touching json_manifest.rs — no functional dependency, file-disjointness only (pending-entry.md, 'Disjoint, or serialized'). scoped at cd286da."
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick — not clean-skippable per d577bdf/d65af7d in the prior window). Its blocker, FORMAT-READ-UTF8-DECODE-CONSOLIDATE, shipped (be8c8e6) — reconciled this tick, unblocking. Line citations re-verified at 88da37f (json_manifest.rs reflowed slightly by be8c8e6's read_utf8 consolidation). scoped at 88da37f."
   },
   {
-    "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
-    "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
+    "tag": "DRIFT-EMIT-LOCK-PARSE-HOIST",
+    "summary": "emit() parses lock.toml twice per run — read_prior_provenance (reap-diff) and read_declarations (layer-drop check) each independently open+parse it; hoist to one shared parse",
     "per": {
       "path": "specs/process/engineering.md",
-      "section": "One job, one home"
+      "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
       "kind": "open"
@@ -250,43 +149,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "Three fns duplicate the same 'walk the committed lock's declaration rows' job, each independently opening `lock.toml`, tolerant-parsing it as `DocumentMut`, ranging over every top-level `(kind, item)` pair, filtering to `item.as_array_of_tables()`, and pulling columns via `row.get(..).and_then(Item::as_str)`: `read_prior_provenance` (fn 1918, loop 1928-1946, requires name+source_path+emit_hash, returns `Vec<ProvenanceRow>`), `config_stale` (fn 2342, loop 2355-2384, same three columns, inlines the staleness diagnostic instead of returning rows), `emit_owned_targets` (fn 2614, loop 2624-2641, only name+source_path, returns `Vec<EmitOwnedEntry>`). Their doc comments already cross-reference each other's tolerant-absence behavior (1916-1917, 2611-2612) — the duplication is self-aware in the code but never consolidated. Add a private `fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow>` (raw, all-`Option` columns: kind, name, source_path, emit_hash) that opens and parses the lock once and does the `(kind, item)`/`as_array_of_tables` walk once; have each of the three public fns `filter_map` over its rows instead of re-deriving the walk — `config_stale`'s and `emit_owned_targets`' looser column requirements fall out of a narrower filter each. Same-file fn-level unification — the home stays `drift.rs`, this is not a new module. Consumers (`src/install.rs`, `src/main.rs`, `tests/install.rs`) call only the three public fns — no signature change, no ripple. Re-verified at HEAD 2f44341 (unmoved since b8fc7ca, when observed)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "the config_stale(...).is_empty() assertions (536, 607) stay green — the shared walk's config_stale filter/map preserves the same tolerant-absence behavior"
-      },
-      {
-        "path": "tests/emit.rs",
-        "asserts": "re_emitting_after_a_member_is_removed_leaves_a_hand_edited_projection_and_reports_drift and the_emit_report_distinguishes_reaped_from_drifted_orphan stay green — these exercise read_prior_provenance/emit_owned_targets through the reap path with byte-identical output"
-      }
-    ],
-    "acceptance": "read_prior_provenance, config_stale, and emit_owned_targets all filter/map over one shared walk_lock_rows helper; no behavior change (engineering.md, 'One job, one home': a second implementation of one job is residue, subtracted rather than carried). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Drained from .flume/refactor/plan-drift-lock-row-walk-triplication.md (observed b8fc7ca). Its blocker, DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, shipped (2f44341) — reopened. drift.rs, tests/install.rs, and tests/emit.rs are unmoved since f404e48 (post-ship reconciliation audit, git diff f404e48..2f44341 empty on all three), so every citation above still resolves. Disjoint from every currently-open entry's files. scoped at 2f44341."
-  },
-  {
-    "tag": "DRIFT-EMIT-LOCK-PARSE-HOIST",
-    "summary": "emit() parses lock.toml twice per run — read_prior_provenance (reap-diff) and read_declarations (layer-drop check) each independently open+parse it; hoist to one shared parse",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1197) calls `read_prior_provenance` (fn 1918, opens+parses the lock at 1919-1925 fresh) and the layer-drop check (1244-1247) calls `read_declarations` (fn 3398, opens+parses the lock again at 3399-3407 via `parse_declarations` -> the private `declarations_from_doc` at 3439, which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run — the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Land after DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry's `walk_lock_rows` establishes the doc-based-extractor shape this entry's provenance-row side should follow rather than re-deriving. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows and the layer-drop nested-member counts from that one parsed `DocumentMut` — `declarations_from_doc` already accepts one; give the provenance side an equivalent doc-scoped extractor. Re-verified at HEAD c2eca2d (drift.rs unchanged since b8fc7ca)."
+          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1197) calls `read_prior_provenance` (fn 1973), which — since DRIFT-LOCK-ROW-WALK-CONSOLIDATION shipped (0282dc7) — now reads through the shared `walk_lock_rows` (fn 1916) helper's own open+parse; the layer-drop check (1244-1247) calls `read_declarations` (fn 3407, opens+parses the lock again via `parse_declarations` (3430) -> the private `declarations_from_doc` (3448), which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run remain — `walk_lock_rows`'s own parse and `read_declarations`'s own — the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows (via a doc-scoped sibling of `walk_lock_rows` taking `&DocumentMut`) and the layer-drop nested-member counts (via `declarations_from_doc` on that same parsed doc) from that one parse."
         }
       ],
       "retire": []
@@ -299,7 +162,7 @@
       }
     ],
     "acceptance": "emit() reads and parses the workspace's lock.toml exactly once per invocation; the reap-diff provenance rows and the layer-drop nested-member count both derive from that one parse. No behavior change (engineering.md, 'Cost scale is hoisted': whole-input work computes once per run and is shared, never recomputed per call site). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry unifies three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table) — different row families, same file, same run. Serialized after it so this entry's doc-based provenance extractor sits beside `walk_lock_rows`, not duplicating its shape. scoped at c2eca2d."
+    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (shipped 0282dc7): that entry unified three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table). Blocker shipped — reconciled, unblocking. Citations re-verified at 88da37f. scoped at 88da37f."
   },
   {
     "tag": "PLACEMENT-MODULE-EXTRACTION",
