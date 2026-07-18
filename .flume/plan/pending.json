@@ -1,5 +1,40 @@
 [
   {
+    "tag": "DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK",
+    "summary": "emit --into from a foreign cwd can bake a raw absolute filesystem path into a composed-prose include's lock source_path row instead of a harness-relative one",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`harness_relative` (1826-1840, doc 1826-1832) is the sole place emit can leak a raw absolute filesystem path into a committed lock row; its sole caller is the composed-prose include loop inside `emit`'s member loop (1115, `let relative = harness_relative(&include.source_path, &harness_root);`). `include.source_path` arrives already absolute — the SDK's Node subprocess resolves it via `import.meta.url`, anchored to the canonicalized (symlink-resolved) entry path `run_sdk_program` hands `node` (`fs::canonicalize` at 845). `harness_relative` absolutizes the other side, `harness_root` (`harness_root_of`, 671-677 — a *lexical* parent of the raw `--into` argument, never touching disk), via `std::path::absolute` (1835): purely lexical, cwd-prepending, no symlink resolution. When the two absolute forms disagree — a symlink hop between the invoking process's cwd and the harness's real location, or any other lexical/real divergence between the two absolutizing paths — `target_abs.strip_prefix(&root_abs)` (1836) silently fails and the `Err(_)` arm (1838) writes `to_lock_path(&target_abs)`: the member's full, host-and-cwd-dependent absolute path, verbatim, as the row's `source_path` — never refused, degrading downstream to an unowned-file finding rather than a loud error. Fix so a composed-prose include's row is spelled harness-root-relative under any invoking cwd, the invariant `member_projection_path`'s plain (lexical-only, no-absolute-conversion) rows already hold and `tests/emit.rs`'s `a_lock_emitted_from_a_foreign_cwd_carries_the_rows_of_one_emitted_at_the_harness_root` (1418-1474) already proves for them — this defect's row family is the one that test's fixture (`with_both_members()`, no includes) proves nothing about. Per the ruling: resolve consistently against the `--into` root, never the invocation cwd; refusing a non-root-cwd invocation is the acceptable fallback only if root-resolution proves unreachable — the concrete resolution mechanism (canonicalizing both sides, or keeping both lexical) is build's judgment call, named in the commit body."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Extend the existing foreign-cwd emit coverage (`a_lock_emitted_from_a_foreign_cwd_carries_the_rows_of_one_emitted_at_the_harness_root`, 1418, and its `CWD_MUTEX`-guarded two-lane pattern) with a sibling test whose payload declares a composed-prose include — the one row family that existing test proves nothing about, since its fixture declares none. Assert the two lanes (cwd = harness root vs cwd = a foreign parent, `--into` spelled off each, naming the same physical workspace) emit byte-identical lock bytes, and that the include-bearing row's `source_path` is harness-relative, never a bare absolute filesystem path — the corrupted shape this defect produces silently today, at exit 0."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "an emit --into whose payload declares a composed-prose include, run once at the harness root and once from a foreign cwd naming the same physical workspace, emits byte-identical lock bytes and a harness-relative (never absolute) source_path for the include-bearing row — fails on the pre-fix tree, passes after"
+      }
+    ],
+    "acceptance": "temper emit --into <workspace> invoked from any cwd produces byte-identical lock bytes for the same physical workspace, including composed-prose include rows — no row's source_path is ever a raw absolute filesystem path. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Routed from friction (session-verified premise), RULED under the 07-18 delegation: source paths resolve against the --into root, never cwd — lock content varying by invocation directory violates emit's byte-reproducible-and-portable promise. Observed at examples/base-harness (20 corrupted rows beside 2 intended). Serialized ahead of DRIFT-EMIT-LOCK-PARSE-HOIST on shared drift.rs — a correctness defect outranks a cost-hoist cleanup. observed at 88da37f. scoped at 88da37f."
+  },
+  {
     "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE",
     "summary": "builtin_kind::definitions wraps an infallible full-roster lookup in Result<_, KindError> — collapse to bare BTreeMap and delete the now-fully-dead KindError enum",
     "per": {
@@ -141,7 +176,8 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "open"
+      "kind": "blockedBy",
+      "tag": "DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK"
     },
     "dependsOnForks": [],
     "files": {
@@ -162,7 +198,7 @@
       }
     ],
     "acceptance": "emit() reads and parses the workspace's lock.toml exactly once per invocation; the reap-diff provenance rows and the layer-drop nested-member count both derive from that one parse. No behavior change (engineering.md, 'Cost scale is hoisted': whole-input work computes once per run and is shared, never recomputed per call site). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (shipped 0282dc7): that entry unified three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table). Blocker shipped — reconciled, unblocking. Citations re-verified at 88da37f. scoped at 88da37f."
+    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (shipped 0282dc7): that entry unified three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table). Newly serialized behind DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK (a defect sharing drift.rs, filed this tick) — file-sharing precedence only. Citations re-verified at 88da37f. scoped at 88da37f."
   },
   {
     "tag": "PLACEMENT-MODULE-EXTRACTION",
