@@ -1,29 +1,26 @@
 # Plan state
 
 - Spec derived through: 810da42
-- Audited through: 11a2815
-- Residue swept through: 11a2815
-- This tick: SPEC DELTA — routed 810da42 and advanced the spec cursor
-  7739b91 -> 810da42. Read the diff (`git show 810da42 -- specs/`): one
-  contained slice, a new engineering.md section "Cost scale is hoisted, and
-  pinned by count" (process doc, not a model Decision — no Consequences
-  checklist). Two bullets, both already derived into filed entries last tick:
-  "The pin is a count, never a clock" -> WALK-SHARE-RUN-COUNT-PIN (run-level
-  "one walk per run") AND CHECK-RESIDUAL-DIAGNOSIS (count-pin the cut: "one
-  compilation per glob / no file read twice"); "Diagnosis is measure-first"
-  -> CHECK-RESIDUAL-DIAGNOSIS (generated fixture, numbers pick the cut). Both
-  entries `per`-cite this exact section verbatim, so the slice is fully
-  routed; no new entries this tick. Queue unchanged.
-- Audit/sweep cursors held at 11a2815: window 11a2815..HEAD = {a8bb83d plan,
-  810da42 specs, 5efcc88 plan} carries zero src/tests/sdk commits, nothing to
-  reconcile. Parks unchanged since last tick — only a plan commit (5efcc88)
-  intervened, no code moved, so hop-cap const (5/2026-07-02) and .github
-  (empty) conditions still hold.
-- Queue: 4 pending — 1 pickable OPEN (WALK-SHARE-RUN-COUNT-PIN), 1 blockedBy
-  it (CHECK-RESIDUAL-DIAGNOSIS), 2 parked on human action (IMPORT-HOP-CAP-CITE,
+- Audited through: 21dbdc0
+- Residue swept through: 21dbdc0
+- This tick: POST-SHIP RECONCILIATION — window 11a2815..HEAD carried the
+  WALK-SHARE-RUN-COUNT-PIN build (73d5757) + its ship (21dbdc0). AUDIT: the
+  run-level walk pin is live on disk — `walk_count`/`flavors_walked` in
+  import.rs, the `a_full_check_run_walks_each_consulted_flavor_once` test in
+  main.rs (two flavors, two walks); the ship commit already dropped the entry
+  from pending. Its downstream CHECK-RESIDUAL-DIAGNOSIS was `blockedBy` it —
+  blocker shipped, so flipped to OPEN and its import.rs addresses refreshed
+  (walk-share added ~20 lines: scan_locus 379->399, collect_glob 429,
+  Discovery struct+impl 51-96, discoverable_paths 505, walk_count 64). SWEEP:
+  the window's only code is the walk-pin (import.rs/main.rs) — no retirement,
+  no second-implementation residue, no corpus disagreement. Parks re-tested on
+  disk and hold: the window touched neither graph.rs (hop-cap still 5 /
+  2026-07-02) nor .github/ (packaging). Both cursors advanced to HEAD.
+- Queue: 3 pending — 1 pickable OPEN (CHECK-RESIDUAL-DIAGNOSIS, unblocked
+  this tick), 2 parked on human action (IMPORT-HOP-CAP-CITE,
   PACKAGING-CHANNELS-REMAINDER). Open forks: (multi-harness-projection),
   (lazy-grounds).
 
-Plan continues: no — spec cursor now at 810da42 (last specs commit); inbox
-empty; audit/sweep window code-free. No live input below spec delta. A
-pickable OPEN entry (WALK-SHARE-RUN-COUNT-PIN) waits — build takes over.
+Plan continues: no — reconciliation is the last input and the window is fully
+reconciled; inbox empty, spec cursor at the last specs commit. A pickable OPEN
+entry (CHECK-RESIDUAL-DIAGNOSIS) waits — build takes over.

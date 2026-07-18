@@ -7,8 +7,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "WALK-SHARE-RUN-COUNT-PIN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -21,7 +20,7 @@
       "edit": [
         {
           "path": "src/import.rs",
-          "description": "Top candidate from the fork's list (archived at a8bb83d): `scan_locus` (379) runs `collect_glob` per kind over the shared discoverable set — one glob compilation plus one match pass per kind — and glob compilation happens per call rather than once per distinct glob. If the numbers name this, hoist/share the per-kind work (compile each glob once; share the scan) and count-pin it. The shared discoverable set is already hoisted (Discovery, 44-124); this is the per-kind re-glob ON TOP of it."
+          "description": "Top candidate from the fork's list (archived at a8bb83d): `scan_locus` (399) runs `collect_glob` (429) per kind over the shared discoverable set — one match pass per kind, `collect_glob` a hand-rolled per-segment walk over the discoverable set (not a globset compile) invoked per kind. If the numbers name this, hoist/share the per-kind work (share the scan; compile each distinct glob once) and count-pin it. The shared discoverable set is already hoisted (Discovery struct+impl, 51-96, walked once per flavor per run by `discoverable_paths` at 505, count-pinned via `walk_count` 64 — WALK-SHARE-RUN-COUNT-PIN, 73d5757); this is the per-kind re-scan ON TOP of it. Addresses re-read at HEAD."
         },
         {
           "path": "src/read.rs",
@@ -42,7 +41,7 @@
       }
     ],
     "acceptance": "check's 22s residual is diagnosed on a generated 17k-file tree with the phase numbers recorded in the commit body; the dominant cost is cut; a work-count pin (never a clock) guards the cut. `cargo test` green; no committed fixture, no corpus perf bar.",
-    "notes": "Resolves the deleted (check-residual-owner) fork (ruled 810da42); candidate list at a8bb83d. DISCOVERY-WALK-SHARE halved check on a 16,814-file repo (41s->22s); the 22s residual has no named owner. Measure-first — the numbers pick the cut, plan does not guess it (engineering.md, 'Diagnosis is measure-first'). Fixture generated at test time, never committed; earns permanence only if a count-pin needs it. blockedBy the walk-share pin: both may touch import.rs. scoped at 810da42."
+    "notes": "Resolves the deleted (check-residual-owner) fork (ruled 810da42); candidate list at a8bb83d. DISCOVERY-WALK-SHARE halved check on a 16,814-file repo (41s->22s); the 22s residual has no named owner. Measure-first — the numbers pick the cut (engineering.md, 'Diagnosis is measure-first'). Fixture generated at test time, never committed. WALK-SHARE-RUN-COUNT-PIN shipped 73d5757 (walk_count pin live in import.rs); unblocked to OPEN. scoped at 810da42, addresses re-read at HEAD."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
