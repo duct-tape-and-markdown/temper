@@ -3,30 +3,41 @@
 - Spec derived through: 4adb1fb
 - Audited through: 2f44341
 - Residue swept through: 2f44341
-- Posture swept through: judges done — provider next
+- Posture swept through: provider done — verbs next
 - This tick: POSTURE SWEEP. Jobs 1-3 quiet: inbox and refactor-captures
   empty; `git log 4adb1fb..HEAD -- specs/` empty (no spec delta); `git log
   2f44341..HEAD -- src/ sdk/src/ tests/` empty (every commit landing in
   the window since 2f44341 is a `plan:` tick, none touching those trees).
-  Job 4 was live: `Posture swept through: pipeline done — judges next`
-  named the next subsystem explicitly. Checked `judges`'s own last-full-
-  sweep window (fa9c87f, the prior `posture-sweep judges` tick) against
-  HEAD: `git log fa9c87f..HEAD -- src/engine.rs src/graph.rs src/dial.rs
-  src/coverage.rs src/coverage_note.rs src/display.rs src/reporter.rs`
-  came back empty on the first pass; a second pass without the path
-  filter surfaced two touches in the window, 394b03f and 62559ef, so each
-  was verified individually with `git show --name-only` rather than
-  trusted from the earlier filtered log — 394b03f touches
-  src/builtin.rs/src/compose.rs/src/roster.rs/tests/contract_template.rs
-  (the kind_narrowing_clause relocation), 62559ef touches
-  src/import.rs/src/install.rs/src/json_manifest.rs/src/main.rs plus four
-  unrelated test files (the discovery-result collapse) — neither names a
-  judges-subsystem file. Per the posture-sweep rule ("On a subsystem
-  untouched since its last sweep, skip forward; quiet-on-clean is the
-  normal verdict, recorded by advancing the rotation alone"), no file was
-  read this tick — `judges` skips forward on the rotation cursor alone,
-  and the queue is untouched (pending.json and open-questions.md are
-  byte-identical to last tick).
+  Job 4 was live: `Posture swept through: judges done — provider next`
+  named the next subsystem explicitly. Checked `provider`'s own last-
+  full-sweep window (ad66e46, the prior `posture-sweep provider` tick,
+  which filed BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE) against HEAD:
+  `git log ad66e46..HEAD -- src/builtin.rs src/builtin_kind.rs` came back
+  non-empty — 394b03f (`build: relocate kind_narrowing_clause to
+  compose.rs`) touches src/builtin.rs. Per the posture-sweep rule, a
+  touched subsystem cannot skip forward; read both provider files in
+  full this tick rather than trusting the rotation cursor alone.
+  `git show 394b03f -- src/builtin.rs` confirms a clean extraction: the
+  function's whole body left with it, the import line narrowed from
+  `contract::{self, Clause, Contract, Predicate, Severity}` to
+  `contract::{Clause, Contract}` in the same commit — no orphaned
+  import, no dead re-export, no residue. Read src/builtin.rs (71 lines)
+  and src/builtin_kind.rs (1130 lines) whole. builtin.rs: `contract`/
+  `contracts` both grep-verified live outside the module (main.rs:62,
+  eight tests/*.rs files) — no new zero-consumer surface. builtin_kind.rs:
+  `qualified` (508-522) and the `Result`-wrapped `definition`/
+  `definitions` are the two already-queued defects
+  (BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE, blocking
+  BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE) — re-verified still present,
+  not re-filed. `skill_features`/`rule_features`/`features` all
+  grep-verified live outside the module (tests/extract_equivalence.rs,
+  tests/acceptance.rs, src/install.rs, src/main.rs, src/json_manifest.rs,
+  src/kind.rs, src/drift.rs, six more tests/*.rs files). No wildcard
+  match arms, no TODO/FIXME, no non-test unwrap/expect/panic (every hit
+  sits inside `#[cfg(test)] mod tests`, 591-1130). No cohesion split or
+  duplicate-matcher residue found — the file is a flat kind std-lib, one
+  job. Verdict: quiet-on-clean, verified rather than skipped — rotation
+  cursor advances alone.
 - Queue: 26 pending — 10 pickable OPEN (READ-EXPLAIN-STRAND-VISIBILITY-
   NARROW, ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE,
   REPORTER-SEVERITY-WORD-CONSOLIDATE, BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-
@@ -52,6 +63,6 @@
   (multi-harness-projection), (lazy-grounds) unchanged. No live refactor
   captures; inbox empty.
 
-Plan continues: yes — posture sweep resumes at `provider`
-(`builtin`/`builtin_kind`), the roster's next subsystem, once nothing
-above it is live.
+Plan continues: yes — posture sweep resumes at `verbs`
+(`main`/`install`/`bundle`/`lib`/`test_support`), the roster's next
+subsystem, once nothing above it is live.
