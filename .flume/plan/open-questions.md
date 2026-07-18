@@ -41,6 +41,31 @@ tax.
   waits. Latent driver: a base-harness-style implemented-by mapping. The
   needle's design taste rides this record for that day. No dependents.
 
+- `(drift-install-edge)` — OPEN, architecture. `specs/process/architecture.md`
+  (663e03f) declares `drift → install` (pipeline core reaching into a verb)
+  a tension against its own map, which places `verbs` (install, bundle)
+  downstream of `pipeline` (drift). Verified on disk at 663e03f:
+  `src/drift.rs:30` imports `crate::install`, `place` (fn, 2034) calls
+  `install::placement_lines`, and a doc comment (2603) names
+  `install::matches_projection`. The map states the fork itself and
+  declines to rule it: resolve by moving the shared helper(s) to a home
+  both sides reach without the upward edge, or by amending the map to
+  admit the edge — "the entry's design question," not plan's to invent.
+  No dependents.
+
+- `(frontmatter-builtin-kind-edge)` — OPEN, architecture. `specs/process/
+  architecture.md` (663e03f) declares `frontmatter → builtin_kind` (a
+  format face knowing the provider) a tension, its map placing `formats`
+  upstream of `provider`. Verified on disk at 663e03f: the only such
+  reference is `src/frontmatter.rs:469,473,477`, inside `#[cfg(test)] mod
+  tests` (467) — the generic adapter's own fixtures call
+  `builtin_kind::definition("skill"/"rule")` for real `Kind` values;
+  production `frontmatter.rs` (1-465) carries no such import. The map's
+  characterization is production-shaped; the actual edge is test-only,
+  a distinction the resolving argument should weigh — swap the fixtures
+  to `test_support`-built kinds (removes the edge cleanly) versus
+  amending the map to scope the exception to test code. No dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
