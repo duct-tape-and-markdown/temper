@@ -118,9 +118,9 @@ chosen job half-done — the job is the atom.
    graph-contract · adoption (install+bundle+reporter) · read-side
    (read+extract+import) · formats (frontmatter+document+json_manifest+
    schema+address+compose) · coverage (coverage_note+coverage+roster) ·
-   sdk (sdk/src). Read the subsystem's files whole against every posture
-   section in `specs/process/engineering.md` — one job one home, a shared
-   concept is one type, cost hoisted and pinned by count — plus cohesion
+   sdk (sdk/src). Read the subsystem's files whole against **every section
+   of `specs/process/engineering.md` as it reads this tick** — the page
+   grows; the sweep never pins to a remembered list — plus cohesion
    (a module carrying jobs that want separate homes) and dead plumbing
    (unconstructable variants, vacuous Result paths). A violation counts
    only when verified on disk this tick, cited by symbol and line. Each
