@@ -1,6 +1,8 @@
 # Plan state
 
-- Spec derived through: 4adb1fb
+- Spec derived through: 53df138 — its only specs/ diff is the
+  normalize_path Invariants amendment, and that content is now fully
+  routed (see this tick): nothing past this commit remains un-derived.
 - Audited through: f713a08
 - Residue swept through: f713a08
 - Posture swept through: 4e9d87a — formats done this tick (found
@@ -15,59 +17,41 @@
   is verbs' own last sweep) is empty, so verbs is likely quiet, but it
   still needs its tick before this pass can close and the cursor
   advance.
-- This tick: POSTURE SWEEP, formats subsystem (frontmatter.rs,
-  document.rs, json_manifest.rs, toml_document.rs, per
-  architecture.md's codemap: "external format mechanics, implemented
-  once"). Read every formats file end to end (1590 lines total).
-  Found: (1) `json_manifest.rs`'s `Manifest::read` (331-344) and
-  `DocumentMember::read` (145-155) each independently run the identical
-  `fs::read` → `JsonManifestError::Io` → `String::from_utf8` →
-  `JsonManifestError::NotUtf8` sequence before calling their own
-  `parse` — byte-for-byte identical, grep-verified the only two sites
-  building a string this way against `JsonManifestError`. Filed
-  JSON-MANIFEST-READ-DECODE-CONSOLIDATE (factor a shared
-  `read_to_string` helper), blockedBy
-  DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH, the one currently-open
-  entry sharing json_manifest.rs. (2) `toml_document.rs`'s `pub fn
-  parse` (53-99) has zero caller outside its own `read` in the same
-  file — grep-verified zero hits for `toml_document::parse(` anywhere
-  in src/, tests/, sdk/; its doc comment claims the same
-  soundness-boundary rationale `json_manifest::DocumentMember::parse`
-  earns via a real test caller (`tests/json_document_format.rs:193`),
-  but no test or production site ever calls this file's `parse`
-  directly — `install.rs`'s guard validates only collection-address
-  manifests, never a toml-document's pending content. Filed
-  TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE (narrow to private),
-  blockedBy the same DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH,
-  the one currently-open entry sharing toml_document.rs. Checked and
-  found clean beyond these two and the already-queued
-  DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH (json_manifest.rs's
-  `DocumentMember::parse` / toml_document.rs's `parse` non-exhaustive
-  `UnitShape` match): every enum match in these four files is otherwise
-  exhaustive (`value_to_json` over `toml_edit::Value`'s 7 variants,
-  `item_to_json` over `toml_edit::Item`'s 4), every other `pub`/
-  `pub(crate)` item (`fold_file_id`, `closing_delimiter`, `item_to_json`,
-  `Satisfies::new`, `write_manifest`, `write_document`, `to_unit` on
-  both member shapes, `Manifest::read_kind`) has a real external
-  caller (grep-verified), and no error-enum variant in
-  `FrontmatterError`/`JsonManifestError`/`TomlDocumentError` is
-  unreachable. `document.rs` bundling `Satisfies` (a cross-cutting
-  model concept) with `item_to_json`/`value_to_json` (a formats-only
-  TOML→JSON helper) reads as two jobs in one small module, but with no
-  duplication or defect risk behind it — noted, not filed; too thin a
-  case to force a cohesion split against the "purely mechanical"
-  routing bar.
+- This tick: INBOX. Two human rulings (John's 07-18 delegation,
+  routed via inbox, observed at 07a9c04) resolved both design-call
+  parks from b80fec2/f3980b9:
+  (1) NORMALIZE-PATH-SUBSYSTEM-PLACEMENT — architecture.md's
+  Invariants section now names normalize_path's move (graph.rs →
+  address.rs) as the fourth ratified debt edge (53df138). Unparked to
+  blockedBy GRAPH-WORLD-ZERO-CONSUMER-PRUNE — the last entry sharing
+  graph.rs and (transitively, via the DRIFT-SOURCE-DEP-PARSE-HOIST /
+  EXTRACT-FOUNDATION-BOUNDARY-RESTORE chain) drift.rs; import.rs's
+  overlap with the separately-queued, already-open
+  BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE is unexpressed by the
+  single-tag schema but that entry is queue-front and ships first
+  regardless. Reworded every file description from conditional
+  ("if the ruling ships") to definite; line citations re-verified
+  unmoved since f3980b9 (only address.rs shifted 2 lines in the
+  window, unrelated).
+  (2) GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE — the ruling names the
+  shared extractor's semantics: declared_globs' trim/filter, both
+  judges (reachability, glob-valid) consuming one filtered set; no new
+  blank-entry finding class. Unparked to blockedBy
+  NORMALIZE-PATH-SUBSYSTEM-PLACEMENT (shares graph.rs); engine.rs's
+  overlap with the separately-queued, already-open
+  ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH is likewise unexpressed but
+  that entry ships first regardless. Both entries' acceptance/tests
+  reworded to state the ruled behavior instead of asking build to
+  invent it. Drained both inbox lines (now empty).
 - Queue: 29 pending, 6 pickable OPEN (unchanged set:
   BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
   DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH,
   ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH, DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE,
   CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE, DRIFT-LOCK-ROW-WALK-
-  CONSOLIDATION — pairwise disjoint on files, unchanged), 19 chained
-  blockedBy (17 prior + the 2 filed this tick, both verified disjoint
-  from every other currently-open entry's files), 4 parked on human
-  action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
-  GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, NORMALIZE-PATH-SUBSYSTEM-
-  PLACEMENT — reasons unchanged, untouched this window).
+  CONSOLIDATION — pairwise disjoint on files, unchanged), 21 chained
+  blockedBy (19 prior + the 2 unparked this tick), 2 parked on human
+  action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — reasons
+  unchanged, untouched this window).
   Open forks: (multi-harness-projection), (lazy-grounds) unchanged.
   Refactor captures: none live. Inbox empty.
 
