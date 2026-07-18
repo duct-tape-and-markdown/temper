@@ -1,48 +1,5 @@
 [
   {
-    "tag": "COVERAGE-NOTE-LOCK-PARSE-HOIST",
-    "summary": "coverage_note::check's with_locked_kinds re-reads and re-parses lock.toml inside gate(), which already parsed the identical file into `committed` moments earlier",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`with_locked_kinds` (290-302, doc 280-289) calls `drift::read_declarations(&root.join(crate::WORKSPACE_DIR))` (295) — a full fresh open+parse of the committed lock — every time `check` (142) runs, which `gate()` (src/main.rs) does on every invocation via the coverage-note tier (main.rs:1191). Change `with_locked_kinds` to take the already-parsed kind rows (or the merged map) the caller already holds instead of a `root: &Path` it re-derives from disk; `check`'s own `root: &Path` param stays (independently used for `present`/`manifest_top_level_keys`/the stray-file walk at 265-278, unrelated to the lock read). Exact threading shape (a new param on `check`, or a pre-merged map argument) is a judgment call for build — name the choice in the commit body."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`gate()` (847) already computes `committed = drift::read_declarations(workspace)?` (858) before calling `coverage_note::check(harness_root, &builtin_kind::definitions()?, &member_counts)` (1191-1195, passing builtins only, letting `with_locked_kinds` silently pull the custom-kind half from a second disk read). Thread `committed.kinds` (or an already-merged kinds map derived from it) into the call instead, dropping the redundant re-parse `with_locked_kinds` performs today."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "Four call sites (250, 258, 279, 296) construct fixture directories carrying real (or corrupt/missing) `lock.toml` files specifically to exercise `with_locked_kinds`'s own disk-reading behavior (corrupt lock errors, missing lock degrades to `kinds` alone, a present lock's kinds merge in). Once `check` no longer reads the lock itself, these tests need restructuring to pre-parse (or intentionally omit) the lock before calling `check`, preserving the same three behaviors at whichever layer now owns them — naming which layer surfaces a corrupt-lock error is part of the same build-time judgment call as the signature shape above."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "a fixture whose gate() run exercises both the top-level declarations read and the coverage-note tier proves lock.toml is parsed exactly once per invocation — a count-pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "the corrupt-lock/missing-lock/governed-lock behaviors stay observable, each restructured to the new signature, with the same outcomes"
-      }
-    ],
-    "acceptance": "gate() parses the workspace's lock.toml exactly once per invocation; coverage_note::check consumes the already-parsed kind rows instead of independently re-reading and re-parsing the file. No behavior change to which surfaces are reported governed (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy -D warnings green.",
-    "notes": "Found sweeping judges (posture rotation, re-verifying subsystems 1f6afe5's ship touched). Distinct from DRIFT-EMIT-LOCK-PARSE-HOIST/DRIFT-SOURCE-DEP-PARSE-HOIST (drift.rs's own double-parses) and GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST (resolve_kind_units) — this is coverage_note.rs's own re-read on the same gate() path. Serialized behind GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST, last chain entry touching main.rs — no functional dependency. scoped at 4baa5c4."
-  },
-  {
     "tag": "JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE",
     "summary": "json_manifest.rs's Manifest::read_kind imports crate::import and self-discovers — formats reaching into pipeline, unlike frontmatter's pure-parse split",
     "per": {
@@ -50,8 +7,7 @@
       "section": "Invariants — stated as absences"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "COVERAGE-NOTE-LOCK-PARSE-HOIST"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -166,53 +122,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT",
-    "summary": "graph.rs's normalize_path is foundation-shaped leaf vocabulary consumed upward by pipeline — ruled a debt edge (53df138); moves to address.rs per architecture.md's amended Invariants section",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`normalize_path` (929-940, `pub(crate)`, doc 924-928: 'Lexically normalize a path ... without touching disk') has three internal callers in this file (875, 883, 921 — reverify at pickup) plus the external callers below. architecture.md's Invariants section now names this the fourth ratified debt edge (53df138): pure std::path::Component-only leaf vocabulary homed in graph.rs (judges) with every external caller in pipeline modules, moving to address.rs (foundation) where its shape already lives. Move the fn verbatim to src/address.rs and update every internal call site to `crate::address::normalize_path`."
-        },
-        {
-          "path": "src/address.rs",
-          "description": "Add `normalize_path` here verbatim (moved from graph.rs), foundation subsystem, alongside this file's own path/field mechanics — architecture.md's codemap now names address.rs as its home (53df138)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "Two call sites (396, 517) requalify from `crate::graph::normalize_path` to `crate::address::normalize_path`."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Three call sites (672, 1799, 1885) requalify from `crate::graph::normalize_path` to `crate::address::normalize_path`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "existing dead-edge/reachability coverage exercising normalize_path's internal callers (875, 883, 921) stays green — the move is signature/location-only, no path-resolution behavior change"
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "existing discovery/drift coverage exercising import.rs's and drift.rs's normalize_path call sites stays green — same paths resolve identically post-move"
-      }
-    ],
-    "acceptance": "normalize_path lives in src/address.rs (foundation) with every caller requalified, matching architecture.md's Invariants section (amended 53df138 to name this the fourth ratified debt edge). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Unparked (inbox, observed 07a9c04): architecture.md now names the fourth edge and its direction (53df138), closing the park. Serialized behind GRAPH-WORLD-ZERO-CONSUMER-PRUNE, last entry sharing graph.rs and (transitively) drift.rs. Also shares import.rs with the separately-queued, already-open BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE — single-tag blockedBy can't express both waits; that entry is queue-front and ships first regardless. scoped at 07a9c04."
-  },
-  {
     "tag": "GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE",
     "summary": "graph.rs's declared_globs and engine.rs's field_globs duplicate one glob-extraction job — ruled (53df138): the shared extractor holds declared_globs' trim/filter semantics, both judges consume it",
     "per": {
@@ -220,8 +129,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -260,8 +168,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -328,8 +235,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "COVERAGE-NOTE-LOCK-PARSE-HOIST"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -739,8 +645,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
