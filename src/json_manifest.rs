@@ -143,14 +143,7 @@ impl DocumentMember {
     /// [`JsonManifestError::NoDeclaredIdentity`] if `kind` declares an identity mode a JSON
     /// document cannot serve (`directory`/`starred-segment`).
     pub fn read(kind: &CustomKind, source_file: &Path) -> Result<Self, JsonManifestError> {
-        let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io {
-            path: source_file.to_path_buf(),
-            source,
-        })?;
-        let raw = String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 {
-            path: source_file.to_path_buf(),
-            source,
-        })?;
+        let raw = read_to_string(source_file)?;
         Self::parse(kind, source_file, &raw)
     }
 
@@ -311,6 +304,19 @@ pub enum JsonManifestError {
     },
 }
 
+/// Read a file and decode it as UTF-8, mapping I/O and encoding errors to [`JsonManifestError`].
+/// Shared by [`Manifest::read`] and [`DocumentMember::read`].
+fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError> {
+    let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io {
+        path: source_file.to_path_buf(),
+        source,
+    })?;
+    String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 {
+        path: source_file.to_path_buf(),
+        source,
+    })
+}
+
 impl Manifest {
     /// Read the JSON manifest at `source_file`, walking each of `addresses` into its
     /// declared collection to infer that collection's registration members, and keeping
@@ -332,14 +338,7 @@ impl Manifest {
         source_file: &Path,
         addresses: &[&CollectionAddress],
     ) -> Result<Self, JsonManifestError> {
-        let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io {
-            path: source_file.to_path_buf(),
-            source,
-        })?;
-        let raw = String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 {
-            path: source_file.to_path_buf(),
-            source,
-        })?;
+        let raw = read_to_string(source_file)?;
         Self::parse(source_file, &raw, addresses)
     }
 
