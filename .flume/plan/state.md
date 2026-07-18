@@ -9,33 +9,20 @@
   tick), provider re-verified this tick and is quiet too. The new
   rotation cycle (foundation → model → formats → pipeline → judges →
   provider → verbs) opens fresh at foundation next tick.
-- This tick: POSTURE SWEEP — job 4. Re-verified the provider subsystem
-  (`src/builtin.rs`, `src/builtin_kind.rs`; the SDK's `sdk/src/builtins.ts`/
-  `claude-code.ts` are untouched in the window) — `git log 04cbd6d..HEAD --
-  src/builtin.rs src/builtin_kind.rs sdk/src/builtins.ts sdk/src/claude-code.ts`
-  shows only 84197e5 (BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE's ship,
-  already reconciled at 15d4cca). Read both files whole against
-  engineering.md's sections. Quiet — no new entry filed:
-  - The one live issue already tracked in this pair
-    (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE's Result-wrapped
-    `definition`/`definitions`) is unchanged; every cited line in that
-    entry (kind.rs 16-19/508-524 plus all builtin_kind.rs test call
-    sites: 588, 650, 684, 689, 713, 748, 794, 834, 874, 808, 941, 999,
-    1022, 1059) re-verified resolving exactly at HEAD — no rescoping
-    needed.
-  - `manifest_members` (extract.rs:1015-1042) and the mirrored emit-side
-    write loop (drift.rs:988-1024) each branch `if collection ==
-    CollectionKeyPath::HooksEvent.collection_key()` / `EnabledPlugins`
-    then fall through to one generic path for the rest — checked against
-    the shared-concept exhaustive-match bar (engineering.md, "A shared
-    concept is one type") and found to be the declared exception instead
-    ("The fix lands at the mechanism": a documented, cited two-of-four
-    special case with an explicit "every other collection" fallthrough,
-    extract.rs:1010-1011 — not a bare `_` over the enum). No entry filed.
-  - builtin_kind.rs's whole pub surface (`contract`, `contracts`,
-    `definition`, `definitions`, `skill_features`, `rule_features`,
-    `features`) grep-verified to have a real caller outside its own
-    module — no zero-consumer export found.
+- This tick: CLOSING CHECKLIST — no live input in any job. Verified on
+  disk, not assumed: `git log 4adb1fb..HEAD -- specs/` (spec delta)
+  empty; `git log 1f6afe5..HEAD -- src/ tests/ sdk/src/` (post-ship
+  reconciliation window) empty; `git log ab4c07d..HEAD -- src/ sdk/src/
+  tests/` (posture-sweep re-arm window — the cursor already names HEAD
+  itself) empty; inbox empty; no live refactor captures. Every commit
+  since 1f6afe5 is a `plan:` commit touching only `.flume/plan/**`. Ran
+  the closing checklist: the 8 pickable OPEN entries remain pairwise
+  disjoint on files (tap.rs, address.rs, kind.rs, frontmatter.rs,
+  json_manifest.rs+toml_document.rs, engine.rs, dial.rs, drift.rs — no
+  two share a file); the 4 parked entries' reasons are unchanged and
+  untouched by any commit; the 16 blockedBy chain links still resolve to
+  live tags. Nothing to restamp on the queue itself — a genuinely
+  unchanged tick.
 - Queue: 28 pending, 8 pickable OPEN (TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE,
   ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE,
   KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE,
@@ -45,9 +32,13 @@
   DRIFT-LOCK-ROW-WALK-CONSOLIDATION), 16 chained blockedBy, 4 parked on
   human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
   GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, NORMALIZE-PATH-SUBSYSTEM-
-  PLACEMENT). Unchanged this tick — the sweep found nothing to file.
+  PLACEMENT). Unchanged this tick.
   Open forks: (multi-harness-projection), (lazy-grounds) unchanged.
   Refactor captures: none live. Inbox empty.
 
-Plan continues: yes — the new posture-sweep rotation cycle opens fresh
-at foundation next tick.
+Plan continues: no — every job is quiet: no spec delta, no post-ship
+window, posture-sweep not re-armed (its cursor is HEAD, and re-arms only
+once a commit past it touches src/, sdk/src/, or tests/), inbox and
+captures empty. Build should work the 8 pickable OPEN entries; plan
+re-wakes on the next inbox line, specs/ commit, or src/sdk/tests-touching
+ship.
