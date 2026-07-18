@@ -199,6 +199,68 @@
     "notes": "Found sweeping the `pipeline` subsystem (posture rotation: pipeline this tick, after formats). Disjoint from every other queue entry's files (read.rs touched nowhere else). scoped at 20b7b21."
   },
   {
+    "tag": "ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE",
+    "summary": "engine.rs's Selector::label is pub but called only from finding() in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "`Selector::label` (424-433, `pub fn label(&self) -> &str`) has exactly one call site in the whole tree — `finding()` (685-693), inside this same file, at line 689 — grep-verified zero hits for `.label()` on a `Selector` or `Selector::label` anywhere else in src/, tests/, sdk/. Its sibling `Selector::noun()` (438-444) is legitimately `pub` — its own doc comment (435-437) names the real cross-module consumer, `crate::graph::degree`'s findings — which is exactly the earned-`pub` shape `label` lacks: nothing outside this module reads it, and no doc comment names a planned second consumer. Drop `pub` from `label`, leaving it a module-private method callable from `finding()` unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "existing engine.rs inline tests over finding()/wrong_kind() and every selection-grain diagnostic stay green — the narrowing is visibility-only, finding()'s output (the diagnostic's artifact field) is unchanged"
+      }
+    ],
+    "acceptance": "`Selector::label` is a private method in src/engine.rs, not `pub`; `Selector::noun` keeps its earned `pub`. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
+    "notes": "Found sweeping the `judges` subsystem (posture rotation: pipeline done, judges this tick). Disjoint from every other queue entry's files (engine.rs touched nowhere else this tick). scoped at e2325df."
+  },
+  {
+    "tag": "REPORTER-SEVERITY-WORD-CONSOLIDATE",
+    "summary": "reporter.rs's github and sarif each independently match Severity::Error/Warn to the literal words \"error\"/\"warning\" — the same normalizer written twice in one file",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/reporter.rs",
+          "description": "`github` (173-199) and `sarif` (215-...) each carry their own copy of the identical match: `Severity::Error => \"error\", Severity::Warn => \"warning\"` — `github`'s at 184-187 (bound to `command`, used for the `::error`/`::warning` workflow-command name) and `sarif`'s at 219-222 (bound to `level`, used for SARIF's `level` field). Both read `diagnostic.severity` from `crate::check::Severity` and produce the exact same two-word mapping — the 'two normalizers doing the same thing' residue class, harmless only because GitHub's command name and SARIF's `level` value happen to coincide today. Add a private `fn severity_word(severity: Severity) -> &'static str` in this file (returning `\"error\"`/`\"warning\"` over the same two-arm match) and call it from both `github` (replacing 184-187) and `sarif` (replacing 219-222)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/reporters.rs",
+        "asserts": "github_emits_one_workflow_command_line_per_finding_with_the_rule_as_title, sarif_is_valid_json_with_the_temper_driver_and_one_result_per_diagnostic, and both_reporters_are_pure_presentations_of_the_diagnostic_set stay green — the consolidation is signature-only, both renderers' severity words are unchanged"
+      }
+    ],
+    "acceptance": "`github` and `sarif` both call one shared `severity_word` fn in src/reporter.rs instead of each carrying its own `Severity => &str` match. No behavior change (engineering.md, 'One job, one home': a second implementation of one job is residue, subtracted rather than carried). `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Found sweeping the `judges` subsystem (posture rotation: pipeline done, judges this tick). Disjoint from every other queue entry's files (reporter.rs touched nowhere else this tick). scoped at e2325df."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {

@@ -3,53 +3,64 @@
 - Spec derived through: 4adb1fb
 - Audited through: 60faee0
 - Residue swept through: 60faee0
-- Posture swept through: pipeline done — judges next
-- This tick: POSTURE SWEEP. Jobs 1-3 quiet: inbox and refactor-captures
-  empty; `git log 4adb1fb..HEAD -- specs/` empty (no spec delta); `git log
-  60faee0..HEAD -- src/ sdk/src/ tests/` empty (no post-ship window to
-  audit or sweep). Job 4 was live — rotation mid-way (`formats done —
-  pipeline next`) makes it live regardless of window content. Swept the
-  `pipeline` subsystem (architecture.md codemap: `drift`, `import`,
-  `read`, `builtin_lock` — `placement` not yet on disk, still a queued
-  `new` file under PLACEMENT-MODULE-EXTRACTION), delegating the read to a
-  background agent over engineering.md's postures, then independently
+- Posture swept through: judges done — provider next
+- This tick: POSTURE SWEEP. Jobs 1-3 quiet: inbox empty, no live refactor
+  captures at tick start; `git log 4adb1fb..HEAD -- specs/` empty (no spec
+  delta); `git log 60faee0..HEAD -- src/ sdk/src/ tests/` empty (no
+  post-ship window to audit or sweep). Job 4 was live — rotation mid-way
+  (`pipeline done — judges next`) makes it live regardless of window
+  content. Swept the `judges` subsystem (architecture.md codemap: `engine`,
+  `graph`, `dial`, `coverage`, `coverage_note`, `display`, `reporter`),
+  delegating the read to a foreground agent over engineering.md's
+  postures plus the cohesion/dead-plumbing lenses, then independently
   verifying every candidate before filing:
-  - `import.rs` and `builtin_lock.rs` are clean.
-  - `drift.rs`'s already-known duplication (the top-level lock-row walk,
-    emit()'s double-parse) is already queued
-    (DRIFT-LOCK-ROW-WALK-CONSOLIDATION, DRIFT-EMIT-LOCK-PARSE-HOIST) — not
-    re-filed. A distinct, verified finding: `source_deps` (2472) and its
-    four callers (`layout_imports`, `includes`, `layout_import_stale`,
-    `include_stale`) each independently open+parse `lock.toml`, on top of
-    `read_declarations`'s own parse — confirmed on disk as 5 full parses
-    of the same file inside one `gate()` call (main.rs:858, 891, 1208-9)
-    and a matching pattern in `explain()` (main.rs:513,525,587). Filed
-    DRIFT-SOURCE-DEP-PARSE-HOIST (`engineering.md`, "Cost scale is
-    hoisted, and pinned by count") — blockedBy EXTRACT-FOUNDATION-
-    BOUNDARY-RESTORE, the last existing-chain entry sharing drift.rs and
-    main.rs.
-  - `read.rs` yielded a new finding: `impact` (593), `context` (856),
-    `requirements` (1254), `field` (1468) are `pub fn` with zero caller
-    outside `explain` (218) in the same file — grep-verified zero hits
-    for their qualified names across src/, tests/, sdk/, and
-    `tests/read_verbs.rs` calls only `why`/`explain` directly. Filed
-    READ-EXPLAIN-STRAND-VISIBILITY-NARROW (`engineering.md`, "An export
-    earns its consumer") — gate open, disjoint (only src/read.rs).
-  Rotation advances: `pipeline` done, `judges` next (`engine`, `graph`,
-  `dial`, `coverage`, `coverage_note`, `display`, `reporter`).
-- Queue: 15 pending — 5 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-
+  - `dial.rs`, `coverage.rs`, `coverage_note.rs`, `display.rs` are clean —
+    every `pub`/`pub(crate)` item has a real outside caller, no `_` arm
+    over a shared enum, no vacuous judge test.
+  - `engine.rs` yielded a verified finding: `Selector::label` (424-433) is
+    `pub` but grep-verified zero-consumer outside `finding()` (689), the
+    same file — unlike its sibling `Selector::noun` (438-444), whose doc
+    comment names the real cross-module consumer (`crate::graph::degree`).
+    Filed ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE (`engineering.md`, "An
+    export earns its consumer") — gate open, disjoint (only src/engine.rs).
+  - `reporter.rs` yielded a verified finding: `github` (184-187) and
+    `sarif` (219-222) each carry their own identical
+    `Severity::Error => "error", Severity::Warn => "warning"` match — the
+    same normalizer written twice in one file. Filed
+    REPORTER-SEVERITY-WORD-CONSOLIDATE (`engineering.md`, "One job, one
+    home") — gate open, disjoint (only src/reporter.rs).
+  - `graph.rs` yielded a design-decision-tier finding, not filed directly:
+    `resolved_edges`/`resolved_arcs` (958-1010) is independently
+    recomputed by up to four call sites inside one `gate()` invocation
+    (`check` at 111 does its own from-scratch parallel walk; `acyclic`
+    always calls `resolved_arcs`; `degree`/`mention_reachable` call it
+    again when opted in) — confirmed on disk via `main.rs:1130-1168`. The
+    shared-walk shape isn't mechanical (`check` needs the *dangling* half
+    `resolved_edges` discards, so the consolidation has to decide the
+    shared output's shape) — captured to
+    `.flume/refactor/plan-graph-resolved-edge-walk-duplication.md` per
+    the posture-sweep rule's routing split (mechanical → entry,
+    design-decision → refactor capture), for next tick's inbox job to
+    verify and file. `MAX_IMPORT_HOPS`'s cite (graph.rs:55-59) matches
+    the already-parked IMPORT-HOP-CAP-CITE — not re-reported.
+  Rotation advances: `judges` done, `provider` next (`builtin`,
+  `builtin_kind`).
+- Queue: 17 pending — 7 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-
   COLLAPSE, FRONTMATTER-TEST-SYNTHETIC-KINDS, ROSTER-BUILTIN-KIND-
   NARROWING-RELOCATE, DOCUMENT-RETIRED-FENCE-SURFACE-PRUNE,
-  READ-EXPLAIN-STRAND-VISIBILITY-NARROW; all disjoint files), 8 chained
-  blockedBy (DRIFT-LOCK-ROW-WALK-CONSOLIDATION → DRIFT-EMIT-LOCK-PARSE-
-  HOIST → PLACEMENT-MODULE-EXTRACTION → EXTRACT-FOUNDATION-BOUNDARY-
-  RESTORE → {KIND-ZERO-CONSUMER-EXPORTS-PRUNE → CONTRACT-DECLARED-KEYS-
-  EXHAUSTIVE-MATCH → CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP,
-  DRIFT-SOURCE-DEP-PARSE-HOIST}), 2 parked on human action
-  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks:
-  (multi-harness-projection), (lazy-grounds) unchanged. No live refactor
-  captures; inbox empty.
+  READ-EXPLAIN-STRAND-VISIBILITY-NARROW, ENGINE-SELECTOR-LABEL-ZERO-
+  CONSUMER-PRUNE, REPORTER-SEVERITY-WORD-CONSOLIDATE; all disjoint
+  files), 8 chained blockedBy (DRIFT-LOCK-ROW-WALK-CONSOLIDATION →
+  DRIFT-EMIT-LOCK-PARSE-HOIST → PLACEMENT-MODULE-EXTRACTION →
+  EXTRACT-FOUNDATION-BOUNDARY-RESTORE → {KIND-ZERO-CONSUMER-EXPORTS-
+  PRUNE → CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH →
+  CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, DRIFT-SOURCE-DEP-PARSE-HOIST}), 2
+  parked on human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-
+  REMAINDER). Open forks: (multi-harness-projection), (lazy-grounds)
+  unchanged. 1 live refactor capture filed this tick
+  (plan-graph-resolved-edge-walk-duplication.md, for next tick's inbox job
+  to drain); inbox empty.
 
-Plan continues: yes — posture sweep resumes at `judges` (`engine`,
-`graph`, `dial`, `coverage`, `coverage_note`, `display`, `reporter`), once
-nothing above it is live.
+Plan continues: yes — the inbox job drains the freshly-filed refactor
+capture next tick (job 1 precedes the posture sweep's `provider` leg in
+priority order).
