@@ -155,45 +155,6 @@
     "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with the currently-open BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety (pending-entry.md, 'Disjoint, or serialized'); no functional dependency. scoped at 08b5a27."
   },
   {
-    "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH",
-    "summary": "json_manifest.rs's DocumentMember::parse and toml_document.rs's parse each hold a non-exhaustive match over UnitShape, unlike frontmatter.rs's own exhaustive match over the same shared enum",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`DocumentMember::parse`'s identity match (187-209) names `UnitShape::NamedField` (188-195) and `UnitShape::File | None` (196-202) explicitly, then folds the remaining two variants — `Directory` and `StarredSegment` — into one `Some(_) => { return Err(JsonManifestError::NoDeclaredIdentity {..}) }` wildcard (203-208). `src/frontmatter.rs`'s own match over the identical `UnitShape` enum (`from_source_rooted`, 192-237, in the same `formats` subsystem) names all four variants (`Directory`/`NamedField`/`StarredSegment`/`File|None`) explicitly — the shape this file's match should hold, per engineering.md's 'a `_` arm over a shared concept is a seam defect waiting for its field report' (the CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH precedent, same bar, a different enum). Replace `Some(_)` with `Some(UnitShape::Directory) | Some(UnitShape::StarredSegment) =>` naming both variants explicitly; behavior is unchanged (both still refuse with `NoDeclaredIdentity`), but a future fifth `UnitShape` variant now fails to compile here until named, matching frontmatter.rs's own guarantee."
-        },
-        {
-          "path": "src/toml_document.rs",
-          "description": "`parse`'s identity check (58-63) is a `let Some(UnitShape::NamedField { field }) = &kind.unit_shape else { return Err(TomlDocumentError::NoDeclaredIdentity {..}) };` — the `else` branch is reached by `File`, `Directory`, `StarredSegment`, and `None` alike, none named. Convert to a `match &kind.unit_shape { Some(UnitShape::NamedField { field }) => field, Some(UnitShape::File) | Some(UnitShape::Directory) | Some(UnitShape::StarredSegment) | None => return Err(TomlDocumentError::NoDeclaredIdentity { path: source_file.to_path_buf(), kind: kind.name.clone() }) }`, naming every non-`NamedField` variant explicitly instead of falling through an unnamed `else`; behavior is unchanged (every one of those four cases already refused identically), but a future fifth variant now forces a decision here too."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/toml_document.rs",
-        "asserts": "a_toml_document_kind_declaring_no_identity_field_refuses_loud stays green — the rewrite is exhaustiveness-only, the File-shape refusal reads the same message"
-      },
-      {
-        "path": "tests/json_document_format.rs",
-        "asserts": "the Directory-shape refusal (168-171, asserting 'identity shape it cannot serve') stays green — same NoDeclaredIdentity behavior, now reached by a named arm instead of a wildcard"
-      }
-    ],
-    "acceptance": "json_manifest.rs's DocumentMember::parse and toml_document.rs's parse both name every UnitShape variant explicitly in their identity-selection match, no `_`/catch-all arm or unnamed `else` remains, matching frontmatter.rs's own exhaustive style over the same enum. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the `formats` subsystem (posture rotation: model done, formats this tick; first full read since 20b7b21). Disjoint from every other currently-open entry's files (json_manifest.rs and toml_document.rs touched nowhere else open; EXTRACT-FOUNDATION-BOUNDARY-RESTORE also edits json_manifest.rs but sits deep in a blockedBy chain, never open alongside this one). scoped at 843bc94."
-  },
-  {
     "tag": "JSON-MANIFEST-READ-DECODE-CONSOLIDATE",
     "summary": "json_manifest.rs's Manifest::read and DocumentMember::read each duplicate the identical fs::read + UTF-8-decode-to-JsonManifestError boilerplate — one job, written twice, in the same file",
     "per": {
@@ -260,68 +221,6 @@
     ],
     "acceptance": "toml_document::parse is a private fn in src/toml_document.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
     "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Serialized behind DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH, the only currently-open entry sharing toml_document.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency; that entry's own fix touches this file's identity check, not `parse`'s signature or pub-ness, so both land independently once unblocked. scoped at 1c5b0a9."
-  },
-  {
-    "tag": "ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH",
-    "summary": "engine.rs's judge() falls through `_ => {}` for every non-selection-grain Predicate instead of naming each variant, unlike its sibling decide()/addressed_field() over the same enum",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`judge` (487-514, the selection-grain dispatcher) matches `Predicate::Count`/`Unique`/`Membership`/`Kind`/`Extent { whole: true, .. }` explicitly (492-510) then falls through `_ => {}` (511-513, commented 'degree binds to a selection too, but its judge needs the graph. Every other predicate binds to a member, not a set.'). Two sibling matches over the identical `Predicate` enum in this same file are exhaustive by name instead: `decide`'s tail (1064-1077) lists `DependencyExists | Count{..} | Unique{..} | Membership{..} | Degree{..} | Kind{..} | MentionReachable{..} | Extent{whole:true,..} => Outcome::Indeterminate`; `addressed_field` (201-234) lists every remaining variant explicitly ending `FormatPlacesEdges => None`, with its own doc comment (198-200) stating the rule this file otherwise holds: 'The match names every arm rather than defaulting: ... a wildcard would admit the next field-carrying predicate ... instead of asking its author this question at compile time.' Replace `judge`'s `_ => {}` with an explicit pipe-grouped arm naming every `Predicate` variant it does not itself decide — `Required{..}`, `Optional{..}`, `Type{..}`, `MinLen{..}`, `MaxLen{..}`, `Range{..}`, `Enum{..}`, `Deny{..}`, `ForbiddenKeys{..}`, `AllowedChars{..}`, `Shape{..}`, `GlobValid{..}`, `ClosedKeys`, `Extent{whole:false,..}`, `RequireSections{..}`, `MustDefine{..}`, `SectionContains{..}`, `NameMatchesDir`, `UniqueName`, `DependencyExists`, `Degree{..}`, `MentionReachable{..}`, `FormatPlacesEdges` — each mapping to the same no-op `{}`, carrying the existing comment's rationale as the new arm's doc. No behavior change: every one of these variants already produced no diagnostic from `judge`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "judge's existing selection-grain inline tests (Count/Unique/Membership/Kind/Extent coverage) stay green — the rewrite is exhaustiveness-only, judge still emits nothing for a member-grain clause bound to a selection"
-      }
-    ],
-    "acceptance": "judge's match over Predicate names every variant explicitly, no `_` wildcard arm remains, matching the exhaustive style decide and addressed_field already hold over the same enum in the same file. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the judges subsystem (posture rotation, re-verifying subsystems 1f6afe5's ship touched — engine.rs among them). Disjoint from every other pending entry (no other queued entry touches engine.rs). scoped at 4baa5c4."
-  },
-  {
-    "tag": "DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE",
-    "summary": "dial.rs's Dial::is_empty is pub but called only from its own inline tests — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/dial.rs",
-          "description": "`Dial::is_empty` (77-80, `pub fn is_empty(&self) -> bool { self.entries.is_empty() }`, doc 75-76: 'Whether this machine dials nothing') has zero caller anywhere in src/, tests/, sdk/ outside this file's own inline tests (202, `assert!(dial.is_empty())`; 207, `assert!(Dial::from_features(&[dial_member(None)]).is_empty())`) — grep-verified zero `.is_empty()` hits on a `Dial` value anywhere else in the tree. Every real consumer of a `Dial` (`main.rs`'s gate wiring) calls `Dial::from_features`/`Dial::apply` directly, never `is_empty`. Same shape as the shipped TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE / ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE precedent (a pub accessor earning only its own inline tests). Drop `pub` from `is_empty`, leaving it module-private, callable from its own inline tests unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/dial.rs",
-        "asserts": "a_dial_declaring_no_entries_at_all_is_empty and the empty-dial assertion at 202 stay green — the narrowing is visibility-only"
-      }
-    ],
-    "acceptance": "Dial::is_empty is a private method in src/dial.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the judges subsystem (posture rotation, re-verifying subsystems 1f6afe5's ship touched). Disjoint from every other pending entry (no other queued entry touches dial.rs). scoped at 4baa5c4."
   },
   {
     "tag": "COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE",
