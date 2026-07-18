@@ -774,7 +774,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE"
+      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
     },
     "dependsOnForks": [],
     "files": {
@@ -803,7 +803,7 @@
       }
     ],
     "acceptance": "config_stale consumes the same shared parsed lock document gate() already holds instead of independently re-reading/re-parsing lock.toml; walk_lock_rows calls read_lock_document + walk_lock_rows_from_doc instead of duplicating the read+parse body. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping pipeline (posture rotation). Distinct from DRIFT-SOURCE-DEP-PARSE-HOIST's layout_import/include family (shipped 3561798) — re-scoped against read_lock_document_for_emit/read_lock_document (3589) on disk. walk_lock_rows keeps the renamed tolerant fn. Unblocked: IMPORT-ROLLUP-WRITER-PLACEMENT shipped ab2e822. Reserialized behind DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE (both touch drift.rs), avoiding collision with CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's chain. rescoped 863e506."
+    "notes": "Found sweeping pipeline (posture rotation). walk_lock_rows keeps the renamed tolerant fn (emit_owned_targets' caller). DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE shipped 18a8af7 (verified: EmitOutcome::label private; walk_lock_rows/config_stale still duplicate read+parse on disk at adf69b3) — reserialized behind GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE instead, both edit main.rs gate() body. rescoped 863e506."
   },
   {
     "tag": "DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST",
@@ -1180,8 +1180,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "TAP-PAYLOAD-SCHEMA-SPLIT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1210,7 +1209,7 @@
       }
     ],
     "acceptance": "roster.rs's telemetry-event admissibility check reads its documented-event vocabulary from tap::TapEvent (or a table it derives), never a hand-authored parallel list. cargo test green.",
-    "notes": "scoped at 78d43d3 — surfaced sweeping the model subsystem (posture sweep). Third copy of the hook-event-name concept alongside tap::TapEvent and read.rs's event_label; this one has already drifted. Blocked behind TAP-PAYLOAD-SCHEMA-SPLIT: both touch src/tap.rs (pending-entry.md, 'Disjoint, or serialized')."
+    "notes": "scoped at 78d43d3 — surfaced sweeping the model subsystem (posture sweep). Third copy of the hook-event-name concept alongside tap::TapEvent and read.rs's event_label; this one has already drifted. TAP-PAYLOAD-SCHEMA-SPLIT shipped 550ed1e (verified: classify_claude_code_hook_payload lives in builtin_kind.rs, tap.rs calls it) — opened, disjoint from src/graph.rs, src/main.rs, src/install.rs (the other two open entries)."
   },
   {
     "tag": "GUARD-DECLARED-LOCUS-FILTER",
