@@ -7,11 +7,15 @@
 - Posture swept through: formats next (mid-rotation) — foundation
   skip-forwarded (untouched since 2d1c5a6), model swept prior tick.
 - This tick: INBOX — drained 1 live refactor capture
-  (plan-kind-cohesion.md, re-verified unchanged at HEAD) into 1 pending
-  entry (KIND-GLOB-CACHE-FOUNDATION-PLACEMENT, parked — needs an
-  architecture.md ruling on address.rs as the glob cache's home before
-  the move is mechanical); capture file deleted. Inbox itself empty.
-- Queue: 49 pending (+1), 8 pickable OPEN, 37 blockedBy, 4 parked.
+  (plan-kind-cohesion.md) plus a concurrent human ruling on the same
+  capture that landed mid-tick (inbox, 600ffd5): superseded this
+  tick's own first-pass parked filing with the ruled split —
+  KIND-LAYOUT-READER-MODULE-EXTRACT (Layout family to new `layout`,
+  model) and KIND-GLOB-CACHE-MODULE-EXTRACT (glob cache to new `glob`,
+  foundation), serialized on each other and on the open entries they
+  share files with. Capture file and the ruling's inbox note both
+  drained/deleted.
+- Queue: 50 pending (+2), 8 pickable OPEN, 39 blockedBy, 3 parked.
   Refactor captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
 Plan continues: yes — unrouted spec delta (78d43d3) and the posture

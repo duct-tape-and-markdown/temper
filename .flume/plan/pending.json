@@ -1836,47 +1836,97 @@
     "notes": "Found sweeping provider (posture rotation: judges skip-forwarded since fe3ff3f, provider touched by 404b73a/516f8f6). tests/common::surface_unit stays untouched \u2014 test_support.rs is pub(crate) (lib.rs:58), a different compilation unit, not a three-way merge. Serialized behind KIND-ENTRY-SHAPE-DATA-DECLARE, sharing builtin_kind.rs; TAP-PAYLOAD-SCHEMA-SPLIT also touches it, open/queue-front, ships first regardless. scoped at e5d01fe."
   },
   {
-    "tag": "KIND-GLOB-CACHE-FOUNDATION-PLACEMENT",
-    "summary": "kind.rs's compile_glob/GLOB_CACHE/GLOB_COMPILES/glob_compile_count are foundation-shaped leaf glob infra with callers outside model \u2014 human ruling needed before a move to address.rs is mechanical",
+    "tag": "KIND-LAYOUT-READER-MODULE-EXTRACT",
+    "summary": "kind.rs's self-contained layout-document reader (Layout family, 284-565, needs only extract) extracts to a new flat layout module \u2014 human-ruled split, the algebra stays whole",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "Drained from a refactor capture (plan-kind-cohesion.md, observed 78d43d3): compile_glob (kind.rs 1236-1259, doc 1223-1234, pub(crate)), the GLOB_CACHE/GLOB_COMPILES thread_locals (1261-1274), and glob_compile_count (1281-1283, doc 1276-1280, pub) are pure glob-compilation leaf infra \u2014 compile_glob's own doc comment names callers in import's discovery walk, coverage_note's governs leaf test, and graph's paths-match liveness test, alongside kind.rs's own internal use (owns_source, 952; Primitive::matches, 1503-1507) \u2014 foundation-shaped vocabulary sitting in model, the same debt-edge shape architecture.md's Invariants section named for normalize_path (ruled 53df138, now the queued NORMALIZE-PATH-SUBSYSTEM-PLACEMENT). architecture.md does not yet name this second edge, and its Growth rules bind a cross-subsystem placement call to human ratification the same way a new subsystem is \u2014 this waits on that amendment (address.rs as the direction), or an explicit affirmation that kind.rs keeps the glob cache as an accepted, named cost. The capture's other two candidate splits in kind.rs \u2014 the layout-document reader (284-565) and the extraction-primitive algebra (~1291-1497) \u2014 stay out of scope: the capture itself judges them still model-shaped and not mechanical enough to file."
+      "kind": "blockedBy",
+      "tag": "MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST"
     },
     "dependsOnForks": [],
     "files": {
-      "new": [],
+      "new": [
+        {
+          "path": "src/layout.rs",
+          "description": "New flat module, model subsystem (architecture.md's codemap) \u2014 the layout-document reader moved verbatim from kind.rs: Layout (struct, 284-287), LayoutRegion (291-313), LayoutReading (322-337), LayoutMember (343-356), LayoutError (362-389), impl Layout (396-479, the read method), next_heading (484-491), read_collection_member (497-525), parse_edge_entries (532-538), slugify (544-559). Verified: depends only on crate::extract and std path/collection types, no CustomKind reference anywhere in the moved body. SATISFIES_EDGE_FIELD (kind.rs 394) stays behind \u2014 textually inside the moved range but logically CustomKind's own edge-slot vocabulary (used by CustomKind::edge_slots at kind.rs 894/904, and externally by drift.rs/main.rs), never read by Layout's own methods \u2014 layout.rs imports it from crate::kind rather than owning a copy."
+        }
+      ],
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "If the ruling favors the move: relocate compile_glob (1236-1259, doc 1223-1234), the GLOB_CACHE/GLOB_COMPILES thread_locals (1261-1274), and glob_compile_count (1281-1283, doc 1276-1280) verbatim to src/address.rs, and requalify this file's own internal callers \u2014 owns_source's governs-glob match (952) and Primitive::matches (1503-1507) \u2014 to crate::address::compile_glob."
+          "description": "Delete the moved Layout family (284-390, 396-565 \u2014 SATISFIES_EDGE_FIELD at 394 is the one line in that span that stays). Content's Layout variant (141+) now wraps crate::layout::Layout."
         },
         {
-          "path": "src/address.rs",
-          "description": "Target foundation home per architecture.md's codemap (leaf vocabulary, no internal dependencies) \u2014 add compile_glob and glob_compile_count verbatim from kind.rs, alongside this file's own path/field mechanics, if ruled."
+          "path": "src/drift.rs",
+          "description": "Imports Layout/LayoutRegion from crate::kind (line 31) and uses them at 1095, 1701, 1715, 1758-1761 \u2014 requalify every reference to crate::layout, no re-export shim in kind.rs."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "References kind::Layout (1284), kind::LayoutError (1277 doc), kind::Content::Layout (1449, 1797) \u2014 requalify the Layout/LayoutError references to crate::layout."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "existing layout-document read/gate coverage stays green \u2014 the move is location-only, no read-behavior change"
+      },
+      {
+        "path": "tests/layout_edge_slot.rs",
+        "asserts": "edge-field parsing (satisfies among them) stays green \u2014 SATISFIES_EDGE_FIELD's cross-module wiring (layout.rs importing kind.rs's const) resolves identically"
+      }
+    ],
+    "acceptance": "src/layout.rs exists in the model subsystem carrying the Layout family verbatim; kind.rs no longer defines Layout/LayoutRegion/LayoutReading/LayoutMember/LayoutError/next_heading/read_collection_member/parse_edge_entries/slugify. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture, superseding this tick's own first-pass parked filing): layout reader \u2192 new flat layout module, model subsystem; extraction-primitive algebra stays \u2014 it IS the kind algebra. Serialized behind MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST (shared main.rs); also shares drift.rs with open IMPORT-ROLLUP-WRITER-PLACEMENT, which ships first regardless. scoped at 600ffd5."
+  },
+  {
+    "tag": "KIND-GLOB-CACHE-MODULE-EXTRACT",
+    "summary": "kind.rs's crate-wide glob-compilation cache (compile_glob/GLOB_CACHE/pins, 1223-1284) extracts to a new flat foundation module glob \u2014 human-ruled split, three external callers by its own doc",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-LAYOUT-READER-MODULE-EXTRACT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "src/glob.rs",
+          "description": "New flat module, foundation subsystem (architecture.md's codemap: leaf vocabulary, globset-only, no harness knowledge) \u2014 compile_glob (1236-1259, doc 1223-1234), the GLOB_CACHE/GLOB_COMPILES thread_locals (1261-1274), and glob_compile_count (1281-1283, doc 1276-1280), moved verbatim from kind.rs. compile_glob's own doc comment names its callers: import's discovery walk, coverage_note's governs leaf test, graph's paths-match liveness test, plus kind.rs's own internal use (owns_source, 952; Primitive::matches, 1503-1507)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Delete the moved glob-cache block (1223-1284); requalify internal callers (owns_source's governs-glob match, 952; Primitive::matches, 1503-1507) to crate::glob::compile_glob."
         },
         {
           "path": "src/import.rs",
-          "description": "Call site (447, crate::kind::compile_glob) requalifies to crate::address::compile_glob if ruled."
+          "description": "Call site (447, crate::kind::compile_glob) requalifies to crate::glob::compile_glob."
         },
         {
           "path": "src/engine.rs",
-          "description": "Call site (946, crate::kind::compile_glob) and its doc comment naming the surface (933) requalify to crate::address::compile_glob if ruled."
+          "description": "Call site (946, crate::kind::compile_glob) and its doc comment naming the surface (933) requalify to crate::glob::compile_glob."
         },
         {
           "path": "src/graph.rs",
-          "description": "Call site (752) and its doc comment naming the surface (1932) requalify to crate::address::compile_glob if ruled."
+          "description": "Call site (752) and its doc comment naming the surface (1932) requalify to crate::glob::compile_glob."
         },
         {
           "path": "src/coverage_note.rs",
-          "description": "The import (26, use crate::kind::{CustomKind, compile_glob}) and three call sites (355, 363, 380) requalify to crate::address::compile_glob if ruled."
+          "description": "The import (26, use crate::kind::{CustomKind, compile_glob}) and three call sites (355, 363, 380) requalify to crate::glob::compile_glob."
         },
         {
           "path": "tests/check_cost.rs",
-          "description": "Two call sites (147, 153, kind::glob_compile_count) requalify to address::glob_compile_count if ruled \u2014 the count-pin itself is unaffected, location-only."
+          "description": "Two call sites (147, 153, kind::glob_compile_count) requalify to glob::glob_compile_count \u2014 the count-pin itself is unaffected, location-only."
         }
       ],
       "retire": []
@@ -1885,10 +1935,10 @@
     "tests": [
       {
         "path": "tests/check_cost.rs",
-        "asserts": "glob_compile_count's existing hoist-by-count pin stays green under the ruled location \u2014 one compilation per distinct glob, unchanged semantics, only the module path moves"
+        "asserts": "glob_compile_count's existing hoist-by-count pin stays green under the new location \u2014 one compilation per distinct glob, unchanged semantics, only the module path moves"
       }
     ],
-    "acceptance": "architecture.md's Invariants section either names this a ratified debt edge (mirroring 53df138's normalize_path precedent) with address.rs as the direction, unblocking a mechanical move entry, or affirms kind.rs keeping the glob cache as an accepted, named cost \u2014 human ratification either way.",
-    "notes": "Drained from refactor capture plan-kind-cohesion.md (observed 78d43d3, posture sweep of model); capture deleted this tick. Re-verified unchanged at HEAD: git log 78d43d3..HEAD -- src/kind.rs is empty. The capture's other two candidate splits (layout reader, extraction algebra) are noted in the capture but out of scope here, per its own judgment call. scoped at 065c454."
+    "acceptance": "src/glob.rs exists in the foundation subsystem carrying compile_glob/glob_compile_count verbatim; kind.rs no longer defines them, calling crate::glob instead. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture, superseding this tick's own first-pass parked filing): glob cache \u2192 new flat foundation module (glob) \u2014 globset-only, knows no harness. Serialized behind KIND-LAYOUT-READER-MODULE-EXTRACT (shared kind.rs); also shares import.rs/coverage_note.rs with open IMPORT-ROLLUP-WRITER-PLACEMENT/COVERAGE-KNOWN-SURFACES-RELOCATE, both queue-earlier and ship first. scoped at 600ffd5."
   }
 ]
