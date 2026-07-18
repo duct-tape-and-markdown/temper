@@ -1702,7 +1702,7 @@ mod tests {
                 kind: kind.map(str::to_string),
                 required: false,
                 clauses,
-                verified_by: None,
+                verifier: None,
             },
         )])
     }

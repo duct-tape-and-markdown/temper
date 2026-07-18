@@ -598,7 +598,7 @@ pub fn requirement(name: &str, required: bool, kind: Option<&str>) -> Requiremen
         kind: kind.map(str::to_string),
         required,
         clauses: Vec::new(),
-        verified_by: None,
+        verifier: None,
         prose: None,
     }
 }

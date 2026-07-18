@@ -1486,7 +1486,7 @@ mod impact_tests {
             kind: None,
             required,
             clauses: Vec::new(),
-            verified_by: None,
+            verifier: None,
         }
     }
 

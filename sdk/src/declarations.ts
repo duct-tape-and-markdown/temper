@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
-import type { Clause, Predicate, Requirement } from "./contract.js";
+import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
 
@@ -35,6 +35,7 @@ import type {
   SatisfiesRow,
   SettingsRow,
   TemplateRow,
+  Verifier as VerifierRow,
 } from "./generated/index.js";
 
 // The row shapes the authoring API surfaces re-export from here, so `index.ts`'s
@@ -341,9 +342,22 @@ function requirementRows(harness: Harness): RequirementRow[] {
       kind: typeof requirement.kind === "string" ? requirement.kind : requirement.kind?.key,
       required: requirement.required ?? false,
       clauses: (requirement.clauses ?? []).map((clause) => clauseRow(clause)),
-      verified_by: requirement.verifiedBy,
+      verifier: verifierRow(requirement.verifier),
       prose: requirement.prose,
     }));
+}
+
+/**
+ * Lower a typed verifier to its species-tagged wire row — `species` plus the
+ * variant's own payload. The generated row carries a mutable `events` column, so
+ * the telemetry species copies its read-only names into a fresh array (the same
+ * read-only→mutable copy `charset`/`keys`/`values` make above).
+ */
+function verifierRow(verifier: Verifier | undefined): VerifierRow | undefined {
+  if (verifier === undefined) return undefined;
+  return verifier.species === "script"
+    ? { species: "script", path: verifier.path }
+    : { species: "telemetry", events: [...verifier.events] };
 }
 
 /**

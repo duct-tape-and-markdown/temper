@@ -13,12 +13,26 @@ use std::path::Path;
 
 use crate::builtin;
 use crate::check::Diagnostic;
-use crate::compose::Requirement;
+use crate::compose::{Requirement, Verifier};
 use crate::engine::{self, Selection, Selector};
 use crate::extract::Features;
 
 /// The diagnostic `rule` id every roster-admissibility finding reports under.
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
+
+/// The documented Claude Code harness lifecycle events a telemetry verifier may
+/// name — the resolution target the emitted tap records against. An event name
+/// outside this set is inadmissible: a telemetry verifier naming an undocumented
+/// event is a silent no-op, the same failure shape as a dangling script path.
+///
+/// External fact: code.claude.com/docs/en/hooks (retrieved 2026-07-17); build
+/// re-verifies against the live docs at encode.
+const DOCUMENTED_HARNESS_EVENTS: &[&str] = &[
+    "InstructionsLoaded",
+    "Skill",
+    "UserPromptExpansion",
+    "PostToolUse",
+];
 
 /// Whether an artifact opts into the requirement named `requirement` — its
 /// `satisfies` list carries that name. The decidable join at the heart of the opt-in
@@ -91,7 +105,8 @@ pub fn selections<'a>(
 ///   for any satisfier — an unfillable selector, regardless of `required` (fillability
 ///   itself is kind-blind now: any opt-in artifact, of any modeled kind, satisfies
 ///   coverage; naming an unmodeled kind only ever breaks the *narrowing* clause).
-/// - **(b)** any `verified_by` path exists relative to `base_dir`.
+/// - **(b)** a `verifier` resolves: a script's path exists relative to `base_dir`,
+///   and a telemetry verifier's every event names a documented harness event.
 /// - **(c)** every clause in [`clauses`](Requirement::clauses) is itself well-formed —
 ///   reusing [`crate::engine::inadmissibilities`], the same rules a kind's own floor
 ///   clauses are checked against (an inverted `count`/`degree` bound, an empty
@@ -99,7 +114,7 @@ pub fn selections<'a>(
 ///   two definitions of "vacuous".
 ///
 /// `by_kind` supplies only the modeled kinds (its keys), never satisfiers. `base_dir`
-/// is the harness root a `verified_by` path resolves against.
+/// is the harness root a script verifier's path resolves against.
 #[must_use]
 pub fn admissibility(
     requirements: &BTreeMap<String, Requirement>,
@@ -124,17 +139,33 @@ pub fn admissibility(
  ));
         }
 
-        // (b) A `verified_by` path must exist — a dangling verifier is a silent no-op.
-        if let Some(verifier) = &requirement.verified_by
-            && !base_dir.join(verifier).exists()
-        {
-            diagnostics.push(Diagnostic::error(
- REQUIREMENT_ADMISSIBILITY_RULE,
- name,
- format!(
-                    "requirement `{name}` names verifier `{verifier}`, which does not resolve to a path under the project — a dangling verifier is a silent no-op"
- ),
- ));
+        // (b) A verifier must resolve, or it is a silent no-op — dispatched per
+        // species: a script's path must exist under the base dir; a telemetry
+        // verifier's every event name must be a documented harness event.
+        match &requirement.verifier {
+            Some(Verifier::Script { path }) if !base_dir.join(path).exists() => {
+                diagnostics.push(Diagnostic::error(
+                    REQUIREMENT_ADMISSIBILITY_RULE,
+                    name,
+                    format!(
+                        "requirement `{name}` names verifier `{path}`, which does not resolve to a path under the project — a dangling verifier is a silent no-op"
+                    ),
+                ));
+            }
+            Some(Verifier::Telemetry { events }) => {
+                for event in events {
+                    if !DOCUMENTED_HARNESS_EVENTS.contains(&event.as_str()) {
+                        diagnostics.push(Diagnostic::error(
+                            REQUIREMENT_ADMISSIBILITY_RULE,
+                            name,
+                            format!(
+                                "requirement `{name}` names telemetry verifier event `{event}`, which is not a documented harness event — a telemetry verifier naming an undocumented event is a silent no-op"
+                            ),
+                        ));
+                    }
+                }
+            }
+            Some(Verifier::Script { .. }) | None => {}
         }
 
         // (c) Every clause's own predicate must be well-formed.
@@ -221,7 +252,7 @@ mod tests {
             kind: None,
             required: false,
             clauses: Vec::new(),
-            verified_by: None,
+            verifier: None,
         }
     }
 
@@ -472,8 +503,8 @@ mod tests {
     /// `model` field, drawn from the `model` feature of `source_kind` artifacts
     /// satisfying the named `approved-model` requirement (R₂) — the set-scope
     /// membership predicate, with a corpus-derived allowed set. `target` names a
-    /// *declared* requirement now (`10-contracts.md`), so R₂ itself must be in the
-    /// roster for its kind/satisfier set to resolve.
+    /// *declared* requirement now, so R₂ itself must be in the roster for its
+    /// kind/satisfier set to resolve.
     fn membership_roster(source_kind: &str) -> BTreeMap<String, Requirement> {
         let agents = Requirement {
             kind: Some("skill".to_string()),
@@ -639,13 +670,15 @@ mod tests {
     }
 
     #[test]
-    fn a_dangling_verified_by_is_inadmissible() {
-        // The `verified_by` path does not exist under the base dir — a dangling
+    fn a_dangling_script_verifier_is_inadmissible() {
+        // The script verifier's path does not exist under the base dir — a dangling
         // verifier is a silent no-op, so it fails admissibility.
         let req = Requirement {
             kind: Some("skill".to_string()),
             required: true,
-            verified_by: Some("tests/nope.rs".to_string()),
+            verifier: Some(Verifier::Script {
+                path: "tests/nope.rs".to_string(),
+            }),
             ..requirement("planner")
         };
         let diags = run_admissibility(req, Path::new("/no-such-temper-base-dir"));
@@ -653,6 +686,41 @@ mod tests {
         assert_eq!(diags[0].rule, "requirement.admissibility");
         assert!(diags[0].message.contains("verifier"));
         assert!(diags[0].message.contains("tests/nope.rs"));
+    }
+
+    #[test]
+    fn a_telemetry_verifier_over_documented_events_is_admissible() {
+        // Every named event is a documented harness event — a telemetry verifier
+        // resolves against the name set, never a base-dir path, so nothing rejects it.
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            required: true,
+            verifier: Some(Verifier::Telemetry {
+                events: vec!["Skill".to_string(), "PostToolUse".to_string()],
+            }),
+            ..requirement("planner")
+        };
+        assert!(run_admissibility(req, Path::new("/no-such-temper-base-dir")).is_empty());
+    }
+
+    #[test]
+    fn a_telemetry_verifier_naming_an_undocumented_event_is_inadmissible() {
+        // An event name outside the documented set is a silent no-op — the tap never
+        // records it — so it fails admissibility exactly like a dangling script path.
+        let req = Requirement {
+            kind: Some("skill".to_string()),
+            required: true,
+            verifier: Some(Verifier::Telemetry {
+                events: vec!["NotAnEvent".to_string()],
+            }),
+            ..requirement("planner")
+        };
+        let diags = run_admissibility(req, Path::new(""));
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].rule, "requirement.admissibility");
+        assert!(diags[0].message.contains("verifier"));
+        assert!(diags[0].message.contains("NotAnEvent"));
+        assert!(diags[0].message.contains("silent no-op"));
     }
 
     #[test]

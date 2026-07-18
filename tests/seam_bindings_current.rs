@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use ts_rs::{Config, TS};
 
+use temper::compose::Verifier;
 use temper::contract::Shape;
 use temper::drift::{
     AssemblyFactRow, BoundRow, CharsetRow, ClauseRow, CollectionAddressRow, CollectionEntryRow,
@@ -71,6 +72,8 @@ fn fresh_bindings() -> BTreeMap<String, String> {
         // The clause vocabulary's own closed argument sets (`src/contract.rs`) — declared
         // once in Rust and generated across, so a member cannot be added on one side.
         Shape,
+        // The requirement's typed verifier species union (`src/compose.rs`).
+        Verifier,
         // Extraction feature family (`src/extract.rs`).
         ValueType,
         FeatureValue,

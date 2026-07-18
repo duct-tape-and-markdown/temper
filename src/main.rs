@@ -834,7 +834,7 @@ fn harness_diagnostics(
 /// by-kind contracts, with the [`check::Announcement`] of the inputs that judged it —
 /// the shared gate behind both `check` and the session-start
 /// reporter. `harness_root` is the
-/// directory a member's source path and a `verified_by` path resolve against (the
+/// directory a member's source path and a script verifier's path resolve against (the
 /// CWD for a two-step `check`, the harness path for the one-shot gate). `layers` names
 /// the policy locks this invocation joins, top of the layer stack.
 fn gate(
@@ -2455,7 +2455,7 @@ fn requirement_from_row(
             .iter()
             .map(clause_from_row)
             .collect::<Result<Vec<_>, _>>()?,
-        verified_by: row.verified_by.clone(),
+        verifier: row.verifier.clone(),
     })
 }
 

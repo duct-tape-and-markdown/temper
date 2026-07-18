@@ -19,7 +19,9 @@ import {
   mustDefine,
   optional,
   range,
+  script,
   sectionContains,
+  telemetry,
   text,
   unique,
 } from "../src/index.js";
@@ -177,4 +179,46 @@ test("a requirement keyed to a required-member kind type-checks and emits its id
 
 test("a requirement keyed to a bare kind-name string emits it verbatim", () => {
   assert.equal(requirementRow("skill").kind, "skill");
+});
+
+/**
+ * Compile a requirement carrying `verifier` and return its lock row's `verifier`
+ * column — the species-tagged wire value the engine reads back.
+ */
+function verifierRowOf(verifier: Requirement["verifier"]): RequirementRow["verifier"] {
+  const h = harness({
+    members: [skill({ name: "gate", description: "Use when gating the run.", prose: text`# Gate` })],
+    require: { "front-door": { prose: "the harness ships a front-door skill", verifier } },
+  });
+  const rows = compileDeclarations(h).requirements.filter((row) => row.name === "front-door");
+  assert.equal(rows.length, 1, "exactly one front-door requirement row");
+  return rows[0]!.verifier;
+}
+
+test("the script constructor composes a path-tagged verifier and lowers to its species row", () => {
+  assert.deepEqual(script("tests/dev-standards.test.ts"), {
+    species: "script",
+    path: "tests/dev-standards.test.ts",
+  });
+  // The wire key is `species` on both halves of the seam — the Rust reader
+  // (`src/drift.rs` `verifier_from_table`) matches it byte-for-byte.
+  assert.deepEqual(verifierRowOf(script("tests/dev-standards.test.ts")), {
+    species: "script",
+    path: "tests/dev-standards.test.ts",
+  });
+});
+
+test("the telemetry constructor composes an event-tagged verifier and lowers its names", () => {
+  assert.deepEqual(telemetry(["Skill", "PostToolUse"]), {
+    species: "telemetry",
+    events: ["Skill", "PostToolUse"],
+  });
+  assert.deepEqual(verifierRowOf(telemetry(["Skill", "PostToolUse"])), {
+    species: "telemetry",
+    events: ["Skill", "PostToolUse"],
+  });
+});
+
+test("a requirement with no verifier lowers to an absent verifier column", () => {
+  assert.equal(verifierRowOf(undefined), undefined);
 });

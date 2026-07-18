@@ -30,6 +30,7 @@ import {
   maxLen,
   renderText,
   required,
+  script,
   text,
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
@@ -187,7 +188,7 @@ See ${{ address: "dev-standards", display: "dev standards" }}.`,
         prose: "the harness maintains development standards",
         kind: rule,
  required: true,
-        verifiedBy: "tests/dev-standards.test.ts",
+        verifier: script("tests/dev-standards.test.ts"),
  },
  },
  });
@@ -262,7 +263,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       kind: "rule",
  required: true,
       clauses: [],
-      verified_by: "tests/dev-standards.test.ts",
+      verifier: { species: "script", path: "tests/dev-standards.test.ts" },
       prose: "the harness maintains development standards",
  },
   ]);

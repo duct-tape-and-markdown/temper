@@ -55,6 +55,28 @@ pub struct Edge {
     pub to: Vec<String>,
 }
 
+/// A requirement's **typed verifier** — the declared delegate that judges the
+/// behavioral remainder, resolved at admissibility and never run. Two species this
+/// slice; a probe stays a documented pattern until a consumer types its transcript
+/// surface. One shared shape: [`crate::drift::RequirementRow`] carries it on the
+/// wire and [`crate::roster`] resolves over it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, ts_rs::TS)]
+#[serde(tag = "species", rename_all = "snake_case")]
+pub enum Verifier {
+    /// A path-resolved reference to the test or CI job that executes the judgment —
+    /// resolved by whether its `path` exists under the harness root.
+    Script {
+        /// The test/CI path, relative to the harness root.
+        path: String,
+    },
+    /// Named documented harness events the emitted tap records to a local-locus log —
+    /// resolved by whether each name is a documented harness event.
+    Telemetry {
+        /// The harness lifecycle event names this verifier reads the tap for.
+        events: Vec<String>,
+    },
+}
+
 /// A named **requirement** — the harness's named obligation, declared in the
 /// assembly's `[requirement.<name>]`. **Every facet is optional
 /// except the name.** Fill is by the artifact's opt-in `satisfies` alone — there is
@@ -95,9 +117,10 @@ pub struct Requirement {
     /// [`crate::roster`]; `degree` ranges over the *edge* graph, so it is checked in
     /// [`crate::graph`] instead.
     pub clauses: Vec<contract::Clause>,
-    /// An optional external verifier for the behavioral remainder (`verified_by`).
-    /// Stored verbatim; whether it *resolves* is an admissibility check.
-    pub verified_by: Option<String>,
+    /// The typed verifier for the behavioral remainder, when declared. Stored as its
+    /// declared species; whether it *resolves* — a script's path, a telemetry event's
+    /// documented name — is an admissibility check ([`crate::roster`]).
+    pub verifier: Option<Verifier>,
 }
 
 /// A kind's whole default [`Contract`], built directly from the clause rows naming it

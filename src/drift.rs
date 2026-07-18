@@ -3043,9 +3043,10 @@ pub struct RequirementRow {
     /// carrying its own severity. Empty ⇒ no set-scope demand.
     #[serde(default)]
     pub clauses: Vec<ClauseRow>,
-    /// The external verifier for the behavioral remainder, when declared.
+    /// The typed verifier for the behavioral remainder, when declared — a
+    /// species-tagged [`Verifier`], resolved at admissibility, never run.
     #[serde(default)]
-    pub verified_by: Option<String>,
+    pub verifier: Option<crate::compose::Verifier>,
     /// The authored intent the requirement exists to carry, when declared —
     /// carried verbatim, never interpreted.
     #[serde(default)]
@@ -3914,8 +3915,8 @@ impl RequirementRow {
             }
             table.insert("clauses", Item::ArrayOfTables(array));
         }
-        if let Some(verified_by) = &self.verified_by {
-            table.insert("verified_by", value(verified_by.clone()));
+        if let Some(verifier) = &self.verifier {
+            table.insert("verifier", value(verifier_table(verifier)));
         }
         if let Some(prose) = &self.prose {
             table.insert("prose", value(prose.clone()));
@@ -3940,9 +3941,48 @@ impl RequirementRow {
                         .collect::<Result<Vec<_>, _>>()?
                 }
             },
-            verified_by: opt_str(table, "verified_by")?,
+            verifier: match opt_table(table, "verifier")? {
+                Some(verifier) => Some(verifier_from_table(verifier)?),
+                None => None,
+            },
             prose: opt_str(table, "prose")?,
         })
+    }
+}
+
+/// Serialize a requirement's typed verifier to its species sub-table — `species`
+/// tags the variant, then the variant's own payload column (`path` / `events`). The
+/// same spelling the serde reader lifts the SDK-emitted JSON through, so the lock and
+/// the seam agree byte-for-byte.
+fn verifier_table(verifier: &crate::compose::Verifier) -> InlineTable {
+    use crate::compose::Verifier;
+    let mut table = InlineTable::new();
+    match verifier {
+        Verifier::Script { path } => {
+            table.insert("species", Value::from("script"));
+            table.insert("path", Value::from(path.clone()));
+        }
+        Verifier::Telemetry { events } => {
+            table.insert("species", Value::from("telemetry"));
+            table.insert("events", Value::Array(string_array(events)));
+        }
+    }
+    table
+}
+
+/// Read a verifier back off its species sub-table — an absent or unknown `species`,
+/// or a variant missing its payload column, is a [`RowError`] (the lock is
+/// tool-written, so a shape the closed species set cannot admit is a corrupt lock).
+fn verifier_from_table(table: &dyn TableLike) -> Result<crate::compose::Verifier, RowError> {
+    use crate::compose::Verifier;
+    match req_str(table, "species")?.as_str() {
+        "script" => Ok(Verifier::Script {
+            path: req_str(table, "path")?,
+        }),
+        "telemetry" => Ok(Verifier::Telemetry {
+            events: opt_str_array(table, "events")?.unwrap_or_default(),
+        }),
+        _ => Err(RowError::wrong("species", "`script` or `telemetry`")),
     }
 }
 

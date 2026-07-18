@@ -1,7 +1,7 @@
 /**
  * Contracts — clauses and requirements as typed values.
  * A clause is `predicate · severity · guidance · cite`; a requirement is
- * `prose · kind · required · clauses? · verifiedBy?`. Both erase to compiled data
+ * `prose · kind · required · clauses? · verifier?`. Both erase to compiled data
  * at the seam: the author composes typed objects, the engine
  * consumes their rows. The predicate vocabulary is the closed algebra — a clause
  * outside it is a squiggle, not a runtime rejection.
@@ -281,6 +281,32 @@ export function clause(
 }
 
 /**
+ * A requirement's **typed verifier** — the declared delegate that judges the
+ * behavioral remainder, a species-tagged union the gate resolves at admissibility
+ * and never runs. Two species this slice: a `script` (path-resolved) and a
+ * `telemetry` declaration (named documented harness events). A probe stays a
+ * documented pattern until a consumer types it — no `probe()` constructor is minted.
+ */
+export type Verifier =
+  | { readonly species: "script"; readonly path: string }
+  | { readonly species: "telemetry"; readonly events: readonly string[] };
+
+/**
+ * A script verifier — a path-resolved reference to the test or CI job that executes
+ * the behavioral judgment. The gate checks the `path` resolves, never runs it.
+ */
+export const script = (path: string): Verifier => ({ species: "script", path });
+
+/**
+ * A telemetry verifier — the named documented harness events the emitted tap records
+ * to a local-locus log, judged by reading the field record. Each name must be a
+ * documented harness lifecycle event (`InstructionsLoaded`, `Skill`,
+ * `UserPromptExpansion`, `PostToolUse`; code.claude.com/docs/en/hooks, retrieved
+ * 2026-07-17) — the gate checks each resolves, never records into it.
+ */
+export const telemetry = (events: readonly string[]): Verifier => ({ species: "telemetry", events });
+
+/**
  * A requirement — a named obligation on the harness. `prose` is the authored
  * intent, carried never interpreted; `kind` constrains what may fill it —
  * either a bare kind-name string or the kind's `KindDefinition`, since the slot
@@ -290,14 +316,14 @@ export function clause(
  * posture declaration; `clauses` bind to the requirement's **opt-in selection** —
  * ordinary [`Clause`] values, the same four-channel clause as everywhere, judged
  * over that selection by the same algebra a kind's own clauses are judged over its
- * population; `verifiedBy` wires the behavioral remainder.
+ * population; `verifier` wires the behavioral remainder as a typed species union.
  */
 export interface Requirement {
   readonly prose: string;
   readonly kind?: string | KindDefinition<any>;
   readonly required?: boolean;
   readonly clauses?: readonly Clause[];
-  readonly verifiedBy?: string;
+  readonly verifier?: Verifier;
 }
 
 /** An identity helper — types a requirement literal at the keystroke. */

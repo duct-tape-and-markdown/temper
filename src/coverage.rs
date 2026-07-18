@@ -5,7 +5,7 @@
 //! intent (`prose`) the harness must fill, and an artifact fills it by *opting in*
 //! from its own representation with a resolving `satisfies` link. `temper` **never
 //! interprets `prose`** — that is the author's attestation, optionally backed by a
-//! wired `verified_by`. What `check` gates is the **decidable shadow**: referential
+//! wired `verifier`. What `check` gates is the **decidable shadow**: referential
 //! coverage over the declared requirements and the authored `satisfies` edges.
 //!
 //! Two decidable, true-positive diagnostics — each ranges over skill *and* rule
@@ -171,7 +171,7 @@ mod tests {
             kind: None,
             required,
             clauses: Vec::new(),
-            verified_by: None,
+            verifier: None,
         }
     }
 

@@ -265,7 +265,7 @@ fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
         kind: Some("skill".to_string()),
         required: false,
         clauses: vec![clause.clone()],
-        verified_by: None,
+        verifier: None,
     };
     assert_eq!(requirement.clauses, vec![clause]);
     assert_eq!(

@@ -51,7 +51,7 @@ fn req(name: &str, required: bool) -> Requirement {
         kind: None,
         required,
         clauses: Vec::new(),
-        verified_by: None,
+        verifier: None,
     }
 }
 

@@ -125,7 +125,7 @@ fn requirement(name: &str) -> Requirement {
         kind: None,
         required: true,
         clauses: Vec::new(),
-        verified_by: None,
+        verifier: None,
     }
 }
 

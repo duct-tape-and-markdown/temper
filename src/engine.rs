@@ -26,7 +26,7 @@
 //! (`crate::graph::degree` reads the same selections, since a degree bound needs the
 //! reference graph the members alone do not carry).
 //!
-//! ## The honest bound (`verified_by` philosophy)
+//! ## The honest bound (`verifier` philosophy)
 //!
 //! A predicate no judge decides never degrades to a working no-op: [`admissibility`]
 //! **fences it**, so a hand-authored clause fails loudly instead of quietly deciding
@@ -94,7 +94,7 @@ pub fn validate(contract: &Contract, artifacts: &[Features]) -> Vec<Diagnostic> 
 /// today over the current algebra is **list non-emptiness**: an `enum` or `deny`
 /// with no values, or a `forbidden_keys` / `require_sections` with no entries, is
 /// a vacuous clause that can never decide anything — inadmissible. (The
-/// `pattern`-compiles and `verified_by`-resolves clauses the spec also names extend
+/// `pattern`-compiles and `verifier`-resolves clauses the spec also names extend
 /// this same pass when those primitives land.)
 ///
 /// Every finding is [`check::Severity::Error`]: an inadmissible contract must

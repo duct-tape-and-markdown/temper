@@ -28,6 +28,7 @@ use std::process::Command;
 
 mod common;
 
+use temper::compose::Verifier;
 use temper::drift::{
     ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow, SatisfiesRow,
 };
@@ -386,9 +387,9 @@ fn a_requirement_naming_an_unknown_kind_is_inadmissible() {
 }
 
 #[test]
-fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
+fn a_requirement_with_a_dangling_script_verifier_is_inadmissible() {
     let root = common::tmpdir("admit-dangling-verifier");
-    // Coverage is clean (a satisfier opts in); the sole fault is `verified_by`
+    // Coverage is clean (a satisfier opts in); the sole fault is a script verifier
     // naming a path that does not exist under the root.
     common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
     common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
@@ -396,7 +397,9 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
         &root,
         vec![RequirementRow {
             required: true,
-            verified_by: Some("tests/does-not-exist.rs".to_string()),
+            verifier: Some(Verifier::Script {
+                path: "tests/does-not-exist.rs".to_string(),
+            }),
             ..common::requirement("planner", false, Some("skill"))
         }],
     );
@@ -404,7 +407,7 @@ fn a_requirement_with_a_dangling_verified_by_is_inadmissible() {
     let run = common::check_in(&root, &[], None);
     assert!(
         !run.ok,
-        "a requirement with a dangling `verified_by` must fail the run ⇒ non-zero"
+        "a requirement with a dangling script verifier must fail the run ⇒ non-zero"
     );
     assert!(
         run.output.contains("planner")
@@ -421,14 +424,17 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
     common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
     common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
 
-    // A `verified_by` path that exists under the root — nothing else for
-    // admissibility to reject.
+    // A script verifier path that exists under the root — nothing else for
+    // admissibility to reject. Both species round-trip through the lock row on the
+    // way in, so a clean parse of either is proof the wire shape holds.
     fs::write(root.join("plan.rs"), "// a present verifier\n").unwrap();
     common::write_requirements(
         &root,
         vec![RequirementRow {
             required: true,
-            verified_by: Some("plan.rs".to_string()),
+            verifier: Some(Verifier::Script {
+                path: "plan.rs".to_string(),
+            }),
             ..common::requirement("planner", false, Some("skill"))
         }],
     );
@@ -437,6 +443,65 @@ fn a_roster_whose_verifiers_all_resolve_passes() {
     assert!(
         run.ok,
         "a fully-resolving roster passes admissibility ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_telemetry_verifier_naming_a_documented_event_is_admissible() {
+    let root = common::tmpdir("admit-telemetry-ok");
+    // Coverage is clean; the telemetry verifier names documented harness events,
+    // which resolve against the name set (no base-dir path), so the run is clean.
+    // The verifier round-trips through the lock row on the way in.
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
+    common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
+    common::write_requirements(
+        &root,
+        vec![RequirementRow {
+            required: true,
+            verifier: Some(Verifier::Telemetry {
+                events: vec!["Skill".to_string(), "PostToolUse".to_string()],
+            }),
+            ..common::requirement("planner", false, Some("skill"))
+        }],
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a telemetry verifier over documented events passes admissibility ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_telemetry_verifier_naming_an_undocumented_event_is_inadmissible() {
+    let root = common::tmpdir("admit-telemetry-bad");
+    // Coverage is clean; the sole fault is a telemetry verifier naming an event no
+    // documented harness event carries — a silent no-op the tap never records.
+    common::write_skill(&root, "plan-tasks", &common::clean_skill("plan-tasks"));
+    common::author_satisfies(&root, "skills", "plan-tasks", &["planner"]);
+    common::write_requirements(
+        &root,
+        vec![RequirementRow {
+            required: true,
+            verifier: Some(Verifier::Telemetry {
+                events: vec!["NotAnEvent".to_string()],
+            }),
+            ..common::requirement("planner", false, Some("skill"))
+        }],
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a telemetry verifier naming an undocumented event must fail the run ⇒ non-zero"
+    );
+    assert!(
+        run.output.contains("planner")
+            && run.output.contains("NotAnEvent")
+            && run.output.contains("no-op"),
+        "the finding names the requirement, the undocumented event, and the silent no-op, got:\n{}",
         run.output
     );
 }
