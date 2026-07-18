@@ -34,6 +34,11 @@ hard.
   07-18, full text in git history; likely stale GIT_DIR/GIT_WORK_TREE or
   tool-cwd mismatch). Prompt-side stopgap shipped in build.md; the
   runtime fix is upstream.
+- flume runtime gap (John, `@dtmd/flume`): no cross-process loop lock —
+  two `flume loop` supervisors ran ~1h against one state root (07-18,
+  operator error; history stayed linear on timing luck). A pidfile/lock
+  refusing the second loop is the fix; session-side, launches now
+  pgrep-check first.
 
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
