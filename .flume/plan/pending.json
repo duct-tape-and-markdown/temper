@@ -199,72 +199,6 @@
     "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE (the definitions()/KindError half of a split made this tick — see its notes) and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety; no functional dependency. scoped at 08b5a27."
   },
   {
-    "tag": "JSON-MANIFEST-READ-DECODE-CONSOLIDATE",
-    "summary": "json_manifest.rs's Manifest::read and DocumentMember::read each duplicate the identical fs::read + UTF-8-decode-to-JsonManifestError boilerplate — one job, written twice, in the same file",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`DocumentMember::read` (145-155) and `Manifest::read` (331-344) each independently run `let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io { path: source_file.to_path_buf(), source })?;` then `let raw = String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 { path: source_file.to_path_buf(), source })?;` before calling their own `parse` — byte-for-byte identical (same error enum, same file), grep-verified the only two sites in the tree building a `String` this way against `JsonManifestError`. Factor a private `fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError>` holding the shared body; both `read` fns shrink to `let raw = read_to_string(source_file)?; Self::parse(...)`. No behavior change: identical error mapping, identical bytes-to-string path, `parse`'s own signature and body untouched."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/manifest_adapter.rs",
-        "asserts": "Manifest::read's existing malformed/non-object/idempotent-read coverage stays green — the consolidation is signature-only, no change to error variants or messages"
-      },
-      {
-        "path": "tests/json_document_format.rs",
-        "asserts": "DocumentMember::read's existing malformed/missing-identity coverage stays green — same reasoning, the shared helper produces the identical Io/NotUtf8 errors"
-      }
-    ],
-    "acceptance": "Manifest::read and DocumentMember::read both call one shared read_to_string helper in src/json_manifest.rs instead of each carrying its own fs::read+UTF-8-decode boilerplate. No behavior change (engineering.md, 'One job, one home'). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Its blocker DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH shipped (87221b2/d40a9f8) — re-verified on disk: DocumentMember::read (145-155) and Manifest::read (331-344) unmoved by that ship. Opened. scoped at d40a9f8."
-  },
-  {
-    "tag": "TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE",
-    "summary": "toml_document.rs's pub fn parse has zero caller outside its own read() in the same file — no test or production site calls it directly; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/toml_document.rs",
-          "description": "`pub fn parse` (53-105, widened +6 lines by the since-shipped DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH's exhaustive match, was 53-99) is called only by this same file's `read` (33-43, `parse(kind, source_file, &raw)` at line 42) — grep-verified zero hits for `toml_document::parse(` anywhere in src/, tests/, sdk/. Its doc comment (45-52) justifies the split by analogy to `crate::json_manifest::DocumentMember::parse` ('the split ... takes, for the same reason: pending content is read through the one soundness boundary the disk read rides') but names no actual consumer of its own — unlike `DocumentMember::parse`, which a real test calls directly (`tests/json_document_format.rs:193`) to exercise that soundness-boundary path, `toml_document::parse` has never gained the guard-flow (or any other) caller its doc comment anticipates; `install.rs`'s `manifest_write_findings` guard validates only collection-address manifests today, never a toml-document's pending content. Drop `pub` from `parse`, leaving it a module-private fn callable from `read` unchanged, and reword the doc comment's forward-looking justification to state today's fact (an internal split, not a soundness boundary a second caller yet crosses) or drop the comment if nothing survives the edit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/toml_document.rs",
-        "asserts": "read's existing coverage (top-level keys read as fields, malformed TOML, missing identity value, no-declared-identity refusal) stays green — the narrowing is visibility-only"
-      }
-    ],
-    "acceptance": "toml_document::parse is a private fn in src/toml_document.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Its blocker DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH shipped (87221b2/d40a9f8), widening `parse`'s match by +6 lines (53-105, was 53-99) — re-verified on disk, no other change to this fn. Opened. scoped at d40a9f8."
-  },
-  {
     "tag": "FORMAT-READ-UTF8-DECODE-CONSOLIDATE",
     "summary": "Four copies of one fs::read+UTF-8-decode job span formats — json_manifest.rs's two (filed), frontmatter.rs's, toml_document.rs's — consolidate to one primitive",
     "per": {
@@ -315,45 +249,6 @@
     ],
     "acceptance": "One shared read+UTF-8-decode primitive in src/hash.rs serves frontmatter.rs, toml_document.rs, and json_manifest.rs's two read paths; no format keeps its own forked fs::read+String::from_utf8 boilerplate. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Drained from .flume/refactor/plan-format-read-decode-duplication.md (observed 9e197d6, unmoved at HEAD). Not folded into JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own reasoning: that entry's file-local shape doesn't fit a cross-format primitive. Serialized behind it per the capture's own sequencing ask. Also shares toml_document.rs with the already-open TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE — queue-front, ships first regardless. scoped at 7a5f86c."
-  },
-  {
-    "tag": "COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE",
-    "summary": "dial.rs's private severity_from_label re-implements compose.rs's pub severity_from_label byte-for-byte — the exact second copy its own doc comment warned against; consolidate to one call",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/dial.rs",
-          "description": "`severity_from_label` (145-151, `fn severity_from_label(label: &str) -> Option<Severity> { match label { \"required\" => Some(Severity::Required), \"advisory\" => Some(Severity::Advisory), _ => None } }`, its own doc comment 143-144) is byte-for-byte identical to `src/compose.rs`'s `pub fn severity_from_label` (266-272, same match, returns `Option<contract::Severity>` — the same type via re-export path) — grep-verified the only two definitions of a fn named `severity_from_label` anywhere in src/, tests/, sdk/. This file's copy is called only at its own line 67 (`Dial::from_features`'s entries loop). Delete this private fn and its doc comment; call `crate::compose::severity_from_label(severity)` at line 67 instead (add a `use crate::compose;` or qualify inline — `Severity` is already imported here from `crate::contract`, matching `compose::severity_from_label`'s return type exactly). No behavior change: identical match arms."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "`severity_from_label` (266-272) carries a doc comment (261-265) claiming its `pub` (not `pub(crate)`) visibility exists 'so the `main` binary's lift of a requirement's own clause rows reuses the identical parse, never a second copy' — but `main.rs` never calls `severity_from_label` directly (only `compose::clause_from_row` at main.rs:2483, which calls `severity_from_label` internally at compose.rs:240, same file); grep-verified zero calls to `severity_from_label` itself outside this file's own line 240. The real second copy the doc warned against was written in `dial.rs` instead (see that file's edit) — the doc's predicted failure mode landed exactly, just in the wrong file, and under a different fn's `pub`. Once `dial.rs` calls this fn — a same-crate, cross-module consumer, not a cross-crate one — narrow `pub` to `pub(crate)` (full `pub` was never earned for this specific fn) and reword the doc comment to state the true reason: dial.rs's read-time severity parse reuses the identical vocabulary parse, never a second copy. `clause_from_row`'s own doc comment (228-231, 'same reasoning as [`severity_from_label`]') cross-references the now-corrected rationale — reword its cross-reference too, since `clause_from_row` itself keeps full `pub` (main.rs:2483 does call it directly) while `severity_from_label` no longer shares that reasoning."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/dial.rs",
-        "asserts": "an_entry_outside_the_severity_vocabulary_never_lands and an_entry_missing_either_half_never_lands stay green — both exercise Dial::from_features end to end through the now-shared severity_from_label, unaffected by which module defines it"
-      },
-      {
-        "path": "src/compose.rs",
-        "asserts": "existing clause_from_row / default_contract_from_rows inline tests exercising severity parsing (via clause_row fixtures) stay green — the narrowing is visibility-only, the parse itself is unchanged"
-      }
-    ],
-    "acceptance": "dial.rs carries no private severity_from_label; it calls compose::severity_from_label, narrowed there from pub to pub(crate) with its doc comment (and clause_from_row's cross-reference) restated to the true earned consumer. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick — compose.rs is model per architecture.md's codemap, dial.rs is judges, but the duplication spans both and the fix must land in one entry). Its blocker DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE shipped (059c3fd/d40a9f8), shifting severity_from_label by +1 line (145-151, doc 143-144) — re-verified on disk. compose.rs untouched by any other queued entry. Opened. scoped at d40a9f8."
   },
   {
     "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
