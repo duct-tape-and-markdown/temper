@@ -1,31 +1,27 @@
 # Plan state
 
 - Spec derived through: 7739b91
-- Audited through: 8d75682
-- Residue swept through: 8d75682
-- This tick: RECONCILED ac93a2e..HEAD (post-ship). Window shipped one build
-  entry — KNOWN-MARKETPLACE-EDGE (247c346), already dropped from pending by
-  build. AUDIT (verified live on disk): the marketplace half of an
-  enablement's `<plugin>@<marketplace>` key now resolves as a declared edge to
-  the known-marketplace member (decision 0039) — `MARKETPLACE_FIELD` +
-  `identity_edge` fold the half off the composite key (kind.rs:229/274),
-  `installed-plugin` carries the `known-marketplace` relationship
-  (builtin_kind.rs:306-313), the edge rides the built-in lock as an assembly
-  fact (builtin_lock.toml:1069-1073), and json_manifest folds it onto member
-  features (json_manifest.rs:95-101). `installed_plugin_kind` (6) + `gauntlet`
-  green. No blockedBy entries to unblock; no open fork resolved. Both parks
-  re-tested at HEAD and hold: MAX_IMPORT_HOPS still 5 + 2026-07-02 cite
-  (graph.rs:55-59, const region untouched in window); no v0.1 tag (only era
-  tags), crate 0.1.0, `.github/` empty across ac93a2e..HEAD.
-  SWEEP: no residue. The edge widening reuses the generic field-edge path (no
-  graph resolver change); `identity_edge` holds an exhaustive match over
-  `CollectionKeyPath` (EnabledPlugins folds, the other three return None) — a
-  new key path answers it by construction, no `_` arm. `identity_edge` sits
-  beside `key_field` as a second fold (marketplace vs event), not a duplicate
-  of one job. Both cursors -> HEAD (8d75682).
-- Queue: 2 entries — 0 pickable OPEN; 2 parked (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER), each on human action.
+- Audited through: 11a2815
+- Residue swept through: 11a2815
+- This tick: INBOX — routed the one field follow-up (centercode, walk-share
+  residual, observed at ecd27b1). Diffed forward: ecd27b1..HEAD is inbox.md
+  alone (11a2815). Verified the named surfaces live at HEAD — `scan_locus`
+  (import.rs:379) runs `collect_glob` per kind over the shared discoverable
+  set; the `Discovery` cache already bounds the walk to <=2 flavors
+  (import.rs:44-91), so the walk is shared and the 22s owner sits elsewhere,
+  unmeasured. Routed to a NEW open fork `(check-residual-owner)`, not a
+  pending entry: the report's own bar is "measure before cutting, do not
+  guess", so the cut can't be scoped without guessing, and the measurement
+  carries two human calls (maintain a perf fixture at all; no spec sets a
+  `check` perf bar, so is the cut even mandated) — the `(lazy-grounds)`
+  precedent exactly. Resolution returns via inbox with the numbers. Inbox
+  drained. Audit/sweep cursors 8d75682 -> 11a2815: the window has zero
+  src/tests/sdk/specs commits (only ecd27b1 plan + 11a2815 chore-inbox),
+  reconciled by inspection. Spec cursor unmoved — spec-delta empty.
+- Queue: 2 pending — 0 pickable OPEN; 2 parked (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER), each on human action. 1 new open fork
+  `(check-residual-owner)` awaiting field measurements.
 
-Plan continues: no — window reconciled through HEAD, inbox + spec-delta empty;
-zero pickable open entries (both remaining parked on human action), loop
-hibernates.
+Plan continues: no — inbox drained this tick; spec-delta and post-ship
+windows empty; zero pickable open entries (both pending parked on human
+action, the residual routed to a human-resolved fork), loop hibernates.
