@@ -1,36 +1,5 @@
 [
   {
-    "tag": "MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE",
-    "summary": "import_edges_from_lock_with_doc's doc: Option<&DocumentMut> param and workspace_dir-read fallback are unreachable — both call sites always pass Some(&lock_doc)",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`import_edges_from_lock_with_doc` (2563-2588, private fn — main.rs is its own binary crate, so only its own module can call it) takes `doc: Option<&DocumentMut>` and falls back to `drift::layout_imports(workspace_dir)?`/`drift::includes(workspace_dir)?` (2572-2576) when `doc` is `None` — a fresh read+parse of lock.toml, the exact double-parse DRIFT-SOURCE-DEP-PARSE-HOIST (shipped, 3561798) eliminated. Its only two call sites — explain() (592-595) and gate() (886) — both always pass `Some(&lock_doc)`, since both functions now parse the lock once up front (gate()'s own read hoisted again by MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST, shipped 9415ccd — a Command::Guard-only change, no effect on gate()'s own lock_doc); the `None` branch is unreachable dead code, and a silent trap: a future call site added without threading `lock_doc` would compile clean and silently reintroduce the re-parse the hoist just removed. Collapse the signature to take `doc: &DocumentMut` directly, drop the now-unused `workspace_dir` parameter and the `else` branch, and rename (build's call, named in the commit body — `_with_doc` no longer distinguishes a with/without mode)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the signature collapse — the fix is location/signature-only, no behavior change"
-      }
-    ],
-    "acceptance": "import_edges_from_lock_with_doc (or its renamed form) takes &DocumentMut directly, no Option, no workspace-read fallback branch. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping DRIFT-SOURCE-DEP-PARSE-HOIST's window — source_deps()/source_dep_stale() stay for compatibility; only this fn's None branch could reach them, and it's dead. layout_imports/includes/*_stale stay live via tests/layout_prose_import.rs, tests/prose_include.rs. Unblocked: MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST shipped 9415ccd, a Guard-only hoist, no dependency — premise re-verified true. No other open entry touches main.rs. rescoped 9415ccd."
-  },
-  {
     "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE",
     "summary": "gate() recomputes the edge-resolution walk 2-4x per invocation — check's own copy plus resolved_edges/resolved_arcs re-derived by acyclic/degree/mention_reachable — consolidate to one shared walk",
     "per": {
@@ -241,92 +210,6 @@
     ],
     "acceptance": "src/json_manifest.rs imports no crate::import; Manifest::read_kind takes an already-discovered file list, and the discovery walk for manifest-shaped kinds lives in main.rs's manifest_units, mirroring resolve_kind_units's frontmatter branch. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Drained from .flume/refactor/plan-json-manifest-import-layering.md (observed 9e197d6, unmoved at HEAD). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, last chain entry touching main.rs (pending-entry.md, 'Disjoint, or serialized'). Also shares json_manifest.rs with the already-open JSON-MANIFEST-READ-DECODE-CONSOLIDATE — queue-front, ships first regardless. scoped at 7a5f86c."
-  },
-  {
-    "tag": "BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE",
-    "summary": "bundle.rs re-declares install.rs's SESSION_START_COMMAND const and re-inlines its session_start_group() JSON shape — one job, authored twice",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`session_start_group` (1114-1116, private, `json!({ \"hooks\": [ { \"type\": \"command\", \"command\": SESSION_START_COMMAND } ] })`) is the canonical builder of the exec-form `SessionStart` hook group, called at this file's own 904, 979, 1023, 1031. `SESSION_START_COMMAND` itself (88, `pub const`) is already shared correctly — `tests/session_start.rs:360` reads it as `temper::install::SESSION_START_COMMAND`. Widen `session_start_group` from private to `pub(crate)` so `bundle.rs` can call it instead of re-deriving its return shape inline (no other change: same body, same call sites)."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "`const SESSION_START_COMMAND` (63, doc comment 58-62) is a second, byte-identical copy of `install::SESSION_START_COMMAND` (grep-verified same literal string `\"temper check . --reporter session-start\"`), and `hooks_manifest` (284-296) independently inlines `{ \"SessionStart\": [ { \"hooks\": [ { \"type\": \"command\", \"command\": SESSION_START_COMMAND } ] } ] }` — the identical object `install::session_start_group()` already builds, one array-wrap deeper. Delete the local `const` and its doc comment; change `hooks_manifest` to `json!({ \"SessionStart\": [crate::install::session_start_group()] })`, dropping the hand-inlined inner shape. Update this file's own inline test `manifests_are_well_formed_json` (~430, `SESSION_START_COMMAND` reference) to read `crate::install::SESSION_START_COMMAND` instead of the deleted local const. No behavior change: identical command string, identical emitted JSON shape."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/bundle.rs",
-        "asserts": "the bundle's `hooks/hooks.json` still carries `[\"hooks\"][\"SessionStart\"][0][\"hooks\"][0][\"command\"]` equal to the exec-form check command (asserted ~63), and the byte-identical-to-canonical-write assertion (~217-222) stays green — the consolidation is call-site-only, no change to the emitted bytes"
-      },
-      {
-        "path": "src/bundle.rs",
-        "asserts": "manifests_are_well_formed_json stays green reading install's const instead of the deleted local copy"
-      }
-    ],
-    "acceptance": "bundle.rs carries no private SESSION_START_COMMAND const and no inline re-derivation of the SessionStart hook-group JSON shape; both read/call install.rs's existing SESSION_START_COMMAND and session_start_group (widened to pub(crate)). No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Unblocked: INSTALL-PLACEMENT-KIND-ENUM shipped 2741c6c — premise re-verified true (Placement enum, session_start_group still private) on disk. No other open entry touches install.rs or bundle.rs. rescoped 863e506."
-  },
-  {
-    "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP",
-    "summary": "Predicate::RequireSections can't be authored or decoded — the SDK constructor takes no sections arg, ClauseRow has no column for it, predicate_from_row has no arm — though engine.rs fully judges it",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/contract.ts",
-          "description": "`requireSections = (): Predicate => ({ key: \"require_sections\" })` (168) takes no argument even though its own doc comment reads 'The named headings are present' — unlike `dependencyExists` (whose missing constructor is explicitly documented: 'the engine holds it back absent a decidable reference syntax'), nothing here names this as a deliberate hold. Change the signature to `requireSections = (sections: readonly string[]): Predicate => ({ key: \"require_sections\", sections })`. Add a `sections?: readonly string[]` field to the `Predicate` interface (76, beside `section`), documented the same way `keys`/`values` are ('`require_sections`'s required heading list')."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`clauseRow` (65-115) maps each `Predicate` field to its `ClauseRow` column by explicit `predicate.key === \"...\"` branches (`keys`, `values`, `section`, etc. — no generic spread). Add: `sections: predicate.key === \"require_sections\" && predicate.sections ? [...predicate.sections] : undefined,` alongside the existing `keys`/`values`/`section` branches (110-114), copying into a fresh array per the file's own documented reason ('the generated rows carry mutable columns; the predicate's ... is read-only, so copy each into a fresh array')."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`ClauseRow` (struct at 2869-2971) carries no column a `require_sections` row could use — `keys`/`values`/`section` are documented as each other predicate's own. Add a new field `pub sections: Option<Vec<String>>,` after `section` (2970), with a doc comment naming it `require_sections`'s required-heading-list column, matching the `#[serde(default)]` pattern every other optional column carries. This regenerates `sdk/src/generated/ClauseRow.ts` via the existing ts-rs export test — do not hand-edit the generated file."
-        },
-        {
-          "path": "src/contract.rs",
-          "description": "`predicate_from_row` (424-...) has arms for every predicate key except `require_sections` and the constructor-less `dependency-exists` (falls through `_ => return None`). Add, near the `must_define` (458) / `section_contains` (461) arms: `\"require_sections\" => Predicate::RequireSections { sections: row.sections.clone()? },`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/contract.test.ts",
-        "asserts": "a new test asserts requireSections([\"Usage\", \"Decision\"]) composes { key: \"require_sections\", sections: [\"Usage\", \"Decision\"] } as an ordinary Predicate value, the pattern the file's other node-set constructor tests (count, unique, membership) already follow"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "a new (or extended) round-trip test pushes a require_sections ClauseRow with a sections column through emit + read_declarations and asserts predicate_from_row lifts it back to Predicate::RequireSections { sections } with the same list, the same shape a_floor_clause_row_round_trips_its_node_scope_predicate_argument already proves for forbidden_keys/allowed_chars"
-      }
-    ],
-    "acceptance": "An SDK author can call requireSections([...]) with real heading names, the emitted lock round-trips them through a new sections ClauseRow column, and predicate_from_row decodes a require_sections row back into Predicate::RequireSections { sections } — closing the one predicate in the closed vocabulary whose lock declaration rows (pipeline.md, 'The lock') could not carry its own argument. `cargo test` (Rust) and `pnpm --dir sdk test` (SDK gate) green.",
-    "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry — its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Unblocked: CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH shipped a59dc80 — premise re-verified true (declared_keys exhaustive on disk). rescoped 863e506."
   },
   {
     "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE",
@@ -1090,37 +973,6 @@
     ],
     "acceptance": "src/import.rs carries no READ_DIRS counter or read_dir_count() getter; tests/check_cost.rs's diagnosis and assertions name only the two live pins. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Drained from .flume/refactor/plan-import-read-dirs-vacuous-pin.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs tests/check_cost.rs is empty at 0388334, claim unchanged). Serialized behind IMPORT-DECLARED-GOVERNED-PATHS-HOIST, the chain's last entry touching src/import.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 0388334."
-  },
-  {
-    "tag": "READ-CONTEXT-MEMBER-CITER-GRAIN",
-    "summary": "read.rs's narrate_citers and context_member_one's inline filter share one predicate-taking selection helper; each site's own print form stays separate",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "narrate_citers (778-810) and context_member_one's inline citer block (1017-1041) both filter `citations` then narrate a bullet list; extract the filter into one predicate-taking selection helper both call, leaving each site's own print form — leaf grain's plain 'cites it' vs member grain's full leaf address — untouched."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "a_member_target_walks_why_impact_and_context (107) and a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (237) keep asserting both grains' citer narration unchanged"
-      }
-    ],
-    "acceptance": "One shared selection helper serves both call sites; each grain's print form is unchanged. cargo test green.",
-    "notes": "Ruled via inbox (observed a8dd112): consolidate the selection only — a predicate+formatter closure was judged more indirection than the ~30 shared lines earn, so print stays per-site."
   },
   {
     "tag": "READ-VERB-STRAND-COHESION",
