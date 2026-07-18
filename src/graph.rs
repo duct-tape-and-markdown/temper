@@ -8,9 +8,9 @@
 //! real target), [`admissibility`] (each edge names its field and a modeled target
 //! kind, checked before the graph is trusted), [`acyclic`] (no circular import),
 //! [`degree`] (a satisfier node's in/out count lands in a requirement's bound), and
-//! [`reachable`]. The first four
-//! range over one resolved-edge enumeration ([`resolved_edges`]), shared with
-//! `crate::read`'s narration so gate and read never disagree (READ-EDGE-UNIFY).
+//! [`reachable`]. The first four range over one resolved-edge enumeration ([`resolved_edges`]),
+//! computed once per `gate()` invocation and shared with `crate::read`'s narration
+//! so gate and read never disagree (READ-EDGE-UNIFY).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
@@ -21,6 +21,22 @@ use crate::contract::{EdgeBound, Predicate};
 use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
+
+thread_local! {
+    /// Per-thread count of resolved-edge computations. Incremented each time the
+    /// edge-resolution walk is computed via [`resolved_edges`], pinning that
+    /// whole-input work hoists per `gate()` invocation (computed once and shared
+    /// across check, acyclic, degree, and mention_reachable) rather than recomputing it
+    /// per check.
+    static RESOLVED_EDGES_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Per-thread count of resolved-edge computations. The walk is single-threaded on
+/// its caller's thread, so this counts one run's computations in isolation.
+#[must_use]
+pub fn resolved_edges_count() -> usize {
+    RESOLVED_EDGES_COUNT.with(|c| c.get())
+}
 
 /// The diagnostic `rule` id every route-resolution finding reports under.
 const GRAPH_ROUTE_RULE: &str = "graph.route";
@@ -81,7 +97,7 @@ pub(crate) fn world() -> Node {
 }
 
 /// A **resolved edge** — a `(from, field, to)` triple over `(kind, id)` [`Node`]s,
-/// both endpoints naming a real artifact. The element type of [`resolved_edges`], the
+/// both endpoints naming a real artifact. The element type of [`ResolvedEdgesResult::resolved`], the
 /// one arc-resolution enumeration [`resolved_arcs`] folds into adjacency and
 /// `crate::read` narrates per node, so gate and read range over one identical edge set
 /// (READ-EDGE-UNIFY). Retains the reference `field` an arc drops, so a reader can see
@@ -98,39 +114,32 @@ pub struct ResolvedEdge {
     pub to: Node,
 }
 
+/// The outcome of computing the resolved edges over declared references: the arcs
+/// that form real member→member relationships and the dangling-route diagnostics
+/// for references that resolve to no artifact. Computed once per `gate()` invocation
+/// to avoid recomputation across [`check`], [`acyclic`], [`degree`], and
+/// [`mention_reachable`].
+#[derive(Clone)]
+pub struct ResolvedEdgesResult {
+    /// The **resolved** references — each an arc from one member to another over a
+    /// declared field. Admissible edges whose targets resolve to real artifacts.
+    pub resolved: Vec<ResolvedEdge>,
+    /// The route-resolution findings — one per dangling reference, named to the
+    /// importing member.
+    pub dangling_diagnostics: Vec<Diagnostic>,
+}
+
 /// Check **route resolution** over the harness reference graph:
 /// for each declared [`Edge`], read its reference field
 /// off every source artifact and return an error-severity [`Diagnostic`] for any
 /// route that resolves to no artifact of the target kind.
 ///
-/// `by_kind` maps each kind to the whole corpus of that kind, since an edge's source
-/// and target kinds may differ. An [`admissibility`]-failing edge is **skipped** so
-/// its one declaration fault is not forged into a route finding on every source.
-/// Sources iterate in candidate (name-sorted) order, so the finding set is stable.
+/// This is a thin wrapper over [`resolved_edges`] that extracts the dangling
+/// diagnostics from the shared computation, avoiding recomputation of the
+/// edge-resolution walk across multiple checks.
 #[must_use]
 pub fn check(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    for edge in edges {
-        // Inadmissible edges are admissibility's finding to own — skip here rather
-        // than dangle every source's route off an unsound declaration.
-        if !is_admissible(edge, by_kind) {
-            continue;
-        }
-
-        let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
-        for source in sources {
-            for target in edge_targets(source, &edge.field) {
-                // The finding names the *authored* spelling, never the normalized
-                // identity — the author has to find what they wrote.
-                let resolved = target_identity(&target, &edge.to)
-                    .is_some_and(|(kind, identity)| resolves(by_kind, kind, identity));
-                if !resolved {
-                    diagnostics.push(dangling(edge, source.id.as_str(), &target));
-                }
-            }
-        }
-    }
-    diagnostics
+    resolved_edges(edges, by_kind).dangling_diagnostics
 }
 
 /// Validate the declared edges against **the definition** — admissibility:
@@ -182,18 +191,20 @@ pub fn admissibility(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> V
 }
 
 /// Check **acyclicity** over the harness reference graph: build the artifact-level
-/// graph from the same resolved arcs [`check`] uses and return an error-severity
-/// [`Diagnostic`] naming a cycle if one exists. A cycle is a circular import that
-/// loads nothing — a true positive.
+/// graph from **resolved** arcs and return an error-severity [`Diagnostic`] naming
+/// a cycle if one exists. A cycle is a circular import that loads nothing — a true
+/// positive.
 ///
-/// Only **resolved** arcs enter: an inadmissible edge is skipped and a dangling
-/// reference loads nothing, so neither forges nor masks a cycle (that dangling finding
-/// is [`check`]'s). Nodes are keyed `(kind, id)`. At most one finding — a cycle is
-/// fatal, and naming one closed chain suffices; the chain is canonicalized (rotated to
-/// its least node) so the finding is stable regardless of the traversal's entry node.
+/// Takes a pre-computed slice of resolved arcs (from [`ResolvedEdgesResult::resolved`])
+/// computed once per `gate()` invocation to avoid recomputation across multiple checks.
+/// Inadmissible edges and dangling references don't enter this slice, so neither forges
+/// nor masks a cycle (the dangling finding belongs to [`check`]). Nodes are keyed
+/// `(kind, id)`. At most one finding — a cycle is fatal, and naming one closed chain
+/// suffices; the chain is canonicalized (rotated to its least node) so the finding is
+/// stable regardless of the traversal's entry node.
 #[must_use]
-pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Diagnostic> {
-    let adjacency = resolved_arcs(edges, by_kind);
+pub fn acyclic(resolved: &[ResolvedEdge]) -> Vec<Diagnostic> {
+    let adjacency = resolved_arcs(resolved);
 
     // Three-color DFS: a back edge to a node still on the current path (`Gray`) closes
     // a cycle. Roots and neighbours iterate in sorted order (BTreeMap/BTreeSet), so the
@@ -219,9 +230,9 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
 /// `degree` is the one set predicate this module judges rather than
 /// [`engine::judge`]: the clause is each-grain over the selection's members and
 /// whole-grain over each member's own **by-incidence** selection — the edges at it,
-/// filtered by direction — which is the graph, not a fact the members carry. It reuses
-/// [`acyclic`]'s [`resolved_arcs`], so only **resolved** arcs count (a dangling
-/// reference loads nothing; an inadmissible edge is skipped).
+/// filtered by direction — which is the graph, not a fact the members carry. Takes a
+/// pre-computed slice of resolved arcs (from [`ResolvedEdgesResult::resolved`])
+/// computed once per `gate()` invocation to avoid recomputation.
 ///
 /// Unlike route resolution and `acyclic`, `degree` is **opt-in** — selections declaring
 /// no `degree` clause do no graph work. A node is `(kind, id)`, so a selection whose
@@ -235,9 +246,8 @@ pub fn acyclic(edges: &[Edge], by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Dia
 #[must_use]
 pub fn degree(
     selections: &[Selection],
-    edges: &[Edge],
+    resolved: &[ResolvedEdge],
     mention_edges: &[ResolvedEdge],
-    by_kind: &BTreeMap<&str, &[Features]>,
 ) -> Vec<Diagnostic> {
     let any_degree_clause = selections.iter().any(|selection| {
         selection
@@ -249,7 +259,7 @@ pub fn degree(
         return Vec::new();
     }
 
-    let mut adjacency = resolved_arcs(edges, by_kind);
+    let mut adjacency = resolved_arcs(resolved);
     for edge in mention_edges {
         adjacency
             .entry(edge.from.clone())
@@ -339,11 +349,11 @@ pub fn degree(
 ///
 /// Like `degree`, this is **opt-in** — selections declaring no `mention-reachable`
 /// clause do no graph work — and ranges over the same unified enumeration `degree`
-/// folds: the declared field edges resolved to real targets ([`resolved_edges`]) plus
-/// the already-resolved mention and import edges. A reference to a gated target can fire
-/// where that target cannot be invoked whatever locus declared it, so a rendering claim
-/// carried on a field edge is judged rather than dropped for riding a family this check
-/// once read alone.
+/// folds: the declared field edges resolved to real targets (pre-computed and passed in)
+/// plus the already-resolved mention and import edges. A reference to a gated target can
+/// fire where that target cannot be invoked whatever locus declared it, so a rendering
+/// claim carried on a field edge is judged rather than dropped for riding a family this
+/// check once read alone.
 ///
 /// An edge a **body-carried** member declares is judged under its *host*'s scope, not
 /// the embedded member's own: the embedded source keys to `(embedded-kind, key)`, so
@@ -354,7 +364,7 @@ pub fn degree(
 #[must_use]
 pub fn mention_reachable(
     selections: &[Selection],
-    edges: &[Edge],
+    resolved: &[ResolvedEdge],
     mention_edges: &[ResolvedEdge],
     by_kind: &BTreeMap<&str, &[Features]>,
     embedded_hosts: &BTreeMap<Node, Node>,
@@ -368,7 +378,7 @@ pub fn mention_reachable(
     if !any_clause {
         return Vec::new();
     }
-    let mut all_edges = resolved_edges(edges, by_kind);
+    let mut all_edges = resolved.to_vec();
     all_edges.extend(mention_edges.iter().cloned());
 
     let mut diagnostics = Vec::new();
@@ -955,20 +965,25 @@ fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
     )
 }
 
-/// Enumerate every **resolved** reference edge: for each admissible edge, each source
-/// of its `from` kind, and each named target that resolves to a real artifact of its
-/// `to` kind, one [`ResolvedEdge`]. The single arc-resolution primitive —
-/// [`resolved_arcs`] folds it into adjacency for [`acyclic`]/[`degree`] and
-/// `crate::read` filters it per node — so gate and read narrate the *same* edges
-/// (READ-EDGE-UNIFY). An inadmissible edge is skipped and a dangling reference yields
-/// no edge (route resolution owns that). Sources iterate in name-sorted order for a
-/// stable enumeration; a target named twice yields two edges, deduped into one arc by
-/// [`resolved_arcs`].
-pub(crate) fn resolved_edges(
+/// Enumerate every **resolved** reference edge and the **dangling** routes that
+/// resolve to no artifact: the single arc-resolution pass computed once per `gate()`
+/// invocation and shared across [`check`], [`acyclic`], [`degree`], and
+/// [`mention_reachable`], avoiding recomputation. For each admissible edge, each
+/// source of its `from` kind, and each named target, yields either a [`ResolvedEdge`]
+/// (when the target resolves to a real artifact of its `to` kind) or a dangling
+/// diagnostic (when it resolves to nothing). The resolved half feeds [`resolved_arcs`]
+/// into adjacency for [`acyclic`]/[`degree`] and `crate::read` filters per node so
+/// gate and read narrate the same edges (READ-EDGE-UNIFY). Sources and targets iterate
+/// in name-sorted order for a stable enumeration; a target named twice yields two
+/// edges, deduped into one arc by [`resolved_arcs`].
+#[must_use]
+pub fn resolved_edges(
     edges: &[Edge],
     by_kind: &BTreeMap<&str, &[Features]>,
-) -> Vec<ResolvedEdge> {
+) -> ResolvedEdgesResult {
+    RESOLVED_EDGES_COUNT.with(|c| c.set(c.get() + 1));
     let mut resolved = Vec::new();
+    let mut dangling_diagnostics = Vec::new();
     for edge in edges {
         if !is_admissible(edge, by_kind) {
             continue;
@@ -976,35 +991,39 @@ pub(crate) fn resolved_edges(
         let sources = by_kind.get(edge.from.as_str()).copied().unwrap_or(&[]);
         for source in sources {
             for target in edge_targets(source, &edge.field) {
-                let Some((kind, identity)) = target_identity(&target, &edge.to) else {
-                    continue;
-                };
-                // A dangling reference loads nothing — no resolved edge.
-                if resolves(by_kind, kind, identity) {
-                    resolved.push(ResolvedEdge {
-                        from: (edge.from.clone(), source.id.clone()),
-                        field: edge.field.clone(),
-                        to: (kind.to_string(), identity.to_string()),
-                    });
+                match target_identity(&target, &edge.to) {
+                    Some((kind, identity)) if resolves(by_kind, kind, identity) => {
+                        resolved.push(ResolvedEdge {
+                            from: (edge.from.clone(), source.id.clone()),
+                            field: edge.field.clone(),
+                            to: (kind.to_string(), identity.to_string()),
+                        });
+                    }
+                    _ => {
+                        dangling_diagnostics.push(dangling(edge, source.id.as_str(), &target));
+                    }
                 }
             }
         }
     }
-    resolved
+    ResolvedEdgesResult {
+        resolved,
+        dangling_diagnostics,
+    }
 }
 
 /// Build the artifact-level directed graph over **resolved** arcs — the shared
-/// foundation [`acyclic`] and [`degree`] range over — by folding [`resolved_edges`]
-/// into `(kind, id)`-keyed adjacency. Arcs dedupe in the [`BTreeSet`], so a target
+/// foundation [`acyclic`] and [`degree`] range over — by folding pre-computed resolved
+/// arcs into `(kind, id)`-keyed adjacency. Arcs dedupe in the [`BTreeSet`], so a target
 /// named twice is one arc. Deriving it from the same [`resolved_edges`] the read family
 /// consumes keeps the gate's checks and `temper why` in lockstep.
-fn resolved_arcs(
-    edges: &[Edge],
-    by_kind: &BTreeMap<&str, &[Features]>,
-) -> BTreeMap<Node, BTreeSet<Node>> {
+fn resolved_arcs(resolved: &[ResolvedEdge]) -> BTreeMap<Node, BTreeSet<Node>> {
     let mut adjacency: BTreeMap<Node, BTreeSet<Node>> = BTreeMap::new();
-    for ResolvedEdge { from, to, .. } in resolved_edges(edges, by_kind) {
-        adjacency.entry(from).or_default().insert(to);
+    for ResolvedEdge { from, to, .. } in resolved {
+        adjacency
+            .entry(from.clone())
+            .or_default()
+            .insert(to.clone());
     }
     adjacency
 }
@@ -1583,7 +1602,8 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(acyclic(&edges, &by_kind).is_empty());
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        assert!(acyclic(&resolved).is_empty());
     }
 
     #[test]
@@ -1597,7 +1617,8 @@ mod tests {
         }];
         let rules = [node("style", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
-        let diags = acyclic(&edges, &by_kind);
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = acyclic(&resolved);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
@@ -1615,7 +1636,8 @@ mod tests {
         let skills = [node("standards", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = acyclic(&edges, &by_kind);
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = acyclic(&resolved);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
@@ -1638,7 +1660,8 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(acyclic(&edges, &by_kind).is_empty());
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        assert!(acyclic(&resolved).is_empty());
     }
 
     #[test]
@@ -1655,7 +1678,8 @@ mod tests {
         let skills = [node("standards", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = acyclic(&edges, &by_kind);
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = acyclic(&resolved);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, GRAPH_ACYCLIC_RULE);
         assert!(diags[0].message.contains("style"));
@@ -1667,10 +1691,11 @@ mod tests {
         // The target kind `agent` is not modeled — the edge is inadmissible, so
         // `acyclic` skips it exactly as `check` does. Even a self-naming source over
         // it forges no cycle, because the arc never resolves.
-        let edge = routes_to_agent_edge();
+        let edges = [routes_to_agent_edge()];
         let rules = [node("style", Some("style"))];
         let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("rule", &rules[..])]);
-        assert!(acyclic(std::slice::from_ref(&edge), &by_kind).is_empty());
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        assert!(acyclic(&resolved).is_empty());
     }
 
     /// A bare `gate` requirement, optionally typed to `kind`, declaring a required
@@ -1735,15 +1760,8 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(
-            degree(
-                &roster::selections(&requirements, &by_kind),
-                &edges,
-                &[],
-                &by_kind
-            )
-            .is_empty()
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        assert!(degree(&roster::selections(&requirements, &by_kind), &resolved, &[]).is_empty());
     }
 
     #[test]
@@ -1766,12 +1784,8 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(
-            &roster::selections(&requirements, &by_kind),
-            &edges,
-            &[],
-            &by_kind,
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].severity, Severity::Error);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
@@ -1800,15 +1814,8 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(
-            degree(
-                &roster::selections(&requirements, &by_kind),
-                &edges,
-                &[],
-                &by_kind
-            )
-            .is_empty()
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        assert!(degree(&roster::selections(&requirements, &by_kind), &resolved, &[]).is_empty());
     }
 
     #[test]
@@ -1830,12 +1837,8 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(
-            &roster::selections(&requirements, &by_kind),
-            &edges,
-            &[],
-            &by_kind,
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "standards");
@@ -1862,12 +1865,8 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(
-            &roster::selections(&requirements, &by_kind),
-            &edges,
-            &[],
-            &by_kind,
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].rule, "requirement.gate.degree");
         assert_eq!(diags[0].artifact, "style");
@@ -1894,12 +1893,8 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(
-            &roster::selections(&requirements, &by_kind),
-            &edges,
-            &[],
-            &by_kind,
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "style");
         assert!(diags[0].message.contains("outgoing"));
@@ -1916,15 +1911,8 @@ mod tests {
         let skills = [node("standards", None)];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        assert!(
-            degree(
-                &roster::selections(&requirements, &by_kind),
-                &edges,
-                &[],
-                &by_kind
-            )
-            .is_empty()
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        assert!(degree(&roster::selections(&requirements, &by_kind), &resolved, &[]).is_empty());
     }
 
     #[test]
@@ -1991,12 +1979,8 @@ mod tests {
         let skills = [satisfying(node("standards", None), "gate")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("rule", &rules[..]), ("skill", &skills[..])]);
-        let diags = degree(
-            &roster::selections(&requirements, &by_kind),
-            &edges,
-            &[],
-            &by_kind,
-        );
+        let resolved = resolved_edges(&edges, &by_kind).resolved;
+        let diags = degree(&roster::selections(&requirements, &by_kind), &resolved, &[]);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].artifact, "standards");
     }
@@ -2029,8 +2013,7 @@ mod tests {
             degree(
                 &roster::selections(&requirements, &by_kind),
                 &[],
-                &mention_edges,
-                &by_kind
+                &mention_edges
             )
             .is_empty()
         );

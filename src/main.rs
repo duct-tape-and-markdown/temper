@@ -1133,17 +1133,22 @@ pub fn gate(
         &assembly_requirements,
     ));
 
+    // Compute the resolved edges once, shared across acyclic, degree, and mention_reachable
+    // to avoid recomputation of the whole-input edge-resolution walk.
+    let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
+    let resolved_edges = &resolved_edges_result.resolved;
+
     // `acyclic`: the resolved graph must contain no
     // cycle — a circular import loads nothing, so every finding is a true
     // positive. Always-on over the whole edge set, like route resolution above.
-    diagnostics.extend(graph::acyclic(&edges, &by_kind));
+    diagnostics.extend(graph::acyclic(resolved_edges));
 
     // `degree`: the one set predicate whose judge needs the graph — a clause bounds
     // every selected member's in/out edge count, so it takes the same selections
     // `engine::judge` reads *and* the edges, reusing the arc resolution
     // `acyclic`/`check` assemble, plus the already-resolved mention edges —
     // obligation-free by default, counted only when a `degree` clause opts in.
-    diagnostics.extend(graph::degree(&selections, &edges, &mention_edges, &by_kind));
+    diagnostics.extend(graph::degree(&selections, resolved_edges, &mention_edges));
 
     // `mention-reachable`: the second selection predicate whose judge needs the graph —
     // each selected member's references must be able to fire where their target can be
@@ -1153,7 +1158,7 @@ pub fn gate(
     // Opt-in like `degree`: a selection declaring no such clause does no work.
     diagnostics.extend(graph::mention_reachable(
         &selections,
-        &edges,
+        resolved_edges,
         &mention_edges,
         &by_kind,
         &embedded_hosts_by_source(&declarations),

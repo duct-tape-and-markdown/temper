@@ -332,7 +332,7 @@ pub fn why(
     // `route_mentions` does. A mention whose target is absent from the corpus dangles: it
     // stays out of the resolved set and narrates as the gate's route finding, never as a
     // resolved edge.
-    let mut resolved = graph::resolved_edges(edges, by_kind);
+    let mut resolved = graph::resolved_edges(edges, by_kind).resolved;
     let (resolved_mentions, dangling_mentions) =
         graph::partition_mentions(mention_edges, by_kind, roster);
     resolved.extend(resolved_mentions);

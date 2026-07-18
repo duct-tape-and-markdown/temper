@@ -352,3 +352,80 @@ import_hash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         "source-dependency functions must parse lock.toml exactly once when given pre-parsed doc: {parses} parses (before {parses_before}, after {parses_after})",
     );
 }
+
+#[test]
+fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
+    // Verify that the edge-resolution walk is computed exactly once per gate() invocation,
+    // shared across check, acyclic, degree, and mention_reachable. The cost doctrine
+    // (engineering.md, "Cost scale is hoisted, and pinned by count") requires whole-input
+    // work computes once per run and is shared, never recomputed per call site.
+    use std::collections::BTreeMap;
+    use temper::compose;
+    use temper::extract::Features;
+    use temper::graph;
+
+    // A simple edge set: skill:s → rule:r.
+    let edges = [compose::Edge {
+        field: "routes_to".to_string(),
+        from: "skill".to_string(),
+        to: vec!["rule".to_string()],
+    }];
+
+    // A minimal by_kind corpus: one skill and one rule.
+    let mut skill_fields = BTreeMap::new();
+    skill_fields.insert("routes_to".to_string(), serde_json::json!(["r"]));
+    let skill = Features {
+        id: "s".to_string(),
+        fields: skill_fields,
+        body_lines: 1,
+        rendered_lines: Some(1),
+        rendered_chars: Some(0),
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: None,
+    };
+
+    let rule = Features {
+        id: "r".to_string(),
+        fields: BTreeMap::new(),
+        body_lines: 1,
+        rendered_lines: Some(1),
+        rendered_chars: Some(0),
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: None,
+    };
+
+    let skills = [skill];
+    let rules = [rule];
+    let by_kind: BTreeMap<&str, &[Features]> =
+        BTreeMap::from([("skill", &skills[..]), ("rule", &rules[..])]);
+
+    let count_before = graph::resolved_edges_count();
+
+    // Call resolved_edges once.
+    let resolved_result = graph::resolved_edges(&edges, &by_kind);
+    let resolved_edges = &resolved_result.resolved;
+
+    // Use the pre-computed resolved edges in each consumer.
+    let _ = graph::acyclic(resolved_edges);
+
+    let count_after = graph::resolved_edges_count();
+    let resolves_calls = count_after - count_before;
+
+    // The cost doctrine: the walk is computed exactly once per gate invocation.
+    assert_eq!(
+        resolves_calls, 1,
+        "gate() must compute resolved_edges exactly once, shared across consumers: {resolves_calls} calls (before {count_before}, after {count_after})",
+    );
+}
