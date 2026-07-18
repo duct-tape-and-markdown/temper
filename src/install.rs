@@ -88,14 +88,36 @@ fn sdk_version_range() -> &'static str {
 /// wired command.
 pub const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
 
-/// The placement label carried in the report and the self-verify diagnostics.
-const SESSION_START: &str = "session-start hook";
-/// The placement label for a schema modeline.
-const MODELINE: &str = "schema modeline";
-/// The placement label for the `PreToolUse` enforcement-mode guard hook.
-const GUARD_HOOK: &str = "guard hook";
-/// The placement label for a managed-by note.
-const NOTE: &str = "managed-by note";
+/// The placement kind and its display labels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Placement {
+    /// The `SessionStart` hook — the reporting harness bootstrapped at session start.
+    SessionStart,
+    /// A schema modeline in a frontmatter artifact.
+    Modeline,
+    /// The `PreToolUse` enforcement-mode guard hook.
+    GuardHook,
+    /// A managed-by note in a frontmatter artifact.
+    Note,
+}
+
+impl Placement {
+    /// The display label for this placement, as reported and carried in diagnostics.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Placement::SessionStart => "session-start hook",
+            Placement::Modeline => "schema modeline",
+            Placement::GuardHook => "guard hook",
+            Placement::Note => "managed-by note",
+        }
+    }
+}
+
+impl std::fmt::Display for Placement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
 
 /// The rule id the self-verify diagnostics ([`gate_installed`]) carry.
 const GATE_RULE: &str = "install.gate-installed";
@@ -349,8 +371,8 @@ pub fn render_discovery(report: &DiscoveryReport, lock: Option<&Path>) -> String
 /// which path, and what the three-state merge decided.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallEntry {
-    /// The placement label — the `SessionStart` hook, the guard, a modeline, or a note.
-    pub placement: &'static str,
+    /// The placement kind — the `SessionStart` hook, the guard, a modeline, or a note.
+    pub placement: Placement,
     /// The file the placement targets.
     pub path: PathBuf,
     /// What `install` did (or would do, under `--dry-run`) for this placement.
@@ -508,10 +530,10 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
             continue;
         }
         match entry.placement {
-            SESSION_START => hook = true,
-            GUARD_HOOK => guard = true,
-            NOTE => notes += 1,
-            _ => modelines += 1,
+            Placement::SessionStart => hook = true,
+            Placement::GuardHook => guard = true,
+            Placement::Note => notes += 1,
+            Placement::Modeline => modelines += 1,
         }
     }
     if !hook && !guard && modelines == 0 && notes == 0 {
@@ -520,10 +542,10 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
 
     let mut parts = Vec::new();
     if hook {
-        parts.push(SESSION_START.to_string());
+        parts.push(Placement::SessionStart.to_string());
     }
     if guard {
-        parts.push(GUARD_HOOK.to_string());
+        parts.push(Placement::GuardHook.to_string());
     }
     if modelines > 0 {
         parts.push(format!(
@@ -562,7 +584,7 @@ fn place_settings_only(root: &Path, dry_run: bool) -> miette::Result<Vec<Install
     let settings = project_settings(&settings_path, existing.as_deref(), false)?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
     Ok(vec![InstallEntry {
-        placement: SESSION_START,
+        placement: Placement::SessionStart,
         outcome: placement_outcome(settings.hook_present),
         path: settings_path,
     }])
@@ -586,13 +608,13 @@ fn evaluate_placements(
     let settings = project_settings(&settings_path, existing.as_deref(), !targets.is_empty())?;
     drift::place(&settings_path, &settings.desired, None, dry_run)?;
     entries.push(InstallEntry {
-        placement: SESSION_START,
+        placement: Placement::SessionStart,
         outcome: placement_outcome(settings.hook_present),
         path: settings_path.clone(),
     });
     if !targets.is_empty() {
         entries.push(InstallEntry {
-            placement: GUARD_HOOK,
+            placement: Placement::GuardHook,
             outcome: placement_outcome(settings.guard_present),
             path: settings_path,
         });
@@ -622,7 +644,7 @@ fn evaluate_placements(
         if let Some(desired) = noted {
             let outcome = drift::place(&path, &desired, None, dry_run)?;
             entries.push(InstallEntry {
-                placement: NOTE,
+                placement: Placement::Note,
                 outcome,
                 path: path.clone(),
             });
@@ -636,7 +658,7 @@ fn evaluate_placements(
                 project_modeline(&current, &schema_ref(root, &path, &target.kind))
         {
             entries.push(InstallEntry {
-                placement: MODELINE,
+                placement: Placement::Modeline,
                 outcome: drift::place(&path, &desired, None, dry_run)?,
                 path,
             });

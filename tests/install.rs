@@ -132,9 +132,9 @@ fn write_harness(label: &str, with_settings: bool) -> PathBuf {
     root
 }
 
-/// The outcome `install` reported for the placement labeled `placement`, asserting it
+/// The outcome `install` reported for the placement, asserting it
 /// is unique.
-fn outcome_of(outcome: &InstallOutcome, placement: &str) -> ApplyOutcome {
+fn outcome_of(outcome: &InstallOutcome, placement: temper::install::Placement) -> ApplyOutcome {
     let mut matches = outcome.entries.iter().filter(|e| e.placement == placement);
     let found = matches
         .next()
@@ -146,8 +146,8 @@ fn outcome_of(outcome: &InstallOutcome, placement: &str) -> ApplyOutcome {
     found.outcome
 }
 
-/// Whether `outcome` carries any entry for `placement` at all.
-fn has_entry(outcome: &InstallOutcome, placement: &str) -> bool {
+/// Whether `outcome` carries any entry for the placement.
+fn has_entry(outcome: &InstallOutcome, placement: temper::install::Placement) -> bool {
     outcome.entries.iter().any(|e| e.placement == placement)
 }
 
@@ -230,12 +230,12 @@ fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir
 
     // Only the SessionStart hook is projected — no guard, no note, no modeline.
     assert_eq!(
-        outcome_of(&outcome, "session-start hook"),
+        outcome_of(&outcome, temper::install::Placement::SessionStart),
         ApplyOutcome::Applied
     );
-    assert!(!has_entry(&outcome, "guard hook"));
-    assert!(!has_entry(&outcome, "managed-by note"));
-    assert!(!has_entry(&outcome, "schema modeline"));
+    assert!(!has_entry(&outcome, temper::install::Placement::GuardHook));
+    assert!(!has_entry(&outcome, temper::install::Placement::Note));
+    assert!(!has_entry(&outcome, temper::install::Placement::Modeline));
 
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
@@ -425,9 +425,12 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     // Every scaffolded member is emit-owned from its first emit — the guard
     // and the frontmatter-bearing members' managed-by notes claim it
     // immediately, never waiting on a hand-deepened member.
-    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Applied);
     assert_eq!(
-        outcome_of(&outcome, "session-start hook"),
+        outcome_of(&outcome, temper::install::Placement::GuardHook),
+        ApplyOutcome::Applied
+    );
+    assert_eq!(
+        outcome_of(&outcome, temper::install::Placement::SessionStart),
         ApplyOutcome::Applied
     );
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
@@ -437,7 +440,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
         "temper guard ."
     );
     assert!(
-        !has_entry(&outcome, "schema modeline"),
+        !has_entry(&outcome, temper::install::Placement::Modeline),
         "no schema artifact exists yet"
     );
 
@@ -541,10 +544,13 @@ fn re_representing_never_re_scaffolds_and_settles_on_the_first_run() {
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
     assert_eq!(second.scaffolded, 0, "the lift never re-scaffolds");
     assert_eq!(
-        outcome_of(&second, "session-start hook"),
+        outcome_of(&second, temper::install::Placement::SessionStart),
         ApplyOutcome::Unchanged
     );
-    assert_eq!(outcome_of(&second, "guard hook"), ApplyOutcome::Unchanged);
+    assert_eq!(
+        outcome_of(&second, temper::install::Placement::GuardHook),
+        ApplyOutcome::Unchanged
+    );
     assert_eq!(
         after_first,
         common::tree_bytes(&root),
@@ -714,7 +720,10 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     // conversion) — the guard already has a constituency before any hand
     // deepening happens; the lifted/deepened distinction the retired own-path
     // lift drew has collapsed.
-    assert_eq!(outcome_of(&first, "guard hook"), ApplyOutcome::Applied);
+    assert_eq!(
+        outcome_of(&first, temper::install::Placement::GuardHook),
+        ApplyOutcome::Applied
+    );
 
     // Deepen by hand: a brand-new member with its own separate asset.
     fs::write(
@@ -748,7 +757,10 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
 
     // The guard was already applied on the first run — a new emit-owned
     // constituent changes nothing about its own placement.
-    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Unchanged);
+    assert_eq!(
+        outcome_of(&outcome, temper::install::Placement::GuardHook),
+        ApplyOutcome::Unchanged
+    );
     let settings = fs::read_to_string(root.join(".claude").join("settings.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
@@ -787,7 +799,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     // No `.temper/schema/skill.json` exists yet, so no modeline is placed even on
     // the emit-owned target — a modeline pointing at nothing is worse than none.
     assert!(!extra_md.contains("# yaml-language-server:"));
-    assert!(!has_entry(&outcome, "schema modeline"));
+    assert!(!has_entry(&outcome, temper::install::Placement::Modeline));
 
     // Once the schema artifact exists, a re-run places the modeline on every
     // frontmatter-bearing `skill` target — the hand-deepened one and the
@@ -798,7 +810,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let modeline_targets: Vec<&PathBuf> = third
         .entries
         .iter()
-        .filter(|e| e.placement == "schema modeline")
+        .filter(|e| e.placement == temper::install::Placement::Modeline)
         .map(|e| &e.path)
         .collect();
     assert_eq!(modeline_targets.len(), 2, "got: {modeline_targets:?}");
@@ -894,7 +906,10 @@ fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
     fs::write(&settings_path, NON_CANONICAL_SETTINGS_WITH_HOOK).unwrap();
 
     let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert_eq!(outcome_of(&outcome, "guard hook"), ApplyOutcome::Applied);
+    assert_eq!(
+        outcome_of(&outcome, temper::install::Placement::GuardHook),
+        ApplyOutcome::Applied
+    );
 
     let after = fs::read_to_string(&settings_path).unwrap();
     assert_one_hunk_diff(NON_CANONICAL_SETTINGS_WITH_HOOK, &after);
@@ -915,7 +930,10 @@ fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
 
     // Re-running converges: both hooks are already in their desired shape.
     let second = install::run(&root, &discovery, Represent::Yes, false).unwrap();
-    assert_eq!(outcome_of(&second, "guard hook"), ApplyOutcome::Unchanged);
+    assert_eq!(
+        outcome_of(&second, temper::install::Placement::GuardHook),
+        ApplyOutcome::Unchanged
+    );
     assert_eq!(
         fs::read_to_string(&settings_path).unwrap(),
         after,
