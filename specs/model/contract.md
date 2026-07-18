@@ -67,6 +67,15 @@ A clause binds to a **selection** and evaluates at one of two grains:
 - **whole** — the predicate holds of the selection as a set (cardinality,
   uniqueness, membership).
 
+A clause may carry a **guard** (decision 0041): one predicate from the
+scalar-decidable set over an addressable field, conditioning a body of
+ordinary clauses. Where the guard holds, the body binds; where it does
+not — the guarded field's absence included — the body is silent
+(absence is `required`'s to indict). Guard and body share one address
+binding: each element the guard's path locates is judged
+independently, the body evaluating at that element, and a finding
+names the concrete address it fired at. Guards do not nest.
+
 Some predicates need whole-graph context to evaluate — a degree bound, a
 reachability test. That is evaluation cost, not a category: **reachability is
 a clause** in the root member's default contract, on by default and
