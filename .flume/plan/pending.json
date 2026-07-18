@@ -1,64 +1,5 @@
 [
   {
-    "tag": "JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE",
-    "summary": "json_manifest.rs's Manifest::read_kind imports crate::import and self-discovers — formats reaching into pipeline, unlike frontmatter's pure-parse split",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`Manifest::read_kind` (419-431, doc 406-417) takes `disc: &crate::import::Discovery` and calls `crate::import::discover_kind_files` (426-431) itself — the only formats-subsystem function that imports `crate::import`, unlike the sibling frontmatter path where `main.rs` does the discovery walk and calls the pure-parse `frontmatter::Member::from_source_rooted` (frontmatter.rs never imports `crate::import`). Same class of edge architecture.md's Invariants section has already ruled on four times (0040 x3, normalize_path this cycle) — resolved by moving code to its layer-correct home, never by amending the map. Narrow `read_kind` to take an already-discovered file list (e.g. `&[PathBuf]`) instead of `&crate::import::Discovery`, dropping the `crate::import::discover_kind_files` call and the `crate::import` dependency from this file; the discovery call moves to whichever caller now performs it (see main.rs edit). Exact signature shape (a slice, an iterator, a `Vec<PathBuf>`) is a judgment call for build — name the choice in the commit body."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`manifest_units` (1495-1508) calls `json_manifest::Manifest::read_kind(disc, kind)` (1501) today, letting `read_kind` do its own discovery. Once `read_kind` narrows to take a file list, `manifest_units` performs the discovery call itself before delegating — mirroring `resolve_kind_units`'s frontmatter `governs` branch (1369-1376, `import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)`) exactly, so both file-governed loci discover the same way and only `main.rs` (a verb, not a format) imports `crate::import` for this purpose."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "Two call sites (78, 120) construct `crate::import::Discovery` and pass it to `Manifest::read_kind` — update to the new signature (discover via `import::discover_kind_files` inline, then pass the resulting file list), matching whatever shape build lands in json_manifest.rs."
-        },
-        {
-          "path": "tests/manifest_adapter.rs",
-          "description": "One call site (142) updates to the new `read_kind` signature."
-        },
-        {
-          "path": "tests/mcp_server_kind.rs",
-          "description": "One call site (68) updates to the new `read_kind` signature."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "Four call sites (68, 82, 112, 198) update to the new `read_kind` signature."
-        },
-        {
-          "path": "tests/known_marketplace_kind.rs",
-          "description": "Three call sites (58, 89, 176) update to the new `read_kind` signature."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/manifest_adapter.rs",
-        "asserts": "existing manifest discovery/read coverage stays green — the move is signature-only, no change to which files are discovered or how they parse"
-      },
-      {
-        "path": "tests/installed_plugin_kind.rs",
-        "asserts": "existing installed-plugin manifest read coverage stays green across all four call sites"
-      }
-    ],
-    "acceptance": "src/json_manifest.rs imports no crate::import; Manifest::read_kind takes an already-discovered file list, and the discovery walk for manifest-shaped kinds lives in main.rs's manifest_units, mirroring resolve_kind_units's frontmatter branch. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Drained from .flume/refactor/plan-json-manifest-import-layering.md (observed 9e197d6, unmoved at HEAD). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, last chain entry touching main.rs (pending-entry.md, 'Disjoint, or serialized'). Also shares json_manifest.rs with the already-open JSON-MANIFEST-READ-DECODE-CONSOLIDATE — queue-front, ships first regardless. scoped at 7a5f86c."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -122,76 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE",
-    "summary": "graph.rs's declared_globs and engine.rs's field_globs duplicate one glob-extraction job — ruled (53df138): the shared extractor holds declared_globs' trim/filter semantics, both judges consume it",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`declared_globs` (780-796, doc 774-779) and engine.rs's `field_globs` (1137-1143, doc 1134-1136) both extract the glob strings a `FeatureValue` field carries — `declared_globs` trims each glob and drops blank/whitespace-only entries; `field_globs` does neither. Ruled (inbox, observed 07a9c04): the shared extractor holds `declared_globs`' trim/filter semantics — glob-valid's own documented mission ('a pattern that silently matches nothing becomes a finding') is better served judging the trimmed set, since a whitespace-padded entry judged raw compiles as a literal-space glob that silently matches nothing yet passes. Blank/whitespace-only entries stay dropped-not-flagged (the reachability judge's documented fallback, pinned by tests/graph.rs:1466 `an_absent_or_blank_paths_field_is_reachable`) — no new blank-entry finding class is added. Land one shared extractor (this file, or a leaf both files call) implementing `declared_globs`'s existing trim/filter body, and route both graph.rs's reachability judge and engine.rs's glob-valid predicate through it; `field_globs` is retired in favor of calling it."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "`field_globs` (1137-1143) is the glob-string extractor the `glob-valid` predicate arm (915-923, feeding `crate::kind::compile_glob`) calls — pinned by `glob_valid_fires_once_per_unparseable_glob_and_passes_valid_brace_globs` (2168). Ruled (07a9c04): the shared extractor holds trim/filter semantics, so a whitespace-padded glob is now judged trimmed by glob-valid too — an observable delta from today's untrimmed `field_globs`, to be named in the commit body. Remove this private duplicate and route the glob-valid arm (922) through the shared extractor graph.rs now hosts, updating the one call site."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "an_absent_or_blank_paths_field_is_reachable (1466) stays green — blank/whitespace-only entries stay dropped-not-flagged under the shared extractor, unchanged from today"
-      },
-      {
-        "path": "src/engine.rs",
-        "asserts": "glob_valid_fires_once_per_unparseable_glob_and_passes_valid_brace_globs (2168) stays green; a new case pins the ruled delta — a whitespace-padded glob is now judged trimmed, where trimming changes its validity"
-      }
-    ],
-    "acceptance": "One shared glob-string extractor serves both graph.rs's reachability judge and engine.rs's glob-valid predicate, holding declared_globs' ruled trim/filter semantics (07a9c04); declared_globs and field_globs collapse to the one implementation, no new blank-entry finding class. `cargo test` and `cargo clippy --all-targets -- -D warnings` green. The commit body states the observable delta (whitespace-padded globs now judged trimmed).",
-    "notes": "Unparked (inbox, observed 07a9c04): the ruling names the shared semantics — declared_globs' trim/filter, both judges consuming one filtered set — closing the design-call park. Serialized behind NORMALIZE-PATH-SUBSYSTEM-PLACEMENT, sharing graph.rs. Also shares engine.rs with the separately-queued, already-open ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH — schema's single-tag blockedBy can't express both waits; that entry should ship first regardless. scoped at 07a9c04."
-  },
-  {
-    "tag": "DRIFT-WRITE-PLACEMENT-CONSOLIDATE",
-    "summary": "drift.rs's write_placement (mkdir+write+DriftError::Write) is reimplemented inline in emit_manifest and emit_one instead of calling the existing helper",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`write_placement` (2298-2309, doc 2295-2297) is the named helper for 'create the parent dirs, write the bytes, map both failures to `DriftError::Write`' — called at its own call sites (2265, 2290) inside the placement-apply path. `emit_manifest` (1475-1486) and `emit_one` (2071-2082) each reimplement the identical body inline instead of calling it: the same `fs::create_dir_all(parent).map_err(|source| DriftError::Write { path: parent.to_path_buf(), source })?` followed by `fs::write(path, desired.as_bytes()).map_err(|source| DriftError::Write { path: path.to_path_buf(), source })?`, each already wrapped in the same `if !dry_run { .. }` guard `write_placement`'s own callers use — three copies of one job in one file. Replace both inline blocks with `write_placement(path, &desired)?` (emit_manifest) and `write_placement(&disk_path, &desired)?` (emit_one), inside their existing `if !dry_run` guards. No behavior change: identical mkdir/write/error-map sequence, same error variant, same paths."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "dry_run_reports_the_outcome_but_writes_nothing (250) and a_represented_manifest_emits_whole_through_the_write_face_not_json_splice (524) stay green — the consolidation is call-site-only, identical mkdir/write/error behavior for both the member-projection and manifest emit paths"
-      }
-    ],
-    "acceptance": "emit_manifest and emit_one both call the existing write_placement helper instead of each carrying its own inline mkdir+write+DriftError::Write block; the job has exactly one implementation in src/drift.rs. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping pipeline (posture rotation: formats done, pipeline this tick). Serialized behind NORMALIZE-PATH-SUBSYSTEM-PLACEMENT, last chain entry touching drift.rs by array position (pending-entry.md, 'Disjoint, or serialized'). DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE also touches drift.rs on a parallel branch off EXTRACT-FOUNDATION-BOUNDARY-RESTORE — single-tag blockedBy can't express both waits; expected to ship independently regardless. scoped at 69e7571."
-  },
-  {
     "tag": "READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE",
     "summary": "read.rs's DIRECTIVE_FIELD_LABEL duplicates graph.rs's private DIRECTIVE_FIELD const byte-for-byte, self-documented as a mirror instead of one shared value",
     "per": {
@@ -199,8 +70,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -228,37 +98,6 @@
     "notes": "Found sweeping pipeline (posture rotation: formats done, pipeline this tick); DIRECTIVE_FIELD_LABEL's own doc comment already concedes it mirrors graph's const, but nothing ever consolidated them. Serialized behind GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, last chain entry touching graph.rs — its blockedBy chain already passes through GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE, read.rs's only other pending toucher, so one blocker covers both files. scoped at 69e7571."
   },
   {
-    "tag": "COVERAGE-NOTE-GOVERNS-FILE-LEAF-CONSOLIDATE",
-    "summary": "coverage_note.rs's governs and governs_segment each re-derive the identical root/glob-leaf file match three times instead of sharing one helper",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`governs` (345-365) tests whether a kind's `governs` locus selects a file leaf twice in its own body — once inside the `collection_address` branch (354-355, `normalize_root(&governs.root) == parent && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))`) and once in the non-address branch (357, 361-363, same expression with `root` pre-bound) — and `governs_segment` (372-382) repeats the identical expression a third time (379-380), all three preceded by the same `split_file` call. Factor a private `fn governs_file_leaf(governs: &crate::kind::Governs, path: &str) -> bool` doing `let (parent, leaf) = split_file(path); normalize_root(&governs.root) == parent && compile_glob(governs.glob_leaf()).is_some_and(|matcher| matcher.is_match(leaf))`, and call it from all three sites. No behavior change: identical inputs produce identical outputs."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "a_partially_governed_settings_json_names_only_the_present_ungoverned_residue, a_fully_represented_settings_json_retires_its_unmodeled_surface_finding, and a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it stay green — the consolidation is call-site-only, both file-whole and segment governance verdicts are unchanged"
-      }
-    ],
-    "acceptance": "governs and governs_segment both call one shared governs_file_leaf helper for the root/glob-leaf file match instead of each re-deriving it; the expression appears once in src/coverage_note.rs, not three times. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the judges subsystem (posture rotation: pipeline done, judges this tick). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, the current last chain entry touching coverage_note.rs, for shared-file safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 662cf07."
-  },
-  {
     "tag": "GATE-MANIFEST-SHARED-READ-HOIST",
     "summary": "gate()/explain() re-read+re-parse a manifest file (settings.json) once per governing kind, and coverage_note reads it again for coverage — hoist to one shared parse per file per run",
     "per": {
@@ -266,8 +105,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -346,8 +184,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
