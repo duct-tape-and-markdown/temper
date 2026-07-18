@@ -771,6 +771,20 @@ fn impact_leaf(
     out
 }
 
+/// Select citations matching a predicate — the shared filter both `narrate_citers` and
+/// `context_member_one` use to identify relevant citations. Extracted so the two call sites
+/// cannot disagree on what cites a leaf or member, exactly as the edge walk shares the
+/// gate's resolved set (READ-EDGE-UNIFY).
+fn select_citers<F>(citations: &[Citation], predicate: F) -> Vec<&Citation>
+where
+    F: Fn(&Citation) -> bool,
+{
+    citations
+        .iter()
+        .filter(|citation| predicate(citation))
+        .collect()
+}
+
 /// Narrate the **citations** naming a leaf — the declared one-way edges (obligation-free,
 /// resolution-checked) both `impact` and `context` report at leaf grain.
 /// Shared so the two verbs cannot disagree on
@@ -783,15 +797,12 @@ fn narrate_citers(
     key: &str,
     child_path: &str,
 ) {
-    let citers: Vec<&Citation> = citations
-        .iter()
-        .filter(|citation| {
-            citation.target.member == member
-                && citation.target.kind == kind
-                && citation.target.key == key
-                && citation.target.child_path == child_path
-        })
-        .collect();
+    let citers = select_citers(citations, |citation| {
+        citation.target.member == member
+            && citation.target.kind == kind
+            && citation.target.key == key
+            && citation.target.child_path == child_path
+    });
     if citers.is_empty() {
         let _ = writeln!(
             out,
@@ -1020,11 +1031,9 @@ fn context_member_one(
     }
     out.push('\n');
 
-    // Citers — every declared one-way edge naming a leaf in this member.
-    let citers: Vec<&Citation> = citations
-        .iter()
-        .filter(|citation| citation.target.member == features.id)
-        .collect();
+    // Citers — every declared one-way edge naming a leaf in this member, using the shared
+    // selection helper so the two verbs cannot disagree on what cites a member.
+    let citers = select_citers(citations, |citation| citation.target.member == features.id);
     if citers.is_empty() {
         let _ = writeln!(
             out,
