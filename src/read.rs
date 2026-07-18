@@ -590,7 +590,7 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 /// the leaf-grain surface; `citations` are the declared one-way edges naming a leaf.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
-pub fn impact(
+fn impact(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
@@ -853,11 +853,7 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 /// A read, never a gate: an unresolved or ill-formed address is narrated plainly and the caller
 /// still exits zero.
 #[must_use]
-pub fn context(
-    by_kind: &BTreeMap<&str, &[Features]>,
-    citations: &[Citation],
-    address: &str,
-) -> String {
+fn context(by_kind: &BTreeMap<&str, &[Features]>, citations: &[Citation], address: &str) -> String {
     if address.contains('/') {
         context_leaf(by_kind, citations, address)
     } else {
@@ -1251,7 +1247,7 @@ fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize 
 /// (REQUIREMENT-GATE), so `explain` cannot report a requirement unfilled that `check`
 /// counts as covered.
 #[must_use]
-pub fn requirements(
+fn requirements(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
@@ -1465,7 +1461,7 @@ fn coverage_state(required: bool, satisfier_count: usize) -> String {
 /// present log naming no member still narrates the strand, stating plainly that nothing
 /// named it. A record an older tap wrote surfaces as a counted line, never a silent skip.
 #[must_use]
-pub fn field(
+fn field(
     records: &[TapRecord],
     older_version: usize,
     by_kind: &BTreeMap<&str, &[Features]>,
