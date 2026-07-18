@@ -129,6 +129,41 @@
     "notes": "Found sweeping 'model' (foundation done, model this tick). roster.rs's separate `crate::engine` import stays untouched — doc-justified delegation to the judge algebra, and architecture.md states no model-never-depends-on-judges invariant, unlike the provider one this fixes; surfaced for a human read, not filed. Disjoint from every other entry this tick. scoped at 4adb1fb."
   },
   {
+    "tag": "DOCUMENT-RETIRED-FENCE-SURFACE-PRUNE",
+    "summary": "document.rs's `+++`-fenced Document/DocumentError type and its add_clause/add_satisfies/add_provenance/clauses/provenance helpers are zero-consumer residue from 664a522",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/document.rs",
+          "description": "Grep-verified zero-consumer outside this file's own `mod tests` (checked src/, tests/, sdk/): the `Document` struct (31-48 doc+struct) and its `impl Document` block (105-196: `new`/`parse`/`emit`/`header`/`header_mut`/`body`), `DocumentError` (50-103), `child_table` (220-234), `add_clause` (236-243), `add_satisfies` (245-252), `add_provenance` (254-272), `clauses` (274-293), `provenance` (347-355), `is_fence` (357-362), `parse_header` (364-380), `header_span` (382-390), and the `FENCE` const (27-29) — all residue from 664a522 ('retire the pre-0016 own-path surface-document mechanism'), which removed every real caller of this `+++`-fenced surface-document machinery (`surface_overlay`, `Member::from_surface`/`to_document`) but left the machinery itself standing, exercised only by its own inline tests. `Satisfies`/`Satisfies::new` (198-217 — live consumers: frontmatter.rs, read.rs, kind.rs, builtin_kind.rs, main.rs) and `item_to_json`/`value_to_json` (295-345 — item_to_json's live consumer: toml_document.rs) are this file's only real surface; keep both verbatim, remove every other item named above. Narrow imports accordingly: drop `use std::path::Path;` (19, only add_provenance's caller) and `use miette::SourceSpan;` (21, only DocumentError); narrow `use toml_edit::{DocumentMut, Item, Table, Value};` (23) to `use toml_edit::{Item, Value};` (Item/Value are item_to_json/value_to_json's own types; DocumentMut/Table were Document-only); drop `use crate::drift;` (25, only add_provenance's `to_lock_path` call). Reword the module doc comment (1-17), which describes only the retired `+++`-fenced 'surface document' concept, to state the file's real remaining job — the `satisfies` clause type plus the `Item`/`Value` → JSON conversion `toml_document.rs` shares. In `mod tests` (392-613), delete the 13 tests that exercise only the retired surface (parse_then_emit_is_byte_identical, body_is_verbatim, empty_header_round_trips, header_patch_preserves_comments_order_and_whitespace, unknown_header_tables_are_preserved_verbatim, missing_opening_fence_is_a_precise_error, empty_input_is_a_missing_fence_error, unterminated_fence_is_a_precise_error, bare_opening_fence_is_unterminated_not_a_panic, malformed_header_toml_is_a_precise_error, clause_modules_emit_as_labelled_tables_and_round_trip, add_provenance_normalizes_a_backslash_joined_source_path, new_uses_canonical_fences_and_round_trips) plus the now-unused FIXTURE const (400-414) if nothing else reads it. Rewrite `item_to_json_converts_each_clause_value_kind_faithfully` (578-601) to reach its per-value-kind (string/int/bool/array/inline-table) `[clause.*]` fixture by parsing the TOML text directly into a `toml_edit::DocumentMut` and walking its `clause` table, rather than through the retired `Document::parse`/`clauses` helpers — same fixture text, same assertions on item_to_json's output."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/document.rs",
+        "asserts": "item_to_json_converts_each_clause_value_kind_faithfully passes after its rewrite off the retired Document/clauses path, with the same per-value-kind coverage of item_to_json's output"
+      },
+      {
+        "path": "src/document.rs",
+        "asserts": "no test in the file's mod tests references Document, DocumentError, add_clause, add_satisfies, add_provenance, clauses, or provenance — the retired surface carries no surviving assertion"
+      }
+    ],
+    "acceptance": "src/document.rs carries no Document/DocumentError/add_clause/add_satisfies/add_provenance/clauses/provenance/child_table/FENCE — only Satisfies and the Item/Value→JSON conversion (item_to_json/value_to_json) remain, both unchanged. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the `formats` subsystem (posture rotation, formats next after model). frontmatter.rs's provider dependency is already queued (FRONTMATTER-TEST-SYNTHETIC-KINDS); json_manifest.rs's dead `Discovery` variant is already queued (DISCOVERY-INFALLIBLE-RESULT-COLLAPSE); toml_document.rs is clean. Disjoint from every other queue entry's files. scoped at 15bf420."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {
