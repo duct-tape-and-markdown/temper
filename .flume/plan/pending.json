@@ -1433,5 +1433,37 @@
     ],
     "acceptance": "architecture.md's codemap either gains a named split for read.rs's strands, or the module's 'one CLI verb' framing is affirmed as the accepted unit — a human ratification either way. cargo test green.",
     "notes": "Drained from .flume/refactor/plan-read-verb-strand-cohesion.md (observed 7ac498a; git log 7ac498a..HEAD -- src/read.rs is empty at 0388334, claim unchanged). scoped at 0388334."
+  },
+  {
+    "tag": "MAIN-THIN-DISPATCH-COHESION",
+    "summary": "main.rs's own module doc claims thin dispatch, but 47 functions beyond main hold corpus assembly and judgment unreachable from tests/ — architecture.md names main dispatch-only",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "main.rs's own header (1-6) states the file is 'a thin clap dispatch over the [temper] library ... all logic lives in the library so tests/ can drive it,' matching rust.md's Style & structure rule and architecture.md's Invariants section verbatim ('main carries dispatch only — corpus assembly and judgment live in the library'). The file (2762 lines) does not hold that shape: 47 free functions beyond main carry real corpus assembly and judgment — the two verb bodies (gate 847-1223, explain 513-641), clause/edge construction from lock rows (clause_from_row 2485, edges_from_declarations 2502, requirement_from_row 2457, mention_edges_from_declarations 2542, import_edges_from_lock 2566), and admissibility judges (joined_kind_admissibility 1738, satisfies_label_admissibility 2034, nested_member_admissibility 2074, local_locus_admissibility 2341, governs_collision_diagnostics 2394, clause_collision_diagnostics 2299, kind_collision_diagnostic 2263) among others (resolve_kind_units 1319, manifest_units 1498, kind_features 1521, assemble_lock_family 1582, assemble_by_kind 1862). None of this is reachable from tests/*.rs (a separate crate linking only the library, per rust.md); tests/cli.rs's own doc comment names the one legitimate reason it drives the binary as a subprocess — exit-code observability across a real process boundary — which covers none of this judgment logic, tested (where tested at all) only via main.rs's own internal #[cfg(test)] mod tests (2582, 7 tests), invisible to tests/. No single mechanical move resolves this: each function's right library home differs (clause/edge builders look like compose.rs/graph.rs territory, admissibility judges look like engine.rs/graph.rs territory, gate/explain themselves may want a new pipeline-facing entry point the library exports and main.rs merely calls) — the same 'which module' judgment call architecture.md's Growth rules names for a cohesion split ('the codemap gains a name, the tree gains a file'). Sized like the standing READ-VERB-STRAND-COHESION precedent: whether main.rs's current shape is an accident to correct or an accepted, named cost is a human call on the codemap, not a sweep finding."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The verb bodies (gate 847-1223, explain 513-641), clause/edge builders (clause_from_row 2485, edges_from_declarations 2502, requirement_from_row 2457, mention_edges_from_declarations 2542, import_edges_from_lock 2566), admissibility judges (joined_kind_admissibility 1738, satisfies_label_admissibility 2034, nested_member_admissibility 2074, local_locus_admissibility 2341, governs_collision_diagnostics 2394, clause_collision_diagnostics 2299, kind_collision_diagnostic 2263), and supporting corpus-assembly functions (resolve_kind_units 1319, manifest_units 1498, kind_features 1521, assemble_lock_family 1582, assemble_by_kind 1862) plus the module header (1-6) stating the thin-dispatch framing — a split, if ratified, lands flat per Growth rules ('the codemap gains a name, the tree gains a file, no directories'), naming which function(s) extract and to what module name(s) or new pipeline-facing entry point."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "existing subprocess exit-code coverage stays green across whichever resolution lands — split or not, any module boundary change is location-only"
+      }
+    ],
+    "acceptance": "architecture.md's codemap either gains a named split for main.rs's corpus-assembly and judgment functions, or the module's thin-dispatch framing is affirmed as an accepted, named cost — a human ratification either way. cargo test green.",
+    "notes": "Drained from .flume/refactor/plan-main-thin-dispatch-cohesion.md (observed 285f57b; git log 285f57b..HEAD -- src/main.rs is empty at ad342a8, claim unchanged). scoped at ad342a8."
   }
 ]
