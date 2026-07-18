@@ -1537,5 +1537,169 @@
     ],
     "acceptance": "temper guard binds a PreToolUse write against any lock-declared emit-owned target, not only .claude/-rooted ones; the .claude/ regex survives only as the documented no-lock fallback. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Routed from inbox (RULED, standing delegation, observed ab01fb4). Serialized behind BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE, the last chain entry touching install.rs, for shared-file safety — no functional dependency. A declared-locus kind outside .claude currently escapes the guard silently, a real gap, not just a shape defect."
+  },
+  {
+    "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE",
+    "summary": "CollectionAddress gains a closed entry-shape fact (object/scalar/group-array) as kind data; ENABLEMENT_FIELD's field-name half becomes the enabledPlugins kind's own declared shape (decision 0042)",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "`CollectionAddress` (184-190, two fields: `manifest`, `key_path: CollectionKeyPath`) gains a third field carrying decision 0042's closed entry-shape fact: `object` (the value's keys are the member's fields, today's unmarked default), `scalar` (the value is the member's one declared field, carrying that field's name — this is where `ENABLEMENT_FIELD`'s (219, `pub(crate) const ENABLEMENT_FIELD: &str = \"enabled\"`) knowledge relocates), and `group-array` (the value is an array of groups, each carrying lifted shared fields plus a member array — the member-array key and lifted field names are its own parameters, settled from the format docs `claude_code_hook`'s doc comment already cites). Exact Rust shape (an `EntryShape` enum with data-carrying variants, `Scalar { field: String }`/`GroupArray { member_key: String, lifted_fields: Vec<String> }`) is a judgment call for build, named in the commit body. `CollectionKeyPath` (196-302, its four variants and `collection_key`/`key_field`/`identity_edge`/`spans_whole_manifest` methods) is UNCHANGED — it still names the manifest's top-level key; only the identity-branching *consumers* of it (a later chain entry) retire, not the type. `collection_address_from_row` (1155-1169) decodes the new row column into the new field; `ENABLEMENT_FIELD` itself is NOT deleted here — it retires only once its last two consumers (json_manifest.rs, graph.rs — later chain entries) are gone."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The four shipped `CollectionAddress { .. }` literals declare their real shape, each already carrying the citation this fact draws from in its surrounding doc comment: `claude_code_hook` (238-241, doc 225-230, `code.claude.com/docs/en/hooks`, retrieved 2026-07-16) declares `group-array`; `claude_code_mcp_server` (265-268, doc 254-259, 'a server entry is an object') declares `object`; `claude_code_installed_plugin` (302-305) declares `scalar` with field `\"enabled\"` (retiring what `ENABLEMENT_FIELD` encoded); `claude_code_known_marketplace` (343-346, doc: 'Its value is an object, unlike an installed plugin's bare boolean') declares `object`. The two in-module test literals (835, 872) gain the matching field."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`CollectionAddressRow` (2893-2900, `manifest`/`key_path` only) gains the wire column carrying the new fact; `collection_address_table`/`collection_address_from_table` (3806-3813/3815-3823) read/write it. `src/builtin_lock.toml`'s four registration rows (approx lines 106/115/124/140 — hook/mcp-server/installed-plugin/known-marketplace) gain matching real values, since `KindFactRow` decodes only `Deserialize` (no default) and the embedded lock is every bare harness's default-contract source (`.flume/plan/open-questions.md`, 'Default-contract auto-adoption')."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`CollectionAddress` interface (137-144, `manifest`/`keyPath` only) gains the mirrored `entryShape`-shaped fact, matching whichever Rust shape build lands."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`collectionAddressRow` (235-238) lowers the new fact into the row's new wire column, alongside the existing `manifest`/`key_path` mapping."
+        },
+        {
+          "path": "tests/hook_kind.rs",
+          "description": "Line 19/57-60's `CollectionAddress { .. }` assertion against `definition(\"hook\")` gains the group-array shape's expected value."
+        },
+        {
+          "path": "tests/mcp_server_kind.rs",
+          "description": "Line 22/53-56's `CollectionAddress { .. }` assertion gains the object shape's expected value."
+        },
+        {
+          "path": "tests/installed_plugin_kind.rs",
+          "description": "Line 24/96-99's `CollectionAddress { .. }` assertion gains the scalar shape's expected value (field `\"enabled\"`); the lock-row read at 217-234 gains the new column's raw-wire assertion."
+        },
+        {
+          "path": "tests/known_marketplace_kind.rs",
+          "description": "Line 26/73-76's `CollectionAddress { .. }` assertion gains the object shape's expected value."
+        },
+        {
+          "path": "tests/manifest_adapter.rs",
+          "description": "The `mcp_address()` helper (17, used at 23-27 and across the file) constructs a bare `CollectionAddress` directly — gains the new field (object shape, matching `mcp-server`'s real declaration)."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "`a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical` (924, `CollectionAddress { .. }` at 960-963) gains the group-array shape's expected value — the round trip itself is unaffected, this entry adds no dispatch change."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "`a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine` (1165-1207) constructs `CollectionAddress { .. }` directly to assert `CustomKind::from_kind_fact_row`'s decode output — gains the new field on both sides of the round trip."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "CollectionAddressRow (src/drift.rs, ts-rs-mirrored to sdk/src/generated/CollectionAddressRow.ts) gains a new column carrying the closed entry-shape fact; exact wire shape is a judgment call for build, named in the commit body. Regenerates via the existing ts-rs export test — never hand-edit the generated file.",
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the new entry-shape column round-trips losslessly through emit + read_declarations for all three shape kinds (object/scalar/group-array), the same bar CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's precedent sets"
+      },
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the embedded lock's frozen-snapshot test is re-recorded (not silently stale) to include the four registration rows' new column — grep this file's own re-record discipline at pickup"
+      }
+    ],
+    "acceptance": "CollectionAddress carries a closed entry-shape fact as kind data (object/scalar/group-array); the four shipped registration kinds declare their real shape with the citations they already carry; the lock row and SDK mirror round-trip it losslessly. Nothing dispatches on it yet — this entry is purely additive, no behavior change. cargo test, cargo clippy --all-targets -- -D warnings, and pnpm --dir sdk test all green.",
+    "notes": "Derived from decision 0042 (specs/decisions/0042-the-entry-declares-its-shape.md), Consequences bullets 1 (kind.rs half), 3, and 4. Shares kind.rs with the open KIND-ZERO-CONSUMER-EXPORTS-PRUNE (blocked on it), builtin_kind.rs with the open TAP-PAYLOAD-SCHEMA-SPLIT, and drift.rs with the open MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT/IMPORT-ROLLUP-WRITER-PLACEMENT — single-tag blockedBy can't express all four; non-overlapping regions in each, ships independently regardless. scoped at efe64aa."
+  },
+  {
+    "tag": "JSON-MANIFEST-ENTRY-SHAPE-DISPATCH",
+    "summary": "manifest_members and emit's write faces dispatch on the collection's declared entry-shape instead of CollectionKeyPath identity; the HooksEvent/EnabledPlugins branches delete (decision 0042)",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "The fix lands at the mechanism"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`manifest_members` (538-565) branches on collection *identity* — `if collection_key == CollectionKeyPath::HooksEvent.collection_key()` (545) and `::EnabledPlugins.collection_key()` (555) — with the object-shape read (`entry_fields`, 571-579) as the unconditional fallthrough tail (561-564). Re-key the dispatch to match on the resolved collection's declared entry-shape (from KIND-ENTRY-SHAPE-DATA-DECLARE) instead: `Scalar`/`GroupArray`/`Object`, deleting both identity comparisons. `enablement_member_fields` (598-603) and `enablement_entry_value` (615-620, `pub(crate)`) stop reading the bare `ENABLEMENT_FIELD` constant and take the shape's own field name as a parameter instead. `hook_member_fields` (630-658) and `hook_matcher_group` (667-686, `pub(crate)`) stop hardcoding the literal strings `\"matcher\"`/`\"hooks\"` and take the shape's own member-array key / lifted field names as parameters instead. `entry_fields` (object-shape read) has no named write-side inverse today — its write is inlined in `drift.rs`'s `emit` (see below); promote it into a first-class function beside its siblings for symmetry, or leave the inline and only change its dispatch condition — a judgment call for build, named in the commit body."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`emit`'s registration-write loop (1006-1058) branches on the identical identity pair: `if collection == CollectionKeyPath::HooksEvent.collection_key()` (1028) and `::EnabledPlugins.collection_key()` (1040), with the object-shape write inlined unconditionally in the `else` (1049-1057). Re-key to dispatch on the registration's collection's declared entry-shape, calling `json_manifest`'s now-shape-parameterized write functions (and the object-shape write, wherever it now lives per the json_manifest.rs judgment call) instead of the identity `if`/`else if`/`else` chain."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/json_manifest.rs",
+        "asserts": "enablement_members_carry_the_scalar_value_and_re_render_identically (~970-1007), an_enablement_member_with_no_enabled_field_renders_the_documented_true (~1009-1014), and hook_members_decompose_the_matcher_group_array_and_re_nest_identically (~1016-1051) all pass calling the now-parameterized functions — identical behavior, dispatch-only rewrite"
+      },
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical (924) stays byte-identical through the rekeyed dispatch"
+      },
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "composition 3 (116-126: sessionHook/formatterPlugin/acmeMarketplace — group-array/scalar/object composed in one settings.json) stays snapshot-identical, proving the rekeyed dispatch handles all three shapes together in one manifest — this already-existing composition discharges decision 0042's 'gauntlet gains a fixture composing the three shapes' consequence (verified on disk this tick, no new fixture needed)"
+      }
+    ],
+    "acceptance": "manifest_members and emit's registration-write loop both dispatch on the collection's declared entry-shape; no CollectionKeyPath identity comparison remains in either function. Byte-identical output to today (engineering.md, 'The fix lands at the mechanism': the special case generalizes, the case stops being special). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Derived from decision 0042, Consequences bullet 2 (json_manifest.rs half) plus the drift.rs write-face half the decision's own text folds into 'the write faces re-key.' Bullet 5 (gauntlet fixture) verified-already-moot on disk this tick via tests/gauntlet.rs:116-126 — see tests[] above."
+  },
+  {
+    "tag": "GRAPH-ENABLEMENT-FIELD-RETIRE",
+    "summary": "graph.rs's dead-plugin judge stops reading the bare ENABLEMENT_FIELD constant; kind.rs deletes it once both consumers are gone (decision 0042's retirement, completed)",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "The fix lands at the mechanism"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "JSON-MANIFEST-ENTRY-SHAPE-DISPATCH"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`dead_registration`'s `Registration::Enablement` arm (727-739, reading `crate::kind::ENABLEMENT_FIELD` at 728 and 737) is the constant's last consumer once json_manifest.rs's own two uses (JSON-MANIFEST-ENTRY-SHAPE-DISPATCH) are gone. `dead_registration` receives only `&Registration`/`&Features` — no `CollectionAddress`/kind data reaches this call site today (traced: `dead_channel_set` → `reachable`/`live_members`, both keyed by bare kind name off `main.rs:591-596`'s `registrations: BTreeMap<&str, Vec<Registration>>`, which drops `CustomKind::collection_address` when building the map). Two designs, a judgment call for build, named in the commit body: (a) widen `Registration::Enablement` to carry its own `field: String`, mirroring the sibling variants `DescriptionTrigger`/`PathsMatch`/`Event`'s existing per-variant field, populated from the enabled-plugins kind's declared `Scalar { field }` shape when `main.rs` builds the registration map; or (b) thread `CollectionAddress`/entry-shape data down through `reachable`/`live_members`/`dead_channel_set`/`dead_registration`'s signatures. Once resolved, delete `kind.rs`'s now-fully-unused `ENABLEMENT_FIELD` const (219, doc 211-218)."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "If design (a) is chosen: the registration-map construction (591-596) populates `Registration::Enablement`'s new `field` from the enabled-plugins kind's declared shape when building `registrations`. If design (b): the map (or a parallel one) carries `CollectionAddress` data through to `graph::reachable`'s call site — exact threading is the same build-time judgment call as the graph.rs edit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/installed_plugin_kind.rs",
+        "asserts": "a_false_valued_entry_gates_its_member_off_every_channel (154) stays green — the disabled plugin is still found dead, the two enabled ones still live, unchanged behavior through whichever design lands"
+      },
+      {
+        "path": "src/graph.rs",
+        "asserts": "existing dead_registration inline tests (e.g. a_paths_match_glob_dies_only_when_no_repo_file_matches_it and its neighbors) stay green — the retirement is signature-only for the Enablement arm, no change to other channels"
+      }
+    ],
+    "acceptance": "graph.rs's dead-plugin judge reads the field name from kind data, never the bare ENABLEMENT_FIELD constant; kind.rs no longer declares it. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Derived from decision 0042, completing Consequences bullet 1's ENABLEMENT_FIELD retirement (graph.rs was not named in the decision's own text, which lists only kind.rs/json_manifest.rs — but ENABLEMENT_FIELD cannot retire while this file still reads it; the retirement's completion, not new scope). Last entry in the 0042 chain. scoped at efe64aa."
   }
 ]

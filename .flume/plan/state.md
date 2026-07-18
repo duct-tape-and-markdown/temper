@@ -1,62 +1,77 @@
 # Plan state
 
-- Spec derived through: 64828d9 — unchanged, not this tick's job. Live
-  input for the next tick: 506c34c (specs: 0042 — "the entry declares
-  its shape") lands past this cursor and is not yet routed.
+- Spec derived through: 506c34c — decision 0042 ("the entry declares
+  its shape") routed this tick.
 - Audited through: 64828d9 — unchanged, not this tick's job.
 - Residue swept through: 64828d9 — unchanged, not this tick's job.
 - Posture swept through: judges next (mid-rotation) — pipeline read
-  and swept last tick (ab01fb4); not this tick's job.
-- This tick: INBOX. Two commits landed on the repo mid-session, after
-  this tick's orientation snapshot was taken and after last tick's
-  posture-sweep commit: 506c34c (a human spec commit, decision 0042)
-  and ff57f21 (`chore(flume+harness)`, human territory — applied the
-  0042 frame one level up, at subsystem level, ruling three
-  embedded-provider-knowledge instances via the inbox, and added the
-  lens itself to `.claude/rules/posture-sweep.md`/`.temper/rules/
-  posture-sweep.md` for future sweeps). Re-oriented off live disk
-  state rather than the stale snapshot: `.flume/inbox.md` held three
-  RULED notes (observed ab01fb4), outranking the newly-live spec delta
-  in job order, so inbox is this tick's job, spec delta next tick's.
-  Routed all three, each pre-decided (standing delegation) so each
-  filed `gate: open` (or serialized behind an existing open entry
-  sharing its file) rather than re-litigated:
-  - TAP-PAYLOAD-SCHEMA-SPLIT — tap.rs's `record_from_payload`
-    (126-171) inlines Claude Code's hook-payload schema (event names,
-    `tool_input.skill` field path) in a foundation module; the
-    classification moves to the provider face, record vocabulary/IO
-    stay. No file conflict with the existing queue (tap.rs untouched
-    elsewhere) — filed open.
-  - COVERAGE-KNOWN-SURFACES-RELOCATE — coverage_note.rs's
-    `KNOWN_SURFACES` registry and its hardcoded `.claude` scan root
-    (256) duplicate the provider face's own already-declared `.claude`
-    root (`builtin_kind.rs`'s five `Governs` literals); both relocate.
-    No open-entry conflict on coverage_note.rs — filed open.
-  - GUARD-DECLARED-LOCUS-FILTER — install.rs's `GUARD_PATH_MATCH`
-    regex hard-admits only `.claude/`-rooted paths ahead of consulting
-    `targets` (the lock's declared emit-owned set), so a declared-locus
-    kind governing outside `.claude` (0038 layout kinds) escapes the
-    guard silently — a real gap, not just a shape defect. install.rs
-    already carries an open entry (INSTALL-GUARD-MANIFEST-MESSAGE-
-    PRUNE) chaining through INSTALL-PLACEMENT-KIND-ENUM to
-    BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE — serialized this
-    behind that chain's last install.rs-touching entry
-    (pending-entry.md, "Disjoint, or serialized") rather than filed
-    open.
-  All three per-cite architecture.md's Invariants/Codemap sections —
-  the same "did we widen at the wrong level" frame decision 0042
-  itself argued, applied one level up to knowledge (a cited external
-  fact spelled as a literal) rather than behavior (an identity branch).
-  Inbox drained to its template comment; nothing else live there.
-- Queue: 41 pending (+3 this tick: TAP-PAYLOAD-SCHEMA-SPLIT open,
-  COVERAGE-KNOWN-SURFACES-RELOCATE open, GUARD-DECLARED-LOCUS-FILTER
-  blockedBy). 9 pickable OPEN (the prior 7 plus the two new open
-  entries), 29 chained blockedBy, 3 parked on human action
-  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
-  MAIN-JUDGE-VERB-HOME-RULING). Open forks unchanged: (multi-harness-
-  projection), (lazy-grounds), neither touched. Refactor captures: 0
-  live. Friction: 0 live. Inbox: 0 notes (drained this tick).
+  and swept two ticks ago (ab01fb4); not this tick's job.
+- This tick: SPEC DELTA. `git log 64828d9..HEAD -- specs/` names one
+  commit, 506c34c (decision 0042: a collection's manifest-entry value
+  decomposes per a closed, kind-declared shape — object/scalar/
+  group-array — replacing today's `CollectionKeyPath`-identity
+  branches in json_manifest.rs/drift.rs and retiring the
+  `ENABLEMENT_FIELD` engine constant into the enabled-plugins kind's
+  own declared shape). Routed every Consequences bullet by name:
+  - Bullet 1 (kind.rs gains the entry-shape enum; ENABLEMENT_FIELD
+    retires) — split across two entries per the retirement's two
+    consumers: KIND-ENTRY-SHAPE-DATA-DECLARE (the kind.rs data model,
+    blockedBy KIND-ZERO-CONSUMER-EXPORTS-PRUNE for shared kind.rs
+    safety) does NOT delete the constant yet (json_manifest.rs/
+    graph.rs both still read it); GRAPH-ENABLEMENT-FIELD-RETIRE
+    (blockedBy JSON-MANIFEST-ENTRY-SHAPE-DISPATCH, last in the chain)
+    completes it once both consumers are gone — traced on disk that
+    graph.rs's dead_registration has no CollectionAddress in hand
+    today (only bare Registration/Features), so this is a real,
+    not cosmetic, follow-on the decision's own text doesn't name but
+    the retirement cannot complete without.
+  - Bullet 2 (json_manifest.rs/write-faces re-key; identity branches
+    delete) — JSON-MANIFEST-ENTRY-SHAPE-DISPATCH (blockedBy
+    KIND-ENTRY-SHAPE-DATA-DECLARE), folding in drift.rs's emit()
+    identity branches the decision's prose bundles under "the write
+    faces."
+  - Bullet 3 (shipped kinds declare shapes with their cites; lock/
+    schema rows round-trip) and bullet 4 (SDK mirrors, ts-rs
+    regenerates) — both folded into KIND-ENTRY-SHAPE-DATA-DECLARE
+    (builtin_kind.rs's four CollectionAddress literals already carry
+    the needed format cites in their doc comments; CollectionAddressRow
+    in drift.rs plus sdk/src/kind.ts + declarations.ts).
+  - Bullet 5 (gauntlet gains a fixture composing the three shapes) —
+    verified-already-moot on disk this tick: tests/gauntlet.rs's
+    composition 3 (116-126) already composes hook (group-array),
+    installedPlugin (scalar), and knownMarketplace (object) in one
+    settings.json — filed as regression coverage inside
+    JSON-MANIFEST-ENTRY-SHAPE-DISPATCH's tests[] rather than a new
+    entry.
+  - Bullet 6 (no fork record to delete) — verified-already-moot: no
+    open-questions.md entry exists naming this question; nothing to
+    delete.
+  A dedicated general-purpose agent mapped every touched symbol with
+  file:line citations before entries were drafted (kind.rs's
+  CollectionAddress/CollectionKeyPath/ENABLEMENT_FIELD, json_manifest.rs's
+  manifest_members and its five grammar functions, drift.rs's two
+  identity branches inside emit() and the CollectionAddressRow lock
+  row, graph.rs's dead_registration, the SDK mirror, and which existing
+  tests construct CollectionAddress directly vs. observe behavior only)
+  so all three entries cite exact current line numbers rather than the
+  decision's own prose. Two design forks the mapping surfaced (the
+  object-shape write's promotion to a named function; the
+  Registration::Enablement-widen vs. thread-CollectionAddress choice
+  for graph.rs) are left as named judgment calls for build, per this
+  queue's established convention — neither is a genuine open question,
+  both are closed, small, precedented choices.
+- Queue: 44 pending (+3 this tick, chained: KIND-ENTRY-SHAPE-DATA-
+  DECLARE blockedBy KIND-ZERO-CONSUMER-EXPORTS-PRUNE,
+  JSON-MANIFEST-ENTRY-SHAPE-DISPATCH blockedBy the former,
+  GRAPH-ENABLEMENT-FIELD-RETIRE blockedBy the latter). 9 pickable OPEN
+  (unchanged from last tick — all three new entries are blockedBy),
+  32 chained blockedBy, 3 parked on human action. Open forks unchanged:
+  (multi-harness-projection), (lazy-grounds), neither touched — decision
+  0042 resolved in session with no standing fork record. Refactor
+  captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — the spec delta (506c34c, decision 0042) is now
-the first live input in job order and has not yet been routed; next
-tick derives it from its own Consequences checklist.
+Plan continues: yes — inbox is drained and spec delta is now fully
+routed (cursor advanced to 506c34c), but the posture-sweep rotation is
+still mid-cycle: `judges` is untouched since fe3ff3f and skip-forwards
+in bulk, landing on `provider` (builtin_kind.rs), already known-touched
+by 404b73a, as the next live subsystem to read and sweep.
