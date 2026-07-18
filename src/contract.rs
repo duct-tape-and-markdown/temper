@@ -738,7 +738,31 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
         .iter()
         .filter_map(|clause| match &clause.predicate {
             Predicate::Required { field } | Predicate::Optional { field } => Some(field),
-            _ => None,
+            Predicate::Type { .. }
+            | Predicate::MinLen { .. }
+            | Predicate::MaxLen { .. }
+            | Predicate::Range { .. }
+            | Predicate::Enum { .. }
+            | Predicate::Deny { .. }
+            | Predicate::AllowedChars { .. }
+            | Predicate::Shape { .. }
+            | Predicate::GlobValid { .. }
+            | Predicate::MustDefine { .. }
+            | Predicate::ForbiddenKeys { .. }
+            | Predicate::ClosedKeys
+            | Predicate::Extent { .. }
+            | Predicate::RequireSections { .. }
+            | Predicate::SectionContains { .. }
+            | Predicate::NameMatchesDir
+            | Predicate::UniqueName
+            | Predicate::DependencyExists
+            | Predicate::Count { .. }
+            | Predicate::Unique { .. }
+            | Predicate::Membership { .. }
+            | Predicate::Degree { .. }
+            | Predicate::Kind { .. }
+            | Predicate::MentionReachable { .. }
+            | Predicate::FormatPlacesEdges => None,
         })
         .filter_map(|field| crate::address::FieldPath::parse(field).ok())
         .filter_map(|path| path.head_name().map(str::to_string))
