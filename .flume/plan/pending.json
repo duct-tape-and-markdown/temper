@@ -1,135 +1,7 @@
 [
   {
-    "tag": "READ-EXPLAIN-STRAND-VISIBILITY-NARROW",
-    "summary": "read.rs's impact/context/requirements/field explain-strands are pub with zero consumer outside explain() in the same file \u2014 narrow to private, matching why's earned pub",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "Four `pub fn`s carry no caller outside this file: `impact` (593), `context` (856), `requirements` (1254), `field` (1468) \u2014 each documented in its own doc comment as `explain`'s named strand (module doc 10-17: 'requirements walks it in reverse', 'impact narrates the blast radius', 'context emits the declared neighborhood') and called only from `explain` (218, the sole dispatcher) within this same file. Grep-verified zero hits for `read::impact`/`read::context`/`read::requirements`/`read::field` across src/, tests/, sdk/; `tests/read_verbs.rs` (the file's own integration coverage) calls `read::why` (353, 554, 583) and `read::explain` (89) directly but never these four \u2014 unlike `why` (320), which earns its `pub` through those real external callers, these four's only reachable path from outside the module is through `explain`'s dispatch. The file's only inline test module, `impact_tests` (1552), exercises `impact` from within the same file \u2014 an in-module test, per the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent ('outside kind.rs's own inline tests'), does not earn a wider-than-needed visibility. Narrow `impact`, `context`, `requirements`, and `field` from `pub fn` to module-private `fn` \u2014 no `pub(crate)` needed, no sibling module calls them. Leave `why` and `explain` (both real exports) untouched, and leave the intra-doc links (`[requirements]`/`[impact]`/`[context]`/`[field]`) as-is \u2014 they resolve identically at private visibility since every reference sits within this same file."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "existing explain()/why() coverage stays green \u2014 the narrowing is visibility-only, explain's composed output over impact/context/requirements/field is unchanged"
-      },
-      {
-        "path": "src/read.rs",
-        "asserts": "impact_tests (1552) keeps passing calling impact() from within the same module at its new private visibility"
-      }
-    ],
-    "acceptance": "impact, context, requirements, and field are private fns in src/read.rs, not pub; why and explain keep their pub visibility. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the `pipeline` subsystem (posture rotation: pipeline this tick, after formats). Disjoint from every other queue entry's files (read.rs touched nowhere else). scoped at 20b7b21."
-  },
-  {
-    "tag": "ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE",
-    "summary": "engine.rs's Selector::label is pub but called only from finding() in the same file \u2014 zero outside consumer; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`Selector::label` (424-433, `pub fn label(&self) -> &str`) has exactly one call site in the whole tree \u2014 `finding()` (685-693), inside this same file, at line 689 \u2014 grep-verified zero hits for `.label()` on a `Selector` or `Selector::label` anywhere else in src/, tests/, sdk/. Its sibling `Selector::noun()` (438-444) is legitimately `pub` \u2014 its own doc comment (435-437) names the real cross-module consumer, `crate::graph::degree`'s findings \u2014 which is exactly the earned-`pub` shape `label` lacks: nothing outside this module reads it, and no doc comment names a planned second consumer. Drop `pub` from `label`, leaving it a module-private method callable from `finding()` unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "existing engine.rs inline tests over finding()/wrong_kind() and every selection-grain diagnostic stay green \u2014 the narrowing is visibility-only, finding()'s output (the diagnostic's artifact field) is unchanged"
-      }
-    ],
-    "acceptance": "`Selector::label` is a private method in src/engine.rs, not `pub`; `Selector::noun` keeps its earned `pub`. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the `judges` subsystem (posture rotation: pipeline done, judges this tick). Disjoint from every other queue entry's files (engine.rs touched nowhere else this tick). scoped at e2325df."
-  },
-  {
-    "tag": "REPORTER-SEVERITY-WORD-CONSOLIDATE",
-    "summary": "reporter.rs's github and sarif each independently match Severity::Error/Warn to the literal words \"error\"/\"warning\" \u2014 the same normalizer written twice in one file",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/reporter.rs",
-          "description": "`github` (173-199) and `sarif` (215-...) each carry their own copy of the identical match: `Severity::Error => \"error\", Severity::Warn => \"warning\"` \u2014 `github`'s at 184-187 (bound to `command`, used for the `::error`/`::warning` workflow-command name) and `sarif`'s at 219-222 (bound to `level`, used for SARIF's `level` field). Both read `diagnostic.severity` from `crate::check::Severity` and produce the exact same two-word mapping \u2014 the 'two normalizers doing the same thing' residue class, harmless only because GitHub's command name and SARIF's `level` value happen to coincide today. Add a private `fn severity_word(severity: Severity) -> &'static str` in this file (returning `\"error\"`/`\"warning\"` over the same two-arm match) and call it from both `github` (replacing 184-187) and `sarif` (replacing 219-222)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/reporters.rs",
-        "asserts": "github_emits_one_workflow_command_line_per_finding_with_the_rule_as_title, sarif_is_valid_json_with_the_temper_driver_and_one_result_per_diagnostic, and both_reporters_are_pure_presentations_of_the_diagnostic_set stay green \u2014 the consolidation is signature-only, both renderers' severity words are unchanged"
-      }
-    ],
-    "acceptance": "`github` and `sarif` both call one shared `severity_word` fn in src/reporter.rs instead of each carrying its own `Severity => &str` match. No behavior change (engineering.md, 'One job, one home': a second implementation of one job is residue, subtracted rather than carried). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping the `judges` subsystem (posture rotation: pipeline done, judges this tick). Disjoint from every other queue entry's files (reporter.rs touched nowhere else this tick). scoped at e2325df."
-  },
-  {
-    "tag": "BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE",
-    "summary": "builtin_kind::qualified is pub with zero consumer outside its own inline test \u2014 prune per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`qualified` (508-522, doc comment 512-519 plus fn) has zero consumer anywhere in src/, tests/, sdk/ outside its own inline test \u2014 grep-verified: no `builtin_kind::qualified` call and no bare `qualified(` call anywhere in src/, tests/, sdk/src/, sdk/test/. Its neighbor `definition` (501-509) is the real accessor every real call site uses (main.rs, install.rs, bundle.rs, import.rs, frontmatter.rs, a dozen tests/*.rs files); `qualified`'s own doc comment concedes it as a documented-but-unadopted convenience ('kept for call sites that ask for a kind's identity rather than its full definition') \u2014 no call site ever adopted it. Remove the fn (520-522) and its doc comment (512-519). In `mod tests`, remove `qualified_names_every_embedded_kind_by_its_own_bare_name` (758-775), the fn's only caller."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/builtin_kind.rs",
-        "asserts": "every other builtin_kind.rs inline test (definition/definitions/features coverage) stays green \u2014 the removal is dead-code-only, no behavior change to any live accessor"
-      }
-    ],
-    "acceptance": "`builtin_kind::qualified` is gone from src/builtin_kind.rs, along with its now-orphaned inline test. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-code warning survives).",
-    "notes": "Found sweeping the `provider` subsystem (posture rotation: judges done, provider this tick). Disjoint from every other currently-open queue entry's files \u2014 EXTRACT-FOUNDATION-BOUNDARY-RESTORE also edits builtin_kind.rs (a doc-comment requalify at `features`, no line overlap) but sits blockedBy a chain, never open alongside this one. scoped at 06fcdb2."
-  },
-  {
     "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE",
-    "summary": "builtin_kind::definition/definitions wrap an infallible plain-data lookup in Result<_, KindError> \u2014 an empty enum, statically unreachable Err \u2014 collapse to bare Option/BTreeMap",
+    "summary": "builtin_kind::definition/definitions wrap an infallible plain-data lookup in Result<_, KindError> — an empty enum, statically unreachable Err — collapse to bare Option/BTreeMap",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -144,11 +16,11 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "`KindError` (1479-1480, `pub enum KindError {}`) is an empty enum \u2014 its own doc comment (1475-1478) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users once `qualified` is pruned by BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE, the entry this one is serialized behind) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
+          "description": "`KindError` (1479-1480, `pub enum KindError {}`) is an empty enum — its own doc comment (1475-1478) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users once `qualified` is pruned by BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE, the entry this one is serialized behind) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "Drop the now-dead `KindError` import at 16-18. `definition` (508-510, its own `# Errors` section at 504-507 already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') and `definitions` (531-536, same concession at 527-530) both wrap an infallible lookup over `all_kinds()` \u2014 a bare `Vec` literal, no I/O \u2014 in `Result<_, KindError>`; every call site across the tree immediately `?`s or `.unwrap()`s it away, never inspecting an `Err` arm nothing can construct. Change `definition` to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }` and `definitions` to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping each `Ok(...)` wrap and its now-false `# Errors` doc section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 600, 662, 696, 701, 725, 779, 825, 839, 865, 905, 972, 1030, 1053, 1090 (972/1030/1053/1090 each carry a doubled `.unwrap().unwrap()` today \u2014 one `.unwrap()` survives, for the inner `Option`)."
+          "description": "Drop the now-dead `KindError` import at 16-18. `definition` (508-510, its own `# Errors` section at 504-507 already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') and `definitions` (531-536, same concession at 527-530) both wrap an infallible lookup over `all_kinds()` — a bare `Vec` literal, no I/O — in `Result<_, KindError>`; every call site across the tree immediately `?`s or `.unwrap()`s it away, never inspecting an `Err` arm nothing can construct. Change `definition` to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }` and `definitions` to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping each `Ok(...)` wrap and its now-false `# Errors` doc section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 600, 662, 696, 701, 725, 779, 825, 839, 865, 905, 972, 1030, 1053, 1090 (972/1030/1053/1090 each carry a doubled `.unwrap().unwrap()` today — one `.unwrap()` survives, for the inner `Option`)."
         },
         {
           "path": "src/bundle.rs",
@@ -160,7 +32,7 @@
         },
         {
           "path": "src/install.rs",
-          "description": "Two call sites drop their `?`: `discover`'s `let kinds = builtin_kind::definitions()?;` (327) and `scaffold`'s (1226). `discover`'s own `# Errors` doc (322-325, 'if the embedded kind set fails to load or a kind's discovery walk fails to read a directory') is doubly stale \u2014 the discovery-walk clause already went stale when DISCOVERY-INFALLIBLE-RESULT-COLLAPSE shipped (2f44341) and was left unworded, and the embedded-kind-set clause goes stale here; since this entry touches the same doc block, correct both clauses (or drop the `# Errors` section entirely if nothing in `discover` can still fail) rather than leaving a second stale half behind."
+          "description": "Two call sites drop their `?`: `discover`'s `let kinds = builtin_kind::definitions()?;` (327) and `scaffold`'s (1226). `discover`'s own `# Errors` doc (322-325, 'if the embedded kind set fails to load or a kind's discovery walk fails to read a directory') is doubly stale — the discovery-walk clause already went stale when DISCOVERY-INFALLIBLE-RESULT-COLLAPSE shipped (2f44341) and was left unworded, and the embedded-kind-set clause goes stale here; since this entry touches the same doc block, correct both clauses (or drop the `# Errors` section entirely if nothing in `discover` can still fail) rather than leaving a second stale half behind."
         },
         {
           "path": "src/main.rs",
@@ -237,19 +109,19 @@
     "tests": [
       {
         "path": "tests/check_cost.rs",
-        "asserts": "the measure-first cost fixture stays green \u2014 the collapse is signature-only, no behavior change to which kinds are discovered or how many times"
+        "asserts": "the measure-first cost fixture stays green — the collapse is signature-only, no behavior change to which kinds are discovered or how many times"
       },
       {
         "path": "src/builtin_kind.rs",
         "asserts": "every inline test over definition/definitions (embedded-kind lookup by name, the full roster) yields the same values at the new infallible signatures"
       }
     ],
-    "acceptance": "builtin_kind::definition returns Option<CustomKind> and builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, with no Result wrapper; KindError is gone from src/kind.rs. No behavior change (engineering.md, 'One job, one home': vacuous Result plumbing around a lookup that can never fail is subtracted, not carried \u2014 the DISCOVERY-INFALLIBLE-RESULT-COLLAPSE precedent for this exact shape). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the `model` subsystem (posture rotation: foundation done, model this tick) grep-verifying kind.rs's pub surface; the dead-Result shape is the class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs's discover_* family, unnoticed here until BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE's own removal cleared this neighborhood. Serialized behind it for shared builtin_kind.rs safety (pending-entry.md) \u2014 no functional dependency. scoped at 0dd9892."
+    "acceptance": "builtin_kind::definition returns Option<CustomKind> and builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, with no Result wrapper; KindError is gone from src/kind.rs. No behavior change (engineering.md, 'One job, one home': vacuous Result plumbing around a lookup that can never fail is subtracted, not carried — the DISCOVERY-INFALLIBLE-RESULT-COLLAPSE precedent for this exact shape). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the `model` subsystem (posture rotation: foundation done, model this tick) grep-verifying kind.rs's pub surface; the dead-Result shape is the class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs's discover_* family, unnoticed here until BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE's own removal cleared this neighborhood. Serialized behind it for shared builtin_kind.rs safety (pending-entry.md) — no functional dependency. scoped at 0dd9892."
   },
   {
     "tag": "TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE",
-    "summary": "tap.rs's LOG_FILENAME pub const has zero consumer anywhere \u2014 even its own tests hardcode the literal \u2014 narrow to private per the export-earns-its-consumer bar",
+    "summary": "tap.rs's LOG_FILENAME pub const has zero consumer anywhere — even its own tests hardcode the literal — narrow to private per the export-earns-its-consumer bar",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -263,7 +135,7 @@
       "edit": [
         {
           "path": "src/tap.rs",
-          "description": "`LOG_FILENAME` (26, `pub const LOG_FILENAME: &str = \"tap.jsonl\"`) has zero consumer anywhere in the tree \u2014 grep-verified across src/, tests/, sdk/: its only reference is its own use inside `log_path` (114, same file, `workspace_dir.join(LOG_FILENAME)`). Not even this file's own inline scaffolding or `tests/tap.rs` reads it back \u2014 `tests/tap.rs` (66, 99, 173, 198) each independently hardcode the literal `\"tap.jsonl\"` string rather than importing the const, so there is no in-module-test consumer either, a cleaner cut than the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent's 'inline test doesn't earn pub' bar \u2014 here nothing at all reads it besides its own declaration site. Drop `pub` from `LOG_FILENAME`, leaving it a module-private const read only by `log_path`."
+          "description": "`LOG_FILENAME` (26, `pub const LOG_FILENAME: &str = \"tap.jsonl\"`) has zero consumer anywhere in the tree — grep-verified across src/, tests/, sdk/: its only reference is its own use inside `log_path` (114, same file, `workspace_dir.join(LOG_FILENAME)`). Not even this file's own inline scaffolding or `tests/tap.rs` reads it back — `tests/tap.rs` (66, 99, 173, 198) each independently hardcode the literal `\"tap.jsonl\"` string rather than importing the const, so there is no in-module-test consumer either, a cleaner cut than the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent's 'inline test doesn't earn pub' bar — here nothing at all reads it besides its own declaration site. Drop `pub` from `LOG_FILENAME`, leaving it a module-private const read only by `log_path`."
         }
       ],
       "retire": []
@@ -272,7 +144,7 @@
     "tests": [
       {
         "path": "tests/tap.rs",
-        "asserts": "every existing tap-log test (append/read/older-version-toleration coverage) stays green \u2014 the narrowing is visibility-only, log_path's resolved path is unchanged"
+        "asserts": "every existing tap-log test (append/read/older-version-toleration coverage) stays green — the narrowing is visibility-only, log_path's resolved path is unchanged"
       }
     ],
     "acceptance": "LOG_FILENAME is a private const in src/tap.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
@@ -280,7 +152,7 @@
   },
   {
     "tag": "ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE",
-    "summary": "address.rs's FieldPath::spelling accessor is pub but called only from its own inline test module \u2014 zero outside consumer; narrow to private",
+    "summary": "address.rs's FieldPath::spelling accessor is pub but called only from its own inline test module — zero outside consumer; narrow to private",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -294,7 +166,7 @@
       "edit": [
         {
           "path": "src/address.rs",
-          "description": "`FieldPath::spelling` (83-85, `pub fn spelling(&self) -> &str { &self.spelling }`, doc comment 81) has zero caller anywhere in src/, tests/, sdk/ outside this file's own `mod tests` (365, 373 \u2014 both asserting `parent.spelling()` after `split_leaf`) \u2014 grep-verified zero hits for `.spelling()` anywhere else in the tree. Every other internal use of the path's text reads the private `spelling` field directly (`self.spelling` in `parse`/`split_leaf`), never through this accessor. Per the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent ('outside kind.rs's own inline tests' \u2014 an in-module test does not earn a wider-than-needed visibility), narrow `spelling` from `pub fn` to module-private `fn`; the two inline-test call sites keep compiling unchanged at the narrower visibility."
+          "description": "`FieldPath::spelling` (83-85, `pub fn spelling(&self) -> &str { &self.spelling }`, doc comment 81) has zero caller anywhere in src/, tests/, sdk/ outside this file's own `mod tests` (365, 373 — both asserting `parent.spelling()` after `split_leaf`) — grep-verified zero hits for `.spelling()` anywhere else in the tree. Every other internal use of the path's text reads the private `spelling` field directly (`self.spelling` in `parse`/`split_leaf`), never through this accessor. Per the KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedent ('outside kind.rs's own inline tests' — an in-module test does not earn a wider-than-needed visibility), narrow `spelling` from `pub fn` to module-private `fn`; the two inline-test call sites keep compiling unchanged at the narrower visibility."
         }
       ],
       "retire": []
@@ -311,7 +183,7 @@
   },
   {
     "tag": "KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE",
-    "summary": "kind.rs's CustomKind::member_document is pub with zero consumer anywhere \u2014 its claimed callers read governs.glob directly instead; prune per the export-earns-its-consumer bar",
+    "summary": "kind.rs's CustomKind::member_document is pub with zero consumer anywhere — its claimed callers read governs.glob directly instead; prune per the export-earns-its-consumer bar",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -325,7 +197,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "`CustomKind::member_document` (957-964, `pub fn member_document(&self) -> String { format!(\"{}.md\", self.name.to_uppercase()) }`) has zero consumer anywhere in the tree \u2014 grep-verified across src/, tests/, sdk/: its only two hits are its own declaration (962) and a doc-comment pointer on the `name` field (88, `([`member_document`](CustomKind::member_document))`), never a call and never a test. Its own doc comment (957-960) claims 'the name both the emit face writes and the reload face reads (`src/frontmatter.rs`, `src/import.rs`)' \u2014 false on inspection: neither file calls it or reimplements its `to_uppercase()` logic (grep-verified zero `to_uppercase` hits anywhere outside this declaration and display.rs's unrelated title-case helper); both files dispatch a member's filename through the kind's declared `governs.glob` (matched via `owns_source`/`compile_glob`), never through a derived `NAME.md` convention. Remove the fn (957-964) and reword the `name` field's doc comment (86-88) to drop the now-dead `member_document` pointer."
+          "description": "`CustomKind::member_document` (957-964, `pub fn member_document(&self) -> String { format!(\"{}.md\", self.name.to_uppercase()) }`) has zero consumer anywhere in the tree — grep-verified across src/, tests/, sdk/: its only two hits are its own declaration (962) and a doc-comment pointer on the `name` field (88, `([`member_document`](CustomKind::member_document))`), never a call and never a test. Its own doc comment (957-960) claims 'the name both the emit face writes and the reload face reads (`src/frontmatter.rs`, `src/import.rs`)' — false on inspection: neither file calls it or reimplements its `to_uppercase()` logic (grep-verified zero `to_uppercase` hits anywhere outside this declaration and display.rs's unrelated title-case helper); both files dispatch a member's filename through the kind's declared `governs.glob` (matched via `owns_source`/`compile_glob`), never through a derived `NAME.md` convention. Remove the fn (957-964) and reword the `name` field's doc comment (86-88) to drop the now-dead `member_document` pointer."
         }
       ],
       "retire": []
@@ -334,7 +206,7 @@
     "tests": [
       {
         "path": "src/kind.rs",
-        "asserts": "every other kind.rs test (CustomKind construction/extraction coverage, none of which exercised member_document) stays green \u2014 the removal is dead-code-only, no behavior change to any live accessor"
+        "asserts": "every other kind.rs test (CustomKind construction/extraction coverage, none of which exercised member_document) stays green — the removal is dead-code-only, no behavior change to any live accessor"
       }
     ],
     "acceptance": "CustomKind::member_document is gone from src/kind.rs, along with its doc-comment pointer at the name field's doc. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-code warning survives).",
@@ -412,7 +284,7 @@
   },
   {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
-    "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) \u2014 consolidate to one shared raw-row walk",
+    "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -426,7 +298,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "Three fns duplicate the same 'walk the committed lock's declaration rows' job, each independently opening `lock.toml`, tolerant-parsing it as `DocumentMut`, ranging over every top-level `(kind, item)` pair, filtering to `item.as_array_of_tables()`, and pulling columns via `row.get(..).and_then(Item::as_str)`: `read_prior_provenance` (fn 1918, loop 1928-1946, requires name+source_path+emit_hash, returns `Vec<ProvenanceRow>`), `config_stale` (fn 2342, loop 2355-2384, same three columns, inlines the staleness diagnostic instead of returning rows), `emit_owned_targets` (fn 2614, loop 2624-2641, only name+source_path, returns `Vec<EmitOwnedEntry>`). Their doc comments already cross-reference each other's tolerant-absence behavior (1916-1917, 2611-2612) \u2014 the duplication is self-aware in the code but never consolidated. Add a private `fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow>` (raw, all-`Option` columns: kind, name, source_path, emit_hash) that opens and parses the lock once and does the `(kind, item)`/`as_array_of_tables` walk once; have each of the three public fns `filter_map` over its rows instead of re-deriving the walk \u2014 `config_stale`'s and `emit_owned_targets`' looser column requirements fall out of a narrower filter each. Same-file fn-level unification \u2014 the home stays `drift.rs`, this is not a new module. Consumers (`src/install.rs`, `src/main.rs`, `tests/install.rs`) call only the three public fns \u2014 no signature change, no ripple. Re-verified at HEAD 2f44341 (unmoved since b8fc7ca, when observed)."
+          "description": "Three fns duplicate the same 'walk the committed lock's declaration rows' job, each independently opening `lock.toml`, tolerant-parsing it as `DocumentMut`, ranging over every top-level `(kind, item)` pair, filtering to `item.as_array_of_tables()`, and pulling columns via `row.get(..).and_then(Item::as_str)`: `read_prior_provenance` (fn 1918, loop 1928-1946, requires name+source_path+emit_hash, returns `Vec<ProvenanceRow>`), `config_stale` (fn 2342, loop 2355-2384, same three columns, inlines the staleness diagnostic instead of returning rows), `emit_owned_targets` (fn 2614, loop 2624-2641, only name+source_path, returns `Vec<EmitOwnedEntry>`). Their doc comments already cross-reference each other's tolerant-absence behavior (1916-1917, 2611-2612) — the duplication is self-aware in the code but never consolidated. Add a private `fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow>` (raw, all-`Option` columns: kind, name, source_path, emit_hash) that opens and parses the lock once and does the `(kind, item)`/`as_array_of_tables` walk once; have each of the three public fns `filter_map` over its rows instead of re-deriving the walk — `config_stale`'s and `emit_owned_targets`' looser column requirements fall out of a narrower filter each. Same-file fn-level unification — the home stays `drift.rs`, this is not a new module. Consumers (`src/install.rs`, `src/main.rs`, `tests/install.rs`) call only the three public fns — no signature change, no ripple. Re-verified at HEAD 2f44341 (unmoved since b8fc7ca, when observed)."
         }
       ],
       "retire": []
@@ -435,19 +307,19 @@
     "tests": [
       {
         "path": "tests/install.rs",
-        "asserts": "the config_stale(...).is_empty() assertions (536, 607) stay green \u2014 the shared walk's config_stale filter/map preserves the same tolerant-absence behavior"
+        "asserts": "the config_stale(...).is_empty() assertions (536, 607) stay green — the shared walk's config_stale filter/map preserves the same tolerant-absence behavior"
       },
       {
         "path": "tests/emit.rs",
-        "asserts": "re_emitting_after_a_member_is_removed_leaves_a_hand_edited_projection_and_reports_drift and the_emit_report_distinguishes_reaped_from_drifted_orphan stay green \u2014 these exercise read_prior_provenance/emit_owned_targets through the reap path with byte-identical output"
+        "asserts": "re_emitting_after_a_member_is_removed_leaves_a_hand_edited_projection_and_reports_drift and the_emit_report_distinguishes_reaped_from_drifted_orphan stay green — these exercise read_prior_provenance/emit_owned_targets through the reap path with byte-identical output"
       }
     ],
     "acceptance": "read_prior_provenance, config_stale, and emit_owned_targets all filter/map over one shared walk_lock_rows helper; no behavior change (engineering.md, 'One job, one home': a second implementation of one job is residue, subtracted rather than carried). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Drained from .flume/refactor/plan-drift-lock-row-walk-triplication.md (observed b8fc7ca). Its blocker, DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, shipped (2f44341) \u2014 reopened. drift.rs, tests/install.rs, and tests/emit.rs are unmoved since f404e48 (post-ship reconciliation audit, git diff f404e48..2f44341 empty on all three), so every citation above still resolves. Disjoint from every currently-open entry's files. scoped at 2f44341."
+    "notes": "Drained from .flume/refactor/plan-drift-lock-row-walk-triplication.md (observed b8fc7ca). Its blocker, DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, shipped (2f44341) — reopened. drift.rs, tests/install.rs, and tests/emit.rs are unmoved since f404e48 (post-ship reconciliation audit, git diff f404e48..2f44341 empty on all three), so every citation above still resolves. Disjoint from every currently-open entry's files. scoped at 2f44341."
   },
   {
     "tag": "DRIFT-EMIT-LOCK-PARSE-HOIST",
-    "summary": "emit() parses lock.toml twice per run \u2014 read_prior_provenance (reap-diff) and read_declarations (layer-drop check) each independently open+parse it; hoist to one shared parse",
+    "summary": "emit() parses lock.toml twice per run — read_prior_provenance (reap-diff) and read_declarations (layer-drop check) each independently open+parse it; hoist to one shared parse",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "Cost scale is hoisted, and pinned by count"
@@ -462,7 +334,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1197) calls `read_prior_provenance` (fn 1918, opens+parses the lock at 1919-1925 fresh) and the layer-drop check (1244-1247) calls `read_declarations` (fn 3398, opens+parses the lock again at 3399-3407 via `parse_declarations` -> the private `declarations_from_doc` at 3439, which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run \u2014 the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Land after DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry's `walk_lock_rows` establishes the doc-based-extractor shape this entry's provenance-row side should follow rather than re-deriving. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows and the layer-drop nested-member counts from that one parsed `DocumentMut` \u2014 `declarations_from_doc` already accepts one; give the provenance side an equivalent doc-scoped extractor. Re-verified at HEAD c2eca2d (drift.rs unchanged since b8fc7ca)."
+          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1197) calls `read_prior_provenance` (fn 1918, opens+parses the lock at 1919-1925 fresh) and the layer-drop check (1244-1247) calls `read_declarations` (fn 3398, opens+parses the lock again at 3399-3407 via `parse_declarations` -> the private `declarations_from_doc` at 3439, which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run — the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Land after DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry's `walk_lock_rows` establishes the doc-based-extractor shape this entry's provenance-row side should follow rather than re-deriving. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows and the layer-drop nested-member counts from that one parsed `DocumentMut` — `declarations_from_doc` already accepts one; give the provenance side an equivalent doc-scoped extractor. Re-verified at HEAD c2eca2d (drift.rs unchanged since b8fc7ca)."
         }
       ],
       "retire": []
@@ -471,18 +343,18 @@
     "tests": [
       {
         "path": "tests/check_cost.rs",
-        "asserts": "an emit run over a fixture whose lock.toml exercises both the reap-diff and layer-drop-check paths reads/parses lock.toml exactly once \u2014 a count pin, the same doctrine this file's discovery-walk/glob-compile pins already established, never a wall-clock threshold"
+        "asserts": "an emit run over a fixture whose lock.toml exercises both the reap-diff and layer-drop-check paths reads/parses lock.toml exactly once — a count pin, the same doctrine this file's discovery-walk/glob-compile pins already established, never a wall-clock threshold"
       }
     ],
     "acceptance": "emit() reads and parses the workspace's lock.toml exactly once per invocation; the reap-diff provenance rows and the layer-drop nested-member count both derive from that one parse. No behavior change (engineering.md, 'Cost scale is hoisted': whole-input work computes once per run and is shared, never recomputed per call site). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry unifies three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table) \u2014 different row families, same file, same run. Serialized after it so this entry's doc-based provenance extractor sits beside `walk_lock_rows`, not duplicating its shape. scoped at c2eca2d."
+    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION: that entry unifies three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table) — different row families, same file, same run. Serialized after it so this entry's doc-based provenance extractor sits beside `walk_lock_rows`, not duplicating its shape. scoped at c2eca2d."
   },
   {
     "tag": "PLACEMENT-MODULE-EXTRACTION",
-    "summary": "0040's drift\u2192install edge dissolves \u2014 the managed-metadata marker vocabulary moves from install.rs to a new flat `placement` pipeline module; drift and install both import it downward",
+    "summary": "0040's drift→install edge dissolves — the managed-metadata marker vocabulary moves from install.rs to a new flat `placement` pipeline module; drift and install both import it downward",
     "per": {
       "path": "specs/process/architecture.md",
-      "section": "Invariants \u2014 stated as absences"
+      "section": "Invariants — stated as absences"
     },
     "gate": {
       "kind": "blockedBy",
@@ -493,17 +365,17 @@
       "new": [
         {
           "path": "src/placement.rs",
-          "description": "New flat pipeline-subsystem module (0040, decision point 1; architecture.md's pipeline codemap gains `placement`). Carries the recognizer vocabulary presently in src/install.rs: the three marker constants `MODELINE_MARKER` (156), `NOTE_MARKER` (145), `BANNER_MARKER` (151), plus `is_placement_comment` (1687-1690) and the pub(crate) `placement_lines` (1664-1682) \u2014 moved verbatim, `pub(crate)` preserved on `placement_lines` since `drift::emit_one` calls it across the module boundary. `GUARD_MARKER`/`GUARD_MATCHER`/`GUARD_COMMAND`/`GUARD_PATH_MATCH`/`NOTE_COMMENT`/`NOTE_BANNER` stay in install.rs \u2014 they are the guard's own detection constants and the placing wording, not the managed-metadata recognizer vocabulary this module owns. The inline test `placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source` (install.rs:1892-1899) moves here with it."
+          "description": "New flat pipeline-subsystem module (0040, decision point 1; architecture.md's pipeline codemap gains `placement`). Carries the recognizer vocabulary presently in src/install.rs: the three marker constants `MODELINE_MARKER` (156), `NOTE_MARKER` (145), `BANNER_MARKER` (151), plus `is_placement_comment` (1687-1690) and the pub(crate) `placement_lines` (1664-1682) — moved verbatim, `pub(crate)` preserved on `placement_lines` since `drift::emit_one` calls it across the module boundary. `GUARD_MARKER`/`GUARD_MATCHER`/`GUARD_COMMAND`/`GUARD_PATH_MATCH`/`NOTE_COMMENT`/`NOTE_BANNER` stay in install.rs — they are the guard's own detection constants and the placing wording, not the managed-metadata recognizer vocabulary this module owns. The inline test `placement_lines_round_trips_the_body_banner_of_a_frontmatterless_source` (install.rs:1892-1899) moves here with it."
         }
       ],
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Remove the three moved constants (145,151,156), `placement_lines` (1664-1682), and `is_placement_comment` (1687-1690) plus their moved test \u2014 replace with `use crate::placement::{MODELINE_MARKER, NOTE_MARKER, BANNER_MARKER};` (or `crate::placement::`-qualified calls). `project_modeline` (1574), `project_note` (1604), and `project_banner` (1632) keep their placing logic and wording (`NOTE_COMMENT` 161, `NOTE_BANNER` 169) but read the three markers off the new module \u2014 install imports the vocabulary downward, exactly as drift's emit does (0040)."
+          "description": "Remove the three moved constants (145,151,156), `placement_lines` (1664-1682), and `is_placement_comment` (1687-1690) plus their moved test — replace with `use crate::placement::{MODELINE_MARKER, NOTE_MARKER, BANNER_MARKER};` (or `crate::placement::`-qualified calls). `project_modeline` (1574), `project_note` (1604), and `project_banner` (1632) keep their placing logic and wording (`NOTE_COMMENT` 161, `NOTE_BANNER` 169) but read the three markers off the new module — install imports the vocabulary downward, exactly as drift's emit does (0040)."
         },
         {
           "path": "src/drift.rs",
-          "description": "`emit_one`'s placement read (2034, `install::placement_lines`) becomes `crate::placement::placement_lines`; the `use crate::install;` import (30) \u2014 drift.rs's only other reference to `install` is the prose-only doc pointer at 2603 (`install::matches_projection`, unrelated to the moved vocabulary; `matches_projection` stays in install, used by the guard) \u2014 drops once the real call moves, dissolving the `drift \u2192 install` edge architecture.md declares (0040). Leave the 2603 doc pointer as prose (no code dependency), rewording only if it reads stale once the import is gone; say which in the commit body."
+          "description": "`emit_one`'s placement read (2034, `install::placement_lines`) becomes `crate::placement::placement_lines`; the `use crate::install;` import (30) — drift.rs's only other reference to `install` is the prose-only doc pointer at 2603 (`install::matches_projection`, unrelated to the moved vocabulary; `matches_projection` stays in install, used by the guard) — drops once the real call moves, dissolving the `drift → install` edge architecture.md declares (0040). Leave the 2603 doc pointer as prose (no code dependency), rewording only if it reads stale once the import is gone; say which in the commit body."
         }
       ],
       "retire": []
@@ -516,18 +388,18 @@
       },
       {
         "path": "tests/install.rs",
-        "asserts": "existing modeline/note/banner placement + config_stale/gate_installed coverage stays green \u2014 the move is location-only, no behavior change"
+        "asserts": "existing modeline/note/banner placement + config_stale/gate_installed coverage stays green — the move is location-only, no behavior change"
       }
     ],
     "acceptance": "`src/drift.rs` carries no `crate::install` import; the managed-metadata marker vocabulary lives in a new flat `src/placement.rs` (pipeline subsystem, architecture.md's codemap gains it); install imports the vocabulary downward for its own placing functions. `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Decision 0040, point 1. Serialized behind DRIFT-EMIT-LOCK-PARSE-HOIST (behind DRIFT-LOCK-ROW-WALK-CONSOLIDATION, behind DISCOVERY-INFALLIBLE-RESULT-COLLAPSE) for shared-file safety (pending-entry.md, 'Disjoint, or serialized'): this and EXTRACT-FOUNDATION-BOUNDARY-RESTORE both touch drift.rs, and DISCOVERY touches install.rs (here) and json_manifest.rs/main.rs (next) \u2014 one chain avoids two open entries racing a file. No functional dependency among the four. scoped at f404e48."
+    "notes": "Decision 0040, point 1. Serialized behind DRIFT-EMIT-LOCK-PARSE-HOIST (behind DRIFT-LOCK-ROW-WALK-CONSOLIDATION, behind DISCOVERY-INFALLIBLE-RESULT-COLLAPSE) for shared-file safety (pending-entry.md, 'Disjoint, or serialized'): this and EXTRACT-FOUNDATION-BOUNDARY-RESTORE both touch drift.rs, and DISCOVERY touches install.rs (here) and json_manifest.rs/main.rs (next) — one chain avoids two open entries racing a file. No functional dependency among the four. scoped at f404e48."
   },
   {
     "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE",
-    "summary": "extract.rs's upward imports into drift/kind dissolve \u2014 lock-row lifters move to drift.rs, the manifest-collection grammar moves to json_manifest.rs; extract returns foundation-clean (0040)",
+    "summary": "extract.rs's upward imports into drift/kind dissolve — lock-row lifters move to drift.rs, the manifest-collection grammar moves to json_manifest.rs; extract returns foundation-clean (0040)",
     "per": {
       "path": "specs/process/architecture.md",
-      "section": "Invariants \u2014 stated as absences"
+      "section": "Invariants — stated as absences"
     },
     "gate": {
       "kind": "blockedBy",
@@ -539,27 +411,27 @@
       "edit": [
         {
           "path": "src/extract.rs",
-          "description": "Move `nested_members_from_rows` (764-772) and `embedded_member_from_row` (778-798, takes `crate::drift::NestedMemberRow`) down to `src/drift.rs`, which defines the row type. Move the manifest-collection grammar's both faces \u2014 `manifest_members` (1015-1040, branches on `crate::kind::CollectionKeyPath` at 1022/1032), `entry_fields` (1048-1056), `enablement_member_fields` (1075-1080, reads `crate::kind::ENABLEMENT_FIELD`), `enablement_entry_value` (1092-1098), `hook_member_fields` (1107-1135), `hook_matcher_group` (1144-1163) \u2014 down to `src/json_manifest.rs`, which already imports `crate::extract` for this exact grammar (json_manifest.rs:33,386,398) and owns the format's read+write faces the same way `frontmatter.rs` owns its own (0040, decision point 3, 'a format owns its grammar's read and write faces'). Their inline tests (`nested_members_from_rows_matches_only_the_named_host_address`/`_lifts_leaves_and_one_layer_of_collections` ~1525-1541; `manifest_members_walk_each_entry_raw_and_skip_a_non_object`, `enablement_members_carry_the_scalar_value_and_re_render_identically`, `an_enablement_member_with_no_enabled_field_renders_the_documented_true`, `hook_members_decompose_the_matcher_group_array_and_re_nest_identically` ~1362-1450) move with their functions. After both moves extract.rs imports no sibling module \u2014 `use std::...`/`serde_json` only \u2014 restoring the module header's own longstanding, narrower claim (22-23, 'no dependency on crate::contract') as the full foundation invariant architecture.md states."
+          "description": "Move `nested_members_from_rows` (764-772) and `embedded_member_from_row` (778-798, takes `crate::drift::NestedMemberRow`) down to `src/drift.rs`, which defines the row type. Move the manifest-collection grammar's both faces — `manifest_members` (1015-1040, branches on `crate::kind::CollectionKeyPath` at 1022/1032), `entry_fields` (1048-1056), `enablement_member_fields` (1075-1080, reads `crate::kind::ENABLEMENT_FIELD`), `enablement_entry_value` (1092-1098), `hook_member_fields` (1107-1135), `hook_matcher_group` (1144-1163) — down to `src/json_manifest.rs`, which already imports `crate::extract` for this exact grammar (json_manifest.rs:33,386,398) and owns the format's read+write faces the same way `frontmatter.rs` owns its own (0040, decision point 3, 'a format owns its grammar's read and write faces'). Their inline tests (`nested_members_from_rows_matches_only_the_named_host_address`/`_lifts_leaves_and_one_layer_of_collections` ~1525-1541; `manifest_members_walk_each_entry_raw_and_skip_a_non_object`, `enablement_members_carry_the_scalar_value_and_re_render_identically`, `an_enablement_member_with_no_enabled_field_renders_the_documented_true`, `hook_members_decompose_the_matcher_group_array_and_re_nest_identically` ~1362-1450) move with their functions. After both moves extract.rs imports no sibling module — `use std::...`/`serde_json` only — restoring the module header's own longstanding, narrower claim (22-23, 'no dependency on crate::contract') as the full foundation invariant architecture.md states."
         },
         {
           "path": "src/drift.rs",
-          "description": "Gains `nested_members_from_rows`/`embedded_member_from_row` from extract.rs, `pub(crate)` (matches today's visibility \u2014 `builtin_kind::features` at builtin_kind.rs:578 calls it across the module boundary as `crate::drift::nested_members_from_rows` once moved)."
+          "description": "Gains `nested_members_from_rows`/`embedded_member_from_row` from extract.rs, `pub(crate)` (matches today's visibility — `builtin_kind::features` at builtin_kind.rs:578 calls it across the module boundary as `crate::drift::nested_members_from_rows` once moved)."
         },
         {
           "path": "src/json_manifest.rs",
-          "description": "Gains `manifest_members`/`entry_fields`/`enablement_member_fields`/`enablement_entry_value`/`hook_member_fields`/`hook_matcher_group` from extract.rs. Per the reconciliation decision 0040 names for the (now-superseded) EXTRACT-PRIVATE-COLLECTION-DECODERS entry: `manifest_members`, `entry_fields`, `hook_member_fields`, `enablement_member_fields` go fully private `fn` (called only in-module, by `manifest_members` at its own call site 386 and by each other) \u2014 none has a caller outside this file once the move lands; `enablement_entry_value`/`hook_matcher_group` stay `pub(crate)` since `crate::drift` calls them across the module boundary (drift.rs:1000,1014 \u2014 update the qualification from `crate::extract::` to `crate::json_manifest::`). Drop the now-local `extract::` qualification at the call site (386); the `crate::extract::{self, FeatureValue}` import (33) still needs `extract::json_to_feature` (398), so it narrows to `FeatureValue` plus a bare `extract` import for that one call \u2014 verify before narrowing."
+          "description": "Gains `manifest_members`/`entry_fields`/`enablement_member_fields`/`enablement_entry_value`/`hook_member_fields`/`hook_matcher_group` from extract.rs. Per the reconciliation decision 0040 names for the (now-superseded) EXTRACT-PRIVATE-COLLECTION-DECODERS entry: `manifest_members`, `entry_fields`, `hook_member_fields`, `enablement_member_fields` go fully private `fn` (called only in-module, by `manifest_members` at its own call site 386 and by each other) — none has a caller outside this file once the move lands; `enablement_entry_value`/`hook_matcher_group` stay `pub(crate)` since `crate::drift` calls them across the module boundary (drift.rs:1000,1014 — update the qualification from `crate::extract::` to `crate::json_manifest::`). Drop the now-local `extract::` qualification at the call site (386); the `crate::extract::{self, FeatureValue}` import (33) still needs `extract::json_to_feature` (398), so it narrows to `FeatureValue` plus a bare `extract` import for that one call — verify before narrowing."
         },
         {
           "path": "src/builtin_kind.rs",
-          "description": "`features` (578, doc comment 561) calls `extract::nested_members_from_rows` \u2014 requalify to `crate::drift::nested_members_from_rows` (or `drift::` if already imported) once the fn moves; reword the doc pointer at 561 to match."
+          "description": "`features` (578, doc comment 561) calls `extract::nested_members_from_rows` — requalify to `crate::drift::nested_members_from_rows` (or `drift::` if already imported) once the fn moves; reword the doc pointer at 561 to match."
         },
         {
           "path": "src/kind.rs",
-          "description": "`ENABLEMENT_FIELD`'s doc comment (214, '`crate::extract::manifest_members`') points at the pre-move location \u2014 reword to `crate::json_manifest::manifest_members`."
+          "description": "`ENABLEMENT_FIELD`'s doc comment (214, '`crate::extract::manifest_members`') points at the pre-move location — reword to `crate::json_manifest::manifest_members`."
         },
         {
           "path": "src/main.rs",
-          "description": "`nested_member_admissibility`'s doc comment (2068, '`extract::nested_members_from_rows`') points at the pre-move location \u2014 reword to name `drift::nested_members_from_rows`."
+          "description": "`nested_member_admissibility`'s doc comment (2068, '`extract::nested_members_from_rows`') points at the pre-move location — reword to name `drift::nested_members_from_rows`."
         }
       ],
       "retire": []
@@ -576,15 +448,15 @@
       },
       {
         "path": "tests/gauntlet.rs",
-        "asserts": "the composed-corpus check/emit snapshot stays byte-identical \u2014 the moves are signature/location-only, no behavior change to any manifest or nested-member read"
+        "asserts": "the composed-corpus check/emit snapshot stays byte-identical — the moves are signature/location-only, no behavior change to any manifest or nested-member read"
       }
     ],
-    "acceptance": "extract.rs imports no crate-internal sibling (foundation-clean); the lock-row lifters live in drift.rs and the manifest-collection grammar (both read and write faces) lives in json_manifest.rs, with manifest_members/entry_fields/hook_member_fields/enablement_member_fields private and enablement_entry_value/hook_matcher_group pub(crate) for drift \u2014 reconciling the narrower EXTRACT-PRIVATE-COLLECTION-DECODERS ask at the functions' new homes rather than at extract (0040, Consequences). architecture.md's foundation invariant holds without qualification. `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Decision 0040, point 3 \u2014 supersedes/retires EXTRACT-PRIVATE-COLLECTION-DECODERS: its enablement_member_fields/hook_member_fields private-fn ask folds into this entry's acceptance at the functions' new home, json_manifest.rs, per 0040's Consequences naming that reconciliation. Serialized behind PLACEMENT-MODULE-EXTRACTION for shared drift.rs edits (pending-entry.md) \u2014 also shares json_manifest.rs/main.rs with DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, upstream in the chain. scoped at f404e48."
+    "acceptance": "extract.rs imports no crate-internal sibling (foundation-clean); the lock-row lifters live in drift.rs and the manifest-collection grammar (both read and write faces) lives in json_manifest.rs, with manifest_members/entry_fields/hook_member_fields/enablement_member_fields private and enablement_entry_value/hook_matcher_group pub(crate) for drift — reconciling the narrower EXTRACT-PRIVATE-COLLECTION-DECODERS ask at the functions' new homes rather than at extract (0040, Consequences). architecture.md's foundation invariant holds without qualification. `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Decision 0040, point 3 — supersedes/retires EXTRACT-PRIVATE-COLLECTION-DECODERS: its enablement_member_fields/hook_member_fields private-fn ask folds into this entry's acceptance at the functions' new home, json_manifest.rs, per 0040's Consequences naming that reconciliation. Serialized behind PLACEMENT-MODULE-EXTRACTION for shared drift.rs edits (pending-entry.md) — also shares json_manifest.rs/main.rs with DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, upstream in the chain. scoped at f404e48."
   },
   {
     "tag": "DRIFT-SOURCE-DEP-PARSE-HOIST",
-    "summary": "gate() and explain() each re-read-and-reparse lock.toml several times per invocation via source_deps' own independent parse \u2014 hoist to the already-parsed declarations document",
+    "summary": "gate() and explain() each re-read-and-reparse lock.toml several times per invocation via source_deps' own independent parse — hoist to the already-parsed declarations document",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "Cost scale is hoisted, and pinned by count"
@@ -599,11 +471,11 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`source_deps` (2472) does its own `fs::read_to_string` + `.parse::<DocumentMut>()` of `lock.toml`, independent of `read_declarations`'s (3398) own full parse via `declarations_from_doc` (3439, which already takes a parsed `&DocumentMut` \u2014 the doc-scoped-extractor shape DRIFT-EMIT-LOCK-PARSE-HOIST establishes for the provenance side, upstream in this chain). `source_deps` is called by `layout_imports` (2497), `includes` (2508), and \u2014 via `source_dep_stale` (2522) \u2014 by `layout_import_stale` (2563) and `include_stale` (2580): four independent re-reads/re-parses on top of `read_declarations`'s own. Within one `gate()` invocation (src/main.rs) this lands as 5 full parses of the same file in one run: `read_declarations` (main.rs:858), `layout_imports`+`includes` via `import_edges_from_lock` (main.rs:891), then `layout_import_stale`+`include_stale` (main.rs:1208-1209) \u2014 each a fresh read+parse; `explain()` (main.rs:513, 525, 587) repeats the same pattern minus the two staleness calls. `Declarations` (struct 2668) does not currently carry the `layout_import`/`include` lock families read back from disk \u2014 `includes: Vec<IncludeRow>` (2691) is documented seam-inbound-only, 'never written back into this declaration table, so a lock round-trip reads it empty' \u2014 which is why `source_deps` re-parses independently rather than filtering an already-parsed set. Fix: extend `declarations_from_doc` (or a parallel doc-scoped extractor, the same pattern DRIFT-EMIT-LOCK-PARSE-HOIST establishes) to lift the `[declaration.layout_import]`/`[declaration.include]` families from the one already-parsed document, and have `layout_imports`/`includes`/`source_dep_stale` filter that in-memory set instead of each independently opening and parsing the file. Land after EXTRACT-FOUNDATION-BOUNDARY-RESTORE, the last entry in the existing chain to touch this file, so this entry's extractor sits beside the settled post-move shape rather than racing it."
+          "description": "`source_deps` (2472) does its own `fs::read_to_string` + `.parse::<DocumentMut>()` of `lock.toml`, independent of `read_declarations`'s (3398) own full parse via `declarations_from_doc` (3439, which already takes a parsed `&DocumentMut` — the doc-scoped-extractor shape DRIFT-EMIT-LOCK-PARSE-HOIST establishes for the provenance side, upstream in this chain). `source_deps` is called by `layout_imports` (2497), `includes` (2508), and — via `source_dep_stale` (2522) — by `layout_import_stale` (2563) and `include_stale` (2580): four independent re-reads/re-parses on top of `read_declarations`'s own. Within one `gate()` invocation (src/main.rs) this lands as 5 full parses of the same file in one run: `read_declarations` (main.rs:858), `layout_imports`+`includes` via `import_edges_from_lock` (main.rs:891), then `layout_import_stale`+`include_stale` (main.rs:1208-1209) — each a fresh read+parse; `explain()` (main.rs:513, 525, 587) repeats the same pattern minus the two staleness calls. `Declarations` (struct 2668) does not currently carry the `layout_import`/`include` lock families read back from disk — `includes: Vec<IncludeRow>` (2691) is documented seam-inbound-only, 'never written back into this declaration table, so a lock round-trip reads it empty' — which is why `source_deps` re-parses independently rather than filtering an already-parsed set. Fix: extend `declarations_from_doc` (or a parallel doc-scoped extractor, the same pattern DRIFT-EMIT-LOCK-PARSE-HOIST establishes) to lift the `[declaration.layout_import]`/`[declaration.include]` families from the one already-parsed document, and have `layout_imports`/`includes`/`source_dep_stale` filter that in-memory set instead of each independently opening and parsing the file. Land after EXTRACT-FOUNDATION-BOUNDARY-RESTORE, the last entry in the existing chain to touch this file, so this entry's extractor sits beside the settled post-move shape rather than racing it."
         },
         {
           "path": "src/main.rs",
-          "description": "`gate()` (847) and `explain()` (513) each call `drift::read_declarations` once and then separately call `import_edges_from_lock` (2563, calling `drift::layout_imports` then `drift::includes`) \u2014 two more independent parses on top of the first \u2014 and `gate()` additionally calls `drift::layout_import_stale`/`drift::include_stale` (1208-1209), two more still. Once `source_deps`'s callees read off the shared parsed document instead, thread the already-parsed document/`Declarations` value through these call sites rather than re-deriving it \u2014 the same one-parse-per-run shape `read_declarations`'s own call already establishes for the rest of the declaration family."
+          "description": "`gate()` (847) and `explain()` (513) each call `drift::read_declarations` once and then separately call `import_edges_from_lock` (2563, calling `drift::layout_imports` then `drift::includes`) — two more independent parses on top of the first — and `gate()` additionally calls `drift::layout_import_stale`/`drift::include_stale` (1208-1209), two more still. Once `source_deps`'s callees read off the shared parsed document instead, thread the already-parsed document/`Declarations` value through these call sites rather than re-deriving it — the same one-parse-per-run shape `read_declarations`'s own call already establishes for the rest of the declaration family."
         }
       ],
       "retire": []
@@ -612,19 +484,19 @@
     "tests": [
       {
         "path": "tests/check_cost.rs",
-        "asserts": "a check run over a fixture whose lock.toml carries layout-import and include source-dependency rows reads/parses lock.toml exactly once per gate() invocation \u2014 a count pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
+        "asserts": "a check run over a fixture whose lock.toml carries layout-import and include source-dependency rows reads/parses lock.toml exactly once per gate() invocation — a count pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
       },
       {
         "path": "tests/emit.rs",
-        "asserts": "existing layout-import-stale / include-stale drift findings stay byte-identical \u2014 the hoist is signature-only, no behavior change to the staleness comparison"
+        "asserts": "existing layout-import-stale / include-stale drift findings stay byte-identical — the hoist is signature-only, no behavior change to the staleness comparison"
       }
     ],
     "acceptance": "gate() and explain() each parse the workspace's lock.toml exactly once per invocation; layout_imports/includes/layout_import_stale/include_stale all derive from that one parse rather than each independently re-reading the file. No behavior change (engineering.md, 'Cost scale is hoisted'). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping `pipeline` (posture rotation, after formats). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (top-level [[<kind>]] provenance walk) and DRIFT-EMIT-LOCK-PARSE-HOIST (emit()'s own double-parse) \u2014 this is the source_deps family (layout_import/include) on the gate()/explain() read path, unnamed by either. Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE, last in-chain entry touching both drift.rs and main.rs. scoped at 20b7b21."
+    "notes": "Found sweeping `pipeline` (posture rotation, after formats). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (top-level [[<kind>]] provenance walk) and DRIFT-EMIT-LOCK-PARSE-HOIST (emit()'s own double-parse) — this is the source_deps family (layout_import/include) on the gate()/explain() read path, unnamed by either. Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE, last in-chain entry touching both drift.rs and main.rs. scoped at 20b7b21."
   },
   {
     "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE",
-    "summary": "gate() recomputes the edge-resolution walk 2-4x per invocation \u2014 check's own copy plus resolved_edges/resolved_arcs re-derived by acyclic/degree/mention_reachable \u2014 consolidate to one shared walk",
+    "summary": "gate() recomputes the edge-resolution walk 2-4x per invocation — check's own copy plus resolved_edges/resolved_arcs re-derived by acyclic/degree/mention_reachable — consolidate to one shared walk",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "Cost scale is hoisted, and pinned by count"
@@ -639,15 +511,15 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "`check` (pub fn, 111-129) is a from-scratch copy of the admissible-edge x source x target walk, producing dangling-route `Diagnostic`s. `resolved_edges` (pub(crate), 967-990) is the identical iteration shape producing `Vec<ResolvedEdge>`; `resolved_arcs` (private, 1001-1010) folds a fresh `resolved_edges` call (1006) into adjacency. `acyclic` (195-211) calls `resolved_arcs` at 196 (always-on); `degree` (236-...) calls it again at 252 (opt-in); `mention_reachable` (355-...) calls `resolved_edges` directly at 371 (opt-in) \u2014 so one `gate()` invocation recomputes the same walk 2 (check + acyclic, always-on) to 4 times (adding degree/mention_reachable when their selections opt in). Change `resolved_arcs` to fold an already-computed `&[ResolvedEdge]` slice into adjacency instead of calling `resolved_edges` itself (drop the call at 1006); change `acyclic`, `degree`, and `mention_reachable`'s signatures to accept the shared `&[ResolvedEdge]` (computed once by `gate()`) rather than `edges`/`by_kind`, folding/filtering over it. `check` needs the *unresolved* half `resolved_edges` discards (a dangling route is exactly what it skips) \u2014 the real design decision, left as a judgment call for build (name the choice in the commit body): either (a) widen `resolved_edges` to return both the resolved set and the dangling occurrences in one pass (a `(Vec<ResolvedEdge>, Vec<Diagnostic>)` or small struct), retiring `check`'s separate loop in favor of reading its half off the shared pass, or (b) give `check` its own filter over a richer per-target enumeration `resolved_edges` derives from, keeping it a thin projection rather than a parallel walk. Whichever shape lands, reword `resolved_edges`'s doc comment (964-966) and the module header's READ-EDGE-UNIFY claim (11-13, 'one resolved-edge enumeration... shared') to state the runtime-sharing this consolidation establishes, not just the type-sharing it already had."
+          "description": "`check` (pub fn, 111-129) is a from-scratch copy of the admissible-edge x source x target walk, producing dangling-route `Diagnostic`s. `resolved_edges` (pub(crate), 967-990) is the identical iteration shape producing `Vec<ResolvedEdge>`; `resolved_arcs` (private, 1001-1010) folds a fresh `resolved_edges` call (1006) into adjacency. `acyclic` (195-211) calls `resolved_arcs` at 196 (always-on); `degree` (236-...) calls it again at 252 (opt-in); `mention_reachable` (355-...) calls `resolved_edges` directly at 371 (opt-in) — so one `gate()` invocation recomputes the same walk 2 (check + acyclic, always-on) to 4 times (adding degree/mention_reachable when their selections opt in). Change `resolved_arcs` to fold an already-computed `&[ResolvedEdge]` slice into adjacency instead of calling `resolved_edges` itself (drop the call at 1006); change `acyclic`, `degree`, and `mention_reachable`'s signatures to accept the shared `&[ResolvedEdge]` (computed once by `gate()`) rather than `edges`/`by_kind`, folding/filtering over it. `check` needs the *unresolved* half `resolved_edges` discards (a dangling route is exactly what it skips) — the real design decision, left as a judgment call for build (name the choice in the commit body): either (a) widen `resolved_edges` to return both the resolved set and the dangling occurrences in one pass (a `(Vec<ResolvedEdge>, Vec<Diagnostic>)` or small struct), retiring `check`'s separate loop in favor of reading its half off the shared pass, or (b) give `check` its own filter over a richer per-target enumeration `resolved_edges` derives from, keeping it a thin projection rather than a parallel walk. Whichever shape lands, reword `resolved_edges`'s doc comment (964-966) and the module header's READ-EDGE-UNIFY claim (11-13, 'one resolved-edge enumeration... shared') to state the runtime-sharing this consolidation establishes, not just the type-sharing it already had."
         },
         {
           "path": "src/main.rs",
-          "description": "`gate()` (847) calls `graph::check` (1131, always-on), `graph::acyclic` (1147, always-on), `graph::degree` (1154, opt-in), and `graph::mention_reachable` (1162, opt-in) \u2014 four independent triggers of graph.rs's walk today. Once graph.rs's functions take the shared `&[ResolvedEdge]` slice (or the widened resolved+dangling shape), compute it once here, after `graph::admissibility` (1130) and before the four consumers, and thread it into each call, replacing the `edges`/`by_kind` pair those calls pass today wherever the walk itself moved to the caller."
+          "description": "`gate()` (847) calls `graph::check` (1131, always-on), `graph::acyclic` (1147, always-on), `graph::degree` (1154, opt-in), and `graph::mention_reachable` (1162, opt-in) — four independent triggers of graph.rs's walk today. Once graph.rs's functions take the shared `&[ResolvedEdge]` slice (or the widened resolved+dangling shape), compute it once here, after `graph::admissibility` (1130) and before the four consumers, and thread it into each call, replacing the `edges`/`by_kind` pair those calls pass today wherever the walk itself moved to the caller."
         },
         {
           "path": "src/read.rs",
-          "description": "`why`'s narration (`resolved` at 335) calls `graph::resolved_edges(edges, by_kind)` directly \u2014 a separate verb invocation from `gate()`'s own run, so it is not part of the within-gate duplication this entry fixes and needs no consolidation of its own. It is `resolved_edges`'s only consumer outside graph.rs (doc-comment cites at 21, 62, 309, 470) \u2014 if the design decision above widens `resolved_edges`'s return shape, this call site's usage narrows to the resolved half; verify at implementation time whether the signature change ripples here, and update the call plus the four doc-comment cites to match whatever shape lands."
+          "description": "`why`'s narration (`resolved` at 335) calls `graph::resolved_edges(edges, by_kind)` directly — a separate verb invocation from `gate()`'s own run, so it is not part of the within-gate duplication this entry fixes and needs no consolidation of its own. It is `resolved_edges`'s only consumer outside graph.rs (doc-comment cites at 21, 62, 309, 470) — if the design decision above widens `resolved_edges`'s return shape, this call site's usage narrows to the resolved half; verify at implementation time whether the signature change ripples here, and update the call plus the four doc-comment cites to match whatever shape lands."
         }
       ],
       "retire": []
@@ -656,19 +528,19 @@
     "tests": [
       {
         "path": "tests/check_cost.rs",
-        "asserts": "a fixture whose selections carry both a degree and a mention-reachable clause (exercising all four graph.rs call sites) asserts the resolved-edge walk runs exactly once per gate() invocation \u2014 a new count-pin instrumented the way import::walk_count()/kind::glob_compile_count() already are in this file"
+        "asserts": "a fixture whose selections carry both a degree and a mention-reachable clause (exercising all four graph.rs call sites) asserts the resolved-edge walk runs exactly once per gate() invocation — a new count-pin instrumented the way import::walk_count()/kind::glob_compile_count() already are in this file"
       },
       {
         "path": "src/graph.rs",
-        "asserts": "existing acyclic/degree/mention_reachable/check inline tests pass calling the consolidated functions over the shared slice \u2014 signature-only change, no diagnostic output changes"
+        "asserts": "existing acyclic/degree/mention_reachable/check inline tests pass calling the consolidated functions over the shared slice — signature-only change, no diagnostic output changes"
       }
     ],
     "acceptance": "gate() computes the admissible-edge x source x target walk exactly once per invocation; acyclic, degree, and mention_reachable derive their adjacency/edge set from that one shared computation instead of each independently recomputing via resolved_edges/resolved_arcs, and check's dangling-route diagnostics derive from the same shared pass. A count-pin test proves it. No behavior change (engineering.md, 'Cost scale is hoisted and pinned by count'). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Drained from .flume/refactor/plan-graph-resolved-edge-walk-duplication.md (observed e2325df, filed sweeping judges' graph.rs). Re-verified unmoved at fa9c87f (git log e2325df..HEAD -- src/ empty). Output shape is a judgment call for build, named in the commit body. Serialized behind DRIFT-SOURCE-DEP-PARSE-HOIST, the last main.rs-touching link in the existing DISCOVERY chain, for shared-file safety (pending-entry.md) \u2014 no functional dependency. scoped at fa9c87f."
+    "notes": "Drained from .flume/refactor/plan-graph-resolved-edge-walk-duplication.md (observed e2325df, filed sweeping judges' graph.rs). Re-verified unmoved at fa9c87f (git log e2325df..HEAD -- src/ empty). Output shape is a judgment call for build, named in the commit body. Serialized behind DRIFT-SOURCE-DEP-PARSE-HOIST, the last main.rs-touching link in the existing DISCOVERY chain, for shared-file safety (pending-entry.md) — no functional dependency. scoped at fa9c87f."
   },
   {
     "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE",
-    "summary": "kind.rs ships three pub fns with zero callers anywhere outside their own file \u2014 Commitment::label, Content::label, CustomKind::qualified_name \u2014 prune per the export-earns-its-consumer bar",
+    "summary": "kind.rs ships three pub fns with zero callers anywhere outside their own file — Commitment::label, Content::label, CustomKind::qualified_name — prune per the export-earns-its-consumer bar",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -683,7 +555,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Three `pub` items grep-verified zero-consumer (no `.label()`/`.qualified_name()` call anywhere in src/, tests/, or sdk/ outside kind.rs's own inline tests): `impl Commitment { pub fn label(self) -> &'static str { .. } }` (58-68) \u2014 the whole `impl Commitment` block, since `label` is its only method; `impl Content { pub fn label(&self) -> &'static str { .. } }` (165-176) \u2014 likewise the whole block, `label` is its only method; `CustomKind::qualified_name` (934-939, the doc comment plus `pub fn qualified_name(&self) -> String { self.name.clone() } `) inside the larger `impl CustomKind` block \u2014 remove only this method, the surrounding impl block has other live methods. Each type (`Commitment`, `Content`, `CustomKind`) stays; only the dead method/impl goes."
+          "description": "Three `pub` items grep-verified zero-consumer (no `.label()`/`.qualified_name()` call anywhere in src/, tests/, or sdk/ outside kind.rs's own inline tests): `impl Commitment { pub fn label(self) -> &'static str { .. } }` (58-68) — the whole `impl Commitment` block, since `label` is its only method; `impl Content { pub fn label(&self) -> &'static str { .. } }` (165-176) — likewise the whole block, `label` is its only method; `CustomKind::qualified_name` (934-939, the doc comment plus `pub fn qualified_name(&self) -> String { self.name.clone() } `) inside the larger `impl CustomKind` block — remove only this method, the surrounding impl block has other live methods. Each type (`Commitment`, `Content`, `CustomKind`) stays; only the dead method/impl goes."
         }
       ],
       "retire": []
@@ -696,11 +568,11 @@
       }
     ],
     "acceptance": "`Commitment::label`, `Content::label`, and `CustomKind::qualified_name` are gone from src/kind.rs, along with their now-vacuous inline test. `cargo test` and `cargo clippy -D warnings` green (no unused-code warning survives).",
-    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE for shared-file safety (pending-entry.md, 'Disjoint, or serialized') \u2014 that entry also edits kind.rs (a doc-comment reword at ENABLEMENT_FIELD, no line overlap with this entry's targets, but the file-level rule binds regardless of line overlap). scoped at 4adb1fb."
+    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE for shared-file safety (pending-entry.md, 'Disjoint, or serialized') — that entry also edits kind.rs (a doc-comment reword at ENABLEMENT_FIELD, no line overlap with this entry's targets, but the file-level rule binds regardless of line overlap). scoped at 4adb1fb."
   },
   {
     "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH",
-    "summary": "declared_keys falls through `_ => None` instead of naming every Predicate variant like neighbors target/documented_field do \u2014 a new key-declaring variant would silently vanish from the allow-list",
+    "summary": "declared_keys falls through `_ => None` instead of naming every Predicate variant like neighbors target/documented_field do — a new key-declaring variant would silently vanish from the allow-list",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "A shared concept is one type"
@@ -715,7 +587,7 @@
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "`declared_keys` (736-746) matches `Predicate::Required { field } | Predicate::Optional { field } => Some(field)` then falls through `_ => None` for every other variant. Two functions immediately above it over the same enum \u2014 `target` (642-673) and `documented_field` (683-720ish) \u2014 instead list every non-mapped `Predicate` variant explicitly in the `None` arm's pipe-group (engineering.md's own precedent: 'a `_` arm over a shared concept is a seam defect waiting for its field report'); a future key-declaring variant added to `Predicate` would compile silently against `declared_keys`'s wildcard while `target`/`documented_field` would force a decision. Rewrite `declared_keys`'s match to mirror `target`/`documented_field`'s style: keep the `Required`/`Optional` arm producing `Some(field)`, replace `_ => None` with every remaining variant named in one pipe-grouped arm mapping to `None` (the same variant list `target` already spells, since no other predicate declares a schema key)."
+          "description": "`declared_keys` (736-746) matches `Predicate::Required { field } | Predicate::Optional { field } => Some(field)` then falls through `_ => None` for every other variant. Two functions immediately above it over the same enum — `target` (642-673) and `documented_field` (683-720ish) — instead list every non-mapped `Predicate` variant explicitly in the `None` arm's pipe-group (engineering.md's own precedent: 'a `_` arm over a shared concept is a seam defect waiting for its field report'); a future key-declaring variant added to `Predicate` would compile silently against `declared_keys`'s wildcard while `target`/`documented_field` would force a decision. Rewrite `declared_keys`'s match to mirror `target`/`documented_field`'s style: keep the `Required`/`Optional` arm producing `Some(field)`, replace `_ => None` with every remaining variant named in one pipe-grouped arm mapping to `None` (the same variant list `target` already spells, since no other predicate declares a schema key)."
         }
       ],
       "retire": []
@@ -724,15 +596,15 @@
     "tests": [
       {
         "path": "tests/closed_keys.rs",
-        "asserts": "a_member_carrying_only_declared_keys_holds and the file's other closed-keys coverage stay green \u2014 the rewrite is exhaustiveness-only, declared_keys returns the identical set for every existing predicate"
+        "asserts": "a_member_carrying_only_declared_keys_holds and the file's other closed-keys coverage stay green — the rewrite is exhaustiveness-only, declared_keys returns the identical set for every existing predicate"
       }
     ],
     "acceptance": "declared_keys's match names every Predicate variant explicitly, no `_` wildcard remains, matching the exhaustive style of target/documented_field two functions above it. `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind KIND-ZERO-CONSUMER-EXPORTS-PRUNE purely for chain linearity with CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP next (both touch contract.rs, and the schema's single-tag blockedBy can't express 'wait for two independent priors' \u2014 same tradeoff DRIFT-LOCK-ROW-WALK-CONSOLIDATION's chain already accepted). No functional dependency on the kind.rs entry. scoped at 4adb1fb."
+    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind KIND-ZERO-CONSUMER-EXPORTS-PRUNE purely for chain linearity with CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP next (both touch contract.rs, and the schema's single-tag blockedBy can't express 'wait for two independent priors' — same tradeoff DRIFT-LOCK-ROW-WALK-CONSOLIDATION's chain already accepted). No functional dependency on the kind.rs entry. scoped at 4adb1fb."
   },
   {
     "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP",
-    "summary": "Predicate::RequireSections can't be authored or decoded \u2014 the SDK constructor takes no sections arg, ClauseRow has no column for it, predicate_from_row has no arm \u2014 though engine.rs fully judges it",
+    "summary": "Predicate::RequireSections can't be authored or decoded — the SDK constructor takes no sections arg, ClauseRow has no column for it, predicate_from_row has no arm — though engine.rs fully judges it",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "The lock"
@@ -747,15 +619,15 @@
       "edit": [
         {
           "path": "sdk/src/contract.ts",
-          "description": "`requireSections = (): Predicate => ({ key: \"require_sections\" })` (168) takes no argument even though its own doc comment reads 'The named headings are present' \u2014 unlike `dependencyExists` (whose missing constructor is explicitly documented: 'the engine holds it back absent a decidable reference syntax'), nothing here names this as a deliberate hold. Change the signature to `requireSections = (sections: readonly string[]): Predicate => ({ key: \"require_sections\", sections })`. Add a `sections?: readonly string[]` field to the `Predicate` interface (76, beside `section`), documented the same way `keys`/`values` are ('`require_sections`'s required heading list')."
+          "description": "`requireSections = (): Predicate => ({ key: \"require_sections\" })` (168) takes no argument even though its own doc comment reads 'The named headings are present' — unlike `dependencyExists` (whose missing constructor is explicitly documented: 'the engine holds it back absent a decidable reference syntax'), nothing here names this as a deliberate hold. Change the signature to `requireSections = (sections: readonly string[]): Predicate => ({ key: \"require_sections\", sections })`. Add a `sections?: readonly string[]` field to the `Predicate` interface (76, beside `section`), documented the same way `keys`/`values` are ('`require_sections`'s required heading list')."
         },
         {
           "path": "sdk/src/declarations.ts",
-          "description": "`clauseRow` (65-115) maps each `Predicate` field to its `ClauseRow` column by explicit `predicate.key === \"...\"` branches (`keys`, `values`, `section`, etc. \u2014 no generic spread). Add: `sections: predicate.key === \"require_sections\" && predicate.sections ? [...predicate.sections] : undefined,` alongside the existing `keys`/`values`/`section` branches (110-114), copying into a fresh array per the file's own documented reason ('the generated rows carry mutable columns; the predicate's ... is read-only, so copy each into a fresh array')."
+          "description": "`clauseRow` (65-115) maps each `Predicate` field to its `ClauseRow` column by explicit `predicate.key === \"...\"` branches (`keys`, `values`, `section`, etc. — no generic spread). Add: `sections: predicate.key === \"require_sections\" && predicate.sections ? [...predicate.sections] : undefined,` alongside the existing `keys`/`values`/`section` branches (110-114), copying into a fresh array per the file's own documented reason ('the generated rows carry mutable columns; the predicate's ... is read-only, so copy each into a fresh array')."
         },
         {
           "path": "src/drift.rs",
-          "description": "`ClauseRow` (struct at 2869-2971) carries no column a `require_sections` row could use \u2014 `keys`/`values`/`section` are documented as each other predicate's own. Add a new field `pub sections: Option<Vec<String>>,` after `section` (2970), with a doc comment naming it `require_sections`'s required-heading-list column, matching the `#[serde(default)]` pattern every other optional column carries. This regenerates `sdk/src/generated/ClauseRow.ts` via the existing ts-rs export test \u2014 do not hand-edit the generated file."
+          "description": "`ClauseRow` (struct at 2869-2971) carries no column a `require_sections` row could use — `keys`/`values`/`section` are documented as each other predicate's own. Add a new field `pub sections: Option<Vec<String>>,` after `section` (2970), with a doc comment naming it `require_sections`'s required-heading-list column, matching the `#[serde(default)]` pattern every other optional column carries. This regenerates `sdk/src/generated/ClauseRow.ts` via the existing ts-rs export test — do not hand-edit the generated file."
         },
         {
           "path": "src/contract.rs",
@@ -775,12 +647,12 @@
         "asserts": "a new (or extended) round-trip test pushes a require_sections ClauseRow with a sections column through emit + read_declarations and asserts predicate_from_row lifts it back to Predicate::RequireSections { sections } with the same list, the same shape a_floor_clause_row_round_trips_its_node_scope_predicate_argument already proves for forbidden_keys/allowed_chars"
       }
     ],
-    "acceptance": "An SDK author can call requireSections([...]) with real heading names, the emitted lock round-trips them through a new sections ClauseRow column, and predicate_from_row decodes a require_sections row back into Predicate::RequireSections { sections } \u2014 closing the one predicate in the closed vocabulary whose lock declaration rows (pipeline.md, 'The lock') could not carry its own argument. `cargo test` (Rust) and `pnpm --dir sdk test` (SDK gate) green.",
-    "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry \u2014 its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Serialized behind CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH for shared contract.rs/drift.rs safety. scoped at 4adb1fb."
+    "acceptance": "An SDK author can call requireSections([...]) with real heading names, the emitted lock round-trips them through a new sections ClauseRow column, and predicate_from_row decodes a require_sections row back into Predicate::RequireSections { sections } — closing the one predicate in the closed vocabulary whose lock declaration rows (pipeline.md, 'The lock') could not carry its own argument. `cargo test` (Rust) and `pnpm --dir sdk test` (SDK gate) green.",
+    "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry — its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Serialized behind CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH for shared contract.rs/drift.rs safety. scoped at 4adb1fb."
   },
   {
     "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE",
-    "summary": "drift.rs's EmitOutcome::label is pub but called only from render_emit in the same file \u2014 zero outside consumer; narrow to private per the export-earns-its-consumer bar",
+    "summary": "drift.rs's EmitOutcome::label is pub but called only from render_emit in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -795,7 +667,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`EmitOutcome::label` (535-546, `pub fn label(self) -> &'static str`) has exactly one call site in the whole tree \u2014 `render_emit` (2166-2188), same file, at line 2180 (`entry.outcome.label()`) \u2014 grep-verified zero hits for `EmitOutcome::label` or a `.label()` call on an `EmitOutcome` value anywhere else in src/, tests/, sdk/ (the sibling `.label()` hit at src/install.rs:1719 is `ApplyOutcome::label`, an unrelated enum with its own real cross-module caller). No test calls `.label()` directly; `tests/emit.rs` (1121-1122) asserts against `render_emit`'s rendered string output (`rendered.contains(\"reaped\")` etc.), never the method itself. This is the same defect shape ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE already pruned in `src/engine.rs` (`Selector::label`, called only from `finding()` in the same file) \u2014 per that precedent, drop `pub` from `label`, leaving it a module-private method callable from `render_emit` unchanged."
+          "description": "`EmitOutcome::label` (535-546, `pub fn label(self) -> &'static str`) has exactly one call site in the whole tree — `render_emit` (2166-2188), same file, at line 2180 (`entry.outcome.label()`) — grep-verified zero hits for `EmitOutcome::label` or a `.label()` call on an `EmitOutcome` value anywhere else in src/, tests/, sdk/ (the sibling `.label()` hit at src/install.rs:1719 is `ApplyOutcome::label`, an unrelated enum with its own real cross-module caller). No test calls `.label()` directly; `tests/emit.rs` (1121-1122) asserts against `render_emit`'s rendered string output (`rendered.contains(\"reaped\")` etc.), never the method itself. This is the same defect shape ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE already pruned in `src/engine.rs` (`Selector::label`, called only from `finding()` in the same file) — per that precedent, drop `pub` from `label`, leaving it a module-private method callable from `render_emit` unchanged."
         }
       ],
       "retire": []
@@ -804,15 +676,15 @@
     "tests": [
       {
         "path": "tests/emit.rs",
-        "asserts": "existing render_emit coverage (the outcome-tally assertions at 1121-1122 and every other emit-report rendering test) stays green \u2014 the narrowing is visibility-only, render_emit's rendered text is unchanged"
+        "asserts": "existing render_emit coverage (the outcome-tally assertions at 1121-1122 and every other emit-report rendering test) stays green — the narrowing is visibility-only, render_emit's rendered text is unchanged"
       }
     ],
     "acceptance": "EmitOutcome::label is a private method in src/drift.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the pipeline subsystem (posture rotation: formats done, pipeline this tick). Serialized behind CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, the last entry in the existing chain touching drift.rs (pending-entry.md, Disjoint, or serialized) \u2014 no functional dependency. scoped at 4bc8508."
+    "notes": "Found sweeping the pipeline subsystem (posture rotation: formats done, pipeline this tick). Serialized behind CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, the last entry in the existing chain touching drift.rs (pending-entry.md, Disjoint, or serialized) — no functional dependency. scoped at 4bc8508."
   },
   {
     "tag": "GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST",
-    "summary": "gate()/explain() resolve every kind's members via resolve_kind_units twice per run \u2014 the two-greens dispatch, then collect_directive_members again",
+    "summary": "gate()/explain() resolve every kind's members via resolve_kind_units twice per run — the two-greens dispatch, then collect_directive_members again",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "Cost scale is hoisted, and pinned by count"
@@ -827,7 +699,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "`resolve_kind_units` (fn 1319, doc comment 1302-1318: 'the one corpus both gate and explain range over') walks a kind's governs locus and reads+parses every member file off disk \u2014 whole-input work scaling with the harness's member count. `gate()` (847) and `explain()` (513) each invoke it TWICE per kind, per run: once through the two-greens dispatch \u2014 `gate()`'s built-in loop (917-945) calls `kind_features` (1518-1529, which calls `resolve_kind_units` at 1524) per built-in kind at 938, and its custom-kind loop (974-989) calls it per custom kind at 982; `explain()` reaches the same built-in path via `builtin_features_by_kind` (1843-1853, calling `kind_features` per kind) at line 532, and inlines a direct `resolve_kind_units` call for custom kinds at 556 \u2014 and a second time through `collect_directive_members` (2166-2197, called by `gate()` at 1004 and `explain()` at 599), which independently re-derives `builtin_kind::definitions()` (2171, already held as `builtin_defs` in both callers), re-calls `resolve_kind_units` per built-in kind (2173) and per custom kind (2186), and re-runs `partition_kind_rows` (2183, already computed at gate():955/explain():549) to get the same custom-kind rows a second time. Every member document in the corpus is read from disk and parsed twice per `gate()`/`explain()` invocation. Secondary, same functions: `gate()` also calls `builtin_kind::definitions()` a second time inline at ~1193 as an argument to `coverage_note::check`, discarding the already-computed `builtin_defs` (cheap, in-memory, but fixable alongside). Fix: thread the units/features `kind_features`'s callers already resolve into `collect_directive_members` instead of a second `resolve_kind_units` pass \u2014 the exact carrying shape (widening `kind_features`'s return to keep each unit's `source_path` beside its `Features`, or having callers hold the `Vec<Unit>` alongside) is a judgment call for build; name the choice in the commit body."
+          "description": "`resolve_kind_units` (fn 1319, doc comment 1302-1318: 'the one corpus both gate and explain range over') walks a kind's governs locus and reads+parses every member file off disk — whole-input work scaling with the harness's member count. `gate()` (847) and `explain()` (513) each invoke it TWICE per kind, per run: once through the two-greens dispatch — `gate()`'s built-in loop (917-945) calls `kind_features` (1518-1529, which calls `resolve_kind_units` at 1524) per built-in kind at 938, and its custom-kind loop (974-989) calls it per custom kind at 982; `explain()` reaches the same built-in path via `builtin_features_by_kind` (1843-1853, calling `kind_features` per kind) at line 532, and inlines a direct `resolve_kind_units` call for custom kinds at 556 — and a second time through `collect_directive_members` (2166-2197, called by `gate()` at 1004 and `explain()` at 599), which independently re-derives `builtin_kind::definitions()` (2171, already held as `builtin_defs` in both callers), re-calls `resolve_kind_units` per built-in kind (2173) and per custom kind (2186), and re-runs `partition_kind_rows` (2183, already computed at gate():955/explain():549) to get the same custom-kind rows a second time. Every member document in the corpus is read from disk and parsed twice per `gate()`/`explain()` invocation. Secondary, same functions: `gate()` also calls `builtin_kind::definitions()` a second time inline at ~1193 as an argument to `coverage_note::check`, discarding the already-computed `builtin_defs` (cheap, in-memory, but fixable alongside). Fix: thread the units/features `kind_features`'s callers already resolve into `collect_directive_members` instead of a second `resolve_kind_units` pass — the exact carrying shape (widening `kind_features`'s return to keep each unit's `source_path` beside its `Features`, or having callers hold the `Vec<Unit>` alongside) is a judgment call for build; name the choice in the commit body."
         }
       ],
       "retire": []
@@ -836,15 +708,15 @@
     "tests": [
       {
         "path": "tests/check_cost.rs",
-        "asserts": "a fixture with at least one built-in-kind member and one custom-kind member proves resolve_kind_units's per-kind file-read/parse work runs exactly once per gate()/explain() invocation \u2014 a count-pin instrumented the way import::walk_count()/kind::glob_compile_count() already are in this file, not a wall-clock threshold"
+        "asserts": "a fixture with at least one built-in-kind member and one custom-kind member proves resolve_kind_units's per-kind file-read/parse work runs exactly once per gate()/explain() invocation — a count-pin instrumented the way import::walk_count()/kind::glob_compile_count() already are in this file, not a wall-clock threshold"
       }
     ],
     "acceptance": "gate() and explain() each resolve every kind's members off disk exactly once per invocation; collect_directive_members consumes that shared resolution instead of re-deriving it via a second resolve_kind_units/partition_kind_rows/builtin_kind::definitions() pass. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). resolve_kind_units's own doc comment already claims single-corpus sourcing the code doesn't structurally guarantee. Serialized behind GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE, the last entry in the existing chain touching main.rs (pending-entry.md, 'Disjoint, or serialized') \u2014 no functional dependency. scoped at ad66e46."
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). resolve_kind_units's own doc comment already claims single-corpus sourcing the code doesn't structurally guarantee. Serialized behind GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE, the last entry in the existing chain touching main.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at ad66e46."
   },
   {
     "tag": "INSTALL-PROJECTION-MATCH-CONSOLIDATE",
-    "summary": "install.rs's matches_projection and manifest_write_findings each independently normalize backslashes and suffix-compare file_path against a target list \u2014 one matcher written twice",
+    "summary": "install.rs's matches_projection and manifest_write_findings each independently normalize backslashes and suffix-compare file_path against a target list — one matcher written twice",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -859,7 +731,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`matches_projection` (744-750, doc comment 741-743 naming the job: 'a straight suffix compare against each row's `/`-normalized source_path (PATH-SEP-NORMALIZE), tolerant of file_path arriving absolute') takes `&[drift::EmitOwnedEntry]` and does `file_path.replace('\\\\', \"/\")` then `targets.iter().any(|t| file_path.ends_with(&t.path...replace('\\\\',\"/\")))`. `manifest_write_findings` (783-827) inlines the identical normalize-then-suffix-compare at 791 (`file_path.replace('\\\\', \"/\")`) and 796-797 (`manifest.path...replace('\\\\', \"/\")` then `file_path.ends_with(target.as_str())`) against a different collection, `&[GuardedManifest]` \u2014 same job, second implementation, differing only in the candidate list's element type. Grep-verified: `replace('\\\\', \"/\")` for a match job appears at exactly these two sites in the tree (a third hit, main.rs:1822, is an unrelated repo_file_set normalization, not a match). Factor a shared helper \u2014 e.g. `fn path_matches<'a>(file_path: &str, candidates: impl Iterator<Item = &'a Path>) -> bool` \u2014 both `matches_projection` and `manifest_write_findings` call, passing `targets.iter().map(|t| t.path.as_path())` and `std::iter::once(manifest.path.as_path())` respectively."
+          "description": "`matches_projection` (744-750, doc comment 741-743 naming the job: 'a straight suffix compare against each row's `/`-normalized source_path (PATH-SEP-NORMALIZE), tolerant of file_path arriving absolute') takes `&[drift::EmitOwnedEntry]` and does `file_path.replace('\\\\', \"/\")` then `targets.iter().any(|t| file_path.ends_with(&t.path...replace('\\\\',\"/\")))`. `manifest_write_findings` (783-827) inlines the identical normalize-then-suffix-compare at 791 (`file_path.replace('\\\\', \"/\")`) and 796-797 (`manifest.path...replace('\\\\', \"/\")` then `file_path.ends_with(target.as_str())`) against a different collection, `&[GuardedManifest]` — same job, second implementation, differing only in the candidate list's element type. Grep-verified: `replace('\\\\', \"/\")` for a match job appears at exactly these two sites in the tree (a third hit, main.rs:1822, is an unrelated repo_file_set normalization, not a match). Factor a shared helper — e.g. `fn path_matches<'a>(file_path: &str, candidates: impl Iterator<Item = &'a Path>) -> bool` — both `matches_projection` and `manifest_write_findings` call, passing `targets.iter().map(|t| t.path.as_path())` and `std::iter::once(manifest.path.as_path())` respectively."
         }
       ],
       "retire": []
@@ -868,15 +740,15 @@
     "tests": [
       {
         "path": "tests/cli.rs",
-        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture stays green \u2014 the consolidation is signature-only, both the projection-drift and manifest-contract guard paths match identically"
+        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture stays green — the consolidation is signature-only, both the projection-drift and manifest-contract guard paths match identically"
       }
     ],
     "acceptance": "matches_projection and manifest_write_findings both call one shared path-suffix-match helper in src/install.rs instead of each carrying its own backslash-normalize-then-suffix-compare. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind PLACEMENT-MODULE-EXTRACTION, the last entry in the existing chain touching install.rs (pending-entry.md, 'Disjoint, or serialized') \u2014 no functional dependency. scoped at ad66e46."
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind PLACEMENT-MODULE-EXTRACTION, the last entry in the existing chain touching install.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at ad66e46."
   },
   {
     "tag": "INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE",
-    "summary": "install.rs's GUARD_MANIFEST_MESSAGE const is pub with zero consumer outside its own module \u2014 narrow to private per the export-earns-its-consumer bar",
+    "summary": "install.rs's GUARD_MANIFEST_MESSAGE const is pub with zero consumer outside its own module — narrow to private per the export-earns-its-consumer bar",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -891,7 +763,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`GUARD_MANIFEST_MESSAGE` (131, `pub const`) has exactly one use anywhere in the tree \u2014 inside `render_manifest_findings` (832-838, same module, `String::from(GUARD_MANIFEST_MESSAGE)` at 833) \u2014 grep-verified zero hits across src/, tests/, sdk/ outside this file. Its sibling `GUARD_MESSAGE` (124, `pub const`) carries a doc comment stating why it's public ('Public so the `guard` subcommand ([`main`]) prints it...') and a real external caller (`main.rs:416,420`, `eprintln!(\"{}\", install::GUARD_MESSAGE)`) \u2014 the earned-pub shape `GUARD_MANIFEST_MESSAGE` lacks; `render_manifest_findings` itself is the pub fn main.rs calls (main.rs:398), and it's the one that needs the message text, not main.rs directly. Drop `pub` from `GUARD_MANIFEST_MESSAGE`, leaving it a module-private const read only by `render_manifest_findings`."
+          "description": "`GUARD_MANIFEST_MESSAGE` (131, `pub const`) has exactly one use anywhere in the tree — inside `render_manifest_findings` (832-838, same module, `String::from(GUARD_MANIFEST_MESSAGE)` at 833) — grep-verified zero hits across src/, tests/, sdk/ outside this file. Its sibling `GUARD_MESSAGE` (124, `pub const`) carries a doc comment stating why it's public ('Public so the `guard` subcommand ([`main`]) prints it...') and a real external caller (`main.rs:416,420`, `eprintln!(\"{}\", install::GUARD_MESSAGE)`) — the earned-pub shape `GUARD_MANIFEST_MESSAGE` lacks; `render_manifest_findings` itself is the pub fn main.rs calls (main.rs:398), and it's the one that needs the message text, not main.rs directly. Drop `pub` from `GUARD_MANIFEST_MESSAGE`, leaving it a module-private const read only by `render_manifest_findings`."
         }
       ],
       "retire": []
@@ -900,15 +772,15 @@
     "tests": [
       {
         "path": "tests/cli.rs",
-        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture stays green \u2014 the narrowing is visibility-only, render_manifest_findings's output is unchanged"
+        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture stays green — the narrowing is visibility-only, render_manifest_findings's output is unchanged"
       }
     ],
     "acceptance": "GUARD_MANIFEST_MESSAGE is a private const in src/install.rs, not pub; GUARD_MESSAGE keeps its earned pub. cargo test and cargo clippy -D warnings green (no unused-pub warning survives).",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-PROJECTION-MATCH-CONSOLIDATE for shared install.rs safety (pending-entry.md) \u2014 no functional dependency. scoped at ad66e46."
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-PROJECTION-MATCH-CONSOLIDATE for shared install.rs safety (pending-entry.md) — no functional dependency. scoped at ad66e46."
   },
   {
     "tag": "INSTALL-PLACEMENT-KIND-ENUM",
-    "summary": "InstallEntry.placement is four bare &str consts matched with a wildcard fallback in gate_installed \u2014 the MODELINE case is never named, only reached via `_`",
+    "summary": "InstallEntry.placement is four bare &str consts matched with a wildcard fallback in gate_installed — the MODELINE case is never named, only reached via `_`",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "A shared concept is one type"
@@ -923,7 +795,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`InstallEntry.placement: &'static str` (370) is one of four consts \u2014 `SESSION_START` (91), `MODELINE` (93), `GUARD_HOOK` (95), `NOTE` (97) \u2014 set at its five construction sites (582, 606, 612, 642, 656). `gate_installed`'s tally (522-533) matches them as `SESSION_START => hook = true, GUARD_HOOK => guard = true, NOTE => notes += 1, _ => modelines += 1` \u2014 `MODELINE` is never named in the match, reached only through the `_` fallback, which would also silently absorb any future fifth placement as a modeline, uncaught by the compiler. This is the shared-concept posture's own described failure shape ('a `_` arm over a shared concept is a seam defect waiting for its field report'). Replace the four string consts and the `&'static str` field with a real `#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum Placement { SessionStart, Modeline, GuardHook, Note }`, update the five construction sites and `gate_installed`'s match to name every variant exhaustively (no `_` arm), and give `Placement` a `Display`/label method carrying today's exact strings ('session-start hook', 'schema modeline', 'guard hook', 'managed-by note') for the two `.to_string()` uses at 540/543 and the report line built from it."
+          "description": "`InstallEntry.placement: &'static str` (370) is one of four consts — `SESSION_START` (91), `MODELINE` (93), `GUARD_HOOK` (95), `NOTE` (97) — set at its five construction sites (582, 606, 612, 642, 656). `gate_installed`'s tally (522-533) matches them as `SESSION_START => hook = true, GUARD_HOOK => guard = true, NOTE => notes += 1, _ => modelines += 1` — `MODELINE` is never named in the match, reached only through the `_` fallback, which would also silently absorb any future fifth placement as a modeline, uncaught by the compiler. This is the shared-concept posture's own described failure shape ('a `_` arm over a shared concept is a seam defect waiting for its field report'). Replace the four string consts and the `&'static str` field with a real `#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum Placement { SessionStart, Modeline, GuardHook, Note }`, update the five construction sites and `gate_installed`'s match to name every variant exhaustively (no `_` arm), and give `Placement` a `Display`/label method carrying today's exact strings ('session-start hook', 'schema modeline', 'guard hook', 'managed-by note') for the two `.to_string()` uses at 540/543 and the report line built from it."
         },
         {
           "path": "tests/install.rs",
@@ -936,11 +808,11 @@
     "tests": [
       {
         "path": "tests/install.rs",
-        "asserts": "every existing outcome_of/has_entry assertion (hook/guard/note/modeline placements across the install/re-install/dry-run coverage) passes unchanged calling the enum-typed helpers \u2014 the change is representation-only, no behavior change to which placements land or their reported outcome"
+        "asserts": "every existing outcome_of/has_entry assertion (hook/guard/note/modeline placements across the install/re-install/dry-run coverage) passes unchanged calling the enum-typed helpers — the change is representation-only, no behavior change to which placements land or their reported outcome"
       }
     ],
     "acceptance": "InstallEntry.placement is a real Placement enum with an exhaustive match in gate_installed (no `_` arm); the four bare &str consts are gone. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE for shared install.rs safety (pending-entry.md) \u2014 no functional dependency. scoped at ad66e46."
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE for shared install.rs safety (pending-entry.md) — no functional dependency. scoped at ad66e46."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -951,7 +823,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "A human probe rules the hop semantics \u2014 the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (\u21d2 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (\u21d2 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence \u2014 never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
+      "reason": "A human probe rules the hop semantics — the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (⇒ 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (⇒ 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence — never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
     },
     "dependsOnForks": [],
     "files": {
@@ -959,11 +831,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' \u2014 a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (630) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (657), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts \u2014 hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it \u2014 528 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 626-629 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') \u2014 carry the same claim and move with it, as does the propagation comment at 652-655 ('capped at the format's import recursion depth'). 6667265 (mention-reachable, in the b85df4a..HEAD window) shifted every address after ~519 \u2014 the const (59) and its doc (55-58) sit above the edit and are unmoved; the later addresses re-read at HEAD, so every address carries."
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (59) sits under a doc (55-58) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (630) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (657), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 528 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 626-629 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 652-655 ('capped at the format's import recursion depth'). 6667265 (mention-reachable, in the b85df4a..HEAD window) shifted every address after ~519 — the const (59) and its doc (55-58) sit above the edit and are unmoved; the later addresses re-read at HEAD, so every address carries."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1407) already pins the boundary mechanically rather than in a comment \u2014 `r1..r5` rescued from a live seed, `r6` dead as the sole finding \u2014 so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1408-1412) spells 'capped at the format's five-hop import recursion' (1410) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. 6667265 (mention-reachable, in the b85df4a..HEAD window) added the mention-reachable fixture and shifted this test down; addresses re-read at HEAD, so they carry."
+          "description": "`the_import_closure_is_hop_capped` (1407) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1408-1412) spells 'capped at the format's five-hop import recursion' (1410) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. 6667265 (mention-reachable, in the b85df4a..HEAD window) added the mention-reachable fixture and shifted this test down; addresses re-read at HEAD, so they carry."
         }
       ],
       "retire": []
@@ -972,22 +844,22 @@
     "tests": [
       {
         "path": "tests/graph.rs",
-        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper \u2014 the boundary hop pinned at the ruled number, in the ruled counting"
+        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper — the boundary hop pinned at the ruled number, in the ruled counting"
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at d1af9a5 and holds \u2014 nothing ruled the hop semantics; VERIFIER-TYPED's window touched graph.rs but not the const region (still 5 at graph.rs:59, cite still 2026-07-02 at 55-58). The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 4a33911."
+    "notes": "Park re-tested at d1af9a5 and holds — nothing ruled the hop semantics; VERIFIER-TYPED's window touched graph.rs but not the const region (still 5 at graph.rs:59, cite still 2026-07-02 at 55-58). The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 4a33911."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
-    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary\u2194npm version lockstep at the v0.1 tag",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships \u2014 three channels"
+      "section": "What ships — three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
