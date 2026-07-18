@@ -137,7 +137,7 @@ which is wrong, surface it rather than guessing which way to bend.
 
 /// Errors raised while composing the plugin tree — the write side `bundle` owns.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum BundleError {
+enum BundleError {
     /// A plugin file or directory could not be written. Fail-loud:
     /// a placement that cannot be
     /// written is a hard error, never a silent skip.
