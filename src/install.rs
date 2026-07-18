@@ -1122,7 +1122,7 @@ fn splice_guard_command(
 }
 
 /// The `SessionStart` hook group temper installs: the exec-form command alone.
-fn session_start_group() -> JsonValue {
+pub(crate) fn session_start_group() -> JsonValue {
     json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
 }
 

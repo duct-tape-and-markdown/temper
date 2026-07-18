@@ -55,13 +55,6 @@ const PLUGIN_DESCRIPTION: &str = "The temper gate for a Claude Code harness: ins
      active contract, and run the advisory session-start gate — with the std-lib \
      default contracts embedded.";
 
-/// The exec-form command the bundled `SessionStart` hook runs: the `temper` binary
-/// itself, checking the project it is installed into under the advisory session-start
-/// reporter. Matches the wiring `temper
-/// install` projects into `.claude/settings.json`, so the plugin and `install` deliver
-/// the same gate.
-const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
-
 /// The bundled **operate-the-gate skill**, embedded byte-faithful.
 /// Mechanics
 /// only — how to run the checker and when to challenge the contract — never advice on
@@ -283,13 +276,7 @@ fn hooks_manifest() -> BTreeMap<String, JsonValue> {
     BTreeMap::from([(
         "hooks".to_string(),
         json!({
-            "SessionStart": [
-                {
-                    "hooks": [
-                        { "type": "command", "command": SESSION_START_COMMAND }
-                    ]
-                }
-            ]
+            "SessionStart": [crate::install::session_start_group()]
         }),
     )])
 }
@@ -430,7 +417,7 @@ mod tests {
         let hooks = hooks_manifest();
         assert_eq!(
             hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-            SESSION_START_COMMAND
+            crate::install::SESSION_START_COMMAND
         );
     }
 }
