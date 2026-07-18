@@ -341,6 +341,76 @@
     "notes": "Found sweeping the `model` subsystem (posture rotation: foundation done, model this tick) while grep-verifying kind.rs's pub surface for zero-consumer exports. Disjoint from every other currently-open entry's files (kind.rs untouched by any). scoped at 0dd9892."
   },
   {
+    "tag": "FRONTMATTER-COMPANIONS-ZERO-CONSUMER-PRUNE",
+    "summary": "frontmatter.rs's Member.companions field and its sole producer scan_companions are computed but have zero consumer anywhere — even the doc comment's claimed import.rs caller doesn't exist",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`Member.companions: Vec<PathBuf>` (53, doc comment 50-52: 'Sibling files that ship with a directory-shaped unit ... Empty for a file-shaped unit') and its sole producer `scan_companions` (382-412, `pub(crate)`) have zero consumer anywhere in the tree outside this file's own inline test (`companions_scan_relative_and_sorted_excluding_the_member`, 527-543) — grep-verified zero hits for `.companions` and `scan_companions` across src/, tests/, sdk/ beyond their declaration and this one test. `scan_companions`'s own doc comment (379-381) claims a cross-module consumer that does not exist: 'the whole-file custom import path (`src/import.rs`) copies a `Directory`-shaped frontmatterless unit's companions through the identical scan' — grep-verified zero `scan_companions` hits in import.rs, whose only 'companion' mentions are unrelated prose comments (693, 1008). Every real consumer of an imported `Member` (`builtin_kind.rs`'s `surface_unit` test helper, `install.rs`'s `scaffold`, `main.rs`'s custom-kind loader) reads `id`/`fields`/`body`/`satisfies`/`provenance` only, never `companions` — consistent with `specs/builtins.md`'s own stance that non-markdown supporting files 'remain unmodeled and are named as such.' Remove the `companions` field (53, doc 50-52) from `Member`; remove `scan_companions` (375-412) entirely; simplify `from_source_rooted`'s unit-shape match (192-237) so every arm yields a bare `id: String` instead of an `(id, companions)` tuple — the `Directory` arm (193-211) drops its `scan_companions(dir, name)?` call, the `NamedField`/`StarredSegment` arms (212-234) drop their `Vec::new()` companions half, `File`/`None` (236) drops its tuple wrapper; drop the `companions,` line from the `Ok(Self { .. })` construction (245). Remove the now-orphaned test `companions_scan_relative_and_sorted_excluding_the_member` (527-543)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/frontmatter.rs",
+        "asserts": "every other frontmatter.rs test (directory/file-shape id derivation, field ordering, malformed-frontmatter refusals) stays green — the removal is dead-plumbing-only, no behavior change to any live accessor or the Unit a Member lifts into"
+      }
+    ],
+    "acceptance": "Member carries no companions field and src/frontmatter.rs carries no scan_companions fn; from_source/from_source_rooted's unit-shape match yields id directly with no discarded second element. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-code warning survives).",
+    "notes": "Found sweeping the `formats` subsystem (posture rotation: model done, formats this tick; first full read since 20b7b21). Disjoint from every other currently-open entry's files (frontmatter.rs touched nowhere else). scoped at 843bc94."
+  },
+  {
+    "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH",
+    "summary": "json_manifest.rs's DocumentMember::parse and toml_document.rs's parse each hold a non-exhaustive match over UnitShape, unlike frontmatter.rs's own exhaustive match over the same shared enum",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`DocumentMember::parse`'s identity match (187-209) names `UnitShape::NamedField` (188-195) and `UnitShape::File | None` (196-202) explicitly, then folds the remaining two variants — `Directory` and `StarredSegment` — into one `Some(_) => { return Err(JsonManifestError::NoDeclaredIdentity {..}) }` wildcard (203-208). `src/frontmatter.rs`'s own match over the identical `UnitShape` enum (`from_source_rooted`, 192-237, in the same `formats` subsystem) names all four variants (`Directory`/`NamedField`/`StarredSegment`/`File|None`) explicitly — the shape this file's match should hold, per engineering.md's 'a `_` arm over a shared concept is a seam defect waiting for its field report' (the CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH precedent, same bar, a different enum). Replace `Some(_)` with `Some(UnitShape::Directory) | Some(UnitShape::StarredSegment) =>` naming both variants explicitly; behavior is unchanged (both still refuse with `NoDeclaredIdentity`), but a future fifth `UnitShape` variant now fails to compile here until named, matching frontmatter.rs's own guarantee."
+        },
+        {
+          "path": "src/toml_document.rs",
+          "description": "`parse`'s identity check (58-63) is a `let Some(UnitShape::NamedField { field }) = &kind.unit_shape else { return Err(TomlDocumentError::NoDeclaredIdentity {..}) };` — the `else` branch is reached by `File`, `Directory`, `StarredSegment`, and `None` alike, none named. Convert to a `match &kind.unit_shape { Some(UnitShape::NamedField { field }) => field, Some(UnitShape::File) | Some(UnitShape::Directory) | Some(UnitShape::StarredSegment) | None => return Err(TomlDocumentError::NoDeclaredIdentity { path: source_file.to_path_buf(), kind: kind.name.clone() }) }`, naming every non-`NamedField` variant explicitly instead of falling through an unnamed `else`; behavior is unchanged (every one of those four cases already refused identically), but a future fifth variant now forces a decision here too."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/toml_document.rs",
+        "asserts": "a_toml_document_kind_declaring_no_identity_field_refuses_loud stays green — the rewrite is exhaustiveness-only, the File-shape refusal reads the same message"
+      },
+      {
+        "path": "tests/json_document_format.rs",
+        "asserts": "the Directory-shape refusal (168-171, asserting 'identity shape it cannot serve') stays green — same NoDeclaredIdentity behavior, now reached by a named arm instead of a wildcard"
+      }
+    ],
+    "acceptance": "json_manifest.rs's DocumentMember::parse and toml_document.rs's parse both name every UnitShape variant explicitly in their identity-selection match, no `_`/catch-all arm or unnamed `else` remains, matching frontmatter.rs's own exhaustive style over the same enum. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the `formats` subsystem (posture rotation: model done, formats this tick; first full read since 20b7b21). Disjoint from every other currently-open entry's files (json_manifest.rs and toml_document.rs touched nowhere else open; EXTRACT-FOUNDATION-BOUNDARY-RESTORE also edits json_manifest.rs but sits deep in a blockedBy chain, never open alongside this one). scoped at 843bc94."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) \u2014 consolidate to one shared raw-row walk",
     "per": {
