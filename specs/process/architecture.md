@@ -54,11 +54,11 @@ appears in exactly one.
 
 ## Invariants — stated as absences
 
-- **foundation depends on nothing internal** — `check`, `tap`, `hash`,
-  `address`, `json_splice` hold it; `extract` regains it when its
-  accreted lock-row and manifest jobs land in their pipeline and
-  formats homes (0040). A foundation module that grows an upward
-  dependency has left the subsystem, not bent the rule.
+- **foundation depends on nothing outside foundation** — the rule's
+  point is the absence of upward edges; an intra-foundation leaf
+  import (`extract` → `address` for path location) sits inside it.
+  A foundation module that grows a dependency outside the subsystem
+  has left it, not bent the rule.
 - **formats never know the verbs or judges** — a format face is
   mechanics the pipeline selects by kind data, never a consumer of
   evaluation.
@@ -68,20 +68,13 @@ appears in exactly one.
 - **`main` carries dispatch only** — corpus assembly and judgment live
   in the library.
 
-Three edges in today's tree contradicted this map; all three are ruled
-to resolve toward it, code moving, map standing (0040): `drift →
-install` dissolves into the `placement` module (the shared
-managed-metadata vocabulary, imported downward by both); `frontmatter
-→ builtin_kind` (test-only) dissolves when the adapter's fixtures
-build synthetic kinds from `test_support`; `extract`'s upward imports
-dissolve when its lock-row lifters land in `drift` and its
-manifest-collection grammar (both faces) lands in `json_manifest`.
-A fourth surfaced in the next sweep rotation and is ruled the same
-way (2026-07-18): `normalize_path` is pure path vocabulary homed in
-`graph` (judges) with all external callers in pipeline — it moves to
-`address` (foundation), where its shape already lives. Until the
-entries ship, the edges stand here as declared debt — the map is
-intent, and intent loses to a better argument, never to drift.
+One edge in today's tree stands in tension with this map, ruled to
+resolve toward it (2026-07-18, entry queued): `normalize_path` is
+pure path vocabulary homed in `graph` (judges) with all external
+callers in pipeline — it moves to `address` (foundation), where its
+shape already lives. Three earlier edges ruled the same way (0040)
+have shipped and are history, not debt. The map is intent, and intent
+loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
 
