@@ -23,7 +23,7 @@ pub const TAP_RECORD_VERSION: u32 = 1;
 
 /// Filename of the per-machine event log under the workspace — uncommitted,
 /// machine-written, never an emit input or target.
-pub const LOG_FILENAME: &str = "tap.jsonl";
+const LOG_FILENAME: &str = "tap.jsonl";
 
 /// The lifecycle event a record names — its minimal discriminant, one of the
 /// hook events the tap recognizes. The payload's prose (file content, tool
