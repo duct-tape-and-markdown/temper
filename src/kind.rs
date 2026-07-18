@@ -204,6 +204,9 @@ pub enum CollectionKeyPath {
     /// `enabledPlugins.*` — an installed plugin keys by its `<plugin>@<marketplace>`
     /// identity under the manifest's `enabledPlugins` map (`settings.json`).
     EnabledPlugins,
+    /// `extraKnownMarketplaces.*` — a known marketplace keys by name under the manifest's
+    /// `extraKnownMarketplaces` map (`settings.json`).
+    ExtraKnownMarketplaces,
 }
 
 /// The declared field an `enabledPlugins` entry's **scalar value** surfaces under — the
@@ -228,6 +231,7 @@ impl CollectionKeyPath {
             CollectionKeyPath::HooksEvent => "hooks",
             CollectionKeyPath::McpServers => "mcpServers",
             CollectionKeyPath::EnabledPlugins => "enabledPlugins",
+            CollectionKeyPath::ExtraKnownMarketplaces => "extraKnownMarketplaces",
         }
     }
 
@@ -242,7 +246,9 @@ impl CollectionKeyPath {
     pub fn key_field(self) -> Option<&'static str> {
         match self {
             CollectionKeyPath::HooksEvent => Some("event"),
-            CollectionKeyPath::McpServers | CollectionKeyPath::EnabledPlugins => None,
+            CollectionKeyPath::McpServers
+            | CollectionKeyPath::EnabledPlugins
+            | CollectionKeyPath::ExtraKnownMarketplaces => None,
         }
     }
 
@@ -258,7 +264,9 @@ impl CollectionKeyPath {
     pub fn spans_whole_manifest(self) -> bool {
         match self {
             CollectionKeyPath::McpServers => true,
-            CollectionKeyPath::HooksEvent | CollectionKeyPath::EnabledPlugins => false,
+            CollectionKeyPath::HooksEvent
+            | CollectionKeyPath::EnabledPlugins
+            | CollectionKeyPath::ExtraKnownMarketplaces => false,
         }
     }
 }
@@ -665,6 +673,14 @@ pub enum Registration {
     /// member outright (`builtins.md`, "The shipped kinds"). The gate rides that field,
     /// never a second channel entry.
     Enablement,
+    /// `registry` — the member reaches the world by the harness carrying it in a registry:
+    /// an entry in `settings.json`'s `extraKnownMarketplaces` map (a known marketplace).
+    /// Carries no field — the entry's own presence IS the channel, exactly as
+    /// [`Connection`](Registration::Connection)'s is. Unlike an
+    /// [`Enablement`](Registration::Enablement), no declared field gates it: whether the
+    /// marketplace the entry names actually resolves is a fetch-time fact temper cannot
+    /// decide, so like a connection this channel is never provably dead.
+    Registry,
 }
 
 /// A **template** a kind declares for one inner layer of nested members it hosts: the
@@ -1128,12 +1144,14 @@ pub(crate) fn collection_address_from_row(
 
 /// Parse a [`CollectionAddressRow::key_path`](crate::drift::CollectionAddressRow::key_path)
 /// label into its typed [`CollectionKeyPath`] — `None` for any label outside the closed
-/// vocabulary (`hooks.<Event>`, `mcpServers.*`, `enabledPlugins.*`).
+/// vocabulary (`hooks.<Event>`, `mcpServers.*`, `enabledPlugins.*`,
+/// `extraKnownMarketplaces.*`).
 fn collection_key_path_from_label(label: &str) -> Option<CollectionKeyPath> {
     match label {
         "hooks.<Event>" => Some(CollectionKeyPath::HooksEvent),
         "mcpServers.*" => Some(CollectionKeyPath::McpServers),
         "enabledPlugins.*" => Some(CollectionKeyPath::EnabledPlugins),
+        "extraKnownMarketplaces.*" => Some(CollectionKeyPath::ExtraKnownMarketplaces),
         _ => None,
     }
 }
@@ -1195,6 +1213,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
         "user-invoked" => return Some(Registration::UserInvoked),
         "connection" => return Some(Registration::Connection),
         "enablement" => return Some(Registration::Enablement),
+        "registry" => return Some(Registration::Registry),
         _ => {}
     }
     let (name, field) = label.strip_suffix(')')?.split_once('(')?;

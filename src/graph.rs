@@ -707,8 +707,8 @@ fn dead_channel_set(
 /// `description-trigger` field, a `paths-match` field whose *present* globs match no
 /// file (an absent/blank `paths` field is unconditional loading, never dead), and an
 /// `enablement` entry the harness is documented not to load. `always`/`user-invoked`
-/// (unconditionally live), `event`, and `connection` (no repo-decidable criterion) never
-/// do.
+/// (unconditionally live), `event`, and `connection`/`registry` (no repo-decidable
+/// criterion) never do.
 fn dead_registration(
     registration: &Registration,
     member: &Features,
@@ -718,7 +718,8 @@ fn dead_registration(
         Registration::Always
         | Registration::UserInvoked
         | Registration::Event { .. }
-        | Registration::Connection => None,
+        | Registration::Connection
+        | Registration::Registry => None,
         // The gate rides the member's declared enablement field, never a channel of its
         // own: only the documented `false` is dead. Any other value — the enablement the
         // harness writes, or a shape whose semantics no source documents — stays live, so

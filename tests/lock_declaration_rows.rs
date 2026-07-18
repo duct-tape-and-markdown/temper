@@ -2121,6 +2121,28 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(plugin_address.manifest, "settings.json");
     assert_eq!(plugin_address.key_path, "enabledPlugins.*");
 
+    // The `known-marketplace` kind is the fourth manifest kind, and the third addressing a
+    // collection inside `settings.json`: the `registry` channel — the entry's own presence,
+    // never provably dead — and the `extraKnownMarketplaces.*` address. It keys at yet another
+    // address, so `hook`, `installed-plugin`, and it share a governs pair without contending.
+    let market = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "known-marketplace")
+        .expect("the known-marketplace kind fact is embedded");
+    assert_eq!(market.governs_root.as_deref(), Some(".claude"));
+    assert_eq!(market.governs_glob.as_deref(), Some("settings.json"));
+    assert_eq!(market.format, None);
+    assert_eq!(market.unit_shape.as_deref(), Some("file"));
+    assert_eq!(market.registration, vec!["registry".to_string()]);
+    assert_eq!(market.shape.as_deref(), Some("fields"));
+    let market_address = market
+        .collection_address
+        .as_ref()
+        .expect("the known-marketplace kind carries its collection address");
+    assert_eq!(market_address.manifest, "settings.json");
+    assert_eq!(market_address.key_path, "extraKnownMarketplaces.*");
+
     // The `supporting-doc` kind is the only one at the nested-file locus: it governs no
     // glob at all, because both halves of its locus are the host's — `skill`'s unit and
     // `skill`'s own template pattern. Frontmatterless, body-bearing, and channel-less.
@@ -2228,11 +2250,11 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(settings_local.registration, Vec::<String>::new());
 
     assert!(declarations.kinds.iter().all(|row| row.provider.is_none()));
-    // Thirteen, not the eleven `specs/builtins.md` enumerates: `supporting-doc` ships beside
+    // Fourteen, not the twelve `specs/builtins.md` enumerates: `supporting-doc` ships beside
     // that roster without joining it (as `requirement` does), and `dial` is temper's own
     // rather than a provider's, so the engine's kind set runs two above the corpus's
     // count. Every number is right; none checks another.
-    assert_eq!(declarations.kinds.len(), 13);
+    assert_eq!(declarations.kinds.len(), 14);
     assert!(declarations.requirements.is_empty());
     assert!(declarations.satisfies.is_empty());
     assert!(declarations.mentions.is_empty());

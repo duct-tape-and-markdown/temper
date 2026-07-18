@@ -4,5 +4,5 @@ expression: check_diagnostics(&harness)
 ---
 ok = true
 ::warning title=install.gate-installed::<HARNESS>: temper's gate is not installed or has drifted — run `temper install` (missing or drifted: session-start hook, guard hook, 4 managed-by notes)
-::warning title=coverage.checked::harness: checked 8 members across 17 kinds: agent (0), command (0), dial (0), guide (1), handbook (1), hook (1), installed-plugin (1), machine (1), marketplace (0), mcp-server (0), memory (0), plugin-manifest (0), rule (2), settings-local (0), skill (0), spec (1), supporting-doc (0)
+::warning title=coverage.checked::harness: checked 8 members across 18 kinds: agent (0), command (0), dial (0), guide (1), handbook (1), hook (1), installed-plugin (1), known-marketplace (0), machine (1), marketplace (0), mcp-server (0), memory (0), plugin-manifest (0), rule (2), settings-local (0), skill (0), spec (1), supporting-doc (0)
 ::warning title=coverage.unmodeled-surface::.claude/settings.json: `.claude/settings.json` is partially governed — its enabledPlugins, hooks segments are checked, but its autoMemoryEnabled, permissions segments are unmodeled and no kind checks them [source: code.claude.com/docs/en/settings (retrieved 2026-07-16)]

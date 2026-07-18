@@ -16,6 +16,8 @@ import {
   hookDefaultContract,
   installedPlugin,
   installedPluginDefaultContract,
+  knownMarketplace,
+  knownMarketplaceDefaultContract,
   marketplace,
   marketplaceDefaultContract,
   mcpServer,
@@ -47,6 +49,7 @@ const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
   marketplaceDefaultContract,
   supportingDocDefaultContract,
   settingsLocalDefaultContract,
+  knownMarketplaceDefaultContract,
 ];
 
 test("every exported default contract is a well-formed clause array", () => {
@@ -166,6 +169,27 @@ test("installedPluginDefaultContract ships empty — an assertion, not an omissi
   // the member's identity rather than a declared field, so an almost-empty format earns
   // an almost-empty contract rather than a clause resting on an unsettled fact.
   assert.deepEqual(installedPluginDefaultContract, []);
+});
+
+test("knownMarketplace is a fields-only manifest kind at the extraKnownMarketplaces.* collection address", () => {
+  assert.equal(knownMarketplace.facts.shape, "fields");
+  assert.equal(knownMarketplace.facts.unitShape, "file");
+  assert.equal(knownMarketplace.facts.format, undefined);
+  assert.deepEqual(knownMarketplace.facts.locus, { kind: "at", root: ".claude", glob: "settings.json" });
+  // The registry entry's own presence is the channel — fieldless, and never provably dead,
+  // as a connection's is.
+  assert.deepEqual(knownMarketplace.facts.registration, [{ via: "registry" }]);
+  assert.deepEqual(knownMarketplace.facts.collectionAddress, {
+    manifest: "settings.json",
+    keyPath: "extraKnownMarketplaces.*",
+  });
+});
+
+test("knownMarketplaceDefaultContract ships empty — an assertion, not an omission", () => {
+  // The `source` union and `autoUpdate` boolean are the type's to hold; the key is the
+  // marketplace name, an identity rather than a declared field, so no decidable clause
+  // survives that the type does not already enforce.
+  assert.deepEqual(knownMarketplaceDefaultContract, []);
 });
 
 test("mcpServerDefaultContract gates the transport type against the documented set", () => {

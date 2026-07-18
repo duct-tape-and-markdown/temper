@@ -166,6 +166,8 @@ function registrationLabel(registration: Registration): string {
       return "connection";
     case "enablement":
       return "enablement";
+    case "registry":
+      return "registry";
  }
 }
 

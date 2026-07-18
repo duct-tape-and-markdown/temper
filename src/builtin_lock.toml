@@ -1,6 +1,6 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the thirteen built-in kinds' facts and their default contract clauses, plus the
+# the fourteen built-in kinds' facts and their default contract clauses, plus the
 # unconditional `mode = "warn"` assembly fact — the root member's own enforcement
 # mode (specs/model/representation.md, "The root member") — every harness carries
 # absent an authored mode. No requirements, no satisfies, no provenance or
@@ -10,13 +10,13 @@
 # lock is derived from the SDK module, never transcribed"): this is the
 # real `[declaration.*]` family `drift::emit` writes for a memberless `Payload` whose
 # declarations come from a memberless harness over the whole shipped std-lib:
-# `@dtmd/temper/claude-code`'s twelve
-# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `marketplace`,
-# `mcp-server`, `plugin-manifest`, `settings-local`, `skill`, `supporting-doc`, `rule`,
-# `memory`) and their
+# `@dtmd/temper/claude-code`'s thirteen
+# built-in kinds (`agent`, `command`, `hook`, `installed-plugin`, `known-marketplace`,
+# `marketplace`, `mcp-server`, `plugin-manifest`, `settings-local`, `skill`,
+# `supporting-doc`, `rule`, `memory`) and their
 # default contracts (`agentDefaultContract`, `commandDefaultContract`,
-# `hookDefaultContract`, `installedPluginDefaultContract`, `marketplaceDefaultContract`,
-# `mcpServerDefaultContract`,
+# `hookDefaultContract`, `installedPluginDefaultContract`, `knownMarketplaceDefaultContract`,
+# `marketplaceDefaultContract`, `mcpServerDefaultContract`,
 # `pluginManifestDefaultContract`, `settingsLocalDefaultContract`, `skillDefaultContract`,
 # `supportingDocDefaultContract`, `ruleDefaultContract`,
 # `memoryAnthropicDefaultContract`), plus `dial`/`dialDefaultContract` off the SDK's
@@ -27,7 +27,7 @@
 # verbatim; never hand-edit a row here.
 #
 # The SDK module exports one `memory` kind (the `CLAUDE.md` locus) and no
-# `provider`-qualified kind values, so this lock's thirteen kind facts carry no `provider`
+# `provider`-qualified kind values, so this lock's fourteen kind facts carry no `provider`
 # column. Claude Code does not read `AGENTS.md` (code.claude.com/docs/en/memory,
 # retrieved 2026-07-15), so no `agents-md.memory` kind ships and none appears here.
 #
@@ -44,11 +44,12 @@
 # one clause — the format documents no schema to gate, so the only decidable fact left is
 # the graph one: a supporting file no edge from its host skill reaches is never read.
 #
-# `installed-plugin` is the one kind here contributing a kind fact and no clause row at
-# all: its default contract is empty, so thirteen kinds carry twelve contracts' clauses. The
-# format documents no gateable schema — an entry is one scalar under a key that is the
-# member's identity rather than a declared field — and the absence is the honest encoding,
-# not a row lost in regeneration.
+# `installed-plugin` and `known-marketplace` are the two kinds here contributing a kind fact
+# and no clause row at all: each default contract is empty, so fourteen kinds carry twelve
+# contracts' clauses. Neither format documents a gateable schema the member's own type does
+# not already hold — an installed plugin is one scalar under an identity key, a known
+# marketplace a `source`/`autoUpdate` object under a marketplace-name key — and the absence is
+# the honest encoding, not a row lost in regeneration.
 #
 # `plugin-manifest` is one of three kinds here at the `json-document` format — `marketplace`
 # and the `local`-class `settings-local` are the others: the whole artifact is one JSON
@@ -111,6 +112,15 @@ unit_shape = "file"
 registration = ["enablement"]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
+
+[[declaration.kind]]
+name = "known-marketplace"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["registry"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "extraKnownMarketplaces.*" }
 
 [[declaration.kind]]
 name = "marketplace"

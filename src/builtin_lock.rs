@@ -57,6 +57,7 @@ mod tests {
                 "dial",
                 "hook",
                 "installed-plugin",
+                "known-marketplace",
                 "marketplace",
                 "mcp-server",
                 "memory",

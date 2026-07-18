@@ -310,6 +310,39 @@ fn claude_code_installed_plugin() -> CustomKind {
     }
 }
 
+/// Anthropic's documented `settings.json` `extraKnownMarketplaces` kind: a known
+/// marketplace is a fields-only registration member surfacing inside the project settings
+/// manifest, keyed by the marketplace name a user has registered
+/// (`code.claude.com/docs/en/plugin-marketplaces`, retrieved 2026-07-17). It owns no file of
+/// its own — the manifest is discovered off the `.claude/settings.json` locus and each
+/// `extraKnownMarketplaces` entry read as a member — carries no body (`Content::Fields`), and
+/// registers on the `registry` channel: the entry's own presence is the registration.
+///
+/// The consumer half of the plugin-distribution graph, distinct from the publisher-side
+/// `marketplace` catalog: that document is a marketplace's own `marketplace.json`, this entry
+/// is one consumer's record that they have added it. Its value is an object (unlike an
+/// installed plugin's bare boolean), so the object's fields — the `source` union and
+/// `autoUpdate` — fold into the member the read surfaces.
+fn claude_code_known_marketplace() -> CustomKind {
+    CustomKind {
+        unit_shape: Some(crate::kind::UnitShape::File),
+        registration: vec![Registration::Registry],
+        content: Content::Fields,
+        collection_address: Some(CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: CollectionKeyPath::ExtraKnownMarketplaces,
+        }),
+        ..CustomKind::new(
+            "known-marketplace",
+            Governs {
+                root: ".claude".to_string(),
+                glob: "settings.json".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+}
+
 /// Anthropic's documented `.claude-plugin/plugin.json` kind: a plugin pack's identity and
 /// metadata, the whole file one JSON document rather than frontmatter over a body
 /// (`code.claude.com/docs/en/plugins-reference`, retrieved 2026-07-16). Identity reads from
@@ -441,6 +474,7 @@ fn all_kinds() -> Vec<CustomKind> {
         claude_code_command(),
         claude_code_hook(),
         claude_code_installed_plugin(),
+        claude_code_known_marketplace(),
         claude_code_marketplace(),
         claude_code_mcp_server(),
         claude_code_plugin_manifest(),
@@ -661,6 +695,7 @@ mod tests {
                 "dial",
                 "hook",
                 "installed-plugin",
+                "known-marketplace",
                 "marketplace",
                 "mcp-server",
                 "memory",

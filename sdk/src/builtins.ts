@@ -501,6 +501,65 @@ export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPl
 export const installedPluginDefaultContract: readonly Clause[] = [];
 
 /**
+ * A Claude Code known marketplace — the consumer half of the plugin-distribution graph, a
+ * fields-only registration member surfacing inside `.claude/settings.json` under
+ * `extraKnownMarketplaces`, keyed by the marketplace name a user has registered. Distinct
+ * from the publisher-side {@link Marketplace} catalog: that document is a marketplace's own
+ * `.claude-plugin/marketplace.json`, this entry is one consumer's record that they have
+ * added it — two documents, two owners. The product stores the same registry per-user in
+ * `known_marketplaces.json`; `extraKnownMarketplaces` is the committable, project-scoped
+ * spelling temper types (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-17).
+ *
+ * Its value is an object (unlike an installed plugin's bare boolean), so the member folds
+ * the object's fields: where to fetch the marketplace from, and whether the harness keeps it
+ * up to date.
+ */
+export interface KnownMarketplace {
+  /**
+   * Where the harness fetches this marketplace from — the same documented `source` union a
+   * marketplace lists its plugins by ({@link MarketplaceSource}): a `./`-relative path, or an
+   * object naming `github`, `url`, `git-subdir`, or `npm`
+   * (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-17).
+   */
+  readonly source: MarketplaceSource;
+  /**
+   * Whether the harness re-fetches the marketplace catalog on its own. Omitting it leaves the
+   * harness's default in force; the field only pins the choice
+   * (code.claude.com/docs/en/plugin-marketplaces, retrieved 2026-07-17).
+   */
+  readonly autoUpdate?: boolean;
+}
+
+/**
+ * `knownMarketplace` — a `settings.json` `extraKnownMarketplaces` registration member: a
+ * fields-only kind (no body slot), its members discovered off the `.claude/settings.json`
+ * manifest at the `extraKnownMarketplaces.*` collection address, keyed by marketplace name;
+ * registers on the `registry` channel — the entry's own presence is the registration, and
+ * whether the marketplace it names actually resolves is a fetch-time fact temper cannot
+ * decide, so the channel is never provably dead (code.claude.com/docs/en/plugin-marketplaces,
+ * retrieved 2026-07-17). The fourth registration member temper ships.
+ */
+export const knownMarketplace: KindDefinition<KnownMarketplace> = kind<KnownMarketplace>({
+  name: "known-marketplace",
+  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  unitShape: "file",
+  registration: [{ via: "registry" }],
+  shape: "fields",
+  collectionAddress: { manifest: "settings.json", keyPath: "extraKnownMarketplaces.*" },
+});
+
+/**
+ * The default contract for `known-marketplace` — **deliberately empty**. The format
+ * documents no decidable schema beyond the shape the {@link KnownMarketplace} type already
+ * holds: `source` is the same union {@link Marketplace} carries and reuses its typing,
+ * `autoUpdate` is a bare optional boolean, and the key is the member's identity (a
+ * marketplace name) rather than a declared field a clause could range over. Nothing decidable
+ * survives that the type does not already enforce, so the honest encoding is the empty
+ * contract, not a forged clause — the `installedPluginDefaultContract` precedent.
+ */
+export const knownMarketplaceDefaultContract: readonly Clause[] = [];
+
+/**
  * A Claude Code plugin manifest — `.claude-plugin/plugin.json`, the pack's identity and
  * the metadata a marketplace lists it by. The manifest itself is optional (Claude Code
  * auto-discovers components in their default locations and derives the name from the
