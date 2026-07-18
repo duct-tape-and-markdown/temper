@@ -261,7 +261,30 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         Predicate::RequireSections { .. } => "the body's headings",
         Predicate::SectionContains { .. } => "the body's sections",
         Predicate::NameMatchesDir => "the member's source directory",
-        _ => return None,
+        Predicate::Required { .. }
+        | Predicate::Optional { .. }
+        | Predicate::Type { .. }
+        | Predicate::MinLen { .. }
+        | Predicate::MaxLen { .. }
+        | Predicate::Range { .. }
+        | Predicate::Enum { .. }
+        | Predicate::Deny { .. }
+        | Predicate::ForbiddenKeys { .. }
+        | Predicate::ClosedKeys
+        | Predicate::AllowedChars { .. }
+        | Predicate::Shape { .. }
+        | Predicate::Extent { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::UniqueName
+        | Predicate::DependencyExists
+        | Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::Kind { .. }
+        | Predicate::GlobValid { .. }
+        | Predicate::MentionReachable { .. }
+        | Predicate::FormatPlacesEdges => return None,
     };
     Some(format!(
         "`{}` ranges over {feature}, which no member of embedded kind `{kind}` has: an \
@@ -282,7 +305,32 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
              syntax or extractor, so it is inadmissible as a clause"
                 .to_string(),
         ),
-        _ => None,
+        Predicate::Required { .. }
+        | Predicate::Optional { .. }
+        | Predicate::Type { .. }
+        | Predicate::MinLen { .. }
+        | Predicate::MaxLen { .. }
+        | Predicate::Range { .. }
+        | Predicate::Enum { .. }
+        | Predicate::Deny { .. }
+        | Predicate::ForbiddenKeys { .. }
+        | Predicate::ClosedKeys
+        | Predicate::AllowedChars { .. }
+        | Predicate::Shape { .. }
+        | Predicate::Extent { .. }
+        | Predicate::RequireSections { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::SectionContains { .. }
+        | Predicate::NameMatchesDir
+        | Predicate::UniqueName
+        | Predicate::Count { .. }
+        | Predicate::Unique { .. }
+        | Predicate::Membership { .. }
+        | Predicate::Degree { .. }
+        | Predicate::Kind { .. }
+        | Predicate::GlobValid { .. }
+        | Predicate::MentionReachable { .. }
+        | Predicate::FormatPlacesEdges => None,
     }
 }
 
@@ -307,24 +355,30 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
                     .to_string(),
             ]
         }
+        Predicate::ClosedKeys => Vec::new(),
         Predicate::Enum { field, values } if values.is_empty() => {
             vec![format!("`enum` clause on field `{field}` lists no values")]
         }
+        Predicate::Enum { .. } => Vec::new(),
         Predicate::Deny { field, values } if values.is_empty() => {
             vec![format!("`deny` clause on field `{field}` lists no values")]
         }
+        Predicate::Deny { .. } => Vec::new(),
         Predicate::ForbiddenKeys { keys } if keys.is_empty() => {
             vec!["`forbidden_keys` clause lists no keys".to_string()]
         }
+        Predicate::ForbiddenKeys { .. } => Vec::new(),
         // A `type` clause over no kinds admits no value at all — every field the
         // lattice can carry fails it — so it is vacuous in the same way an inverted
         // `range` bound is, and the author cannot have meant it.
         Predicate::Type { field, kinds } if kinds.is_empty() => {
             vec![format!("`type` clause on field `{field}` lists no kinds")]
         }
+        Predicate::Type { .. } => Vec::new(),
         Predicate::RequireSections { sections } if sections.is_empty() => {
             vec!["`require_sections` clause lists no sections".to_string()]
         }
+        Predicate::RequireSections { .. } => Vec::new(),
         // An empty `section_contains` marker is a substring of every body, so the
         // clause can never fire — vacuous, and inadmissible like an empty-list
         // clause. An empty *heading* prefix is not vacuous (it governs every
@@ -334,6 +388,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
                 "`section_contains` clause on heading `{heading}` names an empty marker"
             )]
         }
+        Predicate::SectionContains { .. } => Vec::new(),
         // An inverted bound (`min > max`) admits no value at all — a vacuous
         // clause the author cannot have meant, so the contract carrying it fails
         // admissibility.
@@ -342,6 +397,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
                 "`range` clause on field `{field}` has min {min} greater than max {max}"
             )]
         }
+        Predicate::Range { .. } => Vec::new(),
         // The node-set `count` bound is the same "reject min>max" rule as `range`,
         // over the satisfier-set's cardinality rather than a field's value.
         Predicate::Count { min, max } if min > max => {
@@ -349,6 +405,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
                 "`count` clause has min {min} greater than max {max}"
             )]
         }
+        Predicate::Count { .. } => Vec::new(),
         // An empty `target` names no requirement to draw the allowed set from — a
         // membership clause that can never resolve its source set.
         Predicate::Membership { field, target } if target.is_empty() => {
@@ -356,6 +413,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
                 "`membership` clause on field `{field}` names an empty target requirement"
             )]
         }
+        Predicate::Membership { .. } => Vec::new(),
         // `degree` with neither direction bounded constrains nothing — vacuous, like
         // an empty-list predicate. A bounded direction whose own `min > max` is
         // likewise vacuous in that direction, the same inverted-bound rule as
@@ -384,6 +442,7 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         Predicate::Kind { kind } if kind.is_empty() => {
             vec!["`kind` clause names an empty kind".to_string()]
         }
+        Predicate::Kind { .. } => Vec::new(),
         // Both arguments are *field names*, not glob sets — an empty glob set on either
         // end is member data the judge reads (and is precisely what "unscoped source" /
         // "ungated target" mean), never a property of the clause. An empty field name
@@ -404,7 +463,20 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
             }
             messages
         }
-        _ => Vec::new(),
+        Predicate::Required { .. }
+        | Predicate::Optional { .. }
+        | Predicate::MinLen { .. }
+        | Predicate::MaxLen { .. }
+        | Predicate::AllowedChars { .. }
+        | Predicate::Shape { .. }
+        | Predicate::Extent { .. }
+        | Predicate::MustDefine { .. }
+        | Predicate::NameMatchesDir
+        | Predicate::UniqueName
+        | Predicate::DependencyExists
+        | Predicate::Unique { .. }
+        | Predicate::GlobValid { .. }
+        | Predicate::FormatPlacesEdges => Vec::new(),
     }
 }
 
