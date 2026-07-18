@@ -159,6 +159,31 @@ pub(crate) fn inadmissibilities(
     messages.extend(bodyless(predicate, locus));
     messages.extend(unaddressable(predicate));
     messages.extend(vacuities(predicate, siblings));
+    messages.extend(when_restrictions(predicate));
+    messages
+}
+
+/// The admissibility violations specific to `when` predicates — guard restriction and
+/// no-nesting checks.
+fn when_restrictions(predicate: &Predicate) -> Vec<String> {
+    let Predicate::When { guard, body } = predicate else {
+        return Vec::new();
+    };
+    let mut messages = Vec::new();
+    if !matches!(
+        guard.as_ref(),
+        Predicate::Enum { .. } | Predicate::Type { .. }
+    ) {
+        messages.push(
+            "`when` guard must be `enum` or `type`; other guard predicates are inadmissible"
+                .to_string(),
+        );
+    }
+    for clause in body {
+        if matches!(clause.predicate, Predicate::When { .. }) {
+            messages.push("`when` guard body cannot nest another `when` clause".to_string());
+        }
+    }
     messages
 }
 
@@ -230,7 +255,9 @@ fn addressed_field(predicate: &Predicate) -> Option<&str> {
         | Predicate::Degree { .. }
         | Predicate::Kind { .. }
         | Predicate::MentionReachable { .. }
-        | Predicate::FormatPlacesEdges => None,
+        | Predicate::FormatPlacesEdges
+        // Guard and body carry no field to address.
+        | Predicate::When { .. } => None,
     }
 }
 
@@ -284,7 +311,8 @@ fn bodyless(predicate: &Predicate, locus: &Locus) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
-        | Predicate::FormatPlacesEdges => return None,
+        | Predicate::FormatPlacesEdges
+        | Predicate::When { .. } => return None,
     };
     Some(format!(
         "`{}` ranges over {feature}, which no member of embedded kind `{kind}` has: an \
@@ -330,7 +358,8 @@ fn judgeless(predicate: &Predicate) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
-        | Predicate::FormatPlacesEdges => None,
+        | Predicate::FormatPlacesEdges
+        | Predicate::When { .. } => None,
     }
 }
 
@@ -476,7 +505,8 @@ fn vacuities(predicate: &Predicate, siblings: &[Clause]) -> Vec<String> {
         | Predicate::DependencyExists
         | Predicate::Unique { .. }
         | Predicate::GlobValid { .. }
-        | Predicate::FormatPlacesEdges => Vec::new(),
+        | Predicate::FormatPlacesEdges
+        | Predicate::When { .. } => Vec::new(),
     }
 }
 
@@ -604,7 +634,8 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 | Predicate::DependencyExists
                 | Predicate::Degree { .. }
                 | Predicate::MentionReachable { .. }
-                | Predicate::FormatPlacesEdges => {}
+                | Predicate::FormatPlacesEdges
+                | Predicate::When { .. } => {}
             }
         }
     }
@@ -1169,6 +1200,52 @@ fn decide(
         // Whole-grain `extent` sums the selection; [`judge`] decides it, not this
         // per-member table.
         | Predicate::Extent { whole: true, .. } => Outcome::Indeterminate,
+
+        // `when` evaluates the guard at every element the guard's field locates.
+        // Where the guard holds, evaluate every body clause at that element. Silent
+        // (no finding) where the guard doesn't hold or the field is absent.
+        Predicate::When { guard, body } => {
+            let target_field = guard.target();
+            if target_field.is_none() {
+                return Outcome::Indeterminate;
+            }
+            let target_field = target_field.unwrap();
+            match addressing(target_field) {
+                None => Outcome::Indeterminate,
+                Some(path) => {
+                    let mut violations = Vec::new();
+                    for (address, value) in features.locate(&path) {
+                        if match guard.as_ref() {
+                            Predicate::Enum { values, .. } => {
+                                let text = if let Some(scalar) = value.as_scalar() {
+                                    scalar
+                                } else {
+                                    continue;
+                                };
+                                !values.iter().any(|v| v == text)
+                            }
+                            Predicate::Type { kinds, .. } => {
+                                let actual = value.kind();
+                                !kinds.contains(&actual)
+                            }
+                            _ => continue,
+                        } {
+                            continue;
+                        }
+                        for body_clause in body {
+                            for msg in evaluate(contract, &body_clause.predicate, features, all) {
+                                violations.push(format!("{address}: {msg}"));
+                            }
+                        }
+                    }
+                    if violations.is_empty() {
+                        Outcome::Holds
+                    } else {
+                        Outcome::Violated(violations)
+                    }
+                }
+            }
+        },
     }
 }
 

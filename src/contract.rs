@@ -396,6 +396,17 @@ pub enum Predicate {
     /// row, because the engine never sees a `render` hook and never reads a projection
     /// back.
     FormatPlacesEdges,
+    /// `when`: a guard predicate conditioning a body of ordinary clauses. Evaluates the
+    /// guard at every element the guard's field locates; where the guard holds, evaluates
+    /// every body clause at that element; silent (no finding, not a vacuity) where the
+    /// guard doesn't hold or the guarded field is absent. Guard must be `enum` or `type`.
+    /// No nesting: a body clause may not itself be a `when` predicate.
+    When {
+        /// The guard predicate, restricted to scalar-decidable forms (`Enum`/`Type`).
+        guard: Box<Predicate>,
+        /// The ordinary clauses evaluated where the guard holds.
+        body: Vec<Clause>,
+    },
 }
 
 /// Lift one clause row's `charset` column into the typed [`Charset`] — `None`
@@ -546,6 +557,26 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
                 }),
             }
         }
+        "when" => {
+            let guard_predicate_key = row.guard_predicate.as_deref()?;
+            let guard_row = ClauseRow {
+                predicate: guard_predicate_key.to_string(),
+                field: row.field.clone(),
+                value_type: row.value_type.clone(),
+                values: row.values.clone(),
+                ..row.clone()
+            };
+            let guard = predicate_from_row(&guard_row)?;
+            let body_rows = row.body.as_ref()?;
+            let body = body_rows
+                .iter()
+                .map(|br| crate::compose::clause_from_row(br).ok())
+                .collect::<Option<Vec<_>>>()?;
+            Predicate::When {
+                guard: Box::new(guard),
+                body,
+            }
+        }
         _ => return None,
     })
 }
@@ -606,6 +637,7 @@ impl Predicate {
             Predicate::GlobValid { .. } => "glob-valid",
             Predicate::MentionReachable { .. } => "mention-reachable",
             Predicate::FormatPlacesEdges => "format-places-edges",
+            Predicate::When { .. } => "when",
         }
     }
 
@@ -673,7 +705,9 @@ impl Predicate {
             // Two field arguments, so no *one* field is "the" field it constrains —
             // the set predicates' silence here is the precedent.
             | Predicate::MentionReachable { .. }
-            | Predicate::FormatPlacesEdges => None,
+            | Predicate::FormatPlacesEdges
+            // Guard and body carry no field or schema key of their own.
+            | Predicate::When { .. } => None,
         }
     }
 
@@ -720,7 +754,9 @@ impl Predicate {
             // is about the *target*'s gate, not this property's value — guidance about
             // the pair belongs to neither property's hover docs alone.
             | Predicate::MentionReachable { .. }
-            | Predicate::FormatPlacesEdges => None,
+            | Predicate::FormatPlacesEdges
+            // Guard and body carry no frontmatter field to document.
+            | Predicate::When { .. } => None,
         }
     }
 }
@@ -765,7 +801,8 @@ pub fn declared_keys(clauses: &[Clause]) -> BTreeSet<String> {
             | Predicate::Degree { .. }
             | Predicate::Kind { .. }
             | Predicate::MentionReachable { .. }
-            | Predicate::FormatPlacesEdges => None,
+            | Predicate::FormatPlacesEdges
+            | Predicate::When { .. } => None,
         })
         .filter_map(|field| crate::address::FieldPath::parse(field).ok())
         .filter_map(|path| path.head_name().map(str::to_string))
@@ -827,6 +864,8 @@ pub enum Shape {
     /// every finding is a true positive and the clause can gate, where a loose reading
     /// would fire on ordinary prose that spells a comparison.
     NoXmlTags,
+    /// `leading-dot-slash`: the value is a relative path starting with `./`.
+    LeadingDotSlash,
 }
 
 /// `hyphen-placement`'s expression: optional non-empty segments joined by single
@@ -838,10 +877,13 @@ const HYPHEN_PLACEMENT_PATTERN: &str = r"^([^-]+(-[^-]+)*)?$";
 /// value is the violation.
 const NO_XML_TAGS_PATTERN: &str = r#"</?[A-Za-z_:][-A-Za-z0-9._:]*(\s+[A-Za-z_:][-A-Za-z0-9._:]*\s*=\s*("[^"]*"|'[^']*'))*\s*/?>"#;
 
+/// `leading-dot-slash`'s expression: the value starts with `./`.
+const LEADING_DOT_SLASH_PATTERN: &str = r"^\.\/.*";
+
 /// Every shape's compiled expression, built once. Compilation cannot fail — the patterns
 /// are crate constants, covered by [`crate::contract::tests`] — so the shape's own judge
 /// never reaches for a fallible path at check time.
-static SHAPE_PATTERNS: std::sync::LazyLock<[(Shape, regex::Regex); 2]> =
+static SHAPE_PATTERNS: std::sync::LazyLock<[(Shape, regex::Regex); 3]> =
     std::sync::LazyLock::new(|| {
         [
             (
@@ -854,6 +896,11 @@ static SHAPE_PATTERNS: std::sync::LazyLock<[(Shape, regex::Regex); 2]> =
                 regex::Regex::new(NO_XML_TAGS_PATTERN)
                     .expect("NO_XML_TAGS_PATTERN is a valid regex"),
             ),
+            (
+                Shape::LeadingDotSlash,
+                regex::Regex::new(LEADING_DOT_SLASH_PATTERN)
+                    .expect("LEADING_DOT_SLASH_PATTERN is a valid regex"),
+            ),
         ]
     });
 
@@ -865,6 +912,7 @@ impl Shape {
         match self {
             Shape::HyphenPlacement => "hyphen-placement",
             Shape::NoXmlTags => "no-xml-tags",
+            Shape::LeadingDotSlash => "leading-dot-slash",
         }
     }
 
@@ -875,6 +923,7 @@ impl Shape {
         match name {
             "hyphen-placement" => Some(Shape::HyphenPlacement),
             "no-xml-tags" => Some(Shape::NoXmlTags),
+            "leading-dot-slash" => Some(Shape::LeadingDotSlash),
             _ => None,
         }
     }
@@ -887,6 +936,7 @@ impl Shape {
         match self {
             Shape::HyphenPlacement => HYPHEN_PLACEMENT_PATTERN,
             Shape::NoXmlTags => NO_XML_TAGS_PATTERN,
+            Shape::LeadingDotSlash => LEADING_DOT_SLASH_PATTERN,
         }
     }
 
@@ -899,6 +949,7 @@ impl Shape {
         match self {
             Shape::HyphenPlacement => true,
             Shape::NoXmlTags => false,
+            Shape::LeadingDotSlash => true,
         }
     }
 
@@ -922,6 +973,7 @@ impl Shape {
                  by single hyphens"
             }
             Shape::NoXmlTags => "the value carries no XML tag",
+            Shape::LeadingDotSlash => "the value is a relative path starting with `./`",
         }
     }
 }

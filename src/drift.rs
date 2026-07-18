@@ -3242,6 +3242,15 @@ pub struct ClauseRow {
     /// `require_sections`.
     #[serde(default)]
     pub sections: Option<Vec<String>>,
+    /// The `when` clause's guard predicate key (`enum` or `type`), when the predicate
+    /// is `when`. The guard predicate's own arguments (field, values, etc.) ride the
+    /// shared columns as if it were a bare guard row.
+    #[serde(default)]
+    pub guard_predicate: Option<String>,
+    /// The `when` clause's nested body rows, when the predicate is `when` — the
+    /// clauses evaluated where the guard holds.
+    #[serde(default)]
+    pub body: Option<Vec<ClauseRow>>,
 }
 
 /// A `range` clause row's inclusive numeric bound — `f64` so one predicate spans both
@@ -4158,6 +4167,16 @@ impl ClauseRow {
         if let Some(sections) = &self.sections {
             table.insert("sections", value(string_array(sections)));
         }
+        if let Some(guard_predicate) = &self.guard_predicate {
+            table.insert("guard_predicate", value(guard_predicate.clone()));
+        }
+        if let Some(body) = &self.body {
+            let mut array = ArrayOfTables::new();
+            for row in body {
+                array.push(row.to_table());
+            }
+            table.insert("body", Item::ArrayOfTables(array));
+        }
         table
     }
 
@@ -4204,6 +4223,21 @@ impl ClauseRow {
                 None => None,
             },
             sections: opt_str_array(table, "sections")?,
+            guard_predicate: opt_str(table, "guard_predicate")?,
+            body: match table.get("body") {
+                None => None,
+                Some(item) => {
+                    let array = item
+                        .as_array_of_tables()
+                        .ok_or_else(|| RowError::wrong("body", "array of tables"))?;
+                    Some(
+                        array
+                            .iter()
+                            .map(ClauseRow::from_table)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    )
+                }
+            },
         })
     }
 }

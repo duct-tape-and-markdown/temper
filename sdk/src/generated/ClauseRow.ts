@@ -154,4 +154,15 @@ section?: SectionContainsRow,
  * The `require_sections` clause's required heading list, when the predicate is
  * `require_sections`.
  */
-sections?: Array<string>, };
+sections?: Array<string>, 
+/**
+ * The `when` clause's guard predicate key (`enum` or `type`), when the predicate
+ * is `when`. The guard predicate's own arguments (field, values, etc.) ride the
+ * shared columns as if it were a bare guard row.
+ */
+guard_predicate?: string, 
+/**
+ * The `when` clause's nested body rows, when the predicate is `when` — the
+ * clauses evaluated where the guard holds.
+ */
+body?: Array<ClauseRow>, };

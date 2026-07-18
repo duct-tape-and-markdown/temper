@@ -237,7 +237,9 @@ fn the_generated_seam_union_is_the_engines_own_closed_set() {
     .expect("the seam exports the shape union");
 
     assert!(
-        generated.contains(r#"export type Shape = "hyphen-placement" | "no-xml-tags";"#),
+        generated.contains(
+            r#"export type Shape = "hyphen-placement" | "no-xml-tags" | "leading-dot-slash";"#
+        ),
         "the SDK's shape vocabulary is the engine's enum, generated across — got:\n{generated}"
     );
 }

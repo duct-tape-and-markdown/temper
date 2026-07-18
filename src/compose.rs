@@ -330,6 +330,8 @@ mod tests {
             range: None,
             section: None,
             sections: None,
+            guard_predicate: None,
+            body: None,
         }
     }
 
@@ -364,6 +366,8 @@ mod tests {
                 range: None,
                 section: None,
                 sections: None,
+                guard_predicate: None,
+                body: None,
             },
             ClauseRow {
                 unit: Some("lines".to_string()),
@@ -390,6 +394,8 @@ mod tests {
                 range: None,
                 section: None,
                 sections: None,
+                guard_predicate: None,
+                body: None,
             },
         ];
 

@@ -184,7 +184,8 @@ fn covered_rule(predicate: &Predicate) -> Option<String> {
         | Predicate::Kind { .. }
         | Predicate::GlobValid { .. }
         | Predicate::MentionReachable { .. }
-        | Predicate::FormatPlacesEdges => return None,
+        | Predicate::FormatPlacesEdges
+        | Predicate::When { .. } => return None,
     })
 }
 

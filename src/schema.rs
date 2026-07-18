@@ -162,7 +162,11 @@ pub fn emit(contract: &Contract) -> Value {
             // keystroke validation is decidable over one document's own frontmatter,
             // and this predicate is not. The schema channel is honestly silent here.
             | Predicate::MentionReachable { .. }
-            | Predicate::GlobValid { .. } => {}
+            | Predicate::GlobValid { .. }
+            // `when` is a guard conditioning a body; the guard and body are evaluated
+            // at the engine level, not expressed as schema constraints. Any frontmatter
+            // constraints ride the body clauses themselves.
+            | Predicate::When { .. } => {}
         }
     }
 

@@ -14,4 +14,4 @@
  * shape holds or is violated. One definition serves both the gate and the emitted
  * schema, so the two channels cannot decide the same shape differently.
  */
-export type Shape = "hyphen-placement" | "no-xml-tags";
+export type Shape = "hyphen-placement" | "no-xml-tags" | "leading-dot-slash";
