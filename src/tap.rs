@@ -16,6 +16,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
+use crate::builtin_kind;
+
 /// The tap record's on-disk version, bumped in lockstep with the binary that
 /// both writes and reads it. A reader meeting a record an older tap wrote
 /// tolerates it and counts it against this.
@@ -128,38 +130,7 @@ pub fn record_from_payload(payload: &str) -> Option<TapRecord> {
     let string = |key: &str| value.get(key).and_then(JsonValue::as_str);
     let session = string("session_id").unwrap_or_default().to_string();
 
-    // The payload shapes are Claude Code's hook contract, an external fact:
-    // code.claude.com/docs/en/hooks (retrieved 2026-07-17). InstructionsLoaded
-    // carries {file_path, load_reason, content}; UserPromptExpansion
-    // {command_name, expanded_prompt}; PostToolUse {tool_name, tool_input,
-    // tool_response}; a skill invocation rides PostToolUse with tool_name="Skill"
-    // and the skill name under tool_input.skill. The prose fields — content,
-    // expanded_prompt, tool_response — are never read into the record.
-    let (event, identity, reason) = match string("hook_event_name")? {
-        "InstructionsLoaded" => (
-            TapEvent::InstructionsLoaded,
-            string("file_path")?.to_string(),
-            string("load_reason").map(str::to_string),
-        ),
-        "UserPromptExpansion" => (
-            TapEvent::UserPromptExpansion,
-            string("command_name")?.to_string(),
-            None,
-        ),
-        "PostToolUse" => {
-            let tool = string("tool_name")?;
-            if tool == "Skill" {
-                let skill = value
-                    .get("tool_input")
-                    .and_then(|input| input.get("skill"))
-                    .and_then(JsonValue::as_str)?;
-                (TapEvent::SkillInvoked, skill.to_string(), None)
-            } else {
-                (TapEvent::ToolUse, tool.to_string(), None)
-            }
-        }
-        _ => return None,
-    };
+    let (event, identity, reason) = builtin_kind::classify_claude_code_hook_payload(&value)?;
 
     Some(TapRecord {
         version: TAP_RECORD_VERSION,

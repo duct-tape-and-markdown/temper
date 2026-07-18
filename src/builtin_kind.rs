@@ -10,6 +10,8 @@
 
 use std::collections::BTreeMap;
 
+use serde_json::Value as JsonValue;
+
 use crate::compose::Edge;
 use crate::drift::NestedMemberRow;
 use crate::extract::{self, Features};
@@ -17,6 +19,7 @@ use crate::kind::{
     CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Format, Governs,
     Primitive, Registration, Template, Unit,
 };
+use crate::tap::TapEvent;
 
 /// The skill surface's field schema — the documented frontmatter fields plus the
 /// markdown-structure primitives, shared verbatim by `skill` and `command`
@@ -564,6 +567,49 @@ pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRo
             .or_insert_with(|| value.clone());
     }
     features
+}
+
+/// Classify a Claude Code hook payload into its lifecycle event, identity, and optional reason.
+///
+/// The payload shapes are Claude Code's hook contract, an external fact:
+/// code.claude.com/docs/en/hooks (retrieved 2026-07-17). InstructionsLoaded carries
+/// {file_path, load_reason, content}; UserPromptExpansion {command_name, expanded_prompt};
+/// PostToolUse {tool_name, tool_input, tool_response}; a skill invocation rides PostToolUse
+/// with tool_name="Skill" and the skill name under tool_input.skill. The prose fields —
+/// content, expanded_prompt, tool_response — are never included in the returned classification.
+///
+/// Returns `None` if the payload does not parse, names no recognized event, or lacks the
+/// identity field its event needs.
+#[must_use]
+pub(crate) fn classify_claude_code_hook_payload(
+    value: &JsonValue,
+) -> Option<(TapEvent, String, Option<String>)> {
+    let string = |key: &str| value.get(key).and_then(JsonValue::as_str);
+
+    match string("hook_event_name")? {
+        "InstructionsLoaded" => {
+            let identity = string("file_path")?.to_string();
+            let reason = string("load_reason").map(str::to_string);
+            Some((TapEvent::InstructionsLoaded, identity, reason))
+        }
+        "UserPromptExpansion" => {
+            let identity = string("command_name")?.to_string();
+            Some((TapEvent::UserPromptExpansion, identity, None))
+        }
+        "PostToolUse" => {
+            let tool = string("tool_name")?;
+            if tool == "Skill" {
+                let skill = value
+                    .get("tool_input")
+                    .and_then(|input| input.get("skill"))
+                    .and_then(JsonValue::as_str)?;
+                Some((TapEvent::SkillInvoked, skill.to_string(), None))
+            } else {
+                Some((TapEvent::ToolUse, tool.to_string(), None))
+            }
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]
