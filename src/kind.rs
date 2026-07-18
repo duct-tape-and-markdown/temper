@@ -83,9 +83,8 @@ impl Commitment {
 /// fields without churn, as it does for [`Clause`](crate::contract::Clause).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CustomKind {
-    /// The kind's bare name — the `[kind.<name>]` registration key, and the
-    /// surface subdirectory/member-document convention key
-    /// ([`member_document`](CustomKind::member_document)).
+    /// The kind's bare name — the `[kind.<name>]` registration key and the
+    /// surface subdirectory convention key.
     pub name: String,
     /// The file locus the kind reads. [`None`] for a **nested file** kind: its members'
     /// paths compose from their host's unit and the host template's pattern, so it governs
@@ -952,15 +951,6 @@ impl CustomKind {
                 _ => None,
             })
             .collect()
-    }
-
-    /// The surface member-document filename for this kind — the kind name upper-cased
-    /// with a `.md` suffix (`skill` → `SKILL.md`, `rule` → `RULE.md`), the name both
-    /// the emit face writes and the reload face reads (`src/frontmatter.rs`,
-    /// `src/import.rs`).
-    #[must_use]
-    pub fn member_document(&self) -> String {
-        format!("{}.md", self.name.to_uppercase())
     }
 
     /// The surface subdirectory a member of this kind lands under — the leaf of the
