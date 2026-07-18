@@ -7,8 +7,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`source_deps` (2472) does its own `fs::read_to_string` + `.parse::<DocumentMut>()` of `lock.toml`, independent of `read_declarations`'s (3398) own full parse via `declarations_from_doc` (3439, which already takes a parsed `&DocumentMut` — the doc-scoped-extractor shape DRIFT-EMIT-LOCK-PARSE-HOIST establishes for the provenance side, upstream in this chain). `source_deps` is called by `layout_imports` (2497), `includes` (2508), and — via `source_dep_stale` (2522) — by `layout_import_stale` (2563) and `include_stale` (2580): four independent re-reads/re-parses on top of `read_declarations`'s own. Within one `gate()` invocation (src/main.rs) this lands as 5 full parses of the same file in one run: `read_declarations` (main.rs:858), `layout_imports`+`includes` via `import_edges_from_lock` (main.rs:891), then `layout_import_stale`+`include_stale` (main.rs:1208-1209) — each a fresh read+parse; `explain()` (main.rs:513, 525, 587) repeats the same pattern minus the two staleness calls. `Declarations` (struct 2668) does not currently carry the `layout_import`/`include` lock families read back from disk — `includes: Vec<IncludeRow>` (2691) is documented seam-inbound-only, 'never written back into this declaration table, so a lock round-trip reads it empty' — which is why `source_deps` re-parses independently rather than filtering an already-parsed set. Fix: extend `declarations_from_doc` (or a parallel doc-scoped extractor, the same pattern DRIFT-EMIT-LOCK-PARSE-HOIST establishes) to lift the `[declaration.layout_import]`/`[declaration.include]` families from the one already-parsed document, and have `layout_imports`/`includes`/`source_dep_stale` filter that in-memory set instead of each independently opening and parsing the file. Land after EXTRACT-FOUNDATION-BOUNDARY-RESTORE, the last entry in the existing chain to touch this file, so this entry's extractor sits beside the settled post-move shape rather than racing it."
+          "description": "`source_deps` (2574) does its own `fs::read_to_string` + `.parse::<DocumentMut>()` of `lock.toml`, independent of `read_declarations`'s (3485) own full parse via `declarations_from_doc` (3526, which already takes a parsed `&DocumentMut` — the doc-scoped-extractor shape DRIFT-EMIT-LOCK-PARSE-HOIST establishes for the provenance side, upstream in this chain). `source_deps` is called by `layout_imports` (2599), `includes` (2610), and — via `source_dep_stale` (2624) — by `layout_import_stale` (2665) and `include_stale` (2682): four independent re-reads/re-parses on top of `read_declarations`'s own. Within one `gate()` invocation (src/main.rs) this lands as 5 full parses of the same file in one run: `read_declarations` (main.rs:858), `layout_imports`+`includes` via `import_edges_from_lock` (main.rs:891), then `layout_import_stale`+`include_stale` (main.rs:1208-1209) — each a fresh read+parse; `explain()` (main.rs:513, 525, 587) repeats the same pattern minus the two staleness calls. `Declarations` (struct drifted since scoping, unchanged shape) does not currently carry the `layout_import`/`include` lock families read back from disk — `includes: Vec<IncludeRow>` is documented seam-inbound-only, 'never written back into this declaration table, so a lock round-trip reads it empty' — which is why `source_deps` re-parses independently rather than filtering an already-parsed set. Fix: extend `declarations_from_doc` (or a parallel doc-scoped extractor, the same pattern DRIFT-EMIT-LOCK-PARSE-HOIST establishes) to lift the `[declaration.layout_import]`/`[declaration.include]` families from the one already-parsed document, and have `layout_imports`/`includes`/`source_dep_stale` filter that in-memory set instead of each independently opening and parsing the file. Land after EXTRACT-FOUNDATION-BOUNDARY-RESTORE, the last entry in the existing chain to touch this file, so this entry's extractor sits beside the settled post-move shape rather than racing it."
         },
         {
           "path": "src/main.rs",
@@ -37,7 +36,7 @@
       }
     ],
     "acceptance": "gate() and explain() each parse the workspace's lock.toml exactly once per invocation; layout_imports/includes/layout_import_stale/include_stale all derive from that one parse rather than each independently re-reading the file. No behavior change (engineering.md, 'Cost scale is hoisted'). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping `pipeline` (posture rotation, after formats). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (top-level [[<kind>]] provenance walk) and DRIFT-EMIT-LOCK-PARSE-HOIST (emit()'s own double-parse) — this is the source_deps family (layout_import/include) on the gate()/explain() read path, unnamed by either. Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE, last in-chain entry touching both drift.rs and main.rs. scoped at 20b7b21."
+    "notes": "Unblocked this tick: EXTRACT-FOUNDATION-BOUNDARY-RESTORE shipped (404b73a) and was removed from the queue; the blockedBy target was dangling. Re-verified drift.rs claim true on disk, refreshed line cites (~100 lines drifted from the extract.rs move). scoped at a8dd112."
   },
   {
     "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE",
@@ -259,8 +258,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALL-PROJECTION-MATCH-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -268,7 +266,7 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`GUARD_MANIFEST_MESSAGE` (131, `pub const`) has exactly one use anywhere in the tree — inside `render_manifest_findings` (832-838, same module, `String::from(GUARD_MANIFEST_MESSAGE)` at 833) — grep-verified zero hits across src/, tests/, sdk/ outside this file. Its sibling `GUARD_MESSAGE` (124, `pub const`) carries a doc comment stating why it's public ('Public so the `guard` subcommand ([`main`]) prints it...') and a real external caller (`main.rs:416,420`, `eprintln!(\"{}\", install::GUARD_MESSAGE)`) — the earned-pub shape `GUARD_MANIFEST_MESSAGE` lacks; `render_manifest_findings` itself is the pub fn main.rs calls (main.rs:398), and it's the one that needs the message text, not main.rs directly. Drop `pub` from `GUARD_MANIFEST_MESSAGE`, leaving it a module-private const read only by `render_manifest_findings`."
+          "description": "`GUARD_MANIFEST_MESSAGE` (132, `pub const`) has exactly one use anywhere in the tree — inside `render_manifest_findings` (821-826, same module, `String::from(GUARD_MANIFEST_MESSAGE)` at 822) — grep-verified zero hits across src/, tests/, sdk/ outside this file. Its sibling `GUARD_MESSAGE` (124, `pub const`) carries a doc comment stating why it's public ('Public so the `guard` subcommand ([`main`]) prints it...') and a real external caller (`main.rs:416,420`, `eprintln!(\"{}\", install::GUARD_MESSAGE)`) — the earned-pub shape `GUARD_MANIFEST_MESSAGE` lacks; `render_manifest_findings` itself is the pub fn main.rs calls (main.rs:398, unchanged), and it's the one that needs the message text, not main.rs directly. Drop `pub` from `GUARD_MANIFEST_MESSAGE`, leaving it a module-private const read only by `render_manifest_findings`."
         }
       ],
       "retire": []
@@ -281,7 +279,7 @@
       }
     ],
     "acceptance": "GUARD_MANIFEST_MESSAGE is a private const in src/install.rs, not pub; GUARD_MESSAGE keeps its earned pub. cargo test and cargo clippy -D warnings green (no unused-pub warning survives).",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-PROJECTION-MATCH-CONSOLIDATE for shared install.rs safety (pending-entry.md) — no functional dependency. scoped at ad66e46."
+    "notes": "Unblocked this tick: INSTALL-PROJECTION-MATCH-CONSOLIDATE shipped (278ae4c) and was removed from the queue; the blockedBy target was dangling. Re-verified zero outside consumer still true on disk (grep across src/tests/sdk), refreshed line cites. scoped at a8dd112."
   },
   {
     "tag": "INSTALL-PLACEMENT-KIND-ENUM",
@@ -367,8 +365,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -376,7 +373,7 @@
       "edit": [
         {
           "path": "src/kind.rs",
-          "description": "Three `pub` items grep-verified zero-consumer (no `.label()`/`.qualified_name()` call anywhere in src/, tests/, or sdk/ outside kind.rs's own inline tests): `impl Commitment { pub fn label(self) -> &'static str { .. } }` (58-68) — the whole `impl Commitment` block, since `label` is its only method; `impl Content { pub fn label(&self) -> &'static str { .. } }` (165-176) — likewise the whole block, `label` is its only method; `CustomKind::qualified_name` (934-939, the doc comment plus `pub fn qualified_name(&self) -> String { self.name.clone() } `) inside the larger `impl CustomKind` block — remove only this method, the surrounding impl block has other live methods. Each type (`Commitment`, `Content`, `CustomKind`) stays; only the dead method/impl goes."
+          "description": "Three `pub` items grep-verified zero-consumer (no `.label()`/`.qualified_name()` call anywhere in src/, tests/, or sdk/ outside kind.rs's own inline tests): `impl Commitment { pub fn label(self) -> &'static str { .. } }` (59-69) — the whole `impl Commitment` block, since `label` is its only method; `impl Content { pub fn label(&self) -> &'static str { .. } }` (164-176) — likewise the whole block, `label` is its only method; `CustomKind::qualified_name` (932-937, the doc comment plus `pub fn qualified_name(&self) -> String { self.name.clone() } `) inside the larger `impl CustomKind` block — remove only this method, the surrounding impl block has other live methods. Each type (`Commitment`, `Content`, `CustomKind`) stays; only the dead method/impl goes."
         }
       ],
       "retire": []
@@ -385,11 +382,11 @@
     "tests": [
       {
         "path": "src/kind.rs",
-        "asserts": "the now-orphaned inline test `qualified_name_is_the_bare_name` (1826-1830) is removed alongside the fn it exercises; every other kind.rs test (Commitment/Content coverage via their variants, not their removed label methods) stays green"
+        "asserts": "the now-orphaned inline test `qualified_name_is_the_bare_name` (1814-1818) is removed alongside the fn it exercises; every other kind.rs test (Commitment/Content coverage via their variants, not their removed label methods) stays green"
       }
     ],
     "acceptance": "`Commitment::label`, `Content::label`, and `CustomKind::qualified_name` are gone from src/kind.rs, along with their now-vacuous inline test. `cargo test` and `cargo clippy -D warnings` green (no unused-code warning survives).",
-    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE for shared-file safety (pending-entry.md, 'Disjoint, or serialized') — that entry also edits kind.rs (a doc-comment reword at ENABLEMENT_FIELD, no line overlap with this entry's targets, but the file-level rule binds regardless of line overlap). scoped at 4adb1fb."
+    "notes": "Unblocked this tick: EXTRACT-FOUNDATION-BOUNDARY-RESTORE shipped (404b73a) and was removed from the queue; the blockedBy target was dangling. Re-verified all three still zero-consumer on disk (grep across src/tests/sdk), refreshed line cites. scoped at a8dd112."
   },
   {
     "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH",
@@ -1200,14 +1197,13 @@
   },
   {
     "tag": "IMPORT-ROLLUP-WRITER-PLACEMENT",
-    "summary": "import.rs's RollupEntry/write_rollup/rollup_tables implement the lock's roll-up write face inside discovery, though drift.rs is sole caller and owns 'the lock' per the codemap — home unruled",
+    "summary": "import.rs's RollupEntry/write_rollup/rollup_tables move to drift.rs — drift already owns 'the lock' per the codemap and is the writer's sole caller",
     "per": {
       "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
+      "section": "Codemap — the engine (`src/`)"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "architecture.md's codemap already assigns drift 'emit, the lock, drift detection' (39-41) and import only 'discovery' (40) — import.rs's RollupEntry (160-174)/write_rollup (585-608)/rollup_tables (613-624) implement the lock's roll-up write face inside the discovery module anyway, and the module's own header claims it as a stated second job. This is the same class of contradiction the Invariants section's four enumerated edges (71-84) already rule 'code moving, map standing' — each ratified by a human edit naming the specific edge (0040's three, the 2026-07-18 normalize_path addition) before a pending entry moved code. This fifth contradiction, surfaced this tick, isn't yet named there; moving the writer to drift.rs, or amending the codemap to state import's second job, are both live until a human picks (Growth rules: 'a page amendment is human-ratified, never derived')."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1215,11 +1211,11 @@
       "edit": [
         {
           "path": "src/import.rs",
-          "description": "If ratified toward code-moves (the four prior instances' resolution): `RollupEntry` (160-174), `write_rollup` (585-608), `rollup_tables` (613-624), and the `create_dir_all`/`write_bytes` helpers (627-640) move to drift.rs; the module header (1, 'Harness discovery and the lock.toml roll-up writer') loses its second clause."
+          "description": "`RollupEntry` (160-174), `write_rollup` (585-608), `rollup_tables` (613-624), and its `create_dir_all`/`write_bytes` helpers (627-640) move to drift.rs; the module header loses the roll-up-writer clause."
         },
         {
           "path": "src/drift.rs",
-          "description": "Already the sole caller — `use crate::import::{RollupEntry, write_rollup}` (29), `RollupEntry` construction (1310,1325), and the `write_rollup` call (1367) become intra-module once the writer lands here."
+          "description": "Already the sole caller — `use crate::import::{RollupEntry, write_rollup}` (29), `RollupEntry` construction (1310, 1325), and the `write_rollup` call (1367) become intra-module."
         }
       ],
       "retire": []
@@ -1228,22 +1224,21 @@
     "tests": [
       {
         "path": "tests/emit.rs",
-        "asserts": "the existing lock.toml round-trip coverage (emit_compiles_every_projection_and_the_whole_lock_from_the_payload and its neighbors) stays green — the move is location-only, no behavior change"
+        "asserts": "the existing lock.toml round-trip coverage (emit_compiles_every_projection_and_the_whole_lock_from_the_payload and its neighbors) stays green — the move is location-only"
       }
     ],
-    "acceptance": "Either import.rs's roll-up writer has moved to drift.rs (architecture.md's codemap holds without contradiction) or architecture.md's Invariants section names this as a fifth ruled edge and import's codemap entry states the second job — whichever the human ratifies. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Drained from .flume/refactor/plan-import-write-rollup-placement.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs src/drift.rs is empty at 0388334, claim unchanged). scoped at 0388334."
+    "acceptance": "import.rs's roll-up writer has moved to drift.rs; architecture.md's codemap holds without contradiction. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Ruled via inbox (observed a8dd112): move to drift.rs, no codemap edit needed — drift already owns 'the lock' and is the sole caller. Supersedes the prior parked either/or."
   },
   {
     "tag": "READ-CONTEXT-MEMBER-CITER-GRAIN",
-    "summary": "read.rs's context_member_one re-implements narrate_citers' filter-then-narrate shape at member grain with a different predicate and print form — same job or distinct grain is unruled",
+    "summary": "read.rs's narrate_citers and context_member_one's inline filter share one predicate-taking selection helper; each site's own print form stays separate",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "narrate_citers (778-810) filters citations on the full four-part leaf address and prints a plain 'cites it'. context_member_one's inline block (1017-1041) filters only on target.member == features.id — member grain, any leaf under the member — and prints each citer's full leaf address, since several distinct leaves may match at that grain. Both filter citations then narrate a bullet list, but the predicate width and print form diverge for a stated reason: leaf grain already knows the address from context, member grain must disambiguate which leaf. Generalizing narrate_citers to a predicate-plus-format closure ('One job, one home': generalize the near-duplicate before adding new) or declaring the divergence intentional ('The fix lands at the mechanism': a divergence at the right depth, declared not merged) is a design-taste call the code alone doesn't settle."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1251,7 +1246,7 @@
       "edit": [
         {
           "path": "src/read.rs",
-          "description": "narrate_citers (778-810, shared by impact_leaf at 754 and context_leaf at 930) and context_member_one's inline citer block (1017-1041, its only caller). Whichever the ruling favors: generalize narrate_citers to take the predicate and format choice, or rename the inline block to state its divergence is deliberate."
+          "description": "narrate_citers (778-810) and context_member_one's inline citer block (1017-1041) both filter `citations` then narrate a bullet list; extract the filter into one predicate-taking selection helper both call, leaving each site's own print form — leaf grain's plain 'cites it' vs member grain's full leaf address — untouched."
         }
       ],
       "retire": []
@@ -1260,30 +1255,34 @@
     "tests": [
       {
         "path": "tests/read_verbs.rs",
-        "asserts": "a_member_target_walks_why_impact_and_context (107) and a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (237) keep asserting both grains' citer narration unchanged, whichever resolution lands"
+        "asserts": "a_member_target_walks_why_impact_and_context (107) and a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (237) keep asserting both grains' citer narration unchanged"
       }
     ],
-    "acceptance": "Either narrate_citers generalizes to cover both call sites, or context_member_one's block carries a comment naming the grain divergence as deliberate — a human call, not a derived one. cargo test green.",
-    "notes": "Drained from .flume/refactor/plan-read-context-member-citer-grain.md (observed 7ac498a; git log 7ac498a..HEAD -- src/read.rs is empty at 0388334, claim unchanged). scoped at 0388334."
+    "acceptance": "One shared selection helper serves both call sites; each grain's print form is unchanged. cargo test green.",
+    "notes": "Ruled via inbox (observed a8dd112): consolidate the selection only — a predicate+formatter closure was judged more indirection than the ~30 shared lines earn, so print stays per-site."
   },
   {
     "tag": "READ-VERB-STRAND-COHESION",
-    "summary": "read.rs (1844 lines) dispatches five independent narration strands under its own 'one CLI verb' framing — architecture.md's flat-split growth rule may call for extraction; human call needed",
+    "summary": "read.rs's telemetry field strand (field/event_label, zero shared machinery) extracts to a new pipeline module; the four explain traversals stay under read's one-verb framing",
     "per": {
       "path": "specs/process/architecture.md",
       "section": "Growth rules"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "read.rs's module doc (1-3) frames itself as 'one CLI verb, [explain], over four traversals ... plus a telemetry field strand' — a stated design stance. The file dispatches five largely independent strands off explain()'s Species match, each with private helpers and its own #[cfg(test)] proofs: why/why_one (320-529), impact/impact_leaf/impact_one (593-1237), context/context_leaf/context_member/context_member_one (856-1110), requirements (1249-1435), and field (1464-1537, sharing no machinery with the other four — the telemetry strand). Growth rules anticipate exactly this shape ('Splits land flat: a cohesion finding extracts a new module into its host's subsystem'), but the module's own framing is a stated stance, not an accident this sweep can overrule — whether 'one CLI verb' is the right unit or an accepted-but-named cost is a human call on the codemap."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
-      "new": [],
+      "new": [
+        {
+          "path": "src/telemetry.rs",
+          "description": "`field` (1464-1537) and `event_label` (1538-1545) move here verbatim — a new pipeline-subsystem module beside tap.rs's record type; declares 'pipeline' as its subsystem in the commit body per Growth rules."
+        }
+      ],
       "edit": [
         {
           "path": "src/read.rs",
-          "description": "The five strands (why 320-529, impact 593-1237, context 856-1110, requirements 1249-1435, field 1464-1537) plus the module header (1-3) stating the 'one CLI verb' framing — a split, if ratified, lands flat per Growth rules ('the codemap gains a name, the tree gains a file, no directories'), naming which strand(s) extract and to what module name."
+          "description": "explain()'s dispatch (259) calls the new module instead of the local `field`; the module header (1-3) drops the 'plus a telemetry field strand' clause, framing itself as the four traversals alone."
         }
       ],
       "retire": []
@@ -1292,22 +1291,21 @@
     "tests": [
       {
         "path": "tests/read_verbs.rs",
-        "asserts": "every strand's existing coverage stays green across whichever resolution lands — split or not, any module boundary change is location-only"
+        "asserts": "the field-strand scenarios (tap_readout, tap_record, and the no-field-strand baseline) keep passing unchanged — the move is location-only"
       }
     ],
-    "acceptance": "architecture.md's codemap either gains a named split for read.rs's strands, or the module's 'one CLI verb' framing is affirmed as the accepted unit — a human ratification either way. cargo test green.",
-    "notes": "Drained from .flume/refactor/plan-read-verb-strand-cohesion.md (observed 7ac498a; git log 7ac498a..HEAD -- src/read.rs is empty at 0388334, claim unchanged). scoped at 0388334."
+    "acceptance": "The field strand lives in its own pipeline module; read.rs's module doc names only the four traversals. cargo test green.",
+    "notes": "Ruled via inbox (observed a8dd112): only the field strand extracts (shares zero machinery — accidental cohabitation); the Species-dispatched four traversals are real cohesion, ruled to stay. Codemap listing follows on the next human specs/ pass."
   },
   {
-    "tag": "MAIN-THIN-DISPATCH-COHESION",
-    "summary": "main.rs's own module doc claims thin dispatch, but 47 functions beyond main hold corpus assembly and judgment unreachable from tests/ — architecture.md names main dispatch-only",
+    "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT",
+    "summary": "main.rs's row→model constructors over drift's own Row types move beside the lock-row reading they interpret, into drift.rs",
     "per": {
       "path": "specs/process/architecture.md",
       "section": "Invariants — stated as absences"
     },
     "gate": {
-      "kind": "parked",
-      "reason": "main.rs's own header (1-6) states the file is 'a thin clap dispatch over the [temper] library ... all logic lives in the library so tests/ can drive it,' matching rust.md's Style & structure rule and architecture.md's Invariants section verbatim ('main carries dispatch only — corpus assembly and judgment live in the library'). The file (2762 lines) does not hold that shape: 47 free functions beyond main carry real corpus assembly and judgment — the two verb bodies (gate 847-1223, explain 513-641), clause/edge construction from lock rows (clause_from_row 2485, edges_from_declarations 2502, requirement_from_row 2457, mention_edges_from_declarations 2542, import_edges_from_lock 2566), and admissibility judges (joined_kind_admissibility 1738, satisfies_label_admissibility 2034, nested_member_admissibility 2074, local_locus_admissibility 2341, governs_collision_diagnostics 2394, clause_collision_diagnostics 2299, kind_collision_diagnostic 2263) among others (resolve_kind_units 1319, manifest_units 1498, kind_features 1521, assemble_lock_family 1582, assemble_by_kind 1862). None of this is reachable from tests/*.rs (a separate crate linking only the library, per rust.md); tests/cli.rs's own doc comment names the one legitimate reason it drives the binary as a subprocess — exit-code observability across a real process boundary — which covers none of this judgment logic, tested (where tested at all) only via main.rs's own internal #[cfg(test)] mod tests (2582, 7 tests), invisible to tests/. No single mechanical move resolves this: each function's right library home differs (clause/edge builders look like compose.rs/graph.rs territory, admissibility judges look like engine.rs/graph.rs territory, gate/explain themselves may want a new pipeline-facing entry point the library exports and main.rs merely calls) — the same 'which module' judgment call architecture.md's Growth rules names for a cohesion split ('the codemap gains a name, the tree gains a file'). Sized like the standing READ-VERB-STRAND-COHESION precedent: whether main.rs's current shape is an accident to correct or an accepted, named cost is a human call on the codemap, not a sweep finding."
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1315,7 +1313,11 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "The verb bodies (gate 847-1223, explain 513-641), clause/edge builders (clause_from_row 2485, edges_from_declarations 2502, requirement_from_row 2457, mention_edges_from_declarations 2542, import_edges_from_lock 2566), admissibility judges (joined_kind_admissibility 1738, satisfies_label_admissibility 2034, nested_member_admissibility 2074, local_locus_admissibility 2341, governs_collision_diagnostics 2394, clause_collision_diagnostics 2299, kind_collision_diagnostic 2263), and supporting corpus-assembly functions (resolve_kind_units 1319, manifest_units 1498, kind_features 1521, assemble_lock_family 1582, assemble_by_kind 1862) plus the module header (1-6) stating the thin-dispatch framing — a split, if ratified, lands flat per Growth rules ('the codemap gains a name, the tree gains a file, no directories'), naming which function(s) extract and to what module name(s) or new pipeline-facing entry point."
+          "description": "`requirement_from_row` (2457), `clause_from_row` (2485), `edges_from_declarations` (2502) + `edge_column` (2531), `mention_edges_from_declarations` (2542), and `import_edges_from_lock` (2566) move out; their call sites in gate() (883-891) and explain() (579-587) become `drift::` calls."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Gains the six functions beside the `ClauseRow`/`RequirementRow`/`Declarations` definitions they interpret — already the home of `compose::clause_from_row`'s sibling caller, `default_contract_from_rows`."
         }
       ],
       "retire": []
@@ -1323,11 +1325,79 @@
     "schemaDelta": "none",
     "tests": [
       {
-        "path": "tests/cli.rs",
-        "asserts": "existing subprocess exit-code coverage stays green across whichever resolution lands — split or not, any module boundary change is location-only"
+        "path": "tests/gauntlet.rs",
+        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
       }
     ],
-    "acceptance": "architecture.md's codemap either gains a named split for main.rs's corpus-assembly and judgment functions, or the module's thin-dispatch framing is affirmed as an accepted, named cost — a human ratification either way. cargo test green.",
-    "notes": "Drained from .flume/refactor/plan-main-thin-dispatch-cohesion.md (observed 285f57b; git log 285f57b..HEAD -- src/main.rs is empty at ad342a8, claim unchanged). scoped at ad342a8."
+    "acceptance": "The six row→model constructors live in drift.rs; main.rs calls them via drift::. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "First of the ruled MAIN-THIN-DISPATCH-COHESION chain (inbox, observed a8dd112): row→model constructors move beside the lock-row reading they interpret. Chains ahead of MAIN-CORPUS-ASSEMBLY-TO-COMPOSE for main.rs shared-file safety."
+  },
+  {
+    "tag": "MAIN-CORPUS-ASSEMBLY-TO-COMPOSE",
+    "summary": "main.rs's corpus-assembly functions (resolve_kind_units, manifest_units, kind_features, assemble_lock_family, assemble_by_kind) move to compose.rs",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Codemap — the engine (`src/`)"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`resolve_kind_units` (1319), `manifest_units` (1498), `kind_features` (1521), `assemble_lock_family` (1582), and `assemble_by_kind` (1862) move out; call sites become `compose::` calls. Flag at build time whether their main.rs-local helpers (`overlay_builtin_kind`, `declared_kinds`, `local_document_rows`) travel too or stay as a seam — not pre-decided here."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Gains the five functions beside `default_contract_from_rows` — the module's stated 'member composition' job, which this work already is."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
+      }
+    ],
+    "acceptance": "The five corpus-assembly functions live in compose.rs; main.rs calls them via compose::. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Second of the ruled MAIN-THIN-DISPATCH-COHESION chain (inbox, observed a8dd112): corpus-assembly functions move to compose.rs's 'member composition' home. blockedBy the row-constructor move for main.rs shared-file safety."
+  },
+  {
+    "tag": "MAIN-JUDGE-VERB-HOME-RULING",
+    "summary": "main.rs's admissibility/collision judges don't cluster by any visible seam, and gate/explain may want a new library entry point — human home-pick needed",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Codemap — the engine (`src/`)"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "The ruled chain (inbox, observed a8dd112) moves row-constructors and corpus-assembly cleanly, but names two pieces as genuinely ambiguous rather than guessing ('a function whose home is genuinely ambiguous parks that one question, never the campaign'). (1) The seven admissibility/collision-diagnostic functions — joined_kind_admissibility (1738), satisfies_label_admissibility (2034), nested_member_admissibility (2074), local_locus_admissibility (2341), governs_collision_diagnostics (2394), clause_collision_diagnostics (2299), kind_collision_diagnostic (2263) — don't cluster by 'engine.rs/graph.rs territory' as the original finding guessed: only joined_kind_admissibility calls engine::admissibility; the other six just scan drift::Declarations rows into check::Diagnostic with no engine or graph call at all, so no visible seam splits them cleanly between the two judge modules, or names them a third home together. (2) gate (847-1223) and explain (513-641) may want a new pipeline-facing library entry point that main.rs merely calls, rather than having their bodies distributed piecemeal to existing modules — a shape decision, not a mechanical move. Both need a human ruling on the codemap before either becomes an entry."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The seven admissibility/collision judges and the gate (847-1223)/explain (513-641) bodies — whichever the ruling favors, once MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT and MAIN-CORPUS-ASSEMBLY-TO-COMPOSE have already thinned the file."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across whichever resolution lands — location-only, no behavior change"
+      }
+    ],
+    "acceptance": "architecture.md's codemap either names a home (or homes) for the seven judges and gate/explain's own shape, or affirms main.rs keeping them as an accepted, named cost — a human ratification either way.",
+    "notes": "Residual of the ruled MAIN-THIN-DISPATCH-COHESION chain (inbox, observed a8dd112): the two pieces the ruling itself flagged as ambiguous, parked rather than guessed. Does not block the chain's other two entries."
   }
 ]

@@ -128,8 +128,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   PARSE-HOIST (112b188) renamed that fn to `read_prior_provenance_from_doc`.
   PLACEMENT-MODULE-EXTRACTION, the entry that most recently touched
   drift.rs, shipped (870c52d) without naming it; EXTRACT-FOUNDATION-
-  BOUNDARY-RESTORE and DRIFT-SOURCE-DEP-PARSE-HOIST still chain onto the
-  file, so it rides whichever ships first. `src/document.rs`'s
+  BOUNDARY-RESTORE also shipped since (404b73a) without touching this
+  docblock — its own diff never reaches lines 1947-1952. Several open
+  entries still chain onto the file (DRIFT-SOURCE-DEP-PARSE-HOIST,
+  IMPORT-ROLLUP-WRITER-PLACEMENT, MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT
+  among them), so it rides whichever names it first. `src/document.rs`'s
   `item_to_json` doc comment (surfaced the formats posture sweep) cites
   "the built-in adapters' `json_to_toml_value`" as the function's
   inverse-of; that function was cut in 664a522, before 6618b47 even wrote
