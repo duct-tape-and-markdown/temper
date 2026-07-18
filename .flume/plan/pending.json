@@ -1121,5 +1121,145 @@
     ],
     "acceptance": "marketplaceDefaultContract's source union and mcpServerDefaultContract's transport-conditional requirements are both fully expressed via when/enumOf/shape clauses with current per-clause cites, their header holds retired; hookDefaultContract's hold is either completed or its header explicitly confirms re-examination against decision 0041's widened vocabulary with the addressing-reach reason it still stands. `cargo test` and `pnpm --dir sdk test` green.",
     "notes": "Decision 0041 Consequences: marketplace + 'other two' vocabulary holds, combined since all three sit in sdk/src/builtins.ts (one Consequences bullet). Investigation this tick found exactly three vocabulary-shaped holds — no fourth candidate; every other shipped contract's absence is explicitly semantic, not vocabulary-blocked. Blocked by CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP for the when()/leading-dot-slash vocabulary consumed here."
+  },
+  {
+    "tag": "DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST",
+    "summary": "gate()'s config_stale re-reads lock.toml via walk_lock_rows instead of the shared doc DRIFT-SOURCE-DEP-PARSE-HOIST threads through; walk_lock_rows also duplicates read_lock_document's own read+parse",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DRIFT-SOURCE-DEP-PARSE-HOIST"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "walk_lock_rows (1996-2007) duplicates read_lock_document (2029-2044)'s fs::read_to_string + .parse::<DocumentMut>() + increment_lock_reads/increment_lock_parses sequence instead of calling read_lock_document then walk_lock_rows_from_doc(&doc) — a second implementation of the same read-and-parse job. config_stale (2462, loop at 2465) calls walk_lock_rows(workspace_dir) independently inside gate(), a further full read+parse of lock.toml on top of the ones DRIFT-SOURCE-DEP-PARSE-HOIST already targets (read_declarations, layout_imports+includes, layout_import_stale, include_stale) — five-plus parses of one file in one gate() invocation today. Once DRIFT-SOURCE-DEP-PARSE-HOIST lands gate() holding one shared parsed lock document, thread it into config_stale too so it calls walk_lock_rows_from_doc(&doc) instead of walk_lock_rows(workspace_dir). Separately (independent of gate()'s own hoist), rewrite walk_lock_rows itself to call read_lock_document(workspace_dir) then walk_lock_rows_from_doc(&doc) rather than duplicating the read+parse+counter body — its one remaining standalone caller, emit_owned_targets (2717), is a one-shot CLI entry point outside gate()/emit() with no shared doc to reuse, so this half is pure one-job-one-home dedup, not a cost fix."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "gate() (847) calls drift::config_stale(workspace) at 1202. Once config_stale takes the shared doc/Declarations value DRIFT-SOURCE-DEP-PARSE-HOIST's threading establishes (exact shape settled by that entry), update this call site to pass it instead of the bare workspace path."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "a fixture whose gate() run exercises config.stale findings reads/parses lock.toml exactly once per invocation — a count-pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "config_stale's existing coverage (536, 607) stays green — the hoist and the walk_lock_rows rewrite are signature/location-only, no behavior change to which findings fire"
+      }
+    ],
+    "acceptance": "config_stale consumes the same shared parsed lock document gate() already holds instead of independently re-reading/re-parsing lock.toml; walk_lock_rows calls read_lock_document + walk_lock_rows_from_doc instead of duplicating the read+parse body. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping pipeline, second rotation pass (posture rotation: formats done, pipeline this tick — a fresh full read since 0282dc7/72daab3/112b188 touched drift.rs). Distinct from DRIFT-SOURCE-DEP-PARSE-HOIST (source_deps' own layout_import/include family) — this is config_stale's separate walk_lock_rows path plus walk_lock_rows's own duplicate read+parse body. Serialized behind DRIFT-SOURCE-DEP-PARSE-HOIST, whose gate()-side doc-threading this builds directly on. scoped at 7ac498a."
+  },
+  {
+    "tag": "DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST",
+    "summary": "emit()'s manifest_segment_reaps and emit_manifest each independently read the same on-disk manifest file per represented manifest, within one emit() pass",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "manifest_segment_reaps (1546, doc 1528-1545) reads harness_root.join(path) via fs::read_to_string (1573) and parses it via json_manifest::Manifest::parse (1576) to diff discovered members/opaque keys against the build's segments/residue, for drift detection before any write. Called once per represented manifest at 1300-1301, ahead of any emit. Later in the same emit() call, emit_manifest (1465) reads the identical file again at 1499 via fs::read(path) — this time purely to compare raw bytes for the Unchanged/Emitted decision — called per manifest at the loop 1322-1333. manifest_segment_reaps already holds `raw` (the exact file text) when its read succeeds; thread it (or the read outcome) into emit_manifest instead of re-reading the same path. Exact threading shape (pass an `Option<String>` alongside `(path, build)` through the `manifests` iteration, or fold the two loops into one pass per manifest) is a judgment call for build, named in the commit body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "existing dry-run/unchanged/emitted coverage for represented manifests stays green — the hoist is read-count-only, no output or write-decision change"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "a fixture with at least one represented manifest proves the manifest file is read exactly once per emit() pass — a new count-pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
+      }
+    ],
+    "acceptance": "within one emit() run, each represented manifest's on-disk file is read exactly once, shared between the segment-reap diff and the Unchanged/Emitted decision. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping pipeline, second rotation pass. Distinct from JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE/GATE-MANIFEST-SHARED-READ-HOIST (those are gate()/explain()'s per-governing-kind reads of settings.json outside emit) — this is emit()'s own double-read of one manifest file within its own pass. Serialized behind DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST, both touching drift.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 7ac498a."
+  },
+  {
+    "tag": "IMPORT-DECLARED-GOVERNED-PATHS-HOIST",
+    "summary": "import.rs's declared_governed_paths recomputes the same claimed-path set from scratch on every nested-file-kind resolution instead of once per run",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "declared_governed_paths (285-297, doc 280-284) iterates every declared kind carrying a `governs` locus and walks its files (discover_kind_files) to build the claimed-path BTreeSet — purely a function of `kinds`/`over`/`disc`, none of which vary across calls within one run. Its sole caller, discover_nested_file (237, calling it at 249), runs once per nested-file kind's resolution — reached via discover_builtin (195, call at 203) and directly from main.rs's resolve_kind_units (src/main.rs:1353), itself called once per declared kind (twice until GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST lands). A harness with N nested-file kinds recomputes the identical claimed set N times (2N today). Hoist: compute the claimed set once per run — cached on Discovery the way its own local/standard flavor walks already are, or computed once by the caller and threaded down — and reuse across every discover_nested_file call. Exact caching shape is a judgment call for build, named in the commit body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "existing coverage for a governs-carve-out interacting with a nested-file kind's discovery stays green — the hoist is call-count-only, no change to which files are claimed or found (re-verify the exact fixture at pickup)"
+      }
+    ],
+    "acceptance": "declared_governed_paths's claimed-path set is computed once per gate()/emit()/explain() run and shared across every nested-file kind's discover_nested_file call, not recomputed per kind. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping pipeline, second rotation pass. No existing pending entry or refactor capture names this fn. Serialized behind NORMALIZE-PATH-SUBSYSTEM-PLACEMENT, the only other pending entry touching import.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 7ac498a."
+  },
+  {
+    "tag": "READ-BY-KIND-INDEX-HOIST",
+    "summary": "explain()'s Member-species path independently scans the whole by_kind corpus at five-plus separate sites instead of sharing one id-keyed lookup built once",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "For a Species::Member target (the common case), explain (218, dispatch 233-264) calls resolve (158, its own by_kind scan), why (320, its own by_kind linear match-build at 348-360), impact (593 -> impact_one, 1115, whose sole-satisfier check calls count_satisfiers (1231) once per requirement in features.satisfies, each call its own by_kind scan), context (856 -> context_member_one, 983, via narrate_satisfied (1089), its own by_kind scan), and field (1464, its own by_kind.values().flat_map(...) scan at 1476-1480) — five-plus independent linear passes over the full by_kind corpus for one explain() call. by_kind is exactly the whole-input structure the corpus resolves once per run in main.rs and threads down; explain never indexes it once and shares that index across its own strands. Build (once, in explain or a helper it calls first) an id-keyed index — e.g. a BTreeMap<&str, Vec<(&str, &Features)>> — and thread it alongside (or instead of) by_kind into why/count_satisfiers/narrate_satisfied/field, replacing each function's own by_kind scan with an index lookup. Exact index shape and which call sites switch to it is a judgment call for build, named in the commit body — distinct from GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE (the edge-resolution walk resolved_edges/resolved_arcs, a different derivation why/impact also call but not this by_kind member-lookup scan)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "existing explain() narration coverage for a member target (multi-strand output) stays byte-identical — the hoist is internal-lookup-only, no narration text change"
+      }
+    ],
+    "acceptance": "a single explain() call for a Species::Member target builds its by_kind lookup index once and every strand (why/count_satisfiers/narrate_satisfied/field) reads from it instead of independently rescanning by_kind. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping pipeline, second rotation pass (read.rs is the pipeline subsystem's 'read verbs' resolution' module). Distinct from GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE (edge walk, not member lookup) and READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE (a const dedup, not a cost hoist). Serialized behind READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE, the last pending entry touching read.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 7ac498a."
   }
 ]
