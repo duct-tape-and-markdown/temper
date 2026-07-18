@@ -194,6 +194,74 @@
     "notes": "Found sweeping the `formats` subsystem (posture rotation: model done, formats this tick; first full read since 20b7b21). Disjoint from every other currently-open entry's files (json_manifest.rs and toml_document.rs touched nowhere else open; EXTRACT-FOUNDATION-BOUNDARY-RESTORE also edits json_manifest.rs but sits deep in a blockedBy chain, never open alongside this one). scoped at 843bc94."
   },
   {
+    "tag": "JSON-MANIFEST-READ-DECODE-CONSOLIDATE",
+    "summary": "json_manifest.rs's Manifest::read and DocumentMember::read each duplicate the identical fs::read + UTF-8-decode-to-JsonManifestError boilerplate — one job, written twice, in the same file",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`DocumentMember::read` (145-155) and `Manifest::read` (331-344) each independently run `let bytes = fs::read(source_file).map_err(|source| JsonManifestError::Io { path: source_file.to_path_buf(), source })?;` then `let raw = String::from_utf8(bytes).map_err(|source| JsonManifestError::NotUtf8 { path: source_file.to_path_buf(), source })?;` before calling their own `parse` — byte-for-byte identical (same error enum, same file), grep-verified the only two sites in the tree building a `String` this way against `JsonManifestError`. Factor a private `fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError>` holding the shared body; both `read` fns shrink to `let raw = read_to_string(source_file)?; Self::parse(...)`. No behavior change: identical error mapping, identical bytes-to-string path, `parse`'s own signature and body untouched."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/manifest_adapter.rs",
+        "asserts": "Manifest::read's existing malformed/non-object/idempotent-read coverage stays green — the consolidation is signature-only, no change to error variants or messages"
+      },
+      {
+        "path": "tests/json_document_format.rs",
+        "asserts": "DocumentMember::read's existing malformed/missing-identity coverage stays green — same reasoning, the shared helper produces the identical Io/NotUtf8 errors"
+      }
+    ],
+    "acceptance": "Manifest::read and DocumentMember::read both call one shared read_to_string helper in src/json_manifest.rs instead of each carrying its own fs::read+UTF-8-decode boilerplate. No behavior change (engineering.md, 'One job, one home'). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Serialized behind DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH, the only currently-open entry sharing json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 1c5b0a9."
+  },
+  {
+    "tag": "TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE",
+    "summary": "toml_document.rs's pub fn parse has zero caller outside its own read() in the same file — no test or production site calls it directly; narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/toml_document.rs",
+          "description": "`pub fn parse` (53-99) is called only by this same file's `read` (33-43, `parse(kind, source_file, &raw)` at line 42) — grep-verified zero hits for `toml_document::parse(` anywhere in src/, tests/, sdk/. Its doc comment (45-49) justifies the split by analogy to `crate::json_manifest::DocumentMember::parse` ('the split ... takes, for the same reason: pending content is read through the one soundness boundary the disk read rides') but names no actual consumer of its own — unlike `DocumentMember::parse`, which a real test calls directly (`tests/json_document_format.rs:193`) to exercise that soundness-boundary path, `toml_document::parse` has never gained the guard-flow (or any other) caller its doc comment anticipates; `install.rs`'s `manifest_write_findings` guard validates only collection-address manifests today, never a toml-document's pending content. Drop `pub` from `parse`, leaving it a module-private fn callable from `read` unchanged, and reword the doc comment's forward-looking justification to state today's fact (an internal split, not a soundness boundary a second caller yet crosses) or drop the comment if nothing survives the edit."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/toml_document.rs",
+        "asserts": "read's existing coverage (top-level keys read as fields, malformed TOML, missing identity value, no-declared-identity refusal) stays green — the narrowing is visibility-only"
+      }
+    ],
+    "acceptance": "toml_document::parse is a private fn in src/toml_document.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Serialized behind DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH, the only currently-open entry sharing toml_document.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency; that entry's own fix touches this file's identity check, not `parse`'s signature or pub-ness, so both land independently once unblocked. scoped at 1c5b0a9."
+  },
+  {
     "tag": "ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH",
     "summary": "engine.rs's judge() falls through `_ => {}` for every non-selection-grain Predicate instead of naming each variant, unlike its sibling decide()/addressed_field() over the same enum",
     "per": {
