@@ -7,8 +7,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -16,7 +15,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "`import_edges_from_lock_with_doc` (2578-2603, private fn — main.rs is its own binary crate, so only its own module can call it) takes `doc: Option<&DocumentMut>` and falls back to `drift::layout_imports(workspace_dir)?`/`drift::includes(workspace_dir)?` (2588-2591) when `doc` is `None` — a fresh read+parse of lock.toml, the exact double-parse DRIFT-SOURCE-DEP-PARSE-HOIST (shipped, 3561798) eliminated. Its only two call sites — explain() (591-594) and gate() (901) — both always pass `Some(&lock_doc)`, since both functions now parse the lock once up front; the `None` branch is unreachable dead code, and a silent trap: a future call site added without threading `lock_doc` would compile clean and silently reintroduce the re-parse the hoist just removed. Collapse the signature to take `doc: &DocumentMut` directly, drop the now-unused `workspace_dir` parameter and the `else` branch, and rename (build's call, named in the commit body — `_with_doc` no longer distinguishes a with/without mode)."
+          "description": "`import_edges_from_lock_with_doc` (2563-2588, private fn — main.rs is its own binary crate, so only its own module can call it) takes `doc: Option<&DocumentMut>` and falls back to `drift::layout_imports(workspace_dir)?`/`drift::includes(workspace_dir)?` (2572-2576) when `doc` is `None` — a fresh read+parse of lock.toml, the exact double-parse DRIFT-SOURCE-DEP-PARSE-HOIST (shipped, 3561798) eliminated. Its only two call sites — explain() (592-595) and gate() (886) — both always pass `Some(&lock_doc)`, since both functions now parse the lock once up front (gate()'s own read hoisted again by MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST, shipped 9415ccd — a Command::Guard-only change, no effect on gate()'s own lock_doc); the `None` branch is unreachable dead code, and a silent trap: a future call site added without threading `lock_doc` would compile clean and silently reintroduce the re-parse the hoist just removed. Collapse the signature to take `doc: &DocumentMut` directly, drop the now-unused `workspace_dir` parameter and the `else` branch, and rename (build's call, named in the commit body — `_with_doc` no longer distinguishes a with/without mode)."
         }
       ],
       "retire": []
@@ -29,7 +28,7 @@
       }
     ],
     "acceptance": "import_edges_from_lock_with_doc (or its renamed form) takes &DocumentMut directly, no Option, no workspace-read fallback branch. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the DRIFT-SOURCE-DEP-PARSE-HOIST ship window — its commit body names source_deps()/source_dep_stale() kept 'for backward compatibility'; the one production path that could still reach them (this fn's None branch) is dead. layout_imports/includes/layout_import_stale/include_stale stay — tests/layout_prose_import.rs and tests/prose_include.rs call them directly. Blocked behind MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST (shared main.rs). scoped at 3561798."
+    "notes": "Found sweeping DRIFT-SOURCE-DEP-PARSE-HOIST's window — source_deps()/source_dep_stale() stay for compatibility; only this fn's None branch could reach them, and it's dead. layout_imports/includes/*_stale stay live via tests/layout_prose_import.rs, tests/prose_include.rs. Unblocked: MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST shipped 9415ccd, a Guard-only hoist, no dependency — premise re-verified true. No other open entry touches main.rs. rescoped 9415ccd."
   },
   {
     "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE",
@@ -251,8 +250,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -260,11 +258,11 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "`InstallEntry.placement: &'static str` (370) is one of four consts — `SESSION_START` (91), `MODELINE` (93), `GUARD_HOOK` (95), `NOTE` (97) — set at its five construction sites (582, 606, 612, 642, 656). `gate_installed`'s tally (522-533) matches them as `SESSION_START => hook = true, GUARD_HOOK => guard = true, NOTE => notes += 1, _ => modelines += 1` — `MODELINE` is never named in the match, reached only through the `_` fallback, which would also silently absorb any future fifth placement as a modeline, uncaught by the compiler. This is the shared-concept posture's own described failure shape ('a `_` arm over a shared concept is a seam defect waiting for its field report'). Replace the four string consts and the `&'static str` field with a real `#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum Placement { SessionStart, Modeline, GuardHook, Note }`, update the five construction sites and `gate_installed`'s match to name every variant exhaustively (no `_` arm), and give `Placement` a `Display`/label method carrying today's exact strings ('session-start hook', 'schema modeline', 'guard hook', 'managed-by note') for the two `.to_string()` uses at 540/543 and the report line built from it."
+          "description": "`InstallEntry.placement: &'static str` (353) is one of four consts — `SESSION_START` (92), `MODELINE` (94), `GUARD_HOOK` (96), `NOTE` (98) — set at its five construction sites (565, 589, 595, 625, 639). `gate_installed`'s tally match (510-515) matches them as `SESSION_START => hook = true, GUARD_HOOK => guard = true, NOTE => notes += 1, _ => modelines += 1` — `MODELINE` is never named in the match, reached only through the `_` fallback, which would also silently absorb any future fifth placement as a modeline, uncaught by the compiler. This is the shared-concept posture's own described failure shape ('a `_` arm over a shared concept is a seam defect waiting for its field report'). Replace the four string consts and the `&'static str` field with a real `#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum Placement { SessionStart, Modeline, GuardHook, Note }`, update the five construction sites and `gate_installed`'s match to name every variant exhaustively (no `_` arm), and give `Placement` a `Display`/label method carrying today's exact strings ('session-start hook', 'schema modeline', 'guard hook', 'managed-by note') for the two `.to_string()` uses at 523/526 and the report line built from it."
         },
         {
           "path": "tests/install.rs",
-          "description": "`outcome_of` (137-147) and `has_entry` (150-152) take `placement: &str` and compare with `==` against `entry.placement`; ~15 call sites pass string literals (`\"session-start hook\"` 233/430/544, `\"guard hook\"` 236/428/717/751/897/918, `\"managed-by note\"` 237, `\"schema modeline\"` 238/440/790). Once `InstallEntry.placement` becomes `Placement`, both helpers' signatures change to `placement: Placement` and every call site's string literal becomes the matching enum variant (`Placement::SessionStart`, `Placement::GuardHook`, `Placement::Note`, `Placement::Modeline`)."
+          "description": "`outcome_of` (137-147) and `has_entry` (150-152) take `placement: &str` and compare with `==` against `entry.placement`; ~16 call sites pass string literals (`\"session-start hook\"` 233/430/544, `\"guard hook\"` 236/428/717/751/897/918, `\"managed-by note\"` 237, `\"schema modeline\"` 238/440/790, plus a direct field comparison outside the two helpers at 801, `.filter(|e| e.placement == \"schema modeline\")`). Once `InstallEntry.placement` becomes `Placement`, both helpers' signatures change to `placement: Placement` and every call site's string literal — including the 801 direct-field comparison — becomes the matching enum variant (`Placement::SessionStart`, `Placement::GuardHook`, `Placement::Note`, `Placement::Modeline`)."
         }
       ],
       "retire": []
@@ -277,7 +275,7 @@
       }
     ],
     "acceptance": "InstallEntry.placement is a real Placement enum with an exhaustive match in gate_installed (no `_` arm); the four bare &str consts are gone. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Serialized behind INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE for shared install.rs safety (pending-entry.md) — no functional dependency. scoped at ad66e46."
+    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Unblocked: INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE shipped 5418661, a one-line pub-prune — no functional dependency, premise re-verified true at HEAD (line numbers drifted from three intervening install.rs commits, corrected; also added the 801 direct-field comparison the prior scoping missed). No other open entry touches install.rs/tests/install.rs. rescoped 5418661."
   },
   {
     "tag": "BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE",
@@ -1841,7 +1839,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST"
+      "tag": "MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE"
     },
     "dependsOnForks": [],
     "files": {
@@ -1858,11 +1856,11 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "Imports Layout/LayoutRegion from crate::kind (line 31) and uses them at 1095, 1701, 1715, 1758-1761 — requalify every reference to crate::layout, no re-export shim in kind.rs."
+          "description": "Imports Layout/LayoutRegion from crate::kind (line 30) and uses them at 1095, 1701, 1715, 1758-1761 — requalify every reference to crate::layout, no re-export shim in kind.rs."
         },
         {
           "path": "src/main.rs",
-          "description": "References kind::Layout (1284), kind::LayoutError (1277 doc), kind::Content::Layout (1449, 1797) — requalify the Layout/LayoutError references to crate::layout."
+          "description": "References kind::Layout (1269), kind::LayoutError (1262 doc), kind::Content::Layout (1434, 1782) — requalify the Layout/LayoutError references to crate::layout."
         }
       ],
       "retire": []
@@ -1879,7 +1877,7 @@
       }
     ],
     "acceptance": "src/layout.rs exists in the model subsystem carrying the Layout family verbatim; kind.rs no longer defines Layout/LayoutRegion/LayoutReading/LayoutMember/LayoutError/next_heading/read_collection_member/parse_edge_entries/slugify. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture, superseding this tick's own first-pass parked filing): layout reader → new flat layout module, model subsystem; extraction-primitive algebra stays — it IS the kind algebra. Serialized behind MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST (shared main.rs); also shares drift.rs with open IMPORT-ROLLUP-WRITER-PLACEMENT, which ships first regardless. scoped at 600ffd5."
+    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture): layout reader → new flat layout module. Unblocked: MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST shipped 9415ccd, a Guard-only hoist untouching Layout — premise unmoved (main.rs's 3 sites drifted -15 lines, corrected). Reserialized behind MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE, this tick's other newly-opened main.rs entry. Still shares drift.rs with open, queue-earlier IMPORT-ROLLUP-WRITER-PLACEMENT — ships first regardless. scoped at 9415ccd."
   },
   {
     "tag": "KIND-GLOB-CACHE-MODULE-EXTRACT",
