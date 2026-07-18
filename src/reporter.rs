@@ -181,10 +181,7 @@ pub fn github(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
         ));
     }
     for diagnostic in diagnostics {
-        let command = match diagnostic.severity {
-            Severity::Error => "error",
-            Severity::Warn => "warning",
-        };
+        let command = severity_word(diagnostic.severity);
         // `title=` carries the rule (escaped as a property value); the artifact
         // rides the body so the annotation names what it is about, then the
         // message (both escaped as command data).
@@ -216,10 +213,7 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
     let results: Vec<serde_json::Value> = diagnostics
         .iter()
         .map(|diagnostic| {
-            let level = match diagnostic.severity {
-                Severity::Error => "error",
-                Severity::Warn => "warning",
-            };
+            let level = severity_word(diagnostic.severity);
             json!({
                 "ruleId": diagnostic.rule,
                 "level": level,
@@ -257,6 +251,15 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
         "runs": [run],
     });
     log.to_string()
+}
+
+/// Map a [`Severity`] to its normalized word — used by both GitHub and SARIF
+/// renderers to produce a consistent severity string.
+fn severity_word(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Error => "error",
+        Severity::Warn => "warning",
+    }
 }
 
 /// Escape a string for use as GitHub workflow-command **data** (the message body
