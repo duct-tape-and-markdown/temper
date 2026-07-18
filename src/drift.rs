@@ -32,6 +32,40 @@ use crate::kind::{
     CollectionAddress, Commitment, Content, Format, Layout, LayoutRegion,
     collection_address_from_row, commitment_from_row, content_from_row, format_from_row,
 };
+use std::cell::Cell;
+
+thread_local! {
+    /// Per-thread count of lock.toml file reads. Incremented each time the lock file
+    /// is actually read from disk, pinning that whole-input work hoists lock parsing
+    /// (one per run) rather than repeating it per call site.
+    static LOCK_READS: Cell<usize> = const { Cell::new(0) };
+    /// Per-thread count of lock.toml parse operations. Incremented each time the lock
+    /// text is parsed into a TOML document, pinning that parsing is shared across
+    /// emit's multiple phases rather than recomputed per phase.
+    static LOCK_PARSES: Cell<usize> = const { Cell::new(0) };
+}
+
+/// This thread's cumulative count of lock.toml file reads. Read before and after an
+/// emit run to pin that the lock is read exactly once per run.
+#[must_use]
+pub fn lock_read_count() -> usize {
+    LOCK_READS.with(Cell::get)
+}
+
+/// This thread's cumulative count of lock.toml parse operations. Read before and after
+/// an emit run to pin that parsing is done exactly once per run.
+#[must_use]
+pub fn lock_parse_count() -> usize {
+    LOCK_PARSES.with(Cell::get)
+}
+
+fn increment_lock_reads() {
+    LOCK_READS.with(|c| c.set(c.get() + 1));
+}
+
+fn increment_lock_parses() {
+    LOCK_PARSES.with(|c| c.set(c.get() + 1));
+}
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
 /// a source or lock that fails to read, write, parse, or reproduce deterministically.
@@ -1188,13 +1222,18 @@ pub fn emit(
     // it a rollup row, so a re-emit never reaps the file it just wrote.
     owned_paths.extend(manifests.keys().map(|path| to_lock_path(path)));
 
+    // Read and parse the lock document once for reuse across the reap-diff and
+    // layer-drop checks below — whole-input work hoists parsing per run, never
+    // recomputed per phase (engineering.md, "Cost scale is hoisted").
+    let lock_doc = read_lock_document(workspace_dir);
+
     // Classify every prior projection the payload no longer owns without touching
     // disk. Both sides normalized: `owned_paths` came through `to_lock_path`, and
     // an older lock's raw row spelling gets the same canonicalization here, so a
     // `./`-prefixed row still joins its live projection.
     let mut orphans: Vec<(ProvenanceRow, PathBuf, EmitOutcome)> = Vec::new();
     let mut any_survivor = false;
-    for row in read_prior_provenance(workspace_dir) {
+    for row in read_prior_provenance_from_doc(&lock_doc) {
         if owned_paths.contains(&normalize_lock_path(&row.source_path)) {
             any_survivor = true;
             continue;
@@ -1241,11 +1280,10 @@ pub fn emit(
         derived_hosts.extend(layout_rows.iter().map(|row| row.host.as_str()));
 
         let mut prior_by_host: BTreeMap<String, usize> = BTreeMap::new();
-        for row in read_declarations(workspace_dir)
-            .unwrap_or_default()
-            .nested_members
-        {
-            *prior_by_host.entry(row.host).or_default() += 1;
+        if let Ok(declarations) = declarations_from_doc(&lock_doc) {
+            for row in declarations.nested_members {
+                *prior_by_host.entry(row.host).or_default() += 1;
+            }
         }
         if let Some((host, count)) = prior_by_host
             .into_iter()
@@ -1923,18 +1961,9 @@ struct RawLockRow {
     emit_hash: Option<String>,
 }
 
-/// Walk the committed lock's declaration rows once, reading the lock file and
-/// parsing every `[[<kind>]]` array-of-tables entry — returns all columns
-/// (as Options) for each row. A missing or malformed lock yields no rows.
-fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let Ok(text) = fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-    let Ok(doc) = text.parse::<DocumentMut>() else {
-        return Vec::new();
-    };
-
+/// Extract lock rows from an already-parsed lock document, walking every `[[<kind>]]`
+/// array-of-tables entry — returns all columns (as Options) for each row.
+fn walk_lock_rows_from_doc(doc: &DocumentMut) -> Vec<RawLockRow> {
     let mut rows = Vec::new();
     for (kind, item) in doc.as_table().iter() {
         let Some(table_rows) = item.as_array_of_tables() else {
@@ -1961,6 +1990,22 @@ fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow> {
     rows
 }
 
+/// Walk the committed lock's declaration rows once, reading the lock file and
+/// parsing every `[[<kind>]]` array-of-tables entry — returns all columns
+/// (as Options) for each row. A missing or malformed lock yields no rows.
+fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow> {
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    increment_lock_reads();
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return Vec::new();
+    };
+    increment_lock_parses();
+    walk_lock_rows_from_doc(&doc)
+}
+
 /// One provenance row read back off a workspace's prior `lock.toml` — the same
 /// `name`/`source_path`/`emit_hash` columns [`config_stale`] and
 /// [`emit_owned_targets`] already read, kept here as owned scalars since this
@@ -1977,14 +2022,35 @@ struct ProvenanceRow {
     emit_hash: String,
 }
 
-/// Every provenance row the prior lock at `workspace_dir` carries, across every
-/// kind (built-in and custom) — the anchor [`emit`]'s reap step diffs the current
-/// payload's owned paths against to find a lock-known projection with no current
-/// owner. A row missing a required column, or a missing/malformed lock, yields no
-/// rows — the same tolerant-read absence [`config_stale`]/[`emit_owned_targets`]
-/// take: nothing to compare against forges no reap, no drift finding.
-fn read_prior_provenance(workspace_dir: &Path) -> Vec<ProvenanceRow> {
-    walk_lock_rows(workspace_dir)
+/// Read and parse the lock document once, returning it for reuse across emit's phases.
+/// A missing lock or read/parse failure yields an empty document that will produce
+/// empty results when queried, matching the tolerant-read behavior of the helpers
+/// that consume lock data.
+fn read_lock_document(workspace_dir: &Path) -> DocumentMut {
+    let path = workspace_dir.join(crate::LOCK_FILENAME);
+    match fs::read_to_string(&path) {
+        Ok(text) => {
+            increment_lock_reads();
+            match text.parse::<DocumentMut>() {
+                Ok(doc) => {
+                    increment_lock_parses();
+                    doc
+                }
+                Err(_) => DocumentMut::new(),
+            }
+        }
+        Err(_) => DocumentMut::new(),
+    }
+}
+
+/// Every provenance row the lock document carries, across every kind (built-in and
+/// custom) — the anchor [`emit`]'s reap step diffs the current payload's owned paths
+/// against to find a lock-known projection with no current owner. A row missing a
+/// required column yields no rows — the same tolerant-read absence
+/// [`config_stale`]/[`emit_owned_targets`] take: nothing to compare against forges
+/// no reap, no drift finding.
+fn read_prior_provenance_from_doc(doc: &DocumentMut) -> Vec<ProvenanceRow> {
+    walk_lock_rows_from_doc(doc)
         .into_iter()
         .filter_map(|raw| {
             let (Some(name), Some(source_path), Some(emit_hash)) =

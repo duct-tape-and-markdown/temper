@@ -202,3 +202,83 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
          the shared discovery index: {read_dirs} scan dir reads over {file_count} files",
     );
 }
+
+#[test]
+fn emit_lock_parse_is_hoisted_and_pinned_once_per_run() {
+    use temper::drift::{self, Declarations, EmitOptions, Payload};
+
+    let harness = tmpdir("emit-lock-parse-cost");
+    let into = harness.join(".temper");
+    std::fs::create_dir_all(&into).unwrap();
+
+    // Create a minimal harness with one skill member to emit.
+    common::write_skill(&harness, "test-skill", "# Test\n\nBody.");
+
+    // Create a lock.toml with:
+    // - A provenance row for the skill (exercises the reap-diff path)
+    // - Nested member declarations (exercises the layer-drop check path)
+    let lock_path = into.join("lock.toml");
+    std::fs::write(
+        &lock_path,
+        r#"[[skill]]
+name = "test-skill"
+source_path = ".claude/skills/test-skill/SKILL.md"
+emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[declaration]
+
+[[declaration.nested_member]]
+host = "skill:test-host"
+name = "nested-1"
+"#,
+    )
+    .unwrap();
+
+    // Create a minimal SDK payload that will emit the skill and derive no nested
+    // members (so the layer-drop check runs but doesn't drop).
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::skill_kind_facts(None, &[])],
+            ..Default::default()
+        },
+        members: vec![common::skill_member(
+            "test-skill",
+            "Test skill.",
+            "# Test\n\nBody.",
+        )],
+    };
+
+    let options = EmitOptions {
+        dry_run: true,
+        frozen: false,
+        teardown: false,
+    };
+
+    // Read counts before emit.
+    let reads_before = drift::lock_read_count();
+    let parses_before = drift::lock_parse_count();
+
+    // Run emit — this should read and parse the lock exactly once, reusing the
+    // parsed document for both the reap-diff and layer-drop check.
+    let _ = drift::emit(&payload, &into, options);
+
+    // Read counts after emit.
+    let reads_after = drift::lock_read_count();
+    let parses_after = drift::lock_parse_count();
+
+    let reads = reads_after - reads_before;
+    let parses = parses_after - parses_before;
+
+    // The cost doctrine (engineering.md, "Cost scale is hoisted, and pinned by count"):
+    // whole-input work computes once per run and is shared, never recomputed per call site.
+    // Lock parsing is hoisted: one read per emit run, one parse per emit run.
+    assert_eq!(
+        reads, 1,
+        "emit must read lock.toml exactly once per run, not per phase: {reads} reads (before {reads_before}, after {reads_after})",
+    );
+    assert_eq!(
+        parses, 1,
+        "emit must parse lock.toml exactly once per run, not per phase: {parses} parses (before {parses_before}, after {parses_after})",
+    );
+}
