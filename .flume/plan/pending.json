@@ -1,37 +1,5 @@
 [
   {
-    "tag": "SCAN-SHARE-DISCOVERABLE-SET",
-    "summary": "Per-kind `collect_glob` re-walks the filesystem on top of the shared `discoverable` set discovery already computed once per flavor; derive each kind's matches from the set, drop the re-walk",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": { "kind": "open" },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "`collect_glob` (429) walks the filesystem itself — `read_entries`/`read_dir` (554) + `is_dir`/`is_file` (435,472,475) + `normalize_path` per entry — once per kind's locus and once per nested-file host, using the shared `discoverable` set only as a membership filter (452,462). But `discoverable_paths` (505) already walked the whole tree once per flavor and `Discovery` (51) memoizes it (walk_count, 114, pins that at run granularity), so the `**` loci (memory `**/CLAUDE.md`, agent `**/*.md`) re-traverse whole subtrees per kind — the ~3.5s discovery residual CHECK-RESIDUAL-DIAGNOSIS's fixture measured after the glob memo (read+hash is ~420ms by comparison). Derive each kind's matches by glob-matching the in-memory `discoverable` set in `scan_locus`/`collect_glob` (399,429), dropping the filesystem entirely. The one fact the set lacks is file-vs-dir — load-bearing for correctness (471-477: a final-segment match is collected only if a file, descended only if a dir), read today via is_file/is_dir; `discoverable_paths` currently inserts dirs and files undistinguished (536-538), and the WalkBuilder entry already carries it via `entry.file_type()` — record it at walk time (tag each path, or a parallel dir set). Shared-enumeration bound (engineering.md, 'A shared concept is one type'): `discoverable` is the one 'discoverable paths' type; its only readers are import.rs's own scan_locus/collect_glob — `Discovery` threads through main.rs/json_manifest.rs/install.rs but they call the high-level discover fns (discover_kind_units 375, read_kind, discover), never the raw set — so the file-vs-dir tagging stays contained to import.rs. Add a read_dir counter at `read_entries` (554, called only by collect_glob) mirroring `walk_count` (114)/`glob_compile_count` for the count-pin. import.rs is unmoved since a4cffee (the glob memo landed in kind.rs, 12fc95e), so these HEAD addresses hold."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "Extend the existing measure-first fixture `check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob` (128 — generates a >10k-file tree, pins walk_count and glob_compile_count) with the new read_dir count-pin: after the cut, a full check run reads each directory at most once (the shared discovery walk), and the per-kind `collect_glob` re-walk reads zero — `read_entries` is called only by collect_glob, so its new counter goes to ~0 and stays independent of kind count. The timings stay an eprintln signal a human reads, never an asserted clock (engineering.md)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "after the cut, a full check run over a >10k-file tree reads no directory a second time — the per-kind `collect_glob` read_dir count is pinned to zero (or a small constant independent of kind and file count), decidable and machine-independent"
-      }
-    ],
-    "acceptance": "`check`'s discovery derives each kind's members by matching the shared `discoverable` set in memory, with no per-kind filesystem re-walk; the read_dir count is count-pinned independent of kind count (engineering.md: whole-input work computes once per run and is shared, never recomputed per kind; the pin is a count, never a clock). `cargo test` green.",
-    "notes": "Drains refactor capture build-per-kind-scan-rewalk.md (observed a4cffee; verified at HEAD 5c9e63c — import.rs unmoved, collect_glob still re-walks per kind). The remaining half of the ratified cost-hoisting (810da42) after WALK-SHARE-RUN-COUNT-PIN and the glob memo (12fc95e) shipped; measure-first bar already met — check_cost.rs isolates this read_dir re-walk as the ~3.5s residual. No open fork blocks it. scoped 5c9e63c."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
