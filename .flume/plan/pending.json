@@ -1,48 +1,5 @@
 [
   {
-    "tag": "KNOWN-MARKETPLACE-EDGE",
-    "summary": "Derive 0039's plugin->marketplace edge: an installed-plugin's `plugin@marketplace` key's marketplace half resolves to a known-marketplace member by name — a dangling reference becomes a finding",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "The shipped kinds"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "The `installedPlugin` kind (~476) declares its `<plugin>@<marketplace>` key's marketplace half as an edge field targeting the one-kind set `{ knownMarketplace }` — a bare marketplace name resolving within the one kind (contract.md 'edge'). Reword the default-contract doc (~486-501) that today calls the key un-rangeable: the marketplace half is now a declared, resolvable edge."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`claude_code_installed_plugin()` (~293) gains the marketplace edge on its schema — the composite `<plugin>@<marketplace>` identity's marketplace half is an edge to `known-marketplace` by identity."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Edge resolution: the marketplace half of an installed-plugin's key resolves to the named known-marketplace member at the same table the gate reads; an enablement naming a marketplace no known-marketplace declares is a dangling-edge finding. Splitting the composite `plugin@marketplace` key into its (plugin, marketplace) halves is the edge's mechanic — confirm the field-edge resolver's home (graph.rs / address.rs) at pick-up. Serialized after KNOWN-MARKETPLACE-KIND (and thus after VERIFIER-TYPED) on graph.rs."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "Add: a `plugin@marketplace` enablement whose marketplace half names a declared known-marketplace resolves; one naming an undeclared marketplace is a dangling-edge finding."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/installed_plugin_kind.rs",
-        "asserts": "an installed-plugin's plugin@marketplace enablement resolves its marketplace half to a declared known-marketplace member; naming an undeclared marketplace is a dangling-edge finding"
-      }
-    ],
-    "acceptance": "The marketplace half of an installed-plugin's `plugin@marketplace` enablement key is a declared edge resolving to the known-marketplace member it names by identity — an enablement naming a marketplace no registration declares is a finding, never a convention (builtins.md, 'The shipped kinds'; decision 0039). `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "0039 derivation (enablement-key edge, 0029 by-name addressing). Unblocked: KNOWN-MARKETPLACE-KIND shipped (4dd7cfb) — edge target `known-marketplace` exists (builtin_kind.rs:326, builtins.ts:542). Anchors re-verified at HEAD: installedPlugin builtins.ts:476, un-rangeable doc 491/501, claude_code_installed_plugin builtin_kind.rs:293. Splits the composite key into (plugin, marketplace) halves; field-edge lowering is generic SDK data. scoped 152526c."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
