@@ -1014,5 +1014,93 @@
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
+  },
+  {
+    "tag": "GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE",
+    "summary": "graph.rs's declared_globs and engine.rs's field_globs duplicate one glob-extraction job with a trim/filter drift — consolidating needs a ruling on whether glob-valid adopts that semantics",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "declared_globs (src/graph.rs:780-796, doc 774-779) trims each glob and drops blank/whitespace-only entries — its own doc: 'an absent/blank paths field falls back to unconditional loading' (pinned by tests/graph.rs:1466, an_absent_or_blank_paths_field_is_reachable). field_globs (src/engine.rs:1137-1143) does neither, feeding glob-valid's compile_glob check (engine.rs:922) unfiltered. Unifying into one extractor is a product call, not a shape call: does glob-valid start flagging a blank/whitespace-only paths entry as a syntax problem (adopting the trim/filter semantics), or does the reachability judge's fallback-to-unconditional treatment stay its own business, with field_globs's no-op behavior the one both share instead? A human names which semantics the shared extractor holds before this lands — plan does not invent it (collaboration.md, 'Challenge gaps, never paper over them')."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`declared_globs` (780-796, doc 774-779: 'The registration globs a member declares on `field` ... Declaring none is *not* a dead edge') and engine.rs's `field_globs` (1137-1143, doc 1134-1136) both extract the glob strings a `FeatureValue` field carries — `declared_globs` trims each glob and drops blank/whitespace-only entries; `field_globs` does neither. `declared_globs` feeds this file's reachability judge (`reachable`, blank-field-falls-back-to-unconditional pinned at tests/graph.rs:1466). Once the parked ruling names the shared semantics, land one shared extractor (this file, or a leaf both files call) implementing the ruled behavior, and route the reachability judge through it — collapsing `declared_globs`'s body into the shared fn if the ruling keeps trim/filter semantics, or updating its call sites if the ruling instead standardizes on field_globs's no-op behavior."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`field_globs` (1137-1143) is the glob-string extractor the `glob-valid` predicate arm (915-923, feeding `crate::kind::compile_glob`) calls — pinned by `glob_valid_fires_once_per_unparseable_glob_and_passes_valid_brace_globs` (2168). Once the parked ruling names the shared trim/filter semantics, remove this private duplicate and route the glob-valid arm (922) through the shared extractor graph.rs now hosts (or whatever home the ruling settles), updating the one call site."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "an_absent_or_blank_paths_field_is_reachable (1466) stays green under whichever semantics the ruling settles — a blank paths field's registration edge is treated the reachability judge's ruled way, explicitly, not silently inherited from the merge"
+      },
+      {
+        "path": "src/engine.rs",
+        "asserts": "glob_valid_fires_once_per_unparseable_glob_and_passes_valid_brace_globs (2168) stays green, or is deliberately extended with a blank/whitespace-only-glob case if the ruling makes glob-valid start flagging it — named in the commit body either way"
+      }
+    ],
+    "acceptance": "One shared glob-string extractor serves both graph.rs's reachability judge and engine.rs's glob-valid predicate, implementing the human-ruled trim/filter semantics; declared_globs and field_globs collapse to the one implementation. `cargo test` and `cargo clippy --all-targets -- -D warnings` green. The commit body states which semantics were ruled and why.",
+    "notes": "Drained from .flume/refactor/plan-graph-engine-glob-extraction-duplication.md (observed 4baa5c4, unmoved through HEAD — git log 4baa5c4..HEAD -- src/ empty). Parked rather than opened: the capture's own suggested-consolidation section names the trim/filter question as needing a design call before landing, and the call changes glob-valid's observable findings — a product decision, not an implementation-shape one. scoped at f3980b9."
+  },
+  {
+    "tag": "NORMALIZE-PATH-SUBSYSTEM-PLACEMENT",
+    "summary": "graph.rs's normalize_path is foundation-shaped leaf vocabulary consumed upward by pipeline modules — architecture.md doesn't yet name this a debt edge, so a move needs human ratification first",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "normalize_path (src/graph.rs:929-940, doc 924-928) is pure std::path::Component-only leaf vocabulary with no dependency on any judges-subsystem type (never touches Node, ResolvedEdge, or a judge/selection concept) — architecture.md's foundation subsystem homes exactly this shape ('leaf vocabulary with no internal dependencies'), yet it lives in graph.rs (judges) and its external callers are all pipeline-subsystem: src/import.rs (396, 517), src/drift.rs (672, 1799, 1885). architecture.md's Invariants section names only three debt edges as ratified in 0040 (drift→install, frontmatter→builtin_kind, extract's upward imports); this pipeline→judges edge isn't among them. Filing a mechanical move to src/address.rs would assert a fourth debt edge the page hasn't ratified — architecture.md is revised rarely, on ratified intent, never derived. A human rules whether to amend the Invariants section to name this edge (unblocking the mechanical move below) or the graph.rs home is intentional and this closes as a non-issue."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`normalize_path` (929-940, `pub(crate)`, doc 924-928: 'Lexically normalize a path ... without touching disk') has three internal callers in this file (875, 883, 921 — reverify at pickup) plus the external callers below. If the parked ruling names this a fourth debt edge, move the fn verbatim to src/address.rs and update every internal call site to `crate::address::normalize_path`."
+        },
+        {
+          "path": "src/address.rs",
+          "description": "If the ruling ships the move, add `normalize_path` here verbatim (moved from graph.rs), foundation subsystem, alongside this file's own path/field mechanics (architecture.md's codemap)."
+        },
+        {
+          "path": "src/import.rs",
+          "description": "Two call sites (396, 517) requalify from `crate::graph::normalize_path` to `crate::address::normalize_path` if the move ships."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Three call sites (672, 1799, 1885) requalify from `crate::graph::normalize_path` to `crate::address::normalize_path` if the move ships."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "existing dead-edge/reachability coverage exercising normalize_path's internal callers (875, 883, 921) stays green — the move is signature/location-only, no path-resolution behavior change"
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "existing discovery/drift coverage exercising import.rs's and drift.rs's normalize_path call sites stays green — same paths resolve identically post-move"
+      }
+    ],
+    "acceptance": "Either normalize_path lives in src/address.rs (foundation) with every caller requalified and architecture.md's Invariants section amended to have named the edge first, or the park closes with architecture.md affirming graph.rs's home is intentional — a human ruling either way, never a derived move. `cargo test` and `cargo clippy --all-targets -- -D warnings` green if the move ships.",
+    "notes": "Drained from .flume/refactor/plan-normalize-path-subsystem-placement.md (observed 4baa5c4, unmoved through HEAD — git log 4baa5c4..HEAD -- src/ empty). Parked rather than opened: architecture.md's Growth rules make the page human-ratified, never derived, and the capture's own text says filing outright would assert a reading the page hasn't yet ratified. scoped at f3980b9."
   }
 ]
