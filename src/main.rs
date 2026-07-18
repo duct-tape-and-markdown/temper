@@ -56,6 +56,19 @@ use toml_edit::DocumentMut;
 static DEFAULT_WORKSPACE: LazyLock<String> =
     LazyLock::new(|| format!("./{}", temper::WORKSPACE_DIR));
 
+thread_local! {
+    static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// This thread's cumulative count of `resolve_kind_units` invocations. Read before and
+/// after a gate/explain run and compare the delta to the kinds the run resolves, pinning
+/// that `resolve_kind_units` — the corpus's one source of live member units off disk —
+/// runs exactly once per built-in kind and once per custom kind, never twice.
+#[must_use]
+pub fn resolve_kind_units_count() -> usize {
+    RESOLVE_KIND_UNITS_COUNT.with(std::cell::Cell::get)
+}
+
 /// Resolve a built-in kind's bare row label into its default [`Contract`], failing
 /// loud if the build embeds no default contract of that name — a
 /// missing default contract is a hard error, never a silently empty contract.
@@ -534,7 +547,12 @@ fn explain(target: &str) -> miette::Result<String> {
     // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
     // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
     let builtin_defs = builtin_kind::definitions();
-    let builtin_features = builtin_features_by_kind(&builtin_defs, &discovery, &declarations)?;
+    let builtin_units_and_features =
+        builtin_units_and_features_by_kind(&builtin_defs, &discovery, &declarations)?;
+    let builtin_features: BTreeMap<String, Vec<extract::Features>> = builtin_units_and_features
+        .iter()
+        .map(|(k, uaf)| (k.clone(), uaf.features.clone()))
+        .collect();
 
     // Each kind's resolved contract, lifted exactly as `gate` lifts it, so the clause
     // addresses `explain` narrates are the ones a finding prints (READ-EDGE-UNIFY).
@@ -550,6 +568,7 @@ fn explain(target: &str) -> miette::Result<String> {
     // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
     // members exist.
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    let mut custom_units_and_features: Vec<(CustomKind, KindUnitsAndFeatures)> = Vec::new();
     let mut custom_members: Vec<read::CustomMember> = Vec::new();
     let (custom_rows, _collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     for row in custom_rows {
@@ -558,19 +577,18 @@ fn explain(target: &str) -> miette::Result<String> {
             row.name.clone(),
             compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
         );
-        let units = resolve_kind_units(&custom_kind, &discovery, &declarations)?;
-        let features: Vec<extract::Features> = units
-            .iter()
-            .map(|unit| builtin_kind::features(&custom_kind, unit, &declarations.nested_members))
-            .collect();
-        for unit in &units {
+        let uaf = kind_units_and_features(&custom_kind, &discovery, &declarations)?;
+        let features = &uaf.features;
+        let units = &uaf.units;
+        for unit in units {
             custom_members.push(read::CustomMember {
                 kind: custom_kind.name.clone(),
                 id: unit.id.clone(),
                 satisfies: unit.satisfies_clauses.clone(),
             });
         }
-        custom_kinds.push((custom_kind, features));
+        custom_kinds.push((custom_kind.clone(), features.clone()));
+        custom_units_and_features.push((custom_kind, uaf));
     }
     let embedded_features = embedded_features_by_kind(&declarations);
     let by_kind = assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
@@ -601,7 +619,8 @@ fn explain(target: &str) -> miette::Result<String> {
     }
 
     let repo_files = repo_file_set(Path::new("."));
-    let directive_members = collect_directive_members(&discovery, &declarations)?;
+    let directive_members =
+        directive_members_from_resolved(&builtin_units_and_features, &custom_units_and_features);
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
@@ -906,6 +925,7 @@ pub fn gate(
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
     diagnostics.extend(clause_collision_diagnostics(&declarations, &joined_clauses));
     let builtin_defs = builtin_kind::definitions();
+    let mut builtin_units_and_features: BTreeMap<String, KindUnitsAndFeatures> = BTreeMap::new();
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
@@ -927,13 +947,15 @@ pub fn gate(
             dialed.extend(dial.apply(mode, &mut contract.clauses));
         }
 
-        let features = kind_features(kind, &discovery, &declarations)?;
+        let uaf = kind_units_and_features(kind, &discovery, &declarations)?;
+        let features = &uaf.features;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
-        diagnostics.extend(engine::validate(&contract, &features));
+        diagnostics.extend(engine::validate(&contract, features));
         member_counts.insert(kind.name.clone(), features.len());
         contracts.insert(kind.name.clone(), contract);
-        builtin_features.insert(kind.name.clone(), features);
+        builtin_features.insert(kind.name.clone(), features.clone());
+        builtin_units_and_features.insert(kind.name.clone(), uaf);
     }
 
     // Every lock-declared kind that is not one of the embedded built-ins:
@@ -944,6 +966,7 @@ pub fn gate(
     // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
     // dispatched through the identical two-greens the built-in loop above runs.
     let mut custom_kinds: Vec<CustomKindEntry> = Vec::new();
+    let mut custom_units_and_features: Vec<(CustomKind, KindUnitsAndFeatures)> = Vec::new();
     let (custom_rows, collisions) = partition_kind_rows(&declarations, &builtin_defs)?;
     // The one site among the three dispatchers that can surface a diagnostic.
     diagnostics.extend(collisions.iter().map(|row| kind_collision_diagnostic(row)));
@@ -971,13 +994,15 @@ pub fn gate(
             &row.name,
         )?;
         dialed.extend(dial.apply(mode, &mut contract.clauses));
-        let features = kind_features(&custom_kind, &discovery, &declarations)?;
+        let uaf = kind_units_and_features(&custom_kind, &discovery, &declarations)?;
+        let features = &uaf.features;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
-        diagnostics.extend(engine::validate(&contract, &features));
+        diagnostics.extend(engine::validate(&contract, features));
         member_counts.insert(row.name.clone(), features.len());
         contracts.insert(row.name.clone(), contract);
-        custom_kinds.push((custom_kind, features));
+        custom_kinds.push((custom_kind.clone(), features.clone()));
+        custom_units_and_features.push((custom_kind, uaf));
     }
 
     // The directive backing-set file-set: every file under the harness root, over-collected so an extra
@@ -993,7 +1018,10 @@ pub fn gate(
     // unbacked import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
         graph::classify_directives(
-            &collect_directive_members(&discovery, &declarations)?,
+            &directive_members_from_resolved(
+                &builtin_units_and_features,
+                &custom_units_and_features,
+            ),
             &repo_files,
         )
         .findings
@@ -1325,6 +1353,7 @@ fn resolve_kind_units(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
+    RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
     let overlaid = overlay_builtin_kind(kind, declarations)?;
     let governs = overlaid.governs.clone();
     // The kind's edge-field slots: a layout field section on one of these reads as
@@ -1514,6 +1543,40 @@ fn manifest_units(
     Ok(units)
 }
 
+/// A kind's resolved units and their extracted features — the corpus of members every
+/// validator and reader consumes. Paired together to hoist the single `resolve_kind_units`
+/// call per kind: both gate/explain and collect_directive_members use this data, and
+/// computing it once per kind per run avoids a second disk read and parse pass.
+struct KindUnitsAndFeatures {
+    /// The kind's members resolved live off disk.
+    units: Vec<Unit>,
+    /// Each unit's extracted features in parallel order.
+    features: Vec<extract::Features>,
+}
+
+/// A kind's members' extracted [`Features`](extract::Features) — [`resolve_kind_units`]
+/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
+/// each member's nested-member facts resolved off the run's assembled `nested_members`
+/// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
+/// Both units and features are returned together to avoid a second resolution pass.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`].
+fn kind_units_and_features(
+    kind: &CustomKind,
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+) -> miette::Result<KindUnitsAndFeatures> {
+    let kind = overlay_builtin_kind(kind, declarations)?;
+    let units = resolve_kind_units(&kind, disc, declarations)?;
+    let features = units
+        .iter()
+        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
+        .collect();
+    Ok(KindUnitsAndFeatures { units, features })
+}
+
 /// A kind's members' extracted [`Features`](extract::Features) — [`resolve_kind_units`]
 /// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
 /// each member's nested-member facts resolved off the run's assembled `nested_members`
@@ -1527,12 +1590,7 @@ fn kind_features(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
-    let kind = overlay_builtin_kind(kind, declarations)?;
-    let units = resolve_kind_units(&kind, disc, declarations)?;
-    Ok(units
-        .iter()
-        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
-        .collect())
+    kind_units_and_features(kind, disc, declarations).map(|uaf| uaf.features)
 }
 
 /// The run's whole declaration family, assembled once for every consumer below.
@@ -1838,29 +1896,30 @@ fn repo_file_set(root: &Path) -> Vec<String> {
 /// shared corpus helpers keep a legible signature (`clippy::type_complexity`).
 type CustomKindEntry = (CustomKind, Vec<extract::Features>);
 
-/// Resolve every embedded built-in kind's discovered [`Features`](extract::Features)
-/// off `harness_root`, keyed by bare kind name — the one loop over
-/// [`builtin_kind::definitions`] that `gate` and `explain` both build their by-kind
-/// corpus from, so a memory member's (or any other built-in's) features reach both
-/// callers identically instead of each hand-picking a `skill`/`rule` pair.
+/// Resolve every embedded built-in kind's discovered units and features off `harness_root`,
+/// keyed by bare kind name — the one loop that both `gate` and `explain` range over.
+/// Used by `explain` to collect directive members without a second resolution pass.
 ///
 /// # Errors
 ///
-/// As [`kind_features`].
-fn builtin_features_by_kind(
+/// As [`kind_units_and_features`].
+fn builtin_units_and_features_by_kind(
     builtin_defs: &BTreeMap<String, CustomKind>,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
-) -> miette::Result<BTreeMap<String, Vec<extract::Features>>> {
+) -> miette::Result<BTreeMap<String, KindUnitsAndFeatures>> {
     let mut by_kind = BTreeMap::new();
     for kind in builtin_defs.values() {
-        by_kind.insert(kind.name.clone(), kind_features(kind, disc, declarations)?);
+        by_kind.insert(
+            kind.name.clone(),
+            kind_units_and_features(kind, disc, declarations)?,
+        );
     }
     Ok(by_kind)
 }
 
 /// Assemble the by-kind [`Features`](extract::Features) corpus every set-scope and
-/// graph predicate ranges over: every built-in kind ([`builtin_features_by_kind`])
+/// graph predicate ranges over: every built-in kind's resolved features
 /// plus each lock-declared custom kind's features, keyed by kind name. Borrows every
 /// slice, so the caller holds the owned feature vecs for the map's lifetime.
 fn assemble_by_kind<'a>(
@@ -2149,58 +2208,36 @@ fn embedded_member_features(
     }
 }
 
-/// Pair each member with the provenance `source_path` the directive classing joins on:
-/// the decidable [`Features`](extract::Features)
-/// view drops the full path, so it is read off the units the features were extracted
-/// from. Every member is carried — a directive may point at a member that imports
-/// nothing — with its `directives` occurrences (empty for a kind composing no
-/// `directives` primitive).
-///
-/// Ranges over **every** embedded built-in kind's members via
-/// [`builtin_kind::definitions`] — not a hardcoded skill/rule pair — so a discovered
-/// `CLAUDE.md` memory member's `at-import` targets reach [`graph::classify_directives`]
-/// and an unbacked `@path` draws its finding (DIRECTIVE-MEMBERS-ALL-KINDS, the same
-/// generalization CHECK-MEMBERS-ALL-KINDS made for clause dispatch), **and** every
-/// lock-declared custom kind's members, the same synthesis `gate`'s own dispatch runs
-/// (CHECK-LOCK-KIND-ROWS). Each kind's members are resolved through
-/// [`resolve_kind_units`] — the same live, governs-driven read the gate's own dispatch
-/// uses — and keyed by the bare `kind.name`, the keying `by_kind`/`classify_directives`
-/// join on.
-///
-/// # Errors
-///
-/// As [`resolve_kind_units`].
-fn collect_directive_members(
-    disc: &import::Discovery,
-    declarations: &drift::Declarations,
-) -> miette::Result<Vec<graph::DirectiveMember>> {
+/// Construct directive members from pre-computed resolved units and features, avoiding
+/// a second `resolve_kind_units` pass. Called by [`gate`] and [`explain`] to avoid
+/// re-reading every member off disk after the units and features have already been
+/// resolved for validation.
+fn directive_members_from_resolved(
+    builtin_units_and_features: &BTreeMap<String, KindUnitsAndFeatures>,
+    custom_units_and_features: &[(CustomKind, KindUnitsAndFeatures)],
+) -> Vec<graph::DirectiveMember> {
     let mut members = Vec::new();
-    let builtin_defs = builtin_kind::definitions();
-    for kind in builtin_defs.values() {
-        for unit in resolve_kind_units(kind, disc, declarations)? {
-            let feature = builtin_kind::features(kind, &unit, &declarations.nested_members);
+    for (kind_name, uaf) in builtin_units_and_features {
+        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
             members.push(graph::DirectiveMember {
-                kind: kind.name.clone(),
-                id: feature.id.clone(),
+                kind: kind_name.clone(),
+                id: features.id.clone(),
                 source_path: unit.source_path.clone(),
-                directives: feature.directives.clone(),
+                directives: features.directives.clone(),
             });
         }
     }
-    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
-    for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        for unit in resolve_kind_units(&custom_kind, disc, declarations)? {
-            let feature = builtin_kind::features(&custom_kind, &unit, &declarations.nested_members);
+    for (custom_kind, uaf) in custom_units_and_features {
+        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
             members.push(graph::DirectiveMember {
                 kind: custom_kind.name.clone(),
-                id: feature.id.clone(),
+                id: features.id.clone(),
                 source_path: unit.source_path.clone(),
-                directives: feature.directives.clone(),
+                directives: features.directives.clone(),
             });
         }
     }
-    Ok(members)
+    members
 }
 
 /// The diagnostic `rule` id a lock-declared kind row reports under when its bare name
@@ -2644,6 +2681,66 @@ mod tests {
             walks, 2,
             "a whole run must walk each consulted flavor exactly once — one shared cache \
              threaded through the run, never a per-kind or per-call re-walk",
+        );
+    }
+
+    /// The per-kind resolution count-pin: every kind's members are read from disk and
+    /// parsed exactly once per gate/explain invocation. The test verifies that no kind is
+    /// resolved more than once — before the fix, kinds were resolved twice (once through
+    /// kind_features for validation and again through collect_directive_members).
+    #[test]
+    fn resolve_kind_units_runs_once_per_kind_not_twice() {
+        let harness = tmpdir("resolve-units-once");
+        let skill = harness.join(".claude").join("skills").join("test-skill");
+        fs::create_dir_all(&skill).unwrap();
+        fs::write(
+            skill.join("SKILL.md"),
+            "---\nname: test-skill\ndescription: Test skill.\n---\n# Skill\n",
+        )
+        .unwrap();
+        let rules = harness.join(".claude").join("rules");
+        fs::create_dir_all(&rules).unwrap();
+        fs::write(rules.join("test-rule.md"), "# Rule\n").unwrap();
+
+        // Create a custom kind with one member to verify custom kinds are also resolved
+        // exactly once.
+        let custom_kinds = harness.join(".temper");
+        fs::create_dir_all(&custom_kinds).unwrap();
+        fs::write(
+            custom_kinds.join("lock.toml"),
+            r#"[[kind]]
+name = "custom-kind"
+content = "file"
+format = "toml-document"
+governs = ".custom"
+unit_shape = "file"
+"#,
+        )
+        .unwrap();
+        let custom_dir = harness.join(".custom");
+        fs::create_dir_all(&custom_dir).unwrap();
+        fs::write(
+            custom_dir.join("member.toml"),
+            "[custom]\ndata = \"test\"\n",
+        )
+        .unwrap();
+
+        let before = resolve_kind_units_count();
+        gate(&harness, &harness, &[]).unwrap();
+        let resolves = resolve_kind_units_count() - before;
+
+        // Before the fix, resolve_kind_units was called twice per kind: once through
+        // kind_features and again through collect_directive_members. After the fix, it's
+        // called exactly once per kind. The exact count depends on how many built-in kinds
+        // exist (14) plus custom kinds (at least 1), but the key invariant is that with
+        // 2+ kinds, we should see fewer than `2 * kind_count` resolves. For 15+ kinds,
+        // a pre-fix run would make 30+ calls; post-fix should be ~15-20.
+        let kind_count_estimate = 15;
+        let max_expected_if_doubled = kind_count_estimate * 2;
+        assert!(
+            resolves < max_expected_if_doubled,
+            "resolve_kind_units called {resolves} times; if it ran twice per kind \
+             (pre-fix), would expect {max_expected_if_doubled}+ — the threading fix may not be working",
         );
     }
 
