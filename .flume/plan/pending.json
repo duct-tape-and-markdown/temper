@@ -1031,6 +1031,42 @@
     "notes": "Decision 0041. Concrete Rust representation (Predicate::When{guard,body} vs a Clause-level guard/body pair) is build's call — name it in the commit body; RequirementRow's nested Vec<ClauseRow> is the closest precedent. Serialized behind ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH (its own chain covers CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH/CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP too) so the new variant lands after those exhaustive matches ship."
   },
   {
+    "tag": "BUILTIN-CONTRACT-FOR-KIND-CONSOLIDATE",
+    "summary": "builtin.rs's contract_for_kind hand-rolls compose.rs's default_contract_from_rows' filter-by-kind/build-Contract shape over the embedded lock instead of calling it",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-WHEN-GUARD-CLAUSE-FORM"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin.rs",
+          "description": "contract_for_kind (36-48) filters builtin_lock::declarations().clauses by row.kind.as_deref() == Some(kind), maps each row through this file's own private clause_from_row wrapper (25-30, itself only compose::clause_from_row(row).expect(...)), collects, and builds Contract{name: kind.to_string(), clauses, guidance: None} — the identical filter/map/collect/construct shape compose.rs's default_contract_from_rows (141-155) already implements over the committed lock's rows, down to the same Contract field construction; the two differ only in trusting the embedded rows to never error versus propagating ClauseRowError. compose.rs's own doc comment (132-133) already names the two as 'the same lift ... run here over the committed lock's [rows]', but the code duplicates the shape rather than sharing it. Replace contract_for_kind's body with a call to compose::default_contract_from_rows(&builtin_lock::declarations().clauses, kind), unwrapped via .expect() carrying the existing panic message unchanged ('the embedded built-in lock declares only required/advisory severities and this projection's supported predicates, each carrying its required argument'), and delete the now-unused private clause_from_row wrapper (18-30, doc included) along with any import it alone required."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "the_shipped_built_in_packages_are_admissible stays green and non-vacuous over the whole embedded roster — every kind's floor contract is byte-identical after routing through the shared lift"
+      },
+      {
+        "path": "tests/rule_contract.rs",
+        "asserts": "the exact pinned decidable clause vector for rule's embedded floor is unchanged by the refactor"
+      }
+    ],
+    "acceptance": "builtin.rs's contract_for_kind calls compose::default_contract_from_rows instead of re-implementing its filter/collect/construct-Contract shape; the local clause_from_row wrapper is gone. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping the provider subsystem (posture rotation: pipeline done, provider this tick; provider's only touch since its last sweep at fe3ff3f is 516f8f6, already-shipped, no residue). Serialized behind CONTRACT-WHEN-GUARD-CLAUSE-FORM, the sole queue entry touching builtin.rs, for shared-file safety — no functional dependency; that entry's files[] already flags this exact duplication as a to-verify item, so this resolves it first. scoped at 7622f13."
+  },
+  {
     "tag": "CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP",
     "summary": "SDK gains a `when(guard, body)` clause constructor and lock round-trip for decision 0041's guard form; declarations.ts/generated types/root export updated",
     "per": {
