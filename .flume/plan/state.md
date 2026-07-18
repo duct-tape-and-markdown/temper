@@ -6,63 +6,43 @@
 - Audited through: c1b0f51 — advanced from 4e46eac.
 - Residue swept through: c1b0f51 — advanced from 4e46eac.
 - Posture swept through: provider next (mid-rotation) — pipeline read and
-  swept this tick (touched: drift.rs by 0282dc7/72daab3/112b188 since its
-  own last full sweep) — 4 new findings.
-- This tick: POSTURE SWEEP — pipeline subsystem (`src/drift.rs`,
-  `src/import.rs`, `src/read.rs`, `src/builtin_lock.rs`; `placement` not
-  yet shipped), the rotation's second full pass over this subsystem. All
-  four files read whole against every `specs/process/engineering.md`
-  section plus the sweep's cohesion/dead-plumbing lenses, cross-checked
-  against the 10 pending entries already chained onto these files from the
-  rotation's first pass to avoid re-filing. Zero-consumer and
-  exhaustive-match checks came back clean beyond what those existing
-  entries already cover (`builtin_lock.rs` has no queued entry and is
-  itself clean — single job, no dead paths). Filed 4 new pending entries,
-  all cost-scale-hoist shaped (`engineering.md`, "Cost scale is hoisted,
-  and pinned by count"), each serialized behind the nearest existing
-  entry sharing its file: DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST
-  (`config_stale`'s own `walk_lock_rows` re-parse of `lock.toml` inside
-  `gate()`, uncovered by DRIFT-SOURCE-DEP-PARSE-HOIST's narrower
-  `source_deps` scope; folds in `walk_lock_rows` duplicating
-  `read_lock_document`'s read+parse), DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST
-  (`manifest_segment_reaps`/`emit_manifest` each re-read the same
-  represented-manifest file within one `emit()` pass),
-  IMPORT-DECLARED-GOVERNED-PATHS-HOIST (`declared_governed_paths`
-  recomputed identically per nested-file kind instead of once per run),
-  READ-BY-KIND-INDEX-HOIST (`explain()`'s member path scans the whole
-  `by_kind` corpus independently at 5+ sites — `resolve`/`why`/
-  `count_satisfiers`/`narrate_satisfied`/`field` — instead of one shared
-  index). Filed 4 refactor captures for design-decision-shaped findings
-  the sweep cannot resolve unilaterally: `plan-import-read-dirs-vacuous-pin`
-  (`READ_DIRS` count-pin never incremented anywhere — the
-  `check_cost.rs` assertion it backs is structurally vacuous,
-  `engineering.md` "A green verdict is proven non-vacuous"),
-  `plan-import-write-rollup-placement` (the lock roll-up writer
-  — `RollupEntry`/`write_rollup`/`rollup_tables` — lives in `import.rs`
-  though architecture.md's codemap and drift.rs's sole-caller status both
-  point at `drift.rs`; needs a page amendment or a ruling that import's
-  header-stated second job stands), `plan-read-context-member-citer-grain`
-  (`context_member_one` re-implements `narrate_citers`' filter-and-narrate
-  shape at a different grain — same job or genuinely distinct is a design
-  call), `plan-read-verb-strand-cohesion` (read.rs's five dispatch strands,
-  particularly the telemetry-only `field` strand, against architecture.md's
-  own flat-split growth rule vs. the module's stated "one CLI verb"
-  framing). Checked ahead: judges is clean-skippable (`git log
-  fe3ff3f..HEAD -- src/engine.rs src/graph.rs src/dial.rs src/coverage.rs
-  src/coverage_note.rs src/display.rs src/reporter.rs` empty) — skipped
-  forward in bulk this tick per the posture-sweep rule. provider is not
-  clean-skippable (`git log fe3ff3f..HEAD -- src/builtin.rs
-  src/builtin_kind.rs` shows 516f8f6 touched builtin_kind.rs since its own
-  last full sweep) — next tick reads it whole rather than skipping.
-- Queue: 32 pending — 4 added this tick (all `blockedBy`, none open).
-  1 pickable OPEN (PLACEMENT-MODULE-EXTRACTION), 29 chained blockedBy (all
-  resolving to live tags), 2 parked on human action (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER). Open forks unchanged:
-  (multi-harness-projection), (lazy-grounds), neither touched. Refactor
-  captures: 4 live (filed this tick, listed above). Friction: 0 live.
-  Inbox: 0 notes.
+  swept last tick (touched: drift.rs by 0282dc7/72daab3/112b188 since its
+  own last full sweep) — 4 new findings, unchanged this tick.
+- This tick: INBOX — drained the 4 refactor captures pipeline's posture
+  sweep filed last tick. Each claim re-verified at HEAD (`git log
+  7ac498a..HEAD -- src/import.rs src/drift.rs src/read.rs
+  tests/check_cost.rs` empty — nothing shipped since filing, no claim
+  narrowed or moved) before scoping. Two resolved decidably without
+  inventing intent, filed `open`/`blockedBy`: IMPORT-READ-DIRS-VACUOUS-PIN-RETIRE
+  (`rg 'fs::read_dir\b' src/` confirms zero call sites anywhere in the
+  crate — the guarded site the counter was built for was cut at 0bc0ee9
+  and never replaced, so `READ_DIRS`/`read_dir_count`/the `check_cost.rs`
+  `read_dirs == 0` assertion are structurally unconstructable to nonzero;
+  `engineering.md` "A green verdict is proven non-vacuous" makes retiring
+  the dead pin decidable, not a design call — serialized behind
+  IMPORT-DECLARED-GOVERNED-PATHS-HOIST, the chain's last import.rs
+  toucher). Two are genuinely unruled and filed `parked` rather than
+  invented: IMPORT-ROLLUP-WRITER-PLACEMENT (import.rs's roll-up writer
+  contradicts the codemap's stated import="discovery"/drift="the lock"
+  split the same way the four edges architecture.md's Invariants section
+  already enumerates and rules do — but unlike those four, no human edit
+  has named this fifth instance yet, and Growth rules makes that
+  ratification human-only, not plan's to presume) and
+  READ-CONTEXT-MEMBER-CITER-GRAIN / READ-VERB-STRAND-COHESION (grain and
+  cohesion judgment calls a re-read of `read.rs` confirmed still turn on
+  taste — leaf-vs-member address narration and the module's stated "one
+  CLI verb" framing vs. Growth rules' flat-split default — neither
+  decidable from the code alone). All 4 capture files deleted.
+- Queue: 36 pending — 4 added this tick (1 blockedBy, 3 parked, none
+  open). 1 pickable OPEN (PLACEMENT-MODULE-EXTRACTION), 30 chained
+  blockedBy (all resolving to live tags), 5 parked on human action
+  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
+  IMPORT-ROLLUP-WRITER-PLACEMENT, READ-CONTEXT-MEMBER-CITER-GRAIN,
+  READ-VERB-STRAND-COHESION). Open forks unchanged: (multi-harness-projection),
+  (lazy-grounds), neither touched. Refactor captures: 0 live (drained this
+  tick). Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — 4 live refactor captures now sit in `.flume/refactor/`
-for the next tick's inbox job to verify and drain into pending entries (or
-retire if HEAD has moved past the claim), taking priority over the posture
-sweep's own continuation to provider.
+Plan continues: yes — no live inbox/spec-delta/reconciliation input
+remains, so the next tick resumes the posture sweep's own rotation at
+provider (`src/builtin.rs`, `src/builtin_kind.rs`), already known
+not-clean-skippable from last tick's forward check.

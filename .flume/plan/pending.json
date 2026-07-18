@@ -1261,5 +1261,141 @@
     ],
     "acceptance": "a single explain() call for a Species::Member target builds its by_kind lookup index once and every strand (why/count_satisfiers/narrate_satisfied/field) reads from it instead of independently rescanning by_kind. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Found sweeping pipeline, second rotation pass (read.rs is the pipeline subsystem's 'read verbs' resolution' module). Distinct from GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE (edge walk, not member lookup) and READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE (a const dedup, not a cost hoist). Serialized behind READ-GRAPH-DIRECTIVE-FIELD-CONSOLIDATE, the last pending entry touching read.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 7ac498a."
+  },
+  {
+    "tag": "IMPORT-READ-DIRS-VACUOUS-PIN-RETIRE",
+    "summary": "READ_DIRS's guarded fs::read_dir call site was cut at 0bc0ee9 — the counter can never move, so check_cost.rs's read_dirs==0 assertion is vacuous; retire counter, getter, assertion",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A green verdict is proven non-vacuous"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "IMPORT-DECLARED-GOVERNED-PATHS-HOIST"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Retire the `READ_DIRS` thread_local (118-126, doc: 'a scan reintroducing a fs::read_dir bumps it off zero') and its getter `read_dir_count()` (128-134). `rg 'fs::read_dir\\b' src/` returns zero call sites anywhere in the crate — the guarded site 0bc0ee9 removed was the only one that ever existed, and `collect_glob` (419) derives every kind's matches from the in-memory `Discoverable` index, never the filesystem. The counter is structurally unconstructable to nonzero; nothing wires it, nothing can."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Drop `read_dirs_before`/`read_dirs` (148,154), the `{read_dirs}` term in the phase-1 `eprintln!` (170), and the `read_dirs == 0` `assert_eq!` block (194-203) it backs. The module doc (1-10) frames the invariant as one the test 'decides by counts' alongside the two live pins (`compiles`, `walks`) it keeps — reword the sentence naming `read_dirs` to state only what those two still assert."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob still pins the two live counts (glob compiles <= 32, walks <= 2) and prints its diagnosis without a read_dirs term — no assertion claims a count nothing in the crate can move"
+      }
+    ],
+    "acceptance": "src/import.rs carries no READ_DIRS counter or read_dir_count() getter; tests/check_cost.rs's diagnosis and assertions name only the two live pins. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Drained from .flume/refactor/plan-import-read-dirs-vacuous-pin.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs tests/check_cost.rs is empty at 0388334, claim unchanged). Serialized behind IMPORT-DECLARED-GOVERNED-PATHS-HOIST, the chain's last entry touching src/import.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 0388334."
+  },
+  {
+    "tag": "IMPORT-ROLLUP-WRITER-PLACEMENT",
+    "summary": "import.rs's RollupEntry/write_rollup/rollup_tables implement the lock's roll-up write face inside discovery, though drift.rs is sole caller and owns 'the lock' per the codemap — home unruled",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "architecture.md's codemap already assigns drift 'emit, the lock, drift detection' (39-41) and import only 'discovery' (40) — import.rs's RollupEntry (160-174)/write_rollup (585-608)/rollup_tables (613-624) implement the lock's roll-up write face inside the discovery module anyway, and the module's own header claims it as a stated second job. This is the same class of contradiction the Invariants section's four enumerated edges (71-84) already rule 'code moving, map standing' — each ratified by a human edit naming the specific edge (0040's three, the 2026-07-18 normalize_path addition) before a pending entry moved code. This fifth contradiction, surfaced this tick, isn't yet named there; moving the writer to drift.rs, or amending the codemap to state import's second job, are both live until a human picks (Growth rules: 'a page amendment is human-ratified, never derived')."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "If ratified toward code-moves (the four prior instances' resolution): `RollupEntry` (160-174), `write_rollup` (585-608), `rollup_tables` (613-624), and the `create_dir_all`/`write_bytes` helpers (627-640) move to drift.rs; the module header (1, 'Harness discovery and the lock.toml roll-up writer') loses its second clause."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Already the sole caller — `use crate::import::{RollupEntry, write_rollup}` (29), `RollupEntry` construction (1310,1325), and the `write_rollup` call (1367) become intra-module once the writer lands here."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "the existing lock.toml round-trip coverage (emit_compiles_every_projection_and_the_whole_lock_from_the_payload and its neighbors) stays green — the move is location-only, no behavior change"
+      }
+    ],
+    "acceptance": "Either import.rs's roll-up writer has moved to drift.rs (architecture.md's codemap holds without contradiction) or architecture.md's Invariants section names this as a fifth ruled edge and import's codemap entry states the second job — whichever the human ratifies. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Drained from .flume/refactor/plan-import-write-rollup-placement.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs src/drift.rs is empty at 0388334, claim unchanged). scoped at 0388334."
+  },
+  {
+    "tag": "READ-CONTEXT-MEMBER-CITER-GRAIN",
+    "summary": "read.rs's context_member_one re-implements narrate_citers' filter-then-narrate shape at member grain with a different predicate and print form — same job or distinct grain is unruled",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "narrate_citers (778-810) filters citations on the full four-part leaf address and prints a plain 'cites it'. context_member_one's inline block (1017-1041) filters only on target.member == features.id — member grain, any leaf under the member — and prints each citer's full leaf address, since several distinct leaves may match at that grain. Both filter citations then narrate a bullet list, but the predicate width and print form diverge for a stated reason: leaf grain already knows the address from context, member grain must disambiguate which leaf. Generalizing narrate_citers to a predicate-plus-format closure ('One job, one home': generalize the near-duplicate before adding new) or declaring the divergence intentional ('The fix lands at the mechanism': a divergence at the right depth, declared not merged) is a design-taste call the code alone doesn't settle."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "narrate_citers (778-810, shared by impact_leaf at 754 and context_leaf at 930) and context_member_one's inline citer block (1017-1041, its only caller). Whichever the ruling favors: generalize narrate_citers to take the predicate and format choice, or rename the inline block to state its divergence is deliberate."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "a_member_target_walks_why_impact_and_context (107) and a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (237) keep asserting both grains' citer narration unchanged, whichever resolution lands"
+      }
+    ],
+    "acceptance": "Either narrate_citers generalizes to cover both call sites, or context_member_one's block carries a comment naming the grain divergence as deliberate — a human call, not a derived one. cargo test green.",
+    "notes": "Drained from .flume/refactor/plan-read-context-member-citer-grain.md (observed 7ac498a; git log 7ac498a..HEAD -- src/read.rs is empty at 0388334, claim unchanged). scoped at 0388334."
+  },
+  {
+    "tag": "READ-VERB-STRAND-COHESION",
+    "summary": "read.rs (1844 lines) dispatches five independent narration strands under its own 'one CLI verb' framing — architecture.md's flat-split growth rule may call for extraction; human call needed",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Growth rules"
+    },
+    "gate": {
+      "kind": "parked",
+      "reason": "read.rs's module doc (1-3) frames itself as 'one CLI verb, [explain], over four traversals ... plus a telemetry field strand' — a stated design stance. The file dispatches five largely independent strands off explain()'s Species match, each with private helpers and its own #[cfg(test)] proofs: why/why_one (320-529), impact/impact_leaf/impact_one (593-1237), context/context_leaf/context_member/context_member_one (856-1110), requirements (1249-1435), and field (1464-1537, sharing no machinery with the other four — the telemetry strand). Growth rules anticipate exactly this shape ('Splits land flat: a cohesion finding extracts a new module into its host's subsystem'), but the module's own framing is a stated stance, not an accident this sweep can overrule — whether 'one CLI verb' is the right unit or an accepted-but-named cost is a human call on the codemap."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "The five strands (why 320-529, impact 593-1237, context 856-1110, requirements 1249-1435, field 1464-1537) plus the module header (1-3) stating the 'one CLI verb' framing — a split, if ratified, lands flat per Growth rules ('the codemap gains a name, the tree gains a file, no directories'), naming which strand(s) extract and to what module name."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "every strand's existing coverage stays green across whichever resolution lands — split or not, any module boundary change is location-only"
+      }
+    ],
+    "acceptance": "architecture.md's codemap either gains a named split for read.rs's strands, or the module's 'one CLI verb' framing is affirmed as the accepted unit — a human ratification either way. cargo test green.",
+    "notes": "Drained from .flume/refactor/plan-read-verb-strand-cohesion.md (observed 7ac498a; git log 7ac498a..HEAD -- src/read.rs is empty at 0388334, claim unchanged). scoped at 0388334."
   }
 ]
