@@ -54,6 +54,35 @@ shape, so it lives here:
   **other consumers** in its own files[] — "who else reads this set?"
   is derivation's question, never the consumer's bug report.
 
+## Derived state is computed, never stored beside its source
+
+A value computable from existing state enters the tree as a
+computation, never a second stored field kept in sync by discipline —
+two copies of one truth is the shared-concept disease in miniature,
+and sync is a bug class no compiler checks. The product already holds
+this bar for its own artifacts (`pipeline.md`, "Emit": derived facts
+are computed, never authored twice); the code holds it for itself.
+Caching a derivation is the sanctioned exception, taken for a measured
+cost (per the cost section's measure-first bar), and a cache is one
+home with one invalidation — never ad-hoc copies at call sites.
+
+## The fix lands at the mechanism
+
+A special case layered on shared infrastructure — a path carve-out in
+generic code, a kind-name test inside a kind-generic judge, a flag
+threaded through to exempt one caller — is the signature of a change
+pitched too shallow. The preferred fix generalizes the mechanism until
+the case stops being special: the discovery override precedent was not
+"also read this one gitignored path" but "a committed kind's declared
+claim overrides discovery's presumptions, for exactly its scope."
+
+- A branch on a *specific instance* inside code that is otherwise
+  generic over its type is residue fileable against this section.
+- A divergence that genuinely is the right depth — a documented
+  per-instance fact of the external format, like the hooks
+  collection's deeper nesting — is declared and cited at the site,
+  never left looking like an accident.
+
 ## The gauntlet corpus
 
 Single-feature fixtures cannot find composition seams; the field
