@@ -5,9 +5,10 @@
 //! test time and never committed. Discovery — the phase `check` opens with, walking the
 //! consumer's whole tree per kind — is timed over it so the numbers, not a guess, name
 //! where the residual concentrates; the timings print (a manual signal a human reads) and
-//! the test asserts the work-count pin the cut earns: glob compilation is hoisted per
-//! distinct glob, never recomputed per candidate file, decided by a count and independent
-//! of tree size.
+//! the test asserts the work-count pins the cuts earn — decided by counts, independent of
+//! tree size: the shared walk runs once per flavor, glob compilation is hoisted per
+//! distinct glob rather than per candidate file, and the per-kind glob scan reads its
+//! members from that one walk's index, opening no directory of its own.
 
 mod common;
 
@@ -146,11 +147,13 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     let disc = Discovery::new(&harness);
     let walks_before = import::walk_count();
     let compiles_before = kind::glob_compile_count();
+    let read_dirs_before = import::read_dir_count();
     let walk_start = Instant::now();
     let discovered = discover_all(&disc, &harness);
     let discover_ms = walk_start.elapsed().as_millis();
     let walks = import::walk_count() - walks_before;
     let compiles = kind::glob_compile_count() - compiles_before;
+    let read_dirs = import::read_dir_count() - read_dirs_before;
 
     // Phase 2 — read + hash every discovered member (the read-side phase).
     let read_files = discovered.len();
@@ -166,7 +169,7 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     // commit body), never an asserted wall-clock bar.
     eprintln!("check-cost diagnosis over {file_count} files (build {build_ms} ms):");
     eprintln!(
-        "  phase 1  discovery walk + per-kind scan : {discover_ms:>6} ms  ({walks} flavor walks, {compiles} glob compiles)"
+        "  phase 1  discovery walk + per-kind scan : {discover_ms:>6} ms  ({walks} flavor walks, {compiles} glob compiles, {read_dirs} scan dir reads)"
     );
     eprintln!("  phase 2  read + hash {read_files:>6} members    : {read_ms:>6} ms");
 
@@ -188,5 +191,16 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     assert!(
         walks <= 2,
         "discovery must walk each flavor at most once, not per kind: {walks} walks",
+    );
+
+    // The count-pin the scan-share cut earns: each kind derives its members by matching
+    // the one shared walk's in-memory index, so the per-kind glob scan opens no directory
+    // of its own. At >10k files across every locus shape — flat, subdir, and any-depth
+    // `**` — a re-walk would read tens of thousands of directories; the cut pins that to
+    // zero, decidable and independent of both kind count and tree size.
+    assert_eq!(
+        read_dirs, 0,
+        "the per-kind glob scan must read no directory from disk — it derives matches from \
+         the shared discovery index: {read_dirs} scan dir reads over {file_count} files",
     );
 }
