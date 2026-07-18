@@ -510,7 +510,29 @@ pub fn judge(selections: &[Selection]) -> Vec<Diagnostic> {
                 }
                 // `degree` binds to a selection too, but its judge needs the graph.
                 // Every other predicate binds to a member, not a set.
-                _ => {}
+                Predicate::Required { .. }
+                | Predicate::Optional { .. }
+                | Predicate::Type { .. }
+                | Predicate::MinLen { .. }
+                | Predicate::MaxLen { .. }
+                | Predicate::Range { .. }
+                | Predicate::Enum { .. }
+                | Predicate::Deny { .. }
+                | Predicate::ForbiddenKeys { .. }
+                | Predicate::AllowedChars { .. }
+                | Predicate::Shape { .. }
+                | Predicate::GlobValid { .. }
+                | Predicate::ClosedKeys
+                | Predicate::Extent { whole: false, .. }
+                | Predicate::RequireSections { .. }
+                | Predicate::MustDefine { .. }
+                | Predicate::SectionContains { .. }
+                | Predicate::NameMatchesDir
+                | Predicate::UniqueName
+                | Predicate::DependencyExists
+                | Predicate::Degree { .. }
+                | Predicate::MentionReachable { .. }
+                | Predicate::FormatPlacesEdges => {}
             }
         }
     }
