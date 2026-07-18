@@ -75,7 +75,8 @@ impl Dial {
     /// Whether this machine dials nothing — the common case, and the one every caller
     /// below is a no-op for.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    #[allow(dead_code)]
+    fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
 
