@@ -19,6 +19,7 @@ import {
   mustDefine,
   optional,
   range,
+  requireSections,
   script,
   sectionContains,
   telemetry,
@@ -221,4 +222,13 @@ test("the telemetry constructor composes an event-tagged verifier and lowers its
 
 test("a requirement with no verifier lowers to an absent verifier column", () => {
   assert.equal(verifierRowOf(undefined), undefined);
+});
+
+test("requireSections composes a heading-list predicate landing its sections column", () => {
+  assert.deepEqual(requireSections(["Usage", "Decision"]), {
+    key: "require_sections",
+    sections: ["Usage", "Decision"],
+  });
+  const row = skillClauseRow(requireSections(["Installation", "Example"]));
+  assert.deepEqual(row.sections, ["Installation", "Example"]);
 });

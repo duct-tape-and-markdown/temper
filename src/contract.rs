@@ -458,6 +458,9 @@ pub fn predicate_from_row(row: &ClauseRow) -> Option<Predicate> {
         "must_define" => Predicate::MustDefine {
             marker: row.field.clone()?,
         },
+        "require_sections" => Predicate::RequireSections {
+            sections: row.sections.clone()?,
+        },
         "section_contains" => {
             let section = row.section.as_ref()?;
             Predicate::SectionContains {

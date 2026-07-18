@@ -248,5 +248,6 @@ fn row(predicate: &str, unit: Option<&str>, max: Option<usize>) -> ClauseRow {
         values: None,
         range: None,
         section: None,
+        sections: None,
     }
 }

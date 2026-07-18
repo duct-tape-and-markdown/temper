@@ -329,6 +329,7 @@ mod tests {
             values: None,
             range: None,
             section: None,
+            sections: None,
         }
     }
 
@@ -362,6 +363,7 @@ mod tests {
                 values: None,
                 range: None,
                 section: None,
+                sections: None,
             },
             ClauseRow {
                 unit: Some("lines".to_string()),
@@ -387,6 +389,7 @@ mod tests {
                 values: None,
                 range: None,
                 section: None,
+                sections: None,
             },
         ];
 

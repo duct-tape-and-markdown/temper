@@ -3256,6 +3256,10 @@ pub struct ClauseRow {
     /// predicate is `section_contains`.
     #[serde(default)]
     pub section: Option<SectionContainsRow>,
+    /// The `require_sections` clause's required heading list, when the predicate is
+    /// `require_sections`.
+    #[serde(default)]
+    pub sections: Option<Vec<String>>,
 }
 
 /// A `range` clause row's inclusive numeric bound — `f64` so one predicate spans both
@@ -4169,6 +4173,9 @@ impl ClauseRow {
         if let Some(section) = &self.section {
             table.insert("section", value(section_contains_table(section)));
         }
+        if let Some(sections) = &self.sections {
+            table.insert("sections", value(string_array(sections)));
+        }
         table
     }
 
@@ -4214,6 +4221,7 @@ impl ClauseRow {
                 Some(section) => Some(section_contains_from_table(section)?),
                 None => None,
             },
+            sections: opt_str_array(table, "sections")?,
         })
     }
 }

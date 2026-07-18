@@ -732,6 +732,54 @@ fn a_range_and_section_clause_row_round_trip_the_lock() {
     assert_eq!(section.marker, "Rejected");
 }
 
+/// The `require_sections` (heading-list) clause row round-trips its arguments through
+/// `to_table`/`from_table` byte-stably — the column homes the `PREDICATE-CONSTRUCTORS`
+/// entry adds alongside the existing node-scope args.
+#[test]
+fn a_require_sections_clause_row_round_trips_the_lock() {
+    let mut declarations = rich_declarations();
+    declarations.clauses.push(ClauseRow {
+        unit: None,
+        label: None,
+        kind: Some("skill".to_string()),
+        sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
+        ..common::clause("require_sections", "required")
+    });
+
+    let payload = golden_payload(declarations);
+    let (_harness, into) = emitted("require-sections-args", &payload);
+    let lock = into.join("lock.toml");
+    let first = fs::read(&lock).unwrap();
+
+    // Double-emit byte stability: the sections list formats stably across the round trip.
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(
+        first,
+        fs::read(&lock).unwrap(),
+        "a re-emit must not churn the lock"
+    );
+
+    let read_back = drift::read_declarations(&into).unwrap();
+    let require_sections_row = read_back
+        .clauses
+        .iter()
+        .find(|c| c.predicate == "require_sections")
+        .expect("the require_sections clause row round-trips");
+    assert_eq!(
+        require_sections_row.sections.as_deref(),
+        Some(["Usage".to_string(), "Decision".to_string()].as_slice())
+    );
+
+    let predicate =
+        contract::predicate_from_row(require_sections_row).expect("require_sections lifts");
+    assert_eq!(
+        predicate,
+        Predicate::RequireSections {
+            sections: vec!["Usage".to_string(), "Decision".to_string()],
+        }
+    );
+}
+
 /// The five SDK-authorable predicates lift from their lock rows into the typed
 /// `Predicate` the engine evaluates (`PREDICATE-CONSTRUCTORS`): the row an SDK
 /// constructor emits decodes through `predicate_from_row`, and the lifted
@@ -837,6 +885,21 @@ fn the_five_sdk_authorable_predicate_rows_lift_and_evaluate() {
     let diagnostics = engine::validate(&contract, std::slice::from_ref(&features));
     assert_eq!(diagnostics.len(), 1, "the bare Decision section fires once");
     assert_eq!(diagnostics[0].rule, "spec.section_contains");
+
+    let require_sections = ClauseRow {
+        unit: None,
+        label: None,
+        sections: Some(vec!["Usage".to_string(), "Decision".to_string()]),
+        ..common::clause("require_sections", "required")
+    };
+    let predicate =
+        contract::predicate_from_row(&require_sections).expect("require_sections lifts");
+    assert_eq!(
+        predicate,
+        Predicate::RequireSections {
+            sections: vec!["Usage".to_string(), "Decision".to_string()],
+        }
+    );
 }
 
 /// A lock clause row the closed vocabulary cannot admit fails the run loud, never a

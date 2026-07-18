@@ -74,6 +74,8 @@ export interface Predicate {
   readonly range?: { readonly min: number; readonly max: number };
   /** `section_contains`'s heading-text prefix and the marker each governed section must carry. */
   readonly section?: { readonly heading: string; readonly marker: string };
+  /** `require_sections`'s required heading list. */
+  readonly sections?: readonly string[];
   /** `extent`'s declared unit — the render-side size proxy the bound is measured in. */
   readonly unit?: ExtentUnit;
 }
@@ -165,7 +167,7 @@ export const deny = (field: string, values: readonly string[]): Predicate => ({
   values,
 });
 /** The named headings are present. */
-export const requireSections = (): Predicate => ({ key: "require_sections" });
+export const requireSections = (sections: readonly string[]): Predicate => ({ key: "require_sections", sections });
 /** The member's name matches its directory. */
 export const nameMatchesDir = (): Predicate => ({ key: "name-matches-dir" });
 /** Names are unique within the artifact kind (a scope-wide identity collision). */

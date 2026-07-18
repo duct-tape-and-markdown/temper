@@ -149,4 +149,9 @@ range?: RangeBoundRow,
  * The `section_contains` clause's heading prefix and required marker, when the
  * predicate is `section_contains`.
  */
-section?: SectionContainsRow, };
+section?: SectionContainsRow, 
+/**
+ * The `require_sections` clause's required heading list, when the predicate is
+ * `require_sections`.
+ */
+sections?: Array<string>, };

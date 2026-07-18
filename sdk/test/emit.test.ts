@@ -235,6 +235,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       values: undefined,
       range: undefined,
       section: undefined,
+      sections: undefined,
  },
  {
       kind: "rule",
@@ -256,6 +257,7 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       values: undefined,
       range: undefined,
       section: undefined,
+      sections: undefined,
  },
   ]);
   assert.deepEqual(declarations.requirements, [

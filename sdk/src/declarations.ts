@@ -112,6 +112,10 @@ function clauseRow(clause: Clause, kind?: string): ClauseRow {
       predicate.key === "section_contains" && predicate.section !== undefined
         ? { heading: predicate.section.heading, marker: predicate.section.marker }
         : undefined,
+    sections:
+      predicate.key === "require_sections" && predicate.sections
+        ? [...predicate.sections]
+        : undefined,
   };
 }
 
