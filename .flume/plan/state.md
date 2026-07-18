@@ -4,59 +4,64 @@
   normalize_path Invariants amendment) is fully routed, nothing past it
   remains un-derived.
 - Audited through: 785abd7 — unchanged. `git log 785abd7..HEAD -- src/
-  tests/ sdk/` is empty (the two commits past it, 5d60a8a and 269a4a1,
-  are plan-only) — nothing to reconcile.
+  tests/ sdk/` is empty (the three commits past it, 5d60a8a, 269a4a1,
+  cd286da, are plan-only) — nothing to reconcile.
 - Residue swept through: 785abd7 — unchanged, same empty window.
-- Posture swept through: model next (mid-rotation) — foundation swept
-  quiet last tick (untouched since 3871eba), rotation advanced alone to
-  `model`, which this tick's note flagged NOT clean-skippable
-  (b4a2467 touched compose.rs). Read whole this tick; see below.
-- This tick: POSTURE SWEEP — job 4, model subsystem (`kind`/`contract`/
-  `compose`/`schema`/`roster`). Read all five files in full against
-  every section of `specs/process/engineering.md` plus the sweep's
-  cohesion/dead-plumbing lenses. b4a2467's own change
-  (COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE) reads clean in place:
-  `compose::severity_from_label` (compose.rs:265) carries exactly two
-  callers (its own `clause_from_row` and `dial.rs`), doc comment
-  accurate, no residue. Cross-checked every `pub`/`pub(crate)` item's
-  consumer count by grep across all five files for zero-consumer
-  surface (`engineering.md`, "An export earns its consumer"): no new
-  gap beyond the three already queued in KIND-ZERO-CONSUMER-EXPORTS-PRUNE
-  (`Commitment::label`, `Content::label`, `CustomKind::qualified_name`)
-  and BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE (`KindError`) —
-  `Charset::allows`, `Shape::admits`/`match_holds`/`demand`/`name`,
-  `ExtentUnit::name`, `with_joined_clauses`, `spans_whole_manifest`,
-  `key_field`, `identity_edge`, `glob_leaf`, `kind_narrowing_clause` all
-  read live external callers (engine.rs, graph.rs, json_manifest.rs,
-  coverage_note.rs, drift.rs, main.rs, roster.rs, tests). Exhaustive-match
-  discipline ("A shared concept is one type") holds everywhere but the
-  two already-queued gaps (kind.rs's `declared_fields`, contract.rs's
-  `declared_keys`) — contract.rs's `target`/`documented_field`/
-  `Predicate::key` and schema.rs's `emit` dispatch are all pipe-grouped
-  exhaustive, no `_` arm. No cost-hoist or vacuity-pin gap: none of the
-  five files performs I/O or ranges a judge loop of its own. No new
-  pending entry — quiet-on-clean.
-  Checked ahead for next tick: formats (`frontmatter`/`document`/
-  `json_manifest`/`toml_document`) is NOT clean-skippable — `git log
-  7a5f86c..HEAD -- src/frontmatter.rs src/document.rs
-  src/json_manifest.rs src/toml_document.rs` shows d577bdf
-  (JSON-MANIFEST-READ-DECODE-CONSOLIDATE) and d65af7d
-  (TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE) in the window. Next tick
-  reads formats whole rather than skipping.
-- Queue: 32 pending, unchanged — 4 pickable OPEN
-  (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
+- Posture swept through: pipeline next (mid-rotation) — model swept
+  quiet last tick, rotation advanced alone to `formats`, which the
+  prior tick's note flagged NOT clean-skippable (d577bdf/d65af7d
+  touched json_manifest.rs/toml_document.rs). Read whole this tick;
+  see below.
+- This tick: POSTURE SWEEP — job 4, formats subsystem (`frontmatter`/
+  `document`/`json_manifest`/`toml_document`). Read all four files in
+  full against every section of `specs/process/engineering.md` plus
+  the sweep's cohesion/dead-plumbing lenses.
+  d577bdf (JSON-MANIFEST-READ-DECODE-CONSOLIDATE) and d65af7d
+  (TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE) read clean in place: no
+  residue left at their sites. Cross-checked every `pub`/`pub(crate)`
+  item's consumer count by grep across all four files for
+  zero-consumer surface (`engineering.md`, "An export earns its
+  consumer"): `fold_file_id`, `Member::field`/`has_field`,
+  `item_to_json`/`value_to_json`, `Satisfies::new`, `write_document`,
+  `CollectionSegment`, `DocumentMember::parse`/`read`,
+  `Manifest::parse` all read live external callers (main.rs, bundle.rs,
+  builtin_kind.rs, graph.rs, engine.rs, kind.rs, drift.rs, install.rs,
+  tests) — no new gap. Exhaustive-match discipline ("A shared concept
+  is one type") holds: every `UnitShape` match in all three loaders
+  (frontmatter's `from_source_rooted`, json_manifest's
+  `DocumentMember::parse`, toml_document's `parse`) names every variant,
+  no `_` arm. All `FrontmatterError`/`JsonManifestError`/
+  `TomlDocumentError` variants are live-constructed (no dead-plumbing).
+  Architecture invariant check: `json_manifest.rs`'s `Manifest::read_kind`
+  still imports `crate::import` (the already-queued, chain-blocked
+  JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE) — no new edge found.
+  **One new finding**: `json_manifest.rs`'s `DocumentMember::parse`
+  (158-174) and `Manifest::parse` (359-371) each independently hash the
+  raw bytes, `serde_json::from_str` into a `JsonValue`, and require the
+  top level be an `Object` else `Malformed` — byte-identical job, two
+  authored copies differing only in a noun ("document" vs "manifest").
+  Filed JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE, `per`
+  engineering.md "One job, one home", `blockedBy`
+  FORMAT-READ-UTF8-DECODE-CONSOLIDATE (the only open entry sharing
+  json_manifest.rs — file-disjointness only, no functional dependency).
+  Checked ahead for next tick: pipeline (`drift`/`import`/`read`/
+  `builtin_lock`; `placement` not yet shipped) is clean-skippable —
+  `git log 662cf07..HEAD -- src/drift.rs src/import.rs src/read.rs
+  src/builtin_lock.rs` is empty. Next tick advances the rotation alone,
+  no whole read.
+- Queue: 33 pending — 4 pickable OPEN (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
   FORMAT-READ-UTF8-DECODE-CONSOLIDATE,
   CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE,
   DRIFT-LOCK-ROW-WALK-CONSOLIDATION — pairwise file-disjoint,
-  re-verified this tick), 26 chained blockedBy (unchanged links, all
-  still resolve to live tags), 2 parked on human action
+  re-verified this tick), 27 chained blockedBy (26 unchanged links plus
+  the new entry's, all resolve to live tags), 2 parked on human action
   (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — reasons
   unchanged, untouched this window). Open forks:
   (multi-harness-projection), (lazy-grounds) unchanged. Refactor
   captures: 0 live. Friction: 1 live (build-worktree-commits-land-on-
   main-branch.md, unchanged). Inbox empty.
-  Disjointness re-checked: no two OPEN entries share a file.
+  Disjointness re-checked: no two OPEN entries share a file (the new
+  entry is blockedBy, not open).
 
-Plan continues: yes — posture sweep resumes at `formats`
-(`frontmatter`/`document`/`json_manifest`/`toml_document`), not
-clean-skippable per the note above — the next tick reads it whole.
+Plan continues: yes — posture sweep resumes at `pipeline`, clean-skippable
+per the note above — the next tick advances the rotation alone.

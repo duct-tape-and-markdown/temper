@@ -250,6 +250,42 @@
     "notes": "Drained from .flume/refactor/plan-format-read-decode-duplication.md (observed 9e197d6). Not folded into JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own reasoning (file-local shape doesn't fit a cross-format primitive); that entry has since shipped (785abd7), unblocking this one. TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE has also shipped, so no other open entry still shares toml_document.rs. Re-verified on disk: frontmatter.rs:167-180, toml_document.rs:33-42 unmoved. scoped at 785abd7."
   },
   {
+    "tag": "JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE",
+    "summary": "json_manifest.rs's Manifest::parse and DocumentMember::parse each duplicate the same hash+parse+require-object job — consolidate into one shared helper",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "FORMAT-READ-UTF8-DECODE-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`DocumentMember::parse` (158-174) and `Manifest::parse` (359-371) each independently: hash `raw.as_bytes()` via `crate::hash::sha256_hex`, `serde_json::from_str(raw)` into a `JsonValue` mapping a parse error to `JsonManifestError::Malformed`, then require the top-level value be `JsonValue::Object` else return `JsonManifestError::Malformed` with a noun-specific message ('document top level is not a JSON object' vs 'manifest top level is not a JSON object') — the identical three-step job, two authored copies differing only in the local binding name and that one word. Factor a shared private fn, e.g. `fn parse_top_level_object(source_file: &Path, raw: &str, noun: &str) -> Result<(String, serde_json::Map<String, JsonValue>), JsonManifestError>` returning the source hash and the parsed object map, building the message as `format!(\"{noun} top level is not a JSON object\")`; have `DocumentMember::parse` call it with `\"document\"` and `Manifest::parse` call it with `\"manifest\"`, each keeping its own downstream logic (identity-field lookup vs address-driven member walk) unchanged. No behavior change: identical error variant, byte-identical message text per caller. Land after FORMAT-READ-UTF8-DECODE-CONSOLIDATE (a different job — bytes-to-String, not string-to-object — but the same file) for shared-file safety."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/json_manifest.rs",
+        "asserts": "a_non_object_top_level_is_a_loud_error_not_an_empty_read and malformed_json_is_a_loud_error (Manifest's own inline coverage) stay green with byte-identical error messages — the consolidation is call-site-only"
+      },
+      {
+        "path": "tests/json_document_format.rs",
+        "asserts": "existing DocumentMember::read/parse coverage (identity-key reads, no-declared-identity refusal, the reemitted-parse round-trip) stays green — the shared helper preserves DocumentMember's own downstream identity logic unchanged"
+      }
+    ],
+    "acceptance": "DocumentMember::parse and Manifest::parse both call one shared parse_top_level_object helper in src/json_manifest.rs instead of each carrying its own hash+parse+object-check block; error variants and messages are byte-identical to today's. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick — not clean-skippable per d577bdf/d65af7d in the prior window). Serialized behind FORMAT-READ-UTF8-DECODE-CONSOLIDATE, the only currently-open entry touching json_manifest.rs — no functional dependency, file-disjointness only (pending-entry.md, 'Disjoint, or serialized'). scoped at cd286da."
+  },
+  {
     "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
     "summary": "check.rs's ANNOUNCEMENT_HEADING is pub but read only by its own render() and its own inline tests — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
     "per": {
