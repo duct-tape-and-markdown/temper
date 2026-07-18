@@ -1,64 +1,5 @@
 [
   {
-    "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE",
-    "summary": "extract.rs's upward imports into drift/kind dissolve — lock-row lifters move to drift.rs, the manifest-collection grammar moves to json_manifest.rs; extract returns foundation-clean (0040)",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "Move `nested_members_from_rows` (764-772) and `embedded_member_from_row` (778-798, takes `crate::drift::NestedMemberRow`) down to `src/drift.rs`, which defines the row type. Move the manifest-collection grammar's both faces — `manifest_members` (1015-1040, branches on `crate::kind::CollectionKeyPath` at 1022/1032), `entry_fields` (1048-1056), `enablement_member_fields` (1075-1080, reads `crate::kind::ENABLEMENT_FIELD`), `enablement_entry_value` (1092-1098), `hook_member_fields` (1107-1135), `hook_matcher_group` (1144-1163) — down to `src/json_manifest.rs`, which already imports `crate::extract` for this exact grammar (json_manifest.rs:32,378,390) and owns the format's read+write faces the same way `frontmatter.rs` owns its own (0040, decision point 3, 'a format owns its grammar's read and write faces'). Their inline tests (`nested_members_from_rows_matches_only_the_named_host_address`/`_lifts_leaves_and_one_layer_of_collections` ~1525-1541; `manifest_members_walk_each_entry_raw_and_skip_a_non_object`, `enablement_members_carry_the_scalar_value_and_re_render_identically`, `an_enablement_member_with_no_enabled_field_renders_the_documented_true`, `hook_members_decompose_the_matcher_group_array_and_re_nest_identically` ~1362-1450) move with their functions. After both moves extract.rs imports no sibling module — `use std::...`/`serde_json` only — restoring the module header's own longstanding, narrower claim (22-23, 'no dependency on crate::contract') as the full foundation invariant architecture.md states."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Gains `nested_members_from_rows`/`embedded_member_from_row` from extract.rs, `pub(crate)` (matches today's visibility — `builtin_kind::features` at builtin_kind.rs:556 calls it across the module boundary as `crate::drift::nested_members_from_rows` once moved)."
-        },
-        {
-          "path": "src/json_manifest.rs",
-          "description": "Gains `manifest_members`/`entry_fields`/`enablement_member_fields`/`enablement_entry_value`/`hook_member_fields`/`hook_matcher_group` from extract.rs. Per the reconciliation decision 0040 names for the (now-superseded) EXTRACT-PRIVATE-COLLECTION-DECODERS entry: `manifest_members`, `entry_fields`, `hook_member_fields`, `enablement_member_fields` go fully private `fn` (called only in-module, by `manifest_members` at its own call site 378 and by each other) — none has a caller outside this file once the move lands; `enablement_entry_value`/`hook_matcher_group` stay `pub(crate)` since `crate::drift` calls them across the module boundary (drift.rs:1033,1047 — update the qualification from `crate::extract::` to `crate::json_manifest::`). Drop the now-local `extract::` qualification at the call site (378); the `crate::extract::{self, FeatureValue}` import (32) still needs `extract::json_to_feature` (390), so it narrows to `FeatureValue` plus a bare `extract` import for that one call — verify before narrowing."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`features` (554, doc comment 539) calls `extract::nested_members_from_rows` — requalify to `crate::drift::nested_members_from_rows` (or `drift::` if already imported) once the fn moves; reword the doc pointer at 539 to match."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "`ENABLEMENT_FIELD`'s doc comment (213, '`crate::extract::manifest_members`') points at the pre-move location — reword to `crate::json_manifest::manifest_members`."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`nested_member_admissibility`'s doc comment (2071, '`extract::nested_members_from_rows`') points at the pre-move location — reword to name `drift::nested_members_from_rows`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/drift.rs",
-        "asserts": "the moved nested_members_from_rows tests (host-address matching, one-layer collection lift) pass unchanged from their new home"
-      },
-      {
-        "path": "src/json_manifest.rs",
-        "asserts": "the moved manifest-grammar tests (raw entry walk skipping non-objects, enablement scalar round-trip, no-enabled-field defaulting true, hook matcher-group decompose/re-nest) pass unchanged from their new home"
-      },
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the composed-corpus check/emit snapshot stays byte-identical — the moves are signature/location-only, no behavior change to any manifest or nested-member read"
-      }
-    ],
-    "acceptance": "extract.rs imports no crate-internal sibling (foundation-clean); the lock-row lifters live in drift.rs and the manifest-collection grammar (both read and write faces) lives in json_manifest.rs, with manifest_members/entry_fields/hook_member_fields/enablement_member_fields private and enablement_entry_value/hook_matcher_group pub(crate) for drift — reconciling the narrower EXTRACT-PRIVATE-COLLECTION-DECODERS ask at the functions' new homes rather than at extract (0040, Consequences). architecture.md's foundation invariant holds without qualification. `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Decision 0040, point 3 — supersedes/retires EXTRACT-PRIVATE-COLLECTION-DECODERS: its enablement_member_fields/hook_member_fields private-fn ask folds into this entry's acceptance at the functions' new home, json_manifest.rs. Unblocked this tick — PLACEMENT-MODULE-EXTRACTION shipped (870c52d), the block was a shared-drift.rs serialization, not a functional dependency; re-verified at HEAD, extract.rs itself untouched, only sibling line numbers drifted (refreshed above). scoped at 870c52d."
-  },
-  {
     "tag": "DRIFT-SOURCE-DEP-PARSE-HOIST",
     "summary": "gate() and explain() each re-read-and-reparse lock.toml several times per invocation via source_deps' own independent parse — hoist to the already-parsed declarations document",
     "per": {
@@ -309,37 +250,6 @@
     ],
     "acceptance": "src/json_manifest.rs imports no crate::import; Manifest::read_kind takes an already-discovered file list, and the discovery walk for manifest-shaped kinds lives in main.rs's manifest_units, mirroring resolve_kind_units's frontmatter branch. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Drained from .flume/refactor/plan-json-manifest-import-layering.md (observed 9e197d6, unmoved at HEAD). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, last chain entry touching main.rs (pending-entry.md, 'Disjoint, or serialized'). Also shares json_manifest.rs with the already-open JSON-MANIFEST-READ-DECODE-CONSOLIDATE — queue-front, ships first regardless. scoped at 7a5f86c."
-  },
-  {
-    "tag": "INSTALL-PROJECTION-MATCH-CONSOLIDATE",
-    "summary": "install.rs's matches_projection and manifest_write_findings each independently normalize backslashes and suffix-compare file_path against a target list — one matcher written twice",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`matches_projection` (727-732, doc comment 724-726 naming the job: 'a straight suffix compare against each row's `/`-normalized source_path (PATH-SEP-NORMALIZE), tolerant of file_path arriving absolute') takes `&[drift::EmitOwnedEntry]` and does `file_path.replace('\\\\', \"/\")` then `targets.iter().any(|t| file_path.ends_with(&t.path...replace('\\\\',\"/\")))`. `manifest_write_findings` (766-810) inlines the identical normalize-then-suffix-compare at 774 (`file_path.replace('\\\\', \"/\")`) and 779-780 (`manifest.path...replace('\\\\', \"/\")` then `file_path.ends_with(target.as_str())`) against a different collection, `&[GuardedManifest]` — same job, second implementation, differing only in the candidate list's element type. Grep-verified: `replace('\\\\', \"/\")` for a match-against-a-target-list job appears at exactly these two sites in the tree; two other hits are unrelated single-path canonicalization, not a match — main.rs:1825 (repo_file_set normalization) and drift.rs:691's `normalize_lock_path` (lock `source_path` spelling canonicalization, unrelated to this job). Factor a shared helper — e.g. `fn path_matches<'a>(file_path: &str, candidates: impl Iterator<Item = &'a Path>) -> bool` — both `matches_projection` and `manifest_write_findings` call, passing `targets.iter().map(|t| t.path.as_path())` and `std::iter::once(manifest.path.as_path())` respectively."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/cli.rs",
-        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture stays green — the consolidation is signature-only, both the projection-drift and manifest-contract guard paths match identically"
-      }
-    ],
-    "acceptance": "matches_projection and manifest_write_findings both call one shared path-suffix-match helper in src/install.rs instead of each carrying its own backslash-normalize-then-suffix-compare. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Unblocked this tick — PLACEMENT-MODULE-EXTRACTION shipped (870c52d) and was a shared-install.rs serialization only, no functional dependency; re-verified against HEAD, matches_projection/manifest_write_findings both shifted a few lines from the placement extraction (refreshed above) but are otherwise unchanged. scoped at 870c52d."
   },
   {
     "tag": "INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE",
