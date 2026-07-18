@@ -1436,7 +1436,10 @@ fn read_file_unit(
         (kind::Content::File | kind::Content::Fields, Some(kind::Format::TomlDocument)) => {
             Ok(toml_document::read(kind, file)?.to_unit())
         }
-        (kind::Content::File | kind::Content::Fields, _) => {
+        (
+            kind::Content::File | kind::Content::Fields,
+            Some(kind::Format::YamlFrontmatter) | None,
+        ) => {
             let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
             Ok(Unit {
                 id: source.id.clone(),
