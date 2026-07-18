@@ -797,7 +797,7 @@ fn normalize_lock_path(path: &str) -> String {
 /// instead ([`harness_relative`]). Lexical normalization plus the `.` floor collapses both
 /// to one root.
 pub fn harness_root_of(workspace_dir: &Path) -> PathBuf {
-    let normalized = crate::graph::normalize_path(workspace_dir);
+    let normalized = crate::address::normalize_path(workspace_dir);
     match normalized.parent() {
         Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
         _ => PathBuf::from("."),
@@ -1928,7 +1928,7 @@ fn resolve_source_dependency(
     harness_root: &Path,
     member_index: &BTreeMap<PathBuf, String>,
 ) -> Result<(LayoutImportRow, Vec<u8>), DriftError> {
-    let resolved = crate::graph::normalize_path(&base_dir.join(target));
+    let resolved = crate::address::normalize_path(&base_dir.join(target));
     let disk_path = harness_root.join(&resolved);
     let bytes = match fs::read(&disk_path) {
         Ok(bytes) => bytes,
@@ -2027,7 +2027,7 @@ fn member_path_index(
         let Some(facts) = kind_facts.get(member.kind.as_str()) else {
             continue;
         };
-        let path = crate::graph::normalize_path(&member_projection_path(
+        let path = crate::address::normalize_path(&member_projection_path(
             facts,
             &member.name,
             member.host.as_deref(),

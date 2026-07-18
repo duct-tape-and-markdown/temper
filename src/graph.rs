@@ -13,7 +13,7 @@
 //! so gate and read never disagree (READ-EDGE-UNIFY).
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 use crate::check::{Diagnostic, Severity};
 use crate::compose::{Edge, Requirement};
@@ -882,7 +882,7 @@ pub fn classify_directives(
         .iter()
         .map(|member| {
             (
-                normalize_path(&member.source_path),
+                crate::address::normalize_path(&member.source_path),
                 (member.kind.clone(), member.id.clone()),
             )
         })
@@ -890,7 +890,7 @@ pub fn classify_directives(
     // The repo file-set, normalized the identical way so a resolved target joins it.
     let repo: BTreeSet<PathBuf> = repo_files
         .iter()
-        .map(|file| normalize_path(Path::new(file)))
+        .map(|file| crate::address::normalize_path(Path::new(file)))
         .collect();
 
     let mut edges = Vec::new();
@@ -928,26 +928,7 @@ fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
             .parent()
             .map_or_else(|| target.to_path_buf(), |dir| dir.join(target))
     };
-    normalize_path(&joined)
-}
-
-/// Lexically normalize a path — drop `.` and resolve `..` against a preceding normal
-/// segment — **without touching disk**: a provenance path need not exist under the
-/// check CWD, and both the index keys and a resolved target must normalize the identical
-/// way to join. A leading `..` with nothing to pop is kept, so an out-of-tree target
-/// stays distinct rather than silently rooting.
-pub(crate) fn normalize_path(path: &Path) -> PathBuf {
-    let mut out: Vec<Component> = Vec::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir if matches!(out.last(), Some(Component::Normal(_))) => {
-                out.pop();
-            }
-            other => out.push(other),
-        }
-    }
-    out.into_iter().collect()
+    crate::address::normalize_path(&joined)
 }
 
 /// The finding for an **unbacked pointer** — a directive occurrence resolving to

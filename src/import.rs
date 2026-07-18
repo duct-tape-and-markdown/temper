@@ -350,7 +350,7 @@ fn scan_locus(root: &Path, glob: &str, discoverable: &Discoverable) -> Vec<PathB
     let segments: Vec<&str> = glob.split('/').collect();
     // The index is keyed by normalized paths, so a `.`-rooted locus (`root = "."`) resolves
     // to the harness root the walk keyed its top-level entries under.
-    let root = crate::graph::normalize_path(root);
+    let root = crate::address::normalize_path(root);
     let mut files = Vec::new();
     collect_glob(&root, &segments, discoverable, &mut files);
     // A `**` reaches one file by exactly one path, but the index yields children in walk
@@ -471,7 +471,7 @@ fn discoverable_paths(harness: &Path, local_governs: bool) -> Discoverable {
     // The file-vs-directory tag rides `entry.file_type()` — the one fact the scan needs
     // that a bare path set lacks — recorded here so the scan never re-`stat`s a candidate.
     for entry in walk.flatten() {
-        let path = crate::graph::normalize_path(entry.path());
+        let path = crate::address::normalize_path(entry.path());
         let is_dir = entry
             .file_type()
             .is_some_and(|file_type| file_type.is_dir());
