@@ -1701,5 +1701,41 @@
     ],
     "acceptance": "graph.rs's dead-plugin judge reads the field name from kind data, never the bare ENABLEMENT_FIELD constant; kind.rs no longer declares it. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Derived from decision 0042, completing Consequences bullet 1's ENABLEMENT_FIELD retirement (graph.rs was not named in the decision's own text, which lists only kind.rs/json_manifest.rs — but ENABLEMENT_FIELD cannot retire while this file still reads it; the retirement's completion, not new scope). Last entry in the 0042 chain. scoped at efe64aa."
+  },
+  {
+    "tag": "BUILTIN-KIND-SURFACE-UNIT-CONSOLIDATE",
+    "summary": "builtin_kind.rs's test module carries a private surface_unit byte-identical to tests/common's, instead of the crate's own designated shared-fixture home, test_support.rs",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "The inline `#[cfg(test)] mod tests` (570) declares a private `fn surface_unit(member: &crate::frontmatter::Member) -> Unit` (888-900, doc 885-887 'Lift an imported ... straight into the raw Unit the composed extractor reads', closing brace 901) that is a byte-for-byte body duplicate — and near-identical doc comment — of `tests/common::surface_unit` (`tests/common/mod.rs`, pub fn at 463-476, doc 460-462, same wording). This same test module already imports `crate::test_support::tmpdir` (574) — the crate's own designated home for in-src `#[cfg(test)]` fixture scaffolding (`src/test_support.rs`'s own header: 'Shared scaffolding for in-src `#[cfg(test)] mod tests` blocks'), so the pattern for sharing this exact class of helper is already established and simply wasn't used for this one. Delete the private `surface_unit` (885-901); add `crate::test_support::surface_unit` to the existing `use crate::test_support::tmpdir;` import line (or a neighboring one), and leave its five call sites (933, 984, 1013, 1027, 1046) unchanged — same name, same signature, now resolved from the shared home."
+        },
+        {
+          "path": "src/test_support.rs",
+          "description": "Add `pub(crate) fn surface_unit(member: &crate::frontmatter::Member) -> Unit { .. }` here, lifted verbatim from builtin_kind.rs's deleted copy (same field-by-field construction: id, frontmatter, body, source_path, satisfies, satisfies_clauses). Add `crate::kind::Unit` to this file's existing `use crate::kind::{CustomKind, Extraction, Format, Governs, Primitive, UnitShape};` import line; `crate::frontmatter::Member` stays referenced by its qualified path in the signature, as the deleted original did, needing no new import."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/builtin_kind.rs",
+        "asserts": "skill_features_fold_unknown_keys_and_surface_satisfies_off_the_surface and its four sibling tests calling surface_unit (984, 1013, 1027, 1046) stay green — the move is location-only, identical Unit construction"
+      }
+    ],
+    "acceptance": "builtin_kind.rs's test module has no private surface_unit; it calls crate::test_support::surface_unit, the same shared home the module already draws tmpdir from. src/test_support.rs is the fn's one implementation for in-src unit tests. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Found sweeping provider (posture rotation: judges skip-forwarded since fe3ff3f, provider touched by 404b73a/516f8f6). tests/common::surface_unit stays untouched — test_support.rs is pub(crate) (lib.rs:58), a different compilation unit, not a three-way merge. Serialized behind KIND-ENTRY-SHAPE-DATA-DECLARE, sharing builtin_kind.rs; TAP-PAYLOAD-SCHEMA-SPLIT also touches it, open/queue-front, ships first regardless. scoped at e5d01fe."
   }
 ]

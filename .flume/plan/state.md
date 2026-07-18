@@ -1,77 +1,72 @@
 # Plan state
 
 - Spec derived through: 506c34c — decision 0042 ("the entry declares
-  its shape") routed this tick.
+  its shape") routed 506c34c's tick; unchanged, not this tick's job.
 - Audited through: 64828d9 — unchanged, not this tick's job.
 - Residue swept through: 64828d9 — unchanged, not this tick's job.
-- Posture swept through: judges next (mid-rotation) — pipeline read
-  and swept two ticks ago (ab01fb4); not this tick's job.
-- This tick: SPEC DELTA. `git log 64828d9..HEAD -- specs/` names one
-  commit, 506c34c (decision 0042: a collection's manifest-entry value
-  decomposes per a closed, kind-declared shape — object/scalar/
-  group-array — replacing today's `CollectionKeyPath`-identity
-  branches in json_manifest.rs/drift.rs and retiring the
-  `ENABLEMENT_FIELD` engine constant into the enabled-plugins kind's
-  own declared shape). Routed every Consequences bullet by name:
-  - Bullet 1 (kind.rs gains the entry-shape enum; ENABLEMENT_FIELD
-    retires) — split across two entries per the retirement's two
-    consumers: KIND-ENTRY-SHAPE-DATA-DECLARE (the kind.rs data model,
-    blockedBy KIND-ZERO-CONSUMER-EXPORTS-PRUNE for shared kind.rs
-    safety) does NOT delete the constant yet (json_manifest.rs/
-    graph.rs both still read it); GRAPH-ENABLEMENT-FIELD-RETIRE
-    (blockedBy JSON-MANIFEST-ENTRY-SHAPE-DISPATCH, last in the chain)
-    completes it once both consumers are gone — traced on disk that
-    graph.rs's dead_registration has no CollectionAddress in hand
-    today (only bare Registration/Features), so this is a real,
-    not cosmetic, follow-on the decision's own text doesn't name but
-    the retirement cannot complete without.
-  - Bullet 2 (json_manifest.rs/write-faces re-key; identity branches
-    delete) — JSON-MANIFEST-ENTRY-SHAPE-DISPATCH (blockedBy
-    KIND-ENTRY-SHAPE-DATA-DECLARE), folding in drift.rs's emit()
-    identity branches the decision's prose bundles under "the write
-    faces."
-  - Bullet 3 (shipped kinds declare shapes with their cites; lock/
-    schema rows round-trip) and bullet 4 (SDK mirrors, ts-rs
-    regenerates) — both folded into KIND-ENTRY-SHAPE-DATA-DECLARE
-    (builtin_kind.rs's four CollectionAddress literals already carry
-    the needed format cites in their doc comments; CollectionAddressRow
-    in drift.rs plus sdk/src/kind.ts + declarations.ts).
-  - Bullet 5 (gauntlet gains a fixture composing the three shapes) —
-    verified-already-moot on disk this tick: tests/gauntlet.rs's
-    composition 3 (116-126) already composes hook (group-array),
-    installedPlugin (scalar), and knownMarketplace (object) in one
-    settings.json — filed as regression coverage inside
-    JSON-MANIFEST-ENTRY-SHAPE-DISPATCH's tests[] rather than a new
-    entry.
-  - Bullet 6 (no fork record to delete) — verified-already-moot: no
-    open-questions.md entry exists naming this question; nothing to
-    delete.
-  A dedicated general-purpose agent mapped every touched symbol with
-  file:line citations before entries were drafted (kind.rs's
-  CollectionAddress/CollectionKeyPath/ENABLEMENT_FIELD, json_manifest.rs's
-  manifest_members and its five grammar functions, drift.rs's two
-  identity branches inside emit() and the CollectionAddressRow lock
-  row, graph.rs's dead_registration, the SDK mirror, and which existing
-  tests construct CollectionAddress directly vs. observe behavior only)
-  so all three entries cite exact current line numbers rather than the
-  decision's own prose. Two design forks the mapping surfaced (the
-  object-shape write's promotion to a named function; the
-  Registration::Enablement-widen vs. thread-CollectionAddress choice
-  for graph.rs) are left as named judgment calls for build, per this
-  queue's established convention — neither is a genuine open question,
-  both are closed, small, precedented choices.
-- Queue: 44 pending (+3 this tick, chained: KIND-ENTRY-SHAPE-DATA-
-  DECLARE blockedBy KIND-ZERO-CONSUMER-EXPORTS-PRUNE,
-  JSON-MANIFEST-ENTRY-SHAPE-DISPATCH blockedBy the former,
-  GRAPH-ENABLEMENT-FIELD-RETIRE blockedBy the latter). 9 pickable OPEN
-  (unchanged from last tick — all three new entries are blockedBy),
-  32 chained blockedBy, 3 parked on human action. Open forks unchanged:
-  (multi-harness-projection), (lazy-grounds), neither touched — decision
-  0042 resolved in session with no standing fork record. Refactor
-  captures: 0 live. Friction: 0 live. Inbox: 0 notes.
+- Posture swept through: verbs next (mid-rotation) — provider read
+  and swept this tick.
+- This tick: POSTURE SWEEP. Inbox empty, no refactor captures, no
+  spec-delta commits past 506c34c, and `git log 64828d9..HEAD -- src/
+  tests/ sdk/` empty (post-ship reconciliation not live) — job 4 was
+  the first live input. Rotation: `judges` skip-forwarded last tick
+  (quiet since fe3ff3f), landing on `provider`
+  (src/builtin.rs, src/builtin_kind.rs, sdk/src/builtins.ts,
+  sdk/src/claude-code.ts) — touched since its own last sweep (fe3ff3f)
+  by 404b73a (extract-foundation-boundary-restore, narrowed
+  builtin_kind.rs's call sites to drift::) and 516f8f6 (collapsed
+  definitions()'s Result wrapper). Read both pages
+  (specs/process/engineering.md whole, specs/process/architecture.md's
+  codemap) and the full current state of all four files (a
+  general-purpose agent did the first pass census, independently
+  re-verified before filing) against every engineering.md section plus
+  the cohesion/dead-plumbing sweep lenses (embedded-provider-knowledge
+  is N/A here — this subsystem *is* the provider face the lens
+  protects other subsystems from leaking into).
+  - One real, verified finding: **BUILTIN-KIND-SURFACE-UNIT-CONSOLIDATE**
+    — builtin_kind.rs's inline `#[cfg(test)]` module declares a private
+    `surface_unit` (885-901) that is a byte-for-byte body duplicate of
+    `tests/common::surface_unit` (mod.rs:460-476), when this same test
+    module already imports `crate::test_support::tmpdir` (574) — the
+    crate's own designated shared-fixture home for in-src unit tests
+    (test_support.rs's own header names exactly this job). Filed
+    against "One job, one home" (test-scaffolding bullet), blockedBy
+    KIND-ENTRY-SHAPE-DATA-DECLARE for shared builtin_kind.rs safety
+    (pending-entry.md, "Disjoint, or serialized") — TAP-PAYLOAD-SCHEMA-
+    SPLIT also touches the file and is open/queue-front, ships first
+    regardless, noted rather than double-chained.
+  - Checked clean or already covered, not re-filed: export census
+    (every pub item in builtin.rs/builtin_kind.rs and every
+    builtins.ts/claude-code.ts export has a real outside caller); no
+    `match` statements in either Rust file, so no `_ =>` exhaustiveness
+    risk; the architecture invariant ("the provider face is data the
+    engine loads, never a dependency of the model") holds — kind.rs/
+    json_manifest.rs reference builtin_kind::features only via
+    doc-comment intra-links, never a real `use`; builtin_kind::
+    definitions()'s redundant in-run calls already covered by
+    GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST; builtin.rs's contract_for_kind
+    duplicate of compose::default_contract_from_rows already covered by
+    BUILTIN-CONTRACT-FOR-KIND-CONSOLIDATE; KIND-ENTRY-SHAPE-DATA-DECLARE/
+    JSON-MANIFEST-ENTRY-SHAPE-DISPATCH/GRAPH-ENABLEMENT-FIELD-RETIRE/
+    BUILTINS-DEFAULT-CONTRACT-HOLDS-CLOSE all still correctly pending,
+    untouched by this tick's window; no fresh stale-cite instances (all
+    citation dates 2026-07-15/16/17, consistent with today); no
+    collision with any "Kept on purpose" asymmetry.
+  - Rotation continued forward in the same tick per the skip-forward
+    rule: checked `verbs` (main.rs, install.rs, bundle.rs, lib.rs,
+    test_support.rs) against its own last-sweep baseline (8003aad) —
+    `git log 8003aad..HEAD` names 278ae4c and 404b73a touching
+    install.rs/main.rs, so `verbs` is itself touched, not quiet. The
+    rotation does not close this tick; it stops at `provider` (already
+    read) and the cursor lands on `verbs` as the next live subsystem —
+    unread this tick, per the one-touched-subsystem-per-tick bound.
+- Queue: 45 pending (+1 this tick, BUILTIN-KIND-SURFACE-UNIT-CONSOLIDATE,
+  blockedBy KIND-ENTRY-SHAPE-DATA-DECLARE). 9 pickable OPEN (unchanged
+  — the new entry is blockedBy), 33 chained blockedBy, 3 parked on
+  human action. Open forks unchanged: (multi-harness-projection),
+  (lazy-grounds), neither touched this tick. Refactor captures: 0 live.
+  Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — inbox is drained and spec delta is now fully
-routed (cursor advanced to 506c34c), but the posture-sweep rotation is
-still mid-cycle: `judges` is untouched since fe3ff3f and skip-forwards
-in bulk, landing on `provider` (builtin_kind.rs), already known-touched
-by 404b73a, as the next live subsystem to read and sweep.
+Plan continues: yes — the posture-sweep rotation is mid-cycle: `verbs`
+is touched since its own last sweep (8003aad, by 278ae4c/404b73a) and
+is the next live subsystem to read and sweep.
