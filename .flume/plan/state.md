@@ -3,35 +3,53 @@
 - Spec derived through: 663e03f
 - Audited through: 60faee0
 - Residue swept through: 60faee0
-- Posture swept through: drift done — cli-engine next
-- This tick: SPEC DELTA. Routed 663e03f (specs: architecture.md, the
-  codemap). Job 1 (inbox/captures) confirmed empty first. The doc's own
-  narrative names one actionable slice: "Two edges in today's tree stand
-  in tension with this map... each a fileable gap" — `drift → install`
-  and `frontmatter → builtin_kind` — but rules its own resolution ("move a
-  shared helper... or re-draw this map... the entry's design question").
-  Verified both on disk rather than filing the reported shape blind:
-  `drift → install` holds as described (`src/drift.rs:30` imports
-  `crate::install`, `place` fn 2034 calls `install::placement_lines`,
-  doc comment 2603 names `install::matches_projection`).
-  `frontmatter → builtin_kind` holds narrower than described: the only
-  reference (`src/frontmatter.rs:469,473,477`) sits inside
-  `#[cfg(test)] mod tests` (467) — the adapter's fixtures borrowing real
-  `Kind` values — production `frontmatter.rs` (1-465) has no such import.
-  Since either edge's resolution needs a design call the page itself
-  defers ("a better argument"), not a call plan may invent, both route to
-  open-questions as `(drift-install-edge)` and
-  `(frontmatter-builtin-kind-edge)`, each carrying the verified evidence
-  and both resolution paths, not a pending entry. Rest of the doc (flat-
-  tree policy, growth rules, the codemap listing itself) is narrative/
-  process, nothing else actionable. No pending.json change this tick.
-- Queue: 5 pending — 2 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-COLLAPSE,
-  DRIFT-LOCK-ROW-WALK-CONSOLIDATION; disjoint files, no serialization
-  needed), 1 blockedBy DRIFT-LOCK-ROW-WALK-CONSOLIDATION
-  (DRIFT-EMIT-LOCK-PARSE-HOIST; shares src/drift.rs, correctly serialized),
-  2 parked on human action (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER). Open forks: (multi-harness-projection),
-  (lazy-grounds), (drift-install-edge), (frontmatter-builtin-kind-edge).
+- Posture swept through: foundation done — model next
+- This tick: POSTURE SWEEP. Jobs 1-3 re-confirmed quiet (inbox and
+  refactor-captures empty at start; no specs/ commits past 663e03f —
+  `git log 663e03f..HEAD -- specs/` empty; no src/tests/sdk commits past
+  60faee0 — `git log 60faee0..HEAD -- src/ tests/ sdk/` empty). Posture
+  sweep was mid-rotation under a stale, pre-architecture.md per-module
+  roster ("drift done, cli-engine next" — dated before 663e03f rewrote
+  architecture.md's codemap into the 7 named subsystems). Per the
+  posture-sweep rule ("the pages are the authority as they read this
+  tick... nothing is swept from a remembered list"), restarted the
+  rotation clean against the current codemap's roster order and opened
+  at its first subsystem: foundation (check.rs, extract.rs, hash.rs,
+  address.rs, tap.rs, json_splice.rs, 2849 lines total).
+  Read every file against every section of engineering.md. hash.rs,
+  address.rs, tap.rs, json_splice.rs, check.rs: clean — no unwrap/expect
+  on real paths, no vacuous Result, exports all resolve to an
+  outside-module caller (a test counts).
+  extract.rs: two findings.
+  (1) Mechanical — `enablement_member_fields`/`hook_member_fields` are
+  `pub(crate)` with no caller outside their own module (only used by
+  `manifest_members` in the same file), unlike their write-face siblings
+  `enablement_entry_value`/`hook_matcher_group` which ARE called from
+  `crate::drift` and unlike `entry_fields`, the third same-role decomposer,
+  already plain `fn`. Filed directly: EXTRACT-PRIVATE-COLLECTION-DECODERS
+  (engineering.md, "An export earns its consumer").
+  (2) Design question — `nested_members_from_rows`/`embedded_member_from_row`
+  take `crate::drift::NestedMemberRow` (pipeline), and `manifest_members`/
+  `enablement_member_fields` reference `crate::kind::CollectionKeyPath`/
+  `ENABLEMENT_FIELD` (model): real internal dependencies from a module
+  architecture.md's own invariant declares dependency-free ("foundation
+  depends on nothing internal... extract import[s] no sibling" — false on
+  disk at HEAD). Same shape as the two edges the page already declares in
+  tension with itself. Not mechanical (which direction resolves it — move
+  the row/constant down, move the function up, or widen the invariant text
+  — is a design call, same as the other two edges), so filed as a
+  `.flume/refactor/` capture per the posture-sweep rule's routing, not
+  invented into a pending entry: `.flume/refactor/plan-extract-foundation-boundary.md`.
+- Queue: 6 pending — 3 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-COLLAPSE,
+  DRIFT-LOCK-ROW-WALK-CONSOLIDATION, EXTRACT-PRIVATE-COLLECTION-DECODERS;
+  disjoint files, no serialization needed), 1 blockedBy
+  DRIFT-LOCK-ROW-WALK-CONSOLIDATION (DRIFT-EMIT-LOCK-PARSE-HOIST; shares
+  src/drift.rs, correctly serialized), 2 parked on human action
+  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: unchanged
+  this tick — (multi-harness-projection), (lazy-grounds), (drift-install-edge),
+  (frontmatter-builtin-kind-edge). One live refactor capture filed this
+  tick: plan-extract-foundation-boundary.md.
 
-Plan continues: yes — posture sweep continues to the roster's next
-subsystem, `cli-engine` (main+engine).
+Plan continues: yes — the refactor capture this tick filed makes job 1 live
+next tick (ahead of posture sweep's continuation to `model`, the roster's
+next subsystem).

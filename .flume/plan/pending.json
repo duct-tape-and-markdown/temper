@@ -82,6 +82,37 @@
     "notes": "Drained from .flume/refactor/plan-drift-lock-row-walk-triplication.md (observed b8fc7ca, found while re-orienting off live disk during the prior tick). Pure internal consolidation, no public API change, no test file additions needed — existing tests pin the behavior. scoped at 7132213."
   },
   {
+    "tag": "EXTRACT-PRIVATE-COLLECTION-DECODERS",
+    "summary": "`enablement_member_fields`/`hook_member_fields` in src/extract.rs are `pub(crate)` with no caller outside their own module — narrow both to private `fn`",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/extract.rs",
+          "description": "`enablement_member_fields` (1075) and `hook_member_fields` (1107) are declared `pub(crate)` but grep across `src/`, `tests/`, `sdk/` finds no caller outside `extract.rs` itself — both are called only from `manifest_members` (1026, 1035) in the same file, unlike their write-face siblings `enablement_entry_value` (1092) and `hook_matcher_group` (1144), which ARE `pub(crate)` and carry a doc comment naming their real external caller (`crate::drift`, confirmed at src/drift.rs:1000,1014) and are in fact called from there. `entry_fields` (1048), the third read-face decomposer serving the same role for every other manifest collection, is already plain `fn` (no `pub(crate)`) for exactly this reason — `enablement_member_fields`/`hook_member_fields` are the two outliers. Narrow both to `fn` (drop `pub(crate)`); no call-site changes needed since every existing caller is already in-module. Re-verified at HEAD 04610b1."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/extract.rs",
+        "asserts": "the existing inline tests `enablement_members_carry_the_scalar_value_and_re_render_identically` and `hook_members_decompose_the_matcher_group_array_and_re_nest_identically` still compile and pass unchanged through `manifest_members` — the narrowing is visibility-only, no behavior change, and no test currently calls either fn directly by its crate-qualified path"
+      }
+    ],
+    "acceptance": "`enablement_member_fields` and `hook_member_fields` are private `fn`s in src/extract.rs, matching `entry_fields`'s existing visibility for the same in-module-only role (engineering.md, 'An export earns its consumer': a widened `pub(crate)` needs a caller outside its own module). `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Found sweeping `foundation` (posture rotation's subsystem this tick, per architecture.md's codemap, superseding the pre-architecture.md per-module rotation note 'drift done, cli-engine next'). Disjoint from every other open/blocked entry's files. scoped at 04610b1."
+  },
+  {
     "tag": "DRIFT-EMIT-LOCK-PARSE-HOIST",
     "summary": "emit() parses lock.toml twice per run — read_prior_provenance (reap-diff) and read_declarations (layer-drop check) each independently open+parse it; hoist to one shared parse",
     "per": {
