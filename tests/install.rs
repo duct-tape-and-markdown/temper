@@ -1062,6 +1062,58 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
     assert!(allow_stderr.is_empty());
 }
 
+/// When the lock declares an emit-owned target outside `.claude/`, the guard binds
+/// writes to that path just as it does for `.claude/` projections — the filter
+/// derives from lock-declared targets, not a hardcoded `.claude/` regex.
+#[test]
+fn guard_binds_declared_locus_targets_outside_claude() {
+    let root = common::tmpdir("lock-declared-outside-claude");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+
+    // A lock with a `block` mode and a single emit-owned target outside `.claude/`
+    // (e.g., a layout kind that governs `.rules/` directly).
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[rule]]\nname = \"safety\"\nsource_path = \".rules/safety.md\"\nsource_hash = \"def\"\nemit_hash = \"def\"\n"
+    )
+    .unwrap();
+
+    // A write targeting the declared `.rules/safety.md` path should be bound by the
+    // guard, not silently allowed (the bug the entry fixes).
+    let (code, stderr) = run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".rules/safety.md\"}}",
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "a declared-locus target outside .claude/ must be bound (block mode)"
+    );
+    assert!(stderr.contains("temper-managed projection"));
+
+    // A write to a `.claude/` path with no corresponding declared target should
+    // still be allowed (the fallback check only applies when no targets exist).
+    let (allow_code, allow_stderr) = run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}",
+    );
+    assert_eq!(
+        allow_code,
+        Some(0),
+        "an undeclared .claude/ path is allowed when targets exist"
+    );
+    assert!(allow_stderr.is_empty());
+
+    // A write to an entirely different path should be allowed.
+    let (other_code, other_stderr) = run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
+    );
+    assert_eq!(other_code, Some(0));
+    assert!(other_stderr.is_empty());
+}
+
 // ---------------------------------------------------------------------------
 // guard — represented-manifest member contract (entry 4/5), beside the
 // `.claude/`-projection-drift binding it extends

@@ -153,13 +153,14 @@ pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projecte
 /// contract broken, not the file edited. States the same binding limit verbatim.
 const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code writes; other tools writes are not bound by it.";
 
-/// The extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path`
-/// value under a `.claude/` locus, captured so the guard can test it for lock-declared
-/// projection-set membership. Matching the field (not the whole payload) keeps a write
-/// whose *content* merely mentions `.claude/` from tripping the guard. Kept deliberately
-/// conservative — a false negative routes to CI (the backstop wall), a false positive
-/// would block honest work.
-const GUARD_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*\.claude/[^"]*)""#;
+/// The extended-regex `temper guard` greps the `PreToolUse` payload for: any `file_path`
+/// value, captured so the guard can test it for lock-declared projection-set membership
+/// when targets are present, or fall back to the `.claude/` locus check when no lock
+/// exists. Matching the field (not the whole payload) keeps a write whose *content*
+/// merely mentions `file_path` from tripping the guard. Kept deliberately conservative —
+/// a false negative routes to CI (the backstop wall), a false positive would block honest
+/// work.
+const GUARD_FILE_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*)""#;
 
 /// The managed-by note itself: a frontmatter comment stating the file is generated and
 /// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
@@ -705,25 +706,34 @@ pub enum GuardVerdict {
 /// back to binding any `.claude/` `file_path`, matching the pre-lock behavior —
 /// absent evidence must never silently suppress the guard.
 ///
-/// A `file_path` naming no `.claude/` locus, or (with `targets` present) naming no
-/// declared projection, is [`GuardVerdict::Allow`]. Otherwise the finding maps
-/// onto the mode vocabulary, split by where it goes: `note` defers it out-of-band
-/// ([`GuardVerdict::Note`]), `warn` surfaces it in-band ([`GuardVerdict::Warn`]),
-/// `block` denies the call ([`GuardVerdict::Block`]).
+/// A `file_path` naming no declared projection (with `targets` present) or no
+/// `.claude/` locus (with `targets` absent) is [`GuardVerdict::Allow`]. Otherwise
+/// the finding maps onto the mode vocabulary, split by where it goes: `note` defers
+/// it out-of-band ([`GuardVerdict::Note`]), `warn` surfaces it in-band
+/// ([`GuardVerdict::Warn`]), `block` denies the call ([`GuardVerdict::Block`]).
 #[must_use]
 pub fn guard(
     payload: &str,
     mode: EnforcementMode,
     targets: Option<&[drift::EmitOwnedEntry]>,
 ) -> GuardVerdict {
-    let Some(file_path) = claude_file_path(payload) else {
+    let Some(file_path) = extract_file_path(payload) else {
         return GuardVerdict::Allow;
     };
-    if let Some(targets) = targets
-        && !matches_projection(&file_path, targets)
-    {
-        return GuardVerdict::Allow;
+
+    // When targets are declared, check the file_path against them.
+    if let Some(targets) = targets {
+        if !matches_projection(&file_path, targets) {
+            return GuardVerdict::Allow;
+        }
+    } else {
+        // Fallback: with no lock, bind only `.claude/` paths (the documented no-lock
+        // fallback behavior — absent evidence must never suppress the guard).
+        if !is_claude_path(&file_path) {
+            return GuardVerdict::Allow;
+        }
     }
+
     match mode {
         EnforcementMode::Note => GuardVerdict::Note,
         EnforcementMode::Warn => GuardVerdict::Warn,
@@ -731,16 +741,24 @@ pub fn guard(
     }
 }
 
-/// The `.claude/`-rooted `file_path` a `PreToolUse` `payload` names, when present
-/// ([`GUARD_PATH_MATCH`]'s captured value).
-fn claude_file_path(payload: &str) -> Option<String> {
+/// The `file_path` value a `PreToolUse` `payload` names, when present
+/// ([`GUARD_FILE_PATH_MATCH`]'s captured value). Extracts any path regardless of
+/// locus; the caller determines whether to bind it (against targets or the `.claude/`
+/// fallback).
+fn extract_file_path(payload: &str) -> Option<String> {
     // A compile-time-constant pattern: the only failure is a malformed literal, a build
     // invariant, so `expect` here can never fire on a real path.
-    Regex::new(GUARD_PATH_MATCH)
-        .expect("GUARD_PATH_MATCH is a valid regex")
+    Regex::new(GUARD_FILE_PATH_MATCH)
+        .expect("GUARD_FILE_PATH_MATCH is a valid regex")
         .captures(payload)
         .and_then(|captures| captures.get(1))
         .map(|value| value.as_str().to_string())
+}
+
+/// Whether `file_path` names a `.claude/`-rooted artifact — the fallback binding
+/// when no lock-declared targets exist to consult.
+fn is_claude_path(file_path: &str) -> bool {
+    file_path.contains(".claude/")
 }
 
 /// Normalize backslashes and check whether `file_path` matches any candidate by
