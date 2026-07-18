@@ -188,7 +188,7 @@ pub const REPRESENT_QUESTION: &str = "Represent this project as a temper program
 /// failures surface as [`drift::DriftError`]), plus the yes-path's scaffold/
 /// dependency/preflight failures.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum InstallError {
+enum InstallError {
     /// A placement's existing file could not be read to merge into.
     #[error("failed to read {path}")]
     #[diagnostic(code(temper::install::read))]
