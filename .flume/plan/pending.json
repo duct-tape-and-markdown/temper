@@ -7,8 +7,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "READ-CONTEXT-MEMBER-CITER-GRAIN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -41,7 +40,7 @@
       }
     ],
     "acceptance": "gate() computes the admissible-edge x source x target walk exactly once per invocation; acyclic, degree, and mention_reachable derive their adjacency/edge set from that one shared computation instead of each independently recomputing via resolved_edges/resolved_arcs, and check's dangling-route diagnostics derive from the same shared pass. A count-pin test proves it. No behavior change (engineering.md, 'Cost scale is hoisted and pinned by count'). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Drained from .flume/refactor/plan-graph-resolved-edge-walk-duplication.md (observed e2325df). DRIFT-SOURCE-DEP-PARSE-HOIST shipped (3561798) — no functional dependency, so its own line cites are re-verified against main.rs's +10 shift (gate()'s new lock_doc) here. Now blocked behind READ-CONTEXT-MEMBER-CITER-GRAIN instead: both edit src/read.rs (pending-entry.md, 'Disjoint, or serialized'). Output shape is still build's judgment call, named in the commit body. scoped at 3561798."
+    "notes": "READ-CONTEXT-MEMBER-CITER-GRAIN shipped (e5b1fa1) — re-verified: its read.rs edit sits at 778-994, this entry's cited read.rs lines (21/62/309/335/470) untouched. main.rs drifted since scoping (cb4f989, net -16 lines; gate() now opens at 836) — reverify call-site lines at pickup. Opened; READ-VERB-STRAND-COHESION reserialized behind this entry, same src/read.rs collision. Output shape is build's judgment call, named in the commit body. scoped at 612f2a5."
   },
   {
     "tag": "GRAPH-WORLD-ZERO-CONSUMER-PRUNE",
@@ -219,8 +218,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -241,7 +239,7 @@
       }
     ],
     "acceptance": "EmitOutcome::label is a private method in src/drift.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the pipeline subsystem (posture rotation: formats done, pipeline this tick). Serialized behind CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, the last entry in the existing chain touching drift.rs (pending-entry.md, Disjoint, or serialized) — no functional dependency. scoped at 4bc8508."
+    "notes": "Found sweeping pipeline (posture rotation). CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP shipped (5cc8df9), its drift.rs edit at ClauseRow (~3256) — well past this entry's 535-546/2180 region, unaffected. Line numbers have drifted from other intervening ticks (label now 663-671, sole caller now at 2394) — reverify exact lines at pickup; the single-consumer claim itself re-verified true on disk. Opened. scoped at 612f2a5."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -983,7 +981,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "READ-CONTEXT-MEMBER-CITER-GRAIN"
+      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
     },
     "dependsOnForks": [],
     "files": {
@@ -1009,7 +1007,7 @@
       }
     ],
     "acceptance": "The field strand lives in its own pipeline module; read.rs's module doc names only the four traversals. cargo test green.",
-    "notes": "Ruled via inbox (observed a8dd112): only the field strand extracts (shares zero machinery — accidental cohabitation); the Species-dispatched four traversals are real cohesion, ruled to stay. Blocked behind READ-CONTEXT-MEMBER-CITER-GRAIN this tick: both were open and both edit src/read.rs (pending-entry.md, 'Disjoint, or serialized') — a pre-existing collision this tick's audit found and cleared. Codemap listing follows next human specs/ pass."
+    "notes": "Ruled via inbox (observed a8dd112): only the field strand extracts (shares zero machinery — accidental cohabitation); the Species-dispatched four traversals are real cohesion, ruled to stay. READ-CONTEXT-MEMBER-CITER-GRAIN shipped (e5b1fa1) — unblocked, but still collides on src/read.rs with the now-open GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE; reserialized behind it instead (pending-entry.md, 'Disjoint, or serialized'). Codemap listing follows next human specs/ pass. scoped at 612f2a5."
   },
   {
     "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT",
@@ -1323,8 +1321,7 @@
       "section": "Invariants — stated as absences"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1345,7 +1342,7 @@
       }
     ],
     "acceptance": "temper guard binds a PreToolUse write against any lock-declared emit-owned target, not only .claude/-rooted ones; the .claude/ regex survives only as the documented no-lock fallback. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Routed from inbox (RULED, standing delegation, observed ab01fb4). Serialized behind BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE, the last chain entry touching install.rs, for shared-file safety — no functional dependency. A declared-locus kind outside .claude currently escapes the guard silently, a real gap, not just a shape defect."
+    "notes": "Routed from inbox (RULED, standing delegation, observed ab01fb4). BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE shipped (1e632a9), a 2-line install.rs edit at session_start_group (~1125), well clear of GUARD_PATH_MATCH/guard (147-740 region) — unaffected. Opened. A declared-locus kind outside .claude currently escapes the guard silently, a real gap, not just a shape defect. scoped at 612f2a5."
   },
   {
     "tag": "INSTALL-ERROR-ZERO-CONSUMER-PRUNE",
@@ -1588,7 +1585,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE"
+      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
     },
     "dependsOnForks": [],
     "files": {
@@ -1626,7 +1623,7 @@
       }
     ],
     "acceptance": "src/layout.rs exists in the model subsystem carrying the Layout family verbatim; kind.rs no longer defines Layout/LayoutRegion/LayoutReading/LayoutMember/LayoutError/next_heading/read_collection_member/parse_edge_entries/slugify. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture): layout reader → new flat layout module. Unblocked: MAIN-GUARD-DECLARATIONS-DOUBLE-READ-HOIST shipped 9415ccd, a Guard-only hoist untouching Layout — premise unmoved (main.rs's 3 sites drifted -15 lines, corrected). Reserialized behind MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE, this tick's other newly-opened main.rs entry. Still shares drift.rs with open, queue-earlier IMPORT-ROLLUP-WRITER-PLACEMENT — ships first regardless. scoped at 9415ccd."
+    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture): layout reader → new flat layout module. MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE shipped (cb4f989) — unblocked, but collides on main.rs with the now-open GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE; reserialized behind it. Also shares drift.rs with the now-open DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE — single-tag blockedBy can't express both waits; the graph entry is queue-front, ships first regardless. scoped at 612f2a5."
   },
   {
     "tag": "KIND-GLOB-CACHE-MODULE-EXTRACT",
