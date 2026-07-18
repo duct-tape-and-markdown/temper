@@ -53,7 +53,14 @@ fn known_marketplace_kind() -> temper::kind::CustomKind {
 /// clause and the reachability gate range over.
 fn features(harness: &Path) -> Vec<Features> {
     let kind = known_marketplace_kind();
-    let reads = Manifest::read_kind(&temper::import::Discovery::new(harness), &kind).unwrap();
+    let disc = temper::import::Discovery::new(harness);
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     let address = kind.collection_address.clone().unwrap();
     let source = harness.join(".claude/settings.json");
     reads
@@ -84,11 +91,15 @@ fn a_settings_extra_known_marketplaces_map_surfaces_one_member_per_entry_keyed_b
     let harness = common::tmpdir("read-known-marketplaces");
     write_settings(&harness, SETTINGS);
 
-    let reads = Manifest::read_kind(
-        &temper::import::Discovery::new(&harness),
-        &known_marketplace_kind(),
-    )
-    .unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = known_marketplace_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(
         reads.len(),
         1,
@@ -171,11 +182,15 @@ fn a_settings_file_with_no_known_marketplaces_surfaces_no_member_and_no_finding(
     let harness = common::tmpdir("known-marketplaces-absent");
     write_settings(&harness, SETTINGS_NO_MARKETPLACES);
 
-    let reads = Manifest::read_kind(
-        &temper::import::Discovery::new(&harness),
-        &known_marketplace_kind(),
-    )
-    .unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = known_marketplace_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(reads.len(), 1, "the settings.json manifest is still read");
     assert!(
         reads[0].members.is_empty(),

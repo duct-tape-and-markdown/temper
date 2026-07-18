@@ -1535,8 +1535,12 @@ fn manifest_units(
     kind: &CustomKind,
     address: &CollectionAddress,
 ) -> miette::Result<Vec<Unit>> {
+    let (Some(governs),) = (&kind.governs,) else {
+        return Ok(Vec::new());
+    };
+    let files = import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
     let mut units = Vec::new();
-    for manifest in json_manifest::Manifest::read_kind(disc, kind)? {
+    for manifest in json_manifest::Manifest::read_kind(&files, kind)? {
         let source_path = manifest.provenance.source_path.clone();
         for member in &manifest.members {
             units.push(member.to_unit(address, &source_path));

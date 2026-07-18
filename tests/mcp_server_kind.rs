@@ -63,11 +63,15 @@ fn a_mcp_json_server_entry_reads_as_an_mcp_server_member_with_its_fields() {
     let harness = common::tmpdir("read-mcp-members");
     common::write_mcp_json(&harness, BROKEN_MCP);
 
-    let reads = Manifest::read_kind(
-        &temper::import::Discovery::new(&harness),
-        &mcp_server_kind(),
-    )
-    .unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = mcp_server_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(reads.len(), 1, "the one .mcp.json manifest is read once");
 
     // One member per `mcpServers.*` entry, keyed by server name, in the collection's own

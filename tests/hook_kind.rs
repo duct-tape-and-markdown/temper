@@ -72,8 +72,15 @@ fn a_settings_json_hooks_event_entry_reads_as_a_hook_member() {
     let harness = common::tmpdir("read-hook-members");
     write_settings(&harness, BROKEN_SETTINGS);
 
-    let reads =
-        Manifest::read_kind(&temper::import::Discovery::new(&harness), &hook_kind()).unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = hook_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(
         reads.len(),
         1,
@@ -114,8 +121,15 @@ fn an_unrepresented_settings_json_still_infers_its_hook_members() {
     let harness = common::tmpdir("infer-unrepresented");
     write_settings(&harness, CLEAN_SETTINGS);
 
-    let reads =
-        Manifest::read_kind(&temper::import::Discovery::new(&harness), &hook_kind()).unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = hook_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(reads[0].members.len(), 2);
     // The `hooks` collection is consumed into members, never left as an opaque field.
     assert!(!reads[0].opaque_fields.contains_key("hooks"));

@@ -402,33 +402,23 @@ impl Manifest {
 
     /// Read a **manifest kind**'s members off harness disk — the loader dispatch a kind
     /// with a declared [`collection_address`](CustomKind::collection_address) takes
-    /// instead of the frontmatter loader. Discovers the kind's manifest file(s) through
-    /// the same `governs` walk every kind's discovery runs
-    /// ([`crate::import::discover_kind_files`]), then reads each through [`Manifest::read`]
-    /// against the kind's own declared address. A kind with no collection address is not a
+    /// instead of the frontmatter loader. Takes an already-discovered list of manifest
+    /// files (discovered by the caller), then reads each through [`Manifest::read`] against
+    /// the kind's own declared address. A kind with no collection address is not a
     /// manifest kind — the caller routes it to the frontmatter loader — so this yields no
-    /// reads for it, as does one governing no locus to discover a manifest at.
+    /// reads for it.
     ///
     /// # Errors
     ///
-    /// Returns a [`JsonManifestError`] if discovery fails or a discovered manifest cannot
-    /// be read.
-    pub fn read_kind(
-        disc: &crate::import::Discovery,
-        kind: &CustomKind,
-    ) -> Result<Vec<Self>, JsonManifestError> {
-        let (Some(address), Some(governs)) = (&kind.collection_address, &kind.governs) else {
+    /// Returns a [`JsonManifestError`] if a discovered manifest cannot be read.
+    pub fn read_kind(files: &[PathBuf], kind: &CustomKind) -> Result<Vec<Self>, JsonManifestError> {
+        let Some(address) = &kind.collection_address else {
             return Ok(Vec::new());
         };
-        crate::import::discover_kind_files(
-            disc,
-            kind,
-            governs,
-            crate::import::LocalOverride::Honored,
-        )
-        .iter()
-        .map(|file| Manifest::read(file, &[address]))
-        .collect()
+        files
+            .iter()
+            .map(|file| Manifest::read(file, &[address]))
+            .collect()
     }
 }
 
@@ -832,18 +822,22 @@ mod tests {
         );
         kind.collection_address = Some(mcp_address());
 
-        let reads = Manifest::read_kind(&crate::import::Discovery::new(&harness), &kind).unwrap();
+        let disc = crate::import::Discovery::new(&harness);
+        let files = crate::import::discover_kind_files(
+            &disc,
+            &kind,
+            kind.governs.as_ref().unwrap(),
+            crate::import::LocalOverride::Honored,
+        );
+        let reads = Manifest::read_kind(&files, &kind).unwrap();
         assert_eq!(reads.len(), 1);
         assert_eq!(reads[0].members.len(), 2);
 
         // A kind with no collection address is not a manifest kind — no read.
         let mut file_kind = kind.clone();
         file_kind.collection_address = None;
-        assert!(
-            Manifest::read_kind(&crate::import::Discovery::new(&harness), &file_kind)
-                .unwrap()
-                .is_empty()
-        );
+        let file_reads = Manifest::read_kind(&[], &file_kind).unwrap();
+        assert!(file_reads.is_empty());
     }
 
     /// A `.mcp.json`-shaped represented manifest for the write face: one `mcpServers`

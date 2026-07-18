@@ -63,7 +63,14 @@ const SETTINGS_WITH_MARKETPLACES: &str = r#"{
 /// A kind's members projected through the shared read-time fold, keyed by kind name — the
 /// same `Features` the reference graph ranges over.
 fn features_of(kind: &CustomKind, harness: &Path) -> Vec<Features> {
-    let reads = Manifest::read_kind(&temper::import::Discovery::new(harness), kind).unwrap();
+    let disc = temper::import::Discovery::new(harness);
+    let files = temper::import::discover_kind_files(
+        &disc,
+        kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, kind).unwrap();
     let address = kind.collection_address.clone().unwrap();
     let source = harness.join(".claude/settings.json");
     reads
@@ -77,7 +84,14 @@ fn features_of(kind: &CustomKind, harness: &Path) -> Vec<Features> {
 /// clause and the reachability gate range over.
 fn features(harness: &Path) -> Vec<Features> {
     let kind = installed_plugin_kind();
-    let reads = Manifest::read_kind(&temper::import::Discovery::new(harness), &kind).unwrap();
+    let disc = temper::import::Discovery::new(harness);
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     let address = kind.collection_address.clone().unwrap();
     let source = harness.join(".claude/settings.json");
     reads
@@ -107,11 +121,15 @@ fn a_settings_enabled_plugins_map_surfaces_one_member_per_entry_keyed_by_plugin_
     let harness = common::tmpdir("read-enabled-plugins");
     write_settings(&harness, SETTINGS);
 
-    let reads = Manifest::read_kind(
-        &temper::import::Discovery::new(&harness),
-        &installed_plugin_kind(),
-    )
-    .unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = installed_plugin_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(
         reads.len(),
         1,
@@ -193,11 +211,15 @@ fn a_settings_file_with_no_enabled_plugins_surfaces_no_member_and_no_finding() {
     let harness = common::tmpdir("enabled-plugins-absent");
     write_settings(&harness, SETTINGS_NO_PLUGINS);
 
-    let reads = Manifest::read_kind(
-        &temper::import::Discovery::new(&harness),
-        &installed_plugin_kind(),
-    )
-    .unwrap();
+    let disc = temper::import::Discovery::new(&harness);
+    let kind = installed_plugin_kind();
+    let files = temper::import::discover_kind_files(
+        &disc,
+        &kind,
+        kind.governs.as_ref().unwrap(),
+        temper::import::LocalOverride::Honored,
+    );
+    let reads = Manifest::read_kind(&files, &kind).unwrap();
     assert_eq!(reads.len(), 1, "the settings.json manifest is still read");
     assert!(
         reads[0].members.is_empty(),
