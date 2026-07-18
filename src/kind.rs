@@ -948,7 +948,12 @@ impl CustomKind {
             .iter()
             .filter_map(|primitive| match primitive {
                 Primitive::Field { key } => Some(key.as_str()),
-                _ => None,
+                Primitive::Headings
+                | Primitive::Sections
+                | Primitive::LineCount
+                | Primitive::Placement
+                | Primitive::Directives { .. }
+                | Primitive::Fenced => None,
             })
             .collect()
     }
@@ -2161,5 +2166,39 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             kind.extraction.primitives(),
             &[Primitive::LineCount, Primitive::Headings]
         );
+    }
+
+    #[test]
+    fn declared_fields_names_only_field_primitives_exhaustively() {
+        // `declared_fields` should only yield the keys from `Primitive::Field` variants
+        // and return `None` for all other variants. This test constructs a CustomKind
+        // with a mix of field and non-field primitives, verifying the exhaustive match.
+        let extraction = Extraction::new(vec![
+            Primitive::Field {
+                key: "name".to_string(),
+            },
+            Primitive::Sections,
+            Primitive::Field {
+                key: "version".to_string(),
+            },
+            Primitive::LineCount,
+            Primitive::Placement,
+            Primitive::Headings,
+            Primitive::Directives {
+                syntax: DirectiveSyntax::AtImport,
+            },
+            Primitive::Fenced,
+        ]);
+
+        let kind = CustomKind::new(
+            "test_kind",
+            Governs {
+                root: "test".to_string(),
+                glob: "*.md".to_string(),
+            },
+            extraction,
+        );
+
+        assert_eq!(kind.declared_fields(), vec!["name", "version"]);
     }
 }
