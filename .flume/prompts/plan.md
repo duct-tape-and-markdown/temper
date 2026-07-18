@@ -110,10 +110,32 @@ chosen job half-done — the job is the atom.
    alone, declare `yes — residue sweep continues`, and sweep next tick. The
    split is the exception a big window earns, never the default.
 
+4. **Posture sweep** — nothing above is live, and `Posture swept through:`
+   is absent, mid-rotation, or names a commit behind a HEAD whose forward
+   window (`git log <sha>..HEAD -- src/ sdk/src/ tests/`) touched any
+   subsystem. **One subsystem per tick**, fixed roster: drift ·
+   cli-engine (main+engine) · kind-model (kind+builtin_kind) ·
+   graph-contract · adoption (install+bundle+reporter) · read-side
+   (read+extract+import) · formats (frontmatter+document+json_manifest+
+   schema+address+compose) · coverage (coverage_note+coverage+roster) ·
+   sdk (sdk/src). Read the subsystem's files whole against every posture
+   section in `specs/process/engineering.md` — one job one home, a shared
+   concept is one type, cost hoisted and pinned by count — plus cohesion
+   (a module carrying jobs that want separate homes) and dead plumbing
+   (unconstructable variants, vacuous Result paths). A violation counts
+   only when verified on disk this tick, cited by symbol and line. Each
+   files a pending entry (purely mechanical shape) or a `.flume/refactor/`
+   capture (needs a design decision), `per` the owning engineering.md
+   section; never against a "Kept on purpose" asymmetry. **Quiet-on-clean
+   is the normal verdict**, recorded by advancing the rotation alone. On an
+   untouched-since-last-sweep subsystem, skip forward. When the rotation
+   closes, stamp `Posture swept through: <HEAD sha>`.
+
 **Closing the tick.** Every job ends, in the same tick, with the closing
 checklist its commit rides on: the queue is disjoint, every gate reason
 still true, `state.md` re-derived. Quiet is a verdict, never a job — when a
-forced wake finds no live input, run the checklist, write
+forced wake finds no live input (the posture sweep's rotation closed and
+its window empty), run the checklist, write
 `Plan continues: no`, and commit the restamp.
 
 **Entry discipline** binds every job that files or rewrites entries — the
@@ -134,6 +156,7 @@ latent misroute.
 - Spec derived through: <sha>
 - Audited through: <sha>
 - Residue swept through: <sha>
+- Posture swept through: <sha, or "<subsystem> next" mid-rotation>
 - This tick: <the one job taken and its outcome>
 - Queue: <one line — entries, gates>
 Plan continues: yes — <the next live input> | no — <why quiet>

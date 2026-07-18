@@ -542,11 +542,19 @@ const makeAgent = (model: string) =>
   );
 
 /**
- * Model routing: one agent export serves every phase, and both phases run
- * Opus (2026-07-10: plan dropped from Fable — the delta-liveness heuristic
- * routed every tick of a multi-tick derivation to the premium model, not
- * just the derivation, and the 0019-scale derivations are behind us).
- * Per-phase routing, if ever wanted again, keys on the runtime's
- * `<harness>` preamble line `Phase: <name>` in the rendered prompt.
+ * Model routing: per-phase, keyed on the runtime's `<harness>` preamble
+ * line `Phase: <name>` in the rendered prompt — the mechanism the 07-10
+ * note reserved. Plan crawls and plans on Sonnet; build chugs entries on
+ * Haiku with the cargo gates as the safety net (the posture-sweep
+ * posture: judgment where wrongness compounds, cheap where the gates
+ * catch it). An unrecognized phase runs the plan model.
  */
-export const agent: Agent = makeAgent("claude-opus-4-8");
+const planAgent = makeAgent("claude-sonnet-5");
+const buildAgent = makeAgent("claude-haiku-4-5-20251001");
+export const agent: Agent = {
+  name: "phase-router",
+  invoke: (opts) =>
+    (/^Phase:\s*build\b/m.test(opts.prompt) ? buildAgent : planAgent).invoke(
+      opts,
+    ),
+};
