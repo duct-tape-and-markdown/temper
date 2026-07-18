@@ -1605,16 +1605,7 @@ fn emit_manifest(
         return Ok((row(EmitOutcome::Unchanged), hash));
     }
     if !dry_run {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|source| DriftError::Write {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-        fs::write(path, desired.as_bytes()).map_err(|source| DriftError::Write {
-            path: path.to_path_buf(),
-            source,
-        })?;
+        write_placement(path, &desired)?;
     }
     Ok((row(EmitOutcome::Emitted), hash))
 }
@@ -2283,16 +2274,7 @@ fn emit_one(
     }
 
     if !dry_run {
-        if let Some(parent) = disk_path.parent() {
-            fs::create_dir_all(parent).map_err(|source| DriftError::Write {
-                path: parent.to_path_buf(),
-                source,
-            })?;
-        }
-        fs::write(&disk_path, desired.as_bytes()).map_err(|source| DriftError::Write {
-            path: disk_path.clone(),
-            source,
-        })?;
+        write_placement(&disk_path, &desired)?;
     }
     Ok((row(EmitOutcome::Emitted), hash))
 }
