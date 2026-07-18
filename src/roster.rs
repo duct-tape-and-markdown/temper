@@ -15,23 +15,10 @@ use crate::check::Diagnostic;
 use crate::compose::{Requirement, Verifier, kind_narrowing_clause};
 use crate::engine::{self, Selection, Selector};
 use crate::extract::Features;
+use crate::tap;
 
 /// The diagnostic `rule` id every roster-admissibility finding reports under.
 const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
-
-/// The documented Claude Code harness lifecycle events a telemetry verifier may
-/// name — the resolution target the emitted tap records against. An event name
-/// outside this set is inadmissible: a telemetry verifier naming an undocumented
-/// event is a silent no-op, the same failure shape as a dangling script path.
-///
-/// External fact: code.claude.com/docs/en/hooks (retrieved 2026-07-17); build
-/// re-verifies against the live docs at encode.
-const DOCUMENTED_HARNESS_EVENTS: &[&str] = &[
-    "InstructionsLoaded",
-    "Skill",
-    "UserPromptExpansion",
-    "PostToolUse",
-];
 
 /// Whether an artifact opts into the requirement named `requirement` — its
 /// `satisfies` list carries that name. The decidable join at the heart of the opt-in
@@ -153,7 +140,7 @@ pub fn admissibility(
             }
             Some(Verifier::Telemetry { events }) => {
                 for event in events {
-                    if !DOCUMENTED_HARNESS_EVENTS.contains(&event.as_str()) {
+                    if !tap::documented_event_names().contains(&event.as_str()) {
                         diagnostics.push(Diagnostic::error(
                             REQUIREMENT_ADMISSIBILITY_RULE,
                             name,
@@ -695,7 +682,7 @@ mod tests {
             kind: Some("skill".to_string()),
             required: true,
             verifier: Some(Verifier::Telemetry {
-                events: vec!["Skill".to_string(), "PostToolUse".to_string()],
+                events: vec!["SkillInvoked".to_string(), "ToolUse".to_string()],
             }),
             ..requirement("planner")
         };

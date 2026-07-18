@@ -460,7 +460,7 @@ fn a_telemetry_verifier_naming_a_documented_event_is_admissible() {
         vec![RequirementRow {
             required: true,
             verifier: Some(Verifier::Telemetry {
-                events: vec!["Skill".to_string(), "PostToolUse".to_string()],
+                events: vec!["SkillInvoked".to_string(), "ToolUse".to_string()],
             }),
             ..common::requirement("planner", false, Some("skill"))
         }],

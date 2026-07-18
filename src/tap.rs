@@ -46,6 +46,42 @@ pub enum TapEvent {
     ToolUse,
 }
 
+/// The canonical event names a telemetry verifier may name — the variants of
+/// the `TapEvent` enumeration, used to validate documented-event names.
+/// A telemetry verifier declaring any other name is inadmissible.
+pub fn documented_event_names() -> &'static [&'static str] {
+    &[
+        "InstructionsLoaded",
+        "SkillInvoked",
+        "UserPromptExpansion",
+        "ToolUse",
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn documented_event_names_are_the_canonical_tap_event_variants() {
+        let names = documented_event_names();
+        // The four canonical event names derived from TapEvent's variants.
+        assert_eq!(names.len(), 4);
+        assert!(names.contains(&"InstructionsLoaded"));
+        assert!(names.contains(&"SkillInvoked"));
+        assert!(names.contains(&"UserPromptExpansion"));
+        assert!(names.contains(&"ToolUse"));
+    }
+
+    #[test]
+    fn old_event_names_are_not_documented() {
+        let names = documented_event_names();
+        // The old raw-wire spelling and ad hoc shorthand are no longer admissible.
+        assert!(!names.contains(&"PostToolUse"));
+        assert!(!names.contains(&"Skill"));
+    }
+}
+
 /// One tap event, the whole record: the version it was written at, the session
 /// it fired in, the lifecycle event, the member or path it names, and the load
 /// reason an `InstructionsLoaded` event carries. Serialized one-per-line as
