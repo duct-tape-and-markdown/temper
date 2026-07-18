@@ -25,8 +25,8 @@ emit_hash = "3185a91e839456a323d1b0aa5e02075e652bbdf85769fd45945aea807065df3f"
 [[rule]]
 name = "plan-state"
 source_path = ".claude/rules/plan-state.md"
-source_hash = "656292d553e630c820bd2a2dd3d9aa9a1cc3feb350c3a0905c5432bc38638e83"
-emit_hash = "656292d553e630c820bd2a2dd3d9aa9a1cc3feb350c3a0905c5432bc38638e83"
+source_hash = "dbed97187a848fdccc5fae275de34c0faa9c3e97377263cd51e416863d62f712"
+emit_hash = "dbed97187a848fdccc5fae275de34c0faa9c3e97377263cd51e416863d62f712"
 
 [[rule]]
 name = "posture-sweep"

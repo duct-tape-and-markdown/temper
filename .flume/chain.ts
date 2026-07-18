@@ -104,6 +104,16 @@ const planHonestyGate: Gate = {
     } catch {
       return { ok: true, message: "no state.md to check" };
     }
+    // The ledger cap (plan-state rule): state.md is ~10 lines by schema, 30
+    // is the generous bound. An essay here is re-derived every tick — the
+    // narrative's home is the plan commit body, written once.
+    const stateLines = stateText.trimEnd().split("\n").length;
+    if (stateLines > 30) {
+      return {
+        ok: false,
+        message: `state.md is ${stateLines} lines (cap 30) — it is a ledger, not a narrative; move reasoning/evidence to the plan commit body and keep \`This tick:\` to one line`,
+      };
+    }
     if (!/^Plan continues:\s*no\b/im.test(stateText)) {
       return { ok: true, message: "marker is yes/absent — re-wake handles it" };
     }

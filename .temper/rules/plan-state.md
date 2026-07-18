@@ -13,6 +13,12 @@
 Plan continues: yes — <the next live input> | after-build — <what resumes> | no — <why quiet>
 ```
 
+- **state.md is a ledger, never a narrative — 30 lines is the gated
+  cap.** `This tick:` is ONE line (the job taken, its outcome); the
+  reasoning, evidence, and DATUMs live in the plan **commit body**,
+  written once and never re-churned. A tick that essays into state.md
+  re-derives that essay every subsequent tick — the churn is the tax,
+  and the gate reverts it.
 - A cursor you did not advance this tick is copied forward **verbatim** —
   cursor lines must survive every rewrite, or the delta window falls back
   to the last `plan:` commit and silently skips past un-derived work.
