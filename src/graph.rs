@@ -92,7 +92,7 @@ pub type Node = (String, String);
 /// like any [`Node`] under a reserved `world` kind no artifact kind collides with, so a
 /// follow-on gate can place it in the same `(kind, id)` graph the other predicates
 /// range over.
-pub(crate) fn world() -> Node {
+fn world() -> Node {
     ("world".to_string(), "world".to_string())
 }
 
