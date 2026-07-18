@@ -225,10 +225,9 @@ pub enum ClauseRowError {
 
 /// Lift one clause row into its typed [`contract::Clause`] — its address, predicate,
 /// severity, guidance, and cite.
-/// `pub` (not `pub(crate)`, same reasoning as [`severity_from_label`]): the `main`
-/// binary is a separate crate from this library, so its requirement-nested lift
-/// needs this visible across the crate boundary to wrap it, as `crate::builtin`'s
-/// embedded-lock lift also does.
+/// `pub` (not `pub(crate)`): the `main` binary is a separate crate from this
+/// library, so its requirement-nested lift needs this visible across the crate
+/// boundary to wrap it, as `crate::builtin`'s embedded-lock lift also does.
 ///
 /// # Errors
 ///
@@ -258,12 +257,12 @@ pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, ClauseRowErr
     })
 }
 
-/// Parse a lock clause row's `severity` label into the typed [`contract::Severity`]
-/// — the closed `required`/`advisory` vocabulary a bare contract's own clauses
-/// declare. An out-of-vocabulary label is `None`. `pub` (not `pub(crate)`) so the
-/// `main` binary's lift of a requirement's own clause rows reuses the identical
-/// parse, never a second copy.
-pub fn severity_from_label(label: &str) -> Option<contract::Severity> {
+/// Parse a severity label into the typed [`contract::Severity`] — the closed
+/// `required`/`advisory` vocabulary a bare contract's own clauses declare. An
+/// out-of-vocabulary label is `None`. `pub(crate)` so [`crate::dial`]'s
+/// read-time severity parse reuses the identical vocabulary parse, never a
+/// second copy.
+pub(crate) fn severity_from_label(label: &str) -> Option<contract::Severity> {
     match label {
         "required" => Some(contract::Severity::Required),
         "advisory" => Some(contract::Severity::Advisory),

@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde_json::Value as JsonValue;
 
 use crate::check::Diagnostic;
-use crate::compose::EnforcementMode;
+use crate::compose::{self, EnforcementMode};
 use crate::contract::{Clause, Severity};
 use crate::extract::Features;
 
@@ -64,7 +64,7 @@ impl Dial {
                 else {
                     continue;
                 };
-                if let Some(severity) = severity_from_label(severity) {
+                if let Some(severity) = compose::severity_from_label(severity) {
                     entries.insert(label.clone(), severity);
                 }
             }
@@ -137,16 +137,6 @@ impl Dial {
                 Diagnostic::error(ENTRY_RULE, DOCUMENT, message)
             })
             .collect()
-    }
-}
-
-/// Parse a declared severity into its typed [`Severity`] — `None` outside the closed
-/// vocabulary, which the kind's own `enum` clause is what reports.
-fn severity_from_label(label: &str) -> Option<Severity> {
-    match label {
-        "required" => Some(Severity::Required),
-        "advisory" => Some(Severity::Advisory),
-        _ => None,
     }
 }
 
