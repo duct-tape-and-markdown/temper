@@ -4,51 +4,38 @@
   normalize_path Invariants amendment) is fully routed, nothing past it
   remains un-derived.
 - Audited through: d40a9f8 — unchanged; `git log d40a9f8..HEAD -- src/
-  tests/ sdk/` is empty (all three commits since — 5af93d9, 3871eba,
-  9e197d6 — are plan-only).
+  tests/ sdk/` is empty (all four commits since — 5af93d9, 3871eba,
+  9e197d6, 7a5f86c — are plan-only).
 - Residue swept through: d40a9f8 — unchanged, same empty window.
-- Posture swept through: 5af93d9 — copied forward, mid-rotation.
-  foundation ticked (3871eba, quiet), model ticked (9e197d6, quiet),
-  formats ticked this tick (below) — next: pipeline.
-- This tick: POSTURE SWEEP — job 4, formats subsystem (frontmatter/
-  document/json_manifest/toml_document), flagged not clean-skippable
-  by last tick's note (87221b2 widened json_manifest.rs's and
-  toml_document.rs's UnitShape matches since formats' own last sweep,
-  07a9c04). Read all four files whole against engineering.md's lenses
-  plus architecture.md's invariants. The two already-open entries from
-  formats' last sweep (JSON-MANIFEST-READ-DECODE-CONSOLIDATE,
-  TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE) are untouched by 87221b2 and
-  still resolve — re-verification is job 3's, not re-done here. Two new
-  findings, both filed as `.flume/refactor/` captures rather than
-  pending entries — each needs a home/shape decision, not a mechanical
-  fix, per the posture-sweep rule's routing split:
-  - `plan-json-manifest-import-layering.md` — `json_manifest.rs`'s
-    `Manifest::read_kind` (419-435) imports `crate::import` (pipeline)
-    to do its own discovery walk, unlike the frontmatter path (main.rs
-    does discovery, frontmatter.rs stays a pure parser) — the same
-    upward-edge disease architecture.md's Invariants section has ruled
-    on four times already (0040 x3, normalize_path this cycle), a
-    fifth undocumented instance.
-  - `plan-format-read-decode-duplication.md` — the fs::read+UTF-8-decode
-    job the open JSON-MANIFEST-READ-DECODE-CONSOLIDATE entry
-    consolidates only within json_manifest.rs has two more copies
-    outside it: `frontmatter.rs`'s `from_source_rooted` (172-180) and
-    `toml_document.rs`'s `read` (33-42) — four total copies of one job,
-    two filed, two not; a cross-format fix needs a shared-primitive
-    home decision the file-local entry's shape doesn't fit.
-  No exhaustive-match gaps, no hand-rolled mechanics beyond the
-  documented pinned-semantics exception (byte-fidelity `---` scan,
-  ordered-key JSON render), no verb/judge imports (grep-verified zero
-  hits for main/install/bundle/engine/graph/dial/coverage/display/
-  reporter across all four files), no dead plumbing, no vacuous tests
-  found beyond the two captures above.
-- Queue: 27 pending, unchanged — no entries filed or shipped this tick.
-  6 pickable OPEN, 19 chained blockedBy, 2 parked on human action (all
-  unchanged from last tick, gates re-verified live). Open forks:
-  (multi-harness-projection), (lazy-grounds) unchanged. Refactor
-  captures: 2 live (plan-json-manifest-import-layering,
-  plan-format-read-decode-duplication — filed this tick; next inbox job
-  verifies each at HEAD and drains). Inbox empty.
+- Posture swept through: 5af93d9 — unchanged, mid-rotation. This tick
+  was the inbox job, not a sweep tick; foundation/model/formats stay
+  ticked, next: pipeline.
+- This tick: INBOX — `<inbox>` was empty (nothing to route) but
+  `.flume/refactor/` held 2 live captures filed last tick
+  (formats sweep, 9e197d6). Both re-verified live at HEAD (`git log
+  9e197d6..HEAD -- src/ tests/ sdk/` empty — every cited line unmoved)
+  and drained into pending entries, both `per`-cited and each
+  serialized behind an existing chain rather than left `open`, since
+  each shares a file with an in-flight entry:
+  - `plan-json-manifest-import-layering.md` → **JSON-MANIFEST-
+    DISCOVERY-BOUNDARY-RESTORE** (per architecture.md's Invariants
+    section — the fifth instance of the ruled upward-edge disease).
+    Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, the last entry
+    in the existing chain touching main.rs; also shares json_manifest.rs
+    with the open JSON-MANIFEST-READ-DECODE-CONSOLIDATE, which is
+    queue-front and ships first regardless.
+  - `plan-format-read-decode-duplication.md` → **FORMAT-READ-UTF8-
+    DECODE-CONSOLIDATE** (per engineering.md, "One job, one home" —
+    the two copies outside json_manifest.rs). Serialized behind
+    JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own
+    sequencing ask; also shares toml_document.rs with the open
+    TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE, queue-front, ships first
+    regardless.
+  Both capture files deleted; `.flume/refactor/` holds only README.md.
+- Queue: 29 pending (27 + 2 filed this tick). 6 pickable OPEN
+  (unchanged — both new entries are blockedBy), 21 chained blockedBy,
+  2 parked on human action. Open forks: (multi-harness-projection),
+  (lazy-grounds) unchanged. Refactor captures: 0 live. Inbox empty.
 
 Plan continues: yes — posture sweep resumes at `pipeline` (drift/
 import/read/builtin_lock/placement), the rotation's next subsystem.

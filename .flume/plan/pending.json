@@ -265,6 +265,58 @@
     "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Its blocker DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH shipped (87221b2/d40a9f8), widening `parse`'s match by +6 lines (53-105, was 53-99) — re-verified on disk, no other change to this fn. Opened. scoped at d40a9f8."
   },
   {
+    "tag": "FORMAT-READ-UTF8-DECODE-CONSOLIDATE",
+    "summary": "Four copies of one fs::read+UTF-8-decode job span formats — json_manifest.rs's two (filed), frontmatter.rs's, toml_document.rs's — consolidate to one primitive",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "JSON-MANIFEST-READ-DECODE-CONSOLIDATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/hash.rs",
+          "description": "Add a shared read+decode primitive alongside the existing `sha256_hex` (which frontmatter's copy already calls on the same raw bytes this primitive would read) — e.g. `pub(crate) fn read_utf8(path: &Path) -> Result<(Vec<u8>, String), ReadUtf8Error>` returning the raw bytes and decoded string together (or a closure-parameterized variant each format maps to its own error enum) so a caller needing the hash gets it from the same read. Exact shape (bare io::Error/FromUtf8Error pair vs error-constructor closures vs a small shared error type each format's own enum wraps) is a judgment call for build — name the choice in the commit body."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`Member::from_source_rooted` (167-180) inlines `fs::read` -> `map_err(FrontmatterError::Io)` -> `String::from_utf8` -> `map_err(FrontmatterError::NotUtf8)`, with `crate::hash::sha256_hex(&bytes)` sandwiched between (176). Route through the new shared primitive in src/hash.rs, keeping its own `FrontmatterError` mapping and the hash step (now reading the bytes the primitive already returned, rather than a second implicit read)."
+        },
+        {
+          "path": "src/toml_document.rs",
+          "description": "`read` (33-42) inlines the identical `fs::read` -> `map_err(TomlDocumentError::Io)` -> `String::from_utf8` -> `map_err(TomlDocumentError::NotUtf8)` pair, no hash step. Route through the same shared primitive, keeping its own `TomlDocumentError` mapping."
+        },
+        {
+          "path": "src/json_manifest.rs",
+          "description": "Once JSON-MANIFEST-READ-DECODE-CONSOLIDATE lands its own file-local `read_to_string` helper (consolidating `DocumentMember::read` and `Manifest::read`'s two copies into one), route that helper through the shared primitive too — closing all four copies of the job to the one home in src/hash.rs, keeping `JsonManifestError`'s own mapping at this file's boundary."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/json_document_format.rs",
+        "asserts": "DocumentMember::read's existing malformed/missing-identity coverage stays green — the consolidation is signature-only, no change to error variants or messages"
+      },
+      {
+        "path": "tests/toml_document.rs",
+        "asserts": "read's existing coverage (malformed TOML, missing identity value, no-declared-identity refusal) stays green"
+      },
+      {
+        "path": "tests/manifest_adapter.rs",
+        "asserts": "Manifest::read's existing coverage stays green"
+      }
+    ],
+    "acceptance": "One shared read+UTF-8-decode primitive in src/hash.rs serves frontmatter.rs, toml_document.rs, and json_manifest.rs's two read paths; no format keeps its own forked fs::read+String::from_utf8 boilerplate. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Drained from .flume/refactor/plan-format-read-decode-duplication.md (observed 9e197d6, unmoved at HEAD). Not folded into JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own reasoning: that entry's file-local shape doesn't fit a cross-format primitive. Serialized behind it per the capture's own sequencing ask. Also shares toml_document.rs with the already-open TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE — queue-front, ships first regardless. scoped at 7a5f86c."
+  },
+  {
     "tag": "COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE",
     "summary": "dial.rs's private severity_from_label re-implements compose.rs's pub severity_from_label byte-for-byte — the exact second copy its own doc comment warned against; consolidate to one call",
     "per": {
@@ -697,6 +749,66 @@
     ],
     "acceptance": "gate() parses the workspace's lock.toml exactly once per invocation; coverage_note::check consumes the already-parsed kind rows instead of independently re-reading and re-parsing the file. No behavior change to which surfaces are reported governed (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy -D warnings green.",
     "notes": "Found sweeping judges (posture rotation, re-verifying subsystems 1f6afe5's ship touched). Distinct from DRIFT-EMIT-LOCK-PARSE-HOIST/DRIFT-SOURCE-DEP-PARSE-HOIST (drift.rs's own double-parses) and GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST (resolve_kind_units) — this is coverage_note.rs's own re-read on the same gate() path. Serialized behind GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST, last chain entry touching main.rs — no functional dependency. scoped at 4baa5c4."
+  },
+  {
+    "tag": "JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE",
+    "summary": "json_manifest.rs's Manifest::read_kind imports crate::import and self-discovers — formats reaching into pipeline, unlike frontmatter's pure-parse split",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "COVERAGE-NOTE-LOCK-PARSE-HOIST"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`Manifest::read_kind` (419-431, doc 406-417) takes `disc: &crate::import::Discovery` and calls `crate::import::discover_kind_files` (426-431) itself — the only formats-subsystem function that imports `crate::import`, unlike the sibling frontmatter path where `main.rs` does the discovery walk and calls the pure-parse `frontmatter::Member::from_source_rooted` (frontmatter.rs never imports `crate::import`). Same class of edge architecture.md's Invariants section has already ruled on four times (0040 x3, normalize_path this cycle) — resolved by moving code to its layer-correct home, never by amending the map. Narrow `read_kind` to take an already-discovered file list (e.g. `&[PathBuf]`) instead of `&crate::import::Discovery`, dropping the `crate::import::discover_kind_files` call and the `crate::import` dependency from this file; the discovery call moves to whichever caller now performs it (see main.rs edit). Exact signature shape (a slice, an iterator, a `Vec<PathBuf>`) is a judgment call for build — name the choice in the commit body."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "`manifest_units` (1495-1508) calls `json_manifest::Manifest::read_kind(disc, kind)` (1501) today, letting `read_kind` do its own discovery. Once `read_kind` narrows to take a file list, `manifest_units` performs the discovery call itself before delegating — mirroring `resolve_kind_units`'s frontmatter `governs` branch (1369-1376, `import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)`) exactly, so both file-governed loci discover the same way and only `main.rs` (a verb, not a format) imports `crate::import` for this purpose."
+        },
+        {
+          "path": "tests/hook_kind.rs",
+          "description": "Two call sites (78, 120) construct `crate::import::Discovery` and pass it to `Manifest::read_kind` — update to the new signature (discover via `import::discover_kind_files` inline, then pass the resulting file list), matching whatever shape build lands in json_manifest.rs."
+        },
+        {
+          "path": "tests/manifest_adapter.rs",
+          "description": "One call site (142) updates to the new `read_kind` signature."
+        },
+        {
+          "path": "tests/mcp_server_kind.rs",
+          "description": "One call site (68) updates to the new `read_kind` signature."
+        },
+        {
+          "path": "tests/installed_plugin_kind.rs",
+          "description": "Four call sites (68, 82, 112, 198) update to the new `read_kind` signature."
+        },
+        {
+          "path": "tests/known_marketplace_kind.rs",
+          "description": "Three call sites (58, 89, 176) update to the new `read_kind` signature."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/manifest_adapter.rs",
+        "asserts": "existing manifest discovery/read coverage stays green — the move is signature-only, no change to which files are discovered or how they parse"
+      },
+      {
+        "path": "tests/installed_plugin_kind.rs",
+        "asserts": "existing installed-plugin manifest read coverage stays green across all four call sites"
+      }
+    ],
+    "acceptance": "src/json_manifest.rs imports no crate::import; Manifest::read_kind takes an already-discovered file list, and the discovery walk for manifest-shaped kinds lives in main.rs's manifest_units, mirroring resolve_kind_units's frontmatter branch. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Drained from .flume/refactor/plan-json-manifest-import-layering.md (observed 9e197d6, unmoved at HEAD). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, last chain entry touching main.rs (pending-entry.md, 'Disjoint, or serialized'). Also shares json_manifest.rs with the already-open JSON-MANIFEST-READ-DECODE-CONSOLIDATE — queue-front, ships first regardless. scoped at 7a5f86c."
   },
   {
     "tag": "INSTALL-PROJECTION-MATCH-CONSOLIDATE",
