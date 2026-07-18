@@ -5,49 +5,56 @@
   is now fully routed.
 - Audited through: c1b0f51 — advanced from 4e46eac.
 - Residue swept through: c1b0f51 — advanced from 4e46eac.
-- Posture swept through: fe3ff3f — verbs ticked last cycle and closed the
-  rotation pass. Stale as of this tick: the forward window fe3ff3f..c1b0f51
-  touches src/ and tests/, so a fresh cycle re-arms next tick.
-- This tick: POST-SHIP RECONCILIATION — window 4e46eac..c1b0f51 (three
-  build commits: dcdfbff, 0062150, 112b188), shipped as c1b0f51
-  (KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH, MAIN-READ-FILE-UNIT-FORMAT-
-  EXHAUSTIVE-MATCH, DRIFT-EMIT-LOCK-PARSE-HOIST). Audit: all three ship
-  commits read on disk and verified against their entries' acceptance
-  (kind.rs's declared_fields now pipe-groups the six non-Field Primitive
-  variants with an inline test pinning it; main.rs's read_file_unit names
-  `Some(Format::YamlFrontmatter) | None` instead of a wildcard; drift.rs's
-  emit() reads/parses lock.toml once via a new read_lock_document, feeding
-  both read_prior_provenance_from_doc and declarations_from_doc, pinned by
-  thread-local lock_read_count/lock_parse_count and
-  tests/check_cost.rs::emit_lock_parse_is_hoisted_and_pinned_once_per_run).
-  All three already dropped from pending.json by the ship commit. Metrics
-  glanced (turns 19/34/73) — no bail/revert markers in the window.
-  Re-tested stale gate: PLACEMENT-MODULE-EXTRACTION was blockedBy
-  DRIFT-EMIT-LOCK-PARSE-HOIST — shipped, unblocked to `open`. Its cites
-  were stale across several ship windows since its f404e48 scoping, not
-  just this one (62559ef and 516f8f6 shifted install.rs by -1 line before
-  this window opened) — fully re-verified against HEAD and corrected:
-  install.rs's placement_lines/is_placement_comment/project_modeline/
-  project_note/project_banner/test cites, and drift.rs's emit_one call
-  site (2034→2154) and matches_projection doc pointer (2603→2706).
-  Sweep: diffed the window against the three commits already read for the
-  audit. drift.rs's split checked for duplicate-job residue: the old bare
-  `read_prior_provenance` was fully removed (renamed to `_from_doc`,
-  zero remaining bare references), `walk_lock_rows` itself survives with
-  its own real consumers (config_stale, emit_owned_targets) untouched by
-  this hoist — no second implementation. One comment staleness found:
-  drift.rs's `RawLockRow` doc comment (1947-1952) still intra-doc-links
-  `[read_prior_provenance]`, now renamed. Per the ride-only rule
-  (open-questions.md, "One stale cite") this rides the next entry that
-  names it rather than filing standalone — recorded as a second tracked
-  orphan there, alongside the standing json_splice.rs one.
-- Queue: 28 pending (-0 shipped this tick, +0 filed) — 1 pickable OPEN
-  (PLACEMENT-MODULE-EXTRACTION, newly unblocked), 25 chained blockedBy
-  (all resolving to live tags), 2 parked on human action
-  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks
-  unchanged: (multi-harness-projection), (lazy-grounds), neither touched.
-  Refactor captures: 0 live. Friction: 0 live. Inbox: 0 notes.
+- Posture swept through: formats next (mid-rotation) — a fresh cycle
+  opened this tick. foundation bulk-skipped (quiet: `git log
+  fe3ff3f..c1b0f51 -- src/check.rs src/extract.rs src/hash.rs
+  src/address.rs src/tap.rs src/json_splice.rs` empty, git-log test only,
+  no file read); model read and swept (touched: kind.rs by dcdfbff's
+  declared_fields exhaustive-match ship) — quiet-on-clean.
+- This tick: POSTURE SWEEP — model subsystem (`src/kind.rs`,
+  `src/contract.rs`, `src/compose.rs`, `src/schema.rs`, `src/roster.rs`),
+  touched by dcdfbff (declared_fields's exhaustive-match rewrite,
+  ship-audited last tick). All five files read whole against every
+  `specs/process/engineering.md` section plus the sweep's cohesion/dead-
+  plumbing lenses. compose.rs/schema.rs/roster.rs clean — no exhaustive-
+  match fallthrough over a Rust enum (schema.rs's own `Predicate` match at
+  85-165 already names every variant), no zero-consumer export (`rg`-
+  confirmed a consumer outside its own module for every checked `pub` item:
+  `glob_leaf`, `Charset::allows`, `Shape::demand`, `ranges_over_selection`,
+  `edge_field_slots`, `surface_subdir`, `local_locus_fault`,
+  `overlay_content`, `nested_file`, `spans_whole_manifest`, `key_field`,
+  `collection_key`, `glob_compile_count`, `with_joined_clauses`), no
+  duplicate matcher/normalizer. kind.rs/contract.rs: every already-queued
+  finding re-verified still true (KIND-ZERO-CONSUMER-EXPORTS-PRUNE's
+  `Commitment::label`/`Content::label`/`CustomKind::qualified_name` still
+  grep-confirmed zero-consumer; CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH's
+  `declared_keys` `_ => None` at line 741 still stands beside `target`/
+  `documented_field`'s exhaustive style; CONTRACT-REQUIRE-SECTIONS-
+  ROUNDTRIP's `requireSections()` still takes no argument in
+  sdk/src/contract.ts) — each entry's cited line range is within ±1 of
+  the current file (kind.rs's post-945 insertions from dcdfbff land after
+  every cited site here, so nothing shifted materially; the ±1 is the
+  same rounding already present across this corpus's citations, not real
+  drift, so no correction filed). The `_ => None`/`_ => {}` arms
+  elsewhere in kind.rs/contract.rs/compose.rs (format_from_label,
+  unit_shape_from_label, commitment_from_label,
+  collection_key_path_from_label, registration_from_label,
+  severity_from_label, `Shape`/`ExtentUnit::from_name`,
+  `predicate_from_row`, `charset_from_row`) are all closed-vocabulary
+  *string label* parsers, not consumers of a shared Rust enum — outside
+  this section's exhaustive-match bar by the section's own scoping.
+  Verdict: quiet-on-clean. Rotation advances to formats — also touched in
+  the same window (8f96918's json_manifest.rs parse consolidation) — so
+  next tick sweeps it (one touched subsystem read per tick; formats was
+  not read this tick).
+- Queue: 28 pending — unchanged (no entry filed, dropped, or edited this
+  tick; posture sweep found nothing new). 1 pickable OPEN
+  (PLACEMENT-MODULE-EXTRACTION), 25 chained blockedBy (all resolving to
+  live tags), 2 parked on human action (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER). Open forks unchanged:
+  (multi-harness-projection), (lazy-grounds), neither touched. Refactor
+  captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — the posture sweep re-arms (fe3ff3f..c1b0f51 touched
-src/ and tests/, closing the quiet window the last rotation left); next
-tick sweeps the first subsystem of a fresh cycle.
+Plan continues: yes — the posture sweep is still mid-rotation (formats
+next, already known touched by 8f96918) and no commit past c1b0f51 has
+landed to re-trigger reconciliation, so the sweep is the next live input.
