@@ -1,48 +1,5 @@
 [
   {
-    "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE",
-    "summary": "gate() recomputes the edge-resolution walk 2-4x per invocation — check's own copy plus resolved_edges/resolved_arcs re-derived by acyclic/degree/mention_reachable — consolidate to one shared walk",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`check` (pub fn, 111-129) is a from-scratch copy of the admissible-edge x source x target walk, producing dangling-route `Diagnostic`s. `resolved_edges` (pub(crate), 967-990) is the identical iteration shape producing `Vec<ResolvedEdge>`; `resolved_arcs` (private, 1001-1010) folds a fresh `resolved_edges` call (1006) into adjacency. `acyclic` (195-211) calls `resolved_arcs` at 196 (always-on); `degree` (236-...) calls it again at 252 (opt-in); `mention_reachable` (355-...) calls `resolved_edges` directly at 371 (opt-in) — so one `gate()` invocation recomputes the same walk 2 (check + acyclic, always-on) to 4 times (adding degree/mention_reachable when their selections opt in). Change `resolved_arcs` to fold an already-computed `&[ResolvedEdge]` slice into adjacency instead of calling `resolved_edges` itself (drop the call at 1006); change `acyclic`, `degree`, and `mention_reachable`'s signatures to accept the shared `&[ResolvedEdge]` (computed once by `gate()`) rather than `edges`/`by_kind`, folding/filtering over it. `check` needs the *unresolved* half `resolved_edges` discards (a dangling route is exactly what it skips) — the real design decision, left as a judgment call for build (name the choice in the commit body): either (a) widen `resolved_edges` to return both the resolved set and the dangling occurrences in one pass (a `(Vec<ResolvedEdge>, Vec<Diagnostic>)` or small struct), retiring `check`'s separate loop in favor of reading its half off the shared pass, or (b) give `check` its own filter over a richer per-target enumeration `resolved_edges` derives from, keeping it a thin projection rather than a parallel walk. Whichever shape lands, reword `resolved_edges`'s doc comment (964-966) and the module header's READ-EDGE-UNIFY claim (11-13, 'one resolved-edge enumeration... shared') to state the runtime-sharing this consolidation establishes, not just the type-sharing it already had."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`gate()` (854) calls `graph::check` (1141, always-on), `graph::acyclic` (1157, always-on), `graph::degree` (1164, opt-in), and `graph::mention_reachable` (1172, opt-in) — four independent triggers of graph.rs's walk today. Once graph.rs's functions take the shared `&[ResolvedEdge]` slice (or the widened resolved+dangling shape), compute it once here, after `graph::admissibility` (1140) and before the four consumers, and thread it into each call, replacing the `edges`/`by_kind` pair those calls pass today wherever the walk itself moved to the caller."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`why`'s narration (`resolved` at 335) calls `graph::resolved_edges(edges, by_kind)` directly — a separate verb invocation from `gate()`'s own run, so it is not part of the within-gate duplication this entry fixes and needs no consolidation of its own. It is `resolved_edges`'s only consumer outside graph.rs (doc-comment cites at 21, 62, 309, 470) — if the design decision above widens `resolved_edges`'s return shape, this call site's usage narrows to the resolved half; verify at implementation time whether the signature change ripples here, and update the call plus the four doc-comment cites to match whatever shape lands."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "a fixture whose selections carry both a degree and a mention-reachable clause (exercising all four graph.rs call sites) asserts the resolved-edge walk runs exactly once per gate() invocation — a new count-pin instrumented the way import::walk_count()/kind::glob_compile_count() already are in this file"
-      },
-      {
-        "path": "src/graph.rs",
-        "asserts": "existing acyclic/degree/mention_reachable/check inline tests pass calling the consolidated functions over the shared slice — signature-only change, no diagnostic output changes"
-      }
-    ],
-    "acceptance": "gate() computes the admissible-edge x source x target walk exactly once per invocation; acyclic, degree, and mention_reachable derive their adjacency/edge set from that one shared computation instead of each independently recomputing via resolved_edges/resolved_arcs, and check's dangling-route diagnostics derive from the same shared pass. A count-pin test proves it. No behavior change (engineering.md, 'Cost scale is hoisted and pinned by count'). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "READ-CONTEXT-MEMBER-CITER-GRAIN shipped (e5b1fa1) — re-verified: its read.rs edit sits at 778-994, this entry's cited read.rs lines (21/62/309/335/470) untouched. main.rs drifted since scoping (cb4f989, net -16 lines; gate() now opens at 836) — reverify call-site lines at pickup. Opened; READ-VERB-STRAND-COHESION reserialized behind this entry, same src/read.rs collision. Output shape is build's judgment call, named in the commit body. scoped at 612f2a5."
-  },
-  {
     "tag": "GRAPH-WORLD-ZERO-CONSUMER-PRUNE",
     "summary": "graph.rs's world() is pub(crate) but called only from reachable() in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
     "per": {
@@ -50,8 +7,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -82,8 +38,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -773,8 +728,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -949,8 +903,7 @@
       "section": "Growth rules"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1173,76 +1126,6 @@
     "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308."
   },
   {
-    "tag": "ROSTER-DOCUMENTED-EVENTS-CONSOLIDATE",
-    "summary": "roster.rs's DOCUMENTED_HARNESS_EVENTS is a second, already-drifted copy of tap::TapEvent's lifecycle vocabulary — consolidate onto the one canonical list",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/roster.rs",
-          "description": "DOCUMENTED_HARNESS_EVENTS (22-32) hand-lists four event-name strings that already disagree with what tap::TapEvent actually records: it names the raw wire event \"PostToolUse\" and the ad hoc \"Skill\", neither of which is a TapEvent variant a real tap record ever carries (record_from_payload in tap.rs classifies PostToolUse into either SkillInvoked or ToolUse), while omitting both of those real variant names outright. The admissibility check (154-165) should resolve `events` against tap::TapEvent's own vocabulary, not this private, already-wrong copy."
-        },
-        {
-          "path": "src/tap.rs",
-          "description": "Exposes the canonical event-name vocabulary TapEvent's four variants already carry (a name table, or an iterable list) for roster.rs's admissibility check to consume instead of retyping it — exact shape is build's call. Picked up after TAP-PAYLOAD-SCHEMA-SPLIT lands so the classification's settled provider-face home is in place first."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "a_telemetry_verifier_naming_a_documented_event_is_admissible (451) and a_telemetry_verifier_naming_an_undocumented_event_is_inadmissible (478) assert \"Skill\"/\"PostToolUse\" as the admissible/inadmissible pair — both rewrite against the corrected vocabulary (e.g. SkillInvoked/ToolUse), proving the two sides can no longer drift apart."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a telemetry verifier naming a real TapEvent-recorded event is admissible, and naming the old raw-wire spelling (\"PostToolUse\") or the ad hoc \"Skill\" shorthand is inadmissible — the vocabularies can't drift apart because there's one of them"
-      }
-    ],
-    "acceptance": "roster.rs's telemetry-event admissibility check reads its documented-event vocabulary from tap::TapEvent (or a table it derives), never a hand-authored parallel list. cargo test green.",
-    "notes": "scoped at 78d43d3 — surfaced sweeping the model subsystem (posture sweep). Third copy of the hook-event-name concept alongside tap::TapEvent and read.rs's event_label; this one has already drifted. TAP-PAYLOAD-SCHEMA-SPLIT shipped 550ed1e (verified: classify_claude_code_hook_payload lives in builtin_kind.rs, tap.rs calls it) — opened, disjoint from src/graph.rs, src/main.rs, src/install.rs (the other two open entries)."
-  },
-  {
-    "tag": "GUARD-DECLARED-LOCUS-FILTER",
-    "summary": "install.rs's guard filter admits only .claude/ paths by regex, so a declared-locus kind outside .claude escapes silently — derive the filter from lock-declared targets",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`GUARD_PATH_MATCH` (140, doc 134-139: 'the extended-regex `temper guard` greps the `PreToolUse` payload for: a `file_path` value under a `.claude/` locus') is consumed by `claude_file_path` (714-722), called from `guard` (692-710) as the first gate before consulting `targets: Option<&[drift::EmitOwnedEntry]>` (695, the lock's emit-owned projection set, doc 678-684). Since the regex hard-admits only `.claude/`-rooted paths before `targets` is ever consulted, a declared-locus kind whose `governs` root sits outside `.claude` (0038 layout kinds) can have its emit-owned projection written to unguarded — the `file_path` never matches the regex, so `claude_file_path` returns `None` and `guard` (697-699) allows it silently, regardless of what `targets` declares. Per the 0042 frame (ruled, inbox observed ab01fb4): the filter should derive from the lock's own declared targets (already threaded into `guard` as `targets`) rather than a provider-shaped `.claude/` regex decided ahead of them; the `.claude` regex survives only as the documented no-lock fallback `guard`'s own doc (680-684) already names ('`targets` is `None` for a harness with no `lock.toml` at all ... the guard falls back to binding any `.claude/` `file_path`'). Rework `guard`/`claude_file_path` so that when `targets: Some(_)`, the `file_path` extraction (or its match test) is driven by the declared target paths themselves rather than requiring a `.claude/` match first; `GUARD_PATH_MATCH`'s regex stays, scoped explicitly to the `targets: None` fallback branch. Exact extraction shape (a looser `file_path`-capturing regex plus a target-path suffix test, replacing today's `.claude/`-gated one) is a judgment call for build, named in the commit body."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a new case proves a PreToolUse payload naming a lock-declared emit-owned target OUTSIDE .claude/ is bound by the guard (not silently allowed), alongside existing coverage that a .claude/ path outside any declared target stays allowed and the no-lock fallback still binds any .claude/ file_path"
-      }
-    ],
-    "acceptance": "temper guard binds a PreToolUse write against any lock-declared emit-owned target, not only .claude/-rooted ones; the .claude/ regex survives only as the documented no-lock fallback. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Routed from inbox (RULED, standing delegation, observed ab01fb4). BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE shipped (1e632a9), a 2-line install.rs edit at session_start_group (~1125), well clear of GUARD_PATH_MATCH/guard (147-740 region) — unaffected. Opened. A declared-locus kind outside .claude currently escapes the guard silently, a real gap, not just a shape defect. scoped at 612f2a5."
-  },
-  {
     "tag": "INSTALL-ERROR-ZERO-CONSUMER-PRUNE",
     "summary": "install.rs's InstallError enum is pub with zero consumer outside its own module — narrow to private per the export-earns-its-consumer bar",
     "per": {
@@ -1250,8 +1133,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GUARD-DECLARED-LOCUS-FILTER"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -1482,8 +1364,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
