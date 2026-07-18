@@ -117,7 +117,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Four live orphans at HEAD (1973522).** `src/json_splice.rs`'s module
+  **Six live orphans at HEAD (bd15a0a).** `src/json_splice.rs`'s module
   header (surfaced 5af93d9, sweeping foundation) claims install.rs as "the
   sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -149,6 +149,24 @@ condition arrives, it is the next break. If work touches one, surface it.
   INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE, INSTALL-PLACEMENT-KIND-ENUM, and
   BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE all chain onto install.rs
   but none touches this line range, so it rides whichever one first does.
+  `src/extract.rs`'s doc comment for `manifest_members` (surfaced this
+  tick's posture sweep of foundation) was orphaned mid-function by the
+  same extraction commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE)
+  that moved `manifest_members` to json_manifest.rs: lines 954-963 still
+  carry the function's own opening paragraphs, but its closing sentence
+  truncates ("The `hooks` collection nests one level deeper than every
+  other: an event's value is an") and runs straight into `number_kind`'s
+  unrelated doc comment three lines below, no blank line marking the
+  seam — dead prose describing a function that no longer lives in this
+  file, read as `number_kind`'s opening paragraph. No pending entry
+  currently opens extract.rs, so it rides whichever one first does. The
+  same commit left a companion stale cite: `src/json_manifest.rs:335`'s
+  `Manifest::read` doc comment still names `[extract::manifest_members]`,
+  though the function it points at moved into this same file — the
+  module prefix is now self-referential and wrong.
+  JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE and GATE-MANIFEST-SHARED-READ-
+  HOIST both chain onto json_manifest.rs but neither's scope reaches
+  line 335, so it rides whichever first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
