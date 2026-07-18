@@ -220,6 +220,37 @@
     "notes": "Found sweeping the judges subsystem (posture rotation, re-verifying subsystems 1f6afe5's ship touched). Disjoint from every other pending entry (no other queued entry touches dial.rs). scoped at 4baa5c4."
   },
   {
+    "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
+    "summary": "check.rs's ANNOUNCEMENT_HEADING is pub but read only by its own render() and its own inline tests — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "`ANNOUNCEMENT_HEADING` (168, `pub const ANNOUNCEMENT_HEADING: &str = \"judged by inputs the committed harness does not carry:\"`) has exactly one production reader — `Announcement::render` in this same file (203, `format!(\"{ANNOUNCEMENT_HEADING}\\n\")`) — plus this file's own inline tests (268, `!rendered.contains(ANNOUNCEMENT_HEADING)`; 280, `rendered.starts_with(ANNOUNCEMENT_HEADING)`) — grep-verified zero hits anywhere else in src/, tests/, sdk/. Same shape as the shipped TAP-LOG-FILENAME-ZERO-CONSUMER-PRUNE / ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE / DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE / GRAPH-WORLD-ZERO-CONSUMER-PRUNE precedent (a pub item earning only its own module's use plus its own inline tests). Drop `pub` from `ANNOUNCEMENT_HEADING`, leaving it a module-private const readable from `render` and its own inline tests unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/check.rs",
+        "asserts": "render_leads_with_the_announced_inputs (272) and render_surfaces_the_rule_code_and_message's negative assertion (258, asserting the heading is absent when nothing was announced) stay green — the narrowing is visibility-only, render's rendered text is unchanged"
+      }
+    ],
+    "acceptance": "ANNOUNCEMENT_HEADING is a private const in src/check.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
+    "notes": "Found sweeping the foundation subsystem (posture rotation, re-arming on the ship touching address.rs/tap.rs). extract.rs, also foundation per architecture.md's codemap, carries no new finding beyond its already-queued EXTRACT-FOUNDATION-BOUNDARY-RESTORE upward-dependency debt — its other pub items all have a live external consumer. Disjoint from every other pending entry (no other queued entry touches check.rs). scoped at e09b1ba."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {
