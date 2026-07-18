@@ -243,41 +243,6 @@
     "notes": "Drained from .flume/refactor/plan-json-manifest-import-layering.md (observed 9e197d6, unmoved at HEAD). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, last chain entry touching main.rs (pending-entry.md, 'Disjoint, or serialized'). Also shares json_manifest.rs with the already-open JSON-MANIFEST-READ-DECODE-CONSOLIDATE — queue-front, ships first regardless. scoped at 7a5f86c."
   },
   {
-    "tag": "INSTALL-PLACEMENT-KIND-ENUM",
-    "summary": "InstallEntry.placement is four bare &str consts matched with a wildcard fallback in gate_installed — the MODELINE case is never named, only reached via `_`",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`InstallEntry.placement: &'static str` (353) is one of four consts — `SESSION_START` (92), `MODELINE` (94), `GUARD_HOOK` (96), `NOTE` (98) — set at its five construction sites (565, 589, 595, 625, 639). `gate_installed`'s tally match (510-515) matches them as `SESSION_START => hook = true, GUARD_HOOK => guard = true, NOTE => notes += 1, _ => modelines += 1` — `MODELINE` is never named in the match, reached only through the `_` fallback, which would also silently absorb any future fifth placement as a modeline, uncaught by the compiler. This is the shared-concept posture's own described failure shape ('a `_` arm over a shared concept is a seam defect waiting for its field report'). Replace the four string consts and the `&'static str` field with a real `#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum Placement { SessionStart, Modeline, GuardHook, Note }`, update the five construction sites and `gate_installed`'s match to name every variant exhaustively (no `_` arm), and give `Placement` a `Display`/label method carrying today's exact strings ('session-start hook', 'schema modeline', 'guard hook', 'managed-by note') for the two `.to_string()` uses at 523/526 and the report line built from it."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "`outcome_of` (137-147) and `has_entry` (150-152) take `placement: &str` and compare with `==` against `entry.placement`; ~16 call sites pass string literals (`\"session-start hook\"` 233/430/544, `\"guard hook\"` 236/428/717/751/897/918, `\"managed-by note\"` 237, `\"schema modeline\"` 238/440/790, plus a direct field comparison outside the two helpers at 801, `.filter(|e| e.placement == \"schema modeline\")`). Once `InstallEntry.placement` becomes `Placement`, both helpers' signatures change to `placement: Placement` and every call site's string literal — including the 801 direct-field comparison — becomes the matching enum variant (`Placement::SessionStart`, `Placement::GuardHook`, `Placement::Note`, `Placement::Modeline`)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "every existing outcome_of/has_entry assertion (hook/guard/note/modeline placements across the install/re-install/dry-run coverage) passes unchanged calling the enum-typed helpers — the change is representation-only, no behavior change to which placements land or their reported outcome"
-      }
-    ],
-    "acceptance": "InstallEntry.placement is a real Placement enum with an exhaustive match in gate_installed (no `_` arm); the four bare &str consts are gone. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick). Unblocked: INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE shipped 5418661, a one-line pub-prune — no functional dependency, premise re-verified true at HEAD (line numbers drifted from three intervening install.rs commits, corrected; also added the 801 direct-field comparison the prior scoping missed). No other open entry touches install.rs/tests/install.rs. rescoped 5418661."
-  },
-  {
     "tag": "BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE",
     "summary": "bundle.rs re-declares install.rs's SESSION_START_COMMAND const and re-inlines its session_start_group() JSON shape — one job, authored twice",
     "per": {
@@ -316,37 +281,6 @@
     ],
     "acceptance": "bundle.rs carries no private SESSION_START_COMMAND const and no inline re-derivation of the SessionStart hook-group JSON shape; both read/call install.rs's existing SESSION_START_COMMAND and session_start_group (widened to pub(crate)). No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Serialized behind INSTALL-PLACEMENT-KIND-ENUM, the last chain entry touching install.rs, for shared-file safety (pending-entry.md). Also shares bundle.rs with the already-open, queue-front BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE (lines 317/402 there, unrelated symbols) — ships first regardless, no blockedBy needed. scoped at b710f2d."
-  },
-  {
-    "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH",
-    "summary": "declared_keys falls through `_ => None` instead of naming every Predicate variant like neighbors target/documented_field do — a new key-declaring variant would silently vanish from the allow-list",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/contract.rs",
-          "description": "`declared_keys` (736-746) matches `Predicate::Required { field } | Predicate::Optional { field } => Some(field)` then falls through `_ => None` for every other variant. Two functions immediately above it over the same enum — `target` (642-673) and `documented_field` (683-720ish) — instead list every non-mapped `Predicate` variant explicitly in the `None` arm's pipe-group (engineering.md's own precedent: 'a `_` arm over a shared concept is a seam defect waiting for its field report'); a future key-declaring variant added to `Predicate` would compile silently against `declared_keys`'s wildcard while `target`/`documented_field` would force a decision. Rewrite `declared_keys`'s match to mirror `target`/`documented_field`'s style: keep the `Required`/`Optional` arm producing `Some(field)`, replace `_ => None` with every remaining variant named in one pipe-grouped arm mapping to `None` (the same variant list `target` already spells, since no other predicate declares a schema key)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/closed_keys.rs",
-        "asserts": "a_member_carrying_only_declared_keys_holds and the file's other closed-keys coverage stay green — the rewrite is exhaustiveness-only, declared_keys returns the identical set for every existing predicate"
-      }
-    ],
-    "acceptance": "declared_keys's match names every Predicate variant explicitly, no `_` wildcard remains, matching the exhaustive style of target/documented_field two functions above it. `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping 'model' subsystem (posture rotation). KIND-ZERO-CONSUMER-EXPORTS-PRUNE shipped (3561798), the chain-linearity-only blocker (no functional dependency on the kind.rs entry); unblocked — no other open entry touches contract.rs. scoped at 3561798."
   },
   {
     "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP",
@@ -1158,41 +1092,6 @@
     ],
     "acceptance": "src/import.rs carries no READ_DIRS counter or read_dir_count() getter; tests/check_cost.rs's diagnosis and assertions name only the two live pins. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Drained from .flume/refactor/plan-import-read-dirs-vacuous-pin.md (observed 7ac498a; git log 7ac498a..HEAD -- src/import.rs tests/check_cost.rs is empty at 0388334, claim unchanged). Serialized behind IMPORT-DECLARED-GOVERNED-PATHS-HOIST, the chain's last entry touching src/import.rs (pending-entry.md, 'Disjoint, or serialized'). scoped at 0388334."
-  },
-  {
-    "tag": "IMPORT-ROLLUP-WRITER-PLACEMENT",
-    "summary": "import.rs's RollupEntry/write_rollup/rollup_tables move to drift.rs — drift already owns 'the lock' per the codemap and is the writer's sole caller",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Codemap — the engine (`src/`)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "`RollupEntry` (160-174), `write_rollup` (585-608), `rollup_tables` (613-624), and its `create_dir_all`/`write_bytes` helpers (627-640) move to drift.rs; the module header loses the roll-up-writer clause."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Already the sole caller — `use crate::import::{RollupEntry, write_rollup}` (29), `RollupEntry` construction (1310, 1325), and the `write_rollup` call (1367) become intra-module."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "the existing lock.toml round-trip coverage (emit_compiles_every_projection_and_the_whole_lock_from_the_payload and its neighbors) stays green — the move is location-only"
-      }
-    ],
-    "acceptance": "import.rs's roll-up writer has moved to drift.rs; architecture.md's codemap holds without contradiction. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Ruled via inbox (observed a8dd112): move to drift.rs, no codemap edit needed — drift already owns 'the lock' and is the sole caller. Supersedes the prior parked either/or."
   },
   {
     "tag": "READ-CONTEXT-MEMBER-CITER-GRAIN",
