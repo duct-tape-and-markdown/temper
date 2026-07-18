@@ -45,6 +45,11 @@ pub enum LocalOverride {
 /// re-walks the consumer's whole tree per kind and twice per nested-file host — the
 /// dominant cost at consumer scale. The harness disk is stable across a run, so the
 /// memoized set is the same one a re-walk would produce.
+///
+/// Similarly, the claimed-path set a declared kind's own `governs` locus claims is a
+/// pure function of the kind set and the `local_governs` preference, computed once
+/// per run and cached here to avoid recomputation across every nested-file kind's
+/// discovery pass.
 pub struct Discovery<'a> {
     harness: &'a Path,
     /// The `local_governs = true` flavor: a local-locus kind's own walk, with the ignore
@@ -53,6 +58,10 @@ pub struct Discovery<'a> {
     /// The `local_governs = false` flavor: every committed kind's walk, both presumptions
     /// standing.
     standard: OnceCell<Discoverable>,
+    /// The claimed paths for the `LocalOverride::Honored` flavor.
+    claimed_honored: OnceCell<BTreeSet<PathBuf>>,
+    /// The claimed paths for the `LocalOverride::Withheld` flavor.
+    claimed_withheld: OnceCell<BTreeSet<PathBuf>>,
 }
 
 impl<'a> Discovery<'a> {
@@ -63,6 +72,8 @@ impl<'a> Discovery<'a> {
             harness,
             local: OnceCell::new(),
             standard: OnceCell::new(),
+            claimed_honored: OnceCell::new(),
+            claimed_withheld: OnceCell::new(),
         }
     }
 
@@ -82,6 +93,29 @@ impl<'a> Discovery<'a> {
             &self.standard
         };
         cell.get_or_init(|| discoverable_paths(self.harness, local_governs))
+    }
+
+    /// The claimed-path set a declared kind's own `governs` locus claims, for the given
+    /// override flavor. Computed on first use across the `kinds` set and cached here to
+    /// avoid recomputation across every nested-file kind's discovery pass.
+    fn declared_governed_paths(
+        &self,
+        kinds: &BTreeMap<String, CustomKind>,
+        over: LocalOverride,
+    ) -> &BTreeSet<PathBuf> {
+        let cell = match over {
+            LocalOverride::Honored => &self.claimed_honored,
+            LocalOverride::Withheld => &self.claimed_withheld,
+        };
+        cell.get_or_init(|| {
+            let mut claimed = BTreeSet::new();
+            for kind in kinds.values() {
+                if let Some(governs) = kind.governs.as_ref() {
+                    claimed.extend(discover_kind_files(self, kind, governs, over));
+                }
+            }
+            claimed
+        })
     }
 
     /// How many of the two flavors have actually been walked — the single-walk-per-flavor
@@ -203,7 +237,7 @@ pub fn discover_nested_file(
     // a host template both materialize the path: a phantom twin the coverage, `explain`,
     // and `degree` consumers would each then have to un-see. Position stays decidable at
     // this one seam instead.
-    let claimed = declared_governed_paths(disc, kinds, over);
+    let claimed = disc.declared_governed_paths(kinds, over);
     let mut found = Vec::new();
     for host in kinds.values() {
         let (Some(pattern), Some(governs)) =
@@ -232,25 +266,6 @@ pub fn discover_nested_file(
     }
     found.sort_by(|a, b| a.file.cmp(&b.file));
     found
-}
-
-/// Every path some declared kind's own `governs` locus claims, across `kinds` — the set a
-/// host template's discovery carves out so a declared kind's member is the sole home of its
-/// path. A nested file kind governs no locus of its own (a template child's path is its
-/// host's fact), so it contributes nothing; only the kinds carrying a `governs` pair claim
-/// paths, scanned through the same `discover_kind_files` walk discovery itself rides.
-fn declared_governed_paths(
-    disc: &Discovery,
-    kinds: &BTreeMap<String, CustomKind>,
-    over: LocalOverride,
-) -> BTreeSet<PathBuf> {
-    let mut claimed = BTreeSet::new();
-    for kind in kinds.values() {
-        if let Some(governs) = kind.governs.as_ref() {
-            claimed.extend(discover_kind_files(disc, kind, governs, over));
-        }
-    }
-    claimed
 }
 
 /// The path pattern `host` templates `child`'s file layer at, if it declares one — the
