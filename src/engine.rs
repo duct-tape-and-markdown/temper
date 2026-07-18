@@ -425,7 +425,7 @@ impl Selector {
     /// The kind or requirement name this selector picks by — the `artifact` a finding
     /// over the selection names.
     #[must_use]
-    pub fn label(&self) -> &str {
+    fn label(&self) -> &str {
         match self {
             Selector::Kind(kind) => kind,
             Selector::OptIn(requirement) => requirement,
