@@ -7,8 +7,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -33,7 +32,7 @@
       }
     ],
     "acceptance": "declared_fields's match names every Primitive variant explicitly, no `_` wildcard arm remains, matching the exhaustive style Primitive::key and Primitive::apply already hold over the same enum in the same file. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE (the definitions()/KindError half of a split made this tick — see its notes) and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety; no functional dependency. scoped at 08b5a27."
+    "notes": "Found sweeping the model subsystem. Unblocked this tick: BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE shipped (516f8f6) — its KindError deletion landed at kind.rs:1462, after declared_fields (945-954) and Primitive::key/apply (1392-1427), so this entry's citations resolve unchanged at HEAD. Still shares src/kind.rs with the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — no functional dependency. scoped at 4e46eac."
   },
   {
     "tag": "MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH",
@@ -43,8 +42,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -52,7 +50,7 @@
       "edit": [
         {
           "path": "src/main.rs",
-          "description": "`read_file_unit` (1425-1451) matches `(&kind.content, &kind.format)`: the `Content::Layout` arm ignores format via `_` legitimately (a layout body's read never consults format), but the `Content::File | Content::Fields` arms name `Some(Format::JsonDocument)` (1433) and `Some(Format::TomlDocument)` (1436) explicitly, then fall through `(kind::Content::File | kind::Content::Fields, _) => {...}` (1439) for the rest — a wildcard silently covering both `None` and `Some(Format::YamlFrontmatter)`. A sibling match over the identical `Format` enum four functions below in this same file, `local_document_rows` (1776-1787), is already exhaustive: `Some(Format::YamlFrontmatter | Format::JsonDocument | Format::TomlDocument) | None => return Ok(...)`. drift.rs's `project_bytes` (2156-2170) — engineering.md's own cited precedent for this exact enum — is exhaustive the same way: `Some(Format::YamlFrontmatter) | None => {}`. A future fourth `Format` variant would silently route through `read_file_unit`'s frontmatter branch instead of refusing to compile, exactly the seam defect the precedent exists to close. Replace the wildcard at 1439 with `(kind::Content::File | kind::Content::Fields, Some(kind::Format::YamlFrontmatter) | None) => {...}`, mirroring `local_document_rows`'s own style over the same enum. No behavior change: `YamlFrontmatter` and unset already took this branch."
+          "description": "`read_file_unit` (1425-1451) matches `(&kind.content, &kind.format)`: the `Content::Layout` arm ignores format via `_` legitimately (a layout body's read never consults format), but the `Content::File | Content::Fields` arms name `Some(Format::JsonDocument)` (1433) and `Some(Format::TomlDocument)` (1436) explicitly, then fall through `(kind::Content::File | kind::Content::Fields, _) => {...}` (1439) for the rest — a wildcard silently covering both `None` and `Some(Format::YamlFrontmatter)`. A sibling match over the identical `Format` enum four functions below in this same file, `local_document_rows` (1776-1787), is already exhaustive: `Some(Format::YamlFrontmatter | Format::JsonDocument | Format::TomlDocument) | None => return Ok(...)`. drift.rs's `project_bytes` (2169-2183) — engineering.md's own cited precedent for this exact enum — is exhaustive the same way: `Some(Format::YamlFrontmatter) | None => {}`. A future fourth `Format` variant would silently route through `read_file_unit`'s frontmatter branch instead of refusing to compile, exactly the seam defect the precedent exists to close. Replace the wildcard at 1439 with `(kind::Content::File | kind::Content::Fields, Some(kind::Format::YamlFrontmatter) | None) => {...}`, mirroring `local_document_rows`'s own style over the same enum. No behavior change: `YamlFrontmatter` and unset already took this branch."
         }
       ],
       "retire": []
@@ -73,7 +71,7 @@
       }
     ],
     "acceptance": "read_file_unit's match names every Format variant explicitly for the File/Fields content arm, no `_` wildcard remains there, matching the exhaustive style local_document_rows and drift::project_bytes already hold over the same enum. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping the verbs subsystem (posture rotation, triggered by 0282dc7 touching main.rs/bundle.rs). install.rs/bundle.rs/lib.rs/test_support.rs re-verified clean; every already-queued verbs finding re-verified still true at its cited lines. Serialized behind BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE, the queue-front open entry touching main.rs, for shared-file safety — no functional dependency. scoped at fe3ff3f."
+    "notes": "Found sweeping the verbs subsystem (posture rotation, triggered by 0282dc7 touching main.rs/bundle.rs). Unblocked this tick: BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE shipped (516f8f6, main.rs edits were `?`-removal only, no line shift) — read_file_unit still at 1425-1451, unchanged. Re-verified project_bytes's citation against drift.rs's own +13 shift from 72daab3 (harness_relative growth) and corrected it. scoped at 4e46eac."
   },
   {
     "tag": "DRIFT-EMIT-LOCK-PARSE-HOIST",
@@ -83,8 +81,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -92,7 +89,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1197) calls `read_prior_provenance` (fn 1973), which — since DRIFT-LOCK-ROW-WALK-CONSOLIDATION shipped (0282dc7) — now reads through the shared `walk_lock_rows` (fn 1916) helper's own open+parse; the layer-drop check (1244-1247) calls `read_declarations` (fn 3407, opens+parses the lock again via `parse_declarations` (3430) -> the private `declarations_from_doc` (3448), which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run remain — `walk_lock_rows`'s own parse and `read_declarations`'s own — the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows (via a doc-scoped sibling of `walk_lock_rows` taking `&DocumentMut`) and the layer-drop nested-member counts (via `declarations_from_doc` on that same parsed doc) from that one parse."
+          "description": "`emit` (fn 901) reads and parses the workspace's `lock.toml` twice in one invocation: the reap-diff loop (1196) calls `read_prior_provenance` (fn 1986), which — since DRIFT-LOCK-ROW-WALK-CONSOLIDATION shipped (0282dc7) — now reads through the shared `walk_lock_rows` (fn 1929) helper's own open+parse; the layer-drop check (1240-1247) calls `read_declarations` (fn 3420, opens+parses the lock again via `parse_declarations` (3443) -> the private `declarations_from_doc` (3461), which already takes a parsed `&DocumentMut`). Two independent reads+parses of the same file in one `emit()` run remain — `walk_lock_rows`'s own parse and `read_declarations`'s own — the whole-input work the cost doctrine hoists once per run and shares, never recomputed per call site. Fix: parse the lock document once inside `emit()`, then derive the reap-diff provenance rows (via a doc-scoped sibling of `walk_lock_rows` taking `&DocumentMut`) and the layer-drop nested-member counts (via `declarations_from_doc` on that same parsed doc) from that one parse."
         }
       ],
       "retire": []
@@ -105,7 +102,7 @@
       }
     ],
     "acceptance": "emit() reads and parses the workspace's lock.toml exactly once per invocation; the reap-diff provenance rows and the layer-drop nested-member count both derive from that one parse. No behavior change (engineering.md, 'Cost scale is hoisted': whole-input work computes once per run and is shared, never recomputed per call site). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (shipped 0282dc7): that entry unified three check/install-time readers of provenance columns; this is emit()'s own double-parse of the whole lock document (provenance rows vs the `[declaration]` sub-table). Newly serialized behind DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK (a defect sharing drift.rs, filed this tick) — file-sharing precedence only. Citations re-verified at 88da37f. scoped at 88da37f."
+    "notes": "Found sweeping `drift` (rotation's first subsystem). Distinct from DRIFT-LOCK-ROW-WALK-CONSOLIDATION (shipped 0282dc7): that entry unified three check/install-time readers of provenance columns; this is emit()'s own double-parse of the lock document (provenance rows vs the `[declaration]` sub-table). Unblocked: DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK shipped (72daab3) — its +13-line growth predates every cited fn; line numbers re-verified against HEAD. scoped at 4e46eac."
   },
   {
     "tag": "PLACEMENT-MODULE-EXTRACTION",

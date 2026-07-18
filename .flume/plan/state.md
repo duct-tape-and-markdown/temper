@@ -3,49 +3,53 @@
 - Spec derived through: 2d66fc9 — advanced from 53df138. The only
   intervening specs/ commit, decision 0041 ("when joins the vocabulary"),
   is now fully routed.
-- Audited through: 73c76ca — unchanged; no commit past it has landed.
-- Residue swept through: 73c76ca — unchanged; no commit past it has landed.
-- Posture swept through: fe3ff3f — verbs ticked this tick and closes the
-  rotation pass (foundation done, model done, formats done, pipeline
-  quiet, judges bulk-skipped, provider quiet-on-clean, verbs this tick —
-  1 new finding). All seven subsystems from architecture.md's codemap now
-  covered. A fresh cycle (foundation → model → formats → pipeline →
-  judges → provider → verbs) opens next time the sweep re-arms.
-- This tick: POSTURE SWEEP — verbs subsystem (`src/main.rs`,
-  `src/install.rs`, `src/bundle.rs`, `src/lib.rs`, `src/test_support.rs`),
-  triggered by 0282dc7 touching main.rs/bundle.rs. All five files read
-  whole against every `specs/process/engineering.md` section plus the
-  sweep's cohesion/dead-plumbing lenses. lib.rs/test_support.rs clean.
-  bundle.rs clean (its `SESSION_START_COMMAND` duplicate against
-  install.rs's own is already tracked, BUNDLE-INSTALL-SESSION-START-SHAPE-
-  CONSOLIDATE, re-verified still true). install.rs: every already-queued
-  finding re-verified still true at its cited lines (matches_projection/
-  manifest_write_findings' duplicate normalizer — INSTALL-PROJECTION-
-  MATCH-CONSOLIDATE; GUARD_MANIFEST_MESSAGE zero-consumer — INSTALL-GUARD-
-  MANIFEST-MESSAGE-PRUNE; InstallEntry.placement's wildcard fallback —
-  INSTALL-PLACEMENT-KIND-ENUM); nothing new. main.rs: one new finding —
-  MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH. `read_file_unit`'s
-  `Content::File | Content::Fields` arms name `Format::JsonDocument` and
-  `Format::TomlDocument` explicitly then fall through a `_` wildcard
-  (1439) covering `YamlFrontmatter`/`None` — non-exhaustive over the
-  `Format` enum, unlike this same file's `local_document_rows` four
-  functions below (1776-1787, already exhaustive over the identical
-  enum) and drift.rs's `project_bytes` (2156-2170), engineering.md's own
-  cited precedent for this enum. Filed `blockedBy`
-  BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE, the queue-front open entry
-  already sharing main.rs, for disjointness.
-- Queue: 34 pending (+1) — MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH
-  filed. 3 pickable OPEN (DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK,
-  BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE,
-  JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE — pairwise
-  file-disjoint), 29 chained blockedBy (all resolving to live tags), 2
-  parked on human action (IMPORT-HOP-CAP-CITE,
+- Audited through: 4e46eac — advanced from 73c76ca.
+- Residue swept through: 4e46eac — advanced from 73c76ca.
+- Posture swept through: fe3ff3f — verbs ticked last cycle and closed the
+  rotation pass (foundation, model, formats, pipeline, judges, provider,
+  verbs all covered). A fresh cycle opens next time the sweep re-arms.
+- This tick: POST-SHIP RECONCILIATION — window 73c76ca..4e46eac (three
+  build commits: 72daab3, 516f8f6, 8f96918), shipped as 4e46eac
+  (DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK, BUILTIN-KIND-DEFINITIONS-RESULT-
+  COLLAPSE, JSON-MANIFEST-TOP-LEVEL-OBJECT-PARSE-CONSOLIDATE). Audit: all
+  three ship commits read on disk and verified to match their entries'
+  acceptance (harness_relative canonicalizes both sides before
+  strip_prefix; definitions() returns bare BTreeMap and KindError is
+  deleted, zero remaining references grep-confirmed; DocumentMember::parse/
+  Manifest::parse both route through the new parse_top_level_object). All
+  three already dropped from pending.json by the ship commit. Metrics
+  glanced (.flume/metrics.jsonl) — no bail/revert markers in the window.
+  Three chained entries were blockedBy one of the three shipped tags —
+  unblocked to `open`: KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH and
+  MAIN-READ-FILE-UNIT-FORMAT-EXHAUSTIVE-MATCH (both blockedBy
+  BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE), DRIFT-EMIT-LOCK-PARSE-HOIST
+  (blockedBy DRIFT-INCLUDE-SOURCE-PATH-CWD-LEAK). All three re-verified
+  file-disjoint (kind.rs, main.rs, drift.rs) so all three go live
+  together. Their citations were re-verified against the shipped diffs
+  and corrected where a shipped commit's line-count growth shifted them:
+  DRIFT-EMIT-LOCK-PARSE-HOIST's five drift.rs fn cites shifted +13 (72daab3's
+  harness_relative growth precedes them) — read_prior_provenance 1973→1986,
+  walk_lock_rows 1916→1929, read_declarations 3407→3420, parse_declarations
+  3430→3443, declarations_from_doc 3448→3461 — and MAIN-READ-FILE-UNIT-
+  FORMAT-EXHAUSTIVE-MATCH's project_bytes cite shifted the same +13
+  (2156-2170→2169-2183); KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH's kind.rs
+  cites (945-1427) sit before 516f8f6's deletion at 1462, unaffected.
+  Sweep: diffed the full window (`git diff --stat 73c76ca..HEAD`) against
+  the three commits already read for the audit — no residue: KindError has
+  zero remaining references tree-wide (rg-confirmed), the JSON top-level
+  parse consolidation left no second implementation, harness_relative's
+  fix is self-contained. Nothing new filed.
+- Queue: 31 pending (-3 shipped, +0 filed) — 3 pickable OPEN
+  (KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH, MAIN-READ-FILE-UNIT-FORMAT-
+  EXHAUSTIVE-MATCH, DRIFT-EMIT-LOCK-PARSE-HOIST — pairwise file-disjoint,
+  newly unblocked this tick), 26 chained blockedBy (all resolving to live
+  tags), 2 parked on human action (IMPORT-HOP-CAP-CITE,
   PACKAGING-CHANNELS-REMAINDER). Open forks unchanged:
   (multi-harness-projection), (lazy-grounds), neither touched. Refactor
   captures: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: no — the posture rotation closes this tick (all seven
-subsystems covered this cycle), no spec delta past 2d66fc9, and no
-post-ship reconciliation window past 73c76ca. Next wake re-arms the
-rotation once a forward window touches a subsystem, or a spec/post-ship
-input goes live.
+Plan continues: no — the post-ship reconciliation window is caught up
+(Audited/Residue swept through 4e46eac, the current HEAD), no spec delta
+past 2d66fc9, and the posture rotation stays closed until a forward window
+touches a subsystem. Next wake re-arms on a spec delta, a new post-ship
+window, or the posture rotation re-arming.
