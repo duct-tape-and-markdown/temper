@@ -56,18 +56,6 @@ pub enum Commitment {
     Local,
 }
 
-impl Commitment {
-    /// The declared label this class lifts from — the inverse of
-    /// [`commitment_from_label`], so a diagnostic names the class in the same vocabulary
-    /// the author declared it in.
-    #[must_use]
-    pub fn label(self) -> &'static str {
-        match self {
-            Commitment::Local => "local",
-        }
-    }
-}
-
 /// A kind's declared definition — a constructor plus its runtime residue: the
 /// [`governs`](CustomKind::governs) locus, the composed [`Extraction`], the declared
 /// [`relationships`](CustomKind::relationships), and the declared shape facts
@@ -159,19 +147,6 @@ pub enum Content {
     /// (a hook, an MCP server). Distinct from [`File`](Content::File), which still carries
     /// a verbatim prose body.
     Fields,
-}
-
-impl Content {
-    /// The declared label this content shape lifts from, so a diagnostic names it in the
-    /// same vocabulary the author declared it in — [`Format::label`]'s peer.
-    #[must_use]
-    pub fn label(&self) -> &'static str {
-        match self {
-            Content::File => "file",
-            Content::Layout(_) => "layout",
-            Content::Fields => "fields",
-        }
-    }
 }
 
 /// A registration member's declared **collection address** — where inside a host manifest
@@ -928,13 +903,6 @@ impl CustomKind {
             .collect();
         slots.insert(SATISFIES_EDGE_FIELD.to_string());
         slots
-    }
-
-    /// The kind's **identity** — its bare `name`. Kept as its own
-    /// method rather than inlining `.name.clone()` at each call site.
-    #[must_use]
-    pub fn qualified_name(&self) -> String {
-        self.name.clone()
     }
 
     /// The kind's declared frontmatter fields, in declaration order — the `field`
@@ -1809,13 +1777,6 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
         assert!(kind.relationships.is_empty());
         assert!(kind.templates.is_empty());
         assert_eq!(kind.content, Content::File);
-    }
-
-    #[test]
-    fn qualified_name_is_the_bare_name() {
-        // Identity travels by import, never by string — a kind's qualified identity
-        // is always its own bare name.
-        assert_eq!(spec_kind().qualified_name(), "spec");
     }
 
     #[test]
