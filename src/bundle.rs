@@ -171,6 +171,16 @@ enum BundleError {
         /// The kind whose declared format names no write face.
         kind: &'static str,
     },
+
+    /// A kind passed to write_member must declare a Governs locus so the write path can
+    /// be derived — a kind with no governs cannot be bundled. Refused loud since the kind's
+    /// schema is fixed at build time, never authored by the user.
+    #[error("embedded kind `{kind}` declares no Governs locus — cannot derive write path")]
+    #[diagnostic(code(temper::bundle::no_governs))]
+    NoGoverns {
+        /// The kind that declares no governs.
+        kind: &'static str,
+    },
 }
 
 /// The typed result of a [`run`]: every file the plugin tree carries (relative to
@@ -203,20 +213,8 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
 
     // The plugin manifest and the marketplace listing it — each one member of the kind
     // that types it, rendered by that kind's declared format.
-    write_member(
-        out,
-        Path::new(".claude-plugin/plugin.json"),
-        "plugin-manifest",
-        &plugin_manifest(),
-        &mut files,
-    )?;
-    write_member(
-        out,
-        Path::new(".claude-plugin/marketplace.json"),
-        "marketplace",
-        &marketplace_manifest(),
-        &mut files,
-    )?;
+    write_member(out, "plugin-manifest", &plugin_manifest(), &mut files)?;
+    write_member(out, "marketplace", &marketplace_manifest(), &mut files)?;
 
     // The operate-the-gate skill — embedded prose, byte-faithful.
     write_text(
@@ -296,19 +294,20 @@ fn hooks_manifest() -> BTreeMap<String, JsonValue> {
     )])
 }
 
-/// Write `fields` as one member of the embedded `kind` under `<out>/<relative>`, recording
-/// the relative path in `files`. The bytes are whatever the kind's declared format renders
-/// through the one write dispatch — `bundle` names the kind and never picks an encoder, so
-/// the manifest it publishes is byte-for-byte the artifact `check` reads back off that same
-/// kind. A manifest carries no body and no install metadata, so both ride empty.
+/// Write `fields` as one member of the embedded `kind` under the path derived from its
+/// declared Governs locus, recording the relative path in `files`. The bytes are whatever the
+/// kind's declared format renders through the one write dispatch — `bundle` names the kind and
+/// never picks an encoder, so the manifest it publishes is byte-for-byte the artifact `check`
+/// reads back off that same kind. A manifest carries no body and no install metadata, so both
+/// ride empty.
 ///
 /// # Errors
 ///
-/// Returns [`BundleError::MissingKind`] if the embedded roster carries no such kind, and
-/// [`BundleError::Write`] if the file cannot be written.
+/// Returns [`BundleError::MissingKind`] if the embedded roster carries no such kind,
+/// [`BundleError::NoGoverns`] if the kind declares no Governs locus, and [`BundleError::Write`]
+/// if the file cannot be written.
 fn write_member(
     out: &Path,
-    relative: &Path,
     kind: &'static str,
     fields: &BTreeMap<String, JsonValue>,
     files: &mut Vec<PathBuf>,
@@ -316,11 +315,15 @@ fn write_member(
     let Some(definition) = crate::builtin_kind::definition(kind) else {
         return Err(BundleError::MissingKind { kind });
     };
+    let Some(governs) = definition.governs else {
+        return Err(BundleError::NoGoverns { kind });
+    };
+    let relative = Path::new(&governs.root).join(&governs.glob);
     let fields: Vec<(String, JsonValue)> = fields.clone().into_iter().collect();
     let Some(rendered) = crate::drift::project_bytes(definition.format, &fields, "", &[]) else {
         return Err(BundleError::UnwritableFormat { kind });
     };
-    write_text(out, relative, &rendered, files)
+    write_text(out, &relative, &rendered, files)
 }
 
 /// Write a structured manifest as canonical pretty JSON under `<out>/<relative>`,
