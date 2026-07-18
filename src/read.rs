@@ -49,7 +49,7 @@ use crate::compose::{Edge, Requirement};
 use crate::contract::Contract;
 use crate::document::Satisfies;
 use crate::extract::{Features, MemberAddress};
-use crate::graph::{self, ResolvedEdge};
+use crate::graph::{self, DIRECTIVE_FIELD, ResolvedEdge};
 use crate::kind::Registration;
 use crate::tap::TapRecord;
 use crate::telemetry;
@@ -1197,7 +1197,7 @@ fn impact_one(
             let _ = writeln!(
                 out,
                 "  • `{from_id}` ({from_kind}) imports it via `@{}` — the import would be unbacked.",
-                DIRECTIVE_FIELD_LABEL
+                DIRECTIVE_FIELD
             );
         }
     }
@@ -1228,11 +1228,6 @@ fn impact_one(
         }
     }
 }
-
-/// The `@import` syntax label a directive-produced edge is narrated under — the mirror of
-/// `graph`'s private `DIRECTIVE_FIELD` (`at-import`), so `impact`'s narration names the
-/// edge the same way the gate records it.
-const DIRECTIVE_FIELD_LABEL: &str = "at-import";
 
 /// The count of members opting into the requirement named `name`, across every kind —
 /// the same opt-in join coverage counts, read off [`Features::satisfies`] so `impact`
@@ -1516,7 +1511,7 @@ mod impact_tests {
     fn directive(from: (&str, &str), to: (&str, &str)) -> ResolvedEdge {
         ResolvedEdge {
             from: (from.0.to_string(), from.1.to_string()),
-            field: DIRECTIVE_FIELD_LABEL.to_string(),
+            field: DIRECTIVE_FIELD.to_string(),
             to: (to.0.to_string(), to.1.to_string()),
         }
     }

@@ -56,7 +56,7 @@ const GRAPH_DIRECTIVE_UNBACKED_RULE: &str = "graph.directive-unbacked";
 /// The reference `field` a directive-produced [`ResolvedEdge`] records — the
 /// `at-import` syntax that observed it, not a frontmatter field. Lets a reader
 /// tell a directive edge from a declared reference edge in the one resolved-edge set.
-const DIRECTIVE_FIELD: &str = "at-import";
+pub(crate) const DIRECTIVE_FIELD: &str = "at-import";
 
 /// The reference `field` a mention-produced [`ResolvedEdge`] records — an authored
 /// `n`, not a frontmatter field. Lets a reader tell a mention edge from a declared
