@@ -3,23 +3,36 @@
 - Spec derived through: 810da42
 - Audited through: 798d2d1
 - Residue swept through: 798d2d1
-- This tick: RECONCILE 21dbdc0..HEAD — the glob-memo build 12fc95e (shipped
-  5c9e63c) landed clean. AUDIT: verified on disk the memo is in kind.rs
-  (compile_glob 1273 behind a thread_local cache 1298; glob_compile_count
-  1318 mirrors walk_count), count-pinned by check_cost.rs:128
-  (check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob).
-  Window touched only src/kind.rs + tests/check_cost.rs — import.rs unmoved,
-  so SCAN-SHARE-DISCOVERABLE-SET's addresses (filed 798d2d1, post-memo) hold;
-  its work is undone (collect_glob still re-walks per kind), kept. Parked
-  gates re-tested: IMPORT-HOP-CAP-CITE subject untouched (const still `= 5`
-  at graph.rs:59, cite 2026-07-02 at 55-58; window didn't touch graph.rs);
-  PACKAGING-CHANNELS-REMAINDER holds (git diff 68fae5c..HEAD -- .github/
-  empty, crate 0.1.0, no v0.x tag). SWEEP: no spec delta, no retirement in
-  window; the memo is measure-first cost-hoisting (engineering.md), its
-  second half already captured+drained into SCAN. No residue, nothing filed.
-- Queue: 3 pending — 1 pickable OPEN (SCAN-SHARE-DISCOVERABLE-SET), 2 parked
-  on human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open
-  forks: (multi-harness-projection), (lazy-grounds).
+- Posture swept through: absent — rotation never initialized, owed once jobs
+  1-3 are quiet
+- This tick: INBOX (refactor-captures). Drained
+  build-discovery-infallible-result-plumbing.md (observed 8b06146, cut
+  0bc0ee9): re-verified every claim on disk at HEAD 1126033 — `ImportError`
+  (import.rs:138) has `ReadDir` (142) with no constructor anywhere in src/ or
+  tests/ (`read_entries`, its sole builder, retired at 0bc0ee9) and `Write`
+  (153) the lone live variant; six discovery fns still return a `Result` no
+  arm can `Err` (`discover_builtin` 206, `discover_nested_file` 252,
+  `declared_governed_paths` 304, `discover_kind_files` 358,
+  `discover_kind_units` 393, `scan_locus` 417); ripple confirmed at
+  json_manifest.rs:316/431, main.rs:1353/1372, install.rs:332. Filed
+  DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (open, per engineering.md "One job,
+  one home") and deleted the capture.
+  This is a refile: the prior attempt (648fba5) landed the same entry but was
+  reverted by the fence gate — its `files.retire` array named
+  "ImportError::ReadDir (src/import.rs:142)", a symbol description, not a
+  repo-relative path, so no fence glob matched it. Fixed by dropping
+  `files.retire` to `[]` and keeping the ReadDir removal as prose inside the
+  src/import.rs edit description (pending-entry.md: retiring a symbol in a
+  surviving file is an edit, never a `files.retire` entry). Simulated all
+  three afterCommit gates locally (parse, fence-regex, disk-existence/per
+  cite) against the rewritten pending.json before committing.
+  Parked gates re-tested at 1126033: both hold, unchanged from 04b33de — the
+  only commit since (1126033 itself) touched `.flume/**` only, so nothing in
+  src/graph.rs or .github/ moved.
+- Queue: 3 pending — 1 pickable OPEN (DISCOVERY-INFALLIBLE-RESULT-COLLAPSE),
+  2 parked on human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER).
+  Open forks: (multi-harness-projection), (lazy-grounds).
 
-Plan continues: no — reconciliation is the last input and the window is fully
-reconciled; SCAN-SHARE-DISCOVERABLE-SET is pickable OPEN, so build takes over.
+Plan continues: yes — post-ship reconciliation is owed next: 798d2d1..HEAD
+touched src/ (0bc0ee9) and cursors are still unmoved at 798d2d1; that job
+ranks below this tick's inbox job and was untouched by it.

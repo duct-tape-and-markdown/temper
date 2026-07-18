@@ -1,5 +1,52 @@
 [
   {
+    "tag": "DISCOVERY-INFALLIBLE-RESULT-COLLAPSE",
+    "summary": "The per-kind discovery scan unified onto the tolerant shared walk; `ImportError::ReadDir` is now unconstructable and six `discover_*` fns carry vacuous `Result` — collapse to bare collections",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "The residue of the retired second discovery path. `read_entries` (the only `ImportError::ReadDir` constructor) was retired at 0bc0ee9 when the per-kind scan moved onto the shared walk's in-memory index; `ImportError::ReadDir` (variant at 142, in the enum at 138) is now unconstructable — grep finds no builder in src/ or tests/ — leaving `ImportError::Write` (153, built only at 660/668 by the roll-up writer) the sole live variant. Retire the `ReadDir` variant (this is a symbol removal within a surviving file, not a file retirement — the file stays, so it is an edit, not a `files.retire` entry). Then collapse the six vacuous-`Result` discovery fns to their bare collection: `discover_builtin` (206, `-> Result<Vec<PathBuf>, ImportError>`), `discover_nested_file` (252, `-> Result<Vec<NestedFileUnit>, ImportError>`), `declared_governed_paths` (304, `-> Result<BTreeSet<PathBuf>, ImportError>`), `discover_kind_files` (358), `discover_kind_units` (393), `scan_locus` (417) — none can `Err`: the shared walk swallows I/O via `walk.flatten()` (548, the settled tolerance posture since f419987) and `scan_locus`/`collect_glob` now read the in-memory index and touch no filesystem. Drop each internal `?`. `ImportError` (doc comment at 137, 'discovering or rolling up') is now Write-only — reword the doc to the writer alone, or rename the type to a writer-scoped error (a judgment call for the build; name it in the commit body). The inline `discover_builtin_*` tests (790+) drop their `.unwrap()`. Addresses re-verified at HEAD 1126033 (unmoved since 04b33de — the only commit in between, 1126033, touched `.flume/**` alone)."
+        },
+        {
+          "path": "src/json_manifest.rs",
+          "description": "The ripple past import.rs. The manifest error enum's `Discovery(#[from] crate::import::ImportError)` variant (316) becomes unconstructable once `discover_kind_files` (called at 431, currently `?`-ed) is infallible — json_manifest only reads members, never writes, so no `ImportError` reaches it. Drop the `?` at 431 and the now-dead `Discovery` variant (and its `#[from]`), or narrow the enum to whatever error the reader still raises. Re-verified at HEAD 1126033."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Two `?` sites drop when discovery is infallible: `discover_nested_file` (1353) and `discover_kind_files` (1372). After removing them, re-check whether main's error surface still names `ImportError` at all here; leave nothing wrapping a variant that can no longer flow. Re-verified at HEAD 1126033."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "The `discover_builtin` call `?`-ed at 332 drops its `?`. Same re-check as main.rs — install never writes through this path, so no `ImportError` reaches it after the collapse. Re-verified at HEAD 1126033."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the measure-first cost fixture still pins read_dir_count == 0 with walk_count/glob_compile_count unchanged — the collapse is signature-only, discovery behavior byte-identical"
+      },
+      {
+        "path": "src/import.rs",
+        "asserts": "the inline discover_builtin_* tests yield the same member sets with the infallible signatures (unwraps removed); no ImportError::ReadDir and no Result remain in the discovery read path"
+      }
+    ],
+    "acceptance": "The discovery read path is infallible end to end — `discover_builtin`/`discover_nested_file`/`declared_governed_paths`/`discover_kind_files`/`discover_kind_units`/`scan_locus` return bare collections, `ImportError::ReadDir` is gone, and `ImportError` (or its writer-scoped rename) carries only the roll-up writer's failure. No behavior change (engineering.md, 'One job, one home': a retired second implementation's residue is subtracted, not carried). `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Drained from .flume/refactor/build-discovery-infallible-result-plumbing.md (observed 8b06146, cut 0bc0ee9). Pure subtraction, no 'Loud or nothing' fork — flatten() tolerance settled pre-SCAN (f419987), discovery was already infallible. Refile of 648fba5, reverted: its `files.retire` named a symbol string, not a path, tripping the fence gate. Fixed: ReadDir removal is now prose inside the import.rs edit, retire: []. scoped at 1126033."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
