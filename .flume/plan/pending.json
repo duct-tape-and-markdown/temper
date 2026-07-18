@@ -211,37 +211,6 @@
     "notes": "Drained from .flume/refactor/plan-json-manifest-import-layering.md (observed 9e197d6, unmoved at HEAD). Serialized behind COVERAGE-NOTE-LOCK-PARSE-HOIST, last chain entry touching main.rs (pending-entry.md, 'Disjoint, or serialized'). Also shares json_manifest.rs with the already-open JSON-MANIFEST-READ-DECODE-CONSOLIDATE — queue-front, ships first regardless. scoped at 7a5f86c."
   },
   {
-    "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE",
-    "summary": "drift.rs's EmitOutcome::label is pub but called only from render_emit in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`EmitOutcome::label` (535-546, `pub fn label(self) -> &'static str`) has exactly one call site in the whole tree — `render_emit` (2166-2188), same file, at line 2180 (`entry.outcome.label()`) — grep-verified zero hits for `EmitOutcome::label` or a `.label()` call on an `EmitOutcome` value anywhere else in src/, tests/, sdk/ (the sibling `.label()` hit at src/install.rs:1719 is `ApplyOutcome::label`, an unrelated enum with its own real cross-module caller). No test calls `.label()` directly; `tests/emit.rs` (1121-1122) asserts against `render_emit`'s rendered string output (`rendered.contains(\"reaped\")` etc.), never the method itself. This is the same defect shape ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE already pruned in `src/engine.rs` (`Selector::label`, called only from `finding()` in the same file) — per that precedent, drop `pub` from `label`, leaving it a module-private method callable from `render_emit` unchanged."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "existing render_emit coverage (the outcome-tally assertions at 1121-1122 and every other emit-report rendering test) stays green — the narrowing is visibility-only, render_emit's rendered text is unchanged"
-      }
-    ],
-    "acceptance": "EmitOutcome::label is a private method in src/drift.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping pipeline (posture rotation). CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP shipped (5cc8df9), its drift.rs edit at ClauseRow (~3256) — well past this entry's 535-546/2180 region, unaffected. Line numbers have drifted from other intervening ticks (label now 663-671, sole caller now at 2394) — reverify exact lines at pickup; the single-consumer claim itself re-verified true on disk. Opened. scoped at 612f2a5."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -1204,41 +1173,6 @@
     "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308."
   },
   {
-    "tag": "TAP-PAYLOAD-SCHEMA-SPLIT",
-    "summary": "tap.rs (foundation) hardcodes Claude Code's hook-payload schema inline — the payload-to-TapEvent classification is provider knowledge and moves to the provider face",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/tap.rs",
-          "description": "`record_from_payload` (126-171, doc 117-124) matches Claude Code's raw hook payload shape inline: `hook_event_name` values `\"InstructionsLoaded\"`/`\"UserPromptExpansion\"`/`\"PostToolUse\"` (138,144,149), the `tool_name == \"Skill\"` special case and its `tool_input.skill` field path (150-159), and the field names `file_path`/`load_reason`/`command_name`/`tool_name` — all cited as an external fact at the point of claim (131-137, `code.claude.com/docs/en/hooks`, retrieved 2026-07-17) but living in `tap`, a foundation module (`architecture.md`'s codemap: 'leaf vocabulary with no internal dependencies ... nothing here knows what a harness is'). Per the 0042 frame applied one level up (ruled, inbox observed ab01fb4): this is provider knowledge embedded as literals outside the provider face, invisible to the import graph. Extract the classification match (138-162) into a function `builtin_kind.rs` owns (see that file's own edit below; NOT `builtin.rs`, which is the lock/contract-projection module, an unrelated job), returning `(TapEvent, String, Option<String>)` or equivalent; `record_from_payload` calls it and keeps the version/session assembly, `TapRecord`/`TapEvent`/`TapError`/`TAP_RECORD_VERSION`, and the log-path/append/read IO — the module's own doc comment (1-10) already frames IO as tap's one home, unaffected by this split. Exact function signature is a judgment call for build, named in the commit body; `TapEvent`'s own doc comments (34-44) already read as generic lifecycle vocabulary, not Claude-Code-specific spelling, so the default expectation is that only the raw-field matching moves, not the enum itself."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "The natural home for the relocated classification: this module already carries every other cited Claude Code format fact (`claude_code_hook`'s own doc comment cites `code.claude.com/docs/en/hooks`, retrieved 2026-07-16, at the definition immediately above its `CollectionAddress` construction) and is named by architecture.md's codemap as exactly this job — 'the shipped kinds and their cited format facts.' Gains the payload-classification function `src/tap.rs` calls, carrying tap.rs's existing citation (re-verify current at pickup per collaboration.md's citing discipline, since the date moves to a new site) — a new `pub(crate) fn` returning `tap::TapEvent` plus identity/reason, or whatever shape the build-time signature judgment call lands."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/tap.rs",
-        "asserts": "tap_extracts_each_lifecycle_event (72) and an_unrecognized_payload_records_nothing_and_exits_zero (107) stay green calling record_from_payload unchanged — the split is call-site-only, identical classification behavior"
-      }
-    ],
-    "acceptance": "src/tap.rs's record_from_payload no longer inlines Claude Code's hook-payload field names/event values; the classification lives in the provider face and tap.rs calls it, keeping only the record vocabulary and IO. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Routed from inbox (RULED, session standing delegation, observed ab01fb4): the 0042 frame ('did we widen at the wrong level') applied at subsystem level to embedded provider knowledge, now a standing posture-sweep lens. Design is pre-decided; only the exact seam shape is build's call."
-  },
-  {
     "tag": "ROSTER-DOCUMENTED-EVENTS-CONSOLIDATE",
     "summary": "roster.rs's DOCUMENTED_HARNESS_EVENTS is a second, already-drifted copy of tap::TapEvent's lifecycle vocabulary — consolidate onto the one canonical list",
     "per": {
@@ -1277,41 +1211,6 @@
     ],
     "acceptance": "roster.rs's telemetry-event admissibility check reads its documented-event vocabulary from tap::TapEvent (or a table it derives), never a hand-authored parallel list. cargo test green.",
     "notes": "scoped at 78d43d3 — surfaced sweeping the model subsystem (posture sweep). Third copy of the hook-event-name concept alongside tap::TapEvent and read.rs's event_label; this one has already drifted. Blocked behind TAP-PAYLOAD-SCHEMA-SPLIT: both touch src/tap.rs (pending-entry.md, 'Disjoint, or serialized')."
-  },
-  {
-    "tag": "COVERAGE-KNOWN-SURFACES-RELOCATE",
-    "summary": "coverage_note.rs (judges) compiles a cited Claude Code surface registry plus a hardcoded .claude scan root — both are provider knowledge and relocate to the provider face",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Codemap — the engine (`src/`)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`KNOWN_SURFACES` (87-..., doc 74-86, `const KNOWN_SURFACES: &[KnownSurface]`) is a curated registry of documented Claude Code surfaces (`.claude/settings.json`, `.claude/agents`, etc.), each row citing `SETTINGS_DOC` (72, `code.claude.com/docs/en/settings`, retrieved 2026-07-16) — this file's own module doc (15-17) already names it 'an external fact.' `claude_entries` (256-...) additionally hardcodes the scan root `root.join(\".claude\")` (256) independently of the provider face's own repeated declaration of the same root (`builtin_kind.rs`'s `Governs { root: \".claude\".to_string(), .. }` at lines 245, 317, 350, 435, 826). architecture.md's codemap names the provider face's job precisely: 'the shipped kinds and their cited format facts' (`builtin`, `builtin_kind`) — `KNOWN_SURFACES`, the `KnownSurface`/`Segment` types, and the `.claude` scan root all fit that description exactly but live in `judges` instead. Move `KnownSurface`, `Segment`, `KNOWN_SURFACES`, and `SETTINGS_DOC` to the provider face (verify at pickup: `builtin_kind.rs`, beside the shipped kind definitions and their own format cites, is the natural fit); `coverage_note.rs` consumes them as loaded data (an import, not a local const) and derives its `.claude` scan root from the same provider-declared root the built-in kinds already use instead of a second hardcoded literal at line 256. Exact re-export/threading shape is a judgment call for build, named in the commit body."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/coverage.rs",
-        "asserts": "existing known-surface coverage findings (an unmodeled `.mcp.json`, a partially-governed `settings.json`) stay byte-identical — the move is location-only, no change to which surfaces are named or cited"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "the file's own inline coverage-note tests (grep at pickup, e.g. the KNOWN_SURFACES-driven fixtures around lines 590-930) stay green reading the relocated const through its new import"
-      }
-    ],
-    "acceptance": "KNOWN_SURFACES, its supporting types, and the .claude scan root live in the provider face; coverage_note.rs consumes them as loaded data rather than declaring its own copy of Claude Code surface knowledge. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Routed from inbox (RULED, session standing delegation, observed ab01fb4): the 0042 frame applied at subsystem level to embedded provider knowledge, now a standing posture-sweep lens. Design is pre-decided; only the exact module home/threading shape is build's call."
   },
   {
     "tag": "GUARD-DECLARED-LOCUS-FILTER",
