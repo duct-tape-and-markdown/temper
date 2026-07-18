@@ -206,8 +206,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "JSON-MANIFEST-READ-DECODE-CONSOLIDATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -227,7 +226,7 @@
         },
         {
           "path": "src/json_manifest.rs",
-          "description": "Once JSON-MANIFEST-READ-DECODE-CONSOLIDATE lands its own file-local `read_to_string` helper (consolidating `DocumentMember::read` and `Manifest::read`'s two copies into one), route that helper through the shared primitive too — closing all four copies of the job to the one home in src/hash.rs, keeping `JsonManifestError`'s own mapping at this file's boundary."
+          "description": "`read_to_string` (309-318, private, doc: 'Shared by `Manifest::read` and `DocumentMember::read`') already consolidated this file's own two fs::read + String::from_utf8 copies (JSON-MANIFEST-READ-DECODE-CONSOLIDATE, shipped). Route it through the new shared primitive in src/hash.rs too — closing all four copies of the job to the one home there, keeping `JsonManifestError`'s own mapping at this file's boundary."
         }
       ],
       "retire": []
@@ -248,7 +247,7 @@
       }
     ],
     "acceptance": "One shared read+UTF-8-decode primitive in src/hash.rs serves frontmatter.rs, toml_document.rs, and json_manifest.rs's two read paths; no format keeps its own forked fs::read+String::from_utf8 boilerplate. No behavior change (engineering.md, 'One job, one home'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Drained from .flume/refactor/plan-format-read-decode-duplication.md (observed 9e197d6, unmoved at HEAD). Not folded into JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own reasoning: that entry's file-local shape doesn't fit a cross-format primitive. Serialized behind it per the capture's own sequencing ask. Also shares toml_document.rs with the already-open TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE — queue-front, ships first regardless. scoped at 7a5f86c."
+    "notes": "Drained from .flume/refactor/plan-format-read-decode-duplication.md (observed 9e197d6). Not folded into JSON-MANIFEST-READ-DECODE-CONSOLIDATE per the capture's own reasoning (file-local shape doesn't fit a cross-format primitive); that entry has since shipped (785abd7), unblocking this one. TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE has also shipped, so no other open entry still shares toml_document.rs. Re-verified on disk: frontmatter.rs:167-180, toml_document.rs:33-42 unmoved. scoped at 785abd7."
   },
   {
     "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
