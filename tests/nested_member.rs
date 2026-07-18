@@ -696,7 +696,7 @@ fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_d
     let harness = common::tmpdir("builtin-supporting-doc");
     let unit = write_skill_with_companions(&harness, "coordinate");
 
-    let kinds = builtin_kind::definitions().unwrap();
+    let kinds = builtin_kind::definitions();
     let child = kinds
         .get("supporting-doc")
         .expect("supporting-doc ships as a built-in kind")

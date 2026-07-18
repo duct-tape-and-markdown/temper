@@ -15,7 +15,7 @@ use crate::drift::NestedMemberRow;
 use crate::extract::{self, Features};
 use crate::kind::{
     CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Format, Governs,
-    KindError, Primitive, Registration, Template, Unit,
+    Primitive, Registration, Template, Unit,
 };
 
 /// The skill surface's field schema — the documented frontmatter fields plus the
@@ -506,16 +506,11 @@ pub fn definition(name: &str) -> Option<CustomKind> {
 
 /// Every embedded built-in kind, keyed by its bare name — the compiled default
 /// program's kind roster. Infallible — every entry is Rust data.
-///
-/// # Errors
-///
-/// Never fails; the `Result` is kept for API stability (every call site already
-/// threads `?` through it).
-pub fn definitions() -> Result<BTreeMap<String, CustomKind>, KindError> {
-    Ok(all_kinds()
+pub fn definitions() -> BTreeMap<String, CustomKind> {
+    all_kinds()
         .into_iter()
         .map(|kind| (kind.name.clone(), kind))
-        .collect())
+        .collect()
 }
 
 /// Extract a built-in skill's [`Features`] by running the embedded `skill` kind's
@@ -681,7 +676,7 @@ mod tests {
 
     #[test]
     fn definitions_enumerates_the_embedded_kind_set_by_bare_name() {
-        let all = definitions().unwrap();
+        let all = definitions();
         assert_eq!(
             all.keys().map(String::as_str).collect::<Vec<_>>(),
             vec![

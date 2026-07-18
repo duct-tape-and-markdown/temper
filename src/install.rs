@@ -320,11 +320,10 @@ impl DiscoveryReport {
 /// whatever a kind declares.
 ///
 /// # Errors
-/// Returns a [`miette::Report`] if the embedded kind set fails to load or a kind's
-/// discovery walk fails to read a directory.
+/// Returns a [`miette::Report`] if a kind's discovery walk fails to read a directory.
 pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
-    let kinds = builtin_kind::definitions()?;
+    let kinds = builtin_kind::definitions();
     // One ignore-honoring walk per flavor, shared across every kind this report discovers
     // ([`import::Discovery`]).
     let disc = import::Discovery::new(root);
@@ -1223,7 +1222,7 @@ fn scaffold(
     discovery: &DiscoveryReport,
     dry_run: bool,
 ) -> miette::Result<usize> {
-    let kinds = builtin_kind::definitions()?;
+    let kinds = builtin_kind::definitions();
 
     let mut lifted: Vec<(String, frontmatter::Member)> = Vec::new();
     for (name, files) in &discovery.members {

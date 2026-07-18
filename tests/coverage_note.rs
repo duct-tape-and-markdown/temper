@@ -292,7 +292,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     // manifest), so no finding survives — partial narrowing never reaches a governed file.
     let governed = common::tmpdir("mcp-wholly-governed");
     common::write_mcp_json(&governed, "{}");
-    let builtins = temper::builtin_kind::definitions().unwrap();
+    let builtins = temper::builtin_kind::definitions();
     let full = coverage_note::check(&governed, &builtins, &BTreeMap::new()).unwrap();
     assert!(
         full.iter()

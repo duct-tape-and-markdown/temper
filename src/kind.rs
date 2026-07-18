@@ -1462,13 +1462,6 @@ pub struct Unit {
     pub satisfies_clauses: Vec<crate::document::Satisfies>,
 }
 
-/// The error type [`crate::builtin_kind`]'s embedded-kind lookups return, kept for API
-/// stability even though every embedded kind is plain Rust data and none of those
-/// lookups can fail: an empty enum, so a `Result::Err` here is statically
-/// unreachable.
-#[derive(Debug, thiserror::Error, miette::Diagnostic)]
-pub enum KindError {}
-
 impl Extraction {
     /// Compose an extractor directly from its ordered [`Primitive`]s — the
     /// constructor a kind's declared definition supplies (`crate::builtin_kind`, a

@@ -101,7 +101,7 @@ fn discover_all(
     disc: &Discovery,
     harness: &Path,
 ) -> Vec<(kind::CustomKind, std::path::PathBuf, std::path::PathBuf)> {
-    let kinds = builtin_kind::definitions().unwrap();
+    let kinds = builtin_kind::definitions();
     let mut out = Vec::new();
     for kind in kinds.values() {
         match &kind.governs {

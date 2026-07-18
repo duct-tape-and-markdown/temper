@@ -99,7 +99,6 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
     // (trailing-whitespace line and missing final newline included) — no fabricated
     // frontmatter, no re-render.
     let kind = builtin_kind::definitions()
-        .unwrap()
         .remove("memory")
         .expect("the embedded memory kind is present");
     let member = Member::from_source_rooted(&kind, &claude_md, &harness).unwrap();

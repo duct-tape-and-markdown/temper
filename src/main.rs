@@ -528,7 +528,7 @@ fn explain(target: &str) -> miette::Result<String> {
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
     // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
     // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
-    let builtin_defs = builtin_kind::definitions()?;
+    let builtin_defs = builtin_kind::definitions();
     let builtin_features = builtin_features_by_kind(&builtin_defs, &discovery, &declarations)?;
 
     // Each kind's resolved contract, lifted exactly as `gate` lifts it, so the clause
@@ -686,7 +686,7 @@ fn mode_from_declarations(
 /// Propagates the lock read/clause-lift errors [`gate`]'s own contract resolution raises.
 fn guarded_manifests(workspace_dir: &Path) -> miette::Result<Vec<install::GuardedManifest>> {
     let declarations = drift::read_declarations(workspace_dir)?;
-    let builtin_defs = builtin_kind::definitions()?;
+    let builtin_defs = builtin_kind::definitions();
 
     let mut manifests = Vec::new();
     for kind in builtin_defs.values() {
@@ -913,7 +913,7 @@ fn gate(
     // Every clause's address is unique across the lock, decided before a single contract
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
     diagnostics.extend(clause_collision_diagnostics(&declarations, &joined_clauses));
-    let builtin_defs = builtin_kind::definitions()?;
+    let builtin_defs = builtin_kind::definitions();
     for kind in builtin_defs.values() {
         // Two greens: admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
@@ -1190,7 +1190,7 @@ fn gate(
     // it leaves the run's exit code and the session-start verdict unchanged.
     diagnostics.extend(coverage_note::check(
         harness_root,
-        &builtin_kind::definitions()?,
+        &builtin_kind::definitions(),
         &member_counts,
     )?);
 
@@ -1462,7 +1462,7 @@ fn read_file_unit(
 fn declared_kinds(
     declarations: &drift::Declarations,
 ) -> miette::Result<BTreeMap<String, CustomKind>> {
-    let builtin_defs = builtin_kind::definitions()?;
+    let builtin_defs = builtin_kind::definitions();
     let mut kinds = BTreeMap::new();
     for kind in builtin_defs.values() {
         kinds.insert(kind.name.clone(), overlay_builtin_kind(kind, declarations)?);
@@ -2168,7 +2168,7 @@ fn collect_directive_members(
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
-    let builtin_defs = builtin_kind::definitions()?;
+    let builtin_defs = builtin_kind::definitions();
     for kind in builtin_defs.values() {
         for unit in resolve_kind_units(kind, disc, declarations)? {
             let feature = builtin_kind::features(kind, &unit, &declarations.nested_members);
