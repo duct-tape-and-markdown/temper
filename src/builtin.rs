@@ -12,39 +12,17 @@ use std::collections::BTreeMap;
 
 use crate::builtin_lock;
 use crate::compose;
-use crate::contract::{Clause, Contract};
-use crate::drift::ClauseRow;
-
-/// Lift one embedded clause row into its typed [`Clause`] — predicate, severity,
-/// guidance, and cite, the clause's full four channels, via the shared
-/// [`compose::clause_from_row`] lift.
-/// The embedded lock is this crate's own emit, never hand-edited
-/// (`crate::builtin_lock`), so a row the shared lift cannot lift is a build-time
-/// bug, not a runtime condition — the same invariant `builtin_lock::declarations`
-/// leans on for the embedded bytes themselves.
-fn clause_from_row(row: &ClauseRow) -> Clause {
-    compose::clause_from_row(row).expect(
-        "the embedded built-in lock declares only required/advisory severities and \
-         this projection's supported predicates, each carrying its required argument",
-    )
-}
+use crate::contract::Contract;
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in
 /// declaration order, projected into typed clauses. A floor is an exported clause
 /// array: the constructed contract's own
 /// `guidance` stays `None` — every clause's guidance already rides its row.
 fn contract_for_kind(kind: &str) -> Contract {
-    let clauses = builtin_lock::declarations()
-        .clauses
-        .iter()
-        .filter(|row| row.kind.as_deref() == Some(kind))
-        .map(clause_from_row)
-        .collect();
-    Contract {
-        name: kind.to_string(),
-        clauses,
-        guidance: None,
-    }
+    compose::default_contract_from_rows(&builtin_lock::declarations().clauses, kind).expect(
+        "the embedded built-in lock declares only required/advisory severities and \
+             this projection's supported predicates, each carrying its required argument",
+    )
 }
 
 /// The embedded built-in floor bound to a kind's bare row label, or `None` if no
