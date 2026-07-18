@@ -37,31 +37,42 @@
   duplicate, no widened-visibility loose end (compose's
   `severity_from_label` narrowed to exactly the one new caller,
   dial.rs). No further residue found.
-- Posture swept through: b710f2d — rotation closes. This tick swept
-  `verbs` (main.rs, install.rs, bundle.rs, lib.rs, test_support.rs);
-  foundation/model/formats/pipeline/judges/provider/verbs all ticked
-  this cycle. Next rotation reopens at `foundation` once a forward
-  window (`git log b710f2d..HEAD -- src/ sdk/src/ tests/`) touches it —
-  this tick's window now does (the three build ships touch
-  json_manifest.rs/toml_document.rs/dial.rs/compose.rs), so the next
-  tick with no higher-priority job live opens rotation fresh at
-  `foundation`.
-- This tick: POST-SHIP RECONCILIATION (audit + residue sweep) over
-  d40a9f8..785abd7 — see cursor lines above for detail. One gate
-  unblocked (FORMAT-READ-UTF8-DECODE-CONSOLIDATE), one friction capture
-  filed (build-phase git-worktree commit-routing bug), zero pending
-  entries needed dropping beyond what the ship commit already removed.
-- Queue: 32 pending (35 − 3 shipped). 4 pickable OPEN
+- Posture swept through: foundation next (mid-rotation) — fresh cycle
+  reopened this tick per the prior note (foundation → model → formats →
+  pipeline → judges → provider → verbs). `git log 3871eba..HEAD --
+  src/check.rs src/extract.rs src/hash.rs src/address.rs src/tap.rs
+  src/json_splice.rs` is empty — foundation's own last full sweep
+  (3871eba, quiet) already covers this window, so per the posture-sweep
+  rule ("on a subsystem untouched since its last sweep, skip forward")
+  no re-read was needed. Quiet-on-clean, rotation advances alone to
+  `model`.
+- This tick: POSTURE SWEEP — job 4, foundation subsystem (rotation's
+  first, reopened per last tick's note that the forward window was no
+  longer empty). Verified the six foundation files untouched since
+  their last full sweep (3871eba) rather than re-reading them; nothing
+  in that window could have introduced a new finding. No new pending
+  entry.
+  Checked ahead for next tick: model (`kind`/`contract`/`compose`/
+  `schema`/`roster`) is NOT clean-skippable — `git log 9e197d6..HEAD --
+  src/kind.rs src/contract.rs src/compose.rs src/schema.rs
+  src/roster.rs` shows b4a2467 (COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE,
+  narrowed `compose::severity_from_label` to `pub(crate)` and gave it a
+  second caller). Next tick reads model whole rather than skipping.
+- Queue: 32 pending, unchanged — 4 pickable OPEN
   (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
   FORMAT-READ-UTF8-DECODE-CONSOLIDATE,
   CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE,
-  DRIFT-LOCK-ROW-WALK-CONSOLIDATION), 26 chained blockedBy, 2 parked on
-  human action. Open forks: (multi-harness-projection), (lazy-grounds)
-  unchanged. Refactor captures: 0 live. Friction: 1 live (filed this
-  tick). Inbox empty. Disjointness re-checked: no two OPEN entries share
-  a file.
+  DRIFT-LOCK-ROW-WALK-CONSOLIDATION — pairwise file-disjoint,
+  re-verified this tick), 26 chained blockedBy (unchanged links, all
+  still resolve to live tags), 2 parked on human action
+  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — reasons
+  unchanged, untouched this window). Open forks:
+  (multi-harness-projection), (lazy-grounds) unchanged. Refactor
+  captures: 0 live. Friction: 1 live (build-worktree-commits-land-on-
+  main-branch.md, filed last tick, unchanged). Inbox empty.
+  Disjointness re-checked: no two OPEN entries share a file.
 
-Plan continues: yes — the posture rotation's forward window is no longer
-empty (this tick's audited window touched src/), so the next tick with no
-inbox/spec-delta/reconciliation work live opens a fresh rotation at
-`foundation`.
+Plan continues: yes — posture sweep resumes at `model`
+(`kind`/`contract`/`compose`/`schema`/`roster`), the roster's next
+subsystem, not clean-skippable per the note above — the next tick
+reads it whole.
