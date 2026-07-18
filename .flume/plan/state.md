@@ -1,48 +1,55 @@
 # Plan state
 
-- Spec derived through: 53df138 — its only specs/ diff is the
-  normalize_path Invariants amendment, and that content is now fully
-  routed (see this tick): nothing past this commit remains un-derived.
-- Audited through: f713a08
-- Residue swept through: f713a08
-- Posture swept through: 1a2b753 — verbs ticked this tick and closes
-  the rotation pass (pipeline 4baa5c4 quiet, judges f3980b9, provider
-  ab4c07d quiet, foundation 08b5a27, model 1c5b0a9, formats 07a9c04,
-  verbs this tick, quiet) — all seven subsystems from
-  architecture.md's codemap now covered. A fresh cycle
-  (foundation → model → formats → pipeline → judges → provider →
-  verbs) opens next time the sweep re-arms.
-- This tick: POSTURE SWEEP — job 4, verbs subsystem. `git log
-  cfa50fb..HEAD -- src/main.rs src/install.rs src/bundle.rs
-  src/lib.rs src/test_support.rs` (cfa50fb is verbs' own last sweep)
-  is empty — untouched since its last sweep, so per posture-sweep's
-  own rule ("On a subsystem untouched since its last sweep, skip
-  forward; quiet-on-clean is the normal verdict") this ticks the
-  rotation without a re-read: no new finding, nothing rescoped. This
-  closes the pass, so the closing checklist ran for the whole tick:
-  spec delta (`git log 53df138..HEAD -- specs/`) empty; post-ship
-  window (`git log f713a08..HEAD -- src/ tests/ sdk/`) empty; inbox
-  empty; no live refactor captures (`.flume/refactor/` holds only
-  README.md). The 6 pickable OPEN entries stay pairwise file-disjoint
-  (kind.rs, json_manifest.rs+toml_document.rs, engine.rs, dial.rs,
-  check.rs, drift.rs — no two share a file); the 21 blockedBy links
-  still resolve to live tags; the 2 parked entries' reasons are
-  unchanged and untouched by any commit this window.
-- Queue: 29 pending, 6 pickable OPEN (unchanged set:
-  BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
-  DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH,
-  ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH, DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE,
-  CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE, DRIFT-LOCK-ROW-WALK-
-  CONSOLIDATION — pairwise disjoint on files, unchanged), 21 chained
-  blockedBy, 2 parked on human action (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER — reasons unchanged, untouched this
-  window).
+- Spec derived through: 53df138 — unchanged; its only specs/ diff (the
+  normalize_path Invariants amendment) is fully routed, nothing past it
+  remains un-derived.
+- Audited through: d40a9f8
+- Residue swept through: d40a9f8
+- Posture swept through: 1a2b753 — rotation closed last pass; re-arms
+  now, since `git log 1a2b753..HEAD -- src/ sdk/src/ tests/` is
+  non-empty (this tick's own reconciled window touched src/) — next
+  tick opens a fresh cycle at foundation.
+- This tick: POST-SHIP RECONCILIATION — window f713a08..d40a9f8.
+  Shipped: DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH (87221b2),
+  ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH (d02605a), DIAL-IS-EMPTY-
+  ZERO-CONSUMER-PRUNE (059c3fd), reconciled out of pending.json by
+  d40a9f8. Audit: re-verified each ship on disk (never the log alone)
+  and re-tested the three downstream blockedBy gates naming them —
+  JSON-MANIFEST-READ-DECODE-CONSOLIDATE and TOML-DOCUMENT-PARSE-ZERO-
+  CONSUMER-PRUNE (blocker DOCUMENT-IDENTITY-...; json_manifest.rs's
+  DocumentMember::read/Manifest::read unmoved, toml_document.rs's
+  parse widened +6 lines, 53-99 → 53-105) and COMPOSE-DIAL-SEVERITY-
+  LABEL-CONSOLIDATE (blocker DIAL-IS-EMPTY-...; dial.rs's
+  severity_from_label shifted +1 line, 144-150 → 145-151) — all three
+  re-verified and flipped to open. Glanced `.flume/metrics.jsonl` per
+  pending-entry.md's smart-zone bullet: a build attempt at BUILTIN-
+  KIND-DEFINITION-RESULT-COLLAPSE (181 turns, ~765s, ~19.5M cache-read
+  tokens) never shipped — working tree clean, disk unchanged on
+  re-check — after four earlier plan-phase re-touches of the same tag.
+  Split it into a blockedBy chain by function: BUILTIN-KIND-DEFINITION-
+  RESULT-COLLAPSE (definition() only, ~17 files) stays open; BUILTIN-
+  KIND-DEFINITIONS-RESULT-COLLAPSE (definitions() plus the KindError
+  deletion, blockedBy the former, ~8 files) chains behind it — the two
+  overlapping files (main.rs, tests/nested_member.rs) now land
+  serialized instead of racing. KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH's
+  blockedBy retargeted to the new Part B, the one that actually touches
+  kind.rs. Sweep: no residue found in the shipped window beyond the
+  split above; DIAL-IS-EMPTY-...'s added `#[allow(dead_code)]` matches
+  established precedent (address.rs, test_support.rs already carry it,
+  and "a test counts" as an earned consumer per engineering.md) — not
+  residue.
+- Queue: 27 pending (+1, the split), 6 pickable OPEN (BUILTIN-KIND-
+  DEFINITION-RESULT-COLLAPSE, JSON-MANIFEST-READ-DECODE-CONSOLIDATE,
+  TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE, COMPOSE-DIAL-SEVERITY-LABEL-
+  CONSOLIDATE, CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE, DRIFT-
+  LOCK-ROW-WALK-CONSOLIDATION — pairwise file-disjoint, verified), 19
+  chained blockedBy (was 21; three unblocked to open, one new chained
+  link added by the split), 2 parked on human action (IMPORT-HOP-CAP-
+  CITE, PACKAGING-CHANNELS-REMAINDER — reasons unchanged, untouched
+  this window).
   Open forks: (multi-harness-projection), (lazy-grounds) unchanged.
   Refactor captures: none live. Inbox empty.
 
-Plan continues: no — every job is quiet: no spec delta, no post-ship
-window, posture-sweep's rotation pass just closed (re-arms only once a
-commit past 1a2b753 touches src/, sdk/src/, or tests/), inbox and
-captures empty. Build should work the 6 pickable OPEN entries; plan
-re-wakes on the next inbox line, specs/ commit, or src/sdk/tests-
-touching ship.
+Plan continues: yes — posture sweep re-arms: `git log 1a2b753..HEAD --
+src/ sdk/src/ tests/` is non-empty (this window's own ships touched
+src/), so the next tick opens a fresh rotation cycle at foundation.

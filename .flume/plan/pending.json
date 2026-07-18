@@ -1,7 +1,7 @@
 [
   {
     "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE",
-    "summary": "builtin_kind::definition/definitions wrap an infallible plain-data lookup in Result<_, KindError> — an empty enum, statically unreachable Err — collapse to bare Option/BTreeMap",
+    "summary": "builtin_kind::definition wraps an infallible name lookup in Result<_, KindError> — collapse to bare Option<CustomKind>; definitions() is a separate chained entry",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "One job, one home"
@@ -14,28 +14,20 @@
       "new": [],
       "edit": [
         {
-          "path": "src/kind.rs",
-          "description": "`KindError` (1470, `pub enum KindError {}`) is an empty enum — its own doc comment (1465-1468) concedes 'every embedded kind is plain Rust data ... none of those lookups can fail: an empty enum, so a `Result::Err` here is statically unreachable.' Once `builtin_kind::definition`/`definitions` (its only remaining users now that `qualified` is pruned, shipped in 84197e5) drop their `Result` wrapper, `KindError` has zero constructor and zero consumer anywhere. Remove the enum and its doc comment."
-        },
-        {
           "path": "src/builtin_kind.rs",
-          "description": "Re-verified post-84197e5 (the `qualified`-prune ship shifted every line past 509). Drop the now-dead `KindError` import from the `use crate::kind::{ .. };` block (16-19). `definition` (508-510, its own `# Errors` section already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') and `definitions` (519-524, same concession) both wrap an infallible lookup over `all_kinds()` — a bare `Vec` literal, no I/O — in `Result<_, KindError>`; every call site across the tree immediately `?`s or `.unwrap()`s it away, never inspecting an `Err` arm nothing can construct. Change `definition` to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }` and `definitions` to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping each `Ok(...)` wrap and its now-false `# Errors` doc section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 588, 650, 684, 689 (`definitions()`), 713, 748, 794, 834, 874 (each currently `.unwrap().expect(..)` or `.unwrap().is_none()` — drop the outer `.unwrap()`), plus 808, 941, 999, 1022, 1059 (each currently a doubled `.unwrap().unwrap()` — one `.unwrap()` survives, for the inner `Option`)."
+          "description": "`definition` (508-510, doc 501-507, its own `# Errors` section already concedes 'Never fails; the Result is kept for API stability (every call site already threads `?` through it)') wraps an infallible lookup over `all_kinds()` in `Result<_, KindError>`; every call site immediately `?`s or `.unwrap()`s it away. Change to `pub fn definition(name: &str) -> Option<CustomKind> { all_kinds().into_iter().find(|kind| kind.name == name) }`, dropping the `Ok(...)` wrap and the now-false `# Errors` section. Update this file's own inline test call sites to drop the now-redundant outer `.unwrap()`: 588, 650, 684, 713, 748, 794, 808, 834, 874 (each currently `.unwrap().expect(..)`, `.unwrap().is_none()`, or a chained `.unwrap()`), plus 941, 999, 1022, 1059 (each currently a doubled `.unwrap().unwrap()` — one `.unwrap()` survives, for the inner `Option`). Leave `definitions()` (519-524), its call site (689), and the `KindError` import (16-19) untouched — `definitions()` is still one live producer of `KindError` until the chained BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE lands."
         },
         {
           "path": "src/bundle.rs",
-          "description": "Two call sites: `let Ok(Some(definition)) = crate::builtin_kind::definition(kind) else { .. }` (317) becomes `let Some(definition) = crate::builtin_kind::definition(kind) else { .. }`; `crate::builtin_kind::definition(\"skill\").unwrap().unwrap()` (402) drops its now-redundant outer `.unwrap()`."
+          "description": "317: `let Ok(Some(definition)) = crate::builtin_kind::definition(kind) else { .. }` becomes `let Some(definition) = crate::builtin_kind::definition(kind) else { .. }`, dropping the now-stale comment above it ('`definition`'s error is uninhabited, so a miss is the only failure to distinguish' — no error exists at all once this lands). 402: `crate::builtin_kind::definition(\"skill\").unwrap().unwrap()` drops its now-redundant outer `.unwrap()`."
         },
         {
           "path": "src/import.rs",
           "description": "Eight inline-test call sites (720, 721, 901, 974, 998, 1034, 1035, 1036) each drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)`, keeping the inner one for the `Option`."
         },
         {
-          "path": "src/install.rs",
-          "description": "Two call sites drop their `?`: `discover`'s `let kinds = builtin_kind::definitions()?;` (327) and `scaffold`'s (1226). `discover`'s own `# Errors` doc (322-325, 'if the embedded kind set fails to load or a kind's discovery walk fails to read a directory') is doubly stale — the discovery-walk clause already went stale when DISCOVERY-INFALLIBLE-RESULT-COLLAPSE shipped (2f44341) and was left unworded, and the embedded-kind-set clause goes stale here; since this entry touches the same doc block, correct both clauses (or drop the `# Errors` section entirely if nothing in `discover` can still fail) rather than leaving a second stale half behind."
-        },
-        {
           "path": "src/main.rs",
-          "description": "Seven call sites drop their `?`: `explain`'s `builtin_defs` (531), `guarded_manifests`'s (689), `gate`'s (916, 1465, 2171), the coverage-note call (1193), and `read_dial`'s `let Some(kind) = builtin_kind::definition(dial::KIND)? else { .. }` (1629, only the `?` drops, the `else` arm stays)."
+          "description": "One call site: `read_dial`'s `let Some(kind) = builtin_kind::definition(dial::KIND)? else { .. }` (1629) — only the `?` drops, the `else` arm stays."
         },
         {
           "path": "tests/acceptance.rs",
@@ -46,16 +38,8 @@
           "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 49."
         },
         {
-          "path": "tests/check_cost.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 104."
-        },
-        {
           "path": "tests/command_kind.rs",
           "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 49, 73, 85, 105."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 295."
         },
         {
           "path": "tests/settings_local_kind.rs",
@@ -67,11 +51,7 @@
         },
         {
           "path": "tests/nested_member.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)`/`definitions()` at 474, 700."
-        },
-        {
-          "path": "tests/memory_contract.rs",
-          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 101."
+          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definition(...)` at 474 only — line 700 calls `definitions()` and belongs to the chained BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE."
         },
         {
           "path": "tests/marketplace_kind.rs",
@@ -107,16 +87,80 @@
     "schemaDelta": "none",
     "tests": [
       {
+        "path": "src/builtin_kind.rs",
+        "asserts": "every inline test over definition (embedded-kind lookup by name, unknown name, each per-kind fixture) yields the same values at the new infallible signature"
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "the existing definition(...)-driven install/re-install coverage stays green — the collapse is signature-only, no behavior change"
+      }
+    ],
+    "acceptance": "builtin_kind::definition returns Option<CustomKind> directly, no Result wrapper. definitions() and KindError are untouched here, left for the chained BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Split from the prior combined entry: a build attempt at that tag (metrics.jsonl, 2026-07-18T12:14Z, 181 turns/~765s/~19.5M cache-read tokens) never shipped — its 22-file blast radius was oversized per pending-entry.md's smart-zone bullet, after four earlier plan-phase ticks already re-touched it. Split by function (definition vs definitions), each its own gate-sized commit. scoped at d40a9f8."
+  },
+  {
+    "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE",
+    "summary": "builtin_kind::definitions wraps an infallible full-roster lookup in Result<_, KindError> — collapse to bare BTreeMap and delete the now-fully-dead KindError enum",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "`definitions` (519-524, doc 512-518, same 'Never fails' concession as `definition`'s) wraps an infallible full-roster build in `Result<_, KindError>`. Once the chained BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE lands, `definitions` is `KindError`'s last producer. Change to `pub fn definitions() -> BTreeMap<String, CustomKind> { all_kinds().into_iter().map(|kind| (kind.name.clone(), kind)).collect() }`, dropping the `Ok(...)` wrap and the now-false `# Errors` section. Update the one remaining inline test call site (689, `definitions_enumerates_the_embedded_kind_set_by_bare_name`) to drop its outer `.unwrap()`. Drop `KindError` from the `use crate::kind::{ .. };` import block (16-19) — nothing in this file constructs it anymore."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`KindError` (1470, `pub enum KindError {}`) and its doc comment (1465-1468, already conceding 'an empty enum, so a `Result::Err` here is statically unreachable') have zero remaining producer once `definitions()` collapses above — `definition()` already collapsed in the prior chained entry. Delete the enum and its doc comment."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "Two call sites drop their `?`: `discover`'s `let kinds = builtin_kind::definitions()?;` (327) and `scaffold`'s (1226). `discover`'s own `# Errors` doc (322-325, 'if the embedded kind set fails to load or a kind's discovery walk fails to read a directory') is doubly stale — the discovery-walk clause already went stale when DISCOVERY-INFALLIBLE-RESULT-COLLAPSE shipped (2f44341) and was left unworded, and the embedded-kind-set clause goes stale here; correct both clauses (or drop the `# Errors` section entirely if nothing in `discover` can still fail) rather than leaving a second stale half behind."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Six call sites drop their `?`: `explain`'s `builtin_defs` (531), `guarded_manifests`'s (689), `gate`'s (916, 1465, 2171), and the coverage-note call (1193)."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 104."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 295."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 101."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Drop the now-redundant outer `.unwrap()` off `builtin_kind::definitions()` at 700 — line 474 calls `definition(...)` and was the prior chained entry's."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
         "path": "tests/check_cost.rs",
         "asserts": "the measure-first cost fixture stays green — the collapse is signature-only, no behavior change to which kinds are discovered or how many times"
       },
       {
         "path": "src/builtin_kind.rs",
-        "asserts": "every inline test over definition/definitions (embedded-kind lookup by name, the full roster) yields the same values at the new infallible signatures"
+        "asserts": "definitions_enumerates_the_embedded_kind_set_by_bare_name yields the same roster at the new infallible signature"
       }
     ],
-    "acceptance": "builtin_kind::definition returns Option<CustomKind> and builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, with no Result wrapper; KindError is gone from src/kind.rs. No behavior change (engineering.md, 'One job, one home': vacuous Result plumbing around a lookup that can never fail is subtracted, not carried — the DISCOVERY-INFALLIBLE-RESULT-COLLAPSE precedent for this exact shape). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "The class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs. Reconciled 2026-07-18: blocker KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE shipped (f713a08). Re-verified on disk: kind.rs's KindError shifted 1480→1470 (matches the ship's -10 net line change), builtin_kind.rs/bundle.rs/import.rs/install.rs/main.rs and every cited test file unmoved (untouched by the ship). No currently-open entry shares a file with this one. Opened. scoped at f713a08."
+    "acceptance": "builtin_kind::definitions returns BTreeMap<String, CustomKind> directly, no Result wrapper; KindError is gone from src/kind.rs (its last producer collapsed here). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Second half of the definition/definitions split — see BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE's notes for why it was split. Blocked on that entry landing first: both edit src/builtin_kind.rs, and KindError's deletion here depends on it leaving definitions() as sole remaining producer. scoped at d40a9f8."
   },
   {
     "tag": "KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH",
@@ -127,7 +171,7 @@
     },
     "gate": {
       "kind": "blockedBy",
-      "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE"
+      "tag": "BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE"
     },
     "dependsOnForks": [],
     "files": {
@@ -152,7 +196,7 @@
       }
     ],
     "acceptance": "declared_fields's match names every Primitive variant explicitly, no `_` wildcard arm remains, matching the exhaustive style Primitive::key and Primitive::apply already hold over the same enum in the same file. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with the currently-open BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety (pending-entry.md, 'Disjoint, or serialized'); no functional dependency. scoped at 08b5a27."
+    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with BUILTIN-KIND-DEFINITIONS-RESULT-COLLAPSE (the definitions()/KindError half of a split made this tick — see its notes) and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety; no functional dependency. scoped at 08b5a27."
   },
   {
     "tag": "JSON-MANIFEST-READ-DECODE-CONSOLIDATE",
@@ -162,8 +206,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -188,7 +231,7 @@
       }
     ],
     "acceptance": "Manifest::read and DocumentMember::read both call one shared read_to_string helper in src/json_manifest.rs instead of each carrying its own fs::read+UTF-8-decode boilerplate. No behavior change (engineering.md, 'One job, one home'). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Serialized behind DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH, the only currently-open entry sharing json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 1c5b0a9."
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Its blocker DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH shipped (87221b2/d40a9f8) — re-verified on disk: DocumentMember::read (145-155) and Manifest::read (331-344) unmoved by that ship. Opened. scoped at d40a9f8."
   },
   {
     "tag": "TOML-DOCUMENT-PARSE-ZERO-CONSUMER-PRUNE",
@@ -198,8 +241,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -207,7 +249,7 @@
       "edit": [
         {
           "path": "src/toml_document.rs",
-          "description": "`pub fn parse` (53-99) is called only by this same file's `read` (33-43, `parse(kind, source_file, &raw)` at line 42) — grep-verified zero hits for `toml_document::parse(` anywhere in src/, tests/, sdk/. Its doc comment (45-49) justifies the split by analogy to `crate::json_manifest::DocumentMember::parse` ('the split ... takes, for the same reason: pending content is read through the one soundness boundary the disk read rides') but names no actual consumer of its own — unlike `DocumentMember::parse`, which a real test calls directly (`tests/json_document_format.rs:193`) to exercise that soundness-boundary path, `toml_document::parse` has never gained the guard-flow (or any other) caller its doc comment anticipates; `install.rs`'s `manifest_write_findings` guard validates only collection-address manifests today, never a toml-document's pending content. Drop `pub` from `parse`, leaving it a module-private fn callable from `read` unchanged, and reword the doc comment's forward-looking justification to state today's fact (an internal split, not a soundness boundary a second caller yet crosses) or drop the comment if nothing survives the edit."
+          "description": "`pub fn parse` (53-105, widened +6 lines by the since-shipped DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH's exhaustive match, was 53-99) is called only by this same file's `read` (33-43, `parse(kind, source_file, &raw)` at line 42) — grep-verified zero hits for `toml_document::parse(` anywhere in src/, tests/, sdk/. Its doc comment (45-52) justifies the split by analogy to `crate::json_manifest::DocumentMember::parse` ('the split ... takes, for the same reason: pending content is read through the one soundness boundary the disk read rides') but names no actual consumer of its own — unlike `DocumentMember::parse`, which a real test calls directly (`tests/json_document_format.rs:193`) to exercise that soundness-boundary path, `toml_document::parse` has never gained the guard-flow (or any other) caller its doc comment anticipates; `install.rs`'s `manifest_write_findings` guard validates only collection-address manifests today, never a toml-document's pending content. Drop `pub` from `parse`, leaving it a module-private fn callable from `read` unchanged, and reword the doc comment's forward-looking justification to state today's fact (an internal split, not a soundness boundary a second caller yet crosses) or drop the comment if nothing survives the edit."
         }
       ],
       "retire": []
@@ -220,7 +262,7 @@
       }
     ],
     "acceptance": "toml_document::parse is a private fn in src/toml_document.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
-    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Serialized behind DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH, the only currently-open entry sharing toml_document.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency; that entry's own fix touches this file's identity check, not `parse`'s signature or pub-ness, so both land independently once unblocked. scoped at 1c5b0a9."
+    "notes": "Found sweeping the formats subsystem (posture rotation: model done last tick, formats this tick). Its blocker DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH shipped (87221b2/d40a9f8), widening `parse`'s match by +6 lines (53-105, was 53-99) — re-verified on disk, no other change to this fn. Opened. scoped at d40a9f8."
   },
   {
     "tag": "COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE",
@@ -230,8 +272,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -239,7 +280,7 @@
       "edit": [
         {
           "path": "src/dial.rs",
-          "description": "`severity_from_label` (144-150, `fn severity_from_label(label: &str) -> Option<Severity> { match label { \"required\" => Some(Severity::Required), \"advisory\" => Some(Severity::Advisory), _ => None } }`, its own doc comment 142-143) is byte-for-byte identical to `src/compose.rs`'s `pub fn severity_from_label` (266-272, same match, returns `Option<contract::Severity>` — the same type via re-export path) — grep-verified the only two definitions of a fn named `severity_from_label` anywhere in src/, tests/, sdk/. This file's copy is called only at its own line 67 (`Dial::from_features`'s entries loop). Delete this private fn and its doc comment; call `crate::compose::severity_from_label(severity)` at line 67 instead (add a `use crate::compose;` or qualify inline — `Severity` is already imported here from `crate::contract`, matching `compose::severity_from_label`'s return type exactly). No behavior change: identical match arms."
+          "description": "`severity_from_label` (145-151, `fn severity_from_label(label: &str) -> Option<Severity> { match label { \"required\" => Some(Severity::Required), \"advisory\" => Some(Severity::Advisory), _ => None } }`, its own doc comment 143-144) is byte-for-byte identical to `src/compose.rs`'s `pub fn severity_from_label` (266-272, same match, returns `Option<contract::Severity>` — the same type via re-export path) — grep-verified the only two definitions of a fn named `severity_from_label` anywhere in src/, tests/, sdk/. This file's copy is called only at its own line 67 (`Dial::from_features`'s entries loop). Delete this private fn and its doc comment; call `crate::compose::severity_from_label(severity)` at line 67 instead (add a `use crate::compose;` or qualify inline — `Severity` is already imported here from `crate::contract`, matching `compose::severity_from_label`'s return type exactly). No behavior change: identical match arms."
         },
         {
           "path": "src/compose.rs",
@@ -260,7 +301,7 @@
       }
     ],
     "acceptance": "dial.rs carries no private severity_from_label; it calls compose::severity_from_label, narrowed there from pub to pub(crate) with its doc comment (and clause_from_row's cross-reference) restated to the true earned consumer. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick — compose.rs is model per architecture.md's codemap, dial.rs is judges, but the duplication spans both and the fix must land in one entry). Serialized behind DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE, the only currently-open entry touching dial.rs (pending-entry.md, 'Disjoint, or serialized'); no functional dependency. compose.rs untouched by any other queued entry. scoped at 08b5a27."
+    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick — compose.rs is model per architecture.md's codemap, dial.rs is judges, but the duplication spans both and the fix must land in one entry). Its blocker DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE shipped (059c3fd/d40a9f8), shifting severity_from_label by +1 line (145-151, doc 143-144) — re-verified on disk. compose.rs untouched by any other queued entry. Opened. scoped at d40a9f8."
   },
   {
     "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
