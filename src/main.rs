@@ -589,10 +589,7 @@ fn explain(target: &str) -> miette::Result<String> {
     // narrating a dangling mention as the gate's route finding rather than a resolved edge,
     // so a read cannot disagree with the gate (READ-EDGE-UNIFY).
     let mut mention_edges = mention_edges_from_declarations(&declarations);
-    mention_edges.extend(import_edges_from_lock_with_doc(
-        &workspace,
-        Some(&lock_doc),
-    )?);
+    mention_edges.extend(import_edges_from_doc(&lock_doc)?);
 
     // The world's inbound registration channel set into each built-in kind — the same
     // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
@@ -883,7 +880,7 @@ pub fn gate(
     // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
     // at emit), each lifted off the lock's own declaration family.
     let mut mention_edges = mention_edges_from_declarations(&declarations);
-    mention_edges.extend(import_edges_from_lock_with_doc(workspace, Some(&lock_doc))?);
+    mention_edges.extend(import_edges_from_doc(&lock_doc)?);
 
     // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
     // label: each kind's members — resolved by
@@ -2553,28 +2550,15 @@ fn mention_edges_from_declarations(declarations: &drift::Declarations) -> Vec<gr
     graph::resolved_mention_edges(&mentions)
 }
 
-/// Extract import edges from an already-parsed lock document, or read from workspace
-/// if document is not provided. When a pre-parsed document is provided, it avoids
-/// redundant reads/parses.
+/// Extract import edges from an already-parsed lock document, avoiding redundant
+/// reads/parses.
 ///
 /// # Errors
 ///
 /// Returns a [`drift::DriftError`] when a present source-dependency row is malformed.
-fn import_edges_from_lock_with_doc(
-    workspace_dir: &Path,
-    doc: Option<&DocumentMut>,
-) -> miette::Result<Vec<graph::ResolvedEdge>> {
-    let (layouts, includes) = if let Some(doc) = doc {
-        (
-            drift::layout_imports_from_doc(doc)?,
-            drift::includes_from_doc(doc)?,
-        )
-    } else {
-        (
-            drift::layout_imports(workspace_dir)?,
-            drift::includes(workspace_dir)?,
-        )
-    };
+fn import_edges_from_doc(doc: &DocumentMut) -> miette::Result<Vec<graph::ResolvedEdge>> {
+    let layouts = drift::layout_imports_from_doc(doc)?;
+    let includes = drift::includes_from_doc(doc)?;
     let imports: Vec<graph::ImportDeclaration> = layouts
         .into_iter()
         .chain(includes)
