@@ -113,12 +113,10 @@ chosen job half-done — the job is the atom.
 4. **Posture sweep** — nothing above is live, and `Posture swept through:`
    is absent, mid-rotation, or names a commit behind a HEAD whose forward
    window (`git log <sha>..HEAD -- src/ sdk/src/ tests/`) touched any
-   subsystem. **One subsystem per tick**, fixed roster: drift ·
-   cli-engine (main+engine) · kind-model (kind+builtin_kind) ·
-   graph-contract · adoption (install+bundle+reporter) · read-side
-   (read+extract+import) · formats (frontmatter+document+json_manifest+
-   schema+address+compose) · coverage (coverage_note+coverage+roster) ·
-   sdk (sdk/src). Read the subsystem's files whole against **every section
+   subsystem. **One subsystem per tick**; the roster is the codemap in
+   `specs/process/architecture.md` (engine subsystems plus the SDK map),
+   read at tick time — the page is the authority, this prompt remembers
+   nothing. Read the subsystem's files whole against **every section
    of `specs/process/engineering.md` as it reads this tick** — the page
    grows; the sweep never pins to a remembered list — plus cohesion
    (a module carrying jobs that want separate homes) and dead plumbing
