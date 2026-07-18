@@ -113,21 +113,10 @@ chosen job half-done — the job is the atom.
 4. **Posture sweep** — nothing above is live, and `Posture swept through:`
    is absent, mid-rotation, or names a commit behind a HEAD whose forward
    window (`git log <sha>..HEAD -- src/ sdk/src/ tests/`) touched any
-   subsystem. **One subsystem per tick**; the roster is the codemap in
-   `specs/process/architecture.md` (engine subsystems plus the SDK map),
-   read at tick time — the page is the authority, this prompt remembers
-   nothing. Read the subsystem's files whole against **every section
-   of `specs/process/engineering.md` as it reads this tick** — the page
-   grows; the sweep never pins to a remembered list — plus cohesion
-   (a module carrying jobs that want separate homes) and dead plumbing
-   (unconstructable variants, vacuous Result paths). A violation counts
-   only when verified on disk this tick, cited by symbol and line. Each
-   files a pending entry (purely mechanical shape) or a `.flume/refactor/`
-   capture (needs a design decision), `per` the owning engineering.md
-   section; never against a "Kept on purpose" asymmetry. **Quiet-on-clean
-   is the normal verdict**, recorded by advancing the rotation alone. On an
-   untouched-since-last-sweep subsystem, skip forward. When the rotation
-   closes, stamp `Posture swept through: <HEAD sha>`.
+   subsystem. **One subsystem per tick**, roster from
+   `specs/process/architecture.md`'s codemap; the administering
+   discipline is the `posture-sweep` rule, loading when you read the
+   posture pages — this prompt remembers nothing.
 
 **Closing the tick.** Every job ends, in the same tick, with the closing
 checklist its commit rides on: the queue is disjoint, every gate reason
@@ -140,34 +129,12 @@ its window empty), run the checklist, write
 rule scoped to `.flume/plan/pending.json` (`.claude/rules/pending-entry.md`)
 loads automatically the moment you touch that file; it is not repeated here.
 
-**Open questions** live in `open-questions.md`, never in pending; key each
-`(slug)` so entries can declare `dependsOnForks: ["slug"]`. The file holds
-OPEN forks only — when a fork resolves, encode the ruling and DELETE the
-record; reconciliation evidence goes in the plan commit body. The file is
-inlined into every tick: a dead line is a per-tick tax, a stale record a
-latent misroute.
+**Open questions** live in `open-questions.md`, never in pending; the
+lifecycle is the `fork-lifecycle` rule, loading when you touch the file.
 
-**state.md** is the scheduler's ledger, re-derived every tick, ~10 lines:
-
-```
-# Plan state
-- Spec derived through: <sha>
-- Audited through: <sha>
-- Residue swept through: <sha>
-- Posture swept through: <sha, or "<subsystem> next" mid-rotation>
-- This tick: <the one job taken and its outcome>
-- Queue: <one line — entries, gates>
-Plan continues: yes — <the next live input> | no — <why quiet>
-```
-
-A cursor you did not advance this tick is copied forward **verbatim** — the
-cursor lines must survive every rewrite, or the delta window falls back to
-the last `plan:` commit and silently skips past un-derived work.
-
-The marker is mechanical: `yes` iff an input below the one you serviced is
-still live, `no` otherwise. With `no` and pickable entries, build takes over;
-with `no` and none, the loop hibernates. Never re-emit an unchanged queue
-with unmoved cursors under `yes`.
+**state.md** is the scheduler's ledger, re-derived every tick; its schema,
+cursor discipline, and marker mechanics are the `plan-state` rule, loading
+when you touch it.
 
 # FRICTION / REFACTOR (optional — most ticks file nothing)
 
