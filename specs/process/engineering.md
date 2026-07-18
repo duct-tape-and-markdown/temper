@@ -66,3 +66,23 @@ snapshot-tested over it. A feature entry that adds a composable surface
 extends the gauntlet where its feature meets the existing ones: each
 addition pays its composition cost once, at ship time, instead of in a
 consumer's repo later.
+
+## Cost scale is hoisted, and pinned by count
+
+Work that scales with the consumer's input — tree walks, file reads,
+glob compilations — is hoisted by design: whole-input work computes
+once per run and is shared, never recomputed per kind, member, or call
+site. The expectation is enforced the only way this repository enforces
+expectations — decidably:
+
+- **The pin is a count, never a clock.** A test asserts the work count
+  — one walk per run, one compilation per glob, no file read twice in a
+  phase — deterministic and machine-independent, where a wall-clock
+  threshold is the gate that cries wolf. Timing stays a manual signal a
+  human reads; the field's session experience is the true bar, and no
+  corpus number stands in for it.
+- **Diagnosis is measure-first.** When the field reports a cost, a
+  generated fixture — synthetic input at consumer scale, built at test
+  time, never committed — names where the cost concentrates before any
+  cut; the numbers pick the cut, never the guess, and the fix lands
+  with its count-pin.

@@ -41,23 +41,6 @@ tax.
   waits. Latent driver: a base-harness-style implemented-by mapping. The
   needle's design taste rides this record for that day. No dependents.
 
-- `(check-residual-owner)` — OPEN, field-driven, measure-first. DISCOVERY-WALK-SHARE
-  halved centercode's `check` cost on a 16,814-file repo (41s → 22s, measured at
-  ecd27b1) — the shared-walk mechanism confirmed. The residual 22s has **no named
-  owner**: one gitignore-honoring walk of 17k files should cost well under a
-  second, so the dominant cost lives elsewhere. Candidates, **unmeasured — do not
-  guess**: `scan_locus` re-globbing the shared discoverable set per kind
-  (`src/import.rs:379`, one `collect_glob`/kind over the shared set), per-file
-  reads or hashing on the read side, glob compilation per call. The bar before
-  any cut: **measure first** — a synthetic large-tree perf fixture (17k shape,
-  the gauntlet's sibling) with coarse phase timing to name where the residual
-  concentrates, then the numbers pick the cut, never the guessed one. Two human
-  calls ride the resolution (subtraction before addition, CLAUDE.md): whether
-  temper maintains a permanent perf fixture at all, and — no spec sets a `check`
-  perf bar — whether the cut is corpus-mandated or discretionary. A session open
-  is the product's front door; 22s is an adoption tax. Resolution returns via
-  inbox with the measurements. No dependents.
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
