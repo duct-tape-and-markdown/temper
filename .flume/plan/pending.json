@@ -1,44 +1,5 @@
 [
   {
-    "tag": "DRIFT-SOURCE-DEP-PARSE-HOIST",
-    "summary": "gate() and explain() each re-read-and-reparse lock.toml several times per invocation via source_deps' own independent parse — hoist to the already-parsed declarations document",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`source_deps` (2574) does its own `fs::read_to_string` + `.parse::<DocumentMut>()` of `lock.toml`, independent of `read_declarations`'s (3485) own full parse via `declarations_from_doc` (3526, which already takes a parsed `&DocumentMut` — the doc-scoped-extractor shape DRIFT-EMIT-LOCK-PARSE-HOIST establishes for the provenance side, upstream in this chain). `source_deps` is called by `layout_imports` (2599), `includes` (2610), and — via `source_dep_stale` (2624) — by `layout_import_stale` (2665) and `include_stale` (2682): four independent re-reads/re-parses on top of `read_declarations`'s own. Within one `gate()` invocation (src/main.rs) this lands as 5 full parses of the same file in one run: `read_declarations` (main.rs:858), `layout_imports`+`includes` via `import_edges_from_lock` (main.rs:891), then `layout_import_stale`+`include_stale` (main.rs:1208-1209) — each a fresh read+parse; `explain()` (main.rs:513, 525, 587) repeats the same pattern minus the two staleness calls. `Declarations` (struct drifted since scoping, unchanged shape) does not currently carry the `layout_import`/`include` lock families read back from disk — `includes: Vec<IncludeRow>` is documented seam-inbound-only, 'never written back into this declaration table, so a lock round-trip reads it empty' — which is why `source_deps` re-parses independently rather than filtering an already-parsed set. Fix: extend `declarations_from_doc` (or a parallel doc-scoped extractor, the same pattern DRIFT-EMIT-LOCK-PARSE-HOIST establishes) to lift the `[declaration.layout_import]`/`[declaration.include]` families from the one already-parsed document, and have `layout_imports`/`includes`/`source_dep_stale` filter that in-memory set instead of each independently opening and parsing the file. Land after EXTRACT-FOUNDATION-BOUNDARY-RESTORE, the last entry in the existing chain to touch this file, so this entry's extractor sits beside the settled post-move shape rather than racing it."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "`gate()` (847) and `explain()` (513) each call `drift::read_declarations` once and then separately call `import_edges_from_lock` (2563, calling `drift::layout_imports` then `drift::includes`) — two more independent parses on top of the first — and `gate()` additionally calls `drift::layout_import_stale`/`drift::include_stale` (1208-1209), two more still. Once `source_deps`'s callees read off the shared parsed document instead, thread the already-parsed document/`Declarations` value through these call sites rather than re-deriving it — the same one-parse-per-run shape `read_declarations`'s own call already establishes for the rest of the declaration family."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "a check run over a fixture whose lock.toml carries layout-import and include source-dependency rows reads/parses lock.toml exactly once per gate() invocation — a count pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
-      },
-      {
-        "path": "tests/emit.rs",
-        "asserts": "existing layout-import-stale / include-stale drift findings stay byte-identical — the hoist is signature-only, no behavior change to the staleness comparison"
-      }
-    ],
-    "acceptance": "gate() and explain() each parse the workspace's lock.toml exactly once per invocation; layout_imports/includes/layout_import_stale/include_stale all derive from that one parse rather than each independently re-reading the file. No behavior change (engineering.md, 'Cost scale is hoisted'). `cargo test` and `cargo clippy -D warnings` green.",
-    "notes": "Unblocked this tick: EXTRACT-FOUNDATION-BOUNDARY-RESTORE shipped (404b73a) and was removed from the queue; the blockedBy target was dangling. Re-verified drift.rs claim true on disk, refreshed line cites (~100 lines drifted from the extract.rs move). scoped at a8dd112."
-  },
-  {
     "tag": "GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE",
     "summary": "gate() recomputes the edge-resolution walk 2-4x per invocation — check's own copy plus resolved_edges/resolved_arcs re-derived by acyclic/degree/mention_reachable — consolidate to one shared walk",
     "per": {
@@ -358,37 +319,6 @@
     "notes": "Found sweeping the `verbs` subsystem (posture rotation: provider done, verbs this tick — rotation's last subsystem this cycle). Serialized behind INSTALL-PLACEMENT-KIND-ENUM, the last chain entry touching install.rs, for shared-file safety (pending-entry.md). Also shares bundle.rs with the already-open, queue-front BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE (lines 317/402 there, unrelated symbols) — ships first regardless, no blockedBy needed. scoped at b710f2d."
   },
   {
-    "tag": "BUNDLE-ERROR-ZERO-CONSUMER-PRUNE",
-    "summary": "bundle.rs's BundleError enum is pub with zero consumer outside its own module — narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/bundle.rs",
-          "description": "`BundleError` (140, `pub enum BundleError`, doc 138) is grep-verified zero-consumer outside this file across src/, tests/, sdk/ — `run` (201) and `write_member`/its sibling write helpers (its only internal callers, returning `Result<(), BundleError>`) all stay within bundle.rs; `run` itself returns `miette::Result<BundleReport>`, converting via `?` at the pub boundary, so the concrete error type never crosses the module boundary. Same shape as the shipped GRAPH-WORLD-ZERO-CONSUMER-PRUNE/INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE precedents. Drop `pub` from `BundleError`, leaving it module-private; its intra-doc links (307-308, `write_member`'s own Errors section) stay valid within the same crate build."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/bundle.rs",
-        "asserts": "existing bundle coverage (the_cli_bundle_verb_composes_the_plugin, bundle_report_names_shipped_artifacts_over_an_empty_surface, and the module's other tests) stays green — the narrowing is visibility-only"
-      }
-    ],
-    "acceptance": "BundleError is a private enum in src/bundle.rs, not pub. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
-    "notes": "Found sweeping the verbs subsystem (posture rotation). Serialized against BUNDLE-MANIFEST-PATH-GOVERNS-DERIVE for shared bundle.rs safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency; that entry chains blockedBy this one. scoped at 2d1c5a6."
-  },
-  {
     "tag": "BUNDLE-MANIFEST-PATH-GOVERNS-DERIVE",
     "summary": "bundle.rs's write_member takes a hardcoded relative manifest path instead of deriving it from the kind's own declared Governs locus, duplicating builtin_kind.rs's cited fact",
     "per": {
@@ -419,37 +349,6 @@
     ],
     "acceptance": "write_member derives its write path from the kind's declared Governs locus instead of taking it as a caller-supplied literal; a relocation of either kind's governs (e.g. via overlay_builtin_kind) changes bundle's output path without a second edit here. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Found sweeping the verbs subsystem (posture rotation) — two sources of truth for one manifest's location. Serialized behind BUNDLE-ERROR-ZERO-CONSUMER-PRUNE for shared bundle.rs safety (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at 2d1c5a6."
-  },
-  {
-    "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE",
-    "summary": "kind.rs ships three pub fns with zero callers anywhere outside their own file — Commitment::label, Content::label, CustomKind::qualified_name — prune per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Three `pub` items grep-verified zero-consumer (no `.label()`/`.qualified_name()` call anywhere in src/, tests/, or sdk/ outside kind.rs's own inline tests): `impl Commitment { pub fn label(self) -> &'static str { .. } }` (59-69) — the whole `impl Commitment` block, since `label` is its only method; `impl Content { pub fn label(&self) -> &'static str { .. } }` (164-176) — likewise the whole block, `label` is its only method; `CustomKind::qualified_name` (932-937, the doc comment plus `pub fn qualified_name(&self) -> String { self.name.clone() } `) inside the larger `impl CustomKind` block — remove only this method, the surrounding impl block has other live methods. Each type (`Commitment`, `Content`, `CustomKind`) stays; only the dead method/impl goes."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "the now-orphaned inline test `qualified_name_is_the_bare_name` (1814-1818) is removed alongside the fn it exercises; every other kind.rs test (Commitment/Content coverage via their variants, not their removed label methods) stays green"
-      }
-    ],
-    "acceptance": "`Commitment::label`, `Content::label`, and `CustomKind::qualified_name` are gone from src/kind.rs, along with their now-vacuous inline test. `cargo test` and `cargo clippy -D warnings` green (no unused-code warning survives).",
-    "notes": "Unblocked this tick: EXTRACT-FOUNDATION-BOUNDARY-RESTORE shipped (404b73a) and was removed from the queue; the blockedBy target was dangling. Re-verified all three still zero-consumer on disk (grep across src/tests/sdk), refreshed line cites. scoped at a8dd112."
   },
   {
     "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH",
