@@ -663,7 +663,7 @@ pub enum EmitOutcome {
 impl EmitOutcome {
     /// The lower-case label used in the rendered report and stable for tests.
     #[must_use]
-    pub fn label(self) -> &'static str {
+    fn label(self) -> &'static str {
         match self {
             EmitOutcome::Emitted => "emitted",
             EmitOutcome::Unchanged => "unchanged",
