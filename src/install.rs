@@ -721,15 +721,23 @@ fn claude_file_path(payload: &str) -> Option<String> {
         .map(|value| value.as_str().to_string())
 }
 
+/// Normalize backslashes and check whether `file_path` matches any candidate by
+/// suffix compare — a straight suffix check against `/`-normalized paths
+/// (`PATH-SEP-NORMALIZE`), tolerant of `file_path` arriving absolute against
+/// workspace-relative candidates.
+fn path_matches<'a>(file_path: &str, mut candidates: impl Iterator<Item = &'a Path>) -> bool {
+    let file_path = file_path.replace('\\', "/");
+    candidates.any(|candidate| {
+        let candidate_str = candidate.to_string_lossy().replace('\\', "/");
+        file_path.ends_with(candidate_str.as_str())
+    })
+}
+
 /// Whether `file_path` names one of `targets` — a straight suffix compare against each
 /// row's `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`), tolerant of `file_path`
 /// arriving absolute (Claude Code's own convention) against a workspace-relative lock row.
 fn matches_projection(file_path: &str, targets: &[drift::EmitOwnedEntry]) -> bool {
-    let file_path = file_path.replace('\\', "/");
-    targets.iter().any(|target| {
-        let source = target.path.to_string_lossy().replace('\\', "/");
-        file_path.ends_with(source.as_str())
-    })
+    path_matches(file_path, targets.iter().map(|t| t.path.as_path()))
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its
@@ -771,13 +779,11 @@ pub fn manifest_write_findings(
     let input = value.get("tool_input")?;
     let file_path = input.get("file_path").and_then(JsonValue::as_str)?;
     let content = input.get("content").and_then(JsonValue::as_str)?;
-    let file_path = file_path.replace('\\', "/");
 
     let mut matched = false;
     let mut findings = Vec::new();
     for manifest in manifests {
-        let target = manifest.path.to_string_lossy().replace('\\', "/");
-        if !file_path.ends_with(target.as_str()) {
+        if !path_matches(file_path, std::iter::once(manifest.path.as_path())) {
             continue;
         }
         matched = true;
