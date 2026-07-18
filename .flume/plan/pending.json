@@ -1171,5 +1171,157 @@
     ],
     "acceptance": "bodyless, judgeless, and vacuities each name every Predicate variant explicitly in their match, no `_` wildcard arm remains in any of the three, matching the exhaustive style addressed_field already holds over the same enum in the same file. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Found sweeping the judges subsystem (posture rotation: pipeline done, judges this tick). Same shape as the already-queued KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH/CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH precedent (a `_ =>` fallback over a shared enum beside an already-exhaustive sibling match in the same file). Serialized behind GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, last chain entry touching engine.rs, for shared-file safety — no functional dependency. scoped at 662cf07."
+  },
+  {
+    "tag": "CONTRACT-WHEN-GUARD-CLAUSE-FORM",
+    "summary": "The clause algebra gains `when`: a guard predicate (enum/type) over an addressable field conditioning a body of ordinary clauses, one shared address binding, no nesting (decision 0041)",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "Decision 0041 ratifies a conditional clause form: a clause may carry a **guard** — one predicate from the scalar-decidable set (initially `Predicate::Enum`/`Predicate::Type` only, both of which already carry their own `field`; the 26-variant `Predicate` enum spans 132-399) — conditioning a **body** of ordinary clauses, evaluated only at the elements the guard's field locates (shared address binding: each element `FieldPath::locate`, address.rs:135-141, yields is judged independently, body clauses evaluating at that same element), silent — no finding, not even a vacuity — wherever the guard doesn't hold, guarded-field absence included. No nesting: a body clause carrying its own guard is inadmissible. The cleanest fit given the existing architecture: add `Predicate::When { guard: Box<Predicate>, body: Vec<Clause> }` as the 27th variant — `Clause` (44-68: label/severity/predicate/guidance/source) stays structurally unchanged, matching the precedent `RequirementRow` already sets nesting `Vec<ClauseRow>` (drift.rs ~3036-3054) — but the concrete representation is build's call; name the choice in the commit body. Whichever shape, EVERY already-exhaustive match over `Predicate` in this file needs a `When` arm added at implementation time, since two of them ship exhaustive ahead of this entry in the chain (CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH, CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, both earlier in the blockedBy chain this entry sits behind): `target` (642-675), `documented_field` (686-722), and `declared_keys` (736-745, post-exhaustiveness-fix) all report `None` for `When` — guard/body carry no field or schema key of their own to expose the way a single-field predicate does. `predicate_from_row` (424-548, 24/26 keys handled today, falls through `_ => return None` at 546) gains a `\"when\"` arm decoding the guard sub-predicate and recursing over the body's nested `ClauseRow`s via `compose::clause_from_row`. Also add `Shape::LeadingDotSlash` (783-803, joining `HyphenPlacement`/`NoXmlTags`) — decision 0041's second, smaller addition, the relative-path spelling rule marketplace's `source` string form documents — updating every exhaustive match over `Shape` (`name`/`from_name`/`pattern`/`match_holds`/`admits`/`demand`, ~813-897) with the third arm."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow` (2878-2979) needs a shape carrying a `when` row's guard and nested body through the lock. `RequirementRow` (~3036-3054) already nests `pub clauses: Vec<ClauseRow>` for an unrelated reason (a requirement's own attached clauses) — the same nesting shape is available here: a `when` row's guard (reusing the existing `value_type`/`values` columns the way a bare `Enum`/`Type` row already would) plus a `body: Option<Vec<ClauseRow>>` column nesting the body's own rows. `stamp_clause_label` (1363, writes every clause row's compiled address over the whole lock) needs to recurse into a `when` row's nested body rows so each body clause still gets its own address. Exact column shape is build's call, matching whichever `Predicate::When` representation contract.rs lands; document it the way every other `ClauseRow` column already is. This regenerates `sdk/src/generated/ClauseRow.ts` via the existing ts-rs export test — do not hand-edit the generated file."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`clause_from_row` (238, `Result<contract::Clause, ClauseRowError>`) decodes a `ClauseRow` via `severity_from_label` (239), `contract::predicate_from_row` (243), and the row's `label` (248). Once `predicate_from_row` gains a `\"when\"` arm, decoding the guard predicate itself needs no structural change here — but decoding the body's nested `ClauseRow`s requires recursing into this same function per nested row, surfacing a malformed body clause as a loud `ClauseRowError` rather than dropping it silently (extend the existing `Severity`/`Predicate`/`Label` variants or add one for a malformed body row; name the choice in the commit body)."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "A second `clause_from_row` (25, doc 9, decoding `ClauseRow`s for the embedded built-in lock read path) needs the same `when`-decoding update as `compose::clause_from_row` — verify at implementation time whether the two functions' `when`-handling can share one body-decoding helper rather than each carrying its own copy, since this file's own header already frames itself as the mirror path `compose.rs`'s function serves."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`admissibility` (110-118) and `inadmissibilities` (153-163, per clause: `judgeless`, `bodyless`, `unaddressable`, `vacuities`) gain the two `when`-specific admissibility checks the decision names: the guard predicate is restricted to `Enum`/`Type` (any other guard predicate is inadmissible, never silently accepted), and a body clause whose own predicate is itself `When` is inadmissible (no nesting) — sited wherever build judges fits the existing per-predicate-rule shape. Since ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH (this entry's own blocker) makes `bodyless`, `judgeless`, and `vacuities` exhaustive matches ahead of this entry, all three also need an explicit `When` arm at implementation time (mapping to their existing fallback value — `None`/`None`/`Vec::new()` — unless the design decision above chooses to fold the no-nesting/guard-restriction check into one of them instead of a new helper). `addressed_field` (201-235, doc 198-200: 'The match names every arm rather than defaulting') gains a `When` arm returning `None`, matching the key/marker/set predicates' existing `None` arms. `decide` (774-1101, per-member exhaustive match) and `judge` (487-540, whole-selection match) both gain `When` arms implementing the shared-binding evaluation: `decide` locates every element the guard's field addresses, judges the guard at each, and for each element where it holds, evaluates every body clause's own `decide` at that same element, folding results — silent at elements where the guard doesn't hold or the field is absent."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "Per engineering.md's gauntlet-corpus and vacuity bars: add a `when`-guarded clause over a mixed collection (one string-form element, one object-form element — mirroring the marketplace `plugins[].source` shape decision 0041 is driven by) proving the shared-binding invariant: the object-form element's guarded body clause fires only at that element and never leaks a finding onto the string-form element; plus a case where the guarded field is absent everywhere, asserted as the explicit vacuous-but-legitimate empty case, never silently inherited."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "a when-guarded clause over a mixed collection fires its body only at elements where the guard holds, never leaking onto elements where it doesn't (or where the guarded field is absent) — the shared-binding invariant decision 0041 names by name"
+      },
+      {
+        "path": "src/engine.rs",
+        "asserts": "inline admissibility tests: a when guard predicate outside Enum/Type is inadmissible; a body clause carrying its own when guard (nesting) is inadmissible"
+      },
+      {
+        "path": "src/contract.rs",
+        "asserts": "predicate_from_row round-trips a when row (guard plus a body of ordinary clauses) back into the chosen Predicate::When shape, matching the pattern target/documented_field's exhaustive matches already hold over every other variant"
+      }
+    ],
+    "acceptance": "A `when` guard-and-body clause form exists end-to-end in the Rust engine: admissible only over an `Enum`/`Type` guard on an addressable field, never nested; body clauses evaluate exactly at the elements the guard's field locates, silent (not a finding, not a vacuity) wherever the guard doesn't hold including field-absence. Every exhaustive match over `Predicate` (`target`, `documented_field`, `declared_keys`, `addressed_field`, `bodyless`, `judgeless`, `vacuities`, `decide`, `judge`) answers the new variant by construction. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Decision 0041. Concrete Rust representation (Predicate::When{guard,body} vs a Clause-level guard/body pair) is build's call — name it in the commit body; RequirementRow's nested Vec<ClauseRow> is the closest precedent. Serialized behind ENGINE-PREDICATE-FENCE-EXHAUSTIVE-MATCH (its own chain covers CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH/CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP too) so the new variant lands after those exhaustive matches ship."
+  },
+  {
+    "tag": "CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP",
+    "summary": "SDK gains a `when(guard, body)` clause constructor and lock round-trip for decision 0041's guard form; declarations.ts/generated types/root export updated",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-WHEN-GUARD-CLAUSE-FORM"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "The `Predicate` interface (24-79) and its constructor functions (node-scope predicates at 96-227, e.g. `type` 110-114, `enumOf` 187-191 — both restricted-to candidates for the guard) gain a new `when(guard: Predicate, body: readonly Clause[]): Clause`-shaped export, following the file's own JSDoc-plus-`export const camelName = (...): T => ({...})` pattern. Restrict `guard` to `type`/`enumOf`-shaped predicates the way build's chosen Rust representation admits — either at the TypeScript type level or via the same emit-time admissibility check the engine performs (never silently accepting a third predicate as a guard). Signature and return type mirror whichever Rust shape CONTRACT-WHEN-GUARD-CLAUSE-FORM lands; verify before implementing. Also add the `leading-dot-slash` variant to `sdk/src/generated/Shape.ts` (machine-generated via the ts-rs export test — regenerate, never hand-edit) feeding `shape()` (125-136)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`clauseRow` (65-116, doc 51-64) maps each `Predicate` field to its `ClauseRow` column via `predicate.key === \"...\"` branches. Add the `when` branch: emit the guard's own predicate columns (reusing the existing per-predicate columns the guard's own key already populates, e.g. `value_type`/`values`) plus the body's nested rows, recursing `clauseRow` over each body clause — matching whichever nested-row shape `ClauseRow` lands in drift.rs."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Export `when` from the root alongside the other predicate/clause constructors (25-56, alphabetical list — inserts between `uniqueName` and `type`, or wherever alphabetization lands it)."
+        },
+        {
+          "path": "sdk/test/contract.test.ts",
+          "description": "New test following the `skillClauseRow` helper pattern (77-87, e.g. the `enumOf` test at 105-113): `when(enumOf(...), [required(...)])` composes the documented `Predicate`/`ClauseRow` shape, and the mixed-array binding case (one string-form, one object-form element) round-trips through `compileDeclarations` with the body firing only at the guarded element."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "A round-trip test analogous to the `require_sections` precedent CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP establishes: push a `when`-carrying `ClauseRow` (guard plus a nested body) through `emit` and `read_declarations`, asserting `compose::clause_from_row` decodes it back into the same guard-and-body shape with the same elements."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "when(guard, body) composes the documented Predicate/ClauseRow shape and the mixed-array binding case round-trips through compileDeclarations, matching the engine's own gauntlet cell"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a when-carrying ClauseRow round-trips through emit + read_declarations back into the same guard-and-body shape, the same bar CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's round-trip test sets for require_sections"
+      }
+    ],
+    "acceptance": "An SDK author calls when(guard, body) composing a guarded clause; it emits through declarations.ts into the lock's ClauseRow shape, and the Rust read side decodes it back losslessly into the same guard-and-body value — closing decision 0041's SDK half. `pnpm --dir sdk test` and `cargo test` green.",
+    "notes": "Decision 0041, SDK half. Blocked by CONTRACT-WHEN-GUARD-CLAUSE-FORM since ts-rs generates ClauseRow.ts from the Rust struct and this entry's round-trip test needs the Rust decode side settled first. Exact TS signature/type restriction is build's call, matching whichever Rust representation lands upstream."
+  },
+  {
+    "tag": "BUILTINS-DEFAULT-CONTRACT-HOLDS-CLOSE",
+    "summary": "Re-examine the three shipped default-contract holds against decision 0041's widened vocabulary — marketplace's source union, mcp-server's transport fields, hook's per-event schema",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Three default contracts in this file carry a documented `hold` (specs/builtins.md, 'Default contracts': a documented, decidable rule the vocabulary cannot yet spell, named at the point of enforcement with the widening that closes it, decision 0033) that decision 0041's `when`/`enum`/`type` guard widening was ratified to close, per its own Consequences. (1) `marketplaceDefaultContract` (1018-1109, hold doc 1018-1053, hold quote 1027-1037: the `plugins[].source` `string|object` union — a relative-path string form documenting a leading `./` spelling, or an object form whose `source` discriminator, `\"github\"|\"url\"|\"git-subdir\"|\"npm\"` per code.claude.com/docs/en/plugin-marketplaces, decides its own required companion fields) — complete it with `when(enumOf(\"plugins[*].source.source\", [...documented discriminator values]), [required(...per-kind companion fields...)])` clauses plus a `shape(..., \"leading-dot-slash\")` clause validating the string form, re-verifying the exact per-discriminator required-field list against current docs (retrieved date updated) before citing it, and retire the header hold paragraph (1027-1037). (2) `mcpServerDefaultContract` (1547-1580, hold doc 1557-1572, hold quote 1566-1571: `type` discriminates a `stdio` server's need for `command` vs. a remote transport's need for `url`) — same shape, `when(enumOf(\"type\", [...]), [required(\"command\")])` / `when(enumOf(\"type\", [...]), [required(\"url\")])` per the documented transport set (code.claude.com/docs/en/mcp, re-verify exact values), retiring its header hold. (3) `hookDefaultContract` (1520-1545, hold-like doc 1520-1537, quote 1529-1536: the per-event handler's own `type`/`command`/`url`/`timeout` schema lives one array level deeper than the collection address `hooks.<Event>` walks into) — re-examine against the widened vocabulary and confirm on disk whether any addressing extension since this hold was written now reaches the nested matcher-group array; per this tick's investigation, none does, so this hold is an addressing-reach gap `when`/`enum`/`type` cannot close (they guard a field that must first be addressable) — reword its header to state it was re-examined against decision 0041 and confirmed to still hold, rather than leaving it looking unexamined. If the re-examination instead finds the field newly addressable, complete the clause instead and say so in the commit body."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/marketplace_kind.rs",
+        "asserts": "the completed source-union contract catches every documented violation shape (bad discriminator value, missing companion field per kind, a string form missing the leading ./) and passes every valid one"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "the completed mcp-server transport-conditional contract catches a stdio entry missing command and a remote entry missing url"
+      },
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "hookDefaultContract's re-examined hold stays documented and unresolved if the addressing gap is confirmed unchanged — a vacuity-honest non-resolution, named as such"
+      }
+    ],
+    "acceptance": "marketplaceDefaultContract's source union and mcpServerDefaultContract's transport-conditional requirements are both fully expressed via when/enumOf/shape clauses with current per-clause cites, their header holds retired; hookDefaultContract's hold is either completed or its header explicitly confirms re-examination against decision 0041's widened vocabulary with the addressing-reach reason it still stands. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "Decision 0041 Consequences: marketplace + 'other two' vocabulary holds, combined since all three sit in sdk/src/builtins.ts (one Consequences bullet). Investigation this tick found exactly three vocabulary-shaped holds — no fourth candidate; every other shipped contract's absence is explicitly semantic, not vocabulary-blocked. Blocked by CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP for the when()/leading-dot-slash vocabulary consumed here."
   }
 ]
