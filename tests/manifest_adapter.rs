@@ -139,7 +139,7 @@ fn read_kind_routes_a_manifest_kind_through_its_governs_locus() {
     );
     kind.collection_address = Some(mcp_address());
 
-    let reads = Manifest::read_kind(&harness, &kind).unwrap();
+    let reads = Manifest::read_kind(&temper::import::Discovery::new(&harness), &kind).unwrap();
     assert_eq!(reads.len(), 1);
     assert_eq!(reads[0].members.len(), 2);
 }

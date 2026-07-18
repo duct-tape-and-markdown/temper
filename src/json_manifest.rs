@@ -412,12 +412,15 @@ impl Manifest {
     ///
     /// Returns a [`JsonManifestError`] if discovery fails or a discovered manifest cannot
     /// be read.
-    pub fn read_kind(harness: &Path, kind: &CustomKind) -> Result<Vec<Self>, JsonManifestError> {
+    pub fn read_kind(
+        disc: &crate::import::Discovery,
+        kind: &CustomKind,
+    ) -> Result<Vec<Self>, JsonManifestError> {
         let (Some(address), Some(governs)) = (&kind.collection_address, &kind.governs) else {
             return Ok(Vec::new());
         };
         crate::import::discover_kind_files(
-            harness,
+            disc,
             kind,
             governs,
             crate::import::LocalOverride::Honored,
@@ -657,7 +660,7 @@ mod tests {
         );
         kind.collection_address = Some(mcp_address());
 
-        let reads = Manifest::read_kind(&harness, &kind).unwrap();
+        let reads = Manifest::read_kind(&crate::import::Discovery::new(&harness), &kind).unwrap();
         assert_eq!(reads.len(), 1);
         assert_eq!(reads[0].members.len(), 2);
 
@@ -665,7 +668,7 @@ mod tests {
         let mut file_kind = kind.clone();
         file_kind.collection_address = None;
         assert!(
-            Manifest::read_kind(&harness, &file_kind)
+            Manifest::read_kind(&crate::import::Discovery::new(&harness), &file_kind)
                 .unwrap()
                 .is_empty()
         );

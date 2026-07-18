@@ -11,6 +11,7 @@
 //! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
 //! every write is content-derived, name-sorted, and overwrites in place.
 
+use std::cell::OnceCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::fs;
@@ -38,6 +39,60 @@ pub enum LocalOverride {
     /// it converts what it finds into a committed member module, and a local document is
     /// never that.
     Withheld,
+}
+
+/// A run's shared discovery cache over one harness. The ignore-honoring walk
+/// ([`discoverable_paths`]) is a pure function of the harness and the `local_governs`
+/// flavor, and only two flavors exist, so it is walked at most once per flavor here and
+/// reused across every kind and nested-file host a run discovers. Without it a run
+/// re-walks the consumer's whole tree per kind and twice per nested-file host — the
+/// dominant cost at consumer scale. The harness disk is stable across a run, so the
+/// memoized set is the same one a re-walk would produce.
+pub struct Discovery<'a> {
+    harness: &'a Path,
+    /// The `local_governs = true` flavor: a local-locus kind's own walk, with the ignore
+    /// rules and the workspace skip waived.
+    local: OnceCell<BTreeSet<PathBuf>>,
+    /// The `local_governs = false` flavor: every committed kind's walk, both presumptions
+    /// standing.
+    standard: OnceCell<BTreeSet<PathBuf>>,
+}
+
+impl<'a> Discovery<'a> {
+    /// A fresh cache over `harness` — no walk runs until a flavor is first consulted.
+    #[must_use]
+    pub fn new(harness: &'a Path) -> Self {
+        Self {
+            harness,
+            local: OnceCell::new(),
+            standard: OnceCell::new(),
+        }
+    }
+
+    /// The harness root this cache walks — the base a `governs` root and the bare-skill
+    /// path join against.
+    #[must_use]
+    pub fn harness(&self) -> &Path {
+        self.harness
+    }
+
+    /// The discoverable path set for the `local_governs` flavor, walking it on first use
+    /// and returning the memoized set thereafter.
+    fn discoverable(&self, local_governs: bool) -> &BTreeSet<PathBuf> {
+        let cell = if local_governs {
+            &self.local
+        } else {
+            &self.standard
+        };
+        cell.get_or_init(|| discoverable_paths(self.harness, local_governs))
+    }
+
+    /// How many of the two flavors have actually been walked — the single-walk-per-flavor
+    /// property a shared-cache test asserts against (`<= 2`, one per flavor consulted).
+    #[cfg(test)]
+    fn flavors_walked(&self) -> usize {
+        usize::from(self.local.get().is_some()) + usize::from(self.standard.get().is_some())
+    }
 }
 
 /// Errors raised while discovering or rolling up a harness's members.
@@ -111,14 +166,14 @@ pub(crate) struct RollupEntry {
 /// halves of its locus are the host's, so the declared set the host lives in is what the
 /// scan keys on.
 pub(crate) fn discover_builtin(
-    harness: &Path,
+    disc: &Discovery,
     kind: &CustomKind,
     kinds: &BTreeMap<String, CustomKind>,
     over: LocalOverride,
 ) -> Result<Vec<PathBuf>, ImportError> {
     match &kind.governs {
-        Some(governs) => discover_kind_files(harness, kind, governs, over),
-        None => Ok(discover_nested_file(harness, kind, kinds, over)?
+        Some(governs) => discover_kind_files(disc, kind, governs, over),
+        None => Ok(discover_nested_file(disc, kind, kinds, over)?
             .into_iter()
             .map(|unit| unit.file)
             .collect()),
@@ -157,7 +212,7 @@ pub struct NestedFileUnit {
 ///
 /// Returns an [`ImportError`] if a host's locus or unit cannot be enumerated.
 pub fn discover_nested_file(
-    harness: &Path,
+    disc: &Discovery,
     kind: &CustomKind,
     kinds: &BTreeMap<String, CustomKind>,
     over: LocalOverride,
@@ -168,7 +223,7 @@ pub fn discover_nested_file(
     // a host template both materialize the path: a phantom twin the coverage, `explain`,
     // and `degree` consumers would each then have to un-see. Position stays decidable at
     // this one seam instead.
-    let claimed = declared_governed_paths(harness, kinds, over)?;
+    let claimed = declared_governed_paths(disc, kinds, over)?;
     let mut found = Vec::new();
     for host in kinds.values() {
         let (Some(pattern), Some(governs)) =
@@ -179,13 +234,13 @@ pub fn discover_nested_file(
         if host.unit_shape != Some(UnitShape::Directory) {
             continue;
         }
-        let discoverable = discoverable_paths(harness, local_governs(host, over));
-        let root = harness.join(&governs.root);
-        for entry in discover_kind_files(harness, host, governs, over)? {
+        let discoverable = disc.discoverable(local_governs(host, over));
+        let root = disc.harness().join(&governs.root);
+        for entry in discover_kind_files(disc, host, governs, over)? {
             let Some(host_unit) = unit_dir(&root, &entry) else {
                 continue;
             };
-            for file in scan_locus(&host_unit, pattern, &discoverable)? {
+            for file in scan_locus(&host_unit, pattern, discoverable)? {
                 if file != entry && !claimed.contains(&file) {
                     found.push(NestedFileUnit {
                         host_unit: host_unit.clone(),
@@ -209,14 +264,14 @@ pub fn discover_nested_file(
 ///
 /// Returns an [`ImportError`] if a declared kind's locus cannot be enumerated.
 fn declared_governed_paths(
-    harness: &Path,
+    disc: &Discovery,
     kinds: &BTreeMap<String, CustomKind>,
     over: LocalOverride,
 ) -> Result<BTreeSet<PathBuf>, ImportError> {
     let mut claimed = BTreeSet::new();
     for kind in kinds.values() {
         if let Some(governs) = kind.governs.as_ref() {
-            claimed.extend(discover_kind_files(harness, kind, governs, over)?);
+            claimed.extend(discover_kind_files(disc, kind, governs, over)?);
         }
     }
     Ok(claimed)
@@ -263,14 +318,14 @@ fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
 /// Returns an [`ImportError`] if a directory under `governs.root` cannot be
 /// enumerated.
 pub fn discover_kind_files(
-    harness: &Path,
+    disc: &Discovery,
     kind: &CustomKind,
     governs: &Governs,
     over: LocalOverride,
 ) -> Result<Vec<PathBuf>, ImportError> {
-    let mut files = discover_kind_units(harness, governs, local_governs(kind, over))?;
+    let mut files = discover_kind_units(disc, governs, local_governs(kind, over))?;
     if kind.name == "skill" {
-        let bare = harness.join("SKILL.md");
+        let bare = disc.harness().join("SKILL.md");
         if bare.is_file() {
             files.push(bare);
             // Re-sort so the bare root skill lands in name order beside the children.
@@ -298,7 +353,7 @@ fn local_governs(kind: &CustomKind, over: LocalOverride) -> bool {
 /// harness). Data-driven discovery — the locus is the kind's own `governs`
 /// declaration, never a hardwired path.
 fn discover_kind_units(
-    harness: &Path,
+    disc: &Discovery,
     governs: &Governs,
     local_governs: bool,
 ) -> Result<Vec<PathBuf>, ImportError> {
@@ -307,9 +362,14 @@ fn discover_kind_units(
     // would import a vendored dep's memory file. A local-locus kind's own walk is the one
     // exception, and its `governs` says so: `local_governs` carries that scope in.
     // Resolved off the harness (repo) root so a root `.gitignore` governs every kind's
-    // walk, whatever its `governs.root` depth.
-    let discoverable = discoverable_paths(harness, local_governs);
-    scan_locus(&harness.join(&governs.root), &governs.glob, &discoverable)
+    // walk, whatever its `governs.root` depth. Shared per flavor across the run so N kinds
+    // cost one walk, not N ([`Discovery`]).
+    let discoverable = disc.discoverable(local_governs);
+    scan_locus(
+        &disc.harness().join(&governs.root),
+        &governs.glob,
+        discoverable,
+    )
 }
 
 /// The scan itself: every file under `root` matching `glob`, deterministically ordered.
@@ -643,8 +703,13 @@ Last line, no newline.";
 
         // The skill locus (`.claude/skills` + `*/SKILL.md`) yields the `SKILL.md`
         // files themselves — the subdir glob descended one level.
-        let skills =
-            discover_builtin(&harness, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
+        let skills = discover_builtin(
+            &Discovery::new(&harness),
+            &skill_kind,
+            &no_hosts(),
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(
             skills,
             vec![
@@ -654,8 +719,13 @@ Last line, no newline.";
         );
 
         // The rule locus (`.claude/rules` + `*.md`) is flat — immediate `*.md` files.
-        let rules =
-            discover_builtin(&harness, &rule_kind, &no_hosts(), LocalOverride::Honored).unwrap();
+        let rules = discover_builtin(
+            &Discovery::new(&harness),
+            &rule_kind,
+            &no_hosts(),
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(
             rules,
             vec![
@@ -686,8 +756,13 @@ Last line, no newline.";
             Extraction::new(Vec::new()),
         );
 
-        let found =
-            discover_builtin(&harness, &memory, &no_hosts(), LocalOverride::Honored).unwrap();
+        let found = discover_builtin(
+            &Discovery::new(&harness),
+            &memory,
+            &no_hosts(),
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(found, vec![harness.join("mem").join("CLAUDE.md")]);
     }
 
@@ -712,7 +787,7 @@ Last line, no newline.";
             root: "things".to_string(),
             glob: "*/THING.md".to_string(),
         };
-        let found = discover_kind_units(&harness, &governs, false).unwrap();
+        let found = discover_kind_units(&Discovery::new(&harness), &governs, false).unwrap();
         assert_eq!(
             found,
             vec![
@@ -763,10 +838,20 @@ Last line, no newline.";
         let harness = ignored_dial_harness("dial-withheld");
         let local = dial_kind(Some(Commitment::Local));
 
-        let adopted = discover_builtin(&harness, &local, &no_hosts(), LocalOverride::Withheld);
+        let adopted = discover_builtin(
+            &Discovery::new(&harness),
+            &local,
+            &no_hosts(),
+            LocalOverride::Withheld,
+        );
         assert_eq!(adopted.unwrap(), Vec::<PathBuf>::new());
 
-        let read = discover_builtin(&harness, &local, &no_hosts(), LocalOverride::Honored);
+        let read = discover_builtin(
+            &Discovery::new(&harness),
+            &local,
+            &no_hosts(),
+            LocalOverride::Honored,
+        );
         assert_eq!(
             read.unwrap(),
             vec![harness.join(".claude").join("local").join("dial.md")]
@@ -781,7 +866,7 @@ Last line, no newline.";
         let harness = ignored_dial_harness("dial-committed");
 
         let committed = discover_builtin(
-            &harness,
+            &Discovery::new(&harness),
             &dial_kind(None),
             &no_hosts(),
             LocalOverride::Honored,
@@ -798,8 +883,13 @@ Last line, no newline.";
         fs::write(harness.join("SKILL.md"), DEMO).unwrap();
 
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let found =
-            discover_builtin(&harness, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
+        let found = discover_builtin(
+            &Discovery::new(&harness),
+            &skill_kind,
+            &no_hosts(),
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(found, vec![harness.join("SKILL.md")]);
     }
 
@@ -845,8 +935,13 @@ Last line, no newline.";
             Extraction::new(Vec::new()),
         );
 
-        let found =
-            discover_builtin(&harness, &memory, &no_hosts(), LocalOverride::Honored).unwrap();
+        let found = discover_builtin(
+            &Discovery::new(&harness),
+            &memory,
+            &no_hosts(),
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(found, vec![harness.join("CLAUDE.md")]);
     }
 
@@ -863,8 +958,13 @@ Last line, no newline.";
         fs::create_dir_all(harness.join(".claude").join("skills").join("empty")).unwrap();
 
         let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
-        let found =
-            discover_builtin(&harness, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
+        let found = discover_builtin(
+            &Discovery::new(&harness),
+            &skill_kind,
+            &no_hosts(),
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(
             found,
             vec![
@@ -894,7 +994,13 @@ Last line, no newline.";
 
         // `coordinate`'s companion doc, and nothing from `demo` (which carries none) or the
         // hosts' own `SKILL.md` entry files.
-        let found = discover_builtin(&harness, &child, &kinds, LocalOverride::Honored).unwrap();
+        let found = discover_builtin(
+            &Discovery::new(&harness),
+            &child,
+            &kinds,
+            LocalOverride::Honored,
+        )
+        .unwrap();
         assert_eq!(
             found,
             vec![
@@ -903,5 +1009,71 @@ Last line, no newline.";
                     .join("PLAYBOOK.md")
             ]
         );
+    }
+
+    #[test]
+    fn one_discovery_shares_a_single_walk_across_kinds_and_a_nested_host() {
+        // The shared-walk contract: a multi-kind harness with a nested-file host discovers
+        // the identical member set whether each kind walks the tree itself or one cache is
+        // threaded through them all, and the shared cache walks each flavor at most once.
+        let harness = tmpdir("shared-walk");
+        write_fixture_harness(&harness);
+
+        let skill_kind = builtin_kind::definition("skill").unwrap().unwrap();
+        let rule_kind = builtin_kind::definition("rule").unwrap().unwrap();
+        let host = builtin_kind::definition("skill")
+            .unwrap()
+            .unwrap()
+            .overlay_templates(&[TemplateRow {
+                kind: "reference-doc".to_string(),
+                path: Some("*.md".to_string()),
+            }]);
+        let hosts = BTreeMap::from([("skill".to_string(), host)]);
+        let child = CustomKind::nested_file("reference-doc", Extraction::new(Vec::new()));
+
+        // Two governs kinds plus a nested-file host, all threaded through one cache.
+        let shared = Discovery::new(&harness);
+        let skills =
+            discover_builtin(&shared, &skill_kind, &no_hosts(), LocalOverride::Honored).unwrap();
+        let rules =
+            discover_builtin(&shared, &rule_kind, &no_hosts(), LocalOverride::Honored).unwrap();
+        let nested = discover_builtin(&shared, &child, &hosts, LocalOverride::Honored).unwrap();
+
+        // Behavior identity: the same members a fresh, unshared cache per call finds.
+        assert_eq!(
+            skills,
+            discover_builtin(
+                &Discovery::new(&harness),
+                &skill_kind,
+                &no_hosts(),
+                LocalOverride::Honored
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            rules,
+            discover_builtin(
+                &Discovery::new(&harness),
+                &rule_kind,
+                &no_hosts(),
+                LocalOverride::Honored
+            )
+            .unwrap()
+        );
+        assert_eq!(
+            nested,
+            discover_builtin(
+                &Discovery::new(&harness),
+                &child,
+                &hosts,
+                LocalOverride::Honored
+            )
+            .unwrap()
+        );
+
+        // Every discovery above honored the override over committed kinds, so all rode the
+        // one non-local flavor: three kinds and the nested host's per-host scan cost one
+        // walk, not four.
+        assert_eq!(shared.flavors_walked(), 1);
     }
 }

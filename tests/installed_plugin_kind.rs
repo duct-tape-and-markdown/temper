@@ -52,7 +52,7 @@ fn installed_plugin_kind() -> temper::kind::CustomKind {
 /// clause and the reachability gate range over.
 fn features(harness: &Path) -> Vec<Features> {
     let kind = installed_plugin_kind();
-    let reads = Manifest::read_kind(harness, &kind).unwrap();
+    let reads = Manifest::read_kind(&temper::import::Discovery::new(harness), &kind).unwrap();
     let address = kind.collection_address.clone().unwrap();
     let source = harness.join(".claude/settings.json");
     reads
@@ -82,7 +82,11 @@ fn a_settings_enabled_plugins_map_surfaces_one_member_per_entry_keyed_by_plugin_
     let harness = common::tmpdir("read-enabled-plugins");
     write_settings(&harness, SETTINGS);
 
-    let reads = Manifest::read_kind(&harness, &installed_plugin_kind()).unwrap();
+    let reads = Manifest::read_kind(
+        &temper::import::Discovery::new(&harness),
+        &installed_plugin_kind(),
+    )
+    .unwrap();
     assert_eq!(
         reads.len(),
         1,
@@ -164,7 +168,11 @@ fn a_settings_file_with_no_enabled_plugins_surfaces_no_member_and_no_finding() {
     let harness = common::tmpdir("enabled-plugins-absent");
     write_settings(&harness, SETTINGS_NO_PLUGINS);
 
-    let reads = Manifest::read_kind(&harness, &installed_plugin_kind()).unwrap();
+    let reads = Manifest::read_kind(
+        &temper::import::Discovery::new(&harness),
+        &installed_plugin_kind(),
+    )
+    .unwrap();
     assert_eq!(reads.len(), 1, "the settings.json manifest is still read");
     assert!(
         reads[0].members.is_empty(),

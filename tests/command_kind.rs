@@ -50,7 +50,7 @@ fn discovery_over_the_embedded_governs_finds_the_command_file() {
         .unwrap()
         .expect("command is embedded");
     let found = import::discover_kind_files(
-        &harness,
+        &import::Discovery::new(&harness),
         &command_kind,
         command_kind.governs.as_ref().unwrap(),
         import::LocalOverride::Honored,

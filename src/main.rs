@@ -513,20 +513,23 @@ fn main() -> miette::Result<ExitCode> {
 fn explain(target: &str) -> miette::Result<String> {
     let workspace = PathBuf::from(DEFAULT_WORKSPACE.as_str());
     let harness_root = Path::new(".");
+    // One ignore-honoring walk per flavor, shared across every kind and nested host this
+    // read discovers ([`import::Discovery`]).
+    let discovery = import::Discovery::new(harness_root);
 
     // The assembly's own declared facts, read first: the corpus below walks each
     // kind's governs locus off *this*.
     // No layers: `explain` narrates what this corpus declares. A policy layer is the
     // invocation's own, and the invocation here is a read.
     let LockFamily { declarations, .. } =
-        assemble_lock_family(harness_root, &drift::read_declarations(&workspace)?, &[])?;
+        assemble_lock_family(&discovery, &drift::read_declarations(&workspace)?, &[])?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
     // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
     // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
     let builtin_defs = builtin_kind::definitions()?;
-    let builtin_features = builtin_features_by_kind(&builtin_defs, harness_root, &declarations)?;
+    let builtin_features = builtin_features_by_kind(&builtin_defs, &discovery, &declarations)?;
 
     // Each kind's resolved contract, lifted exactly as `gate` lifts it, so the clause
     // addresses `explain` narrates are the ones a finding prints (READ-EDGE-UNIFY).
@@ -550,7 +553,7 @@ fn explain(target: &str) -> miette::Result<String> {
             row.name.clone(),
             compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
         );
-        let units = resolve_kind_units(&custom_kind, harness_root, &declarations)?;
+        let units = resolve_kind_units(&custom_kind, &discovery, &declarations)?;
         let features: Vec<extract::Features> = units
             .iter()
             .map(|unit| builtin_kind::features(&custom_kind, unit, &declarations.nested_members))
@@ -593,7 +596,7 @@ fn explain(target: &str) -> miette::Result<String> {
     }
 
     let repo_files = repo_file_set(Path::new("."));
-    let directive_members = collect_directive_members(harness_root, &declarations)?;
+    let directive_members = collect_directive_members(&discovery, &declarations)?;
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
@@ -846,6 +849,10 @@ fn gate(
     // nothing, so this tier is a no-op over it rather than skipped (never a
     // half-adopted state).
     let committed = drift::read_declarations(workspace)?;
+    // One ignore-honoring walk per flavor, shared across every kind and nested host this
+    // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
+    // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost.
+    let discovery = import::Discovery::new(harness_root);
     // The dial's softening is inert under `block`, so the mode is resolved before any
     // contract is, and off the same declarations the family assembles from — a run whose
     // gate and whose guard disagreed about the harness's own posture would be two gates.
@@ -856,7 +863,7 @@ fn gate(
         joined_locks,
         local_members,
         dial,
-    } = assemble_lock_family(harness_root, &committed, layers)?;
+    } = assemble_lock_family(&discovery, &committed, layers)?;
     // Every address the dial reached, accumulated across the contracts and selections
     // below: an entry that reached none is the one thing a dial can be wrong about that
     // its own schema cannot catch.
@@ -919,7 +926,7 @@ fn gate(
             dialed.extend(dial.apply(mode, &mut contract.clauses));
         }
 
-        let features = kind_features(kind, harness_root, &declarations)?;
+        let features = kind_features(kind, &discovery, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
         diagnostics.extend(engine::validate(&contract, &features));
@@ -963,7 +970,7 @@ fn gate(
             &row.name,
         )?;
         dialed.extend(dial.apply(mode, &mut contract.clauses));
-        let features = kind_features(&custom_kind, harness_root, &declarations)?;
+        let features = kind_features(&custom_kind, &discovery, &declarations)?;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
         diagnostics.extend(engine::validate(&contract, &features));
@@ -985,7 +992,7 @@ fn gate(
     // unbacked import is a pure fact, not a graph-scope opinion like reachability).
     diagnostics.extend(
         graph::classify_directives(
-            &collect_directive_members(harness_root, &declarations)?,
+            &collect_directive_members(&discovery, &declarations)?,
             &repo_files,
         )
         .findings
@@ -1302,7 +1309,7 @@ fn layout_unit(
 /// directory cannot be enumerated.
 fn resolve_kind_units(
     kind: &CustomKind,
-    harness_root: &Path,
+    disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<Unit>> {
     let overlaid = overlay_builtin_kind(kind, declarations)?;
@@ -1326,9 +1333,7 @@ fn resolve_kind_units(
     // reads each file through the one adapter dispatch its declared format decides
     // (`read_file_unit`).
     let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
-        (kind::Content::Fields, Some(address), _) => {
-            manifest_units(harness_root, &overlaid, address)?
-        }
+        (kind::Content::Fields, Some(address), _) => manifest_units(disc, &overlaid, address)?,
         // A nested file kind governs no glob to walk: its members sit under each *host*
         // member's unit at the host kind's template pattern, so they are found through the
         // declared set the host lives in, and each child's id folds against its own host's
@@ -1337,7 +1342,7 @@ fn resolve_kind_units(
             let kinds = declared_kinds(declarations)?;
             let mut child_units = Vec::new();
             for found in import::discover_nested_file(
-                harness_root,
+                disc,
                 &overlaid,
                 &kinds,
                 import::LocalOverride::Honored,
@@ -1352,14 +1357,11 @@ fn resolve_kind_units(
             child_units
         }
         (_, _, Some(governs)) => {
-            let base = harness_root.join(&governs.root);
+            let base = disc.harness().join(&governs.root);
             let mut file_units = Vec::new();
-            for file in import::discover_kind_files(
-                harness_root,
-                kind,
-                governs,
-                import::LocalOverride::Honored,
-            )? {
+            for file in
+                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)?
+            {
                 file_units.push(read_file_unit(&overlaid, &file, &base, &edge_fields)?);
             }
             file_units
@@ -1482,12 +1484,12 @@ fn declared_kinds(
 ///
 /// Returns an error if the manifest cannot be discovered or read.
 fn manifest_units(
-    harness_root: &Path,
+    disc: &import::Discovery,
     kind: &CustomKind,
     address: &CollectionAddress,
 ) -> miette::Result<Vec<Unit>> {
     let mut units = Vec::new();
-    for manifest in json_manifest::Manifest::read_kind(harness_root, kind)? {
+    for manifest in json_manifest::Manifest::read_kind(disc, kind)? {
         let source_path = manifest.provenance.source_path.clone();
         for member in &manifest.members {
             units.push(member.to_unit(address, &source_path));
@@ -1506,11 +1508,11 @@ fn manifest_units(
 /// As [`resolve_kind_units`].
 fn kind_features(
     kind: &CustomKind,
-    harness_root: &Path,
+    disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<extract::Features>> {
     let kind = overlay_builtin_kind(kind, declarations)?;
-    let units = resolve_kind_units(&kind, harness_root, declarations)?;
+    let units = resolve_kind_units(&kind, disc, declarations)?;
     Ok(units
         .iter()
         .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
@@ -1566,7 +1568,7 @@ struct LockFamily {
 ///
 /// As [`resolve_kind_units`], [`local_document_rows`] and [`read_layer_clauses`].
 fn assemble_lock_family(
-    harness_root: &Path,
+    disc: &import::Discovery,
     committed: &drift::Declarations,
     layers: &[PathBuf],
 ) -> miette::Result<LockFamily> {
@@ -1578,7 +1580,7 @@ fn assemble_lock_family(
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
         }
-        let units = resolve_kind_units(kind, harness_root, committed)?;
+        let units = resolve_kind_units(kind, disc, committed)?;
         let rows = local_document_rows(kind, &units, committed)?;
         local_members.extend(
             units
@@ -1590,7 +1592,7 @@ fn assemble_lock_family(
     }
     let joined = read_layer_clauses(layers)?;
     Ok(LockFamily {
-        dial: read_dial(harness_root, committed)?,
+        dial: read_dial(disc, committed)?,
         declarations: assembled,
         joined_clauses: joined.clauses,
         joined_locks: joined.locks,
@@ -1612,7 +1614,7 @@ fn assemble_lock_family(
 /// As [`kind_features`] — a malformed dial document fails the run rather than reading as
 /// an empty dial, since a dial silently applying nothing is the fail-open case.
 fn read_dial(
-    harness_root: &Path,
+    disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<dial::Dial> {
     let Some(kind) = builtin_kind::definition(dial::KIND)? else {
@@ -1620,7 +1622,7 @@ fn read_dial(
     };
     Ok(dial::Dial::from_features(&kind_features(
         &kind,
-        harness_root,
+        disc,
         declarations,
     )?))
 }
@@ -1831,15 +1833,12 @@ type CustomKindEntry = (CustomKind, Vec<extract::Features>);
 /// As [`kind_features`].
 fn builtin_features_by_kind(
     builtin_defs: &BTreeMap<String, CustomKind>,
-    harness_root: &Path,
+    disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<BTreeMap<String, Vec<extract::Features>>> {
     let mut by_kind = BTreeMap::new();
     for kind in builtin_defs.values() {
-        by_kind.insert(
-            kind.name.clone(),
-            kind_features(kind, harness_root, declarations)?,
-        );
+        by_kind.insert(kind.name.clone(), kind_features(kind, disc, declarations)?);
     }
     Ok(by_kind)
 }
@@ -2156,13 +2155,13 @@ fn embedded_member_features(
 ///
 /// As [`resolve_kind_units`].
 fn collect_directive_members(
-    harness_root: &Path,
+    disc: &import::Discovery,
     declarations: &drift::Declarations,
 ) -> miette::Result<Vec<graph::DirectiveMember>> {
     let mut members = Vec::new();
     let builtin_defs = builtin_kind::definitions()?;
     for kind in builtin_defs.values() {
-        for unit in resolve_kind_units(kind, harness_root, declarations)? {
+        for unit in resolve_kind_units(kind, disc, declarations)? {
             let feature = builtin_kind::features(kind, &unit, &declarations.nested_members);
             members.push(graph::DirectiveMember {
                 kind: kind.name.clone(),
@@ -2175,7 +2174,7 @@ fn collect_directive_members(
     let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        for unit in resolve_kind_units(&custom_kind, harness_root, declarations)? {
+        for unit in resolve_kind_units(&custom_kind, disc, declarations)? {
             let feature = builtin_kind::features(&custom_kind, &unit, &declarations.nested_members);
             members.push(graph::DirectiveMember {
                 kind: custom_kind.name.clone(),

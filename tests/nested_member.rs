@@ -521,7 +521,7 @@ fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
     )]);
 
     let found = temper::import::discover_nested_file(
-        &harness,
+        &temper::import::Discovery::new(&harness),
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
@@ -540,7 +540,7 @@ fn a_matching_file_under_a_hosts_unit_is_discovered_as_that_hosts_file_child() {
     let unnamed = nested_file_kind("appendix");
     assert!(
         temper::import::discover_nested_file(
-            &harness,
+            &temper::import::Discovery::new(&harness),
             &unnamed,
             &kinds,
             temper::import::LocalOverride::Honored
@@ -566,7 +566,7 @@ fn a_file_the_hosts_pattern_does_not_match_is_discovered_as_no_member() {
     )]);
 
     let found = temper::import::discover_nested_file(
-        &harness,
+        &temper::import::Discovery::new(&harness),
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
@@ -609,7 +609,7 @@ fn a_declared_kinds_exact_path_carves_its_path_out_of_a_host_template() {
     ]);
 
     let found = temper::import::discover_nested_file(
-        &harness,
+        &temper::import::Discovery::new(&harness),
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,
@@ -664,7 +664,7 @@ fn a_starred_segment_kind_keys_one_member_per_directory_by_its_segment() {
     let kind = conventions_kind();
     let governs = kind.governs.clone().unwrap();
     let files = temper::import::discover_kind_files(
-        &harness,
+        &temper::import::Discovery::new(&harness),
         &kind,
         &governs,
         temper::import::LocalOverride::Honored,
@@ -709,7 +709,7 @@ fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_d
         .clone();
 
     let found = temper::import::discover_nested_file(
-        &harness,
+        &temper::import::Discovery::new(&harness),
         &child,
         &kinds,
         temper::import::LocalOverride::Honored,

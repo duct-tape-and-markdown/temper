@@ -325,8 +325,11 @@ impl DiscoveryReport {
 pub fn discover(root: &Path) -> miette::Result<DiscoveryReport> {
     let mut members = BTreeMap::new();
     let kinds = builtin_kind::definitions()?;
+    // One ignore-honoring walk per flavor, shared across every kind this report discovers
+    // ([`import::Discovery`]).
+    let disc = import::Discovery::new(root);
     for kind in kinds.values() {
-        let files = import::discover_builtin(root, kind, &kinds, import::LocalOverride::Withheld)?;
+        let files = import::discover_builtin(&disc, kind, &kinds, import::LocalOverride::Withheld)?;
         members.insert(kind.name.clone(), files);
     }
     Ok(DiscoveryReport { members })
