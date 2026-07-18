@@ -79,15 +79,24 @@ fn lock_widget_kind(root: &Path) {
 }
 
 #[test]
-fn a_partially_governed_settings_json_names_only_the_ungoverned_residue() {
+fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue() {
     let harness = common::tmpdir("with-settings-json");
-    // Two clean skills the gate checks, plus a `.claude/settings.json` whose `hooks`
-    // segment the `hook` built-in governs while its permissions/env residue does not.
-    // Valid JSON `{}` so the `hook` kind reads it as a manifest rather than aborting on a
-    // parse error.
+    // Two clean skills the gate checks, plus a `.claude/settings.json` whose top-level keys
+    // are exactly `{enabledPlugins, hooks, extraKnownMarketplaces}`: the `hook` and
+    // `installed-plugin` built-ins govern the first two, `extraKnownMarketplaces` is a
+    // present-but-unmodeled key (its known-marketplace kind has not shipped). The advisory
+    // must classify the file's ACTUAL keys — naming `extraKnownMarketplaces` as residue and
+    // never `permissions`/`env`, which are absent from the file (the field defect this closes).
     write_skill(&harness, "coordinate");
     write_skill(&harness, "review");
-    common::write_settings(&harness, "{}");
+    common::write_settings(
+        &harness,
+        r#"{
+  "enabledPlugins": { "formatter@acme": true },
+  "extraKnownMarketplaces": { "acme": { "source": { "source": "github", "repo": "acme/mk" } } },
+  "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "echo hi" } ] } ] }
+}"#,
+    );
 
     let (findings, success) = check_harness(&harness);
 
@@ -129,10 +138,15 @@ fn a_partially_governed_settings_json_names_only_the_ungoverned_residue() {
         "the unmodeled-surface flag is advisory (warn), got: {finding}"
     );
     assert!(
-        finding.contains("partially governed")
-            && finding.contains("permissions")
-            && finding.contains("env"),
-        "the flag names the ungoverned residue, got: {finding}"
+        finding.contains("partially governed") && finding.contains("extraKnownMarketplaces"),
+        "the flag names the present ungoverned residue, got: {finding}"
+    );
+    // The absent registry segments are NEVER asserted — the advisory classifies the file's
+    // actual keys, so `permissions`/`env` (which this settings.json does not carry) must not
+    // appear anywhere in the finding.
+    assert!(
+        !finding.contains("permissions") && !finding.contains("env"),
+        "the flag must not name keys absent from the file, got: {finding}"
     );
     assert!(
         !finding.contains("no kind governs it")

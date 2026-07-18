@@ -165,11 +165,21 @@ fn the_hook_default_contract_passes_documented_events() {
 #[test]
 fn a_settings_json_stays_an_unmodeled_surface_until_its_container_is_represented() {
     // The hook kind governs only the `hooks` segment of `settings.json`, never the whole
-    // container — its permissions/env segments stay checked-by-nothing — so the manifest
+    // container — so a file carrying an ungoverned key (`permissions`) alongside its `hooks`
     // keeps its unmodeled-surface finding until it is a represented member (phase 2). The
     // hook kind landing must not prematurely retire that finding.
     let harness = common::tmpdir("settings-still-unmodeled");
-    write_settings(&harness, CLEAN_SETTINGS);
+    write_settings(
+        &harness,
+        r#"{
+  "permissions": { "allow": ["Bash(git status)"] },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "echo guard" } ] }
+    ]
+  }
+}"#,
+    );
 
     let (findings, _ok) = check_harness(&harness);
 

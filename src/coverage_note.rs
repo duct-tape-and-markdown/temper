@@ -107,6 +107,10 @@ const KNOWN_SURFACES: &[KnownSurface] = &[
                 name: "enabledPlugins",
                 collection_key: Some("enabledPlugins"),
             },
+            Segment {
+                name: "extraKnownMarketplaces",
+                collection_key: Some("extraKnownMarketplaces"),
+            },
         ],
     },
     KnownSurface {
@@ -186,7 +190,15 @@ pub fn check(
             .values()
             .filter_map(|kind| governs_segment(kind, surface.path, surface.is_dir))
             .collect();
-        match segment_coverage(surface, whole, &governed_segments) {
+        // Presence comes from the manifest's actual top-level keys, never the static
+        // registry: a key absent from the file is never asserted, a present key no segment
+        // names is residue. Read only for a segmented surface — `.mcp.json` is binary.
+        let present_keys = if surface.segments.is_empty() {
+            BTreeSet::new()
+        } else {
+            manifest_top_level_keys(root, surface)?
+        };
+        match segment_coverage(surface, &present_keys, whole, &governed_segments) {
             SegmentCoverage::Full => {}
             SegmentCoverage::Partial { checked, residue } => diagnostics.push(Diagnostic::warn(
                 UNMODELED_RULE,
@@ -370,34 +382,55 @@ fn governs_segment(kind: &CustomKind, path: &str, is_dir: bool) -> Option<&'stat
 }
 
 /// A manifest's segment-level coverage — the three-way verdict the finding branches on.
-enum SegmentCoverage<'a> {
-    /// Every segment is governed, leaving no residue to name: the finding retires. A
+enum SegmentCoverage {
+    /// Every present key is governed, leaving no residue to name: the finding retires. A
     /// fully-represented manifest whose opaque residue is carried by a container reaches
     /// here, so silence about it is truthful, never a swallowed gap.
     Full,
-    /// Some segments are checked, some are unmodeled residue — name only the residue.
+    /// Some present keys are checked, some are unmodeled residue — name only the residue.
     /// Both name lists are non-empty.
     Partial {
-        checked: Vec<&'a str>,
-        residue: Vec<&'a str>,
+        checked: Vec<String>,
+        residue: Vec<String>,
     },
-    /// No segment is governed at all — the whole file is a gap, kept as the full finding.
+    /// No present key is governed at all — the whole file is a gap, kept as the full finding.
     Wholly,
 }
 
-/// Classify `surface`'s segments into the [`SegmentCoverage`] verdict. `whole` is whether a
-/// container kind governs the entire file — carrying every segment, its schematized
-/// collections and its opaque residue (permissions, env) alike; `governed_keys` are the
-/// collection keys the segment kinds check ([`governs_segment`]). A segment is checked when
-/// the whole file is governed or its own collection key is checked; a keyless residue
-/// segment is checked only by the whole-file container that carries it. A surface with no
-/// segment model (`.mcp.json`) has binary governance: the container covers it or nothing
-/// does.
-fn segment_coverage<'a>(
-    surface: &'a KnownSurface,
+/// The manifest's actual top-level keys at `<root>/<surface.path>`, read through the engine's
+/// manifest reader ([`crate::json_manifest::Manifest`]) — every top-level key surfaces as an
+/// opaque field when no collection address is handed in, which is exactly the key set the
+/// coverage note classifies. Presence is read from the file, never the static registry.
+///
+/// # Errors
+///
+/// Returns an error when the manifest cannot be read or is not a top-level JSON object. By
+/// this point the gate's own manifest kinds have already read the same file, so a malformed
+/// one has aborted the run upstream and this read sees valid JSON.
+fn manifest_top_level_keys(
+    root: &Path,
+    surface: &KnownSurface,
+) -> miette::Result<BTreeSet<String>> {
+    let manifest = crate::json_manifest::Manifest::read(&root.join(surface.path), &[])
+        .map_err(miette::Report::new)?;
+    Ok(manifest.opaque_fields.into_keys().collect())
+}
+
+/// Classify the manifest's `present_keys` into the [`SegmentCoverage`] verdict. Presence is
+/// the file's own top-level keys — a registry segment the file lacks is never asserted, and a
+/// present key no segment names is residue by definition. `whole` is whether a container kind
+/// governs the entire file — carrying every present key, its schematized collections and its
+/// opaque residue (permissions, env) alike; `governed_keys` are the collection keys the
+/// segment kinds check ([`governs_segment`]). A present key is checked when the whole file is
+/// governed or a registered segment names it under a governed collection key. A surface with
+/// no segment model (`.mcp.json`) has binary governance: the container covers it or nothing
+/// does, and `present_keys` is unread.
+fn segment_coverage(
+    surface: &KnownSurface,
+    present_keys: &BTreeSet<String>,
     whole: bool,
     governed_keys: &BTreeSet<&str>,
-) -> SegmentCoverage<'a> {
+) -> SegmentCoverage {
     if surface.segments.is_empty() {
         return if whole {
             SegmentCoverage::Full
@@ -407,15 +440,20 @@ fn segment_coverage<'a>(
     }
     let mut checked = Vec::new();
     let mut residue = Vec::new();
-    for segment in surface.segments {
+    for key in present_keys {
+        // A registered segment supplies this present key's governance handle (its collection
+        // key) and canonical display word; a present key no segment names is residue by
+        // definition — unmodeled until both a segment and a governing kind claim it.
+        let segment = surface.segments.iter().find(|s| s.name == key);
         let covered = whole
             || segment
-                .collection_key
-                .is_some_and(|key| governed_keys.contains(key));
+                .and_then(|s| s.collection_key)
+                .is_some_and(|collection| governed_keys.contains(collection));
+        let display = segment.map_or(key.as_str(), |s| s.name).to_string();
         if covered {
-            checked.push(segment.name);
+            checked.push(display);
         } else {
-            residue.push(segment.name);
+            residue.push(display);
         }
     }
     match (checked.is_empty(), residue.is_empty()) {
@@ -674,12 +712,17 @@ mod tests {
 
     #[test]
     fn a_partially_governed_manifest_names_the_residue_not_the_whole_file() {
-        // A segment kind (`hook`) governs settings.json's `hooks` segment; permissions and
-        // env stay ungoverned. The finding must name that residue and never claim the whole
-        // file is ungoverned — the invariant-6 violation this closes.
+        // A segment kind (`hook`) governs settings.json's `hooks` segment; the file's own
+        // `permissions`/`env` keys stay ungoverned. The finding names that PRESENT residue —
+        // never claiming the whole file is ungoverned (the invariant-6 violation this closes),
+        // and never a registry segment the file lacks.
         let root = tmpdir("partial-settings");
         std::fs::create_dir_all(root.join(".claude")).unwrap();
-        std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
+        std::fs::write(
+            root.join(".claude/settings.json"),
+            r#"{ "permissions": { "allow": [] }, "env": {}, "hooks": {} }"#,
+        )
+        .unwrap();
 
         let kinds = BTreeMap::from([("hook".to_string(), hook_kind())]);
         let diagnostics = check(&root, &kinds, &BTreeMap::new()).unwrap();
@@ -708,9 +751,11 @@ mod tests {
     }
 
     #[test]
-    fn segment_coverage_retires_a_fully_governed_manifest_and_keeps_a_wholly_ungoverned_one() {
-        // A settings.json-shaped surface: a schematized `hooks` collection plus a keyless
-        // residue segment (permissions, env are carried opaquely, never as a collection).
+    fn segment_coverage_classifies_present_keys_never_the_static_registry() {
+        // A settings.json-shaped surface whose registry names `hooks` (a schematized
+        // collection) and `permissions`/`env` (keyless opaque residue). Classification reads
+        // the manifest's PRESENT keys, not this list: a registry segment absent from the file
+        // is never asserted, a present key no segment names is residue by definition.
         let surface = KnownSurface {
             path: ".claude/settings.json",
             is_dir: false,
@@ -725,40 +770,65 @@ mod tests {
                     name: "permissions",
                     collection_key: None,
                 },
+                Segment {
+                    name: "env",
+                    collection_key: None,
+                },
             ],
         };
+        let present =
+            |keys: &[&str]| -> BTreeSet<String> { keys.iter().map(|k| (*k).to_string()).collect() };
         let hooks: BTreeSet<&str> = BTreeSet::from(["hooks"]);
         let none: BTreeSet<&str> = BTreeSet::new();
 
-        // A container governing the whole file carries every segment — its schematized
+        // A container governing the whole file carries every present key — its schematized
         // collection and its opaque residue alike — so no residue remains to name and the
-        // finding retires. The empty-residue case the split now separates from wholly-
-        // ungoverned.
+        // finding retires.
         assert!(matches!(
-            segment_coverage(&surface, true, &none),
+            segment_coverage(&surface, &present(&["hooks", "permissions"]), true, &none),
             SegmentCoverage::Full
         ));
 
-        // A segment kind checks `hooks` while the keyless residue stays unmodeled: partial,
-        // naming only that residue.
-        match segment_coverage(&surface, false, &hooks) {
+        // A segment kind checks the present `hooks` key while the present `permissions`
+        // residue stays unmodeled: partial, naming only that residue. The registry's `env`
+        // segment is absent from the file, so it is never asserted.
+        match segment_coverage(&surface, &present(&["hooks", "permissions"]), false, &hooks) {
             SegmentCoverage::Partial { checked, residue } => {
                 assert_eq!(checked, vec!["hooks"]);
                 assert_eq!(residue, vec!["permissions"]);
             }
-            _ => panic!("a checked slice beside an unmodeled residue is Partial"),
+            _ => panic!("a checked slice beside an unmodeled present residue is Partial"),
         }
 
-        // Nothing governs any segment: the whole file stays a gap, the full finding.
+        // A present key no registered segment names is residue by definition — an unmodeled
+        // key the file actually carries.
+        match segment_coverage(
+            &surface,
+            &present(&["hooks", "someUnknownKey"]),
+            false,
+            &hooks,
+        ) {
+            SegmentCoverage::Partial { checked, residue } => {
+                assert_eq!(checked, vec!["hooks"]);
+                assert_eq!(residue, vec!["someUnknownKey"]);
+            }
+            _ => panic!("a present key no segment names is residue"),
+        }
+
+        // An empty manifest carries no present keys, so there is nothing unmodeled to name —
+        // Full, never a fabricated residue drawn from the registry.
         assert!(matches!(
-            segment_coverage(&surface, false, &none),
-            SegmentCoverage::Wholly
+            segment_coverage(
+                &surface,
+                &none.iter().map(|s| s.to_string()).collect(),
+                false,
+                &none
+            ),
+            SegmentCoverage::Full
         ));
 
-        // A manifest every segment of which is a schematized collection its own segment kind
-        // checks leaves an empty residue with no whole-file container — the split's `Full`
-        // arm reached purely through per-segment governance, the wrong `Wholly` finding the
-        // old None arm fired here.
+        // Every present key is governed (whole file or its own collection): empty residue,
+        // Full — reached purely through per-segment governance, no whole-file container.
         let all_collections = KnownSurface {
             path: ".claude/settings.json",
             is_dir: false,
@@ -777,8 +847,19 @@ mod tests {
         };
         let both: BTreeSet<&str> = BTreeSet::from(["hooks", "mcpServers"]);
         assert!(matches!(
-            segment_coverage(&all_collections, false, &both),
+            segment_coverage(
+                &all_collections,
+                &present(&["hooks", "mcpServers"]),
+                false,
+                &both
+            ),
             SegmentCoverage::Full
+        ));
+
+        // No present key is governed at all: the whole file stays a gap, the full finding.
+        assert!(matches!(
+            segment_coverage(&surface, &present(&["permissions", "env"]), false, &none),
+            SegmentCoverage::Wholly
         ));
     }
 
@@ -816,7 +897,13 @@ mod tests {
     fn a_known_surface_under_claude_does_not_double_report() {
         let root = tmpdir("known-surface-no-double");
         std::fs::create_dir_all(root.join(".claude")).unwrap();
-        std::fs::write(root.join(".claude/settings.json"), "{}").unwrap();
+        // A present ungoverned key so settings.json is a real gap (an empty `{}` carries no
+        // residue to name and would retire cleanly); `.mcp.json` is binary and fires wholly.
+        std::fs::write(
+            root.join(".claude/settings.json"),
+            r#"{ "permissions": {} }"#,
+        )
+        .unwrap();
         std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
         let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new()).unwrap();
