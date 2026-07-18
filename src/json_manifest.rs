@@ -200,7 +200,7 @@ impl DocumentMember {
                 .ok_or_else(|| JsonManifestError::NoStemIdentity {
                     path: source_file.to_path_buf(),
                 })?,
-            Some(_) => {
+            Some(UnitShape::Directory) | Some(UnitShape::StarredSegment) => {
                 return Err(JsonManifestError::NoDeclaredIdentity {
                     path: source_file.to_path_buf(),
                     kind: kind.name.clone(),

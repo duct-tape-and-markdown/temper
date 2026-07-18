@@ -55,11 +55,17 @@ pub fn parse(
     source_file: &Path,
     raw: &str,
 ) -> Result<DocumentMember, TomlDocumentError> {
-    let Some(UnitShape::NamedField { field }) = &kind.unit_shape else {
-        return Err(TomlDocumentError::NoDeclaredIdentity {
-            path: source_file.to_path_buf(),
-            kind: kind.name.clone(),
-        });
+    let field = match &kind.unit_shape {
+        Some(UnitShape::NamedField { field }) => field,
+        Some(UnitShape::File)
+        | Some(UnitShape::Directory)
+        | Some(UnitShape::StarredSegment)
+        | None => {
+            return Err(TomlDocumentError::NoDeclaredIdentity {
+                path: source_file.to_path_buf(),
+                kind: kind.name.clone(),
+            });
+        }
     };
 
     let source_hash = crate::hash::sha256_hex(raw.as_bytes());
