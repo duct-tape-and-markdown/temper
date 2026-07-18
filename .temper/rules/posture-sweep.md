@@ -14,8 +14,12 @@ When running the posture sweep (plan's job 4), this discipline binds:
   verdict**, recorded by advancing the rotation alone.
 - A violation counts only when **verified on disk this tick**, cited by
   symbol and line. Beyond the pages' own sections, cohesion (a module
-  carrying jobs that want separate homes) and dead plumbing
-  (unconstructable variants, vacuous Result paths) are sweep lenses.
+  carrying jobs that want separate homes), dead plumbing
+  (unconstructable variants, vacuous Result paths), and **embedded
+  provider knowledge** (documented external facts — kind names, loci,
+  payload schemas — as literals outside the provider face: the
+  knowledge-form of an upward edge, invisible to the import graph)
+  are sweep lenses.
 - Routing: purely mechanical shape → a pending entry; needs a design
   decision → a `.flume/refactor/` capture. Either cites the owning
   section in `per`. Never against a "Kept on purpose" asymmetry.
