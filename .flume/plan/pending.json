@@ -261,6 +261,37 @@
     "notes": "Found sweeping the `judges` subsystem (posture rotation: pipeline done, judges this tick). Disjoint from every other queue entry's files (reporter.rs touched nowhere else this tick). scoped at e2325df."
   },
   {
+    "tag": "BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE",
+    "summary": "builtin_kind::qualified is pub with zero consumer outside its own inline test — prune per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "`qualified` (508-522, doc comment 512-519 plus fn) has zero consumer anywhere in src/, tests/, sdk/ outside its own inline test — grep-verified: no `builtin_kind::qualified` call and no bare `qualified(` call anywhere in src/, tests/, sdk/src/, sdk/test/. Its neighbor `definition` (501-509) is the real accessor every real call site uses (main.rs, install.rs, bundle.rs, import.rs, frontmatter.rs, a dozen tests/*.rs files); `qualified`'s own doc comment concedes it as a documented-but-unadopted convenience ('kept for call sites that ask for a kind's identity rather than its full definition') — no call site ever adopted it. Remove the fn (520-522) and its doc comment (512-519). In `mod tests`, remove `qualified_names_every_embedded_kind_by_its_own_bare_name` (758-775), the fn's only caller."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/builtin_kind.rs",
+        "asserts": "every other builtin_kind.rs inline test (definition/definitions/features coverage) stays green — the removal is dead-code-only, no behavior change to any live accessor"
+      }
+    ],
+    "acceptance": "`builtin_kind::qualified` is gone from src/builtin_kind.rs, along with its now-orphaned inline test. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-code warning survives).",
+    "notes": "Found sweeping the `provider` subsystem (posture rotation: judges done, provider this tick). Disjoint from every other currently-open queue entry's files — EXTRACT-FOUNDATION-BOUNDARY-RESTORE also edits builtin_kind.rs (a doc-comment requalify at `features`, no line overlap) but sits blockedBy a chain, never open alongside this one. scoped at 06fcdb2."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {
