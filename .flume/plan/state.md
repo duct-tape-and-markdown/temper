@@ -3,51 +3,61 @@
 - Spec derived through: 4adb1fb
 - Audited through: f713a08
 - Residue swept through: f713a08
-- Posture swept through: 4e9d87a — foundation done this tick (found
-  CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE, opened). Forward window
-  `git log 4e9d87a..HEAD -- src/ sdk/src/ tests/` still carries
-  src/kind.rs (model) and src/frontmatter.rs (formats) untouched by this
-  tick's sweep — model, next in rotation, is live again next tick.
-- This tick: POSTURE SWEEP, foundation subsystem (check.rs, tap.rs,
-  hash.rs, address.rs, json_splice.rs, per architecture.md's codemap;
-  extract.rs is foundation too but its upward-dependency debt is already
-  queued via EXTRACT-FOUNDATION-BOUNDARY-RESTORE). Read every foundation
-  file end to end. Found: check.rs's `ANNOUNCEMENT_HEADING` (168) is a
-  `pub const` read only by `Announcement::render` (203, same file) and
-  its own inline tests (258, 272) — grep-verified zero hits elsewhere in
-  src/, tests/, sdk/ — the same shape as the shipped
-  TAP-LOG-FILENAME/ADDRESS-FIELDPATH-SPELLING/DIAL-IS-EMPTY/GRAPH-WORLD
-  zero-consumer prunes. Filed CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE
-  (open — check.rs untouched by any other queued entry). Checked and
-  found clean: tap.rs (TapError/log_path/record_from_payload/append/
-  read_log/LogReadout each have a live external caller — LOG_FILENAME's
-  own prior narrowing already settled), hash.rs (sha256_hex's sole
-  consumer set unchanged; tests/emit.rs's independent Sha256 use is
-  deliberate integration-test isolation, not residue, since tests/ can't
-  reach `pub(crate) hash::sha256_hex`), address.rs (FieldPath's five pub
-  methods — parse/is_bare_name/head_name/split_leaf/locate — each called
-  externally; `spelling()`'s #[allow(dead_code)] is the already-settled
-  terminal state of ADDRESS-FIELDPATH-SPELLING-ZERO-CONSUMER-PRUNE, not
-  new residue), json_splice.rs (every pub(crate) surface consumed by
-  install.rs/json_manifest.rs). extract.rs's other pub items
-  (host_address, MemberAddress, addressed_leaves, locate_presence,
-  embedded_leaves, ValueType::from_name, FeatureValue::scalar) each have
-  a live consumer — no finding beyond the already-queued entry. No
-  non-exhaustive match over a shared enum found in any of the five files.
-- Queue: 25 pending, 6 pickable OPEN (BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
+- Posture swept through: 4e9d87a — model done this tick (found
+  KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH and
+  COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE, both opened as blockedBy
+  chains behind the one currently-open entry each shares a file with).
+  Forward window `git log 4e9d87a..HEAD -- src/ sdk/src/ tests/` still
+  carries src/frontmatter.rs (formats) untouched by this tick's sweep —
+  formats, next in rotation, is live again next tick.
+- This tick: POSTURE SWEEP, model subsystem (kind.rs, contract.rs,
+  compose.rs, schema.rs, roster.rs, per architecture.md's codemap: "what
+  a harness IS"). Read every model file end to end (5257 lines total).
+  Found: (1) `CustomKind::declared_fields` (kind.rs 945-954) matches
+  `Primitive` with `Field { key } => Some(...)` then `_ => None` for the
+  remaining six variants, unlike two sibling matches over the same enum
+  in this file — `Primitive::key` (1392-1402) and `Primitive::apply`
+  (1407-1427) — both exhaustive by name. Filed
+  KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH, blockedBy
+  BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE (the one currently-open entry
+  sharing kind.rs; KIND-ZERO-CONSUMER-EXPORTS-PRUNE also touches kind.rs
+  but is itself blockedBy, not open, no present conflict). (2) dial.rs's
+  private `severity_from_label` (144-150) is byte-for-byte identical to
+  compose.rs's `pub fn severity_from_label` (266-272) — grep-verified
+  the only two definitions in the tree. compose.rs's own doc comment
+  (261-265) claims its `pub` visibility is earned by a `main`-binary
+  consumer that, verified on disk, does not exist (main.rs calls
+  `compose::clause_from_row` only, never `severity_from_label` directly)
+  — the doc's predicted "never a second copy" failure landed anyway, in
+  dial.rs, under cover of the wrong fn's `pub`. Filed
+  COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE (dial.rs calls
+  compose::severity_from_label; compose's copy narrows pub→pub(crate),
+  doc corrected; clause_from_row's cross-referencing doc comment
+  corrected too), blockedBy DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE, the one
+  currently-open entry sharing dial.rs. Checked and found clean beyond
+  the four already-queued model-file entries (BUILTIN-KIND-DEFINITION-
+  RESULT-COLLAPSE's KindError; KIND-ZERO-CONSUMER-EXPORTS-PRUNE's
+  Commitment::label/Content::label/CustomKind::qualified_name;
+  CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH's declared_keys;
+  CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's RequireSections gap): schema.rs
+  (its own match over Predicate in `emit` is fully exhaustive), roster.rs
+  (its match over Verifier is fully exhaustive, no other non-exhaustive
+  match over a shared enum), compose.rs and contract.rs otherwise clean
+  (no other zero-consumer export, no other duplicate job).
+- Queue: 27 pending, 6 pickable OPEN (unchanged set:
+  BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE,
   DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH,
   ENGINE-JUDGE-SELECTION-EXHAUSTIVE-MATCH, DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE,
   CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE, DRIFT-LOCK-ROW-WALK-
-  CONSOLIDATION — pairwise disjoint on files: kind.rs+builtin_kind.rs+
-  bundle.rs+import.rs+install.rs+main.rs+tests/*, json_manifest.rs+
-  toml_document.rs, engine.rs, dial.rs, check.rs, drift.rs), 15 chained
-  blockedBy (unchanged links, all still resolve to live tags), 4 parked
-  on human action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
+  CONSOLIDATION — pairwise disjoint on files, unchanged), 17 chained
+  blockedBy (15 prior + the 2 filed this tick, both verified disjoint
+  from every other currently-open entry's files), 4 parked on human
+  action (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER,
   GRAPH-ENGINE-GLOB-EXTRACTOR-CONSOLIDATE, NORMALIZE-PATH-SUBSYSTEM-
   PLACEMENT — reasons unchanged, untouched this window).
   Open forks: (multi-harness-projection), (lazy-grounds) unchanged.
   Refactor captures: none live. Inbox empty.
 
-Plan continues: yes — model, next in rotation, is live next tick (the
-forward window past 4e9d87a still carries src/kind.rs, untouched by this
-tick's foundation sweep).
+Plan continues: yes — formats, next in rotation, is live next tick (the
+forward window past 4e9d87a still carries src/frontmatter.rs, untouched
+by this tick's model sweep).

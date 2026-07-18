@@ -119,6 +119,42 @@
     "notes": "The class DISCOVERY-INFALLIBLE-RESULT-COLLAPSE (2f44341) fixed for import.rs. Reconciled 2026-07-18: blocker KIND-MEMBER-DOCUMENT-ZERO-CONSUMER-PRUNE shipped (f713a08). Re-verified on disk: kind.rs's KindError shifted 1480→1470 (matches the ship's -10 net line change), builtin_kind.rs/bundle.rs/import.rs/install.rs/main.rs and every cited test file unmoved (untouched by the ship). No currently-open entry shares a file with this one. Opened. scoped at f713a08."
   },
   {
+    "tag": "KIND-DECLARED-FIELDS-EXHAUSTIVE-MATCH",
+    "summary": "kind.rs's CustomKind::declared_fields falls through `_ => None` over Primitive instead of naming every variant like sibling Primitive::key/apply in the same file",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "`CustomKind::declared_fields` (945-954) matches `Primitive` with `Primitive::Field { key } => Some(key.as_str())` then folds the remaining six variants into `_ => None`. Two sibling matches over the identical `Primitive` enum in this same file are exhaustive by name instead: `Primitive::key` (1392-1402) lists all seven variants (`Field`, `Headings`, `Sections`, `LineCount`, `Placement`, `Directives { .. }`, `Fenced`) mapping each to its label string, and `Primitive::apply` (1407-1427) does too, including a nested exhaustive match on `DirectiveSyntax`. `declared_fields` feeds `crate::frontmatter`'s `order_fields` (frontmatter.rs:226) — the frontmatter field-ordering surface — so a future field-carrying `Primitive` variant would silently vanish from it with no compile error, while `key`/`apply` would force the author to name it there. Replace `_ => None` with an explicit pipe-grouped arm naming every remaining variant — `Primitive::Headings | Primitive::Sections | Primitive::LineCount | Primitive::Placement | Primitive::Directives { .. } | Primitive::Fenced => None` — matching `key`/`apply`'s guarantee. No behavior change: every one of these variants already yielded no declared field."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "a new inline test constructs an `Extraction`/`CustomKind` over a non-`Field` primitive (e.g. `Sections`) plus one `Field` primitive and asserts `declared_fields` names only the `Field` key — pinning the exhaustive rewrite's behavior explicitly rather than only through frontmatter's transitive coverage"
+      },
+      {
+        "path": "src/frontmatter.rs",
+        "asserts": "existing frontmatter parse tests exercising `order_fields`/`declared_fields` stay green — the rewrite is exhaustiveness-only"
+      }
+    ],
+    "acceptance": "declared_fields's match names every Primitive variant explicitly, no `_` wildcard arm remains, matching the exhaustive style Primitive::key and Primitive::apply already hold over the same enum in the same file. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick). Shares src/kind.rs with the currently-open BUILTIN-KIND-DEFINITION-RESULT-COLLAPSE and the chained-but-not-open KIND-ZERO-CONSUMER-EXPORTS-PRUNE — serialized behind the former for shared-file safety (pending-entry.md, 'Disjoint, or serialized'); no functional dependency. scoped at 08b5a27."
+  },
+  {
     "tag": "DOCUMENT-IDENTITY-UNIT-SHAPE-EXHAUSTIVE-MATCH",
     "summary": "json_manifest.rs's DocumentMember::parse and toml_document.rs's parse each hold a non-exhaustive match over UnitShape, unlike frontmatter.rs's own exhaustive match over the same shared enum",
     "per": {
@@ -218,6 +254,46 @@
     ],
     "acceptance": "Dial::is_empty is a private method in src/dial.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
     "notes": "Found sweeping the judges subsystem (posture rotation, re-verifying subsystems 1f6afe5's ship touched). Disjoint from every other pending entry (no other queued entry touches dial.rs). scoped at 4baa5c4."
+  },
+  {
+    "tag": "COMPOSE-DIAL-SEVERITY-LABEL-CONSOLIDATE",
+    "summary": "dial.rs's private severity_from_label re-implements compose.rs's pub severity_from_label byte-for-byte — the exact second copy its own doc comment warned against; consolidate to one call",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/dial.rs",
+          "description": "`severity_from_label` (144-150, `fn severity_from_label(label: &str) -> Option<Severity> { match label { \"required\" => Some(Severity::Required), \"advisory\" => Some(Severity::Advisory), _ => None } }`, its own doc comment 142-143) is byte-for-byte identical to `src/compose.rs`'s `pub fn severity_from_label` (266-272, same match, returns `Option<contract::Severity>` — the same type via re-export path) — grep-verified the only two definitions of a fn named `severity_from_label` anywhere in src/, tests/, sdk/. This file's copy is called only at its own line 67 (`Dial::from_features`'s entries loop). Delete this private fn and its doc comment; call `crate::compose::severity_from_label(severity)` at line 67 instead (add a `use crate::compose;` or qualify inline — `Severity` is already imported here from `crate::contract`, matching `compose::severity_from_label`'s return type exactly). No behavior change: identical match arms."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`severity_from_label` (266-272) carries a doc comment (261-265) claiming its `pub` (not `pub(crate)`) visibility exists 'so the `main` binary's lift of a requirement's own clause rows reuses the identical parse, never a second copy' — but `main.rs` never calls `severity_from_label` directly (only `compose::clause_from_row` at main.rs:2483, which calls `severity_from_label` internally at compose.rs:240, same file); grep-verified zero calls to `severity_from_label` itself outside this file's own line 240. The real second copy the doc warned against was written in `dial.rs` instead (see that file's edit) — the doc's predicted failure mode landed exactly, just in the wrong file, and under a different fn's `pub`. Once `dial.rs` calls this fn — a same-crate, cross-module consumer, not a cross-crate one — narrow `pub` to `pub(crate)` (full `pub` was never earned for this specific fn) and reword the doc comment to state the true reason: dial.rs's read-time severity parse reuses the identical vocabulary parse, never a second copy. `clause_from_row`'s own doc comment (228-231, 'same reasoning as [`severity_from_label`]') cross-references the now-corrected rationale — reword its cross-reference too, since `clause_from_row` itself keeps full `pub` (main.rs:2483 does call it directly) while `severity_from_label` no longer shares that reasoning."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/dial.rs",
+        "asserts": "an_entry_outside_the_severity_vocabulary_never_lands and an_entry_missing_either_half_never_lands stay green — both exercise Dial::from_features end to end through the now-shared severity_from_label, unaffected by which module defines it"
+      },
+      {
+        "path": "src/compose.rs",
+        "asserts": "existing clause_from_row / default_contract_from_rows inline tests exercising severity parsing (via clause_row fixtures) stay green — the narrowing is visibility-only, the parse itself is unchanged"
+      }
+    ],
+    "acceptance": "dial.rs carries no private severity_from_label; it calls compose::severity_from_label, narrowed there from pub to pub(crate) with its doc comment (and clause_from_row's cross-reference) restated to the true earned consumer. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Found sweeping the model subsystem (posture rotation: foundation done last tick, model this tick — compose.rs is model per architecture.md's codemap, dial.rs is judges, but the duplication spans both and the fix must land in one entry). Serialized behind DIAL-IS-EMPTY-ZERO-CONSUMER-PRUNE, the only currently-open entry touching dial.rs (pending-entry.md, 'Disjoint, or serialized'); no functional dependency. compose.rs untouched by any other queued entry. scoped at 08b5a27."
   },
   {
     "tag": "CHECK-ANNOUNCEMENT-HEADING-ZERO-CONSUMER-PRUNE",
