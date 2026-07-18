@@ -1,8 +1,8 @@
 # CURRENT STATE
 
-<pending-json>
-!`cat .flume/plan/pending.json 2>/dev/null || echo "[]"`
-</pending-json>
+<pending-digest>
+!`node -e 'const es=JSON.parse(require("fs").readFileSync(".flume/plan/pending.json","utf8"));for(const e of es){const g=e.gate||{kind:"open"};console.log(e.tag+"  |  "+g.kind+(g.tag?" "+g.tag:"")+"  |  "+e.summary)}' 2>/dev/null || echo "(no pending.json)"`
+</pending-digest>
 
 <state>
 !`cat .flume/plan/state.md 2>/dev/null || echo "(no prior state)"`
@@ -20,9 +20,9 @@
 !`found=0; for f in .flume/refactor/*.md; do [ -e "$f" ] || continue; [ "${f##*/}" = "README.md" ] && continue; echo "===== $f ====="; cat "$f"; echo; found=1; done; [ "$found" -eq 0 ] && echo "(none)"`
 </refactor-captures>
 
-<spec-corpus>
-!`for f in $(find specs -name '*.md' ! -path 'specs/decisions/*' 2>/dev/null | sort); do echo "===== $f ====="; cat "$f"; echo; done || echo "(no specs)"`
-</spec-corpus>
+<spec-map>
+!`for f in $(find specs -name '*.md' ! -path 'specs/decisions/*' 2>/dev/null | sort); do echo "== $f"; grep -E '^#{1,3} ' "$f"; done || echo "(no specs)"`
+</spec-map>
 
 <spec-delta>
 !`CURSOR=$(grep -oE '^- Spec derived through: [0-9a-f]+' .flume/plan/state.md 2>/dev/null | grep -oE '[0-9a-f]+$'); [ -z "$CURSOR" ] && CURSOR=$(git log -1 --format=%h --grep='^plan:' 2>/dev/null); if [ -n "$CURSOR" ]; then echo "specs/ commits past the spec cursor ($CURSOR):"; git log --reverse --format='%h %s' "$CURSOR"..HEAD -- specs/; echo; git diff --stat "$CURSOR"..HEAD -- specs/ | tail -15; else echo "(no cursor and no prior plan commit — treat the whole corpus as the delta)"; fi`
@@ -53,6 +53,13 @@ silently fill it.
 in the order below, do that job completely, update the cursors in `state.md`,
 set the continuation marker. Never take two jobs in one tick; never leave the
 chosen job half-done — the job is the atom.
+
+**The state above is an orientation digest, not the material** (progressive
+disclosure — the prompt points, you read). `<pending-digest>` is one line per
+entry and `<spec-map>` is headings only; before your job acts on an entry or
+a spec section — rewriting, deriving from, verifying against — Read the full
+entry in `.flume/plan/pending.json` and the actual section in its file. Never
+rule on a digest line.
 
 1. **Inbox** — `<inbox>` has content or `<refactor-captures>` holds live
    captures. Route each inbox line into pending (with a `per` cite),
