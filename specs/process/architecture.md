@@ -38,7 +38,9 @@ appears in exactly one.
 - **pipeline** — how the model becomes files and stays true:
   `drift` (emit, the lock, drift detection — the largest module and the
   pipeline's core), `import` (discovery), `read` (the read verbs'
-  resolution), `builtin_lock` (the embedded default lock).
+  resolution), `builtin_lock` (the embedded default lock), `placement`
+  (the managed-metadata line vocabulary install places and emit
+  preserves — 0040).
 - **judges** — evaluation over the resolved corpus: `engine` (clause
   evaluation), `graph` (edge resolution and the graph judges), `dial`,
   `coverage`, `coverage_note`, with `display` and `reporter` as the
@@ -52,9 +54,11 @@ appears in exactly one.
 
 ## Invariants — stated as absences
 
-- **foundation depends on nothing internal** — holds today (`check`,
-  `extract`, `tap`, `hash` import no sibling); a foundation module that
-  grows an upward dependency has left the subsystem, not bent the rule.
+- **foundation depends on nothing internal** — `check`, `tap`, `hash`,
+  `address`, `json_splice` hold it; `extract` regains it when its
+  accreted lock-row and manifest jobs land in their pipeline and
+  formats homes (0040). A foundation module that grows an upward
+  dependency has left the subsystem, not bent the rule.
 - **formats never know the verbs or judges** — a format face is
   mechanics the pipeline selects by kind data, never a consumer of
   evaluation.
@@ -64,13 +68,16 @@ appears in exactly one.
 - **`main` carries dispatch only** — corpus assembly and judgment live
   in the library.
 
-Two edges in today's tree stand in tension with this map, declared
-rather than hidden, each a fileable gap under `engineering.md` and this
-page: `drift → install` (pipeline core reaching into a verb) and
-`frontmatter → builtin_kind` (a format face knowing the provider).
-Whether each resolves by moving a shared helper to its real home or by
-re-drawing this map is the entry's design question — the map is
-intent, and intent loses to a better argument, never to drift.
+Three edges in today's tree contradicted this map; all three are ruled
+to resolve toward it, code moving, map standing (0040): `drift →
+install` dissolves into the `placement` module (the shared
+managed-metadata vocabulary, imported downward by both); `frontmatter
+→ builtin_kind` (test-only) dissolves when the adapter's fixtures
+build synthetic kinds from `test_support`; `extract`'s upward imports
+dissolve when its lock-row lifters land in `drift` and its
+manifest-collection grammar (both faces) lands in `json_manifest`.
+Until the entries ship, the edges stand here as declared debt — the
+map is intent, and intent loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
 
