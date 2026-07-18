@@ -26,7 +26,6 @@ use toml_edit::{
 
 use crate::extract::host_address;
 use crate::hash::sha256_hex;
-use crate::import::{RollupEntry, write_rollup};
 use crate::kind::{
     CollectionAddress, Commitment, Content, Format, Layout, LayoutRegion,
     collection_address_from_row, commitment_from_row, content_from_row, format_from_row,
@@ -418,6 +417,102 @@ pub enum DriftError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     LockRow(#[from] LockRowError),
+}
+
+/// One row of the `lock.toml` roll-up index: an artifact's identity, its source
+/// provenance, and its two freshness facts — disk-vs-lock drift's whole comparison.
+/// Shared by every kind —
+/// a `[[skill]]`, `[[rule]]`, and every custom `[[<kind>]]` row all carry the same
+/// four columns.
+///
+/// `pub(crate)` so `emit` can build the row for a freshly projected member and hand it
+/// to [`write_rollup`] rather than re-deriving the fingerprints.
+pub(crate) struct RollupEntry {
+    /// Artifact name (and its `<kind>/<name>/` surface directory).
+    pub(crate) name: String,
+    /// Path to the original source file, as given relative to the harness arg.
+    pub(crate) source_path: String,
+    /// SHA-256 of the authored source bytes — the **source freshness fact**, the
+    /// anchor source-drift detection compares against.
+    pub(crate) source_hash: String,
+    /// SHA-256 of the last emitted projection — the **emit freshness fact**, the
+    /// baseline `config.stale` and projection freshness compare a committed output
+    /// against. At import it provisionally equals `source_hash`: no `emit` has run
+    /// yet, so the last thing projected onto the source is the source as imported
+    /// (`emit` advances it once it lands).
+    pub(crate) emit_hash: String,
+}
+
+/// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per emitted member —
+/// the built-in kinds first (key-sorted) then the custom kinds (name-sorted) — each with
+/// `name`, `source_path`, `source_hash`, and the `emit_hash` fingerprint. Both maps are
+/// key-sorted, so the emitted order is deterministic. `emit` is the sole caller:
+/// a kind with no emitted member simply has no entry, matching the toml round-trip
+/// reality — an empty `ArrayOfTables` emits nothing, so a written-then-vanished section
+/// would break idempotence against a re-parse that never sees it.
+///
+/// After the per-member sections come the program's **declaration rows** — kind facts,
+/// clauses, requirements, assembly facts under an implicit `[declaration]` table;
+/// the gate side reads them through [`read_declarations`]. The `nested_member` family
+/// carries the program's own embedded-member facts *and* the rows emit derives from
+/// layout sources in the same pass (`emit` merges them before this write), so a layout
+/// document's members reach the lock as declaration rows without a projection of their
+/// own. `layout_imports` and `includes` are the layout sources' and composed prose's
+/// fingerprinted content dependencies, written into the same `[declaration]` table
+/// under their own families.
+pub(crate) fn write_rollup(
+    into: &Path,
+    builtins: &BTreeMap<String, Vec<RollupEntry>>,
+    custom: &BTreeMap<String, Vec<RollupEntry>>,
+    declarations: &Declarations,
+    layout_imports: &[LayoutImportRow],
+    includes: &[LayoutImportRow],
+) -> Result<(), DriftError> {
+    let mut doc = DocumentMut::new();
+    for (kind, rows) in builtins {
+        doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
+    }
+    for (kind, units) in custom {
+        doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(units));
+    }
+    declarations.write_into(&mut doc);
+    write_source_deps(&mut doc, "layout_import", layout_imports);
+    write_source_deps(&mut doc, "include", includes);
+
+    create_dir_all(into)?;
+    write_bytes(&into.join(crate::LOCK_FILENAME), doc.to_string().as_bytes())
+}
+
+/// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
+/// (`name`, `source_path`, `source_hash`, `emit_hash`) in a fixed order, one
+/// table per entry.
+fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
+    let mut tables = ArrayOfTables::new();
+    for entry in rollup {
+        let mut table = Table::new();
+        table["name"] = value(entry.name.clone());
+        table["source_path"] = value(entry.source_path.clone());
+        table["source_hash"] = value(entry.source_hash.clone());
+        table["emit_hash"] = value(entry.emit_hash.clone());
+        tables.push(table);
+    }
+    tables
+}
+
+/// `fs::create_dir_all`, mapping failure to a [`DriftError::Write`].
+fn create_dir_all(path: &Path) -> Result<(), DriftError> {
+    fs::create_dir_all(path).map_err(|source| DriftError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// `fs::write`, mapping failure to a [`DriftError::Write`].
+fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), DriftError> {
+    fs::write(path, bytes).map_err(|source| DriftError::Write {
+        path: path.to_path_buf(),
+        source,
+    })
 }
 
 /// A present declaration row the lock reader could not lift. The lock is tool-written
