@@ -3,35 +3,54 @@
 - Spec derived through: 2d66fc9 — advanced from 53df138. The only
   intervening specs/ commit, decision 0041 ("when joins the vocabulary"),
   is now fully routed.
-- Audited through: 870c52d — advanced from c1b0f51.
-- Residue swept through: 870c52d — advanced from c1b0f51.
-- Posture swept through: verbs next (mid-rotation) — pipeline read and
-  swept this tick (touched: `drift.rs`, new `placement.rs` by 8704036
-  since 285f57b) — quiet-on-clean, nothing new beyond the already-queued.
-- This tick: POSTURE SWEEP — fresh cycle opened
-  (`git log 285f57b..HEAD -- src/ sdk/src/ tests/`: one commit, 8704036,
-  touching `drift.rs`, `install.rs`, `lib.rs`, new `placement.rs`).
-  foundation/model/formats bulk-skipped (none of their modules in that
-  commit's touch set). pipeline read and swept whole (`drift.rs`,
-  `import.rs`, `read.rs`, `builtin_lock.rs`, `placement.rs` against every
-  `engineering.md` lens plus cohesion/dead-plumbing) — quiet-on-clean:
-  every duplicate/hoist pattern found (the `write_placement` inline copies
-  in `emit_manifest`/`emit_one`, `walk_lock_rows` vs `read_lock_document`,
-  `source_deps`/`read_declarations`'s independent lock reparses,
-  `manifest_segment_reaps`'s independent manifest reread,
-  `EmitOutcome::label`'s zero outside consumer, `declared_governed_paths`,
-  the retired `READ_DIRS` counter, `DIRECTIVE_FIELD_LABEL`,
-  the `by_kind` five-site scan) already resolves to a live queued tag
-  (cross-checked against all 37 entries); `placement.rs` (new, first
-  sweep) and `builtin_lock.rs` (never previously flagged) are both
-  genuinely clean — every export has a real outside-module consumer, no
-  leftover install.rs coupling, no dead paths. judges/provider
-  bulk-skipped (untouched by 8704036). verbs (`install.rs`, `lib.rs`
-  touched) is not clean-skippable — next tick reads it whole rather than
-  skipping.
-- Queue: 37 pending — unchanged; no entries added, no captures filed
-  (pipeline swept quiet-on-clean, nothing new survived the cross-check).
-  2 pickable OPEN (`EXTRACT-FOUNDATION-BOUNDARY-RESTORE`,
+- Audited through: 870c52d — advanced from c1b0f51. No src/sdk/tests
+  commits land past it (`git log 870c52d..HEAD -- src/ sdk/src/ tests/`
+  empty — only plan commits since).
+- Residue swept through: 870c52d — advanced from c1b0f51 (same empty
+  window).
+- Posture swept through: 1973522 — verbs ticked this tick and closes the
+  rotation pass (foundation/model/formats bulk-skipped, pipeline 0 new
+  findings, judges/provider bulk-skipped, verbs this tick — 0 new pending
+  entries, 1 orphan routed to open-questions.md). All seven subsystems
+  from architecture.md's codemap now covered for this cycle. A fresh
+  cycle (foundation → model → formats → pipeline → judges → provider →
+  verbs) opens next time the sweep re-arms.
+- This tick: POSTURE SWEEP — verbs (`src/main.rs`, `src/install.rs`,
+  `src/bundle.rs`, `src/lib.rs`, `src/test_support.rs`, plus new
+  `src/placement.rs` read as part of the subsystem), not clean-skippable
+  (8704036 touched `install.rs`/`lib.rs`, added `placement.rs`). Read
+  every file whole against every `engineering.md` lens plus
+  cohesion/dead-plumbing, cross-checked against all 37 queued entries.
+  `main.rs` (2762 lines, `gate()`/`explain()`/~45 helpers): clean beyond
+  what's already queued — every match exhaustive, no new duplicate
+  cost-hoist pattern, `MAIN-THIN-DISPATCH-COHESION`'s cohesion finding
+  already parked. `install.rs`/`bundle.rs`: every prior finding
+  (`INSTALL-PROJECTION-MATCH-CONSOLIDATE`,
+  `INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE`, `INSTALL-PLACEMENT-KIND-ENUM`,
+  `BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE`) re-verified still
+  true and unmoved beyond line drift. `lib.rs`/`test_support.rs`: clean,
+  no findings. One new defect: 8704036's extraction moved
+  `placement_lines`/`is_placement_comment` to `placement.rs` but left
+  their doc comment orphaned in `install.rs` (1640-1646), now glued —
+  no blank line — onto `render`'s own doc comment (1647), reading as
+  render's opening paragraph though it describes a deleted function.
+  Comment-only, no gate impact — per the standing ride-only rule
+  (open-questions.md, "One stale cite, ride-only, never an entry") this
+  is routed as a fourth live orphan there, not a standalone pending
+  entry: none of install.rs's four chained entries touches that line
+  range or names the docblock today, so it rides whichever one first
+  does. Also corrected that section's stale claim that
+  `PLACEMENT-MODULE-EXTRACTION` still chains onto `drift.rs`'s
+  `RawLockRow` orphan — it shipped (870c52d) without touching that
+  docblock, so the remaining chain is `EXTRACT-FOUNDATION-BOUNDARY-
+  RESTORE`/`DRIFT-SOURCE-DEP-PARSE-HOIST` only. `placement.rs` itself
+  (new module, first sweep): clean — both markers and the recognizer
+  have real cross-module consumers (`install.rs`, `drift.rs`), the
+  moved test travelled intact.
+- Queue: 37 pending — unchanged; no entries added, none rewritten (the
+  tick's one finding is comment-only and routes to open-questions.md's
+  ride-only orphan list, never a pending entry, per that section's own
+  rule). 2 pickable OPEN (`EXTRACT-FOUNDATION-BOUNDARY-RESTORE`,
   `INSTALL-PROJECTION-MATCH-CONSOLIDATE`), 29 chained blockedBy (all
   resolving to live tags), 6 parked on human action (IMPORT-HOP-CAP-CITE,
   PACKAGING-CHANNELS-REMAINDER, IMPORT-ROLLUP-WRITER-PLACEMENT,
@@ -39,11 +58,13 @@
   MAIN-THIN-DISPATCH-COHESION). Open forks unchanged:
   (multi-harness-projection), (lazy-grounds), neither touched. Refactor
   captures: 0 live. Friction: 1 live (plan-architecture-debt-list-stale.md,
-  filed three ticks ago — awaits a human specs/ edit, untouched this
+  filed four ticks ago — awaits a human specs/ edit, untouched this
   tick). Inbox: 0 notes.
 
-Plan continues: yes — the posture rotation is mid-cycle: pipeline swept
-quiet this tick, judges/provider bulk-skipped behind it, and the next
-tick reads verbs (`main.rs`, `install.rs`, `bundle.rs`, `lib.rs`,
-`test_support.rs`) whole — 8704036 touched `install.rs`/`lib.rs`, so it
-is not clean-skippable.
+Plan continues: no — the posture rotation just closed its cycle with a
+comment-only finding (no pending entry, no refactor capture), the spec
+delta is fully routed, and post-ship reconciliation's window is empty.
+Nothing below this tick's job is live; the loop hibernates until a
+future commit touches src/, sdk/src/, or tests/ (re-arming the posture
+sweep) or the inbox/spec-delta/reconciliation cursors have new ground to
+cover. 2 pickable OPEN entries remain for build to take up meanwhile.
