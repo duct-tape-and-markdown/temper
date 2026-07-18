@@ -499,8 +499,14 @@ const build: Phase = {
     };
   },
   handoff(result) {
-    // Wake plan only when the wave produced signal to audit (shipped commits
-    // or gate fires). A true no-op wave hibernates; `flume wake plan` forces it.
+    // Waves chain: ship bookkeeping auto-opens blockedBy gates its own wave
+    // satisfied (runtime, 07-18), so when pickable entries remain the next
+    // wave forms with no plan interim. Plan reconciles at the drain — its
+    // audit cursors span multi-wave windows by design. A true no-op wave
+    // hibernates; `flume wake plan` forces it.
+    if (result.pendingAfter.some((e) => e.gate.kind === "open")) {
+      return ["build"];
+    }
     if (result.shippedTags.length === 0 && result.gateResults.length === 0) {
       return [];
     }
