@@ -14,7 +14,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -551,10 +551,57 @@ const makeAgent = (model: string) =>
  */
 const planAgent = makeAgent("claude-sonnet-5");
 const buildAgent = makeAgent("claude-haiku-4-5-20251001");
-export const agent: Agent = {
+const routed: Agent = {
   name: "phase-router",
   invoke: (opts) =>
     (/^Phase:\s*build\b/m.test(opts.prompt) ? buildAgent : planAgent).invoke(
       opts,
     ),
 };
+
+/**
+ * Per-tick metrics, appended to .flume/metrics.jsonl (gitignored, per-machine
+ * — the local class's guarantees by placement). One line per tick: phase,
+ * entry tag where build, turns, duration, and the raw token counts off the
+ * stream-json result event. Interpretation happens at read time (plan's
+ * audit glance, a human's jq) — the hook stays dumb, and metrics failure
+ * never fails a tick.
+ */
+const METRICS_PATH = resolve(
+  process.env.FLUME_DIR ?? CHAIN_DIR,
+  "metrics.jsonl",
+);
+const withTickMetrics = (inner: Agent): Agent => ({
+  name: inner.name,
+  async invoke(opts) {
+    const result = await inner.invoke(opts);
+    try {
+      const line = result.stdout
+        .split("\n")
+        .reverse()
+        .find((l) => l.startsWith('{"type":"result"'));
+      if (line) {
+        const r = JSON.parse(line);
+        const u = r.usage ?? {};
+        appendFileSync(
+          METRICS_PATH,
+          `${JSON.stringify({
+            at: new Date().toISOString(),
+            phase: /^Phase:\s*(\S+)/m.exec(opts.prompt)?.[1] ?? "unknown",
+            entry: /"tag":\s*"([A-Z0-9-]+)"/.exec(opts.prompt)?.[1],
+            turns: r.num_turns,
+            duration_ms: r.duration_ms,
+            input_tokens: u.input_tokens,
+            output_tokens: u.output_tokens,
+            cache_creation_tokens: u.cache_creation_input_tokens,
+            cache_read_tokens: u.cache_read_input_tokens,
+          })}\n`,
+        );
+      }
+    } catch {
+      // Advisory telemetry only — a metrics failure never fails a tick.
+    }
+    return result;
+  },
+});
+export const agent: Agent = withTickMetrics(routed);

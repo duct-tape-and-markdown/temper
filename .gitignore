@@ -9,6 +9,7 @@
 /.flume/worktrees/
 /.flume/sessions/
 /.flume/awake/
+/.flume/metrics.jsonl
 /.flume/prior-attempts/
 
 # The dogfood authoring workspace (`.temper/`) IS committed — member modules,

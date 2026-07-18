@@ -31,6 +31,14 @@ rewriting an entry, and any interactive session hand-editing the queue.
   importing that helper, invisibly to a source-only grep. Include those
   fan-out files in `files.edit` up front rather than letting build discover
   them one `cargo test` failure at a time.
+- **An entry is scoped to the smart zone.** Build should land it inside
+  one context window's productive band (~40–60% utilization). The
+  derivation-time proxy is the `files[]` blast radius — the lines build
+  must read and touch; the measured truth is `.flume/metrics.jsonl`,
+  which the audit motion glances. A tick that blew the zone names its
+  entry oversized and the next derivation splits smaller; consistently
+  tiny ticks license wider slices. Sizing judgment happens once, at
+  derivation — build never re-scopes at pick time.
 - **Widening a shared enumeration names its other consumers.** An entry
   that adds a variant, row shape, or member class to a shared concept —
   edges, members, template layers, lock rows, deletable things,
