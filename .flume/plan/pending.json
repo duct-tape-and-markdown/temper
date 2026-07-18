@@ -779,6 +779,38 @@
     "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry \u2014 its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Serialized behind CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH for shared contract.rs/drift.rs safety. scoped at 4adb1fb."
   },
   {
+    "tag": "DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE",
+    "summary": "drift.rs's EmitOutcome::label is pub but called only from render_emit in the same file \u2014 zero outside consumer; narrow to private per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`EmitOutcome::label` (535-546, `pub fn label(self) -> &'static str`) has exactly one call site in the whole tree \u2014 `render_emit` (2166-2188), same file, at line 2180 (`entry.outcome.label()`) \u2014 grep-verified zero hits for `EmitOutcome::label` or a `.label()` call on an `EmitOutcome` value anywhere else in src/, tests/, sdk/ (the sibling `.label()` hit at src/install.rs:1719 is `ApplyOutcome::label`, an unrelated enum with its own real cross-module caller). No test calls `.label()` directly; `tests/emit.rs` (1121-1122) asserts against `render_emit`'s rendered string output (`rendered.contains(\"reaped\")` etc.), never the method itself. This is the same defect shape ENGINE-SELECTOR-LABEL-ZERO-CONSUMER-PRUNE already pruned in `src/engine.rs` (`Selector::label`, called only from `finding()` in the same file) \u2014 per that precedent, drop `pub` from `label`, leaving it a module-private method callable from `render_emit` unchanged."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "existing render_emit coverage (the outcome-tally assertions at 1121-1122 and every other emit-report rendering test) stays green \u2014 the narrowing is visibility-only, render_emit's rendered text is unchanged"
+      }
+    ],
+    "acceptance": "EmitOutcome::label is a private method in src/drift.rs, not pub. `cargo test` and `cargo clippy --all-targets -- -D warnings` green (no unused-pub warning survives).",
+    "notes": "Found sweeping the pipeline subsystem (posture rotation: formats done, pipeline this tick). Serialized behind CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP, the last entry in the existing chain touching drift.rs (pending-entry.md, Disjoint, or serialized) \u2014 no functional dependency. scoped at 4bc8508."
+  },
+  {
     "tag": "GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST",
     "summary": "gate()/explain() resolve every kind's members via resolve_kind_units twice per run \u2014 the two-greens dispatch, then collect_directive_members again",
     "per": {
