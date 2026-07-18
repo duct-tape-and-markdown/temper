@@ -3,25 +3,31 @@
 - Spec derived through: 7739b91
 - Audited through: 11a2815
 - Residue swept through: 11a2815
-- This tick: INBOX — routed the one field follow-up (centercode, walk-share
-  residual, observed at ecd27b1). Diffed forward: ecd27b1..HEAD is inbox.md
-  alone (11a2815). Verified the named surfaces live at HEAD — `scan_locus`
-  (import.rs:379) runs `collect_glob` per kind over the shared discoverable
-  set; the `Discovery` cache already bounds the walk to <=2 flavors
-  (import.rs:44-91), so the walk is shared and the 22s owner sits elsewhere,
-  unmeasured. Routed to a NEW open fork `(check-residual-owner)`, not a
-  pending entry: the report's own bar is "measure before cutting, do not
-  guess", so the cut can't be scoped without guessing, and the measurement
-  carries two human calls (maintain a perf fixture at all; no spec sets a
-  `check` perf bar, so is the cut even mandated) — the `(lazy-grounds)`
-  precedent exactly. Resolution returns via inbox with the numbers. Inbox
-  drained. Audit/sweep cursors 8d75682 -> 11a2815: the window has zero
-  src/tests/sdk/specs commits (only ecd27b1 plan + 11a2815 chore-inbox),
-  reconciled by inspection. Spec cursor unmoved — spec-delta empty.
-- Queue: 2 pending — 0 pickable OPEN; 2 parked (IMPORT-HOP-CAP-CITE,
-  PACKAGING-CHANNELS-REMAINDER), each on human action. 1 new open fork
-  `(check-residual-owner)` awaiting field measurements.
+- This tick: INBOX — routed the `(check-residual-owner)` resolution (ruled
+  810da42; note observed at 11a2815). The session commit 810da42 already
+  encoded the ruling: it added engineering.md's "Cost scale is hoisted, and
+  pinned by count" section, DELETED the fork record, and left the inbox note
+  pointing plan at two derivations. Diffed forward 11a2815..HEAD = {a8bb83d
+  plan, 810da42 specs} — zero src/tests/sdk commits, so the fork's named
+  surfaces are unmoved since the observation; re-verified live: `scan_locus`
+  (import.rs:379) still re-globs per kind, `flavors_walked` pin at
+  import.rs:1077 is cache-level only, run-level Discovery at main.rs:518.
+  Filed two OPEN entries citing the new section — WALK-SHARE-RUN-COUNT-PIN
+  (retrofit the run-level walk count, decidable now) and
+  CHECK-RESIDUAL-DIAGNOSIS (measure-first: generated 17k fixture, phase
+  timing, numbers pick the cut, count-pin). Serialized: both may touch
+  import.rs, so the diagnostic is blockedBy the retrofit. Inbox drained.
+  Both parks re-verified at HEAD: hop-cap const still 5/2026-07-02 at
+  graph.rs:55-59 (4dd7cfb's graph.rs edit was the known-marketplace edge,
+  below the const); .github empty d1af9a5..HEAD. Cursors unmoved — the
+  audit/sweep window is code-free, and 810da42 (spec delta) is next tick's
+  job to route-confirm and advance.
+- Queue: 4 pending — 1 pickable OPEN (WALK-SHARE-RUN-COUNT-PIN), 1 blockedBy
+  it (CHECK-RESIDUAL-DIAGNOSIS), 2 parked on human action (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER). Open forks: (multi-harness-projection),
+  (lazy-grounds).
 
-Plan continues: no — inbox drained this tick; spec-delta and post-ship
-windows empty; zero pickable open entries (both pending parked on human
-action, the residual routed to a human-resolved fork), loop hibernates.
+Plan continues: yes — spec delta: 810da42 is live past cursor 7739b91. Its
+engineering.md section is already routed into the two new entries this tick;
+next tick reads the diff, confirms the two count-pin bullets map to those
+tags, and advances the spec cursor.

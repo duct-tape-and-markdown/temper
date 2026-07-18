@@ -1,5 +1,74 @@
 [
   {
+    "tag": "WALK-SHARE-RUN-COUNT-PIN",
+    "summary": "Retrofit a run-level count-pin: a full check run walks each consulted discovery flavor once. Today only a cache-level unit test pins the mechanism, not that the run threads one Discovery.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "The shared walk's count-pin lives cache-level today: `flavors_walked` (93, `#[cfg(test)]`, private) is asserted `== 1` inside one `discover_builtin` scenario (test at 1077). That pins the Discovery *mechanism* — given one shared cache, N kind discoveries cost one walk per flavor. It never pins that a real check run threads a single `Discovery` (constructed at `main.rs:518`) through every discovery call, so a code path that builds a second cache mid-run would regress the walk count while the cache test stayed green. Add the run-level pin: over a full run each consulted flavor is walked exactly once. `flavors_walked` is private+cfg(test), so make the walk count observable through the path a run takes — a test seam on the run, or a src-level test driving the pipeline — build's call. This is engineering.md's 'one walk per run' count, held decidably (a count, never a clock)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/import.rs",
+        "asserts": "a full check run's discovery walks each consulted flavor exactly once — the run-level work count, not just the cache mechanism; a second Discovery accidentally constructed mid-run fails it"
+      }
+    ],
+    "acceptance": "A full check run's discovery walks each consulted flavor exactly once, pinned by a work count (never a wall-clock threshold) at run granularity. `cargo test` green.",
+    "notes": "Retrofit for the shipped DISCOVERY-WALK-SHARE (d1af9a5): the pin at import.rs:1077 is cache-level; this pins that the run USES the shared cache (threads one Discovery from main.rs:518). engineering.md, 'the pin is a count, never a clock'. A small multi-kind harness suffices — no 17k fixture. If CHECK-RESIDUAL-DIAGNOSIS's cut hoists per-kind work into the walk, reconcile the pins (consolidation, not a second test). scoped at 810da42."
+  },
+  {
+    "tag": "CHECK-RESIDUAL-DIAGNOSIS",
+    "summary": "Measure-first: a generated 17k-file fixture with coarse phase timing names check's 22s-residual dominant cost; the numbers pick the cut and the fix lands with its count-pin.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": { "kind": "blockedBy", "tag": "WALK-SHARE-RUN-COUNT-PIN" },
+    "files": {
+      "new": [
+        {
+          "path": "tests/check_cost.rs",
+          "description": "A generated large-tree fixture (17k-file shape, the gauntlet's sibling), built in a tempdir at test time and NEVER committed (engineering.md: 'synthetic input at consumer scale, built at test time, never committed'). Runs `check` over it with coarse per-phase timing to name where the 22s residual concentrates — the numbers go in the commit body. Holds the work-count pin the measured cut earns (e.g. one glob compiled per distinct glob, or no file read twice in a phase) — deterministic and machine-independent, never a wall-clock assertion. If the tree generator is reusable, its home is `tests/common/mod.rs` (engineering.md, 'one home') — build's call."
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/import.rs",
+          "description": "Top candidate from the fork's list (archived at a8bb83d): `scan_locus` (379) runs `collect_glob` per kind over the shared discoverable set — one glob compilation plus one match pass per kind — and glob compilation happens per call rather than once per distinct glob. If the numbers name this, hoist/share the per-kind work (compile each glob once; share the scan) and count-pin it. The shared discoverable set is already hoisted (Discovery, 44-124); this is the per-kind re-glob ON TOP of it."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Read-side candidate: per-file reads across the discovered set. If the timing names this, the cut and its count-pin ('no file read twice in a phase') land here."
+        },
+        {
+          "path": "src/hash.rs",
+          "description": "Read-side candidate: content hashing per file. Cut and pinned only if the numbers point here. Measure-first — build cuts the ONE dominant cost the timing names among these candidates and surfaces it (never guesses); a cost outside the fork's named candidates routes back rather than silently expanding scope."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "the measured dominant cost is cut and guarded by a work-count pin (one glob compiled per distinct glob / no file read twice in a phase) — deterministic and machine-independent, never a wall-clock threshold"
+      }
+    ],
+    "acceptance": "check's 22s residual is diagnosed on a generated 17k-file tree with the phase numbers recorded in the commit body; the dominant cost is cut; a work-count pin (never a clock) guards the cut. `cargo test` green; no committed fixture, no corpus perf bar.",
+    "notes": "Resolves the deleted (check-residual-owner) fork (ruled 810da42); candidate list at a8bb83d. DISCOVERY-WALK-SHARE halved check on a 16,814-file repo (41s->22s); the 22s residual has no named owner. Measure-first — the numbers pick the cut, plan does not guess it (engineering.md, 'Diagnosis is measure-first'). Fixture generated at test time, never committed; earns permanence only if a count-pin needs it. blockedBy the walk-share pin: both may touch import.rs. scoped at 810da42."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
