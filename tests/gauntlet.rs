@@ -38,7 +38,7 @@ mod common;
 /// manifest residue) is temper's own model (`specs/model/`), not an external fact.
 const GAUNTLET_PROGRAM: &str = r#"
 import { blocks, clause, emit, embeddedMemberValue, harness, kind, text, type } from "@dtmd/temper";
-import { hook, installedPlugin, rule } from "@dtmd/temper/claude-code";
+import { hook, installedPlugin, knownMarketplace, rule } from "@dtmd/temper/claude-code";
 
 // Composition 1 — a composed layout body over a templated host.
 //
@@ -113,14 +113,17 @@ const authoring = rule({
   ),
 });
 
-// Composition 3 — a partially-declared manifest.
+// Composition 3 — a partially-declared manifest with a resolving plugin→marketplace edge.
 //
-// A `hook` and an `installed-plugin` register inside `settings.json`, and the
-// harness-level `settings` residue (`permissions`, `autoMemoryEnabled`) folds in
-// beside them as opaque keys the harness models as no member — the file carries
-// more than the program declares.
+// A `hook`, an `installed-plugin`, and a `known-marketplace` register inside
+// `settings.json`, and the harness-level `settings` residue (`permissions`,
+// `autoMemoryEnabled`) folds in beside them as opaque keys the harness models as no
+// member — the file carries more than the program declares. The plugin's
+// `<plugin>@<marketplace>` key names `acme-marketplace`, and the known-marketplace
+// declares it, so the marketplace-half edge resolves on the reference graph (0039).
 const sessionHook = hook({ name: "SessionStart", type: "command", command: "temper reporter" });
 const formatterPlugin = installedPlugin({ name: "formatter@acme-marketplace", enabled: true });
+const acmeMarketplace = knownMarketplace({ name: "acme-marketplace", source: "./vendor/acme-marketplace" });
 
 // Composition 4 — a local-locus member under ignore rules.
 //
@@ -157,7 +160,7 @@ const gateHandbook = handbook({ name: "operate-the-gate", prose: text`# Conventi
 process.stdout.write(
   emit(
     harness({
-      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin, gateHandbook],
+      members: [gateGuide, representation, conventions, authoring, sessionHook, formatterPlugin, acmeMarketplace, gateHandbook],
       admit: [{ host: rule, admits: [citation] }],
       expect: [
         { kind: machine, clauses: [clause(type("mode", ["string"]), { severity: "advisory" })] },

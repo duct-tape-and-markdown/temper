@@ -480,6 +480,12 @@ export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPl
   registration: [{ via: "enablement" }],
   shape: "fields",
   collectionAddress: { manifest: "settings.json", keyPath: "enabledPlugins.*" },
+  // The marketplace half of the `<plugin>@<marketplace>` key is a declared edge to the
+  // `known-marketplace` member it names (decision 0039). The half is not an authored field
+  // — the engine splits it off the composite key at read (`src/kind.rs`, the read-time fold
+  // that surfaces it under `marketplace`) — so the edge resolves on the reference graph like
+  // any other, and an enablement naming a marketplace no registration declares dangles.
+  edgeFields: [{ field: "marketplace", to: ["known-marketplace"] }],
 });
 
 /**
@@ -487,13 +493,16 @@ export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPl
  * documents almost no contract, so it earns an almost-empty default: the honest encoding,
  * not a gap.
  *
- * The one clause a reader would reach for — a shape check on the
- * `<plugin>@<marketplace>` key — has nothing decidable to range over. The key is the
- * member's identity, not a declared field, and the two sources that describe it do not
- * settle a charset: the plugins-reference documents the identity as
+ * A charset clause on the `<plugin>@<marketplace>` key has nothing decidable to range
+ * over: the key is the member's identity, and the two sources that describe it do not
+ * settle a charset — the plugins-reference documents the identity as
  * `formatter@my-marketplace` and schemastore's `claude-code-settings.json` constrains its
  * `enabledPlugins` keys with no `propertyNames` pattern at all (both retrieved
- * 2026-07-16). A clause against either spelling would forge findings on valid harnesses.
+ * 2026-07-16), so a clause against either spelling would forge findings on valid harnesses.
+ * The marketplace half of the key is not un-typed, though: it is a declared edge to the
+ * `known-marketplace` member it names, resolved on the reference graph rather than by a
+ * contract clause — an enablement naming a marketplace no registration declares is a
+ * dangling-edge finding, never a convention (decision 0039).
  *
  * `enabled` needs no `required` clause: the type already holds it, and a member that
  * omits it projects the `true` Claude Code itself writes.

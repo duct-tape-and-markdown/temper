@@ -43,6 +43,11 @@ The standing bar every module holds.
   "enabledPlugins": {
     "formatter@acme-marketplace": true
   },
+  "extraKnownMarketplaces": {
+    "acme-marketplace": {
+      "source": "./vendor/acme-marketplace"
+    }
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -124,6 +129,15 @@ shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
 
 [[declaration.kind]]
+name = "known-marketplace"
+governs_root = ".claude"
+governs_glob = "settings.json"
+unit_shape = "file"
+registration = ["registry"]
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "extraKnownMarketplaces.*" }
+
+[[declaration.kind]]
 name = "machine"
 governs_root = ".claude/local"
 governs_glob = "*.md"
@@ -163,6 +177,12 @@ from = "citation"
 field = "source"
 to = ["rule"]
 
+[[declaration.assembly]]
+fact = "edge"
+from = "installed-plugin"
+field = "marketplace"
+to = ["known-marketplace"]
+
 [[declaration.nested_member]]
 host = "rule:authoring"
 kind = "citation"
@@ -193,6 +213,12 @@ kind = "installed-plugin"
 key = "formatter@acme-marketplace"
 manifest = "settings.json"
 key_path = "enabledPlugins.*"
+
+[[declaration.registration]]
+kind = "known-marketplace"
+key = "acme-marketplace"
+manifest = "settings.json"
+key_path = "extraKnownMarketplaces.*"
 
 === docs/guides/operate-the-gate/GUIDE.md ===
 # Operate the gate

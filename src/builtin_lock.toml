@@ -1,10 +1,11 @@
 # The built-in lock — the compiled default program `temper` embeds for SDK-less
 # checking (specs/distribution.md, "The stranger gate"). Declaration rows only:
-# the fourteen built-in kinds' facts and their default contract clauses, plus the
-# unconditional `mode = "warn"` assembly fact — the root member's own enforcement
-# mode (specs/model/representation.md, "The root member") — every harness carries
-# absent an authored mode. No requirements, no satisfies, no provenance or
-# emit-fingerprint rows — nothing was emitted, there are no members.
+# the fourteen built-in kinds' facts and their default contract clauses, plus two
+# assembly facts — the unconditional `mode = "warn"` (the root member's own enforcement
+# mode, specs/model/representation.md, "The root member", every harness carries absent an
+# authored mode) and the `installed-plugin` → `known-marketplace` edge, the marketplace
+# half of an enablement's `<plugin>@<marketplace>` key (decision 0039). No requirements,
+# no satisfies, no provenance or emit-fingerprint rows — nothing was emitted, no members.
 #
 # Derived, never transcribed (specs/distribution.md, "Decision: the built-in
 # lock is derived from the SDK module, never transcribed"): this is the
@@ -1064,3 +1065,9 @@ degree = { incoming = { min = 1 } }
 [[declaration.assembly]]
 fact = "mode"
 value = "warn"
+
+[[declaration.assembly]]
+fact = "edge"
+from = "installed-plugin"
+field = "marketplace"
+to = ["known-marketplace"]

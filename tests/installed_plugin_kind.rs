@@ -21,7 +21,7 @@ use temper::builtin_kind;
 use temper::builtin_lock;
 use temper::extract::Features;
 use temper::json_manifest::Manifest;
-use temper::kind::{CollectionAddress, CollectionKeyPath, Content, Registration};
+use temper::kind::{CollectionAddress, CollectionKeyPath, Content, CustomKind, Registration};
 
 /// A `.claude/settings.json` carrying two enabled plugins and one explicitly disabled, in
 /// the real Claude Code shape: `enabledPlugins` maps a `<plugin>@<marketplace>` identity
@@ -46,6 +46,33 @@ fn installed_plugin_kind() -> temper::kind::CustomKind {
     builtin_kind::definition("installed-plugin")
         .unwrap()
         .expect("installed-plugin is embedded")
+}
+
+/// A `.claude/settings.json` where two enabled plugins name a marketplace the registry
+/// declares (`acme`) and one names a marketplace no registration carries (`ghost-mk`) — the
+/// resolving edge and the dangling one side by side, in the real Claude Code shape.
+const SETTINGS_WITH_MARKETPLACES: &str = r#"{
+  "enabledPlugins": {
+    "formatter@acme": true,
+    "linter@acme": true,
+    "stray@ghost-mk": true
+  },
+  "extraKnownMarketplaces": {
+    "acme": { "source": { "source": "github", "repo": "acme/marketplace" } }
+  }
+}"#;
+
+/// A kind's members projected through the shared read-time fold, keyed by kind name — the
+/// same `Features` the reference graph ranges over.
+fn features_of(kind: &CustomKind, harness: &Path) -> Vec<Features> {
+    let reads = Manifest::read_kind(&temper::import::Discovery::new(harness), kind).unwrap();
+    let address = kind.collection_address.clone().unwrap();
+    let source = harness.join(".claude/settings.json");
+    reads
+        .iter()
+        .flat_map(|manifest| &manifest.members)
+        .map(|member| builtin_kind::features(kind, &member.to_unit(&address, &source), &[]))
+        .collect()
 }
 
 /// The kind's members projected through the shared read-time fold — the same `Features` a
@@ -216,5 +243,72 @@ fn the_embedded_builtin_lock_carries_the_installed_plugin_kind_and_no_clause() {
             .iter()
             .any(|c| c.kind.as_deref() == Some("installed-plugin")),
         "the installed-plugin default contract ships empty"
+    );
+}
+
+#[test]
+fn the_marketplace_half_of_an_enablement_key_is_a_declared_edge_to_known_marketplace() {
+    // The edge is declared, not invented here: the built-in kind carries the marketplace
+    // edge on its schema, and the reference graph reads it off each plugin's features — the
+    // marketplace half split off the composite `<plugin>@<marketplace>` key.
+    let plugin = installed_plugin_kind();
+    assert_eq!(
+        plugin.relationships,
+        vec![temper::compose::Edge {
+            field: "marketplace".to_string(),
+            from: "installed-plugin".to_string(),
+            to: vec!["known-marketplace".to_string()],
+        }],
+        "installed-plugin declares the marketplace edge to known-marketplace"
+    );
+
+    let harness = common::tmpdir("enabled-plugins-marketplace-edge");
+    write_settings(&harness, SETTINGS_WITH_MARKETPLACES);
+
+    let plugins = features_of(&plugin, &harness);
+    let marketplaces = features_of(
+        &builtin_kind::definition("known-marketplace")
+            .unwrap()
+            .expect("known-marketplace is embedded"),
+        &harness,
+    );
+
+    // Every plugin surfaces its marketplace half as the `marketplace` field the edge reads —
+    // the same fold a frontmatter reference rides.
+    let stray = plugins
+        .iter()
+        .find(|features| features.id == "stray@ghost-mk")
+        .expect("the ghost-mk plugin is read");
+    assert_eq!(
+        stray.field("marketplace"),
+        Some(temper::extract::FeatureValue::scalar(
+            temper::extract::ValueType::String,
+            "ghost-mk",
+        )),
+        "the marketplace half of the key is the field the edge resolves"
+    );
+
+    let by_kind = std::collections::BTreeMap::from([
+        ("installed-plugin", plugins.as_slice()),
+        ("known-marketplace", marketplaces.as_slice()),
+    ]);
+    let findings = temper::graph::check(&plugin.relationships, &by_kind);
+
+    // `formatter@acme` and `linter@acme` resolve to the declared `acme` registry entry;
+    // `stray@ghost-mk` names a marketplace no registration declares — exactly one dangling
+    // edge, keyed to the offending plugin and naming the marketplace it wrote.
+    assert_eq!(
+        findings.len(),
+        1,
+        "exactly the undeclared marketplace dangles, got: {findings:#?}"
+    );
+    let rendered = format!("{:#?}", findings[0]);
+    assert!(
+        rendered.contains("stray@ghost-mk") && rendered.contains("ghost-mk"),
+        "the finding names the enablement and the marketplace it named, got: {rendered}"
+    );
+    assert!(
+        rendered.contains("known-marketplace"),
+        "the finding names the target kind the marketplace half resolves within, got: {rendered}"
     );
 }

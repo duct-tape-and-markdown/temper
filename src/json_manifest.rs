@@ -92,6 +92,15 @@ impl RegistrationMember {
                 .entry(field.to_string())
                 .or_insert_with(|| JsonValue::String(self.key.clone()));
         }
+        // A composite key's edge half surfaces as its own field, so a declared edge over it
+        // (an installed plugin's `<plugin>@<marketplace>` → `known-marketplace`) resolves off
+        // the member's features like any frontmatter reference — never overwriting a
+        // same-named object field.
+        if let Some((field, value)) = address.key_path.identity_edge(&self.key) {
+            frontmatter
+                .entry(field.to_string())
+                .or_insert_with(|| JsonValue::String(value));
+        }
         Unit {
             id: self.key.clone(),
             frontmatter,

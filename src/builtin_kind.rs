@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::compose::Edge;
 use crate::drift::NestedMemberRow;
 use crate::extract::{self, Features};
 use crate::kind::{
@@ -286,6 +287,9 @@ fn claude_code_mcp_server() -> CustomKind {
 ///
 /// Unlike a hook (array value) or an MCP server (object value), an entry's value is a bare
 /// scalar, so the member carries exactly one declared field (`enabled`) and folds no object.
+/// The marketplace half of its `<plugin>@<marketplace>` key is a declared edge to the
+/// `known-marketplace` member it names — split off the composite key at read and resolved on
+/// the reference graph, so an enablement naming a marketplace no registration declares dangles.
 ///
 /// The members a plugin *contributes* — its skills, agents, hooks, MCP servers — live in the
 /// plugin cache, outside the corpus. Their reach is unmodeled and named as such: this kind
@@ -299,6 +303,14 @@ fn claude_code_installed_plugin() -> CustomKind {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::EnabledPlugins,
         }),
+        // The marketplace half of the `<plugin>@<marketplace>` key is an edge to the
+        // `known-marketplace` member it names (decision 0039); the read splits it off the
+        // composite key onto the `marketplace` field the reference graph resolves.
+        relationships: vec![Edge {
+            field: crate::kind::MARKETPLACE_FIELD.to_string(),
+            from: "installed-plugin".to_string(),
+            to: vec!["known-marketplace".to_string()],
+        }],
         ..CustomKind::new(
             "installed-plugin",
             Governs {

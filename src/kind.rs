@@ -219,6 +219,15 @@ pub enum CollectionKeyPath {
 /// (`code.claude.com/docs/en/plugins-reference`, retrieved 2026-07-16).
 pub(crate) const ENABLEMENT_FIELD: &str = "enabled";
 
+/// The declared field the **marketplace half** of an `enabledPlugins` key surfaces under.
+/// A key is `<plugin>@<marketplace>`, a composite identity; the marketplace half is a
+/// declared edge to the `known-marketplace` member it names (decision 0039), so the read
+/// splits it off the key and folds it on here — the one home the SDK's edge declaration
+/// (`sdk/src/builtins.ts`, `installedPlugin`'s `edgeFields`) and the reference graph that
+/// resolves it (`crate::graph`) both name, so the edge field and the value it reads cannot
+/// drift apart.
+pub(crate) const MARKETPLACE_FIELD: &str = "marketplace";
+
 impl CollectionKeyPath {
     /// The manifest's **top-level collection key** this key path walks into — the object
     /// whose entries are the registration members. `hooks.<Event>` reads the `hooks`
@@ -248,6 +257,28 @@ impl CollectionKeyPath {
             CollectionKeyPath::HooksEvent => Some("event"),
             CollectionKeyPath::McpServers
             | CollectionKeyPath::EnabledPlugins
+            | CollectionKeyPath::ExtraKnownMarketplaces => None,
+        }
+    }
+
+    /// The **identity-derived edge field** an entry keyed at this path surfaces, split off
+    /// its composite key — the `(field, value)` folded onto the member exactly as
+    /// [`key_field`](CollectionKeyPath::key_field) folds an event, so the reference graph
+    /// reads it off the member's features. An `enabledPlugins` key is
+    /// `<plugin>@<marketplace>`, whose marketplace half is a declared edge to the
+    /// `known-marketplace` member it names (decision 0039); the other key paths carry a
+    /// whole identity with no edge half. `None` also for a key carrying no non-empty
+    /// marketplace segment — a malformed key names no marketplace to resolve, so it dangles
+    /// under no forged empty name.
+    #[must_use]
+    pub(crate) fn identity_edge(self, key: &str) -> Option<(&'static str, String)> {
+        match self {
+            CollectionKeyPath::EnabledPlugins => {
+                let (_plugin, marketplace) = key.split_once('@')?;
+                (!marketplace.is_empty()).then(|| (MARKETPLACE_FIELD, marketplace.to_string()))
+            }
+            CollectionKeyPath::HooksEvent
+            | CollectionKeyPath::McpServers
             | CollectionKeyPath::ExtraKnownMarketplaces => None,
         }
     }
@@ -1477,6 +1508,30 @@ mod tests {
     /// segment-level caller (`owns_source`, `import`, `coverage_note`) wants.
     fn matches(glob: &str, candidate: &str) -> bool {
         compile_glob(glob).is_some_and(|matcher| matcher.is_match(candidate))
+    }
+
+    #[test]
+    fn enabled_plugins_splits_the_marketplace_half_off_its_composite_key() {
+        // The marketplace half of `<plugin>@<marketplace>` surfaces as the `marketplace`
+        // edge field; the other collection key paths carry a whole identity with no edge
+        // half, and a key with no non-empty marketplace segment names none.
+        assert_eq!(
+            CollectionKeyPath::EnabledPlugins.identity_edge("formatter@acme"),
+            Some((MARKETPLACE_FIELD, "acme".to_string()))
+        );
+        assert_eq!(
+            CollectionKeyPath::EnabledPlugins.identity_edge("no-at-sign"),
+            None
+        );
+        assert_eq!(
+            CollectionKeyPath::EnabledPlugins.identity_edge("formatter@"),
+            None
+        );
+        assert_eq!(
+            CollectionKeyPath::ExtraKnownMarketplaces.identity_edge("acme@x"),
+            None
+        );
+        assert_eq!(CollectionKeyPath::HooksEvent.identity_edge("a@b"), None);
     }
 
     #[test]
