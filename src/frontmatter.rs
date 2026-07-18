@@ -23,7 +23,6 @@ use std::path::{Path, PathBuf};
 use gray_matter::Pod;
 use gray_matter::engine::{Engine, YAML};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use walkdir::WalkDir;
 
 use crate::document::Satisfies;
 use crate::kind::{CustomKind, UnitShape};
@@ -47,10 +46,6 @@ pub struct Member {
     /// Markdown after the frontmatter, byte-faithful (trailing bytes intact). For a
     /// source carrying no frontmatter this is the whole file.
     pub body: String,
-    /// Sibling files that ship with a directory-shaped unit (a skill's `PLAYBOOK.md`,
-    /// `scripts/**`), relative to the source directory and sorted. Empty for a
-    /// file-shaped unit.
-    pub companions: Vec<PathBuf>,
     /// The requirements this member opts into filling — authored on the surface, never imported,
     /// so a source parse leaves this empty.
     pub satisfies: Vec<Satisfies>,
@@ -189,7 +184,7 @@ impl Member {
             detail,
         })?;
 
-        let (id, companions) = match &kind.unit_shape {
+        let id = match &kind.unit_shape {
             Some(UnitShape::Directory) => {
                 let dir = source_file
                     .parent()
@@ -198,42 +193,34 @@ impl Member {
                         path: source_file.to_path_buf(),
                         shape: "directory",
                     })?;
-                let id = dir
-                    .file_name()
+                dir.file_name()
                     .and_then(OsStr::to_str)
                     .ok_or_else(|| FrontmatterError::NoId {
                         path: source_file.to_path_buf(),
                         shape: "directory",
                     })?
-                    .to_string();
-                let name = source_file.file_name().unwrap_or(OsStr::new(""));
-                (id, scan_companions(dir, name)?)
+                    .to_string()
             }
-            Some(UnitShape::NamedField { field }) => {
-                let id = parsed
-                    .get(field)
-                    .and_then(JsonValue::as_str)
-                    .map(str::to_string)
-                    .ok_or_else(|| FrontmatterError::NoNamedFieldId {
-                        path: source_file.to_path_buf(),
-                        field: field.clone(),
-                    })?;
-                (id, Vec::new())
-            }
+            Some(UnitShape::NamedField { field }) => parsed
+                .get(field)
+                .and_then(JsonValue::as_str)
+                .map(str::to_string)
+                .ok_or_else(|| FrontmatterError::NoNamedFieldId {
+                    path: source_file.to_path_buf(),
+                    field: field.clone(),
+                })?,
             Some(UnitShape::StarredSegment) => {
                 // A lone file keyed by its starred directory segment, coexisting inside
-                // another kind's directory: it borrows the segment for identity and scans
-                // no companions of its own (those belong to the kind that owns the dir).
-                let id = crate::extract::source_dir_name(source_file).ok_or_else(|| {
+                // another kind's directory: it borrows the segment for identity.
+                crate::extract::source_dir_name(source_file).ok_or_else(|| {
                     FrontmatterError::NoId {
                         path: source_file.to_path_buf(),
                         shape: "starred-segment",
                     }
-                })?;
-                (id, Vec::new())
+                })?
             }
             // `file` shape, or an undeclared shape defaulting to a lone file.
-            Some(UnitShape::File) | None => (fold_file_id(base, source_file)?, Vec::new()),
+            Some(UnitShape::File) | None => fold_file_id(base, source_file)?,
         };
 
         let fields = order_fields(&kind.declared_fields(), parsed);
@@ -242,7 +229,6 @@ impl Member {
             id,
             fields,
             body: split_frontmatter(&raw).1.to_string(),
-            companions,
             satisfies: Vec::new(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),
@@ -372,45 +358,6 @@ pub(crate) fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
     None
 }
 
-/// Walk a directory-shaped unit's source directory and collect its companion files —
-/// every file except the member document `member` itself — as paths relative to `dir`,
-/// sorted for determinism.
-///
-/// `pub(crate)` so the whole-file custom import path (`src/import.rs`) copies a
-/// `Directory`-shaped frontmatterless unit's companions through the identical scan the
-/// frontmatter face uses, rather than a second implementation that could drift.
-pub(crate) fn scan_companions(
-    dir: &Path,
-    member: &OsStr,
-) -> Result<Vec<PathBuf>, FrontmatterError> {
-    let mut companions = Vec::new();
-    for entry in WalkDir::new(dir).min_depth(1).sort_by_file_name() {
-        let entry = entry.map_err(|err| FrontmatterError::Io {
-            path: err
-                .path()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| dir.to_path_buf()),
-            source: err
-                .into_io_error()
-                .unwrap_or_else(|| std::io::Error::other("directory walk failed")),
-        })?;
-        if !entry.file_type().is_file() {
-            continue;
-        }
-        if entry.file_name() == member {
-            continue;
-        }
-        let relative = entry
-            .path()
-            .strip_prefix(dir)
-            .map(Path::to_path_buf)
-            .unwrap_or_else(|_| entry.path().to_path_buf());
-        companions.push(relative);
-    }
-    companions.sort();
-    Ok(companions)
-}
-
 /// Derive a **file-shaped** unit's surface id, folding the directory placement below
 /// the `governs`-root directory `base` into it. A unit
 /// directly under `base` keeps its bare filename stem — the common flat case, unchanged
@@ -522,24 +469,6 @@ Last line, no newline.";
         assert_eq!(member.id, "collaboration");
         assert!(member.fields.is_empty());
         assert_eq!(member.body, "# Collab\n\nPushback.\n");
-    }
-
-    #[test]
-    fn companions_scan_relative_and_sorted_excluding_the_member() {
-        let dir = tmpdir("companions").join("coordinate");
-        fs::create_dir_all(dir.join("scripts")).unwrap();
-        fs::write(dir.join("SKILL.md"), SKILL).unwrap();
-        fs::write(dir.join("PLAYBOOK.md"), "playbook\n").unwrap();
-        fs::write(dir.join("scripts").join("run.sh"), "echo hi\n").unwrap();
-
-        let member = Member::from_source(&skill_kind(), &dir.join("SKILL.md")).unwrap();
-        assert_eq!(
-            member.companions,
-            vec![
-                PathBuf::from("PLAYBOOK.md"),
-                PathBuf::from("scripts").join("run.sh"),
-            ]
-        );
     }
 
     #[test]
