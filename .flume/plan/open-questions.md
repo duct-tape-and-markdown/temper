@@ -114,51 +114,21 @@ condition arrives, it is the next break. If work touches one, surface it.
 
 - **One stale cite, ride-only, never an entry.**
   Comment and citation staleness never files a standalone entry; it rides
-  whichever entry next opens the file — and the rule has now paid out four
-  times running, which is why this record keeps shrinking rather than growing.
-  The
-  `sdk/src/prose.ts` half retired at 9409a6c (SDK-BLOCKS-FILE-REFUSAL,
-  42a2dd1, cut all ten pre-recut narration lines). The `Cargo.toml` half
-  **retires here, discharged on disk at 385c429**:
-  FIELD-ADDRESSING-RFC-9535-SUBSET (aaf70f1) opened the file to add
-  `serde_json_path`, carried both riders it was given, and landed them — `regex`
-  now reads "the charset mechanics behind `allowed_chars` — hidden, never an
-  author-facing `pattern` clause" (36-38), and the schemars/ts-rs note cites
-  `src/schema.rs` with ts-rs holding its live `sdk/src/generated/` seam role
-  (48-55). Sweeping the class across `src/` + `sdk/src/` at 0c3cbcb still
-  leaves exactly one orphan line:
-  - `src/roster.rs`:475 — **the last orphan of its class**: the doc comment on
-    the `membership_roster` test helper cites `` `10-contracts.md` ``, a file
-    0001 deleted. The sentence's claim is live — a `target` names a declared
-    requirement — so the cite comes out, never gets re-pointed at a surviving
-    file. A rider discharges when an entry NAMES it, never when a file is
-    merely opened, which is why the carrier must carry it in its scope.
-    **The carrier has now arrived**: VERIFIER-TYPED (unblocked this tick as
-    EXTENT shipped 4bdb796) opens `src/roster.rs` for its clause-(b) verifier
-    dispatch and NAMES this cite-cut in its roster.rs scope — so the rider now
-    rides it and discharges when VERIFIER-TYPED ships, the ride-only rule's
-    predicted resolution. Cite re-read on disk at HEAD, now 475 (drifted
-    469→473→475 under CLOSED-KEYS-CLAUSE's and later edits).
-  The rule's **fourth** payout — its first on a cite the sweep itself
-  surfaced — **landed**: `src/main.rs`:1047 called the selection loop "The
-  second and last dial site" while four `dial.apply` sites existed. It was
-  handed to CHECK-ANNOUNCES in scope, and dab85aa carried it: the comment now
-  reads "The last of the dial's four sites, and the only one over selections
-  rather than contracts" (`src/main.rs`:1050-1051, read at b85df4a) — the
-  loose literal count replaced by the one axis that makes the site last. Named
-  in scope, so it discharged; it never became an entry. That is four payouts
-  running, and the rule's condition has never once failed: **every** discharge
-  came from an entry that NAMED the cite, and none from a file merely opened.
-  The `sdk/src/builtins.ts` cite this record carried last tick **discharged
-  exactly as the rule predicts**: 7fae62e falsified `marketplaceDefaultContract`'s
-  header sentence, SHAPE-PREDICATE was given it in scope, and 0927979 landed it —
-  the header at 960 now names its own widening rather than a sibling's retired
-  hold, verified on disk at a2e48aa. It never became an entry.
+  whichever entry next opens the file, and discharges only when that entry
+  NAMES the cite — never when a file is merely opened. The rule's condition
+  has never once failed across every payout git records.
+  **Zero live orphans at HEAD (d1af9a5):** the last one, `src/roster.rs`'s
+  `membership_roster` doc comment citing the 0001-deleted `10-contracts.md`,
+  discharged at 2fc2291 — VERIFIER-TYPED opened roster.rs for its verifier
+  dispatch and cut the cite in scope, exactly the ride-only rule's predicted
+  resolution. When the next stale cite surfaces, it rides; until then this
+  record carries only the exclusion class below.
   Fixture body text inside tests stays a separate class, excluded — it is
-  `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` strings,
-  `src/read.rs`'s `20-surface` member ids, `tests/display_rule.rs`'s "law 5"
-  and "law 7" rejected-entry bodies, and `src/extract.rs`'s two `"…law 5"`
-  decision-fixture strings.
+  `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` /
+  `10-contracts.md` strings, `src/read.rs`'s `20-surface` member ids,
+  `tests/section_contains.rs`'s `10-contracts` fixture, `tests/display_rule.rs`'s
+  "law 5" and "law 7" rejected-entry bodies, and `src/extract.rs`'s two
+  `"…law 5"` decision-fixture strings.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

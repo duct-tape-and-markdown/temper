@@ -1,32 +1,33 @@
 # Plan state
 
 - Spec derived through: 7739b91
-- Audited through: 68fae5c
-- Residue swept through: 68fae5c
-- This tick: RECONCILED 7cf9ff0..HEAD (post-ship). Window's only src/tests/sdk
-  touches: 4119bed (tap) + 96f6a10 (settings-local) — TAP-VERB-EVENT-RECORD +
-  SETTINGS-LOCAL-KIND, both already dropped from pending at 68fae5c. eb58934 is
-  pure harness (.temper/, CLAUDE.md) — outside audit scope. AUDIT: verified live
-  on disk — src/tap.rs ships `read_log` returning `LogReadout{records,
-  older_version}` (the version-tolerant reader, 4119bed), `append`,
-  `pub(crate) log_path`, `TAP_RECORD_VERSION`; tests/settings_local_kind.rs
-  ships. Stale-gate re-test: TELEMETRY-FIELD-STRAND was blockedBy
-  TAP-VERB-EVENT-RECORD (now shipped) — re-gated blockedBy VERIFIER-TYPED: the
-  strand shares read.rs (field strand vs. ~1489 fixture), main.rs (explain
-  assembly vs. requirement_from_row), read_verbs.rs (explain helper vs. ~54
-  fixture) with VERIFIER-TYPED — disjoint regions but file-shared, never both
-  open, so serialized behind it. SWEEP: no residue — the bespoke tap JSONL log
-  is corpus-sanctioned (pipeline.md 'Telemetry': machine-written,
-  bespoke-parsed, internal, versioned in lockstep), settings-local follows the
-  shipped-kind pattern; no retirement named, no second implementation of one
-  job, cargo check green. Both cursors -> HEAD.
-- Queue: 9 entries — 3 pickable (open): DISCOVERY-WALK-SHARE (import.rs),
-  VERIFIER-TYPED (the verifier set), COVERAGE-SEGMENT-PRESENCE (coverage_note.rs)
-  — pairwise file-disjoint. 4 blockedBy (KNOWN-MARKETPLACE-KIND→VERIFIER-TYPED,
-  KNOWN-MARKETPLACE-EDGE→its kind, TELEMETRY-FIELD-STRAND→VERIFIER-TYPED [was
-  TAP-VERB, shipped 4119bed], TELEMETRY-HOOK-PROJECTION→VERIFIER-TYPED); 2
-  parked (IMPORT-HOP-CAP-CITE, PACKAGING).
+- Audited through: d1af9a5
+- Residue swept through: d1af9a5
+- This tick: RECONCILED 68fae5c..HEAD (post-ship). Window shipped three build
+  entries: DISCOVERY-WALK-SHARE (16c1716), VERIFIER-TYPED (2fc2291),
+  COVERAGE-SEGMENT-PRESENCE (536dd48) — all already dropped from pending by
+  build. AUDIT (verified live on disk): the verifier is now a species-tagged
+  union (`Verifier.Script`|`Verifier.Telemetry`, generated Verifier.ts;
+  `requirement.verifier` on RequirementRow); no `verifiedBy` symbol survives;
+  consumers hold exhaustive 2-variant matches (roster.rs 146/155/168, drift.rs
+  3961/3965 — no `_` arm). DISCOVERY-WALK-SHARE consolidated to one
+  `discoverable_paths` walk (import.rs:485, local_governs flavor);
+  COVERAGE-SEGMENT-PRESENCE to one present-keys classifier (coverage_note.rs).
+  Stale-gate re-test: VERIFIER-TYPED shipped, so its three dependents —
+  KNOWN-MARKETPLACE-KIND, TELEMETRY-FIELD-STRAND, TELEMETRY-HOOK-PROJECTION —
+  re-gated blockedBy->OPEN (anchors confirmed present; pairwise file-disjoint,
+  safe to fan out). KNOWN-MARKETPLACE-EDGE stays blockedBy KNOWN-MARKETPLACE-KIND.
+  Both parks re-tested at HEAD and hold: MAX_IMPORT_HOPS still 5 + 2026-07-02
+  cite unmoved (graph.rs 55-59); no v0.1 tag, crate 0.1.0, `.github/` empty in
+  window. SWEEP: no residue — the verifier retype leaves no partial enumeration
+  or duplicate surface; requirement_roster tests green. The roster.rs cite
+  rider (`10-contracts.md`, ride-only class) discharged at 2fc2291 as predicted
+  — open-questions record trimmed to zero live orphans. Both cursors -> HEAD.
+- Queue: 6 entries — 3 pickable OPEN (KNOWN-MARKETPLACE-KIND,
+  TELEMETRY-FIELD-STRAND, TELEMETRY-HOOK-PROJECTION — pairwise file-disjoint);
+  1 blockedBy (KNOWN-MARKETPLACE-EDGE->KIND); 2 parked (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER).
 
 Plan continues: no — window reconciled through HEAD, inbox + spec-delta empty;
-3 pickable open entries (DISCOVERY-WALK-SHARE, VERIFIER-TYPED,
-COVERAGE-SEGMENT-PRESENCE), build takes over.
+3 pickable open entries (KNOWN-MARKETPLACE-KIND, TELEMETRY-FIELD-STRAND,
+TELEMETRY-HOOK-PROJECTION), build takes over.

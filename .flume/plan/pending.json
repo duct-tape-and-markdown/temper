@@ -7,8 +7,7 @@
       "section": "The shipped kinds"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "VERIFIER-TYPED"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -58,7 +57,7 @@
       }
     ],
     "acceptance": "`known-marketplace` ships as the fourth fields-only registration member — one consumer-side registry entry under settings.json's `extraKnownMarketplaces`, name-keyed, carrying the documented `source` union + `autoUpdate`, its channel the registry entry itself, the installed-plugin pattern at a sibling address (builtins.md, 'The shipped kinds'; decision 0039). Once it ships, the coverage advisory (fixed by COVERAGE-SEGMENT-PRESENCE) names extraKnownMarketplaces checked. `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "0039 derivation (kind + contract). blockedBy VERIFIER-TYPED: the new `Registration` variant ripples to kind.rs + graph.rs, and VERIFIER-TYPED holds graph.rs open (~1693) — serialized. Reuses `MarketplaceSource` (~832) + the presence-is-channel reach (`Connection`). Exports via the claude-code provider face, not the kernel barrel VERIFIER-TYPED edits. Overlaps KNOWN-MARKETPLACE-EDGE on builtins.ts/builtin_kind.rs/graph.rs — that entry is blockedBy this one. scoped at 152526c."
+    "notes": "0039 derivation (kind + contract). VERIFIER-TYPED shipped 2fc2291 — re-gated OPEN (07-17 reconcile), graph.rs free (Registration enum kind.rs:627, Connection reach 659). Reuses `MarketplaceSource` (builtins.ts:832) + presence-is-channel reach. Exports via the claude-code provider face, not the kernel barrel. Overlaps KNOWN-MARKETPLACE-EDGE on builtins.ts/builtin_kind.rs/graph.rs — that entry blockedBy this one. scoped 152526c; addresses re-read at HEAD d1af9a5."
   },
   {
     "tag": "TELEMETRY-FIELD-STRAND",
@@ -68,8 +67,7 @@
       "section": "Read verbs"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "VERIFIER-TYPED"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -98,7 +96,7 @@
       }
     ],
     "acceptance": "`explain` narrates a field strand beside why/impact/context — the per-machine tap log's event counts and denominators joined to members through the same lock declarations the gate reads, evidence narrated never judged; a record an older tap wrote surfaces as a count in the narration, an absent log narrates none, and `explain` never gates and exits zero (contract.md, 'Read verbs'; 0037 amended). `cargo test` green.",
-    "notes": "0037 slice 4 of 5 (amended 5b6b6f2): the tap record's sole reader. Version-tolerant `read_log` (returns `LogReadout{records, older_version}`) shipped in src/tap.rs at 4119bed; this slice is the pure explain-side consumer, no src/tap.rs edit. Re-gated TAP-VERB->VERIFIER-TYPED (07-17 reconcile): TAP-VERB shipped, but this shares read.rs/main.rs/read_verbs.rs with VERIFIER-TYPED (disjoint regions, never both open). Joins events to members through the lock (READ-EDGE-UNIFY), never mined."
+    "notes": "0037 slice 4 of 5 (amended 5b6b6f2): the tap record's sole reader. `read_log`->`LogReadout{records,older_version}` shipped src/tap.rs 4119bed; this is the pure explain-side consumer, no src/tap.rs edit. VERIFIER-TYPED shipped 2fc2291 — re-gated OPEN (07-17 reconcile); read.rs strands at why 303 / impact 576 / context 839, explain 211. Joins events to members through the lock (READ-EDGE-UNIFY), never mined. scoped 5b81ba8; re-read at HEAD d1af9a5."
   },
   {
     "tag": "KNOWN-MARKETPLACE-EDGE",
@@ -152,8 +150,7 @@
       "section": "Telemetry"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "VERIFIER-TYPED"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -190,7 +187,7 @@
       }
     ],
     "acceptance": "A requirement's telemetry verifier projects at emit as tap `hooks.<Event>` registrations — one deduped hook per lifecycle event any telemetry verifier names, matcher shaped per the documented event (`path_glob_match` for InstructionsLoaded, `tool_name:'Skill'` under PostToolUse for skill invocation, UserPromptExpansion for commands; each cited code.claude.com/docs/en/hooks, re-verified at encode), command the tap invocation, riding the registration family into settings.json 'the same rows any hook rides' (pipeline.md, 'Telemetry'). The rows carry through the seam and the engine projects them via its existing registration loop, no engine change. `pnpm --dir sdk test` + `cargo test` green.",
-    "notes": "0037 slice 2 of 5 (6d2cca6): telemetry's hook projection. SDK-side synthesis (tapHookRows beside registrationRows) reusing the engine's registration loop (drift.rs:932) unchanged. blockedBy VERIFIER-TYPED: needs the typed verifier + overlaps declarations.ts/emit.test.ts. No builtin_lock touch (no shipped telemetry verifier) -> disjoint from EXTENT/SETTINGS-LOCAL. command targets sibling tap [1]; [3] (log format open at derive)/[4] un-derived, cursor holds. scoped at 5b81ba8."
+    "notes": "0037 slice 2 of 5 (6d2cca6): telemetry's hook projection. SDK-side synthesis (tapHookRows beside registrationRows, declarations.ts:667) reusing the engine registration loop (drift.rs) unchanged. VERIFIER-TYPED shipped 2fc2291 — `Verifier.Telemetry` species live, re-gated OPEN (07-17 reconcile). No builtin_lock touch (no shipped telemetry verifier) -> disjoint. command targets sibling tap [1]; [3]/[4] un-derived, cursor holds. scoped 5b81ba8; re-read at HEAD."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -226,7 +223,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at 0349821 and holds — nothing ruled the hop semantics. 6667265 (mention-reachable) touched both files this window and shifted the later addresses; re-read at HEAD, all carry. Constant still 5 on disk (`graph.rs`:59) — the park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 4a33911; park re-tested 0349821."
+    "notes": "Park re-tested at d1af9a5 and holds — nothing ruled the hop semantics; VERIFIER-TYPED's window touched graph.rs but not the const region (still 5 at graph.rs:59, cite still 2026-07-02 at 55-58). The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 4a33911."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -253,6 +250,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at 0349821, holding on every clause: no version tag exists, crate 0.1.0, and release.yml:7-9 still states the darwin + channel-3 deferral verbatim. `git diff b85df4a..HEAD -- .github/` is empty. scoped b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   }
 ]
