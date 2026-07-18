@@ -82,6 +82,53 @@
     "notes": "Decision 0040, point 2. Disjoint from every other queue entry's files (frontmatter.rs, test_support.rs touched nowhere else this tick). scoped at f404e48."
   },
   {
+    "tag": "ROSTER-BUILTIN-KIND-NARROWING-RELOCATE",
+    "summary": "roster.rs (model) imports crate::builtin (provider) solely for kind_narrowing_clause, a generic clause-builder with no Claude Code dependency — relocate it to compose.rs, Requirement's own home",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "Invariants — stated as absences"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin.rs",
+          "description": "`kind_narrowing_clause` (50-76, doc + fn) builds an ordinary `Clause`/`Predicate::Kind` from two `&str` arguments — no `crate::builtin_lock` or Claude-Code-specific data touches it, so its home in this provider module is architecture.md's stated violation ('the provider face is data the engine loads, never a dependency of the model'): `crate::roster` (model subsystem) has to import this provider module just to reach it. Move the fn (with its doc comment) to `src/compose.rs`, beside `Requirement` (the noun the fn's own doc says it narrows). After the move, `Predicate`/`Severity` and the bare `contract::` self-import become dead in this file — `kind_narrowing_clause` was their only user (grep confirms no other `Predicate`/`Severity`/bare-`contract::` reference in builtin.rs) — so the import line (15) narrows to `use crate::contract::{Clause, Contract};`."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Gains `kind_narrowing_clause(requirement: &str, kind: &str) -> contract::Clause` (moved verbatim from builtin.rs, doc comment included), rewritten to use this file's existing qualified-path style (`contract::Clause { .. }`, `contract::Predicate::Kind { .. }`, `contract::Severity::Required`, `contract::clause_label`, `contract::requirement_owner`) rather than adding new unqualified imports — `compose.rs` already imports `use crate::contract::{self, Contract};` and uses exactly this qualified style elsewhere (`clause_from_row`, `severity_from_label`)."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "Drop `use crate::builtin;` (14). The three `builtin::kind_narrowing_clause` references — the doc comment at 57, the real call at 79 inside `selections`, the doc comment at 104 — become `compose::kind_narrowing_clause`, folding into the existing `use crate::compose::{Requirement, Verifier};` import (already present) as `use crate::compose::{kind_narrowing_clause, Requirement, Verifier};`."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "Four references to `temper::builtin::kind_narrowing_clause` — the doc comment at 239 and the call at 244 (`the_kind_narrowing_clause_loads_at_required_severity`), the doc comment at 260 and the call at 261 (`the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set`) — become `temper::compose::kind_narrowing_clause`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/contract_template.rs",
+        "asserts": "the_kind_narrowing_clause_loads_at_required_severity and the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set pass unchanged calling temper::compose::kind_narrowing_clause"
+      },
+      {
+        "path": "src/roster.rs",
+        "asserts": "roster.rs's own inline tests (selections()/judge_roster over a requirement with a kind facet) pass unchanged — the move is location-only, no behavior change"
+      }
+    ],
+    "acceptance": "`src/roster.rs` carries no `crate::builtin` import; `kind_narrowing_clause` lives in `src/compose.rs`; `src/builtin.rs`'s import list drops the now-dead `Predicate`/`Severity`/bare `contract::` self-import. architecture.md's invariant ('the provider face is ... never a dependency of the model') holds for roster.rs. `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Found sweeping 'model' (foundation done, model this tick). roster.rs's separate `crate::engine` import stays untouched — doc-justified delegation to the judge algebra, and architecture.md states no model-never-depends-on-judges invariant, unlike the provider one this fixes; surfaced for a human read, not filed. Disjoint from every other entry this tick. scoped at 4adb1fb."
+  },
+  {
     "tag": "DRIFT-LOCK-ROW-WALK-CONSOLIDATION",
     "summary": "src/drift.rs walks the committed lock's declaration rows three separate times (read_prior_provenance, config_stale, emit_owned_targets) — consolidate to one shared raw-row walk",
     "per": {
@@ -253,6 +300,118 @@
     ],
     "acceptance": "extract.rs imports no crate-internal sibling (foundation-clean); the lock-row lifters live in drift.rs and the manifest-collection grammar (both read and write faces) lives in json_manifest.rs, with manifest_members/entry_fields/hook_member_fields/enablement_member_fields private and enablement_entry_value/hook_matcher_group pub(crate) for drift — reconciling the narrower EXTRACT-PRIVATE-COLLECTION-DECODERS ask at the functions' new homes rather than at extract (0040, Consequences). architecture.md's foundation invariant holds without qualification. `cargo test` and `cargo clippy -D warnings` green.",
     "notes": "Decision 0040, point 3 — supersedes/retires EXTRACT-PRIVATE-COLLECTION-DECODERS: its enablement_member_fields/hook_member_fields private-fn ask folds into this entry's acceptance at the functions' new home, json_manifest.rs, per 0040's Consequences naming that reconciliation. Serialized behind PLACEMENT-MODULE-EXTRACTION for shared drift.rs edits (pending-entry.md) — also shares json_manifest.rs/main.rs with DISCOVERY-INFALLIBLE-RESULT-COLLAPSE, upstream in the chain. scoped at f404e48."
+  },
+  {
+    "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE",
+    "summary": "kind.rs ships three pub fns with zero callers anywhere outside their own file — Commitment::label, Content::label, CustomKind::qualified_name — prune per the export-earns-its-consumer bar",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "EXTRACT-FOUNDATION-BOUNDARY-RESTORE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Three `pub` items grep-verified zero-consumer (no `.label()`/`.qualified_name()` call anywhere in src/, tests/, or sdk/ outside kind.rs's own inline tests): `impl Commitment { pub fn label(self) -> &'static str { .. } }` (58-68) — the whole `impl Commitment` block, since `label` is its only method; `impl Content { pub fn label(&self) -> &'static str { .. } }` (165-176) — likewise the whole block, `label` is its only method; `CustomKind::qualified_name` (934-939, the doc comment plus `pub fn qualified_name(&self) -> String { self.name.clone() } `) inside the larger `impl CustomKind` block — remove only this method, the surrounding impl block has other live methods. Each type (`Commitment`, `Content`, `CustomKind`) stays; only the dead method/impl goes."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "the now-orphaned inline test `qualified_name_is_the_bare_name` (1826-1830) is removed alongside the fn it exercises; every other kind.rs test (Commitment/Content coverage via their variants, not their removed label methods) stays green"
+      }
+    ],
+    "acceptance": "`Commitment::label`, `Content::label`, and `CustomKind::qualified_name` are gone from src/kind.rs, along with their now-vacuous inline test. `cargo test` and `cargo clippy -D warnings` green (no unused-code warning survives).",
+    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind EXTRACT-FOUNDATION-BOUNDARY-RESTORE for shared-file safety (pending-entry.md, 'Disjoint, or serialized') — that entry also edits kind.rs (a doc-comment reword at ENABLEMENT_FIELD, no line overlap with this entry's targets, but the file-level rule binds regardless of line overlap). scoped at 4adb1fb."
+  },
+  {
+    "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH",
+    "summary": "declared_keys falls through `_ => None` instead of naming every Predicate variant like neighbors target/documented_field do — a new key-declaring variant would silently vanish from the allow-list",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "KIND-ZERO-CONSUMER-EXPORTS-PRUNE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "`declared_keys` (736-746) matches `Predicate::Required { field } | Predicate::Optional { field } => Some(field)` then falls through `_ => None` for every other variant. Two functions immediately above it over the same enum — `target` (642-673) and `documented_field` (683-720ish) — instead list every non-mapped `Predicate` variant explicitly in the `None` arm's pipe-group (engineering.md's own precedent: 'a `_` arm over a shared concept is a seam defect waiting for its field report'); a future key-declaring variant added to `Predicate` would compile silently against `declared_keys`'s wildcard while `target`/`documented_field` would force a decision. Rewrite `declared_keys`'s match to mirror `target`/`documented_field`'s style: keep the `Required`/`Optional` arm producing `Some(field)`, replace `_ => None` with every remaining variant named in one pipe-grouped arm mapping to `None` (the same variant list `target` already spells, since no other predicate declares a schema key)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/closed_keys.rs",
+        "asserts": "a_member_carrying_only_declared_keys_holds and the file's other closed-keys coverage stay green — the rewrite is exhaustiveness-only, declared_keys returns the identical set for every existing predicate"
+      }
+    ],
+    "acceptance": "declared_keys's match names every Predicate variant explicitly, no `_` wildcard remains, matching the exhaustive style of target/documented_field two functions above it. `cargo test` and `cargo clippy -D warnings` green.",
+    "notes": "Found sweeping 'model' subsystem (posture rotation). Serialized behind KIND-ZERO-CONSUMER-EXPORTS-PRUNE purely for chain linearity with CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP next (both touch contract.rs, and the schema's single-tag blockedBy can't express 'wait for two independent priors' — same tradeoff DRIFT-LOCK-ROW-WALK-CONSOLIDATION's chain already accepted). No functional dependency on the kind.rs entry. scoped at 4adb1fb."
+  },
+  {
+    "tag": "CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP",
+    "summary": "Predicate::RequireSections can't be authored or decoded — the SDK constructor takes no sections arg, ClauseRow has no column for it, predicate_from_row has no arm — though engine.rs fully judges it",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "`requireSections = (): Predicate => ({ key: \"require_sections\" })` (168) takes no argument even though its own doc comment reads 'The named headings are present' — unlike `dependencyExists` (whose missing constructor is explicitly documented: 'the engine holds it back absent a decidable reference syntax'), nothing here names this as a deliberate hold. Change the signature to `requireSections = (sections: readonly string[]): Predicate => ({ key: \"require_sections\", sections })`. Add a `sections?: readonly string[]` field to the `Predicate` interface (76, beside `section`), documented the same way `keys`/`values` are ('`require_sections`'s required heading list')."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`clauseRow` (65-115) maps each `Predicate` field to its `ClauseRow` column by explicit `predicate.key === \"...\"` branches (`keys`, `values`, `section`, etc. — no generic spread). Add: `sections: predicate.key === \"require_sections\" && predicate.sections ? [...predicate.sections] : undefined,` alongside the existing `keys`/`values`/`section` branches (110-114), copying into a fresh array per the file's own documented reason ('the generated rows carry mutable columns; the predicate's ... is read-only, so copy each into a fresh array')."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`ClauseRow` (struct at 2869-2971) carries no column a `require_sections` row could use — `keys`/`values`/`section` are documented as each other predicate's own. Add a new field `pub sections: Option<Vec<String>>,` after `section` (2970), with a doc comment naming it `require_sections`'s required-heading-list column, matching the `#[serde(default)]` pattern every other optional column carries. This regenerates `sdk/src/generated/ClauseRow.ts` via the existing ts-rs export test — do not hand-edit the generated file."
+        },
+        {
+          "path": "src/contract.rs",
+          "description": "`predicate_from_row` (424-...) has arms for every predicate key except `require_sections` and the constructor-less `dependency-exists` (falls through `_ => return None`). Add, near the `must_define` (458) / `section_contains` (461) arms: `\"require_sections\" => Predicate::RequireSections { sections: row.sections.clone()? },`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/contract.test.ts",
+        "asserts": "a new test asserts requireSections([\"Usage\", \"Decision\"]) composes { key: \"require_sections\", sections: [\"Usage\", \"Decision\"] } as an ordinary Predicate value, the pattern the file's other node-set constructor tests (count, unique, membership) already follow"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a new (or extended) round-trip test pushes a require_sections ClauseRow with a sections column through emit + read_declarations and asserts predicate_from_row lifts it back to Predicate::RequireSections { sections } with the same list, the same shape a_floor_clause_row_round_trips_its_node_scope_predicate_argument already proves for forbidden_keys/allowed_chars"
+      }
+    ],
+    "acceptance": "An SDK author can call requireSections([...]) with real heading names, the emitted lock round-trips them through a new sections ClauseRow column, and predicate_from_row decodes a require_sections row back into Predicate::RequireSections { sections } — closing the one predicate in the closed vocabulary whose lock declaration rows (pipeline.md, 'The lock') could not carry its own argument. `cargo test` (Rust) and `pnpm --dir sdk test` (SDK gate) green.",
+    "notes": "Found sweeping 'model' via predicate_from_row. DependencyExists's parallel missing arm is NOT part of this entry — its SDK constructor is deliberately absent (contract.ts says why), genuinely unreachable, unlike RequireSections's unusable half-built constructor. Serialized behind CONTRACT-DECLARED-KEYS-EXHAUSTIVE-MATCH for shared contract.rs/drift.rs safety. scoped at 4adb1fb."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
