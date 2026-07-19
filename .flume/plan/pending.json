@@ -63,49 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "MAIN-EXPLAIN-READ-CONSOLIDATE",
-    "summary": "explain's dispatch body (515-634) moves into read.rs, whose codemap job is already 'the read verbs' resolution' — main.rs keeps only the CLI call",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Delete explain()'s dispatch body (515-634, current HEAD, reverify at pickup). The Command dispatch call site (503, `print!(\"{}\", explain(&target)?)`) requalifies to whatever read.rs names the moved function — read.rs already exports a `pub fn explain` (218, the target-species resolution explain's own body dispatches to at its own line 619, `Ok(read::explain(...))`) — a real name collision the move must resolve (rename the moved corpus-assembly wrapper, e.g. read::explain_target, or fold its prelude into the existing read::explain if the signature can absorb it); name the choice in the commit body. By this point every helper explain() calls (partition_kind_rows, repo_file_set, embedded_features_by_kind, collect_directive_members) already lives in the library wherever MAIN-GATE-VERB-MODULE-EXTRACT landed it — read.rs calls that qualified path unchanged."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Gains explain's dispatch body verbatim (515-634) under its resolved name (see main.rs edit) — the module's own codemap job is already 'the read verbs' resolution' (architecture.md)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "existing explain/target-resolution coverage stays green calling the renamed or folded read.rs entry point — the split is location/naming-only, no resolution-behavior change"
-      }
-    ],
-    "acceptance": "explain's dispatch body lives in src/read.rs (its own 'read verbs' resolution' home) under a name that doesn't collide with read::explain's existing target-species resolution; main.rs's CLI dispatch calls it, no logic left behind. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308.",
-    "observedFiles": [
-      "src/main.rs",
-      "src/read.rs"
-    ]
-  },
-  {
     "tag": "GRAPH-ENABLEMENT-FIELD-RETIRE",
     "summary": "graph.rs's dead-plugin judge stops reading the bare ENABLEMENT_FIELD constant; kind.rs deletes it once both consumers are gone (decision 0042's retirement, completed)",
     "per": {
