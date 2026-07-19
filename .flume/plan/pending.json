@@ -1,48 +1,5 @@
 [
   {
-    "tag": "BUILTINS-WHEN-GUARD-HOLDS-CLOSE",
-    "summary": "marketplaceDefaultContract and mcpServerDefaultContract still block their source/transport holds on a Rust `when` that already shipped — close both with the vocabulary now available.",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "Default contracts"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "marketplaceDefaultContract (1048) and its header comment (1017-1031) state the `source` union 'awaits decision 0041's Rust implementation' and 'the SDK half is ready'; mcpServerDefaultContract (1570) and its header (1556-1568) make the same claim for the per-transport requirements. Both are stale: Predicate::When shipped engine-side in 1a3c824 (src/contract.rs; decide logic at src/engine.rs:1207) *before* 7a7f5ec wrote these very comments re-examining the holds against decision 0041, and `when()` has been SDK-exported (sdk/src/index.ts:56, sdk/src/contract.ts:277) since 884a704 — also ahead of 7a7f5ec. Add `when(enumOf(...)/type(...), [...])` clauses completing: (1) marketplace's per-source-form required fields — the relative-path string form needs the `leading-dot-slash` shape (already shipped, `sdk/src/contract.ts`'s `shape` family), each object form (`github`/`git-subdir`/`url`/`npm`, `MarketplaceSource` at line 900) needs its own required fields at `plugins[*].source.*`; (2) mcp-server's per-transport requirements — a stdio-typed or type-absent server needs `command`, a remote transport (`http`/`streamable-http`/`sse`/`ws`) needs `url`. Rewrite both header comments to state the closed hold accurately — no clause may claim to await 'the Rust engine' when the engine has carried `when` since before either header was last written."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "marketplaceDefaultContract's new when clauses require the right field per `source` form (leading-dot-slash for the string form; each object form's own required fields) and the existing predicate-key assertion (line ~427) is updated for the added clauses"
-      },
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "mcpServerDefaultContract's new when clause requires `command` where `type` is absent or `stdio`, and `url` for a remote transport, rejecting a url-only entry with no type per the existing configuration-error guidance"
-      }
-    ],
-    "acceptance": "Both default contracts express their documented per-discriminator required fields via `when` clauses, per decision 0041's Consequences ('marketplaceDefaultContract completes the source union ... the other two shipped contracts ... resolving to a completed clause or a hold that survives honestly'); neither header comment misattributes an open hold to a missing engine capability. cargo test and pnpm --dir sdk test green.",
-    "notes": "hookDefaultContract's hold (handler schema one array level below the collection address) is unaffected — that re-examination is still correct, an addressing-reach gap `when` cannot close since the collection address doesn't walk into hooks.<Event>[]. Only the marketplace and mcp-server holds were misdiagnosed against the shipped engine. scoped at ecabca1.",
-    "observedFiles": [
-      "sdk/src/builtins.ts",
-      "sdk/test/builtins.test.ts",
-      "src/builtin_lock.toml",
-      "src/bundle.rs",
-      "tests/bundle.rs",
-      "tests/snapshots/bundle__.claude-plugin__marketplace.json.snap"
-    ]
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
