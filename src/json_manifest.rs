@@ -535,10 +535,7 @@ fn render_object(members: &[(&str, JsonValue)]) -> String {
 /// contract-edge challenge (decision 0040): the grammar is the one channel,
 /// the divergence the write face ([`hook_matcher_group`]) mirrors. Every other
 /// collection reads each entry object's members verbatim ([`entry_fields`]).
-///
-/// `pub(crate)` so the JSON manifest adapter reads a collection
-/// address's members off the one grammar the frontmatter path also parses to.
-pub(crate) fn manifest_members(
+fn manifest_members(
     manifest: &JsonMap<String, JsonValue>,
     collection_key: &str,
 ) -> Vec<(String, BTreeMap<String, JsonValue>)> {

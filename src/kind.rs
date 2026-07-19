@@ -185,7 +185,7 @@ pub enum CollectionKeyPath {
 
 /// The declared field an `enabledPlugins` entry's **scalar value** surfaces under — the
 /// one home the synthesized name lives at, so the read face that names it
-/// ([`crate::json_manifest::manifest_members`]) and the liveness gate that reads it
+/// (``json_manifest::manifest_members``) and the liveness gate that reads it
 /// ([`crate::graph`]) cannot drift apart. The wire carries the value bare (`"foo@bar":
 /// true`), so unlike a hook's `event` this field names no key of the manifest's own; it
 /// is the member's one declared field, and its documented semantics — `false` is a plugin
