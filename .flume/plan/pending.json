@@ -63,42 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "MAIN-ADMISSIBILITY-JUDGES-MODULE-EXTRACT",
-    "summary": "main.rs's seven admissibility/collision judges share one job — declared-program well-formedness — and move together to a new judges module admissibility",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "New flat module, judges subsystem (architecture.md's codemap: 'evaluation over the resolved corpus') — human-ruled (inbox, observed b4a6947): the seven admissibility/collision-diagnostic functions cluster by one job, declared-program well-formedness (drift::Declarations in, check::Diagnostic out), not by which of engine.rs/graph.rs they happen to call (only joined_kind_admissibility calls engine::admissibility — a judges-internal import, no seam per the ruling; the other six call neither). Moved verbatim (current HEAD line numbers, reverify at pickup): joined_kind_admissibility (1740-1755), satisfies_label_admissibility (2036-2067) with SATISFIES_LABEL_ADMISSIBILITY_RULE (2028) and NESTED_MEMBER_ADMISSIBILITY_RULE (2025), nested_member_admissibility (2076-2095), kind_collision_diagnostic (2265-2278) with KIND_COLLISION_RULE (2210), clause_collision_diagnostics (2301-2332) with CLAUSE_COLLISION_RULE (2283), local_locus_admissibility (2343-2369) with LOCAL_LOCUS_RULE (2338), governs_collision_diagnostics (2396-2435) with its own governs_collision_diagnostic singular helper (2439-2454) and GOVERNS_COLLISION_RULE (2375). Also carries declared_embedded_kinds (2000-2020), nested_member_admissibility's set builder: forced out of main.rs alongside it (a library module cannot call back into the main.rs binary crate) — its other caller, embedded_features_by_kind, stays in main.rs until MAIN-GATE-VERB-MODULE-EXTRACT moves it and calls admissibility::declared_embedded_kinds meanwhile (main.rs calling a library function is unproblematic); build may instead judge declared_embedded_kinds belongs in compose.rs beside embedded_features_by_kind's eventual home, with admissibility.rs calling compose:: — judges consuming model is the directionality the codemap already establishes, so either placement is architecturally sound. Name the choice in the commit body. local_locus_admissibility and governs_collision_diagnostics both call overlay_builtin_kind, already forced out of main.rs by MAIN-CORPUS-ASSEMBLY-TO-COMPOSE's own move (resolve_kind_units/kind_features become its callers) — call it at whichever qualified path that entry lands, most likely compose::overlay_builtin_kind."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Delete the seven moved functions, their six RULE consts, governs_collision_diagnostic, and declared_embedded_kinds (whichever module wins). gate()'s calls requalify to admissibility::: clause_collision_diagnostics (910), kind_collision_diagnostic (952), governs_collision_diagnostics (956), local_locus_admissibility (964), nested_member_admissibility (1020), joined_kind_admissibility (1055), satisfies_label_admissibility (1061)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
-      }
-    ],
-    "acceptance": "src/admissibility.rs exists in the judges subsystem carrying the seven admissibility/collision judges and their RULE consts verbatim; main.rs no longer defines them, calling admissibility:: instead. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): unparks MAIN-JUDGE-VERB-HOME-RULING's first half — clustering by job (well-formedness), not by engine/graph call shape. Serialized behind MAIN-CORPUS-ASSEMBLY-TO-COMPOSE (shared main.rs); declared_embedded_kinds/overlay_builtin_kind's exact landing module is that entry's or this one's build-time call. scoped at 8104308."
-  },
-  {
     "tag": "MAIN-GATE-VERB-MODULE-EXTRACT",
     "summary": "gate's dispatch body (839-1214) becomes a new flat verbs module gate — main.rs merely calls it, the install/bundle precedent for a verb's body",
     "per": {
@@ -106,8 +70,7 @@
       "section": "Invariants — stated as absences"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MAIN-ADMISSIBILITY-JUDGES-MODULE-EXTRACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -184,49 +147,6 @@
     "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308."
   },
   {
-    "tag": "JSON-MANIFEST-ENTRY-SHAPE-DISPATCH",
-    "summary": "manifest_members and emit's write faces dispatch on the collection's declared entry-shape instead of CollectionKeyPath identity; the HooksEvent/EnabledPlugins branches delete (decision 0042)",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "The fix lands at the mechanism"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`manifest_members` (538-565) branches on collection *identity* — `if collection_key == CollectionKeyPath::HooksEvent.collection_key()` (545) and `::EnabledPlugins.collection_key()` (555) — with the object-shape read (`entry_fields`, 571-579) as the unconditional fallthrough tail (561-564). Re-key the dispatch to match on the resolved collection's declared entry-shape (from KIND-ENTRY-SHAPE-DATA-DECLARE) instead: `Scalar`/`GroupArray`/`Object`, deleting both identity comparisons. `enablement_member_fields` (598-603) and `enablement_entry_value` (615-620, `pub(crate)`) stop reading the bare `ENABLEMENT_FIELD` constant and take the shape's own field name as a parameter instead. `hook_member_fields` (630-658) and `hook_matcher_group` (667-686, `pub(crate)`) stop hardcoding the literal strings `\"matcher\"`/`\"hooks\"` and take the shape's own member-array key / lifted field names as parameters instead. `entry_fields` (object-shape read) has no named write-side inverse today — its write is inlined in `drift.rs`'s `emit` (see below); promote it into a first-class function beside its siblings for symmetry, or leave the inline and only change its dispatch condition — a judgment call for build, named in the commit body."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`emit`'s registration-write loop (1006-1058) branches on the identical identity pair: `if collection == CollectionKeyPath::HooksEvent.collection_key()` (1028) and `::EnabledPlugins.collection_key()` (1040), with the object-shape write inlined unconditionally in the `else` (1049-1057). Re-key to dispatch on the registration's collection's declared entry-shape, calling `json_manifest`'s now-shape-parameterized write functions (and the object-shape write, wherever it now lives per the json_manifest.rs judgment call) instead of the identity `if`/`else if`/`else` chain."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/json_manifest.rs",
-        "asserts": "enablement_members_carry_the_scalar_value_and_re_render_identically (~970-1007), an_enablement_member_with_no_enabled_field_renders_the_documented_true (~1009-1014), and hook_members_decompose_the_matcher_group_array_and_re_nest_identically (~1016-1051) all pass calling the now-parameterized functions — identical behavior, dispatch-only rewrite"
-      },
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical (924) stays byte-identical through the rekeyed dispatch"
-      },
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "composition 3 (116-126: sessionHook/formatterPlugin/acmeMarketplace — group-array/scalar/object composed in one settings.json) stays snapshot-identical, proving the rekeyed dispatch handles all three shapes together in one manifest — this already-existing composition discharges decision 0042's 'gauntlet gains a fixture composing the three shapes' consequence (verified on disk this tick, no new fixture needed)"
-      }
-    ],
-    "acceptance": "manifest_members and emit's registration-write loop both dispatch on the collection's declared entry-shape; no CollectionKeyPath identity comparison remains in either function. Byte-identical output to today (engineering.md, 'The fix lands at the mechanism': the special case generalizes, the case stops being special). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Derived from decision 0042, Consequences bullet 2 (json_manifest.rs half) plus the drift.rs write-face half the decision's own text folds into 'the write faces re-key.' Bullet 5 (gauntlet fixture) verified-already-moot on disk this tick via tests/gauntlet.rs:116-126 — see tests[] above."
-  },
-  {
     "tag": "GRAPH-ENABLEMENT-FIELD-RETIRE",
     "summary": "graph.rs's dead-plugin judge stops reading the bare ENABLEMENT_FIELD constant; kind.rs deletes it once both consumers are gone (decision 0042's retirement, completed)",
     "per": {
@@ -234,8 +154,7 @@
       "section": "The fix lands at the mechanism"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "JSON-MANIFEST-ENTRY-SHAPE-DISPATCH"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -265,41 +184,6 @@
     ],
     "acceptance": "graph.rs's dead-plugin judge reads the field name from kind data, never the bare ENABLEMENT_FIELD constant; kind.rs no longer declares it. cargo test and cargo clippy --all-targets -- -D warnings green.",
     "notes": "Derived from decision 0042, completing Consequences bullet 1's ENABLEMENT_FIELD retirement (graph.rs was not named in the decision's own text, which lists only kind.rs/json_manifest.rs — but ENABLEMENT_FIELD cannot retire while this file still reads it; the retirement's completion, not new scope). Last entry in the 0042 chain. scoped at efe64aa."
-  },
-  {
-    "tag": "BUILTIN-KIND-SURFACE-UNIT-CONSOLIDATE",
-    "summary": "builtin_kind.rs's test module carries a private surface_unit byte-identical to tests/common's, instead of the crate's own designated shared-fixture home, test_support.rs",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "The inline `#[cfg(test)] mod tests` (570) declares a private `fn surface_unit(member: &crate::frontmatter::Member) -> Unit` (888-900, doc 885-887 'Lift an imported ... straight into the raw Unit the composed extractor reads', closing brace 901) that is a byte-for-byte body duplicate — and near-identical doc comment — of `tests/common::surface_unit` (`tests/common/mod.rs`, pub fn at 463-476, doc 460-462, same wording). This same test module already imports `crate::test_support::tmpdir` (574) — the crate's own designated home for in-src `#[cfg(test)]` fixture scaffolding (`src/test_support.rs`'s own header: 'Shared scaffolding for in-src `#[cfg(test)] mod tests` blocks'), so the pattern for sharing this exact class of helper is already established and simply wasn't used for this one. Delete the private `surface_unit` (885-901); add `crate::test_support::surface_unit` to the existing `use crate::test_support::tmpdir;` import line (or a neighboring one), and leave its five call sites (933, 984, 1013, 1027, 1046) unchanged — same name, same signature, now resolved from the shared home."
-        },
-        {
-          "path": "src/test_support.rs",
-          "description": "Add `pub(crate) fn surface_unit(member: &crate::frontmatter::Member) -> Unit { .. }` here, lifted verbatim from builtin_kind.rs's deleted copy (same field-by-field construction: id, frontmatter, body, source_path, satisfies, satisfies_clauses). Add `crate::kind::Unit` to this file's existing `use crate::kind::{CustomKind, Extraction, Format, Governs, Primitive, UnitShape};` import line; `crate::frontmatter::Member` stays referenced by its qualified path in the signature, as the deleted original did, needing no new import."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/builtin_kind.rs",
-        "asserts": "skill_features_fold_unknown_keys_and_surface_satisfies_off_the_surface and its four sibling tests calling surface_unit (984, 1013, 1027, 1046) stay green — the move is location-only, identical Unit construction"
-      }
-    ],
-    "acceptance": "builtin_kind.rs's test module has no private surface_unit; it calls crate::test_support::surface_unit, the same shared home the module already draws tmpdir from. src/test_support.rs is the fn's one implementation for in-src unit tests. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping provider (posture rotation: judges skip-forwarded since fe3ff3f, provider touched by 404b73a/516f8f6). tests/common::surface_unit stays untouched — test_support.rs is pub(crate) (lib.rs:58), a different compilation unit, not a three-way merge. Serialized behind KIND-ENTRY-SHAPE-DATA-DECLARE, sharing builtin_kind.rs; TAP-PAYLOAD-SCHEMA-SPLIT also touches it, open/queue-front, ships first regardless. scoped at e5d01fe."
   },
   {
     "tag": "KIND-LAYOUT-READER-MODULE-EXTRACT",
