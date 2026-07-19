@@ -63,49 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "GATE-MANIFEST-SHARED-READ-HOIST",
-    "summary": "gate()/explain() re-read+re-parse a manifest file (settings.json) once per governing kind, and coverage_note reads it again for coverage — hoist to one shared parse per file per run",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`manifest_units` (1495-1508) calls `json_manifest::Manifest::read_kind(disc, kind)` (1501) once per governing kind — called from `kind_features`'s per-kind loop (gate()'s built-in/custom-kind dispatch) and again from `collect_directive_members`'s own per-kind loop until GATE-KIND-UNITS-DOUBLE-RESOLVE-HOIST collapses that second pass. Three built-in kinds — `hook`, `installed-plugin`, `known-marketplace` (builtin_kind.rs:239,303,344) — each govern `.claude/settings.json`, so one gate()/explain() run independently opens and parses that one file up to three times, each call passing only its own kind's single address (`json_manifest::Manifest::read` already accepts `addresses: &[&CollectionAddress]`, a set — the primitive supports a combined read, no caller uses it). Once JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE lands `manifest_units`'s own discovery call, group the governing kinds sharing one discovered manifest path and call `Manifest::read` once per path with every governing kind's address, then route each kind's own collection's members back to its caller. Exact caching/threading shape (a per-run path-keyed cache gate()/explain() builds once and passes down, or a module-level cache) is a judgment call for build, named in the commit body."
-        },
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`read_kind` (419-434) discovers and reads one kind's manifest file(s) with only that kind's own `address` (433, `Manifest::read(file, &[address])`) — the caller-shape half of the duplication; `Manifest::read`'s own signature (`addresses: &[&CollectionAddress]`, 331-334) already supports a combined multi-kind read. No change needed to `Manifest::read`/`parse` themselves — the fix is in how `read_kind`'s caller (main.rs) groups kinds by manifest path before calling it, per the main.rs edit."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "`manifest_top_level_keys` (410-417) independently calls `crate::json_manifest::Manifest::read(&root.join(surface.path), &[])` (414) for a surface (e.g. `.claude/settings.json`) that gate()'s own per-kind resolution has already read and parsed for every governing kind — a fourth read of the same file. Its own doc comment (405-409) already concedes 'by this point the gate's own manifest kinds have already read the same file' without reusing that read. Once gate()/explain() hold the shared per-path Manifest cache the main.rs edit establishes, thread it (or its `opaque_fields`) into `coverage_note::check` (142) and have `manifest_top_level_keys` read from it instead of calling `Manifest::read` itself."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "a fixture whose .claude/settings.json is governed by hook, installed-plugin, and known-marketplace together (the real built-in overlap) proves the file is read+parsed exactly once per gate()/explain() invocation — a new count-pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
-      },
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "a_partially_governed_settings_json_names_only_the_present_ungoverned_residue stays green — the hoist is signature-only, no change to which keys are classified checked vs residue"
-      }
-    ],
-    "acceptance": "Within one gate()/explain() invocation, a manifest file governed by more than one kind (settings.json's hook/installed-plugin/known-marketplace overlap) is opened and parsed exactly once, and coverage_note::check's top-level-key read draws from that same parse rather than re-reading the file. A count-pin test proves it. No behavior change to which members or coverage residue is reported. cargo test and cargo clippy -D warnings green.",
-    "notes": "Found sweeping judges (pipeline done, judges this tick) via coverage_note.rs's manifest_top_level_keys, whose doc concedes the redundancy unfixed — tracing it surfaced deeper per-kind duplication in main.rs/json_manifest.rs. Serialized behind JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE, last chain entry touching both, whose read_kind narrowing this builds on. Shares coverage_note.rs with COVERAGE-NOTE-GOVERNS-FILE-LEAF-CONSOLIDATE too; ships independently. scoped at 662cf07."
-  },
-  {
     "tag": "JSON-MANIFEST-MEMBERS-ZERO-CONSUMER-PRUNE",
     "summary": "json_manifest.rs's manifest_members is pub(crate) but called only from Manifest::parse in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
     "per": {
@@ -113,8 +70,7 @@
       "section": "An export earns its consumer"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GATE-MANIFEST-SHARED-READ-HOIST"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -140,45 +96,6 @@
     ],
     "acceptance": "manifest_members is a private fn in src/json_manifest.rs, not pub(crate); kind.rs's ENABLEMENT_FIELD doc comment no longer carries an intra-doc link to it. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
     "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick). Serialized behind GATE-MANIFEST-SHARED-READ-HOIST, the last entry in the existing chain touching json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at e733883."
-  },
-  {
-    "tag": "BUILTINS-DEFAULT-CONTRACT-HOLDS-CLOSE",
-    "summary": "Re-examine the three shipped default-contract holds against decision 0041's widened vocabulary — marketplace's source union, mcp-server's transport fields, hook's per-event schema",
-    "per": {
-      "path": "specs/builtins.md",
-      "section": "Default contracts"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Three default contracts in this file carry a documented `hold` (specs/builtins.md, 'Default contracts': a documented, decidable rule the vocabulary cannot yet spell, named at the point of enforcement with the widening that closes it, decision 0033) that decision 0041's `when`/`enum`/`type` guard widening was ratified to close, per its own Consequences. (1) `marketplaceDefaultContract` (1018-1109, hold doc 1018-1053, hold quote 1027-1037: the `plugins[].source` `string|object` union — a relative-path string form documenting a leading `./` spelling, or an object form whose `source` discriminator, `\"github\"|\"url\"|\"git-subdir\"|\"npm\"` per code.claude.com/docs/en/plugin-marketplaces, decides its own required companion fields) — complete it with `when(enumOf(\"plugins[*].source.source\", [...documented discriminator values]), [required(...per-kind companion fields...)])` clauses plus a `shape(..., \"leading-dot-slash\")` clause validating the string form, re-verifying the exact per-discriminator required-field list against current docs (retrieved date updated) before citing it, and retire the header hold paragraph (1027-1037). (2) `mcpServerDefaultContract` (1547-1580, hold doc 1557-1572, hold quote 1566-1571: `type` discriminates a `stdio` server's need for `command` vs. a remote transport's need for `url`) — same shape, `when(enumOf(\"type\", [...]), [required(\"command\")])` / `when(enumOf(\"type\", [...]), [required(\"url\")])` per the documented transport set (code.claude.com/docs/en/mcp, re-verify exact values), retiring its header hold. (3) `hookDefaultContract` (1520-1545, hold-like doc 1520-1537, quote 1529-1536: the per-event handler's own `type`/`command`/`url`/`timeout` schema lives one array level deeper than the collection address `hooks.<Event>` walks into) — re-examine against the widened vocabulary and confirm on disk whether any addressing extension since this hold was written now reaches the nested matcher-group array; per this tick's investigation, none does, so this hold is an addressing-reach gap `when`/`enum`/`type` cannot close (they guard a field that must first be addressable) — reword its header to state it was re-examined against decision 0041 and confirmed to still hold, rather than leaving it looking unexamined. If the re-examination instead finds the field newly addressable, complete the clause instead and say so in the commit body."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/marketplace_kind.rs",
-        "asserts": "the completed source-union contract catches every documented violation shape (bad discriminator value, missing companion field per kind, a string form missing the leading ./) and passes every valid one"
-      },
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "the completed mcp-server transport-conditional contract catches a stdio entry missing command and a remote entry missing url"
-      },
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "hookDefaultContract's re-examined hold stays documented and unresolved if the addressing gap is confirmed unchanged — a vacuity-honest non-resolution, named as such"
-      }
-    ],
-    "acceptance": "marketplaceDefaultContract's source union and mcpServerDefaultContract's transport-conditional requirements are both fully expressed via when/enumOf/shape clauses with current per-clause cites, their header holds retired; hookDefaultContract's hold is either completed or its header explicitly confirms re-examination against decision 0041's widened vocabulary with the addressing-reach reason it still stands. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "Decision 0041 Consequences: marketplace + 'other two' vocabulary holds, combined since all three sit in sdk/src/builtins.ts (one Consequences bullet). Investigation this tick found exactly three vocabulary-shaped holds — no fourth candidate; every other shipped contract's absence is explicitly semantic, not vocabulary-blocked. Blocked by CONTRACT-WHEN-SDK-AUTHORING-ROUNDTRIP for the when()/leading-dot-slash vocabulary consumed here."
   },
   {
     "tag": "DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST",
