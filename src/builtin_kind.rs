@@ -324,6 +324,8 @@ fn claude_code_memory() -> CustomKind {
 /// file of its own — the manifest is discovered off the `.claude/settings.json` locus and
 /// each `hooks.<Event>` entry read as a member — carries no body (`Content::Fields`), and
 /// registers on the `event` channel, its event surfaced as a field off the collection key.
+/// Its value is a group-array: an array of matcher groups, each carrying lifted fields
+/// (`matcher`) and a member array of handlers (`hooks`).
 fn claude_code_hook() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
@@ -334,6 +336,10 @@ fn claude_code_hook() -> CustomKind {
         collection_address: Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::HooksEvent,
+            entry_shape: crate::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
         }),
         ..CustomKind::new(
             "hook",
@@ -361,6 +367,7 @@ fn claude_code_mcp_server() -> CustomKind {
         collection_address: Some(CollectionAddress {
             manifest: ".mcp.json".to_string(),
             key_path: CollectionKeyPath::McpServers,
+            entry_shape: crate::kind::EntryShape::Object,
         }),
         ..CustomKind::new(
             "mcp-server",
@@ -398,6 +405,9 @@ fn claude_code_installed_plugin() -> CustomKind {
         collection_address: Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::EnabledPlugins,
+            entry_shape: crate::kind::EntryShape::Scalar {
+                field: crate::kind::ENABLEMENT_FIELD.to_string(),
+            },
         }),
         // The marketplace half of the `<plugin>@<marketplace>` key is an edge to the
         // `known-marketplace` member it names (decision 0039); the read splits it off the
@@ -439,6 +449,7 @@ fn claude_code_known_marketplace() -> CustomKind {
         collection_address: Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::ExtraKnownMarketplaces,
+            entry_shape: crate::kind::EntryShape::Object,
         }),
         ..CustomKind::new(
             "known-marketplace",
@@ -974,6 +985,10 @@ mod tests {
             Some(CollectionAddress {
                 manifest: "settings.json".to_string(),
                 key_path: CollectionKeyPath::HooksEvent,
+                entry_shape: crate::kind::EntryShape::GroupArray {
+                    member_key: "hooks".to_string(),
+                    lifted_fields: vec!["matcher".to_string()],
+                },
             })
         );
         // Registers on the `event` channel — the lifecycle event it fires at, surfaced
@@ -1011,6 +1026,7 @@ mod tests {
             Some(CollectionAddress {
                 manifest: ".mcp.json".to_string(),
                 key_path: CollectionKeyPath::McpServers,
+                entry_shape: crate::kind::EntryShape::Object,
             })
         );
         // Registers on the `connection` channel — the harness connects to it, a runtime

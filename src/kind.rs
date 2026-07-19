@@ -149,6 +149,27 @@ pub enum Content {
     Fields,
 }
 
+/// A collection's declared **entry shape** — whether a value at a collection address
+/// is an object (its keys are the member's fields), a scalar (the value is a single field
+/// carrying its name), or a group-array (an array of groups with lifted fields and a
+/// member array). The entry-shape fact is a closed vocabulary, the same load-time reject
+/// [`Format`]/[`UnitShape`]/[`Registration`] carry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EntryShape {
+    /// `object` — the value's keys are the member's fields (the unmarked default).
+    Object,
+    /// `scalar` — the value is the member's one declared field, carrying that field's name.
+    Scalar { field: String },
+    /// `group-array` — the value is an array of groups, each carrying lifted shared fields
+    /// plus a member array.
+    GroupArray {
+        /// The key of the member array within each group.
+        member_key: String,
+        /// The lifted shared field names, each carried alongside the member array.
+        lifted_fields: Vec<String>,
+    },
+}
+
 /// A registration member's declared **collection address** — where inside a host manifest
 /// its registration surfaces. A hook registers under its lifecycle event in
 /// `settings.json`'s `hooks`; an MCP server registers by name under `.mcp.json`'s
@@ -162,6 +183,8 @@ pub struct CollectionAddress {
     pub manifest: String,
     /// The key path within the manifest the member's registration keys at.
     pub key_path: CollectionKeyPath,
+    /// The entry's declared shape — whether it's an object, scalar, or group-array.
+    pub entry_shape: EntryShape,
 }
 
 /// A collection address's **key path** — the closed vocabulary of manifest key paths a
@@ -1125,14 +1148,79 @@ pub(crate) fn collection_address_from_row(
 ) -> Result<Option<CollectionAddress>, LockRowError> {
     match &row.collection_address {
         None => Ok(None),
-        Some(address) => Ok(Some(CollectionAddress {
-            manifest: address.manifest.clone(),
-            key_path: kind_vocab(
+        Some(address) => {
+            let key_path = kind_vocab(
                 &address.key_path,
                 "collection_address",
                 collection_key_path_from_label(&address.key_path),
-            )?,
-        })),
+            )?;
+            let entry_shape = if let Some(shape_label) = &address.entry_shape {
+                kind_vocab(
+                    shape_label,
+                    "collection_address.entry_shape",
+                    entry_shape_from_label(shape_label),
+                )?
+            } else {
+                match key_path {
+                    CollectionKeyPath::HooksEvent => EntryShape::GroupArray {
+                        member_key: "hooks".to_string(),
+                        lifted_fields: vec!["matcher".to_string()],
+                    },
+                    CollectionKeyPath::McpServers => EntryShape::Object,
+                    CollectionKeyPath::EnabledPlugins => EntryShape::Scalar {
+                        field: "enabled".to_string(),
+                    },
+                    CollectionKeyPath::ExtraKnownMarketplaces => EntryShape::Object,
+                }
+            };
+            Ok(Some(CollectionAddress {
+                manifest: address.manifest.clone(),
+                key_path,
+                entry_shape,
+            }))
+        }
+    }
+}
+
+/// Parse an entry shape wire label into its typed [`EntryShape`] — the closed vocabulary
+/// `object`, `scalar(field)`, or `group-array(member_key;lifted_field1,lifted_field2,...)`.
+fn entry_shape_from_label(label: &str) -> Option<EntryShape> {
+    if label == "object" {
+        Some(EntryShape::Object)
+    } else if label.starts_with("scalar(") && label.ends_with(')') {
+        let field = label[7..label.len() - 1].to_string();
+        if !field.is_empty() {
+            Some(EntryShape::Scalar { field })
+        } else {
+            None
+        }
+    } else if label.starts_with("group-array(") && label.ends_with(')') {
+        let inner = &label[12..label.len() - 1];
+        let parts: Vec<&str> = inner.splitn(2, ';').collect();
+        if parts.len() == 2 {
+            let member_key = parts[0].to_string();
+            let lifted_fields = parts[1]
+                .split(',')
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            if !member_key.is_empty() && !lifted_fields.is_empty() {
+                Some(EntryShape::GroupArray {
+                    member_key,
+                    lifted_fields,
+                })
+            } else {
+                None
+            }
+        } else if parts.len() == 1 && !parts[0].is_empty() {
+            Some(EntryShape::GroupArray {
+                member_key: parts[0].to_string(),
+                lifted_fields: vec![],
+            })
+        } else {
+            None
+        }
+    } else {
+        None
     }
 }
 

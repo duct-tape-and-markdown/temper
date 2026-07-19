@@ -110,6 +110,9 @@ fn the_installed_plugin_kind_is_a_fields_only_manifest_kind_at_the_enabled_plugi
         Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::EnabledPlugins,
+            entry_shape: temper::kind::EntryShape::Scalar {
+                field: "enabled".to_string(),
+            },
         })
     );
     // The entry's own presence is the channel — fieldless, as a connection's is.

@@ -587,6 +587,7 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
                 collection_address: Some(CollectionAddressRow {
                     manifest: "settings.json".to_string(),
                     key_path: "hooks.<Event>".to_string(),
+                    entry_shape: Some("group-array(hooks;matcher)".to_string()),
                 }),
             }],
             registrations: vec![drift::RegistrationRow {

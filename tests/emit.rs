@@ -515,6 +515,7 @@ fn hook_kind_facts() -> KindFactRow {
         collection_address: Some(CollectionAddressRow {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
+            entry_shape: Some("group-array(hooks;matcher)".to_string()),
         }),
         ..common::kind_facts("hook", ".claude", "settings.json")
     }
@@ -960,6 +961,10 @@ fn a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical() {
     let address = CollectionAddress {
         manifest: "settings.json".to_string(),
         key_path: CollectionKeyPath::HooksEvent,
+        entry_shape: temper::kind::EntryShape::GroupArray {
+            member_key: "hooks".to_string(),
+            lifted_fields: vec!["matcher".to_string()],
+        },
     };
     let manifest = json_manifest::Manifest::read(&settings_path, &[&address]).unwrap();
     assert_eq!(manifest.members.len(), 2);

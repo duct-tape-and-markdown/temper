@@ -148,6 +148,7 @@ test("mcpServer is a fields-only manifest kind at the mcpServers.* collection ad
   assert.deepEqual(mcpServer.facts.collectionAddress, {
     manifest: ".mcp.json",
     keyPath: "mcpServers.*",
+    entryShape: "object",
   });
 });
 
@@ -161,6 +162,7 @@ test("installedPlugin is a fields-only manifest kind at the enabledPlugins.* col
   assert.deepEqual(installedPlugin.facts.collectionAddress, {
     manifest: "settings.json",
     keyPath: "enabledPlugins.*",
+    entryShape: "scalar(enabled)",
   });
 });
 
@@ -182,6 +184,7 @@ test("knownMarketplace is a fields-only manifest kind at the extraKnownMarketpla
   assert.deepEqual(knownMarketplace.facts.collectionAddress, {
     manifest: "settings.json",
     keyPath: "extraKnownMarketplaces.*",
+    entryShape: "object",
   });
 });
 

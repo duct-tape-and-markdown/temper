@@ -141,6 +141,7 @@ export interface CollectionAddress {
     | "mcpServers.*"
     | "enabledPlugins.*"
     | "extraKnownMarketplaces.*";
+  readonly entryShape: string;
 }
 
 /**

@@ -3150,6 +3150,9 @@ pub struct CollectionAddressRow {
     /// The manifest key path the registration keys at (`hooks.<Event>`, `mcpServers.*`), a
     /// closed vocabulary the engine's kind lift rejects an unknown value from.
     pub key_path: String,
+    /// The entry's declared shape — whether it's an object, scalar, or group-array.
+    #[serde(default)]
+    pub entry_shape: Option<String>,
 }
 
 /// A kind's declared **layout** — the ordered region rows a `layout`-content kind's body
@@ -4115,6 +4118,7 @@ fn collection_address_from_table(table: &dyn TableLike) -> Result<CollectionAddr
     Ok(CollectionAddressRow {
         manifest: req_str(table, "manifest")?,
         key_path: req_str(table, "key_path")?,
+        entry_shape: opt_str(table, "entry_shape")?,
     })
 }
 

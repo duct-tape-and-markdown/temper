@@ -103,6 +103,7 @@ fn hook_kind_facts() -> KindFactRow {
         collection_address: Some(CollectionAddressRow {
             manifest: "settings.json".to_string(),
             key_path: "hooks.<Event>".to_string(),
+            entry_shape: Some("group-array(hooks;matcher)".to_string()),
         }),
         ..common::kind_facts("hook", ".claude", "settings.json")
     }
@@ -1266,6 +1267,10 @@ fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reac
         Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::HooksEvent,
+            entry_shape: temper::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
         }),
     );
 
@@ -1294,6 +1299,7 @@ fn mcp_server_kind_facts() -> KindFactRow {
         collection_address: Some(CollectionAddressRow {
             manifest: ".mcp.json".to_string(),
             key_path: "mcpServers.*".to_string(),
+            entry_shape: Some("object".to_string()),
         }),
         ..common::kind_facts("mcp-server", ".", ".mcp.json")
     }
@@ -1377,6 +1383,7 @@ fn from_kind_fact_row_rejects_an_out_of_vocabulary_collection_key_path() {
         collection_address: Some(CollectionAddressRow {
             manifest: "settings.json".to_string(),
             key_path: "hooks.everything".to_string(),
+            entry_shape: Some("group-array(hooks;matcher)".to_string()),
         }),
         ..common::kind_facts("hook", ".claude", "settings.json")
     };

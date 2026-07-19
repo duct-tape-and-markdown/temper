@@ -426,6 +426,10 @@ mod tests {
         kind.collection_address = Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::HooksEvent,
+            entry_shape: crate::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
         });
         kind
     }

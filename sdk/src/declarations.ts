@@ -268,12 +268,17 @@ function contentRow(content: Layout | undefined): LayoutRow | undefined {
 
 /**
  * Lower a kind's declared {@link CollectionAddress} into its `collection_address` row —
- * `keyPath` spelled as the wire's snake_case `key_path`. `undefined` for a file-locus
- * kind, so its row omits the column and stays byte-identical.
+ * `keyPath` spelled as the wire's snake_case `key_path`, and `entryShape` passed through
+ * as a string wire format (`object`, `scalar(field)`, or `group-array(member_key;lifted_fields)`).
+ * `undefined` for a file-locus kind, so its row omits the column and stays byte-identical.
  */
 function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefined {
   if (facts.collectionAddress === undefined) return undefined;
-  return { manifest: facts.collectionAddress.manifest, key_path: facts.collectionAddress.keyPath };
+  return {
+    manifest: facts.collectionAddress.manifest,
+    key_path: facts.collectionAddress.keyPath,
+    entry_shape: facts.collectionAddress.entryShape,
+  };
 }
 
 /**

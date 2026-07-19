@@ -80,6 +80,7 @@ fn the_known_marketplace_kind_is_a_fields_only_manifest_kind_at_the_extra_known_
         Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::ExtraKnownMarketplaces,
+            entry_shape: temper::kind::EntryShape::Object,
         })
     );
     // The registry entry's own presence is the channel — fieldless, as a connection's is.

@@ -392,7 +392,7 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
   unitShape: "file",
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
-  collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
+  collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>", entryShape: "group-array(hooks;matcher)" },
 });
 
 /**
@@ -440,7 +440,7 @@ export const mcpServer: KindDefinition<McpServer> = kind<McpServer>({
   unitShape: "file",
   registration: [{ via: "connection" }],
   shape: "fields",
-  collectionAddress: { manifest: ".mcp.json", keyPath: "mcpServers.*" },
+  collectionAddress: { manifest: ".mcp.json", keyPath: "mcpServers.*", entryShape: "object" },
 });
 
 /**
@@ -479,7 +479,7 @@ export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPl
   unitShape: "file",
   registration: [{ via: "enablement" }],
   shape: "fields",
-  collectionAddress: { manifest: "settings.json", keyPath: "enabledPlugins.*" },
+  collectionAddress: { manifest: "settings.json", keyPath: "enabledPlugins.*", entryShape: "scalar(enabled)" },
   // The marketplace half of the `<plugin>@<marketplace>` key is a declared edge to the
   // `known-marketplace` member it names (decision 0039). The half is not an authored field
   // — the engine splits it off the composite key at read (`src/kind.rs`, the read-time fold
@@ -554,7 +554,7 @@ export const knownMarketplace: KindDefinition<KnownMarketplace> = kind<KnownMark
   unitShape: "file",
   registration: [{ via: "registry" }],
   shape: "fields",
-  collectionAddress: { manifest: "settings.json", keyPath: "extraKnownMarketplaces.*" },
+  collectionAddress: { manifest: "settings.json", keyPath: "extraKnownMarketplaces.*", entryShape: "object" },
 });
 
 /**

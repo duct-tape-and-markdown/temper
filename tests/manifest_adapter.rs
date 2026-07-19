@@ -24,6 +24,7 @@ fn mcp_address() -> CollectionAddress {
     CollectionAddress {
         manifest: ".mcp.json".to_string(),
         key_path: CollectionKeyPath::McpServers,
+        entry_shape: temper::kind::EntryShape::Object,
     }
 }
 

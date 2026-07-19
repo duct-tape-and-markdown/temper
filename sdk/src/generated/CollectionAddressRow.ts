@@ -15,4 +15,8 @@ manifest: string,
  * The manifest key path the registration keys at (`hooks.<Event>`, `mcpServers.*`), a
  * closed vocabulary the engine's kind lift rejects an unknown value from.
  */
-key_path: string, };
+key_path: string, 
+/**
+ * The entry's declared shape — whether it's an object, scalar, or group-array.
+ */
+entry_shape: string | null, };
