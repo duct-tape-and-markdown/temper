@@ -1576,25 +1576,25 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
           The house standards.
         `,
         requires: {
-          // A second verifier naming the same \`Skill\` event: its hook dedupes against the
+          // A second verifier naming the same \`SkillInvoked\` event: its hook dedupes against the
           // assembly's, so the shared \`PostToolUse\`/\`Skill\` registration stays one row.
-          "skill-fires": { prose: "the coordinate skill fires", verifier: telemetry(["Skill"]) },
+          "skill-fires": { prose: "the coordinate skill fires", verifier: telemetry(["SkillInvoked"]) },
         },
       }),
     ],
     require: {
       "rules-load": {
         prose: "the rust rules load and the coordinate skill fires",
-        verifier: telemetry(["InstructionsLoaded", "Skill"]),
+        verifier: telemetry(["InstructionsLoaded", "SkillInvoked"]),
       },
     },
   });
 
   const result = emit(h);
 
-  // One dumb registration per (lifecycle event, matcher) any verifier names — \`Skill\`
+  // One dumb registration per (lifecycle event, matcher) any verifier names — \`SkillInvoked\`
   // surfaces under \`PostToolUse\` with the tool-name matcher, \`InstructionsLoaded\` under its
-  // own event with the load-reason matcher — deduped across the two verifiers naming \`Skill\`.
+  // own event with the load-reason matcher — deduped across the two verifiers naming \`SkillInvoked\`.
   assert.deepEqual(result.registrations, [
     {
       kind: "hook",
@@ -1634,12 +1634,12 @@ test("a telemetry verifier naming every documented event synthesizes each event'
     require: {
       "full-tap": {
         prose: "the tap records every documented lifecycle event",
-        verifier: telemetry(["InstructionsLoaded", "Skill", "UserPromptExpansion", "PostToolUse"]),
+        verifier: telemetry(["InstructionsLoaded", "SkillInvoked", "UserPromptExpansion", "ToolUse"]),
       },
     },
   });
 
-  // \`Skill\` and \`PostToolUse\` both ride the \`PostToolUse\` event but with distinct matchers
+  // \`SkillInvoked\` and \`ToolUse\` both ride the \`PostToolUse\` event but with distinct matchers
   // (the Skill tool vs every tool), so each keeps its own registration.
   assert.deepEqual(
     emit(h).registrations.map((r) => [r.key, r.fields.find(([f]) => f === "matcher")?.[1]]),

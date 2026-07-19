@@ -212,13 +212,13 @@ test("the script constructor composes a path-tagged verifier and lowers to its s
 });
 
 test("the telemetry constructor composes an event-tagged verifier and lowers its names", () => {
-  assert.deepEqual(telemetry(["Skill", "PostToolUse"]), {
+  assert.deepEqual(telemetry(["SkillInvoked", "ToolUse"]), {
     species: "telemetry",
-    events: ["Skill", "PostToolUse"],
+    events: ["SkillInvoked", "ToolUse"],
   });
-  assert.deepEqual(verifierRowOf(telemetry(["Skill", "PostToolUse"])), {
+  assert.deepEqual(verifierRowOf(telemetry(["SkillInvoked", "ToolUse"])), {
     species: "telemetry",
-    events: ["Skill", "PostToolUse"],
+    events: ["SkillInvoked", "ToolUse"],
   });
 });
 

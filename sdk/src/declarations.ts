@@ -749,18 +749,18 @@ const TAP_COMMAND = "temper tap";
  *
  * - `InstructionsLoaded` fires on a rule/memory load; its matcher filters the load
  *   reason, and `path_glob_match` is the lazy per-path load the coverage tap reads.
- * - `Skill` is a skill invocation, surfaced under `PostToolUse` with the tool-name
+ * - `SkillInvoked` is a skill invocation, surfaced under `PostToolUse` with the tool-name
  *   matcher `Skill` — the tap's own read of a skill call.
  * - `UserPromptExpansion` fires on a command expansion; its matcher filters the command
  *   name, `.*` capturing every one.
- * - `PostToolUse` fires after any tool call; its matcher filters the tool name, `.*`
+ * - `ToolUse` fires after any tool call; its matcher filters the tool name, `.*`
  *   capturing every one.
  */
 const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; readonly matcher: string }>> = {
   InstructionsLoaded: { event: "InstructionsLoaded", matcher: "path_glob_match" },
-  Skill: { event: "PostToolUse", matcher: "Skill" },
+  SkillInvoked: { event: "PostToolUse", matcher: "Skill" },
   UserPromptExpansion: { event: "UserPromptExpansion", matcher: ".*" },
-  PostToolUse: { event: "PostToolUse", matcher: ".*" },
+  ToolUse: { event: "PostToolUse", matcher: ".*" },
 };
 
 /**
