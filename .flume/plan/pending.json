@@ -63,50 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "MAIN-GATE-VERB-MODULE-EXTRACT",
-    "summary": "gate's dispatch body (839-1214) becomes a new flat verbs module gate — main.rs merely calls it, the install/bundle precedent for a verb's body",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/gate.rs",
-          "description": "New flat module, verbs subsystem (architecture.md's codemap: main/install/bundle — 'main carries dispatch only; corpus assembly and judgment live in the library'). Carries gate's dispatch body verbatim (839-1214, current HEAD, reverify at pickup) as `pub fn gate`. Hard constraint, not a style choice: gate.rs is a library module while gate() lives in the main.rs binary crate today, so every main.rs-private helper gate() calls must also move into the library, or gate.rs cannot compile. Verified via rg (current HEAD): kind_selections (1896-1911, gate's sole caller) and mode_from_declarations (644-666, gate's own doc names gate as its reason to exist; also called again at main.rs:384, the CLI dispatch, which keeps calling it fine post-move) default into gate.rs directly. partition_kind_rows (2246-2260, plus its sole-caller helper row_relocates_builtin, 2224-2234), repo_file_set (1820-1831), embedded_features_by_kind (1928-1951), and collect_directive_members (2171-2202) are each ALSO called by explain() (main.rs:554/606/575/607 respectively), which stays in main.rs until MAIN-EXPLAIN-READ-CONSOLIDATE ships next — main.rs keeps calling library functions fine meanwhile, so these four just need one shared home reachable from gate.rs and (for now) main.rs. compose.rs is the well-argued default (member composition, the job MAIN-CORPUS-ASSEMBLY-TO-COMPOSE already establishes there; partition_kind_rows's own doc comment already names explain/gate/collect_directive_members as its three call sites). Exact split is a judgment call for build, named in the commit body — if any land in compose.rs instead of gate.rs, that file is edited too."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "Delete gate()'s body (839-1214) and whichever helpers travel per the above. harness_diagnostics (821-829, its three call sites) and the inline test (~2651) requalify to gate::gate(...); the top-level Command dispatch's mode_from_declarations call (384) requalifies to wherever that helper lands. explain()'s still-resident call sites (554, 575, 606, 607) requalify to the four shared helpers' landed qualifier — call-site-only, explain's own body is untouched until the next entry."
-        },
-        {
-          "path": "src/lib.rs",
-          "description": "Add `pub mod gate;` alongside the existing `pub mod install;`/`pub mod bundle;` — the verbs subsystem's new library entry."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
-      },
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "existing count-pins (e.g. gate_lock_parse_is_hoisted_with_source_dependencies) stay green — the move relocates gate's body without changing its lock-read/parse counts"
-      }
-    ],
-    "acceptance": "gate()'s dispatch body lives in src/gate.rs (verbs subsystem) as a pub fn main.rs calls via gate::gate(...); every helper only gate() needed has moved into the library alongside it. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): unparks MAIN-JUDGE-VERB-HOME-RULING's second half, gate's piece — the install/bundle precedent, a verb's body is a library module main merely calls. Serialized behind MAIN-ADMISSIBILITY-JUDGES-MODULE-EXTRACT (shared main.rs). scoped at 8104308."
-  },
-  {
     "tag": "MAIN-EXPLAIN-READ-CONSOLIDATE",
     "summary": "explain's dispatch body (515-634) moves into read.rs, whose codemap job is already 'the read verbs' resolution' — main.rs keeps only the CLI call",
     "per": {
@@ -114,8 +70,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MAIN-GATE-VERB-MODULE-EXTRACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
