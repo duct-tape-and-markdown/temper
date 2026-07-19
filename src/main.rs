@@ -39,19 +39,6 @@ use temper::tap;
 static DEFAULT_WORKSPACE: LazyLock<String> =
     LazyLock::new(|| format!("./{}", temper::WORKSPACE_DIR));
 
-thread_local! {
-    static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-}
-
-/// This thread's cumulative count of `resolve_kind_units` invocations. Read before and
-/// after a gate/explain run and compare the delta to the kinds the run resolves, pinning
-/// that `resolve_kind_units` — the corpus's one source of live member units off disk —
-/// runs exactly once per built-in kind and once per custom kind, never twice.
-#[must_use]
-pub fn resolve_kind_units_count() -> usize {
-    RESOLVE_KIND_UNITS_COUNT.with(std::cell::Cell::get)
-}
-
 /// The kinds `schema` emits a default contract for, by bare row label; widening it
 /// to `memory` is a separate question.
 const BUILTIN_DEFAULT_CONTRACT_KINDS: &[&str] = &["skill", "rule"];
@@ -763,9 +750,17 @@ unit_shape = "file"
         )
         .unwrap();
 
-        let before = resolve_kind_units_count();
+        let before = compose::resolve_kind_units_count();
         gate::gate(&harness, &harness, &[]).unwrap();
-        let resolves = resolve_kind_units_count() - before;
+        let resolves = compose::resolve_kind_units_count() - before;
+
+        // The count-pin verifies resolve_kind_units is called exactly once per kind.
+        // With 15+ built-in kinds plus custom kinds, a vacuous test would pass with zero;
+        // a real run must demonstrate non-zero delta.
+        assert!(
+            resolves > 0,
+            "resolve_kind_units not called at all (delta was 0); the real counter may not be wired",
+        );
 
         // Before the fix, resolve_kind_units was called twice per kind: once through
         // kind_features and again through collect_directive_members. After the fix, it's
