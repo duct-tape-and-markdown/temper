@@ -33,6 +33,18 @@ use crate::extract::{self, FeatureValue};
 use crate::frontmatter::Provenance;
 use crate::kind::{CollectionAddress, CustomKind, Unit, UnitShape};
 
+thread_local! {
+    static MANIFEST_READ_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// This thread's cumulative count of manifest file read operations. Pinned by count-tests
+/// to enforce the cost doctrine: manifest files are read exactly once per run, never once
+/// per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
+#[must_use]
+pub fn manifest_read_count() -> usize {
+    MANIFEST_READ_COUNT.with(std::cell::Cell::get)
+}
+
 /// A JSON manifest read through the adapter's read face: the registration members
 /// inferred at its declared collection addresses, the opaque field residue no address
 /// consumed, and the provenance lock the idempotence keystone rests on. The read-side
@@ -348,6 +360,7 @@ impl Manifest {
         source_file: &Path,
         addresses: &[&CollectionAddress],
     ) -> Result<Self, JsonManifestError> {
+        MANIFEST_READ_COUNT.with(|c| c.set(c.get() + 1));
         let raw = read_to_string(source_file)?;
         Self::parse(source_file, &raw, addresses)
     }

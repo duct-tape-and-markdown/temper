@@ -69,6 +69,12 @@ pub fn resolve_kind_units_count() -> usize {
     RESOLVE_KIND_UNITS_COUNT.with(std::cell::Cell::get)
 }
 
+/// A cache of manifest files read during one gate()/explain() invocation: one read per
+/// manifest file path, shared across all kinds that govern it. Keys are manifest paths
+/// (e.g., ".claude/settings.json"), values are the parsed manifest and its opaque fields.
+type ManifestCache =
+    BTreeMap<PathBuf, (json_manifest::Manifest, BTreeMap<String, serde_json::Value>)>;
+
 /// Resolve a built-in kind's bare row label into its default [`Contract`], failing
 /// loud if the build embeds no default contract of that name — a
 /// missing default contract is a hard error, never a silently empty contract.
@@ -539,16 +545,29 @@ fn explain(target: &str) -> miette::Result<String> {
     // Parse the lock document once for reuse across source-dependency checks, hoisting
     // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
     let lock_doc = drift::read_lock_document(&workspace)?;
-    let LockFamily { declarations, .. } =
-        assemble_lock_family(&discovery, &drift::read_declarations(&workspace)?, &[])?;
+    // Empty cache for early assembly; will build a proper cache after lock_family returns.
+    let empty_cache: ManifestCache = BTreeMap::new();
+    let LockFamily { declarations, .. } = assemble_lock_family(
+        &discovery,
+        &drift::read_declarations(&workspace)?,
+        &[],
+        &empty_cache,
+    )?;
+
+    // Build a shared manifest cache for this explain invocation.
+    let manifest_cache = build_manifest_cache(&discovery, &declarations)?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
     // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
     // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
     let builtin_defs = builtin_kind::definitions();
-    let builtin_units_and_features =
-        builtin_units_and_features_by_kind(&builtin_defs, &discovery, &declarations)?;
+    let builtin_units_and_features = builtin_units_and_features_by_kind(
+        &builtin_defs,
+        &discovery,
+        &declarations,
+        &manifest_cache,
+    )?;
     let builtin_features: BTreeMap<String, Vec<extract::Features>> = builtin_units_and_features
         .iter()
         .map(|(k, uaf)| (k.clone(), uaf.features.clone()))
@@ -577,7 +596,8 @@ fn explain(target: &str) -> miette::Result<String> {
             row.name.clone(),
             compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
         );
-        let uaf = kind_units_and_features(&custom_kind, &discovery, &declarations)?;
+        let uaf =
+            kind_units_and_features(&custom_kind, &discovery, &declarations, &manifest_cache)?;
         let features = &uaf.features;
         let units = &uaf.units;
         for unit in units {
@@ -845,6 +865,41 @@ fn harness_diagnostics(
     }
 }
 
+/// Build a shared manifest cache for a single gate/explain invocation, grouping manifest
+/// kinds by their manifest file path and reading each file once with all governing kinds'
+/// addresses. This hoisting ensures manifest files are read exactly once per run, never
+/// once per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
+fn build_manifest_cache(
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+) -> miette::Result<ManifestCache> {
+    let mut cache: ManifestCache = BTreeMap::new();
+    let kinds = declared_kinds(declarations)?;
+
+    // Group manifest kinds by their manifest file path.
+    let mut by_manifest: BTreeMap<PathBuf, Vec<&CollectionAddress>> = BTreeMap::new();
+    for kind in kinds.values() {
+        if let Some(address) = &kind.collection_address
+            && let Some(governs) = &kind.governs
+        {
+            // Discover the actual files this kind governs.
+            let files =
+                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
+            for file in files {
+                by_manifest.entry(file).or_default().push(address);
+            }
+        }
+    }
+
+    // Read each manifest file once with all addresses for that file.
+    for (file, addresses) in by_manifest {
+        let manifest = json_manifest::Manifest::read(&file, &addresses)?;
+        cache.insert(file, (manifest, BTreeMap::new()));
+    }
+
+    Ok(cache)
+}
+
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts, with the [`check::Announcement`] of the inputs that judged it —
 /// the shared gate behind both `check` and the session-start
@@ -877,13 +932,15 @@ pub fn gate(
     // contract is, and off the same declarations the family assembles from — a run whose
     // gate and whose guard disagreed about the harness's own posture would be two gates.
     let mode = mode_from_declarations(&committed)?;
+    // Empty cache for early assembly; will build a proper cache after lock_family returns.
+    let empty_cache: ManifestCache = BTreeMap::new();
     let LockFamily {
         declarations,
         joined_clauses,
         joined_locks,
         local_members,
         dial,
-    } = assemble_lock_family(&discovery, &committed, layers)?;
+    } = assemble_lock_family(&discovery, &committed, layers, &empty_cache)?;
     // Every address the dial reached, accumulated across the contracts and selections
     // below: an entry that reached none is the one thing a dial can be wrong about that
     // its own schema cannot catch.
@@ -921,6 +978,11 @@ pub fn gate(
     // bind to the kind's *whole* by-kind selection, which only exists once every
     // dispatcher has run and `by_kind` is assembled below.
     let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+
+    // Build a shared manifest cache: one read per manifest file, shared across all
+    // manifest kinds that govern it (GATE-MANIFEST-SHARED-READ-HOIST).
+    let manifest_cache = build_manifest_cache(&discovery, &declarations)?;
+
     // Every clause's address is unique across the lock, decided before a single contract
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
     diagnostics.extend(clause_collision_diagnostics(&declarations, &joined_clauses));
@@ -947,7 +1009,7 @@ pub fn gate(
             dialed.extend(dial.apply(mode, &mut contract.clauses));
         }
 
-        let uaf = kind_units_and_features(kind, &discovery, &declarations)?;
+        let uaf = kind_units_and_features(kind, &discovery, &declarations, &manifest_cache)?;
         let features = &uaf.features;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
@@ -994,7 +1056,8 @@ pub fn gate(
             &row.name,
         )?;
         dialed.extend(dial.apply(mode, &mut contract.clauses));
-        let uaf = kind_units_and_features(&custom_kind, &discovery, &declarations)?;
+        let uaf =
+            kind_units_and_features(&custom_kind, &discovery, &declarations, &manifest_cache)?;
         let features = &uaf.features;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
@@ -1354,6 +1417,7 @@ fn resolve_kind_units(
     kind: &CustomKind,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
+    cache: &ManifestCache,
 ) -> miette::Result<Vec<Unit>> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
     let overlaid = overlay_builtin_kind(kind, declarations)?;
@@ -1377,7 +1441,9 @@ fn resolve_kind_units(
     // reads each file through the one adapter dispatch its declared format decides
     // (`read_file_unit`).
     let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
-        (kind::Content::Fields, Some(address), _) => manifest_units(disc, &overlaid, address)?,
+        (kind::Content::Fields, Some(address), _) => {
+            manifest_units(disc, &overlaid, address, cache)?
+        }
         // A nested file kind governs no glob to walk: its members sit under each *host*
         // member's unit at the host kind's template pattern, so they are found through the
         // declared set the host lives in, and each child's id folds against its own host's
@@ -1534,16 +1600,24 @@ fn manifest_units(
     disc: &import::Discovery,
     kind: &CustomKind,
     address: &CollectionAddress,
+    cache: &ManifestCache,
 ) -> miette::Result<Vec<Unit>> {
     let (Some(governs),) = (&kind.governs,) else {
         return Ok(Vec::new());
     };
     let files = import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
     let mut units = Vec::new();
-    for manifest in json_manifest::Manifest::read_kind(&files, kind)? {
-        let source_path = manifest.provenance.source_path.clone();
-        for member in &manifest.members {
-            units.push(member.to_unit(address, &source_path));
+    let collection = address.key_path.collection_key();
+    for file in files {
+        if let Some((manifest, _)) = cache.get(&file) {
+            let source_path = manifest.provenance.source_path.clone();
+            // Filter members to only those from this collection (cache contains members from all
+            // collections because we read the manifest with multiple addresses).
+            for member in &manifest.members {
+                if member.collection == collection {
+                    units.push(member.to_unit(address, &source_path));
+                }
+            }
         }
     }
     Ok(units)
@@ -1573,9 +1647,10 @@ fn kind_units_and_features(
     kind: &CustomKind,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
+    cache: &ManifestCache,
 ) -> miette::Result<KindUnitsAndFeatures> {
     let kind = overlay_builtin_kind(kind, declarations)?;
-    let units = resolve_kind_units(&kind, disc, declarations)?;
+    let units = resolve_kind_units(&kind, disc, declarations, cache)?;
     let features = units
         .iter()
         .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
@@ -1595,8 +1670,9 @@ fn kind_features(
     kind: &CustomKind,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
+    cache: &ManifestCache,
 ) -> miette::Result<Vec<extract::Features>> {
-    kind_units_and_features(kind, disc, declarations).map(|uaf| uaf.features)
+    kind_units_and_features(kind, disc, declarations, cache).map(|uaf| uaf.features)
 }
 
 /// The run's whole declaration family, assembled once for every consumer below.
@@ -1651,6 +1727,7 @@ fn assemble_lock_family(
     disc: &import::Discovery,
     committed: &drift::Declarations,
     layers: &[PathBuf],
+    cache: &ManifestCache,
 ) -> miette::Result<LockFamily> {
     let mut assembled = committed.clone();
     // Sorted, so the announced set reads the same whatever order a kind's locus walk
@@ -1660,7 +1737,7 @@ fn assemble_lock_family(
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
         }
-        let units = resolve_kind_units(kind, disc, committed)?;
+        let units = resolve_kind_units(kind, disc, committed, cache)?;
         let rows = local_document_rows(kind, &units, committed)?;
         local_members.extend(
             units
@@ -1672,7 +1749,7 @@ fn assemble_lock_family(
     }
     let joined = read_layer_clauses(layers)?;
     Ok(LockFamily {
-        dial: read_dial(disc, committed)?,
+        dial: read_dial(disc, committed, cache)?,
         declarations: assembled,
         joined_clauses: joined.clauses,
         joined_locks: joined.locks,
@@ -1696,6 +1773,7 @@ fn assemble_lock_family(
 fn read_dial(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
+    cache: &ManifestCache,
 ) -> miette::Result<dial::Dial> {
     let Some(kind) = builtin_kind::definition(dial::KIND) else {
         return Ok(dial::Dial::default());
@@ -1704,6 +1782,7 @@ fn read_dial(
         &kind,
         disc,
         declarations,
+        cache,
     )?))
 }
 
@@ -1913,12 +1992,13 @@ fn builtin_units_and_features_by_kind(
     builtin_defs: &BTreeMap<String, CustomKind>,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
+    cache: &ManifestCache,
 ) -> miette::Result<BTreeMap<String, KindUnitsAndFeatures>> {
     let mut by_kind = BTreeMap::new();
     for kind in builtin_defs.values() {
         by_kind.insert(
             kind.name.clone(),
-            kind_units_and_features(kind, disc, declarations)?,
+            kind_units_and_features(kind, disc, declarations, cache)?,
         );
     }
     Ok(by_kind)
