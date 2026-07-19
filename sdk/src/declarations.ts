@@ -16,6 +16,7 @@ import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kin
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
+import { SETTINGS_MANIFEST } from "./builtins.js";
 
 import type {
   AssemblyFactRow,
@@ -802,13 +803,6 @@ export function tapHookRows(harness: Harness): RegistrationRow[] {
       ],
     }));
 }
-
-/**
- * The manifest Claude Code's harness-level settings reside in — the file the assembly's
- * residual settings keys fold into as opaque residue, the same manifest the `hook` kind's
- * registrations surface inside (code.claude.com/docs/en/settings, retrieved 2026-07-10).
- */
-const SETTINGS_MANIFEST = "settings.json";
 
 /**
  * The `settings` rows — the assembly's harness-level residual settings keys, each folded

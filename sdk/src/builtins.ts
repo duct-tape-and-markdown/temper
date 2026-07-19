@@ -381,6 +381,13 @@ export interface Hook {
 }
 
 /**
+ * The manifest Claude Code's harness-level settings reside in — the file the assembly's
+ * residual settings keys fold into as opaque residue, the same manifest the `hook` kind's
+ * registrations surface inside (code.claude.com/docs/en/settings, retrieved 2026-07-16).
+ */
+export const SETTINGS_MANIFEST = "settings.json";
+
+/**
  * `hook` — a `settings.json` `hooks.<Event>` registration member: a fields-only kind (no
  * body slot), its members discovered off the `.claude/settings.json` manifest at the
  * `hooks.<Event>` collection address, keyed by lifecycle event; registers on the `event`
@@ -393,7 +400,7 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
   unitShape: "file",
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
-  collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>", entryShape: "group-array(hooks;matcher)" },
+  collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: "hooks.<Event>", entryShape: "group-array(hooks;matcher)" },
 });
 
 /**
