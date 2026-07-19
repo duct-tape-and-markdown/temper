@@ -1,36 +1,5 @@
 [
   {
-    "tag": "BUILTIN-LOCK-ROUND-TRIP-ALL-KIND-ROWS",
-    "summary": "The SDK-derived-lock round-trip test decodes only the installed-plugin row through CustomKind::from_kind_fact_row; widen it to decode all 14 derived kind rows",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A green verdict is proven non-vacuous"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "`the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader` (127-160) calls `declarations.kinds.iter().find(|k| k.name == \"installed-plugin\")` then decodes only that one row through `CustomKind::from_kind_fact_row`; the other 13 rows `MEMBERLESS_BUILTIN_PROGRAM`'s `expect` list derives (agent, command, dial, hook, knownMarketplace, marketplace, mcpServer, memory, pluginManifest, rule, settingsLocal, skill, supportingDoc, plus installed-plugin itself = 14) are parsed structurally into `declarations.kinds` but never pushed through the engine reader. Replace the single `find` with a loop over every row in `declarations.kinds`, asserting each decodes via `from_kind_fact_row` without error; keep the existing targeted assertion (the decoded installed-plugin row's registration set contains the field-carrying `Registration::Enablement { field: \"enabled\" }` variant) as the regression pin on that one row specifically."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "every one of the 14 kind facts in the SDK-derived memberless lock decodes through `CustomKind::from_kind_fact_row` without error, and the installed-plugin row's decoded registration set still contains the field-carrying Enablement variant"
-      }
-    ],
-    "acceptance": "the round-trip test loops `declarations.kinds` and asserts all 14 rows decode clean through the engine reader, not just installed-plugin; a one-sided respell of any other row's wire vocabulary now fails this test the way the bare-enablement bug would have. `cargo test --test builtin_lock_frozen` green.",
-    "notes": "Field note observed at 9a7d7d1, filed to inbox at 98a4cd3. Re-verified live at HEAD 9d0868b: test unchanged since 55b8539 (the fix that motivated it), still `find`s and decodes exactly one row of 14. scoped at 9d0868b."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
