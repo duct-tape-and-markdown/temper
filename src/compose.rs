@@ -27,10 +27,12 @@ use crate::document;
 use crate::drift::{self, ClauseRow};
 use crate::extract;
 use crate::frontmatter;
+use crate::graph;
 use crate::import;
 use crate::json_manifest;
 use crate::kind::{self, CollectionAddress, CustomKind, Unit};
 use crate::toml_document;
+use walkdir;
 
 thread_local! {
     static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -986,6 +988,257 @@ pub fn partition_kind_rows<'a>(
         }
     }
     Ok((custom, collisions))
+}
+
+/// The embedded-kind corpus: every kind declared at the embedded locus keyed to its
+/// members' [`Features`](extract::Features), so [`assemble_by_kind`] can fold it into the
+/// one `by_kind` map every graph predicate ranges over. An embedded kind is named where a
+/// host declares it — a `templates` column entry, or a layout member collection's
+/// `member_kind` — and carries no kind-fact row, so this is the sole seam it enters the
+/// corpus through. Its members are the run's assembled `nested_member` rows of that kind
+/// — a committed host's off the lock, a local host's derived at [`assemble_lock_family`],
+/// so a clause over it selects a local host's members and a committed host's alike — each
+/// lifted to a member whose id is the row's key and whose fields are its leaves, so an
+/// edge resolves against it by identity ([`embedded_member_features`]). A declared kind
+/// with no rows keys to an empty slice — modeled, so an edge targeting it is admissible
+/// and a dangling entry is a route finding, not an admissibility one; a kind no host
+/// declares is absent, so an edge targeting it stays an admissibility finding. Depth is
+/// one layer: a `nested_member` row's own sibling collections are the leaf grain the read
+/// family addresses, not a second embedded kind's member set.
+pub fn embedded_features_by_kind(
+    declarations: &drift::Declarations,
+) -> BTreeMap<String, Vec<extract::Features>> {
+    let mut by_kind: BTreeMap<String, Vec<extract::Features>> =
+        crate::admissibility::declared_embedded_kinds(declarations)
+            .into_iter()
+            .map(|kind| (kind, Vec::new()))
+            .collect();
+    // Each declared embedded kind's members are its `nested_member` rows. A row whose
+    // kind no host declares is an orphan rejected at admissibility
+    // ([`nested_member_admissibility`]), so this `get_mut` now backstops that already-loud
+    // unreachable state rather than swallowing a live one.
+    let edge_fields = edge_fields_by_kind(declarations);
+    let no_edges = BTreeSet::new();
+    for row in &declarations.nested_members {
+        if let Some(features) = by_kind.get_mut(&row.kind) {
+            features.push(embedded_member_features(
+                row,
+                edge_fields.get(&row.kind).unwrap_or(&no_edges),
+            ));
+        }
+    }
+    by_kind
+}
+
+/// The edge fields each kind declares, off the lock's `assembly` `edge` facts — the
+/// declared set a `format-places-edges` clause measures a value's own
+/// [`placed_edges`](drift::NestedMemberRow::placed_edges) against
+/// ([`embedded_member_features`]). A malformed edge fact is
+/// [`edges_from_declarations`]'s own load error, raised before any check runs, so this
+/// fold reads the well-formed rows rather than raise the identical fault twice.
+pub fn edge_fields_by_kind(
+    declarations: &drift::Declarations,
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    for fact in &declarations.assembly {
+        if fact.fact != "edge" {
+            continue;
+        }
+        if let (Some(from), Some(field)) = (fact.from.clone(), fact.field.clone()) {
+            by_kind.entry(from).or_default().insert(field);
+        }
+    }
+    by_kind
+}
+
+/// Lift one [`NestedMemberRow`](drift::NestedMemberRow) into the
+/// [`Features`](extract::Features) an edge resolves against: the row's key is the member
+/// id an edge matches by identity, and its leaves surface as string fields so a clause
+/// (or a deeper edge) can range over them exactly as a file member's frontmatter. The
+/// body-derived features are empty — an embedded member has no document of its own; it is
+/// read off its host's declared surface.
+///
+/// `edge_fields` is what the member's kind declares ([`edge_fields_by_kind`]); pairing the
+/// ones this row actually fills with its own `placed_edges` is what makes a
+/// `format-places-edges` clause decidable without the engine ever seeing the format that
+/// rendered the value. An unfilled field is no edge, so it is no obligation: ranging over
+/// the kind's whole declared set would read an absent edge as one the format dropped.
+pub fn embedded_member_features(
+    row: &drift::NestedMemberRow,
+    edge_fields: &BTreeSet<String>,
+) -> extract::Features {
+    let fields = row
+        .leaves
+        .iter()
+        .map(|(name, text)| (name.clone(), serde_json::Value::String(text.clone())))
+        .collect();
+    extract::Features {
+        id: row.key.clone(),
+        fields,
+        body_lines: 0,
+        // The rendered span `emit` captured off the value's own projection, lifted from
+        // the row so an `extent` clause bound to the embedded kind budgets real data. A
+        // `None` span is a value no format rendered (a layout host read off source): it has
+        // no projection to measure, so its `extent` stays undecidable rather than reading a
+        // zero as a pass.
+        rendered_lines: row.rendered_lines,
+        rendered_chars: row.rendered_chars,
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        // `None` ⇒ no format rendered the value (a layout host's document is source, not
+        // projection), which is not a format to indict. `Some` over an empty map ⇒ a
+        // format ran and the value carries no edge to place. The engine cannot tell the
+        // two apart once they collapse into one empty map, so they are kept apart here.
+        edge_placements: row.placed_edges.as_ref().map(|placed| {
+            edge_fields
+                .iter()
+                .filter(|field| row.leaves.get(*field).is_some_and(|text| !text.is_empty()))
+                .map(|field| (field.clone(), placed.contains(field)))
+                .collect()
+        }),
+    }
+}
+
+/// Construct directive members from pre-computed resolved units and features, avoiding
+/// a second `resolve_kind_units` pass. Called by [`gate`] and [`explain`] to avoid
+/// re-reading every member off disk after the units and features have already been
+/// resolved for validation.
+pub fn directive_members_from_resolved(
+    builtin_units_and_features: &BTreeMap<String, KindUnitsAndFeatures>,
+    custom_units_and_features: &[(CustomKind, KindUnitsAndFeatures)],
+) -> Vec<graph::DirectiveMember> {
+    let mut members = Vec::new();
+    for (kind_name, uaf) in builtin_units_and_features {
+        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
+            members.push(graph::DirectiveMember {
+                kind: kind_name.clone(),
+                id: features.id.clone(),
+                source_path: unit.source_path.clone(),
+                directives: features.directives.clone(),
+            });
+        }
+    }
+    for (custom_kind, uaf) in custom_units_and_features {
+        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
+            members.push(graph::DirectiveMember {
+                kind: custom_kind.name.clone(),
+                id: features.id.clone(),
+                source_path: unit.source_path.clone(),
+                directives: features.directives.clone(),
+            });
+        }
+    }
+    members
+}
+
+/// Every represented manifest file on disk as a raw [`Vec<String>`] of paths,
+/// walked once per run to avoid re-reading per-kind.
+pub fn repo_file_set(root: &Path) -> Vec<String> {
+    let mut files = Vec::new();
+    for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
+        let Ok(entry) = entry else { continue };
+        if entry.file_type().is_file()
+            && let Ok(rel) = entry.path().strip_prefix(root)
+        {
+            files.push(rel.to_string_lossy().replace('\\', "/"));
+        }
+    }
+    files
+}
+
+/// Build a shared manifest cache for a single gate/explain invocation, grouping manifest
+/// kinds by their manifest file path and reading each file once with all governing kinds'
+/// addresses. This hoisting ensures manifest files are read exactly once per run, never
+/// once per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
+pub fn build_manifest_cache(
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+) -> miette::Result<ManifestCache> {
+    let mut cache: ManifestCache = BTreeMap::new();
+    let kinds = declared_kinds(declarations)?;
+
+    // Group manifest kinds by their manifest file path.
+    let mut by_manifest: BTreeMap<PathBuf, Vec<&CollectionAddress>> = BTreeMap::new();
+    for kind in kinds.values() {
+        if let Some(address) = &kind.collection_address
+            && let Some(governs) = &kind.governs
+        {
+            // Discover the actual files this kind governs.
+            let files =
+                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
+            for file in files {
+                by_manifest.entry(file).or_default().push(address);
+            }
+        }
+    }
+
+    // Read each manifest file once with all addresses for that file.
+    for (file, addresses) in by_manifest {
+        let manifest = json_manifest::Manifest::read(&file, &addresses)?;
+        cache.insert(file, (manifest, BTreeMap::new()));
+    }
+
+    Ok(cache)
+}
+
+/// A built-in `kind`'s effective [`Contract`]: its lock-declared clause rows are its
+/// whole contract when the lock names any, lifted through the same reject-loud path a
+/// custom kind's rows take ([`default_contract_from_rows`]); with no rows the
+/// kind falls back to the embedded default (from [`crate::builtin::contract`]).
+/// Rows-or-default — never a severity-flip layer over the embedded default: a spread's
+/// appended clause gates, an array-surgery removal holds, and an out-of-vocabulary row
+/// rejects loud rather than sitting inert.
+///
+/// # Errors
+///
+/// Propagates the [`ClauseRowError`] the row lift raises for a row the closed
+/// vocabulary cannot admit, or the missing-embedded-contract error if a rowless kind
+/// ships none.
+pub fn builtin_contract(clauses: &[ClauseRow], kind: &str) -> miette::Result<Contract> {
+    if clauses.iter().any(|row| row.kind.as_deref() == Some(kind)) {
+        Ok(default_contract_from_rows(clauses, kind)?)
+    } else {
+        crate::builtin::contract(kind).ok_or_else(|| {
+            miette::miette!("built-in kind `{kind}` ships no embedded default contract")
+        })
+    }
+}
+
+/// The enforcement mode `declarations` declare, for a caller that has already read them —
+/// a harness needing the mode to decide whether a dialed softening binds and must
+/// never reach a second verdict on the posture from a second read.
+///
+/// # Errors
+///
+/// Returns a [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an
+/// unrecognized value outside the closed `{note, warn, block}` vocabulary.
+pub fn mode_from_declarations(
+    declarations: &drift::Declarations,
+) -> miette::Result<EnforcementMode> {
+    let Some(value) = declarations
+        .assembly
+        .iter()
+        .find(|row| row.fact == "mode")
+        .and_then(|row| row.value.as_deref())
+    else {
+        return Ok(EnforcementMode::default());
+    };
+    match value {
+        "note" => Ok(EnforcementMode::Note),
+        "warn" => Ok(EnforcementMode::Warn),
+        "block" => Ok(EnforcementMode::Block),
+        other => Err(drift::LockRowError::Vocabulary {
+            family: "assembly".to_string(),
+            column: "mode".to_string(),
+            value: other.to_string(),
+        }
+        .into()),
+    }
 }
 
 #[cfg(test)]

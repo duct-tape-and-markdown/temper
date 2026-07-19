@@ -5,7 +5,7 @@
 //! mirrors the pipeline verbs; all logic lives in the
 //! library so `tests/` can drive it.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -13,27 +13,20 @@ use std::sync::LazyLock;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use miette::IntoDiagnostic;
-use temper::admissibility;
-use temper::builtin;
 use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity};
 use temper::compose;
 use temper::contract::Contract;
-use temper::coverage;
-use temper::coverage_note;
-use temper::dial;
 use temper::drift;
-use temper::engine;
 use temper::extract;
+use temper::gate;
 use temper::graph;
 use temper::import;
 use temper::install;
-use temper::json_manifest;
-use temper::kind::{self, CollectionAddress, CustomKind};
+use temper::kind::{self, CustomKind};
 use temper::read;
 use temper::reporter;
-use temper::roster;
 use temper::schema;
 use temper::tap;
 
@@ -64,38 +57,9 @@ pub fn resolve_kind_units_count() -> usize {
     RESOLVE_KIND_UNITS_COUNT.with(std::cell::Cell::get)
 }
 
-/// Resolve a built-in kind's bare row label into its default [`Contract`], failing
-/// loud if the build embeds no default contract of that name — a
-/// missing default contract is a hard error, never a silently empty contract.
-fn builtin_default_contract(kind: &str) -> miette::Result<Contract> {
-    builtin::contract(kind)
-        .ok_or_else(|| miette::miette!("built-in kind `{kind}` ships no embedded default contract"))
-}
-
 /// The kinds `schema` emits a default contract for, by bare row label; widening it
 /// to `memory` is a separate question.
 const BUILTIN_DEFAULT_CONTRACT_KINDS: &[&str] = &["skill", "rule"];
-
-/// A built-in `kind`'s effective [`Contract`]: its lock-declared clause rows are its
-/// whole contract when the lock names any, lifted through the same reject-loud path a
-/// custom kind's rows take ([`compose::default_contract_from_rows`]); with no rows the
-/// kind falls back to the embedded default ([`builtin_default_contract`]).
-/// Rows-or-default — never a severity-flip layer over the embedded default: a spread's
-/// appended clause gates, an array-surgery removal holds, and an out-of-vocabulary row
-/// rejects loud rather than sitting inert.
-///
-/// # Errors
-///
-/// Propagates the [`compose::ClauseRowError`] the row lift raises for a row the closed
-/// vocabulary cannot admit, or the missing-embedded-contract error if a rowless kind
-/// ships none.
-fn builtin_contract(clauses: &[drift::ClauseRow], kind: &str) -> miette::Result<Contract> {
-    if clauses.iter().any(|row| row.kind.as_deref() == Some(kind)) {
-        Ok(compose::default_contract_from_rows(clauses, kind)?)
-    } else {
-        builtin_default_contract(kind)
-    }
-}
 
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]
@@ -334,13 +298,13 @@ fn main() -> miette::Result<ExitCode> {
                                 "unknown kind `{requested}` (temper models: skill, rule)"
                             )
                         })?;
-                    let contract = builtin_contract(&declarations.clauses, name)?;
+                    let contract = compose::builtin_contract(&declarations.clauses, name)?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for name in BUILTIN_DEFAULT_CONTRACT_KINDS {
-                        let contract = builtin_contract(&declarations.clauses, name)?;
+                        let contract = compose::builtin_contract(&declarations.clauses, name)?;
                         map.insert((*name).to_string(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -389,7 +353,7 @@ fn main() -> miette::Result<ExitCode> {
             // `.claude/` write since there is no declared set to consult.
             let workspace_dir = path.join(temper::WORKSPACE_DIR);
             let declarations = drift::read_declarations(&workspace_dir)?;
-            let mode = mode_from_declarations(&declarations)?;
+            let mode = compose::mode_from_declarations(&declarations)?;
             let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&declarations)?;
@@ -544,7 +508,7 @@ fn explain(target: &str) -> miette::Result<String> {
     )?;
 
     // Build a shared manifest cache for this explain invocation.
-    let manifest_cache = build_manifest_cache(&discovery, &declarations)?;
+    let manifest_cache = compose::build_manifest_cache(&discovery, &declarations)?;
 
     // Every embedded built-in kind's discovered features — the same generic loop
     // `gate`'s two-greens runs, not a hardcoded skill/rule pair
@@ -568,7 +532,7 @@ fn explain(target: &str) -> miette::Result<String> {
     for kind in builtin_defs.values() {
         contracts.insert(
             kind.name.clone(),
-            builtin_contract(&declarations.clauses, &kind.name)?,
+            compose::builtin_contract(&declarations.clauses, &kind.name)?,
         );
     }
 
@@ -604,7 +568,7 @@ fn explain(target: &str) -> miette::Result<String> {
         custom_kinds.push((custom_kind.clone(), features.clone()));
         custom_units_and_features.push((custom_kind, uaf));
     }
-    let embedded_features = embedded_features_by_kind(&declarations);
+    let embedded_features = compose::embedded_features_by_kind(&declarations);
     let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
     // The one requirement namespace: the assembly's declared `[requirement.*]`
@@ -632,9 +596,11 @@ fn explain(target: &str) -> miette::Result<String> {
         }
     }
 
-    let repo_files = repo_file_set(Path::new("."));
-    let directive_members =
-        directive_members_from_resolved(&builtin_units_and_features, &custom_units_and_features);
+    let repo_files = compose::repo_file_set(Path::new("."));
+    let directive_members = compose::directive_members_from_resolved(
+        &builtin_units_and_features,
+        &custom_units_and_features,
+    );
     let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
 
     // Citations — the declared one-way edges naming a leaf; the floor carries no
@@ -663,38 +629,6 @@ fn explain(target: &str) -> miette::Result<String> {
     ))
 }
 
-/// The enforcement mode `declarations` declare, for a caller that has already read them —
-/// [`gate`], which needs the mode to decide whether a dialed softening binds and must
-/// never reach a second verdict on the posture from a second read.
-///
-/// # Errors
-///
-/// Returns a [`drift::LockRowError::Vocabulary`] when the `mode` fact carries an
-/// unrecognized value outside the closed `{note, warn, block}` vocabulary.
-fn mode_from_declarations(
-    declarations: &drift::Declarations,
-) -> miette::Result<compose::EnforcementMode> {
-    let Some(value) = declarations
-        .assembly
-        .iter()
-        .find(|row| row.fact == "mode")
-        .and_then(|row| row.value.as_deref())
-    else {
-        return Ok(compose::EnforcementMode::default());
-    };
-    match value {
-        "note" => Ok(compose::EnforcementMode::Note),
-        "warn" => Ok(compose::EnforcementMode::Warn),
-        "block" => Ok(compose::EnforcementMode::Block),
-        other => Err(drift::LockRowError::Vocabulary {
-            family: "assembly".to_string(),
-            column: "mode".to_string(),
-            value: other.to_string(),
-        }
-        .into()),
-    }
-}
-
 /// Every represented manifest the `PreToolUse` guard checks a pending write against — one
 /// [`install::GuardedManifest`] per manifest kind, whether an embedded built-in
 /// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
@@ -717,7 +651,7 @@ fn guarded_manifests(
         else {
             continue;
         };
-        let contract = builtin_contract(&declarations.clauses, &kind.name)?;
+        let contract = compose::builtin_contract(&declarations.clauses, &kind.name)?;
         manifests.push(install::GuardedManifest {
             path,
             kind,
@@ -853,722 +787,10 @@ fn harness_diagnostics(
     layers: &[PathBuf],
 ) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
     match resolve_harness_path(harness_path)? {
-        HarnessPath::Root { workspace, .. } => gate(&workspace, harness_path, layers),
-        HarnessPath::Workspace { enclosing } => gate(harness_path, &enclosing, layers),
-        HarnessPath::Raw => gate(harness_path, harness_path, layers),
+        HarnessPath::Root { workspace, .. } => gate::gate(&workspace, harness_path, layers),
+        HarnessPath::Workspace { enclosing } => gate::gate(harness_path, &enclosing, layers),
+        HarnessPath::Raw => gate::gate(harness_path, harness_path, layers),
     }
-}
-
-/// Build a shared manifest cache for a single gate/explain invocation, grouping manifest
-/// kinds by their manifest file path and reading each file once with all governing kinds'
-/// addresses. This hoisting ensures manifest files are read exactly once per run, never
-/// once per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
-fn build_manifest_cache(
-    disc: &import::Discovery,
-    declarations: &drift::Declarations,
-) -> miette::Result<compose::ManifestCache> {
-    let mut cache: compose::ManifestCache = BTreeMap::new();
-    let kinds = compose::declared_kinds(declarations)?;
-
-    // Group manifest kinds by their manifest file path.
-    let mut by_manifest: BTreeMap<PathBuf, Vec<&CollectionAddress>> = BTreeMap::new();
-    for kind in kinds.values() {
-        if let Some(address) = &kind.collection_address
-            && let Some(governs) = &kind.governs
-        {
-            // Discover the actual files this kind governs.
-            let files =
-                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
-            for file in files {
-                by_manifest.entry(file).or_default().push(address);
-            }
-        }
-    }
-
-    // Read each manifest file once with all addresses for that file.
-    for (file, addresses) in by_manifest {
-        let manifest = json_manifest::Manifest::read(&file, &addresses)?;
-        cache.insert(file, (manifest, BTreeMap::new()));
-    }
-
-    Ok(cache)
-}
-
-/// Produce the merged diagnostic set for a surface `workspace` against the active
-/// by-kind contracts, with the [`check::Announcement`] of the inputs that judged it —
-/// the shared gate behind both `check` and the session-start
-/// reporter. `harness_root` is the
-/// directory a member's source path and a script verifier's path resolve against (the
-/// CWD for a two-step `check`, the harness path for the one-shot gate). `layers` names
-/// the policy locks this invocation joins, top of the layer stack.
-pub fn gate(
-    workspace: &Path,
-    harness_root: &Path,
-    layers: &[PathBuf],
-) -> miette::Result<(Vec<check::Diagnostic>, check::Announcement)> {
-    // The assembly's own declared facts — requirements and edges — ride the lock's
-    // declaration rows: `emit` is the sole
-    // producer, this is the gate's one read of it.
-    // Never gated on a lock's presence — an unadopted harness's lock declares
-    // nothing, so this tier is a no-op over it rather than skipped (never a
-    // half-adopted state).
-    let committed = drift::read_declarations(workspace)?;
-    // Parse the lock document once for reuse across source-dependency checks, hoisting
-    // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
-    let lock_doc = drift::read_lock_document(workspace)?;
-    // One ignore-honoring walk per flavor, shared across every kind and nested host this
-    // gate discovers ([`import::Discovery`]) — the session-open `check` walks the
-    // consumer's whole tree, so a per-kind re-walk is the tick's dominant cost. This one
-    // cache is threaded through every discovery call below; a run walks each consulted
-    // flavor exactly once, pinned at run granularity by [`import::walk_count`].
-    let discovery = import::Discovery::new(harness_root);
-    // The dial's softening is inert under `block`, so the mode is resolved before any
-    // contract is, and off the same declarations the family assembles from — a run whose
-    // gate and whose guard disagreed about the harness's own posture would be two gates.
-    let mode = mode_from_declarations(&committed)?;
-    // Empty cache for early assembly; will build a proper cache after lock_family returns.
-    let empty_cache: compose::ManifestCache = BTreeMap::new();
-    let compose::LockFamily {
-        declarations,
-        joined_clauses,
-        joined_locks,
-        local_members,
-        dial,
-    } = compose::assemble_lock_family(&discovery, &committed, layers, &empty_cache)?;
-    // Every address the dial reached, accumulated across the contracts and selections
-    // below: an entry that reached none is the one thing a dial can be wrong about that
-    // its own schema cannot catch.
-    let mut dialed: BTreeSet<String> = BTreeSet::new();
-    let assembly_requirements: BTreeMap<String, compose::Requirement> = declarations
-        .requirements
-        .iter()
-        .map(|row| Ok((row.name.clone(), drift::requirement_from_row(row)?)))
-        .collect::<Result<_, compose::ClauseRowError>>()?;
-    let assembly_edges = drift::edges_from_declarations(&declarations)?;
-    // The lifted reference edges the graph predicates and read verbs fold in alongside the
-    // declared-field arcs: authored mentions (route-resolved at check — `route_mentions`
-    // owns a deferred mention's dangling verdict) and layout prose imports (path-resolved
-    // at emit), each lifted off the lock's own declaration family.
-    let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
-    mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
-
-    // The generic two-greens over EVERY embedded built-in kind, keyed by its bare row
-    // label: each kind's members — resolved by
-    // [`kind_features`] straight off harness disk, shared with `explain`
-    // (READ-EDGE-UNIFY) so a read cannot disagree with the gate about which members
-    // exist — are dispatched to its default contract and validated, so a discovered `CLAUDE.md`
-    // memory member fires its `memory` clauses exactly as a skill/rule does — no
-    // longer silently skipped by a hardcoded skill/rule pair. The resolved features
-    // feed straight into `builtin_features` (MEMORY-ENTERS-REQUIREMENT-CORPUS): every
-    // built-in's satisfies edges reach the roster/graph/coverage tiers below, not only
-    // skill/rule's.
-    let mut diagnostics = Vec::new();
-    // Per-kind checked-member counts, keyed by bare row label — carried out of
-    // the dispatch loop for the advisory coverage note below (WEDGE-COVERAGE-NOTE),
-    // so "checked N members" is stated rather than left as bare silence.
-    let mut member_counts: BTreeMap<String, usize> = BTreeMap::new();
-    let mut builtin_features: BTreeMap<String, Vec<extract::Features>> = BTreeMap::new();
-    // Each kind's resolved contract, kept past its dispatch loop: the set clauses in it
-    // bind to the kind's *whole* by-kind selection, which only exists once every
-    // dispatcher has run and `by_kind` is assembled below.
-    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
-
-    // Build a shared manifest cache: one read per manifest file, shared across all
-    // manifest kinds that govern it (GATE-MANIFEST-SHARED-READ-HOIST).
-    let manifest_cache = build_manifest_cache(&discovery, &declarations)?;
-
-    // Every clause's address is unique across the lock, decided before a single contract
-    // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
-    diagnostics.extend(admissibility::clause_collision_diagnostics(
-        &declarations,
-        &joined_clauses,
-    ));
-    let builtin_defs = builtin_kind::definitions();
-    let mut builtin_units_and_features: BTreeMap<String, compose::KindUnitsAndFeatures> =
-        BTreeMap::new();
-    for kind in builtin_defs.values() {
-        // Two greens: admissibility — the contract validated
-        // against the definition before it is trusted to judge — then conformance.
-        // The contract is the lock's declared `clauses` for the kind when it names any,
-        // else the embedded default (`builtin_contract`). The invocation's joined clauses
-        // are appended *after* that fallback decides, never folded into the rows it reads:
-        // a layer's row is not this harness declaring one, so it must never be what tips a
-        // built-in off its embedded default and onto a contract of the layer's alone.
-        let mut contract = compose::with_joined_clauses(
-            builtin_contract(&declarations.clauses, &kind.name)?,
-            &joined_clauses,
-            &kind.name,
-        )?;
-        // Every kind's contract is dialable but the dial's own: its clauses are the
-        // envelope the dial document is checked against, so a machine that could soften
-        // them could spell its way out of the shape that bounds it. `dial::refusals`
-        // reports the entry that tried rather than leaving it silently inert.
-        if kind.name != dial::KIND {
-            dialed.extend(dial.apply(mode, &mut contract.clauses));
-        }
-
-        let uaf =
-            compose::kind_units_and_features(kind, &discovery, &declarations, &manifest_cache)?;
-        let features = &uaf.features;
-
-        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
-        diagnostics.extend(engine::validate(&contract, features));
-        member_counts.insert(kind.name.clone(), features.len());
-        contracts.insert(kind.name.clone(), contract);
-        builtin_features.insert(kind.name.clone(), features.clone());
-        builtin_units_and_features.insert(kind.name.clone(), uaf);
-    }
-
-    // Every lock-declared kind that is not one of the embedded built-ins:
-    // a
-    // built-in's own row is only the overlay `compose::overlay_builtin_kind` already
-    // consumes, never a second kind definition. A custom kind carries no embedded
-    // default — its whole default contract is the committed lock's own clause rows
-    // naming it ([`compose::default_contract_from_rows`]) — but is otherwise
-    // dispatched through the identical two-greens the built-in loop above runs.
-    let mut custom_kinds: Vec<compose::CustomKindEntry> = Vec::new();
-    let mut custom_units_and_features: Vec<(CustomKind, compose::KindUnitsAndFeatures)> =
-        Vec::new();
-    let (custom_rows, collisions) = compose::partition_kind_rows(&declarations, &builtin_defs)?;
-    // The one site among the three dispatchers that can surface a diagnostic.
-    diagnostics.extend(
-        collisions
-            .iter()
-            .map(|row| admissibility::kind_collision_diagnostic(row)),
-    );
-    // Two distinct kinds resolving to one `governs` locus would double-route every
-    // matching document into both member sets — a document's kind is its position
-    // alone, never its content — so a shared locus refuses loud here.
-    diagnostics.extend(admissibility::governs_collision_diagnostics(
-        &builtin_defs,
-        &custom_rows,
-        &declarations,
-    )?);
-    // A declared commitment class the locus cannot carry is decided here, beside the
-    // locus's other coherence check, before any member is read under a kind whose own
-    // declaration does not hold together.
-    diagnostics.extend(admissibility::local_locus_admissibility(
-        &builtin_defs,
-        &custom_rows,
-        &declarations,
-    )?);
-    for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        let mut contract = compose::with_joined_clauses(
-            compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
-            &joined_clauses,
-            &row.name,
-        )?;
-        dialed.extend(dial.apply(mode, &mut contract.clauses));
-        let uaf = compose::kind_units_and_features(
-            &custom_kind,
-            &discovery,
-            &declarations,
-            &manifest_cache,
-        )?;
-        let features = &uaf.features;
-
-        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
-        diagnostics.extend(engine::validate(&contract, features));
-        member_counts.insert(row.name.clone(), features.len());
-        contracts.insert(row.name.clone(), contract);
-        custom_kinds.push((custom_kind.clone(), features.clone()));
-        custom_units_and_features.push((custom_kind, uaf));
-    }
-
-    // The directive backing-set file-set: every file under the harness root, over-collected so an extra
-    // file can only suppress a finding, never forge one. Computed once on the FLOOR
-    // and read by the directive classing below.
-    let repo_files = repo_file_set(harness_root);
-
-    // Directive-target classing on the FLOOR tier: an unbacked `@import` is a **pure fact** about the importing member —
-    // the silent-context-loss failure class made author-time — so it surfaces with zero
-    // config. Over the built-in kinds' members (empty custom slice), the unbacked findings
-    // extend as a **non-gating advisory**: the fact is stated, the run never fails on it
-    // alone. The graph-scope escalation stays assembly-gated (WEDGE ruling 2026-07-03: an
-    // unbacked import is a pure fact, not a graph-scope opinion like reachability).
-    diagnostics.extend(
-        graph::classify_directives(
-            &directive_members_from_resolved(
-                &builtin_units_and_features,
-                &custom_units_and_features,
-            ),
-            &repo_files,
-        )
-        .findings
-        .into_iter()
-        .map(|mut finding| {
-            finding.severity = Severity::Warn;
-            finding
-        }),
-    );
-
-    // The harness-contract tier: the set predicates over the parsed roster, each
-    // quantified over a requirement's opt-in selection.
-    // Runs unconditionally — the lock is the sole source of assembly facts now, so an
-    // unadopted harness's empty declarations make this tier a no-op rather than a
-    // skip.
-    let edges = assembly_edges.clone();
-
-    // Cross-family coherence: a `nested_member` row of a kind no host templates is an
-    // orphan the by-kind corpus below would unmodel while the host-address read still
-    // carries it. Reject it at admissibility, before the corpus is trusted.
-    diagnostics.extend(admissibility::nested_member_admissibility(&declarations));
-
-    // The by-kind corpus every set-scope and graph predicate ranges over,
-    // assembled through the same helper the read arm uses.
-    let embedded_features = embedded_features_by_kind(&declarations);
-
-    // The third dispatcher: an embedded kind's members through the identical two greens
-    // the two at-locus loops above run, so a clause bound to an embedded kind is judged
-    // rather than silently no-opped. Ordered here because the embedded corpus is what a
-    // host's `templates` column yields, which is only assembled above. Like a custom
-    // kind, an embedded kind carries no embedded default — its whole contract is the
-    // committed lock's own clause rows naming it. Its member counts stay out of the
-    // coverage note's summary: that map is keyed by kind-fact row label, which an
-    // embedded kind has none of, and an embedded member's host file is already counted
-    // under its own kind.
-    for (kind, features) in &embedded_features {
-        let mut contract = compose::with_joined_clauses(
-            compose::default_contract_from_rows(&declarations.clauses, kind)?,
-            &joined_clauses,
-            kind,
-        )?;
-        dialed.extend(dial.apply(mode, &mut contract.clauses));
-
-        diagnostics.extend(engine::admissibility(
-            &contract,
-            &engine::Locus::Embedded(kind.clone()),
-        ));
-        diagnostics.extend(engine::validate(&contract, features));
-        contracts.insert(kind.clone(), contract);
-    }
-
-    // Every kind a joined clause names that this corpus declares none of. Nothing here
-    // selects such a clause, so it judges nothing — but a layer must fail closed whether
-    // or not the host happens to give its clauses something to range over, so the rows
-    // still face the admissibility their kind's own dispatcher would have run.
-    diagnostics.extend(admissibility::joined_kind_admissibility(
-        &joined_clauses,
-        &contracts,
-    )?);
-
-    let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
-
-    // A bare `satisfies` label an older engine wrote qualifies against this corpus, but a
-    // name two kinds share is a malformed lock refused loud rather than cross-attributed.
-    diagnostics.extend(admissibility::satisfies_label_admissibility(
-        &declarations,
-        &by_kind,
-    ));
-
-    // Every opt-in-capable member's features (every built-in kind *and* each custom
-    // kind's members) — the stream coverage ranges over below.
-    let all_features: Vec<extract::Features> = builtin_features
-        .values()
-        .flatten()
-        .chain(custom_kinds.iter().flat_map(|(_, features)| features))
-        .cloned()
-        .collect();
-
-    // The one requirement namespace: the assembly's declared `[requirement.*]`
-    // roster. A custom-kind member has no channel of its own to publish a
-    // requirement (the pre-0016 own-path surface that once carried one is retired);
-    // the SDK already unions `harness.require` and every member's `requires` into
-    // `declarations.requirements` at emit time, rejecting a cross-publisher name
-    // collision there.
-    let requirements = assembly_requirements.clone();
-
-    // Each requirement's own definition is validated before the roster is
-    // trusted to judge the harness.
-    diagnostics.extend(roster::admissibility(&requirements, &by_kind, harness_root));
-
-    // The declared selections, whole: every requirement's opt-in selection and every
-    // kind's by-kind selection. Both lists are assembled before either is judged
-    // because a `membership` clause draws its allowed set from a *second* selection,
-    // and the judge resolves that target off this one list — the existential and the
-    // universal binding are the same algebra, so neither can be judged in isolation.
-    let mut selections = roster::selections(&requirements, &by_kind);
-    selections.extend(kind_selections(&contracts, &by_kind));
-    // The last of the dial's four sites, and the only one over selections rather than
-    // contracts. A requirement's own clauses reach a judge only here,
-    // as does the each-grain narrowing clause its `kind` facet sources — both are
-    // synthesized past the contracts above, so dialing those alone would leave a
-    // requirement's findings the one family an author could read an address off and not
-    // dial. A kind selection re-dials clauses already dialed above; `apply` is
-    // idempotent, and one site over the whole list beats a second rule about which half
-    // of it is fresh — the dial's own kind selection excepted, since it carries a copy of
-    // the very contract the loop above holds out of reach.
-    for selection in &mut selections {
-        if selection.selector == engine::Selector::Kind(dial::KIND.to_string()) {
-            continue;
-        }
-        dialed.extend(dial.apply(mode, &mut selection.clauses));
-    }
-    diagnostics.extend(dial.refusals(&dialed));
-
-    // Every dial site has run, so `dialed` is final and the three thirds are all in hand:
-    // what judged this run beyond the committed harness, assembled here rather than
-    // re-derived by whichever reporter renders it.
-    let announcement = check::Announcement {
-        local_members,
-        dialed_clauses: dialed.into_iter().collect(),
-        joined_locks,
-    };
-
-    // The selection grain: `count` / `unique` / `membership` whole, `kind` each.
-    diagnostics.extend(engine::judge(&selections));
-
-    // The edge scope: build the reference graph over the declared edges and check route
-    // resolution — a declared reference must resolve to a real artifact of the
-    // target kind. Admissibility before conformance:
-    // an edge naming no reference field or targeting an unmodeled kind is
-    // reported once and skipped by the route check.
-    diagnostics.extend(graph::admissibility(&edges, &by_kind));
-    diagnostics.extend(graph::check(&edges, &by_kind));
-
-    // Mention route resolution: `emit` defers a mention naming a declared kind with no
-    // composed member — its row rides the lock — so `check` owns that verdict here,
-    // resolving each mention's target against the discovered corpus (members) and the
-    // roster (bare requirement names). A dangler fires `graph.route` exactly as a declared
-    // reference does.
-    diagnostics.extend(graph::route_mentions(
-        &mention_edges,
-        &by_kind,
-        &assembly_requirements,
-    ));
-
-    // Compute the resolved edges once, shared across acyclic, degree, and mention_reachable
-    // to avoid recomputation of the whole-input edge-resolution walk.
-    let resolved_edges_result = graph::resolved_edges(&edges, &by_kind);
-    let resolved_edges = &resolved_edges_result.resolved;
-
-    // `acyclic`: the resolved graph must contain no
-    // cycle — a circular import loads nothing, so every finding is a true
-    // positive. Always-on over the whole edge set, like route resolution above.
-    diagnostics.extend(graph::acyclic(resolved_edges));
-
-    // `degree`: the one set predicate whose judge needs the graph — a clause bounds
-    // every selected member's in/out edge count, so it takes the same selections
-    // `engine::judge` reads *and* the edges, reusing the arc resolution
-    // `acyclic`/`check` assemble, plus the already-resolved mention edges —
-    // obligation-free by default, counted only when a `degree` clause opts in.
-    diagnostics.extend(graph::degree(&selections, resolved_edges, &mention_edges));
-
-    // `mention-reachable`: the second selection predicate whose judge needs the graph —
-    // each selected member's references must be able to fire where their target can be
-    // invoked, which reads the *target* member's gate field. It ranges over the same
-    // unified edge set `degree` does — the resolved field edges *and* the mention/import
-    // family — so a rendering claim carried on a field edge is judged, never dropped.
-    // Opt-in like `degree`: a selection declaring no such clause does no work.
-    diagnostics.extend(graph::mention_reachable(
-        &selections,
-        resolved_edges,
-        &mention_edges,
-        &by_kind,
-        &embedded_hosts_by_source(&declarations),
-    ));
-
-    // The requirement-coverage tier: every `required`
-    // requirement must have a resolving home (≥1 artifact opting in via
-    // `satisfies`) and every authored `satisfies` must resolve to a declared
-    // requirement. Kind-blind: it ranges over every opt-in-capable artifact —
-    // built-in kinds *and* each custom kind's members — so temper's own `spec`
-    // corpus can opt in exactly as a skill does. The
-    // requirement set is the *unioned* namespace, so a member-published obligation
-    // is gated here exactly as an assembly-published one.
-    diagnostics.extend(coverage::check(&requirements, &all_features));
-
-    // The install self-verify: temper checking its
-    // *own* gate is wired. Advisory (warn) only — a not-yet-installed gate nudges
-    // without failing the run, and the session-start reporter ignores warn
-    // severity.
-    diagnostics.extend(install::gate_installed(harness_root));
-
-    // The wedge's advisory coverage note: state which kinds checked how many members,
-    // and name the known Claude Code surfaces present on disk that no kind — built-in
-    // or locked custom — governs, so the gate's silence about an unmodeled surface never
-    // reads as "checked". Warn-only — it leaves the run's exit code and the session-start
-    // verdict unchanged. Threads the already-parsed `committed.kinds` to avoid a redundant
-    // lock re-parse (COVERAGE-NOTE-LOCK-PARSE-HOIST).
-    diagnostics.extend(coverage_note::check(
-        harness_root,
-        &builtin_kind::definitions(),
-        &member_counts,
-        &committed.kinds,
-    )?);
-
-    // The freshness fact: a committed projection
-    // whose bytes no longer match the lock's emit fingerprint is `config.stale`. Read
-    // off the surface `workspace`'s lock (where the members were imported and the
-    // fingerprints recorded), advisory so a hand-edited or un-re-emitted projection is
-    // surfaced without failing the run.
-    diagnostics.extend(drift::config_stale_from_doc(&lock_doc, workspace));
-
-    // The source-dependency freshness facts: a fingerprinted layout-import or
-    // composed-prose include target whose bytes no longer match the lock — the target
-    // moved and `emit` has not re-run. Advisory, the same `warn` posture `config.stale`
-    // takes over a drifted projection. Use the pre-parsed lock document to avoid re-reading.
-    let harness_root_for_staleness = drift::harness_root_of(workspace);
-    diagnostics.extend(drift::layout_import_stale_from_doc(
-        &lock_doc,
-        &harness_root_for_staleness,
-    )?);
-    diagnostics.extend(drift::include_stale_from_doc(
-        &lock_doc,
-        &harness_root_for_staleness,
-    )?);
-
-    Ok((diagnostics, announcement))
-}
-
-/// One discovered source file as a raw [`Unit`], its id folded against `base` — the read
-/// both file loci share, so a nested file child and a `governs`-scanned member differ only
-/// in the base each composes under. **The one adapter dispatch**: a layout kind's document
-/// is read under its declared layout — its field sections fill the unit's fields, a
-/// non-fitting document refusing loud; a kind declaring the `json-document` or
-/// `toml-document` format reads its whole artifact as one structured document through that
-/// grammar's adapter; every other file kind reads through the generic frontmatter adapter.
-/// A fields-only kind with no collection address (not a manifest kind) rides whichever of
-/// those its format names, differing only in projection. A per-call-site format match would be a second dispatch to disagree with
-/// this one, so both file loci route through here.
-///
-/// # Errors
-///
-/// Returns an error if the file is unreadable, malformed, or does not fit its declared
-/// layout or format.
-/// Every kind this harness declares, keyed by bare name: each embedded built-in under its
-/// lock overlay, plus each lock-declared custom kind — the same universe `gate`'s own
-/// dispatch ranges over. A nested file kind's host is found here, so the set is what
-/// carries the two halves of its locus that the child kind itself cannot.
-///
-/// # Errors
-///
-/// Returns an error if the embedded kind set fails to load or a lock row falls outside a
-/// closed vocabulary.
-/// The separator between a joined clause's own compiled address and the layer that
-/// carried it: `<label>@<layer>`.
-///
-/// A compiled address is dot-joined ([`contract::clause_label`]), so `@` appears in no
-/// label emit can write — which is what makes a joined address unable to collide with a
-/// host's, whatever the two locks happen to declare. Legible in both directions: the
-/// author who reads a finding reads which `--layer` argument produced it, and the name is
-/// spelled straight back out of the finding to reach the clause.
-/// The admissibility findings of every joined clause naming a kind absent from
-/// `contracts` — the kinds this corpus declares none of, whose clauses no dispatcher
-/// above ever lifted.
-///
-/// # Errors
-///
-/// As [`compose::default_contract_from_rows`].
-/// Every file under `root`, as repo-relative slash-separated paths — the
-/// `paths-match` reachability input.
-/// A superset is sound (a glob matching an extra file only suppresses a finding); a
-/// *missing* file is not (it could forge a dead-edge false positive), so nothing is
-/// excluded and an unreadable entry is skipped rather than aborting the gate. Paths
-/// use `/` so a glob authored the harness's way matches on every platform.
-fn repo_file_set(root: &Path) -> Vec<String> {
-    let mut files = Vec::new();
-    for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
-        let Ok(entry) = entry else { continue };
-        if entry.file_type().is_file()
-            && let Ok(rel) = entry.path().strip_prefix(root)
-        {
-            files.push(rel.to_string_lossy().replace('\\', "/"));
-        }
-    }
-    files
-}
-
-/// Every kind's **by-kind selection**: its whole member population — the universal
-/// binding — bound to its own contract's clauses.
-///
-/// The clause set is the contract entire, not the set clauses alone: `engine::judge`
-/// reads the ones that range over the selection and `engine::validate` has already read
-/// the member-grain ones off the identical contract, so the two judges split one
-/// declaration rather than two filtered copies of it. A kind in `by_kind` with no
-/// contract of its own declares no clause to judge and contributes no selection.
-fn kind_selections<'a>(
-    contracts: &BTreeMap<String, Contract>,
-    by_kind: &BTreeMap<&'a str, &'a [extract::Features]>,
-) -> Vec<engine::Selection<'a>> {
-    by_kind
-        .iter()
-        .filter_map(|(kind, features)| {
-            let contract = contracts.get(*kind)?;
-            Some(engine::Selection {
-                selector: engine::Selector::Kind((*kind).to_string()),
-                clauses: contract.clauses.clone(),
-                members: features.iter().map(|feature| (*kind, feature)).collect(),
-            })
-        })
-        .collect()
-}
-
-/// The embedded-kind corpus: every kind declared at the embedded locus keyed to its
-/// members' [`Features`](extract::Features), so [`assemble_by_kind`] can fold it into the
-/// one `by_kind` map every graph predicate ranges over. An embedded kind is named where a
-/// host declares it — a `templates` column entry, or a layout member collection's
-/// `member_kind` — and carries no kind-fact row, so this is the sole seam it enters the
-/// corpus through. Its members are the run's assembled `nested_member` rows of that kind
-/// — a committed host's off the lock, a local host's derived at [`assemble_lock_family`],
-/// so a clause over it selects a local host's members and a committed host's alike — each
-/// lifted to a member whose id is the row's key and whose fields are its leaves, so an
-/// edge resolves against it by identity ([`embedded_member_features`]). A declared kind
-/// with no rows keys to an empty slice — modeled, so an edge targeting it is admissible
-/// and a dangling entry is a route finding, not an admissibility one; a kind no host
-/// declares is absent, so an edge targeting it stays an admissibility finding. Depth is
-/// one layer: a `nested_member` row's own sibling collections are the leaf grain the read
-/// family addresses, not a second embedded kind's member set.
-fn embedded_features_by_kind(
-    declarations: &drift::Declarations,
-) -> BTreeMap<String, Vec<extract::Features>> {
-    let mut by_kind: BTreeMap<String, Vec<extract::Features>> =
-        admissibility::declared_embedded_kinds(declarations)
-            .into_iter()
-            .map(|kind| (kind, Vec::new()))
-            .collect();
-    // Each declared embedded kind's members are its `nested_member` rows. A row whose
-    // kind no host declares is an orphan rejected at admissibility
-    // ([`nested_member_admissibility`]), so this `get_mut` now backstops that already-loud
-    // unreachable state rather than swallowing a live one.
-    let edge_fields = edge_fields_by_kind(declarations);
-    let no_edges = BTreeSet::new();
-    for row in &declarations.nested_members {
-        if let Some(features) = by_kind.get_mut(&row.kind) {
-            features.push(embedded_member_features(
-                row,
-                edge_fields.get(&row.kind).unwrap_or(&no_edges),
-            ));
-        }
-    }
-    by_kind
-}
-
-/// Each embedded member's source node keyed to its **host**'s node: `(embedded-kind,
-/// key) → (host-kind, host-id)`, read off the `nested_member` rows' `host` address. An
-/// embedded-carried edge keys its source to the embedded member, never the host, so
-/// `graph::mention_reachable` needs this map to judge a body-carried citation under its
-/// host's scope — the source-side twin of the target-side `target_identity` seam. A row
-/// whose `host` is not a `kind:name` address is skipped: it addresses no host
-/// node, so the edge it would map stays keyed to the embedded member alone.
-fn embedded_hosts_by_source(
-    declarations: &drift::Declarations,
-) -> BTreeMap<graph::Node, graph::Node> {
-    let mut hosts = BTreeMap::new();
-    for row in &declarations.nested_members {
-        if let Some((kind, name)) = row.host.split_once(':') {
-            hosts.insert(
-                (row.kind.clone(), row.key.clone()),
-                (kind.to_string(), name.to_string()),
-            );
-        }
-    }
-    hosts
-}
-
-/// The edge fields each kind declares, off the lock's `assembly` `edge` facts — the
-/// declared set a `format-places-edges` clause measures a value's own
-/// [`placed_edges`](drift::NestedMemberRow::placed_edges) against
-/// ([`embedded_member_features`]). A malformed edge fact is
-/// [`edges_from_declarations`]'s own load error, raised before any check runs, so this
-/// fold reads the well-formed rows rather than raise the identical fault twice.
-fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, BTreeSet<String>> {
-    let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    for fact in &declarations.assembly {
-        if fact.fact != "edge" {
-            continue;
-        }
-        if let (Some(from), Some(field)) = (fact.from.clone(), fact.field.clone()) {
-            by_kind.entry(from).or_default().insert(field);
-        }
-    }
-    by_kind
-}
-
-/// Lift one [`NestedMemberRow`](drift::NestedMemberRow) into the
-/// [`Features`](extract::Features) an edge resolves against: the row's key is the member
-/// id an edge matches by identity, and its leaves surface as string fields so a clause
-/// (or a deeper edge) can range over them exactly as a file member's frontmatter. The
-/// body-derived features are empty — an embedded member has no document of its own; it is
-/// read off its host's declared surface.
-///
-/// `edge_fields` is what the member's kind declares ([`edge_fields_by_kind`]); pairing the
-/// ones this row actually fills with its own `placed_edges` is what makes a
-/// `format-places-edges` clause decidable without the engine ever seeing the format that
-/// rendered the value. An unfilled field is no edge, so it is no obligation: ranging over
-/// the kind's whole declared set would read an absent edge as one the format dropped.
-fn embedded_member_features(
-    row: &drift::NestedMemberRow,
-    edge_fields: &BTreeSet<String>,
-) -> extract::Features {
-    let fields = row
-        .leaves
-        .iter()
-        .map(|(name, text)| (name.clone(), serde_json::Value::String(text.clone())))
-        .collect();
-    extract::Features {
-        id: row.key.clone(),
-        fields,
-        body_lines: 0,
-        // The rendered span `emit` captured off the value's own projection, lifted from
-        // the row so an `extent` clause bound to the embedded kind budgets real data. A
-        // `None` span is a value no format rendered (a layout host read off source): it has
-        // no projection to measure, so its `extent` stays undecidable rather than reading a
-        // zero as a pass.
-        rendered_lines: row.rendered_lines,
-        rendered_chars: row.rendered_chars,
-        headings: Vec::new(),
-        sections: Vec::new(),
-        source_dir: None,
-        directives: Vec::new(),
-        fenced_blocks: Vec::new(),
-        nested_members: Vec::new(),
-        satisfies: Vec::new(),
-        // `None` ⇒ no format rendered the value (a layout host's document is source, not
-        // projection), which is not a format to indict. `Some` over an empty map ⇒ a
-        // format ran and the value carries no edge to place. The engine cannot tell the
-        // two apart once they collapse into one empty map, so they are kept apart here.
-        edge_placements: row.placed_edges.as_ref().map(|placed| {
-            edge_fields
-                .iter()
-                .filter(|field| row.leaves.get(*field).is_some_and(|text| !text.is_empty()))
-                .map(|field| (field.clone(), placed.contains(field)))
-                .collect()
-        }),
-    }
-}
-
-/// Construct directive members from pre-computed resolved units and features, avoiding
-/// a second `resolve_kind_units` pass. Called by [`gate`] and [`explain`] to avoid
-/// re-reading every member off disk after the units and features have already been
-/// resolved for validation.
-fn directive_members_from_resolved(
-    builtin_units_and_features: &BTreeMap<String, compose::KindUnitsAndFeatures>,
-    custom_units_and_features: &[(CustomKind, compose::KindUnitsAndFeatures)],
-) -> Vec<graph::DirectiveMember> {
-    let mut members = Vec::new();
-    for (kind_name, uaf) in builtin_units_and_features {
-        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
-            members.push(graph::DirectiveMember {
-                kind: kind_name.clone(),
-                id: features.id.clone(),
-                source_path: unit.source_path.clone(),
-                directives: features.directives.clone(),
-            });
-        }
-    }
-    for (custom_kind, uaf) in custom_units_and_features {
-        for (unit, features) in uaf.units.iter().zip(&uaf.features) {
-            members.push(graph::DirectiveMember {
-                kind: custom_kind.name.clone(),
-                id: features.id.clone(),
-                source_path: unit.source_path.clone(),
-                directives: features.directives.clone(),
-            });
-        }
-    }
-    members
 }
 
 #[cfg(test)]
@@ -1599,7 +821,7 @@ mod tests {
         // An `@import` target the harness loads even though `.gitignore` excludes it.
         fs::write(dep.join("SHARED.md"), "shared\n").unwrap();
 
-        let files = repo_file_set(&root);
+        let files = compose::repo_file_set(&root);
         assert!(
             files.iter().any(|f| f == "node_modules/dep/SHARED.md"),
             "the gitignored backing target must still be seen (raw disk): {files:?}"
@@ -1635,7 +857,7 @@ mod tests {
         // The raw-harness gate: workspace and harness root are the one path, exactly as
         // `harness_diagnostics` dispatches a bare harness.
         let before = import::walk_count();
-        gate(&harness, &harness, &[]).unwrap();
+        gate::gate(&harness, &harness, &[]).unwrap();
         let walks = import::walk_count() - before;
 
         assert_eq!(
@@ -1687,7 +909,7 @@ unit_shape = "file"
         .unwrap();
 
         let before = resolve_kind_units_count();
-        gate(&harness, &harness, &[]).unwrap();
+        gate::gate(&harness, &harness, &[]).unwrap();
         let resolves = resolve_kind_units_count() - before;
 
         // Before the fix, resolve_kind_units was called twice per kind: once through
@@ -1744,8 +966,8 @@ unit_shape = "file"
     /// The placement feature of the row `declarations` carries, against its kind's
     /// declared edges — the join the lift performs.
     fn placement_feature(declarations: &drift::Declarations) -> Option<BTreeMap<String, bool>> {
-        let edges = edge_fields_by_kind(declarations);
-        embedded_member_features(
+        let edges = compose::edge_fields_by_kind(declarations);
+        compose::embedded_member_features(
             &declarations.nested_members[0],
             edges.get("citation").unwrap(),
         )
