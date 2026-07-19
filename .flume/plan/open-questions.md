@@ -117,38 +117,42 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Six live orphans at HEAD (bd15a0a).** `src/json_splice.rs`'s module
-  header (surfaced 5af93d9, sweeping foundation) claims install.rs as "the
-  sole consumer," but json_manifest.rs now also calls apply_edits/
+  **Six live orphans, re-verified at HEAD (df57610).** `src/json_splice.rs`'s
+  module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
+  "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
   json_splice.rs, so per the rule it rides the next one that does rather
-  than filing here. `src/drift.rs`'s `RawLockRow` doc comment (1947-1952,
-  surfaced the 4e46eac..c1b0f51 post-ship sweep) still names
-  `[read_prior_provenance]` in its intra-doc link list; DRIFT-EMIT-LOCK-
-  PARSE-HOIST (112b188) renamed that fn to `read_prior_provenance_from_doc`.
-  PLACEMENT-MODULE-EXTRACTION, the entry that most recently touched
-  drift.rs, shipped (870c52d) without naming it; EXTRACT-FOUNDATION-
-  BOUNDARY-RESTORE also shipped since (404b73a) without touching this
-  docblock — its own diff never reaches lines 1947-1952. Several open
-  entries still chain onto the file (DRIFT-SOURCE-DEP-PARSE-HOIST,
-  IMPORT-ROLLUP-WRITER-PLACEMENT, MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT
-  among them), so it rides whichever names it first. `src/document.rs`'s
+  than filing here. `src/drift.rs`'s `RawLockRow` doc comment (now
+  2144-2149 — three more entries inserted code ahead of it since the
+  region was last read) still names `[read_prior_provenance]` in its
+  intra-doc link list; DRIFT-EMIT-LOCK-PARSE-HOIST (112b188) renamed that
+  fn to `read_prior_provenance_from_doc`. DRIFT-SOURCE-DEP-PARSE-HOIST
+  (2df42a0), IMPORT-ROLLUP-WRITER-PLACEMENT (ab2e822), and
+  MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT (e97fc81, adf69b3..7173a59 window)
+  have all since shipped, each confirmed on disk not touching lines
+  2144-2149 (the two module-move entries append at the file's tail; the
+  parse-hoist entry never reaches the region). No entry currently open
+  chains onto drift.rs, so it rides whichever next does. `src/document.rs`'s
   `item_to_json` doc comment (surfaced the formats posture sweep) cites
   "the built-in adapters' `json_to_toml_value`" as the function's
   inverse-of; that function was cut in 664a522, before 6618b47 even wrote
   the citing sentence — stale from the moment it was authored. No pending
   entry currently opens document.rs, so it rides whichever one first does.
-  `src/install.rs`'s orphaned `placement_lines` doc comment (1640-1646,
-  surfaced this tick's posture sweep of verbs) is dead prose the
-  extraction commit (8704036, PLACEMENT-MODULE-EXTRACTION) left behind:
-  it moved `placement_lines`/`is_placement_comment` to `src/placement.rs`
-  verbatim but not their preceding doc comment, which now sits glued — no
-  blank line — directly above `render`'s own doc comment (1647), reading
-  as render's opening paragraph though it describes a function that no
-  longer lives in this file. INSTALL-PROJECTION-MATCH-CONSOLIDATE,
-  INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE, INSTALL-PLACEMENT-KIND-ENUM, and
-  BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE all chain onto install.rs
-  but none touches this line range, so it rides whichever one first does.
+  `src/install.rs`'s orphaned `placement_lines` doc comment (now
+  1686-1692) is dead prose the extraction commit (8704036,
+  PLACEMENT-MODULE-EXTRACTION) left behind: it moved
+  `placement_lines`/`is_placement_comment` to `src/placement.rs` verbatim
+  but not their preceding doc comment, which still sits glued — no blank
+  line — directly above `render`'s own doc comment, reading as render's
+  opening paragraph though it describes a function that no longer lives
+  in this file. INSTALL-PROJECTION-MATCH-CONSOLIDATE,
+  INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE, INSTALL-PLACEMENT-KIND-ENUM,
+  BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE, and — new since the last
+  read, both in the adf69b3..7173a59 window —
+  INSTALL-ERROR-ZERO-CONSUMER-PRUNE (2c037ba) and
+  GUARD-DECLARED-LOCUS-FILTER (a5e154f) have all shipped touching
+  install.rs, none reaching this range; no entry currently open chains
+  onto it, so it rides whichever next does.
   `src/extract.rs`'s doc comment for `manifest_members` (surfaced this
   tick's posture sweep of foundation) was orphaned mid-function by the
   same extraction commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE)
@@ -160,13 +164,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   seam — dead prose describing a function that no longer lives in this
   file, read as `number_kind`'s opening paragraph. No pending entry
   currently opens extract.rs, so it rides whichever one first does. The
-  same commit left a companion stale cite: `src/json_manifest.rs:335`'s
-  `Manifest::read` doc comment still names `[extract::manifest_members]`,
-  though the function it points at moved into this same file — the
-  module prefix is now self-referential and wrong.
-  JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE and GATE-MANIFEST-SHARED-READ-
-  HOIST both chain onto json_manifest.rs but neither's scope reaches
-  line 335, so it rides whichever first does.
+  same commit left a companion stale cite: `src/json_manifest.rs`'s
+  `Manifest::read` doc comment (now line 347) still names
+  `[extract::manifest_members]`, though the function it points at moved
+  into this same file — the module prefix is self-referential and wrong.
+  JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE (89cfc64) and
+  GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5) — both adf69b3..7173a59 — have
+  since shipped touching json_manifest.rs, neither reaching line 347; no
+  entry currently open chains onto it, so it rides whichever next does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
