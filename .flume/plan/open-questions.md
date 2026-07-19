@@ -139,20 +139,22 @@ condition arrives, it is the next break. If work touches one, surface it.
   the citing sentence — stale from the moment it was authored. No pending
   entry currently opens document.rs, so it rides whichever one first does.
   `src/install.rs`'s orphaned `placement_lines` doc comment (now
-  1686-1692) is dead prose the extraction commit (8704036,
-  PLACEMENT-MODULE-EXTRACTION) left behind: it moved
+  1690-1696, re-read at f130ebc) is dead prose the extraction commit
+  (8704036, PLACEMENT-MODULE-EXTRACTION) left behind: it moved
   `placement_lines`/`is_placement_comment` to `src/placement.rs` verbatim
   but not their preceding doc comment, which still sits glued — no blank
   line — directly above `render`'s own doc comment, reading as render's
   opening paragraph though it describes a function that no longer lives
   in this file. INSTALL-PROJECTION-MATCH-CONSOLIDATE,
   INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE, INSTALL-PLACEMENT-KIND-ENUM,
-  BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE, and — new since the last
-  read, both in the adf69b3..7173a59 window —
-  INSTALL-ERROR-ZERO-CONSUMER-PRUNE (2c037ba) and
-  GUARD-DECLARED-LOCUS-FILTER (a5e154f) have all shipped touching
-  install.rs, none reaching this range; no entry currently open chains
-  onto it, so it rides whichever next does.
+  BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE,
+  INSTALL-ERROR-ZERO-CONSUMER-PRUNE (2c037ba), and
+  GUARD-DECLARED-LOCUS-FILTER (a5e154f) — plus, new since the last read,
+  INSTALL-PACKAGE-JSON-ANCESTOR-SHORT-CIRCUIT (9bf9ebb, the
+  ensure_package_json/spawn_npm_install split at lines 7-13/443-452/
+  1509-1546) — have all shipped touching install.rs, none reaching this
+  range; no entry currently open chains onto it, so it rides whichever
+  next does.
   `src/extract.rs`'s doc comment for `manifest_members` (surfaced this
   tick's posture sweep of foundation) was orphaned mid-function by the
   same extraction commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE)
