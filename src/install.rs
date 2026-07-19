@@ -7,9 +7,12 @@
 //! - **No** wires the `SessionStart` reporter alone ([`place_settings_only`]) and
 //!   stops — the stranger gate at session start, Node-free forever.
 //! - **Yes** requires Node (checked up front, refused loud with instructions when
-//!   absent), ensures the `@dtmd/temper` dependency ([`ensure_dependency`]) —
-//!   before a single file of the lift is written, so a spawn failure never
-//!   leaves a half-scaffolded `.temper/` behind it — then scaffolds the SDK
+//!   absent), ensures the `@dtmd/temper` dependency is declared in
+//!   `.temper/package.json` ([`ensure_package_json`]) and spawns `npm install`
+//!   to fetch it when not already resolved via an ancestor `node_modules`
+//!   ([`spawn_npm_install`]) — before a single file of the lift is written, so
+//!   a spawn failure never leaves a half-scaffolded `.temper/` behind it — then
+//!   scaffolds the SDK
 //!   program once if none exists yet — the lift ([`scaffold`]): a whole
 //!   conversion (0016), never an intermediate state — every present frontmatter
 //!   field hoists into a typed property and prose moves module-side (inline for
@@ -440,8 +443,11 @@ fn run_represented(
     // Assured before the lift writes a single member module: "no half-scaffolded
     // state" — a dependency spawn failure must never leave a partial `.temper/`
     // program behind it.
-    if !dry_run && !dependency_resolves(&temper_dir) {
-        ensure_dependency(&temper_dir)?;
+    if !dry_run {
+        ensure_package_json(&temper_dir)?;
+        if !dependency_resolves(&temper_dir) {
+            spawn_npm_install(&temper_dir)?;
+        }
     }
 
     let scaffolded = if already_scaffolded {
@@ -1503,12 +1509,10 @@ pub fn npm_program() -> &'static str {
     if cfg!(windows) { "npm.cmd" } else { "npm" }
 }
 
-/// Ensure the `@dtmd/temper` dependency: declare it in `.temper/package.json`
-/// (creating a minimal manifest when absent) and `npm install` it. Idempotent by
-/// construction — [`run_represented`] only calls this when [`dependency_resolves`]
-/// already reads `false`.
-fn ensure_dependency(temper_dir: &Path) -> Result<(), InstallError> {
-    ensure_package_json(temper_dir)?;
+/// Spawn `npm install` to fetch the `@dtmd/temper` dependency into
+/// `.temper/node_modules`, assuming `.temper/package.json` already declares it.
+/// Skipped when the dependency resolves via an ancestor `node_modules`.
+fn spawn_npm_install(temper_dir: &Path) -> Result<(), InstallError> {
     let output = Command::new(npm_program())
         .arg("install")
         .current_dir(temper_dir)

@@ -1509,3 +1509,38 @@ fn a_workspace_passed_as_the_path_refuses_instead_of_scaffolding_inside_it() {
         "nothing is scaffolded inside the workspace"
     );
 }
+
+#[test]
+fn package_json_written_when_dependency_resolves_via_ancestor() {
+    let root = write_harness("pkg-json-ancestor", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+
+    // Vendor the SDK into the root's node_modules instead of .temper's, so
+    // dependency_resolves finds it via ancestor walk-up and npm install is
+    // skipped — but .temper/package.json should still be written.
+    common::vendor_sdk(&root.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    assert!(outcome.represented);
+    let package_json_path = temper_dir.join("package.json");
+    assert!(
+        package_json_path.is_file(),
+        ".temper/package.json must exist even when SDK resolves via ancestor"
+    );
+
+    let package_json = fs::read_to_string(&package_json_path).unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&package_json).expect(".temper/package.json must be valid JSON");
+
+    assert_eq!(
+        parsed["type"], "module",
+        ".temper/package.json must declare type: module"
+    );
+    assert!(
+        parsed["dependencies"]["@dtmd/temper"].is_string(),
+        ".temper/package.json must declare @dtmd/temper dependency"
+    );
+}
