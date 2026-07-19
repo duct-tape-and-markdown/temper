@@ -24,7 +24,10 @@ use toml_edit::{
     Array, ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike, Value, value,
 };
 
+use crate::compose;
+use crate::contract;
 use crate::extract::host_address;
+use crate::graph;
 use crate::hash::sha256_hex;
 use crate::kind::{
     CollectionAddress, Commitment, Content, Format, Layout, LayoutRegion,
@@ -4816,6 +4819,124 @@ fn embedded_member_from_row(row: &NestedMemberRow) -> crate::extract::EmbeddedMe
             })
             .collect(),
     }
+}
+
+pub fn requirement_from_row(
+    row: &RequirementRow,
+) -> Result<compose::Requirement, compose::ClauseRowError> {
+    Ok(compose::Requirement {
+        name: row.name.clone(),
+        prose: row.prose.clone(),
+        kind: row.kind.clone(),
+        required: row.required,
+        clauses: row
+            .clauses
+            .iter()
+            .map(clause_from_row)
+            .collect::<Result<Vec<_>, _>>()?,
+        verifier: row.verifier.clone(),
+    })
+}
+
+/// Lift one of a requirement row's nested [`ClauseRow`]s into a
+/// [`contract::Clause`] — the mirror of [`requirement_from_row`] for the set-/edge-scope
+/// demand it carries, via the shared [`compose::clause_from_row`] lift. A
+/// requirement-nested row's guidance/source isn't carried the same way as a
+/// kind-level clause's, so both are overwritten to `None` on success rather than
+/// passed through.
+///
+/// # Errors
+///
+/// Propagates the [`compose::ClauseRowError`] the shared lift raises for a row the
+/// closed vocabulary cannot admit — rejected loud, never a silently dropped clause.
+pub fn clause_from_row(row: &ClauseRow) -> Result<contract::Clause, compose::ClauseRowError> {
+    compose::clause_from_row(row).map(|clause| contract::Clause {
+        guidance: None,
+        source: None,
+        ..clause
+    })
+}
+
+/// The assembly's declared edges off the lock's `assembly` fact family — every
+/// `fact = "edge"` row. A present edge row missing a required `field`/`from`/`to` column
+/// is a load error naming the assembly family, never a silently absent edge — as is a
+/// `to` that names no kind at all.
+///
+/// # Errors
+///
+/// Returns a [`LockRowError`] when a present edge fact omits a required column or
+/// declares an empty target set.
+pub fn edges_from_declarations(
+    declarations: &Declarations,
+) -> Result<Vec<compose::Edge>, LockRowError> {
+    declarations
+        .assembly
+        .iter()
+        .filter(|fact| fact.fact == "edge")
+        .map(|fact| {
+            let to: Vec<String> = edge_column(fact.to.clone(), "to")?;
+            // An edge declaring no target kind can never resolve — loading it would
+            // silently narrow the gate to a route it can never judge.
+            if to.is_empty() {
+                return Err(LockRowError::WrongType {
+                    family: "assembly".to_string(),
+                    column: "to".to_string(),
+                    want: "non-empty set of target kinds".to_string(),
+                });
+            }
+            Ok(compose::Edge {
+                field: edge_column(fact.field.clone(), "field")?,
+                from: edge_column(fact.from.clone(), "from")?,
+                to,
+            })
+        })
+        .collect()
+}
+
+/// One required column off a present `edge` assembly fact — an absent one is a load error
+/// naming the assembly family, the same reject a malformed row takes at load.
+fn edge_column<T>(value: Option<T>, column: &str) -> Result<T, LockRowError> {
+    value.ok_or_else(|| LockRowError::MissingColumn {
+        family: "assembly".to_string(),
+        column: column.to_string(),
+    })
+}
+
+/// The lock's already-resolved `mention` rows, lifted into [`graph::ResolvedEdge`]s —
+/// the mention-family mirror of [`edges_from_declarations`]: no field lookup (a mention
+/// is resolved once, at emit), just the address parse [`graph::resolved_mention_edges`]
+/// runs.
+pub fn mention_edges_from_declarations(declarations: &Declarations) -> Vec<graph::ResolvedEdge> {
+    let mentions: Vec<graph::MentionDeclaration> = declarations
+        .mentions
+        .iter()
+        .map(|row| graph::MentionDeclaration {
+            member: row.member.clone(),
+            target: row.target.clone(),
+        })
+        .collect();
+    graph::resolved_mention_edges(&mentions)
+}
+
+/// Extract import edges from an already-parsed lock document, avoiding redundant
+/// reads/parses.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] when a present source-dependency row is malformed.
+pub fn import_edges_from_doc(doc: &DocumentMut) -> miette::Result<Vec<graph::ResolvedEdge>> {
+    let layouts = layout_imports_from_doc(doc)?;
+    let includes = includes_from_doc(doc)?;
+    let imports: Vec<graph::ImportDeclaration> = layouts
+        .into_iter()
+        .chain(includes)
+        .filter(|row| !row.target.is_empty())
+        .map(|row| graph::ImportDeclaration {
+            member: row.member,
+            target: row.target,
+        })
+        .collect();
+    Ok(graph::resolved_import_edges(&imports))
 }
 
 #[cfg(test)]
