@@ -1024,17 +1024,11 @@ const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
  * catalog published under a name that later becomes reserved stops loading for every user
  * who already added it. That is the one clause here worth more than a lint.
  *
- * **One documented rule below the top level is still absent, pending a vocabulary
- * addition** — a discriminated-union predicate, the widening this hold waits on:
- *
- * - **The `source` union.** The docs type `source` as `string|object` and give the object
- *   four forms; deciding *which* — the relative-path form's leading `./`, each object
- *   form's own discriminator and required fields — needs a discriminated-union predicate
- *   the vocabulary does not spell. `required("plugins[*].source")` — that a source is
- *   named at all — is the decidable slice, and it ships below.
- *
- * The TypeScript type `MarketplaceSource` holds that bar for an SDK author, so what is
- * unguarded is the hand-written catalog, not the authored one.
+ * **One documented rule below the top level is still absent** — the source union now awaits
+ * decision 0041's Rust implementation (the SDK half is ready); until the engine supports
+ * `when` guards, the holds on marketplace source, mcp-server transport, and hook handler
+ * schema remain. When the Rust side ships, this contract will express the per-discriminator
+ * required fields via when/enumOf clauses.
  *
  * Deliberately absent as undecidable, and never a clause (`specs/intent.md`, invariant 2):
  * the docs *also* block names that "impersonate official marketplaces" (`official-claude-plugins`,
@@ -1526,11 +1520,14 @@ const DOCUMENTED_HOOK_EVENTS = [
  * Claude Code silently never fires a hook under an unrecognized event, so the strictest
  * documented profile is that the event is one temper's cited docs name.
  *
- * Deliberately absent — the handler's own schema (`type`/`command`/`url`/`timeout`, the
- * matcher grammar) lives one array level deeper than `hooks.<Event>`, inside each event's
- * matcher-group list, which the collection address does not walk into; a clause over it
- * would range over a field the read never surfaces, so it is no clause at all. What the
- * clauses cannot carry, as guidance: keep a handler's `type` among
+ * **Re-examined against decision 0041's widened vocabulary and confirmed to still hold**:
+ * The handler's own schema (`type`/`command`/`url`/`timeout`, the matcher grammar) lives
+ * one array level deeper than `hooks.<Event>`, inside each event's matcher-group list. The
+ * collection address `hooks.<Event>` does not walk into arrays, and even with the guard
+ * vocabulary's when/enumOf/type extensions, addressing still cannot spell a path into the
+ * handler array (e.g., `hooks.<Event>[0].type`). A clause over it would range over a field
+ * the read never surfaces, so it is no clause at all — the addressing-reach gap remains.
+ * What the clauses cannot carry, as guidance: keep a handler's `type` among
  * `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an
  * `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events
  * that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).
@@ -1563,12 +1560,12 @@ const DOCUMENTED_MCP_TRANSPORTS = ["stdio", "http", "streamable-http", "sse", "w
  * profile is that a present `type` names one temper's cited docs carry. An absent `type`
  * passes — Claude Code reads it as `stdio`, the documented default.
  *
- * Deliberately absent — the per-transport requirements are conditional on `type`, which no
- * single-field clause can decide: a `url` with no `type` is a configuration error (Claude
- * Code reads it as a stdio server and skips it), a stdio server needs a `command`, and a
- * remote server needs a `url` — each a two-field implication the closed predicate
- * vocabulary cannot express, so it rides guidance rather than a clause that would range
- * over a field the shape of the check cannot see.
+ * Deliberately absent — the per-transport requirements are conditional on `type`, which
+ * decision 0041's guard vocabulary will ultimately express once the Rust engine supports it:
+ * a `url` with no `type` is a configuration error (Claude Code reads it as a stdio server
+ * and skips it), a stdio server needs a `command`, and a remote server needs a `url` —
+ * each a two-field implication the current vocabulary cannot express, so it rides guidance
+ * rather than a clause that would range over a field the shape of the check cannot see.
  */
 export const mcpServerDefaultContract: readonly Clause[] = [
   clause(enumOf("type", DOCUMENTED_MCP_TRANSPORTS), {

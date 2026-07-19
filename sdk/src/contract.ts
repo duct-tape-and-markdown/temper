@@ -270,11 +270,20 @@ export const degree = (bounds: {
  *
  * The guard must be a `type` or `enumOf` predicate, named for the decidable
  * field it addresses. Neither is enforced here; emit validates admissibility.
+ *
+ * Options for `severity`, `guidance`, and `cite` are supported and follow the
+ * same pattern as `clause()`. Default severity is `required`.
  */
-export function when(guard: Predicate, body: readonly Clause[]): Clause {
+export function when(
+  guard: Predicate,
+  body: readonly Clause[],
+  opts?: { severity?: Severity; guidance?: string; cite?: string },
+): Clause {
   return {
     predicate: { key: "when" },
-    severity: "required",
+    severity: opts?.severity ?? "required",
+    guidance: opts?.guidance,
+    cite: opts?.cite,
     when_guard: guard,
     when_body: body,
   };
