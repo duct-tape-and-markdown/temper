@@ -63,80 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "JSON-MANIFEST-MEMBERS-ZERO-CONSUMER-PRUNE",
-    "summary": "json_manifest.rs's manifest_members is pub(crate) but called only from Manifest::parse in the same file — zero outside consumer; narrow to private per the export-earns-its-consumer bar",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/json_manifest.rs",
-          "description": "`manifest_members` (538-564, `pub(crate)`, doc 519-537) has exactly one call site anywhere in the tree — `Manifest::parse` (378, same file) — plus its own inline tests (942-1051, e.g. `manifest_members_walk_each_entry_raw_and_skip_a_non_object` at 942); grep-verified zero hits in src/, tests/, sdk/ outside this file (kind.rs:213's mention is an intra-doc link, not a call — see that file's edit below). Its sibling grammar fns moved from extract.rs in the same commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE) were narrowed correctly there — `enablement_member_fields`/`hook_member_fields` are already private, called only in-module — but `manifest_members` kept the `pub(crate)` visibility without ever gaining a cross-module caller at its new address, the same shape the shipped GRAPH-WORLD-ZERO-CONSUMER-PRUNE and KIND-ZERO-CONSUMER-EXPORTS-PRUNE precedents already pruned (a `pub`/`pub(crate)` item called only from one function in its own file). Drop `pub(crate)`, leaving `manifest_members` module-private — `Manifest::parse` and the inline tests are unaffected (private items stay visible to a module's own child `tests` mod). The doc comment's justifying line (536-537, 'pub(crate) so the JSON manifest adapter reads a collection address's members off the one grammar the frontmatter path also parses to') names no real external consumer — the 'JSON manifest adapter' it gestures at *is* this module — so drop that clause along with the visibility rather than leaving a stale rationale for a narrowed fn."
-        },
-        {
-          "path": "src/kind.rs",
-          "description": "`ENABLEMENT_FIELD`'s doc comment (211-213, '...the read face that names it ([`crate::json_manifest::manifest_members`])...') carries an intra-doc link to the item this entry makes private — unresolvable once `manifest_members` loses `pub(crate)`, since rustdoc cannot link to a private item from another module. Reword to a plain code-span reference (`` `json_manifest::manifest_members` ``, no brackets) rather than ship a broken intra-doc link."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/json_manifest.rs",
-        "asserts": "manifest_members_walk_each_entry_raw_and_skip_a_non_object, enablement_members_carry_the_scalar_value_and_re_render_identically, and hook_members_decompose_the_matcher_group_array_and_re_nest_identically all stay green — the narrowing is visibility-only, no behavior change to the function"
-      }
-    ],
-    "acceptance": "manifest_members is a private fn in src/json_manifest.rs, not pub(crate); kind.rs's ENABLEMENT_FIELD doc comment no longer carries an intra-doc link to it. cargo test and cargo clippy --all-targets -- -D warnings green (no unused-pub warning survives).",
-    "notes": "Found sweeping the formats subsystem (posture rotation: model done, formats this tick). Serialized behind GATE-MANIFEST-SHARED-READ-HOIST, the last entry in the existing chain touching json_manifest.rs (pending-entry.md, 'Disjoint, or serialized') — no functional dependency. scoped at e733883."
-  },
-  {
-    "tag": "DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST",
-    "summary": "gate()'s config_stale re-reads lock.toml via walk_lock_rows instead of the shared doc DRIFT-SOURCE-DEP-PARSE-HOIST threads through; walk_lock_rows also duplicates read_lock_document's own read+parse",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "walk_lock_rows (1995-2006) duplicates read_lock_document_for_emit (2028-...)'s fs::read_to_string + .parse::<DocumentMut>() + increment_lock_reads/increment_lock_parses sequence instead of calling read_lock_document_for_emit then walk_lock_rows_from_doc(&doc) — a second implementation of the same read-and-parse job. config_stale (2461, loop at 2464) calls walk_lock_rows(workspace_dir) independently inside gate(), a further full read+parse of lock.toml on top of the one gate() now holds as `lock_doc` (DRIFT-SOURCE-DEP-PARSE-HOIST, shipped — the new pub counted `drift::read_lock_document` at 3589, distinct from the renamed-private `read_lock_document_for_emit`). Add `config_stale_from_doc(doc: &DocumentMut, workspace_dir: &Path) -> Vec<Diagnostic>` following the `_from_doc` pattern the shipped hoist established, deriving its rows via `walk_lock_rows_from_doc(doc)` instead of `walk_lock_rows(workspace_dir)`; keep `config_stale` itself only if a standalone caller outside gate() remains (verify at implementation time — rg its call sites), else retire it in favor of the `_from_doc` form. Separately (independent of gate()'s own hoist), rewrite walk_lock_rows to call read_lock_document_for_emit(workspace_dir) then walk_lock_rows_from_doc(&doc) rather than duplicating the read+parse+counter body — it stays tolerant/infallible to match its one remaining standalone caller, emit_owned_targets (2822), a one-shot CLI entry point outside gate()/emit() with no shared doc to reuse; do NOT switch it to the new fallible read_lock_document (3589), which errors loud on a malformed lock instead of degrading to empty — a behavior change emit_owned_targets' callers don't expect."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "gate() (854) calls drift::config_stale(workspace) at 1212, after lock_doc is parsed at 868 (drift::read_lock_document, shipped by DRIFT-SOURCE-DEP-PARSE-HOIST). Update this call site to drift::config_stale_from_doc(&lock_doc, workspace) once that function exists, passing the already-parsed document instead of the bare workspace path."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/check_cost.rs",
-        "asserts": "a fixture whose gate() run exercises config.stale findings reads/parses lock.toml exactly once per invocation — a count-pin, the same doctrine this file's discovery-walk/glob-compile/lock-row-walk pins already establish"
-      },
-      {
-        "path": "tests/install.rs",
-        "asserts": "config_stale's existing coverage (536, 607) stays green — the hoist and the walk_lock_rows rewrite are signature/location-only, no behavior change to which findings fire"
-      }
-    ],
-    "acceptance": "config_stale consumes the same shared parsed lock document gate() already holds instead of independently re-reading/re-parsing lock.toml; walk_lock_rows calls read_lock_document + walk_lock_rows_from_doc instead of duplicating the read+parse body. No behavior change (engineering.md, 'Cost scale is hoisted'). cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Found sweeping pipeline (posture rotation). walk_lock_rows keeps the renamed tolerant fn (emit_owned_targets' caller). DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE shipped 18a8af7 (verified: EmitOutcome::label private; walk_lock_rows/config_stale still duplicate read+parse on disk at adf69b3) — reserialized behind GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE instead, both edit main.rs gate() body. rescoped 863e506."
-  },
-  {
     "tag": "DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST",
     "summary": "emit()'s manifest_segment_reaps and emit_manifest each independently read the same on-disk manifest file per represented manifest, within one emit() pass",
     "per": {
@@ -144,8 +70,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
