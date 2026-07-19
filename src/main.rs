@@ -1289,7 +1289,7 @@ pub fn gate(
     // off the surface `workspace`'s lock (where the members were imported and the
     // fingerprints recorded), advisory so a hand-edited or un-re-emitted projection is
     // surfaced without failing the run.
-    diagnostics.extend(drift::config_stale(workspace));
+    diagnostics.extend(drift::config_stale_from_doc(&lock_doc, workspace));
 
     // The source-dependency freshness facts: a fingerprinted layout-import or
     // composed-prose include target whose bytes no longer match the lock — the target

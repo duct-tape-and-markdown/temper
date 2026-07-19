@@ -480,3 +480,60 @@ fn gate_resolved_edge_walk_is_hoisted_per_gate_invocation() {
         "gate() must compute resolved_edges exactly once, shared across consumers: {resolves_calls} calls (before {count_before}, after {count_after})",
     );
 }
+
+#[test]
+fn gate_config_stale_uses_pre_parsed_lock_document() {
+    let workspace = tmpdir("gate-config-stale-lock-parse-cost");
+
+    // Create a lock.toml with a provenance row for a skill member, exercising the
+    // config_stale path: read_lock_document() once, then config_stale_from_doc()
+    // reuses the pre-parsed document without re-reading.
+    let lock_path = workspace.join(temper::LOCK_FILENAME);
+    std::fs::write(
+        &lock_path,
+        r#"[[skill]]
+name = "test-skill"
+source_path = ".claude/skills/test-skill/SKILL.md"
+emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
+"#,
+    )
+    .unwrap();
+
+    // Create the referenced skill file so config_stale can read it.
+    let skill_dir = workspace.join(".claude").join("skills").join("test-skill");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: test-skill\ndescription: Test\n---\n# Test\n",
+    )
+    .unwrap();
+
+    // Count lock reads/parses before test.
+    let reads_before = temper::drift::lock_read_count();
+    let parses_before = temper::drift::lock_parse_count();
+
+    // Simulate what gate() does: read the lock once and pass it through to config_stale_from_doc.
+    let lock_doc = temper::drift::read_lock_document(&workspace).expect("lock should parse");
+
+    // Call config_stale_from_doc which should not re-read or re-parse the lock.
+    let _ = temper::drift::config_stale_from_doc(&lock_doc, &workspace);
+
+    // Count lock reads/parses after test.
+    let reads_after = temper::drift::lock_read_count();
+    let parses_after = temper::drift::lock_parse_count();
+
+    let reads = reads_after - reads_before;
+    let parses = parses_after - parses_before;
+
+    // The cost doctrine: config_stale_from_doc must not re-read or re-parse the lock
+    // when given a pre-parsed document. The single read+parse comes from read_lock_document()
+    // above; config_stale_from_doc should contribute zero additional reads/parses.
+    assert_eq!(
+        reads, 1,
+        "config_stale_from_doc must not re-read lock.toml when given pre-parsed doc: {reads} reads (before {reads_before}, after {reads_after})",
+    );
+    assert_eq!(
+        parses, 1,
+        "config_stale_from_doc must not re-parse lock.toml when given pre-parsed doc: {parses} parses (before {parses_before}, after {parses_after})",
+    );
+}

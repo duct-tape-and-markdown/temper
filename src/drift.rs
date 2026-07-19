@@ -2085,15 +2085,7 @@ fn walk_lock_rows_from_doc(doc: &DocumentMut) -> Vec<RawLockRow> {
 /// parsing every `[[<kind>]]` array-of-tables entry — returns all columns
 /// (as Options) for each row. A missing or malformed lock yields no rows.
 fn walk_lock_rows(workspace_dir: &Path) -> Vec<RawLockRow> {
-    let path = workspace_dir.join(crate::LOCK_FILENAME);
-    let Ok(text) = fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-    increment_lock_reads();
-    let Ok(doc) = text.parse::<DocumentMut>() else {
-        return Vec::new();
-    };
-    increment_lock_parses();
+    let doc = read_lock_document_for_emit(workspace_dir);
     walk_lock_rows_from_doc(&doc)
 }
 
@@ -2565,6 +2557,41 @@ pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
                     "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
                 ),
  ));
+        }
+    }
+    findings
+}
+
+/// Staleness findings from the given lock document without re-reading from disk.
+/// Reuses a parsed lock document to avoid duplicate read+parse operations when gate()
+/// already holds the document. Findings are harness-relative to `workspace_dir`.
+pub fn config_stale_from_doc(
+    doc: &DocumentMut,
+    workspace_dir: &Path,
+) -> Vec<crate::check::Diagnostic> {
+    let mut findings = Vec::new();
+    let harness_root = harness_root_of(workspace_dir);
+    for raw in walk_lock_rows_from_doc(doc) {
+        let (Some(name), Some(source_path), Some(emit_hash)) =
+            (raw.name, raw.source_path, raw.emit_hash)
+        else {
+            continue;
+        };
+        // Only a present-and-differing projection is stale: a source that is gone
+        // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
+        // The row is harness-relative, so it resolves under the harness this check
+        // was aimed at, whatever the cwd.
+        let Ok(bytes) = fs::read(harness_root.join(&source_path)) else {
+            continue;
+        };
+        if sha256_hex(&bytes) != emit_hash {
+            findings.push(crate::check::Diagnostic::warn(
+                CONFIG_STALE_RULE,
+                &source_path,
+                format!(
+                    "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
+                ),
+            ));
         }
     }
     findings
