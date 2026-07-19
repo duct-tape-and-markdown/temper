@@ -688,7 +688,6 @@ fn impact_impl(
             features,
             roster,
             by_kind,
-            member_index,
             registrations,
             repo_files,
             directive_edges,
@@ -1018,7 +1017,8 @@ fn context_leaf(
     out
 }
 
-/// Implementation of [`context_member`] using a pre-built member index.
+/// Narrate the declared neighborhood of a member using a pre-built member index.
+/// Called by [`context_impl`].
 fn context_member_impl(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
@@ -1043,7 +1043,7 @@ fn context_member_impl(
         if index > 0 {
             out.push('\n');
         }
-        context_member_one_impl(&mut out, kind, features, by_kind, citations, member_index);
+        context_member_one_impl(&mut out, kind, features, citations, member_index);
     }
 
     disclose_coverage(&mut out, by_kind);
@@ -1051,12 +1051,12 @@ fn context_member_impl(
     out
 }
 
-/// Implementation of [`context_member_one`] using a pre-built member index.
+/// Narrate one matched member's declared neighborhood: its nested members, citers, and
+/// satisfied requirements. Called by [`context_member_impl`].
 fn context_member_one_impl(
     out: &mut String,
     kind: &str,
     features: &Features,
-    _by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
 ) {
@@ -1199,16 +1199,17 @@ fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize 
         .count()
 }
 
-/// Narrate one matched node's blast radius into `out` — uses the member index for count_satisfiers.
+/// Narrate one matched node's blast radius into `out` — the deterministic impact of
+/// removing or renaming a member: the requirements it is the sole satisfier of, the
+/// directive edges that point at it, and the members reachable only through it.
+/// Called by [`impact_impl`].
 #[allow(clippy::too_many_arguments)]
-/// Implementation of [`impact_one`] using a pre-built member index.
 fn impact_one_impl(
     out: &mut String,
     kind: &str,
     features: &Features,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
-    _member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
