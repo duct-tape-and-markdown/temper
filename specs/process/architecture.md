@@ -74,7 +74,7 @@ appears in exactly one.
 
 A module listed here that the tree lacks, or an edge the tree carries
 that an invariant forbids, is intent ahead of the tree: the ruling
-routes to the queue, and the map says nothing more (0043). The map is
+routes to the queue, and the map says nothing more. The map is
 intent, and intent loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
