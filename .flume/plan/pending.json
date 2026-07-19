@@ -1,40 +1,5 @@
 [
   {
-    "tag": "INSTALL-PACKAGE-JSON-ANCESTOR-SHORT-CIRCUIT",
-    "summary": "`temper install --yes` skips writing `.temper/package.json` (`type: module`) whenever `@dtmd/temper` already resolves via an ancestor `node_modules`, e.g. a root-level `npm i` before install",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Install"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`run_represented` (429-490) gates `ensure_dependency(&temper_dir)` behind `if !dry_run && !dependency_resolves(&temper_dir)` (443-445); `ensure_dependency` (1510-1527) itself calls `ensure_package_json` (1533-1575, writes `type: module` + the `@dtmd/temper` dep) before spawning `npm install`. Decouple: `ensure_package_json` must run on every real (non-dry-run) yes-path pass regardless of `dependency_resolves`, while the `npm install` spawn stays gated behind it (redundant-install skip is still correct, only the manifest write was wrongly coupled to it). Update `ensure_dependency`'s doc comment (1506-1509), which currently asserts it's 'only called when `dependency_resolves` already reads false' — that claim moves or is cut with the restructure."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Add a regression test reproducing the report's exact repro shape: vendor the SDK into the *root* harness dir's `node_modules/@dtmd` (via `common::vendor_sdk`) instead of `.temper`'s, so `dependency_resolves` finds it via the ancestor walk-up and the `npm install` spawn is skipped — then run `install::run(.., Represent::Yes, false)` and assert `.temper/package.json` exists, parses, and declares `\"type\": \"module\"` plus a `dependencies[\"@dtmd/temper\"]` entry. Existing tests all vendor straight into `.temper/node_modules`, which also short-circuits `dependency_resolves` but never exercised whether `.temper/package.json` still got written — this fills that gap."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "`.temper/package.json` declares `type: module` and the `@dtmd/temper` dependency after a real yes-path run even when the dependency already resolved via an ancestor `node_modules`, not `.temper`'s own"
-      }
-    ],
-    "acceptance": "`temper install --yes` always leaves `.temper/package.json` (`type: module`, the SDK dependency) on disk after a real run, independent of where `@dtmd/temper` already resolved from — the release smoke sequence (`npm init -y && npm i @dtmd/temper && npx temper install --yes .`) reaches a green first emit. `cargo test` green including the new regression test.",
-    "notes": "Re-verified on disk at e5254fc: `run_represented` (install.rs:443-445) gates `ensure_dependency` — and `ensure_package_json` inside it — behind `!dependency_resolves`, which walks to an ancestor's `node_modules`. A root-level `npm i @dtmd/temper` before `install --yes` (release.yml's smoke sequence) makes it resolve, so `.temper/package.json` never writes. No install.rs test covers this: every test vendors the SDK into `.temper/node_modules`, short-circuiting identically. scoped at e5254fc."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
