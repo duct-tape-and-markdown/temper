@@ -1,31 +1,14 @@
 [
   {
-    "tag": "MAIN-RS-BACKUP-STRAY-FILE-RETIRE",
-    "summary": "src/main.rs.backup is a stray pre-refactor duplicate accidentally committed in fe58bc2 — delete it; no module claims it.",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "The tree stays flat"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [],
-      "retire": ["src/main.rs.backup"]
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "src/main.rs.backup no longer exists in the tree; cargo build, cargo test, cargo clippy --all-targets -- -D warnings, and cargo fmt --all --check all still green (the file was never a `mod` in src/lib.rs or src/main.rs, so nothing references it).",
-    "notes": "Committed as a 2822-line byte-identical copy of pre-refactor main.rs in fe58bc2 (build: move corpus-assembly functions to compose.rs) — a build-tick backup swept into git add and never cleaned up; `git log --all -- src/main.rs.backup` shows only that one commit touching it, confirming no later work builds on it. Never declared in `src/lib.rs`'s module registry, so it is inert debris, not a module. scoped at ecabca1."
-  },
-  {
     "tag": "BUILTINS-WHEN-GUARD-HOLDS-CLOSE",
     "summary": "marketplaceDefaultContract and mcpServerDefaultContract still block their source/transport holds on a Rust `when` that already shipped — close both with the vocabulary now available.",
     "per": {
       "path": "specs/builtins.md",
       "section": "Default contracts"
     },
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
@@ -49,7 +32,15 @@
       }
     ],
     "acceptance": "Both default contracts express their documented per-discriminator required fields via `when` clauses, per decision 0041's Consequences ('marketplaceDefaultContract completes the source union ... the other two shipped contracts ... resolving to a completed clause or a hold that survives honestly'); neither header comment misattributes an open hold to a missing engine capability. cargo test and pnpm --dir sdk test green.",
-    "notes": "hookDefaultContract's hold (handler schema one array level below the collection address) is unaffected — that re-examination is still correct, an addressing-reach gap `when` cannot close since the collection address doesn't walk into hooks.<Event>[]. Only the marketplace and mcp-server holds were misdiagnosed against the shipped engine. scoped at ecabca1."
+    "notes": "hookDefaultContract's hold (handler schema one array level below the collection address) is unaffected — that re-examination is still correct, an addressing-reach gap `when` cannot close since the collection address doesn't walk into hooks.<Event>[]. Only the marketplace and mcp-server holds were misdiagnosed against the shipped engine. scoped at ecabca1.",
+    "observedFiles": [
+      "sdk/src/builtins.ts",
+      "sdk/test/builtins.test.ts",
+      "src/builtin_lock.toml",
+      "src/bundle.rs",
+      "tests/bundle.rs",
+      "tests/snapshots/bundle__.claude-plugin__marketplace.json.snap"
+    ]
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
