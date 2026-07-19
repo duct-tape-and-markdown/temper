@@ -334,9 +334,8 @@ export const script = (path: string): Verifier => ({ species: "script", path });
 /**
  * A telemetry verifier — the named documented harness events the emitted tap records
  * to a local-locus log, judged by reading the field record. Each name must be a
- * documented harness lifecycle event (`InstructionsLoaded`, `SkillInvoked`,
- * `UserPromptExpansion`, `ToolUse`; code.claude.com/docs/en/hooks, retrieved
- * 2026-07-17) — the gate checks each resolves, never records into it.
+ * documented harness lifecycle event — the gate checks each resolves, never records
+ * into it. See `TELEMETRY_EVENT_HOOKS` in `declarations.ts` for the vocabulary.
  */
 export const telemetry = (events: readonly string[]): Verifier => ({ species: "telemetry", events });
 
