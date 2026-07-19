@@ -46,8 +46,10 @@ hard.
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
 - Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
-- Docs-language candidate (post-freeze): the determinism ladder — "push
-  every check to the most deterministic layer that can express it".
+- Docs-language candidates (post-freeze): the determinism ladder —
+  "push every check to the most deterministic layer that can express
+  it"; the harness pin (John, 07-18) — "our job in the harness is to
+  name the invariants, and let the loop settle".
 - Base harness dogfood: primer `docs/base-harness-primer.md`; example at
   `examples/base-harness/` (third cut shipped 549969f); built-in-kind doc
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
