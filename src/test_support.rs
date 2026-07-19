@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use crate::kind::{CustomKind, Extraction, Format, Governs, Primitive, UnitShape};
+use crate::kind::{CustomKind, Extraction, Format, Governs, Primitive, Unit, UnitShape};
 
 /// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
 /// crate rather than a hand-rolled counter+pid scheme.
@@ -63,5 +63,24 @@ pub(crate) fn rule_kind() -> CustomKind {
                 key: "paths".to_string(),
             }]),
         )
+    }
+}
+
+/// Lift an imported [`Member`](crate::frontmatter::Member) straight into the raw [`Unit`]
+/// the composed extractor reads — the same fields a built-in kind's member carries
+/// into `check`, with no disk round trip.
+#[allow(dead_code)]
+pub(crate) fn surface_unit(member: &crate::frontmatter::Member) -> Unit {
+    Unit {
+        id: member.id.clone(),
+        frontmatter: member.fields.iter().cloned().collect(),
+        body: member.body.clone(),
+        source_path: member.provenance.source_path.clone(),
+        satisfies: member
+            .satisfies
+            .iter()
+            .map(|s| s.requirement.clone())
+            .collect(),
+        satisfies_clauses: member.satisfies.clone(),
     }
 }

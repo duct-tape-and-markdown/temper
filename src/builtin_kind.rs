@@ -721,7 +721,7 @@ mod tests {
     use super::*;
     use crate::compose::Edge;
     use crate::kind::Governs;
-    use crate::test_support::tmpdir;
+    use crate::test_support::{surface_unit, tmpdir};
 
     #[test]
     fn skill_definition_matches_the_hand_authored_kind() {
@@ -1035,24 +1035,6 @@ mod tests {
         // `mcpServers.*` names no key field, so a server carries only its own object
         // fields, folded in at read time — no declared frontmatter primitives.
         assert_eq!(mcp.extraction.primitives(), &[]);
-    }
-
-    /// Lift an imported [`crate::frontmatter::Member`] straight into the raw [`Unit`]
-    /// the composed extractor reads — the same fields a built-in kind's member carries
-    /// into `check`, with no disk round trip.
-    fn surface_unit(member: &crate::frontmatter::Member) -> Unit {
-        Unit {
-            id: member.id.clone(),
-            frontmatter: member.fields.iter().cloned().collect(),
-            body: member.body.clone(),
-            source_path: member.provenance.source_path.clone(),
-            satisfies: member
-                .satisfies
-                .iter()
-                .map(|s| s.requirement.clone())
-                .collect(),
-            satisfies_clauses: member.satisfies.clone(),
-        }
     }
 
     #[test]

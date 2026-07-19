@@ -1572,6 +1572,9 @@ fn directive_members_from_resolved(
 }
 
 #[cfg(test)]
+pub use temper::frontmatter;
+
+#[cfg(test)]
 mod test_support;
 
 #[cfg(test)]
