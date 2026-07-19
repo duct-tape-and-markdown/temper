@@ -58,6 +58,14 @@ rewriting an entry, and any interactive session hand-editing the queue.
   fans out pickable entries in parallel worktrees; two `open` entries editing
   the same file conflict at merge and revert the wave. If any path appears in
   two entries, serialize with `gate: { kind: "blockedBy", tag: "FIRST-TAG" }`.
+  File-disjointness is the floor, not the test: entries reshaping the same
+  seam — one vocabulary, one API surface, one decision's chain — collide
+  semantically even with disjoint `files` (a worktree goes green against a
+  base its wave-mate then invalidates; the merge gate reverts it), so
+  serialize coupled entries too. An `observedFiles` field on a pending entry
+  is the dispatcher's record of a merge-reverted attempt's actual footprint:
+  treat it as evidence the declared `files` under-stated the ripple, and fold
+  those paths into the rewrite.
 - Honor the invariants in `specs/intent.md`: only decidable contract clauses
   become checks; behavior is delegated, never guessed. A derived layer never
   invents intent absent from its source.
