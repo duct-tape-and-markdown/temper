@@ -63,41 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "MAIN-CORPUS-ASSEMBLY-TO-COMPOSE",
-    "summary": "main.rs's corpus-assembly functions (resolve_kind_units, manifest_units, kind_features, assemble_lock_family, assemble_by_kind) move to compose.rs",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Codemap — the engine (`src/`)"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`resolve_kind_units` (1319), `manifest_units` (1498), `kind_features` (1521), `assemble_lock_family` (1582), and `assemble_by_kind` (1862) move out; call sites become `compose::` calls. Flag at build time whether their main.rs-local helpers (`overlay_builtin_kind`, `declared_kinds`, `local_document_rows`) travel too or stay as a seam — not pre-decided here."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Gains the five functions beside `default_contract_from_rows` — the module's stated 'member composition' job, which this work already is."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
-      }
-    ],
-    "acceptance": "The five corpus-assembly functions live in compose.rs; main.rs calls them via compose::. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Second of the ruled MAIN-THIN-DISPATCH-COHESION chain (inbox, observed a8dd112): corpus-assembly functions move to compose.rs's 'member composition' home. blockedBy the row-constructor move for main.rs shared-file safety."
-  },
-  {
     "tag": "MAIN-ADMISSIBILITY-JUDGES-MODULE-EXTRACT",
     "summary": "main.rs's seven admissibility/collision judges share one job — declared-program well-formedness — and move together to a new judges module admissibility",
     "per": {
@@ -105,8 +70,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MAIN-CORPUS-ASSEMBLY-TO-COMPOSE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -220,85 +184,6 @@
     "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308."
   },
   {
-    "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE",
-    "summary": "CollectionAddress gains a closed entry-shape fact (object/scalar/group-array) as kind data; ENABLEMENT_FIELD's field-name half becomes the enabledPlugins kind's own declared shape (decision 0042)",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "`CollectionAddress` (184-190, two fields: `manifest`, `key_path: CollectionKeyPath`) gains a third field carrying decision 0042's closed entry-shape fact: `object` (the value's keys are the member's fields, today's unmarked default), `scalar` (the value is the member's one declared field, carrying that field's name — this is where `ENABLEMENT_FIELD`'s (219, `pub(crate) const ENABLEMENT_FIELD: &str = \"enabled\"`) knowledge relocates), and `group-array` (the value is an array of groups, each carrying lifted shared fields plus a member array — the member-array key and lifted field names are its own parameters, settled from the format docs `claude_code_hook`'s doc comment already cites). Exact Rust shape (an `EntryShape` enum with data-carrying variants, `Scalar { field: String }`/`GroupArray { member_key: String, lifted_fields: Vec<String> }`) is a judgment call for build, named in the commit body. `CollectionKeyPath` (196-302, its four variants and `collection_key`/`key_field`/`identity_edge`/`spans_whole_manifest` methods) is UNCHANGED — it still names the manifest's top-level key; only the identity-branching *consumers* of it (a later chain entry) retire, not the type. `collection_address_from_row` (1155-1169) decodes the new row column into the new field; `ENABLEMENT_FIELD` itself is NOT deleted here — it retires only once its last two consumers (json_manifest.rs, graph.rs — later chain entries) are gone."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "The four shipped `CollectionAddress { .. }` literals declare their real shape, each already carrying the citation this fact draws from in its surrounding doc comment: `claude_code_hook` (238-241, doc 225-230, `code.claude.com/docs/en/hooks`, retrieved 2026-07-16) declares `group-array`; `claude_code_mcp_server` (265-268, doc 254-259, 'a server entry is an object') declares `object`; `claude_code_installed_plugin` (302-305) declares `scalar` with field `\"enabled\"` (retiring what `ENABLEMENT_FIELD` encoded); `claude_code_known_marketplace` (343-346, doc: 'Its value is an object, unlike an installed plugin's bare boolean') declares `object`. The two in-module test literals (835, 872) gain the matching field."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`CollectionAddressRow` (2893-2900, `manifest`/`key_path` only) gains the wire column carrying the new fact; `collection_address_table`/`collection_address_from_table` (3806-3813/3815-3823) read/write it. `src/builtin_lock.toml`'s four registration rows (approx lines 106/115/124/140 — hook/mcp-server/installed-plugin/known-marketplace) gain matching real values, since `KindFactRow` decodes only `Deserialize` (no default) and the embedded lock is every bare harness's default-contract source (`.flume/plan/open-questions.md`, 'Default-contract auto-adoption')."
-        },
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "`CollectionAddress` interface (137-144, `manifest`/`keyPath` only) gains the mirrored `entryShape`-shaped fact, matching whichever Rust shape build lands."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`collectionAddressRow` (235-238) lowers the new fact into the row's new wire column, alongside the existing `manifest`/`key_path` mapping."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "Line 19/57-60's `CollectionAddress { .. }` assertion against `definition(\"hook\")` gains the group-array shape's expected value."
-        },
-        {
-          "path": "tests/mcp_server_kind.rs",
-          "description": "Line 22/53-56's `CollectionAddress { .. }` assertion gains the object shape's expected value."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "Line 24/96-99's `CollectionAddress { .. }` assertion gains the scalar shape's expected value (field `\"enabled\"`); the lock-row read at 217-234 gains the new column's raw-wire assertion."
-        },
-        {
-          "path": "tests/known_marketplace_kind.rs",
-          "description": "Line 26/73-76's `CollectionAddress { .. }` assertion gains the object shape's expected value."
-        },
-        {
-          "path": "tests/manifest_adapter.rs",
-          "description": "The `mcp_address()` helper (17, used at 23-27 and across the file) constructs a bare `CollectionAddress` directly — gains the new field (object shape, matching `mcp-server`'s real declaration)."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "`a_hook_round_trips_settings_json_read_to_members_to_write_byte_identical` (924, `CollectionAddress { .. }` at 960-963) gains the group-array shape's expected value — the round trip itself is unaffected, this entry adds no dispatch change."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "`a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine` (1165-1207) constructs `CollectionAddress { .. }` directly to assert `CustomKind::from_kind_fact_row`'s decode output — gains the new field on both sides of the round trip."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "CollectionAddressRow (src/drift.rs, ts-rs-mirrored to sdk/src/generated/CollectionAddressRow.ts) gains a new column carrying the closed entry-shape fact; exact wire shape is a judgment call for build, named in the commit body. Regenerates via the existing ts-rs export test — never hand-edit the generated file.",
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "the new entry-shape column round-trips losslessly through emit + read_declarations for all three shape kinds (object/scalar/group-array), the same bar CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's precedent sets"
-      },
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the embedded lock's frozen-snapshot test is re-recorded (not silently stale) to include the four registration rows' new column — grep this file's own re-record discipline at pickup"
-      }
-    ],
-    "acceptance": "CollectionAddress carries a closed entry-shape fact as kind data (object/scalar/group-array); the four shipped registration kinds declare their real shape with the citations they already carry; the lock row and SDK mirror round-trip it losslessly. Nothing dispatches on it yet — this entry is purely additive, no behavior change. cargo test, cargo clippy --all-targets -- -D warnings, and pnpm --dir sdk test all green.",
-    "notes": "Derived from decision 0042, Consequences bullets 1, 3, 4. kind.rs/drift.rs cites corrected for line shifts KIND-ZERO-CONSUMER-EXPORTS-PRUNE and DRIFT-SOURCE-DEP-PARSE-HOIST left (3561798). Unblocked: IMPORT-ROLLUP-WRITER-PLACEMENT shipped ab2e822. Reserialized behind MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT, last chain entry on drift.rs. Still conflicts with open TAP-PAYLOAD-SCHEMA-SPLIT over builtin_kind.rs — single-tag blockedBy can't express both waits; re-check at either's ship. rescoped 863e506."
-  },
-  {
     "tag": "JSON-MANIFEST-ENTRY-SHAPE-DISPATCH",
     "summary": "manifest_members and emit's write faces dispatch on the collection's declared entry-shape instead of CollectionKeyPath identity; the HooksEvent/EnabledPlugins branches delete (decision 0042)",
     "per": {
@@ -306,8 +191,7 @@
       "section": "The fix lands at the mechanism"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -390,8 +274,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-ENTRY-SHAPE-DATA-DECLARE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
