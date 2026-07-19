@@ -13,10 +13,11 @@ hard.
 - **The center (0019)**: temper types the documents that program agents;
   the launch demo is this repo's spec corpus governing itself. Kernel
   corpus in `specs/model/`; decisions outside every read path.
-- **META-FREEZE (John, 07-09)**: no harness/process/audit investment this
-  side of v0.1. Amendments: manifest campaign admitted (0021, 07-10);
-  harness-surface settle sanctioned 07-16 — flume's operating layer
-  thinned to a directive, `.flume/PROTOCOL.md` its one home (c4a73ed).
+- **META-FREEZE struck (John, 07-18)**: the 07-09 freeze no longer
+  described a week of sanctioned harness work; its point — v0.1 ships
+  before gold-plating — lives in the goal section. Loop may propose
+  its own harness diffs via `.flume/amendments/` (0044,
+  propose-and-ratify only); session-open sweep now covers it.
 - **Distribution**: channel 2 live 07-11 — `npx @dtmd/temper` delivers
   prebuilt linux/win32 engines (SDK 0.0.7, release.yml, NPM_TOKEN repo
   secret). Darwin + plugin channel ride PACKAGING-CHANNELS-REMAINDER
@@ -46,10 +47,10 @@ hard.
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
 - Verify queue: trailing-period @import (cascade CLAUDE.md:26, UNVERIFIED).
-- Docs-language candidates (post-freeze): the determinism ladder —
-  "push every check to the most deterministic layer that can express
-  it"; the harness pin (John, 07-18) — "our job in the harness is to
-  name the invariants, and let the loop settle".
+- Docs-language candidates (when docs are written): the determinism
+  ladder — "push every check to the most deterministic layer that can
+  express it"; the harness pin (John, 07-18) — "our job in the harness
+  is to name the invariants, and let the loop settle".
 - Base harness dogfood: primer `docs/base-harness-primer.md`; example at
   `examples/base-harness/` (third cut shipped 549969f); built-in-kind doc
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
@@ -62,7 +63,8 @@ hard.
 
 - Wake-then-loop as its own background task; `git status` before any
   restore; never edit tracked files while a tick runs (plan stages -A).
-- At session open: sweep `.flume/friction/` and `.flume/refactor/`;
+- At session open: sweep `.flume/friction/`, `.flume/refactor/`, and
+  `.flume/amendments/` (ratify or decline, then delete — 0044);
   delete `.flume/prior-attempts/` records whose entry re-scoped or
   shipped (write-only to plan — `.flume/PROTOCOL.md` has the rule);
   prune `.flume/sessions/` when it swells.

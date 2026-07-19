@@ -1,8 +1,9 @@
-# Capture friction or structural debt
+# Capture friction, structural debt, or a harness amendment
 
-Two sibling channels, one skill: `.flume/friction/` carries agent→human
+Three sibling channels, one skill: `.flume/friction/` carries agent→human
 harness feedback; `.flume/refactor/` carries agent→plan structural-debt
-observations. Same bar, same shape; only the target directory, filename
+observations; `.flume/amendments/` carries agent→human apply-ready harness
+diffs (0044). Same bar, same shape; only the target directory, filename
 prefix, and drain audience differ. Check the target directory first — never
 re-file an already-filed capture.
 
@@ -56,3 +57,27 @@ One idea is enough — the home you'd keep, or the crate that replaces it.
 `plan`'s inbox job drains it: verify the claim at HEAD, file a pending entry
 citing `specs/process/engineering.md`, delete the capture. Full bar and
 format detail: `.flume/refactor/README.md`.
+
+## Amendment — `.flume/amendments/<phase>-<slug>.md`
+
+What qualifies: a harness change you can ground in a named invariant and a
+cost you actually paid, expressed as an **apply-ready unified diff** — a
+prompt edit, a rule re-cut, a capture-format fix. A proposal that still
+needs drafting is friction, not an amendment. In-scope targets and the
+constitution's exclusions: the directory README. Friction's full bar
+applies unchanged.
+
+```
+## Invariant served
+The named invariant or posture, and the observed cost at <short-sha>.
+
+## Diff
+One fenced unified diff, apply-ready.
+
+## Expected settling
+What the record should show if this works.
+```
+
+Humans drain it: ratify with one word (apply verbatim, re-emit projections
+if the target was `.temper/`) or decline with the reason in the deleting
+commit. Full format detail: `.flume/amendments/README.md`.

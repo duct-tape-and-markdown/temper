@@ -296,12 +296,14 @@ const BUILD_WRITABLE_PATHS = [
   // every subsequent slice is build's.
   "sdk/**",
 
-  // The two deliberate slits in the control-plane fence, one file per
+  // The three deliberate slits in the control-plane fence, one file per
   // uniquely-named capture: friction is agent→human harness feedback
   // (humans drain it); refactor is agent→plan structural-debt observation
-  // (plan drains it into pending entries). See each directory's README.
+  // (plan drains it into pending entries); amendments carry apply-ready
+  // harness diffs humans ratify (0044). See each directory's README.
   ".flume/friction/**",
   ".flume/refactor/**",
+  ".flume/amendments/**",
 
   // NOTE: build does NOT touch the rest of .flume/** (the control plane),
   // .claude/** or CLAUDE.md, specs/**, or docs/**. These are RATIFICATION
@@ -446,6 +448,7 @@ const plan: Phase = {
     ".flume/inbox.md",
     ".flume/friction/**",
     ".flume/refactor/**",
+    ".flume/amendments/**",
     // Plan does NOT touch specs/ (human-authored) or src/ (build's territory).
   ],
   gates: [pendingParseGate, entryFenceGate, entryRefsGate, planHonestyGate],

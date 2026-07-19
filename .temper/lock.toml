@@ -55,8 +55,8 @@ emit_hash = "21e77cbfb2257285f0b30278d7b71337e1346d150639b3762d717c23dcefa2a0"
 [[skill]]
 name = "capture-friction"
 source_path = ".claude/skills/capture-friction/SKILL.md"
-source_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
-emit_hash = "c338c8086629b53ff97807197568b768fec5a7de2f07bbfa04e48ebb3c89167b"
+source_hash = "90d4f12df4e5a9aae24d98d549331344d11e8dec0d75b4ddc83023695c280275"
+emit_hash = "90d4f12df4e5a9aae24d98d549331344d11e8dec0d75b4ddc83023695c280275"
 
 [[declaration.kind]]
 name = "hook"
