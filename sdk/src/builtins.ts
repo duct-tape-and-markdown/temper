@@ -477,7 +477,7 @@ export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPl
   name: "installed-plugin",
   locus: { kind: "at", root: ".claude", glob: "settings.json" },
   unitShape: "file",
-  registration: [{ via: "enablement" }],
+  registration: [{ via: "enablement", field: "enabled" }],
   shape: "fields",
   collectionAddress: { manifest: "settings.json", keyPath: "enabledPlugins.*", entryShape: "scalar(enabled)" },
   // The marketplace half of the `<plugin>@<marketplace>` key is a declared edge to the

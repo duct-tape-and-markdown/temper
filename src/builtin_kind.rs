@@ -400,13 +400,15 @@ fn claude_code_mcp_server() -> CustomKind {
 fn claude_code_installed_plugin() -> CustomKind {
     CustomKind {
         unit_shape: Some(crate::kind::UnitShape::File),
-        registration: vec![Registration::Enablement],
+        registration: vec![Registration::Enablement {
+            field: "enabled".to_string(),
+        }],
         content: Content::Fields,
         collection_address: Some(CollectionAddress {
             manifest: "settings.json".to_string(),
             key_path: CollectionKeyPath::EnabledPlugins,
             entry_shape: crate::kind::EntryShape::Scalar {
-                field: crate::kind::ENABLEMENT_FIELD.to_string(),
+                field: "enabled".to_string(),
             },
         }),
         // The marketplace half of the `<plugin>@<marketplace>` key is an edge to the

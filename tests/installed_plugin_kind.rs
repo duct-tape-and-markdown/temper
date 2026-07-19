@@ -115,8 +115,13 @@ fn the_installed_plugin_kind_is_a_fields_only_manifest_kind_at_the_enabled_plugi
             },
         })
     );
-    // The entry's own presence is the channel — fieldless, as a connection's is.
-    assert_eq!(plugin.registration, vec![Registration::Enablement]);
+    // The entry's own presence is the channel, and the field names the gate.
+    assert_eq!(
+        plugin.registration,
+        vec![Registration::Enablement {
+            field: "enabled".to_string(),
+        }]
+    );
 }
 
 #[test]
@@ -178,7 +183,9 @@ fn a_false_valued_entry_gates_its_member_off_every_channel() {
     write_settings(&harness, SETTINGS);
 
     let members = features(&harness);
-    let channels = vec![Registration::Enablement];
+    let channels = vec![Registration::Enablement {
+        field: "enabled".to_string(),
+    }];
     let by_kind = std::collections::BTreeMap::from([("installed-plugin", members.as_slice())]);
     let registrations = std::collections::BTreeMap::from([("installed-plugin", channels)]);
 

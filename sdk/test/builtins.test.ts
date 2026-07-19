@@ -157,8 +157,8 @@ test("installedPlugin is a fields-only manifest kind at the enabledPlugins.* col
   assert.equal(installedPlugin.facts.unitShape, "file");
   assert.equal(installedPlugin.facts.format, undefined);
   assert.deepEqual(installedPlugin.facts.locus, { kind: "at", root: ".claude", glob: "settings.json" });
-  // The entry's own presence is the channel — fieldless, as a connection's is.
-  assert.deepEqual(installedPlugin.facts.registration, [{ via: "enablement" }]);
+  // The entry's own presence is the channel, and the field names the gate.
+  assert.deepEqual(installedPlugin.facts.registration, [{ via: "enablement", field: "enabled" }]);
   assert.deepEqual(installedPlugin.facts.collectionAddress, {
     manifest: "settings.json",
     keyPath: "enabledPlugins.*",

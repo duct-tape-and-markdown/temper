@@ -206,16 +206,6 @@ pub enum CollectionKeyPath {
     ExtraKnownMarketplaces,
 }
 
-/// The declared field an `enabledPlugins` entry's **scalar value** surfaces under — the
-/// one home the synthesized name lives at, so the read face that names it
-/// (``json_manifest::manifest_members``) and the liveness gate that reads it
-/// ([`crate::graph`]) cannot drift apart. The wire carries the value bare (`"foo@bar":
-/// true`), so unlike a hook's `event` this field names no key of the manifest's own; it
-/// is the member's one declared field, and its documented semantics — `false` is a plugin
-/// the harness does not load — gate the member's channel outright
-/// (`code.claude.com/docs/en/plugins-reference`, retrieved 2026-07-16).
-pub(crate) const ENABLEMENT_FIELD: &str = "enabled";
-
 /// The declared field the **marketplace half** of an `enabledPlugins` key surfaces under.
 /// A key is `<plugin>@<marketplace>`, a composite identity; the marketplace half is a
 /// declared edge to the `known-marketplace` member it names (decision 0039), so the read
@@ -694,13 +684,12 @@ pub enum Registration {
     /// the channel is never provably dead.
     Connection,
     /// `enablement` — the member reaches the world by the harness *enabling* it: an entry
-    /// in `settings.json`'s `enabledPlugins` map (an installed plugin). Carries no field —
-    /// the entry's own presence IS the channel, exactly as [`Connection`](Registration::Connection)'s
-    /// is. Unlike a connection, this channel is repo-decidable: the member's declared
-    /// [`ENABLEMENT_FIELD`] carries the entry's documented `false`, which gates the
-    /// member outright (`builtins.md`, "The shipped kinds"). The gate rides that field,
-    /// never a second channel entry.
-    Enablement,
+    /// in `settings.json`'s `enabledPlugins` map (an installed plugin). Carries the name
+    /// of the declared field that carries the enablement gate. Unlike a connection, this
+    /// channel is repo-decidable: the member's declared field (typically `enabled`) carries
+    /// the entry's documented `false`, which gates the member outright (`builtins.md`,
+    /// "The shipped kinds"). The gate rides that field, never a second channel entry.
+    Enablement { field: String },
     /// `registry` — the member reaches the world by the harness carrying it in a registry:
     /// an entry in `settings.json`'s `extraKnownMarketplaces` map (a known marketplace).
     /// Carries no field — the entry's own presence IS the channel, exactly as
@@ -1305,7 +1294,7 @@ fn layout_region_from_row(
 
 /// Parse one [`KindFactRow::registration`] wire label into its typed [`Registration`]
 /// channel — the closed vocabulary's compact wire form (`always`/`user-invoked`, or a
-/// `<name>(<field>)` call for the three field-carrying variants). `None` for a bare
+/// `<name>(<field>)` call for the four field-carrying variants). `None` for a bare
 /// unrecognized name or a malformed `(field)` suffix. The row carries one label per
 /// declared channel; the caller folds each label of the set through this.
 fn registration_from_label(label: &str) -> Option<Registration> {
@@ -1313,7 +1302,6 @@ fn registration_from_label(label: &str) -> Option<Registration> {
         "always" => return Some(Registration::Always),
         "user-invoked" => return Some(Registration::UserInvoked),
         "connection" => return Some(Registration::Connection),
-        "enablement" => return Some(Registration::Enablement),
         "registry" => return Some(Registration::Registry),
         _ => {}
     }
@@ -1321,6 +1309,7 @@ fn registration_from_label(label: &str) -> Option<Registration> {
     let field = field.to_string();
     match name {
         "description-trigger" => Some(Registration::DescriptionTrigger { field }),
+        "enablement" => Some(Registration::Enablement { field }),
         "paths-match" => Some(Registration::PathsMatch { field }),
         "event" => Some(Registration::Event { field }),
         _ => None,

@@ -734,8 +734,8 @@ fn dead_registration(
         // own: only the documented `false` is dead. Any other value — the enablement the
         // harness writes, or a shape whose semantics no source documents — stays live, so
         // an entry the format admits is never called dead on a guess.
-        Registration::Enablement => matches!(
-            member.field(crate::kind::ENABLEMENT_FIELD),
+        Registration::Enablement { field } => matches!(
+            member.field(field),
             Some(FeatureValue::Scalar {
                 kind: crate::extract::ValueType::Boolean,
                 text,
@@ -743,8 +743,7 @@ fn dead_registration(
         )
         .then(|| {
             format!(
-                "its `{}` field is `false`, so the harness does not load the plugin",
-                crate::kind::ENABLEMENT_FIELD
+                "its `{field}` field is `false`, so the harness does not load the plugin"
             )
         }),
         Registration::DescriptionTrigger { field } => field_is_blank(member, field).then(|| {

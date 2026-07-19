@@ -48,7 +48,7 @@ export type Registration =
   | { readonly via: "paths-match"; readonly field: string }
   | { readonly via: "event"; readonly field: string }
   | { readonly via: "connection" }
-  | { readonly via: "enablement" }
+  | { readonly via: "enablement"; readonly field: string }
   | { readonly via: "registry" };
 
 /** One of a kind's fields that is a reference to another member — a graph edge (fact 5). */
