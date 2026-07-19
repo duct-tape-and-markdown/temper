@@ -132,6 +132,20 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
     let declarations = drift::parse_declarations(&lock_path, &derived_lock)
         .expect("the derived lock parses as valid declarations");
 
+    assert_eq!(
+        declarations.kinds.len(),
+        14,
+        "the derived lock carries all 14 built-in kind facts"
+    );
+
+    for kind_row in &declarations.kinds {
+        let msg = format!(
+            "the {} kind fact decodes through the engine reader",
+            kind_row.name
+        );
+        CustomKind::from_kind_fact_row(kind_row).expect(&msg);
+    }
+
     let installed_plugin_row = declarations
         .kinds
         .iter()
