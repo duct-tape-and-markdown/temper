@@ -31,6 +31,7 @@ use crate::graph;
 use crate::import;
 use crate::json_manifest;
 use crate::kind::{self, CollectionAddress, CustomKind, Unit};
+use crate::layout::Layout;
 use crate::toml_document;
 use walkdir;
 
@@ -428,14 +429,14 @@ pub fn overlay_builtin_kind(
 /// the unit off the lock's own family, keyed by member id, not off the document here. The
 /// id folds the file's placement under `base` the same way a file-content member's does.
 /// A document that does not fit the layout — a section missing, structure
-/// no primitive admits — refuses loud through [`kind::LayoutError`], naming the file and
+/// no primitive admits — refuses loud through [`crate::layout::LayoutError`], naming the file and
 /// heading.
 ///
 /// # Errors
 ///
 /// Returns an error if the document is unreadable or does not fit its declared layout.
 fn layout_unit(
-    layout: &kind::Layout,
+    layout: &Layout,
     file: &Path,
     base: &Path,
     edge_fields: &BTreeSet<String>,

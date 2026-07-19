@@ -29,9 +29,9 @@ use temper::drift::{
 use temper::engine;
 use temper::extract::Features;
 use temper::kind::{
-    CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Layout, LayoutRegion,
-    Primitive,
+    CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Primitive,
 };
+use temper::layout::{Layout, LayoutRegion};
 
 /// The binary under test, located by Cargo at compile time.
 const BIN: &str = env!("CARGO_BIN_EXE_temper");

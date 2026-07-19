@@ -18,7 +18,7 @@ use temper::drift::{
     self, Declarations, EmitOptions, KindFactRow, LayoutRegionRow, LayoutRow, Payload,
     PayloadMember,
 };
-use temper::kind::{Layout, LayoutError, LayoutRegion};
+use temper::layout::{Layout, LayoutError, LayoutRegion};
 
 mod common;
 

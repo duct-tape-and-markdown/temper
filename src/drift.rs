@@ -30,9 +30,10 @@ use crate::extract::host_address;
 use crate::graph;
 use crate::hash::sha256_hex;
 use crate::kind::{
-    CollectionAddress, Commitment, Content, Format, Layout, LayoutRegion,
-    collection_address_from_row, commitment_from_row, content_from_row, format_from_row,
+    CollectionAddress, Commitment, Content, Format, collection_address_from_row,
+    commitment_from_row, content_from_row, format_from_row,
 };
+use crate::layout::{Layout, LayoutRegion};
 use std::cell::Cell;
 
 thread_local! {
