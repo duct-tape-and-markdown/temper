@@ -1,5 +1,6 @@
 ---
 source: tests/gauntlet.rs
+assertion_line: 276
 expression: "projection_tree(&harness, &report)"
 ---
 # emit report
@@ -124,7 +125,7 @@ name = "installed-plugin"
 governs_root = ".claude"
 governs_glob = "settings.json"
 unit_shape = "file"
-registration = ["enablement"]
+registration = ["enablement(enabled)"]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "enabledPlugins.*" }
 

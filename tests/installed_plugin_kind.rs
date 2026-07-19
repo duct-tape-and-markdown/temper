@@ -257,7 +257,7 @@ fn the_embedded_builtin_lock_carries_the_installed_plugin_kind_and_no_clause() {
         .find(|k| k.name == "installed-plugin")
         .expect("the installed-plugin kind fact is embedded");
     assert_eq!(plugin.shape.as_deref(), Some("fields"));
-    assert_eq!(plugin.registration, vec!["enablement".to_string()]);
+    assert_eq!(plugin.registration, vec!["enablement(enabled)".to_string()]);
     let address = plugin
         .collection_address
         .as_ref()

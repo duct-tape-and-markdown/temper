@@ -16,6 +16,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use temper::drift::{self, EmitOptions};
+use temper::kind::{CustomKind, Registration};
 
 mod common;
 
@@ -113,5 +114,37 @@ fn the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit() {
         "src/builtin_lock.toml has drifted from @dtmd/temper/claude-code's own memberless \
          emit — regenerate it by re-running that emit and re-embedding the resulting rows \
          verbatim (src/builtin_lock.toml's own header), never by hand-editing a row"
+    );
+}
+
+#[test]
+fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader() {
+    let (_harness, into) = common::wire_sdk_harness("memberless", MEMBERLESS_BUILTIN_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).expect(
+        "re-deriving the built-in lock requires a working node + the built @dtmd/temper/claude-code module",
+    );
+
+    let derived_lock =
+        fs::read_to_string(into.join("lock.toml")).expect("emit_program writes a lock.toml");
+
+    let lock_path = into.join("lock.toml");
+    let declarations = drift::parse_declarations(&lock_path, &derived_lock)
+        .expect("the derived lock parses as valid declarations");
+
+    let installed_plugin_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "installed-plugin")
+        .expect("the derived lock carries the installed-plugin kind fact");
+
+    let decoded = CustomKind::from_kind_fact_row(installed_plugin_row)
+        .expect("the installed-plugin kind fact decodes through the engine reader");
+
+    assert!(
+        decoded.registration.contains(&Registration::Enablement {
+            field: "enabled".to_string()
+        }),
+        "the decoded registration set contains the field-carrying Enablement variant"
     );
 }

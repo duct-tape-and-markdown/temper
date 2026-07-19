@@ -2182,7 +2182,7 @@ fn the_embedded_lock_kind_facts_match_todays_hand_written_kinds() {
     assert_eq!(plugin.governs_glob.as_deref(), Some("settings.json"));
     assert_eq!(plugin.format, None);
     assert_eq!(plugin.unit_shape.as_deref(), Some("file"));
-    assert_eq!(plugin.registration, vec!["enablement".to_string()]);
+    assert_eq!(plugin.registration, vec!["enablement(enabled)".to_string()]);
     assert_eq!(plugin.shape.as_deref(), Some("fields"));
     let plugin_address = plugin
         .collection_address
