@@ -121,6 +121,16 @@ jobs:
             exit 0
           fi
           cd sdk
+          # The platform pair is version-locked: the SDK must install the
+          # engines built from its own commit, so the pins are stamped to
+          # the publishing version here — a hand-maintained pin shipped a
+          # mismatched pair once and can't be trusted to track a bump.
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            for (const k of Object.keys(p.optionalDependencies ?? {})) p.optionalDependencies[k] = process.env.VERSION;
+            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          "
           npm install
           npm publish --access public
       - name: Attach standalone binaries to the tag's release
