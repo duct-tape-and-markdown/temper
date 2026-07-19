@@ -537,3 +537,101 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
         "config_stale_from_doc must not re-parse lock.toml when given pre-parsed doc: {parses} parses (before {parses_before}, after {parses_after})",
     );
 }
+
+#[test]
+fn emit_represented_manifest_read_is_hoisted_once_per_manifest() {
+    use temper::drift::{self, CollectionAddressRow, Declarations, EmitOptions, Payload};
+
+    let harness = tmpdir("emit-manifest-read-hoist");
+    let into = harness.join(".temper");
+    std::fs::create_dir_all(&into).unwrap();
+
+    // Create a `.claude/settings.json` manifest file with a hook entry.
+    common::write_settings(
+        &harness,
+        r#"{"hooks": {"onSessionStart": {"before": "echo starting"}}}"#,
+    );
+
+    // Create a lock.toml with a hook member (exercises the manifest segment reap path).
+    let lock_path = into.join("lock.toml");
+    std::fs::write(
+        &lock_path,
+        r#"[[hook]]
+name = "onSessionStart"
+source_path = ".claude/settings.json"
+emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
+
+[declaration]
+"#,
+    )
+    .unwrap();
+
+    // Create a payload that declares the hook with a collection address pointing to
+    // settings.json, so emit will regenerate the manifest. Include a registration
+    // to ensure the manifest is built and read.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![drift::KindFactRow {
+                name: "hook".to_string(),
+                provider: None,
+                governs_root: Some(".claude".to_string()),
+                governs_glob: Some("settings.json".to_string()),
+                commitment: None,
+                format: None,
+                unit_shape: None,
+                registration: vec![],
+                templates: Vec::new(),
+                content: None,
+                shape: None,
+                collection_address: Some(CollectionAddressRow {
+                    manifest: "settings.json".to_string(),
+                    key_path: "hooks.<Event>".to_string(),
+                }),
+            }],
+            registrations: vec![drift::RegistrationRow {
+                kind: "hook".to_string(),
+                key: "onSessionStart".to_string(),
+                manifest: "settings.json".to_string(),
+                key_path: "hooks.onSessionStart".to_string(),
+                fields: vec![("before".to_string(), serde_json::json!("echo starting"))],
+            }],
+            ..Default::default()
+        },
+        members: vec![drift::PayloadMember {
+            kind: "hook".to_string(),
+            name: "onSessionStart".to_string(),
+            host: None,
+            fields: vec![("before".to_string(), serde_json::json!("echo starting"))],
+            body: "".to_string(),
+            source_path: None,
+        }],
+    };
+
+    let options = EmitOptions {
+        dry_run: true,
+        frozen: false,
+        teardown: false,
+    };
+
+    // Read counts before emit.
+    let reads_before = drift::manifest_read_count();
+
+    // Run emit — this should read the settings.json manifest exactly once,
+    // reusing the read for both the segment-reap diff and the write-decision phase.
+    let _ = drift::emit(&payload, &into, options);
+
+    // Read counts after emit.
+    let reads_after = drift::manifest_read_count();
+
+    let reads = reads_after - reads_before;
+
+    // The cost doctrine (engineering.md, "Cost scale is hoisted, and pinned by count"):
+    // each represented manifest file is read exactly once per emit() pass and shared
+    // between manifest_segment_reaps and emit_manifest, never re-read per phase.
+    assert_eq!(
+        reads, 1,
+        "emit must read each represented manifest exactly once per run, not per phase: \
+         {reads} reads (before {reads_before}, after {reads_after})",
+    );
+}

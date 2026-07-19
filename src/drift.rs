@@ -41,6 +41,10 @@ thread_local! {
     /// text is parsed into a TOML document, pinning that parsing is shared across
     /// emit's multiple phases rather than recomputed per phase.
     static LOCK_PARSES: Cell<usize> = const { Cell::new(0) };
+    /// Per-thread count of represented manifest file reads. Incremented each time a
+    /// manifest file is read from disk for drift detection, pinning that the read is
+    /// done once per manifest per emit() run and shared with the write-decision phase.
+    static MANIFEST_READS: Cell<usize> = const { Cell::new(0) };
 }
 
 /// This thread's cumulative count of lock.toml file reads. Read before and after an
@@ -57,12 +61,23 @@ pub fn lock_parse_count() -> usize {
     LOCK_PARSES.with(Cell::get)
 }
 
+/// This thread's cumulative count of represented manifest file reads. Read before and
+/// after an emit run to pin that each manifest is read exactly once per run.
+#[must_use]
+pub fn manifest_read_count() -> usize {
+    MANIFEST_READS.with(Cell::get)
+}
+
 fn increment_lock_reads() {
     LOCK_READS.with(|c| c.set(c.get() + 1));
 }
 
 fn increment_lock_parses() {
     LOCK_PARSES.with(|c| c.set(c.get() + 1));
+}
+
+fn increment_manifest_reads() {
+    MANIFEST_READS.with(|c| c.set(c.get() + 1));
 }
 
 /// Errors raised by `emit`, `place`, and the lock-reading helpers in this module —
@@ -1391,7 +1406,7 @@ pub fn emit(
     // rewritten whole, so a member the on-disk file carried and the payload no longer
     // declares would vanish with no finding. The diff runs before any byte is written, so
     // the segment cliff refuses a total collection drop without undoing a write.
-    let segment_reaps =
+    let (segment_reaps, cached_manifest_raws) =
         manifest_segment_reaps(&manifests, &kind_facts, &harness_root, options.teardown)?;
 
     let mut entries = Vec::with_capacity(projections.len() + orphans.len() + segment_reaps.len());
@@ -1414,7 +1429,8 @@ pub fn emit(
     // written like any other projection — its container member's rollup row carries the
     // fingerprint drift compares.
     for (path, build) in &manifests {
-        let (entry, hash) = emit_manifest(path, &harness_root, build, options.dry_run)?;
+        let cached_raw = cached_manifest_raws.get(path).map(|s| s.as_str());
+        let (entry, hash) = emit_manifest(path, &harness_root, build, options.dry_run, cached_raw)?;
         if let Some((kind, name)) = &build.container {
             rollups.entry(kind.clone()).or_default().push(RollupEntry {
                 name: name.clone(),
@@ -1562,11 +1578,15 @@ fn collection_key_of(key_path: &str) -> String {
 /// Unchanged) and the SHA-256 of the bytes now on disk. A pure function of the build, so a
 /// double-emit reproduces every byte; nothing is written under `dry_run`. An ownerless
 /// manifest (no container member) is labelled by its filename under a `manifest` kind.
+///
+/// When `cached_raw` is `Some`, uses the pre-read file contents instead of reading again,
+/// hoisting the read cost outside this function's loop. When `None`, reads the file directly.
 fn emit_manifest(
     locus: &Path,
     harness_root: &Path,
     build: &ManifestBuild,
     dry_run: bool,
+    cached_raw: Option<&str>,
 ) -> Result<(EmitEntry, String), DriftError> {
     let path = &harness_root.join(locus);
     let segments: Vec<crate::json_manifest::CollectionSegment> = build
@@ -1596,14 +1616,18 @@ fn emit_manifest(
         outcome,
     };
 
-    let current = match fs::read(path) {
-        Ok(bytes) => Some(bytes),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
-        Err(source) => {
-            return Err(DriftError::Read {
-                path: path.to_path_buf(),
-                source,
-            });
+    let current = if let Some(raw) = cached_raw {
+        Some(raw.as_bytes().to_vec())
+    } else {
+        match fs::read(path) {
+            Ok(bytes) => Some(bytes),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+            Err(source) => {
+                return Err(DriftError::Read {
+                    path: path.to_path_buf(),
+                    source,
+                });
+            }
         }
     };
     let hash = sha256_hex(desired.as_bytes());
@@ -1629,6 +1653,10 @@ fn emit_manifest(
 /// meaning: an absent or unreadable file discovers nothing, and the reap is decided here,
 /// before a byte is written, so the segment cliff never has to undo a write.
 ///
+/// Returns both the reap entries and a map of manifest paths to their raw file contents
+/// (for successful reads), hoisting the read cost outside the emit loop — each manifest
+/// file is read exactly once and shared with [`emit_manifest`].
+///
 /// # Errors
 /// Returns [`DriftError::SegmentReapWave`] when the drop is total — every discovered member
 /// of one collection gone, the payload declaring none in its place — unless `teardown` is
@@ -1639,8 +1667,9 @@ fn manifest_segment_reaps(
     kind_facts: &BTreeMap<&str, &KindFactRow>,
     harness_root: &Path,
     teardown: bool,
-) -> Result<Vec<EmitEntry>, DriftError> {
+) -> Result<(Vec<EmitEntry>, BTreeMap<PathBuf, String>), DriftError> {
     let mut reaps = Vec::new();
+    let mut cached_raws: BTreeMap<PathBuf, String> = BTreeMap::new();
     for (path, build) in manifests {
         // Every collection address that targets this manifest file — the kinds whose
         // registration members surface inside it (a hook and an installed plugin both key
@@ -1664,10 +1693,15 @@ fn manifest_segment_reaps(
         let Ok(raw) = fs::read_to_string(&disk_path) else {
             continue;
         };
+        increment_manifest_reads();
         let Ok(current) = crate::json_manifest::Manifest::parse(&disk_path, &raw, &address_refs)
         else {
             continue;
         };
+
+        // Cache the raw file contents for reuse in emit_manifest, hoisting the read cost
+        // outside the emit loop.
+        cached_raws.insert(path.clone(), raw);
 
         let mut discovered: BTreeMap<&str, usize> = BTreeMap::new();
         for member in &current.members {
@@ -1722,7 +1756,7 @@ fn manifest_segment_reaps(
             }
         }
     }
-    Ok(reaps)
+    Ok((reaps, cached_raws))
 }
 
 /// What emit derives from one layout source in a single read: its member collections
