@@ -32,6 +32,7 @@ import {
   shape,
   type,
   uniqueName,
+  when,
 } from "./contract.js";
 import type { Clause } from "./contract.js";
 
@@ -1024,11 +1025,12 @@ const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
  * catalog published under a name that later becomes reserved stops loading for every user
  * who already added it. That is the one clause here worth more than a lint.
  *
- * **One documented rule below the top level is still absent** — the source union now awaits
- * decision 0041's Rust implementation (the SDK half is ready); until the engine supports
- * `when` guards, the holds on marketplace source, mcp-server transport, and hook handler
- * schema remain. When the Rust side ships, this contract will express the per-discriminator
- * required fields via when/enumOf clauses.
+ * The `source` union's per-form required fields are now gated via `when` clauses: decision
+ * 0041's Rust implementation shipped in src/contract.rs (Predicate::When, src/engine.rs:1207
+ * decide logic), and the SDK's `when()` export has been available since 884a704 — both well
+ * before these comments were last touched. The per-source-form requirements now hold via guarded
+ * clauses at `plugins[*].source`: the string form needs `leading-dot-slash` shape; each object
+ * form (`github`, `url`, `git-subdir`, `npm`) needs its required fields.
  *
  * Deliberately absent as undecidable, and never a clause (`specs/intent.md`, invariant 2):
  * the docs *also* block names that "impersonate official marketplaces" (`official-claude-plugins`,
@@ -1097,8 +1099,64 @@ export const marketplaceDefaultContract: readonly Clause[] = [
   clause(required("plugins[*].source"), {
     severity: "required",
     guidance:
-      "Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Which source form it is (a relative path, or one of the `github`/`url`/`git-subdir`/`npm` objects) is a union no clause can yet decide; the `MarketplaceSource` type carries that bar for an SDK author. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`.",
+      "Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`.",
     cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)",
+  }),
+  when(type("plugins[*].source", ["string"]), [
+    clause(shape("plugins[*].source", "leading-dot-slash"), {
+      severity: "required",
+      guidance:
+        "A relative-path source must start with `./` to resolve correctly against the marketplace root. A path without `./` is treated as a URL or package name, which is not the intent for local files.",
+      cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+  }),
+  when(enumOf("plugins[*].source.source", ["github"]), [
+    clause(required("source.repo"), {
+      severity: "required",
+      guidance:
+        "A `github` source entry must specify the `repo` field — the repository in `owner/repo` format — so the plugin can be fetched from GitHub.",
+      cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+  }),
+  when(enumOf("plugins[*].source.source", ["url"]), [
+    clause(required("source.url"), {
+      severity: "required",
+      guidance:
+        "A `url` source entry must specify the `url` field — the HTTPS URL to a git repository — so the plugin can be cloned from that location.",
+      cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+  }),
+  when(enumOf("plugins[*].source.source", ["git-subdir"]), [
+    clause(required("source.url"), {
+      severity: "required",
+      guidance:
+        "A `git-subdir` source entry must specify the `url` field — the HTTPS URL to the git repository containing the plugin.",
+      cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+    }),
+    clause(required("source.path"), {
+      severity: "required",
+      guidance:
+        "A `git-subdir` source entry must specify the `path` field — the path within the repository to the plugin's root directory.",
+      cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+  }),
+  when(enumOf("plugins[*].source.source", ["npm"]), [
+    clause(required("source.package"), {
+      severity: "required",
+      guidance:
+        "An `npm` source entry must specify the `package` field — the npm package name (e.g., `@scope/package`) — so the plugin can be installed from the npm registry.",
+      cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)",
   }),
 ];
 
@@ -1560,18 +1618,37 @@ const DOCUMENTED_MCP_TRANSPORTS = ["stdio", "http", "streamable-http", "sse", "w
  * profile is that a present `type` names one temper's cited docs carry. An absent `type`
  * passes — Claude Code reads it as `stdio`, the documented default.
  *
- * Deliberately absent — the per-transport requirements are conditional on `type`, which
- * decision 0041's guard vocabulary will ultimately express once the Rust engine supports it:
- * a `url` with no `type` is a configuration error (Claude Code reads it as a stdio server
- * and skips it), a stdio server needs a `command`, and a remote server needs a `url` —
- * each a two-field implication the current vocabulary cannot express, so it rides guidance
- * rather than a clause that would range over a field the shape of the check cannot see.
+ * The per-transport requirements are now gated via `when` clauses: a stdio server (type
+ * absent or `stdio`) needs a `command`, and a remote server (type `http`, `streamable-http`,
+ * `sse`, or `ws`) needs a `url`. Decision 0041's Rust implementation shipped in
+ * src/contract.rs and the SDK's `when()` export has been available since 884a704 — both
+ * well before these comments were last written.
  */
 export const mcpServerDefaultContract: readonly Clause[] = [
   clause(enumOf("type", DOCUMENTED_MCP_TRANSPORTS), {
     severity: "required",
     guidance:
-      "A server's `type` names its transport; a value outside the documented set is one Claude Code cannot honor. Absent reads as `stdio` — but an entry that carries a `url` with no `type` is then a configuration error, because Claude Code treats it as a stdio server and skips it: add `type: \"http\"` (or `sse`/`ws`). A stdio server needs a `command`; a remote server needs a `url`. If this is a newly-documented transport, re-fetch code.claude.com/docs/en/mcp and extend temper's cited set rather than working around the finding.",
+      "A server's `type` names its transport; a value outside the documented set is one Claude Code cannot honor. Absent reads as `stdio`, the documented default. If this is a newly-documented transport, re-fetch code.claude.com/docs/en/mcp and extend temper's cited set rather than working around the finding.",
     cite: "https://code.claude.com/docs/en/mcp (retrieved 2026-07-15)",
+  }),
+  when(enumOf("type", ["stdio"]), [
+    clause(required("command"), {
+      severity: "required",
+      guidance:
+        "A stdio server must specify a `command` — the executable path and arguments to run the server process. Without it, Claude Code cannot start the server. (Note: when `type` is absent, Claude Code reads it as `stdio`; a `command` is also required in that case.)",
+      cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
+  }),
+  when(enumOf("type", ["http", "streamable-http", "sse", "ws"]), [
+    clause(required("url"), {
+      severity: "required",
+      guidance:
+        "A remote server (http, streamable-http, sse, or ws transport) must specify a `url` — the endpoint to connect to. Without it, Claude Code cannot establish the connection.",
+      cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
+    }),
+  ], {
+    cite: "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)",
   }),
 ];

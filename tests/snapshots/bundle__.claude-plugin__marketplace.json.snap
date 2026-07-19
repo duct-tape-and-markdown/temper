@@ -11,7 +11,7 @@ expression: pinned
     {
       "description": "The temper gate for a Claude Code harness: install it, check it against the active contract, and run the advisory session-start gate — with the std-lib default contracts embedded.",
       "name": "temper",
-      "source": "."
+      "source": "./"
     }
   ]
 }

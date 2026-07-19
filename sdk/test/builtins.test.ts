@@ -195,20 +195,45 @@ test("knownMarketplaceDefaultContract ships empty — an assertion, not an omiss
   assert.deepEqual(knownMarketplaceDefaultContract, []);
 });
 
-test("mcpServerDefaultContract gates the transport type against the documented set", () => {
+test("mcpServerDefaultContract gates the transport type and per-transport required fields via when clauses", () => {
   assert.deepEqual(
     mcpServerDefaultContract.map((c) => c.predicate.key),
-    ["enum"],
+    ["enum", "when", "when"],
   );
-  assert.equal(mcpServerDefaultContract[0].predicate.field, "type");
-  assert.deepEqual(mcpServerDefaultContract[0].predicate.values, [
+
+  const [typeClause, stdioWhen, remoteWhen] = mcpServerDefaultContract;
+
+  // First clause: type must be in the documented set.
+  assert.equal(typeClause.predicate.field, "type");
+  assert.deepEqual(typeClause.predicate.values, [
     "stdio",
     "http",
     "streamable-http",
     "sse",
     "ws",
   ]);
-  assert.equal(mcpServerDefaultContract[0].severity, "required");
+  assert.equal(typeClause.severity, "required");
+
+  // Second clause: when type is stdio, command is required.
+  assert.equal(stdioWhen.predicate.key, "when");
+  assert.equal(stdioWhen.when_guard?.key, "enum");
+  assert.equal(stdioWhen.when_guard?.field, "type");
+  assert.deepEqual(stdioWhen.when_guard?.values, ["stdio"]);
+  assert.equal(stdioWhen.when_body?.length, 1);
+  assert.deepEqual(stdioWhen.when_body?.[0]?.predicate, { key: "required", field: "command" });
+  // Guidance mentions the type-absent case.
+  assert.match(stdioWhen.when_body?.[0]?.guidance ?? "", /type.*absent/);
+
+  // Third clause: when type is a remote transport, url is required.
+  assert.equal(remoteWhen.predicate.key, "when");
+  assert.equal(remoteWhen.when_guard?.key, "enum");
+  assert.equal(remoteWhen.when_guard?.field, "type");
+  assert.deepEqual(remoteWhen.when_guard?.values, ["http", "streamable-http", "sse", "ws"]);
+  assert.equal(remoteWhen.when_body?.length, 1);
+  assert.deepEqual(remoteWhen.when_body?.[0]?.predicate, { key: "required", field: "url" });
+
+  // All clauses are required severity.
+  assert.ok(mcpServerDefaultContract.every((c) => c.severity === "required"));
 });
 
 test("the default contracts ride alongside their kinds through the claude-code subpath", () => {
@@ -422,19 +447,36 @@ test("marketplace is a json-document file kind at a glob its plugin-manifest sib
   });
 });
 
-test("marketplaceDefaultContract gates the reserved-names deny list and reaches below the top level", () => {
+test("marketplaceDefaultContract gates the reserved-names deny list and the per-source-form requirements", () => {
   // `name`'s presence, emptiness, charset and the reserved deny list, then the two
-  // required objects and the rules *inside* them the addressing subset reaches. The one
-  // rule still out of reach — the `source` union — is named in the contract's header and
-  // in the clause an author meets it at, never forged into a clause.
+  // required objects and the rules *inside* them the addressing subset reaches, then the
+  // source requirement and its per-form when guards with their bodies.
   assert.deepEqual(
     marketplaceDefaultContract.map((entry) => entry.predicate.key),
-    ["required", "min_len", "allowed_chars", "deny", "required", "required", "required", "required", "required"],
+    [
+      "required", // name presence
+      "min_len", // name min length
+      "allowed_chars", // name charset
+      "deny", // name reserved list
+      "required", // owner presence
+      "required", // owner.name presence
+      "required", // plugins presence
+      "required", // plugins[*].name presence
+      "required", // plugins[*].source presence
+      "when", // source string form → leading-dot-slash
+      "when", // source.source === "github" → repo
+      "when", // source.source === "url" → url
+      "when", // source.source === "git-subdir" → url and path
+      "when", // source.source === "npm" → package
+    ],
   );
-  // Every clause is an error: each is a documented rule that stops a catalog loading.
-  assert.ok(marketplaceDefaultContract.every((entry) => entry.severity === "required"));
+  // Every top-level clause is an error: each is a documented rule that stops a catalog loading.
+  assert.ok(
+    marketplaceDefaultContract.every((entry) => entry.severity === "required"),
+    "every top-level clause is required severity",
+  );
 
-  const [presence, empty, charset, reserved, owner, ownerName, plugins, entryName, entrySource] =
+  const [presence, empty, charset, reserved, owner, ownerName, plugins, entryName, entrySource, ...whenClauses] =
     marketplaceDefaultContract;
   assert.deepEqual(presence.predicate, { key: "required", field: "name" });
   assert.deepEqual(empty.predicate, { key: "min_len", field: "name", args: { min: 1 } });
@@ -481,9 +523,38 @@ test("marketplaceDefaultContract gates the reserved-names deny list and reaches 
   // And the guidance carries why the clause outranks a lint: the list is re-checked on
   // every load, so a name that *becomes* reserved strands users who already added you.
   assert.match(reserved.guidance ?? "", /every load/);
-  // The one rule still out of reach is named at the clause an author meets it at — the
-  // hold is stated where it bites, not only in the module header.
-  assert.match(entrySource.guidance ?? "", /union no clause can yet decide/);
+
+  // The per-source-form requirements now ride when guards.
+  assert.equal(whenClauses.length, 5, "five when clauses for source forms");
+  const [stringWhen, githubWhen, urlWhen, gitsubdirWhen, npmWhen] = whenClauses;
+
+  // String form: relative path must use leading-dot-slash.
+  assert.equal(stringWhen.predicate.key, "when");
+  assert.equal(stringWhen.when_guard?.key, "type");
+  assert.deepEqual(stringWhen.when_body?.[0]?.predicate.key, "shape");
+  assert.equal(stringWhen.when_body?.[0]?.predicate.field, "plugins[*].source");
+
+  // GitHub source: repo required.
+  assert.equal(githubWhen.predicate.key, "when");
+  assert.equal(githubWhen.when_guard?.key, "enum");
+  assert.deepEqual(githubWhen.when_body?.[0]?.predicate, { key: "required", field: "source.repo" });
+
+  // URL source: url required.
+  assert.equal(urlWhen.predicate.key, "when");
+  assert.equal(urlWhen.when_guard?.key, "enum");
+  assert.deepEqual(urlWhen.when_body?.[0]?.predicate, { key: "required", field: "source.url" });
+
+  // Git-subdir source: url and path required.
+  assert.equal(gitsubdirWhen.predicate.key, "when");
+  assert.equal(gitsubdirWhen.when_guard?.key, "enum");
+  assert.equal(gitsubdirWhen.when_body?.length, 2);
+  assert.deepEqual(gitsubdirWhen.when_body?.[0]?.predicate, { key: "required", field: "source.url" });
+  assert.deepEqual(gitsubdirWhen.when_body?.[1]?.predicate, { key: "required", field: "source.path" });
+
+  // NPM source: package required.
+  assert.equal(npmWhen.predicate.key, "when");
+  assert.equal(npmWhen.when_guard?.key, "enum");
+  assert.deepEqual(npmWhen.when_body?.[0]?.predicate, { key: "required", field: "source.package" });
 
   // Cited and dated, every one.
   for (const entry of marketplaceDefaultContract) {

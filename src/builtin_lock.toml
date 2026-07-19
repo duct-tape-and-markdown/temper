@@ -49,29 +49,6 @@
 # and no clause row at all: each default contract is empty, so fourteen kinds carry twelve
 # contracts' clauses. Neither format documents a gateable schema the member's own type does
 # not already hold — an installed plugin is one scalar under an identity key, a known
-# marketplace a `source`/`autoUpdate` object under a marketplace-name key — and the absence is
-# the honest encoding, not a row lost in regeneration.
-#
-# `plugin-manifest` is one of three kinds here at the `json-document` format — `marketplace`
-# and the `local`-class `settings-local` are the others: the whole artifact is one JSON
-# object, so a kind's top-level keys are the fields its clauses range over. Its
-# contract is five rows against `name`'s presence, emptiness, and charset, the top-level
-# `themes`/`monitors` spelling the experimental migration retires, and `keywords`'s
-# declared `list` type. The rest of the `claude plugin validate --strict` profile —
-# unrecognized top-level fields, and wrong-typed *component paths* — needs predicates the
-# algebra does not carry yet (`sdk/src/builtins.ts`, `pluginManifestDefaultContract`), so
-# no row here forges them: the first wants an allow-list over a closed key set, and the
-# second an alternation, since `commands`/`agents` are documented `string|array` while
-# `type` declares one lattice kind. `keywords`'s single declared kind is what makes it the
-# expressible slice, so the row below lifts no part of the hold on the union-typed fields.
-#
-# `settings-local` carries the opposite `json-document` posture: three `type` rows gate the
-# structural container keys (`permissions`/`env`/`hooks` as `map`s) and every other key
-# stays opaque residue — no `closed-keys` row, because the settings schema is large and
-# version-evolving and an allow-list would indict a valid overlay the moment upstream adds a
-# key (decision 0036). A locally-registered hook or plugin enablement lives inside that
-# residue as a field, never a modeled member.
-
 [[declaration.kind]]
 name = "agent"
 governs_root = ".claude/agents"
@@ -510,8 +487,107 @@ kind = "marketplace"
 predicate = "required"
 field = "plugins[*].source"
 severity = "required"
-guidance = "Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Which source form it is (a relative path, or one of the `github`/`url`/`git-subdir`/`npm` objects) is a union no clause can yet decide; the `MarketplaceSource` type carries that bar for an SDK author. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`."
+guidance = "Every catalog entry declares a `source` — where the plugin is fetched from. A listed plugin with no source resolves to nothing. Note that a relative-path source resolves against a *local copy* of the marketplace, so it fails to resolve for users who added the marketplace by direct URL to `marketplace.json`."
 cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-entries (retrieved 2026-07-17)"
+
+[[declaration.clause]]
+label = "marketplace.when.plugins[*].source"
+kind = "marketplace"
+predicate = "when"
+field = "plugins[*].source"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+value_type = ["string"]
+guard_predicate = "type"
+
+[[declaration.clause.body]]
+label = "shape.plugins[*].source"
+predicate = "shape"
+field = "plugins[*].source"
+severity = "required"
+guidance = "A relative-path source must start with `./` to resolve correctly against the marketplace root. A path without `./` is treated as a URL or package name, which is not the intent for local files."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+shape = "leading-dot-slash"
+
+[[declaration.clause]]
+label = "marketplace.when.plugins[*].source.source"
+kind = "marketplace"
+predicate = "when"
+field = "plugins[*].source.source"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+values = ["github"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "required.source.repo"
+predicate = "required"
+field = "source.repo"
+severity = "required"
+guidance = "A `github` source entry must specify the `repo` field — the repository in `owner/repo` format — so the plugin can be fetched from GitHub."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+label = "marketplace.when.plugins[*].source.source"
+kind = "marketplace"
+predicate = "when"
+field = "plugins[*].source.source"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+values = ["url"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "required.source.url"
+predicate = "required"
+field = "source.url"
+severity = "required"
+guidance = "A `url` source entry must specify the `url` field — the HTTPS URL to a git repository — so the plugin can be cloned from that location."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+label = "marketplace.when.plugins[*].source.source"
+kind = "marketplace"
+predicate = "when"
+field = "plugins[*].source.source"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+values = ["git-subdir"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "required.source.url"
+predicate = "required"
+field = "source.url"
+severity = "required"
+guidance = "A `git-subdir` source entry must specify the `url` field — the HTTPS URL to the git repository containing the plugin."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+
+[[declaration.clause.body]]
+label = "required.source.path"
+predicate = "required"
+field = "source.path"
+severity = "required"
+guidance = "A `git-subdir` source entry must specify the `path` field — the path within the repository to the plugin's root directory."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+
+[[declaration.clause]]
+label = "marketplace.when.plugins[*].source.source"
+kind = "marketplace"
+predicate = "when"
+field = "plugins[*].source.source"
+severity = "required"
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
+values = ["npm"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "required.source.package"
+predicate = "required"
+field = "source.package"
+severity = "required"
+guidance = "An `npm` source entry must specify the `package` field — the npm package name (e.g., `@scope/package`) — so the plugin can be installed from the npm registry."
+cite = "https://code.claude.com/docs/en/plugin-marketplaces#plugin-sources (retrieved 2026-07-16)"
 
 [[declaration.clause]]
 label = "mcp-server.enum.type"
@@ -519,9 +595,45 @@ kind = "mcp-server"
 predicate = "enum"
 field = "type"
 severity = "required"
-guidance = """A server's `type` names its transport; a value outside the documented set is one Claude Code cannot honor. Absent reads as `stdio` — but an entry that carries a `url` with no `type` is then a configuration error, because Claude Code treats it as a stdio server and skips it: add `type: "http"` (or `sse`/`ws`). A stdio server needs a `command`; a remote server needs a `url`. If this is a newly-documented transport, re-fetch code.claude.com/docs/en/mcp and extend temper's cited set rather than working around the finding."""
+guidance = "A server's `type` names its transport; a value outside the documented set is one Claude Code cannot honor. Absent reads as `stdio`, the documented default. If this is a newly-documented transport, re-fetch code.claude.com/docs/en/mcp and extend temper's cited set rather than working around the finding."
 cite = "https://code.claude.com/docs/en/mcp (retrieved 2026-07-15)"
 values = ["stdio", "http", "streamable-http", "sse", "ws"]
+
+[[declaration.clause]]
+label = "mcp-server.when.type"
+kind = "mcp-server"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
+values = ["stdio"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "required.command"
+predicate = "required"
+field = "command"
+severity = "required"
+guidance = "A stdio server must specify a `command` — the executable path and arguments to run the server process. Without it, Claude Code cannot start the server. (Note: when `type` is absent, Claude Code reads it as `stdio`; a `command` is also required in that case.)"
+cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
+
+[[declaration.clause]]
+label = "mcp-server.when.type"
+kind = "mcp-server"
+predicate = "when"
+field = "type"
+severity = "required"
+cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
+values = ["http", "streamable-http", "sse", "ws"]
+guard_predicate = "enum"
+
+[[declaration.clause.body]]
+label = "required.url"
+predicate = "required"
+field = "url"
+severity = "required"
+guidance = "A remote server (http, streamable-http, sse, or ws transport) must specify a `url` — the endpoint to connect to. Without it, Claude Code cannot establish the connection."
+cite = "https://code.claude.com/docs/en/mcp#transport-options (retrieved 2026-07-15)"
 
 [[declaration.clause]]
 label = "memory.extent"

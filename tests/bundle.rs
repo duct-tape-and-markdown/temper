@@ -76,7 +76,7 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
     let market_json: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(&market).unwrap()).unwrap();
     assert_eq!(market_json["plugins"][0]["name"], "temper");
-    assert_eq!(market_json["plugins"][0]["source"], ".");
+    assert_eq!(market_json["plugins"][0]["source"], "./");
 
     // The plugin manifest identifies the plugin.
     let plugin = out.join(".claude-plugin").join("plugin.json");

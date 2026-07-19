@@ -249,7 +249,7 @@ fn plugin_manifest() -> BTreeMap<String, JsonValue> {
 }
 
 /// The `marketplace.json` manifest listing this one plugin — the channel `temper` is
-/// distributed through. The plugin's `source` is `.`: the marketplace root *is* the plugin
+/// distributed through. The plugin's `source` is `./`: the marketplace root *is* the plugin
 /// root, so the generated tree is a self-contained, installable bundle.
 fn marketplace_manifest() -> BTreeMap<String, JsonValue> {
     BTreeMap::from([
@@ -260,7 +260,7 @@ fn marketplace_manifest() -> BTreeMap<String, JsonValue> {
             json!([
                 {
                     "name": PLUGIN_NAME,
-                    "source": ".",
+                    "source": "./",
                     "description": PLUGIN_DESCRIPTION,
                 }
             ]),
@@ -412,7 +412,7 @@ mod tests {
 
         let market = marketplace_manifest();
         assert_eq!(market["plugins"][0]["name"], "temper");
-        assert_eq!(market["plugins"][0]["source"], ".");
+        assert_eq!(market["plugins"][0]["source"], "./");
 
         let hooks = hooks_manifest();
         assert_eq!(
