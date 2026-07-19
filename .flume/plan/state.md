@@ -1,26 +1,24 @@
 # Plan state
 
-- Spec derived through: b2c2329 — routed, 0 new entries (see commit body:
-  all three ruled edges already filed by prior inbox drains).
+- Spec derived through: 1c6ef09 — routed, 0 new entries (see commit body:
+  module-home additions already shipped; 0043 lived and died inside
+  the window before landing on anything to encode).
 - Audited through: adf69b3 — reconciled.
 - Residue swept through: adf69b3 — reconciled, 0 new findings.
 - Posture swept through: formats next (mid-rotation) — unchanged, not
   this tick's job.
-- This tick: POST-SHIP RECONCILIATION — window 612f2a5..adf69b3 (3
-  src-touching build ticks: 18a8af7, 550ed1e, e10d65d, all verified on
-  disk as pure matches to their filed entries — cargo test and clippy
-  green, no residue beyond a stray sdk/package.json @types/node bump
-  riding 550ed1e's diff, trivial, not filed). Their three shipped tags
-  (DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE, TAP-PAYLOAD-SCHEMA-
-  SPLIT, COVERAGE-KNOWN-SURFACES-RELOCATE) unblocked two entries:
-  ROSTER-DOCUMENTED-EVENTS-CONSOLIDATE opened (disjoint from every open
-  entry). DRIFT-CONFIG-STALE-LOCK-PARSE-HOIST would have collided with
-  the still-open GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE on src/main.rs
-  (both edit gate()'s body) — reserialized behind it instead of opened.
-- Queue: 39 pending, 3 open, 34 blockedBy, 2 parked. Refactor captures:
+- This tick: SPEC DELTA — window b2c2329..1c6ef09 (4 spec commits).
+  1d856a9 names admissibility/gate/telemetry's new homes and the glob
+  module's cleanup — verified on disk, all four modules already live
+  matching the described subsystem and job. f34e676/7456d4c/1c6ef09
+  are decision 0043's full lifecycle (proposed, amended, withdrawn) —
+  net diff against b2c2329 is 1d856a9's alone (`git diff
+  b2c2329..HEAD -- specs/`), decision file deleted, nothing shipped or
+  pending references it. 0 entries filed.
+- Queue: 2 pending, 0 open, 0 blockedBy, 2 parked. Refactor captures:
   0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: after-build — spec delta routed, inbox/captures empty,
-reconciliation window closed clean; the posture sweep (mid-rotation, formats
-next) is the only remaining live input, and 3 open entries are pickable —
-ready work ships first, the sweep resumes when the wave hands back.
+Plan continues: yes — post-ship reconciliation is unreconciled past
+`Audited through:`/`Residue swept through:` adf69b3 (five src-touching
+build ticks land past it, 51600a9..7173a59): that window shapes the
+queue and is next.
