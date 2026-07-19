@@ -31,6 +31,41 @@
     "notes": "Posture sweep, pipeline neighborhood — read.rs was the only pipeline module touched since 03f19a2 (drift.rs/import.rs/builtin_lock.rs/placement.rs at 0 touches, still covered). Residue left by ee69164 (READ-NARRATION-INDEX-TWIN-CONSOLIDATE's build commit): it deleted 3 wrapper fns outright but left 2 unused params threaded through and 3 doc comments citing the deleted names. scoped at 8baf50a."
   },
   {
+    "tag": "MAIN-MANIFEST-PATH-JOIN-LOCUS-STALE-DOC-PRUNE",
+    "summary": "main.rs's manifest_path reimplements drift.rs's private join_locus root-`.` branch instead of calling it; guarded_manifests carries an orphaned doc comment from 6807d59's explain() extraction",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`join_locus` (827-833) is the one root-relative locus join in the tree — `if root == \".\" { PathBuf::from(relative) } else { Path::new(root).join(relative) }` — already called at 3 sites inside drift.rs (914, 951, 1573). It is private (`fn`, not `pub`); main.rs is a separate binary crate (rust.md: \"main.rs is its own binary crate, not a module of the library\"), so a `pub(crate)` widening does not reach it. Widen `join_locus` to `pub` so main.rs's `manifest_path` (see src/main.rs edit) becomes its fourth call site instead of re-deriving the same `.`-root branch."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Two fixes, same neighborhood, verified at HEAD 00b880d. (1) `manifest_path` (522-529) inlines the exact `.`-root branch `drift::join_locus` already performs, reading `governs.root`/`governs.glob` off a `CustomKind`'s `Governs` (fields confirmed at src/kind.rs:31-38, matching `join_locus`'s `(root: &str, relative: &str)` signature exactly). Replace the inline `if governs.root == \".\" {...} else {...}` with `drift::join_locus(&governs.root, &governs.glob)`, keeping the `kind.governs.as_ref()?` unwrap local — that half is main.rs's own concern, not drift's. (2) The doc comment directly above `guarded_manifests` (463-468, \"Narrate `target` through the one read verb... dispatch through [`read::explain`]'s target-species resolution\") is dead prose orphaned by 6807d59 (`build: extract explain's dispatch body to read.rs`): that commit moved the free `fn explain` this comment used to sit above out to `read::explain_target`, but left the comment glued — no blank line — directly above `guarded_manifests`'s own doc (469-474, \"Every represented manifest the `PreToolUse` guard checks...\"), read as `guarded_manifests`'s opening paragraph though it describes a function that no longer lives in this file. Delete the orphaned block (463-468); `guarded_manifests`'s own doc already stands complete without it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "`guard_binds_declared_locus_targets_outside_claude`, `guard_flags_a_represented_manifest_whose_member_violates_its_contract`, and `guard_follows_the_declared_mode_for_a_manifest_violation` stay green — `manifest_path`'s output is byte-identical after delegating to `join_locus`"
+      }
+    ],
+    "acceptance": "main.rs carries no second implementation of the root-relative locus join (`manifest_path` calls `drift::join_locus`) and no orphaned doc comment above `guarded_manifests`; `cargo clippy --all-targets -- -D warnings` and `cargo test` stay green, `temper guard` output unchanged.",
+    "notes": "Posture sweep, verbs neighborhood (main.rs, fresh full read — touched by e25f62f since its last full read at d01c0a2). join_locus predates this tick and is unrelated to e25f62f's change; manifest_path's duplication and the orphaned doc are both residue this tick's read surfaced. The stale doc rides this entry per open-questions.md's ride-only rule rather than filing standalone. scoped at 00b880d."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
