@@ -31,8 +31,9 @@ This repo carries **two** harnesses with different owners:
    `.flume/friction/**` (agent→human harness feedback, humans drain),
    `.flume/refactor/**` (agent→plan structural-debt captures, plan drains
    into pending entries), and `.flume/amendments/**` (agent→human
-   apply-ready harness diffs, humans ratify with one word or decline —
-   0044). Any phase may file into any; see each directory's README.
+   apply-ready diffs — operating-layer changes ratified by review,
+   `specs/process/**` phrase advocacy ratified by argument — 0044).
+   Any phase may file into any; see each directory's README.
 2. **The Claude Code harness** (`.claude/`, `CLAUDE.md`) — the *product domain*:
    the very artifacts `temper` is built to project, and the environment the
    build agents themselves run inside, so it is hand-curated to an exemplary

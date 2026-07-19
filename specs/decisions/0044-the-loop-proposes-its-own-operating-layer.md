@@ -24,13 +24,23 @@ is itself a settling surface.
   description. Humans ratify with one word — apply verbatim, or
   decline with the reason in the deleting commit. Ratification is
   review, never authorship.
-- **The constitution is out of scope.** Amendments may target the
-  derived operating layer: `.flume/prompts/**`, `.flume/PROTOCOL.md`'s
-  operational sections, the loop-discipline rules under `.temper/`,
-  capture READMEs. They may never target intent (`specs/intent.md`,
-  `specs/model/**`, `specs/decisions/**`), the chain's gates, or the
-  non-negotiables — the thing doing the settling does not rewrite what
-  it settles against.
+- **Two amendment classes, one channel** (amended same day — the
+  first cut fenced all of `specs/**` and over-shot):
+  - *Operating-layer amendments* target the loop's derived plumbing:
+    `.flume/prompts/**`, `.flume/PROTOCOL.md`'s operational sections,
+    the loop-discipline rules under `.temper/`, capture READMEs.
+    Ratification is review — apply verbatim or decline.
+  - *Phrase advocacy* targets the process corpus, `specs/process/**`:
+    the posture wordings and declared choices the loop tests against
+    reality every tick. Merge, split, widen, narrow — grounded in the
+    invariant's intent and the record. Ratification here is the
+    design argument, not a stamp: the session attacks the proposal
+    before encoding (the collaboration rule), and a contested cut
+    becomes a Decision like any other.
+- **The constitution is out of scope for both.** `specs/intent.md`,
+  `specs/model/**`, `specs/decisions/**`, the chain's gates, and the
+  non-negotiables — the thing doing the settling does not rewrite
+  what it settles against; it argues phrasing, never intent.
 - **Staged authority.** This decision grants propose-and-ratify only.
   Auto-landing amendments (apply on file, human revert window) is a
   future amendment to this decision, contingent on the record showing

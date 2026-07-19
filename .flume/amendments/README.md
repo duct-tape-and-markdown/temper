@@ -16,11 +16,19 @@ own:
 - **The diff is concrete and complete.** A unified diff a human can
   apply without authoring anything. A proposal that still needs
   drafting is friction, not an amendment.
-- **In-scope targets only**: `.flume/prompts/**`, operational sections
-  of `.flume/PROTOCOL.md`, the loop-discipline rules under `.temper/`
-  (the session re-emits projections on apply), capture READMEs. Never
-  intent (`specs/intent.md`, `specs/model/**`, `specs/decisions/**`),
-  never the chain's gates, never the non-negotiables.
+- **In-scope targets only**, two classes (0044):
+  - *Operating layer* — `.flume/prompts/**`, operational sections of
+    `.flume/PROTOCOL.md`, the loop-discipline rules under `.temper/`
+    (the session re-emits projections on apply), capture READMEs.
+    Ratified by review: applied verbatim or declined.
+  - *Phrase advocacy* — `specs/process/**`: a posture or declared
+    choice whose wording the record shows is over-broad, under-cut,
+    or wants merging/splitting. Ratified by argument: the session
+    contests it before encoding, and a contested cut becomes a
+    Decision.
+  - Never, for either class: intent (`specs/intent.md`,
+    `specs/model/**`, `specs/decisions/**`), the chain's gates, the
+    non-negotiables. Phrasing is arguable; intent is not.
 
 ## Format — `<phase>-<slug>.md`
 
