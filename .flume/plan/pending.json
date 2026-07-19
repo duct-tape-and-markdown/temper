@@ -63,45 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "GRAPH-ENABLEMENT-FIELD-RETIRE",
-    "summary": "graph.rs's dead-plugin judge stops reading the bare ENABLEMENT_FIELD constant; kind.rs deletes it once both consumers are gone (decision 0042's retirement, completed)",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "The fix lands at the mechanism"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`dead_registration`'s `Registration::Enablement` arm (727-739, reading `crate::kind::ENABLEMENT_FIELD` at 728 and 737) is the constant's last consumer once json_manifest.rs's own two uses (JSON-MANIFEST-ENTRY-SHAPE-DISPATCH) are gone. `dead_registration` receives only `&Registration`/`&Features` — no `CollectionAddress`/kind data reaches this call site today (traced: `dead_channel_set` → `reachable`/`live_members`, both keyed by bare kind name off `main.rs:591-596`'s `registrations: BTreeMap<&str, Vec<Registration>>`, which drops `CustomKind::collection_address` when building the map). Two designs, a judgment call for build, named in the commit body: (a) widen `Registration::Enablement` to carry its own `field: String`, mirroring the sibling variants `DescriptionTrigger`/`PathsMatch`/`Event`'s existing per-variant field, populated from the enabled-plugins kind's declared `Scalar { field }` shape when `main.rs` builds the registration map; or (b) thread `CollectionAddress`/entry-shape data down through `reachable`/`live_members`/`dead_channel_set`/`dead_registration`'s signatures. Once resolved, delete `kind.rs`'s now-fully-unused `ENABLEMENT_FIELD` const (219, doc 211-218)."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "If design (a) is chosen: the registration-map construction (591-596) populates `Registration::Enablement`'s new `field` from the enabled-plugins kind's declared shape when building `registrations`. If design (b): the map (or a parallel one) carries `CollectionAddress` data through to `graph::reachable`'s call site — exact threading is the same build-time judgment call as the graph.rs edit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/installed_plugin_kind.rs",
-        "asserts": "a_false_valued_entry_gates_its_member_off_every_channel (154) stays green — the disabled plugin is still found dead, the two enabled ones still live, unchanged behavior through whichever design lands"
-      },
-      {
-        "path": "src/graph.rs",
-        "asserts": "existing dead_registration inline tests (e.g. a_paths_match_glob_dies_only_when_no_repo_file_matches_it and its neighbors) stay green — the retirement is signature-only for the Enablement arm, no change to other channels"
-      }
-    ],
-    "acceptance": "graph.rs's dead-plugin judge reads the field name from kind data, never the bare ENABLEMENT_FIELD constant; kind.rs no longer declares it. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Derived from decision 0042, completing Consequences bullet 1's ENABLEMENT_FIELD retirement (graph.rs was not named in the decision's own text, which lists only kind.rs/json_manifest.rs — but ENABLEMENT_FIELD cannot retire while this file still reads it; the retirement's completion, not new scope). Last entry in the 0042 chain. scoped at efe64aa."
-  },
-  {
     "tag": "KIND-LAYOUT-READER-MODULE-EXTRACT",
     "summary": "kind.rs's self-contained layout-document reader (Layout family, 284-565, needs only extract) extracts to a new flat layout module — human-ruled split, the algebra stays whole",
     "per": {
