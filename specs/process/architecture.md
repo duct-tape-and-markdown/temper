@@ -28,13 +28,11 @@ appears in exactly one.
   `check` (the diagnostic types every judge speaks), `extract`
   (markdown/heading mechanics), `hash`, `address`, `tap` (the telemetry
   record), `json_splice`, `glob` (the one compile-memoized glob engine
-  every walker shares — ruled 07-18, landing). Nothing here knows what
-  a harness is.
+  every walker shares). Nothing here knows what a harness is.
 - **model** — what a harness IS: `kind` (the kind algebra),
   `contract` (clauses, predicates, selections), `compose` (member
   composition), `schema` (the interchange face), `roster` (membership
-  resolution), `layout` (the layout-document reader — split from
-  `kind`, ruled 07-18, landing).
+  resolution), `layout` (the layout-document reader).
 - **formats** — external format mechanics, implemented once
   (`representation.md`, "kind"): `frontmatter`, `document`,
   `json_manifest`, `toml_document`.
@@ -74,12 +72,9 @@ appears in exactly one.
 - **`main` carries dispatch only** — corpus assembly and judgment live
   in the library.
 
-One edge in today's tree stands in tension with this map, ruled to
-resolve toward it (2026-07-18, entry queued): the glob-compilation
-cache in `kind` is crate-wide leaf infrastructure whose own doc names
-callers across three subsystems — it moves to the `glob` foundation
-module above. Four earlier edges ruled the same way (0040,
-`normalize_path`) have shipped and are history, not debt. The map is
+A module listed here that the tree lacks, or an edge the tree carries
+that an invariant forbids, is intent ahead of the tree: the ruling
+routes to the queue, and the map says nothing more (0043). The map is
 intent, and intent loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
