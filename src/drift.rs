@@ -1138,35 +1138,55 @@ pub fn emit(
             .segments
             .entry(collection.clone())
             .or_default();
-        if collection == crate::kind::CollectionKeyPath::HooksEvent.collection_key() {
-            // A hook's event value is Claude Code's array of matcher groups, not a lone
-            // entry object: nest this member's fields into one group and append it under
-            // the event, so members sharing an event accumulate into the one array (the
-            // flat object a naive insert would write is silently ignored).
-            let group = crate::json_manifest::hook_matcher_group(&registration.fields);
-            if let JsonValue::Array(groups) = segment
-                .entry(registration.key.clone())
-                .or_insert_with(|| JsonValue::Array(Vec::new()))
-            {
-                groups.push(group);
+
+        let entry_shape = facts
+            .collection_address
+            .as_ref()
+            .map(|addr| entry_shape_of(&addr.entry_shape, &collection_key_of(&addr.key_path)))
+            .ok_or_else(|| DriftError::UnknownKind {
+                kind: registration.kind.clone(),
+                member: registration.key.clone(),
+            })?;
+
+        match entry_shape {
+            crate::kind::EntryShape::GroupArray {
+                member_key,
+                lifted_fields,
+            } => {
+                // A group-array entry value is Claude Code's array of matcher groups, not a
+                // lone entry object: nest this member's fields into one group and append it
+                // under the key, so members sharing a key accumulate into the one array (the
+                // flat object a naive insert would write is silently ignored).
+                let group = crate::json_manifest::hook_matcher_group(
+                    &registration.fields,
+                    &member_key,
+                    &lifted_fields,
+                );
+                if let JsonValue::Array(groups) = segment
+                    .entry(registration.key.clone())
+                    .or_insert_with(|| JsonValue::Array(Vec::new()))
+                {
+                    groups.push(group);
+                }
             }
-        } else if collection == crate::kind::CollectionKeyPath::EnabledPlugins.collection_key() {
-            // An enablement entry's value is the bare scalar its `enabled` field carries,
-            // not an entry object: render it back through the read face's inverse, so the
-            // map Claude Code loads round-trips rather than an `{enabled: …}` object it
-            // does not document.
-            segment.insert(
-                registration.key.clone(),
-                crate::json_manifest::enablement_entry_value(&registration.fields),
-            );
-        } else {
-            let entry_value: JsonValue = registration
-                .fields
-                .iter()
-                .cloned()
-                .collect::<serde_json::Map<String, JsonValue>>()
-                .into();
-            segment.insert(registration.key.clone(), entry_value);
+            crate::kind::EntryShape::Scalar { field } => {
+                // A scalar entry's value is the bare value its declared field carries,
+                // not an entry object: render it back through the read face's inverse, so the
+                // map Claude Code loads round-trips rather than an object it does not document.
+                segment.insert(
+                    registration.key.clone(),
+                    crate::json_manifest::enablement_entry_value(&registration.fields, &field),
+                );
+            }
+            crate::kind::EntryShape::Object => {
+                let entry_value: JsonValue = registration
+                    .fields
+                    .iter()
+                    .cloned()
+                    .collect::<serde_json::Map<String, JsonValue>>()
+                    .into();
+                segment.insert(registration.key.clone(), entry_value);
+            }
         }
     }
 
@@ -1573,6 +1593,54 @@ fn manifest_path_for(manifest: &str, kind_facts: &BTreeMap<&str, &KindFactRow>) 
 /// `mcpServers`: the collection is the label's head, before the first `.`.
 fn collection_key_of(key_path: &str) -> String {
     key_path.split('.').next().unwrap_or(key_path).to_string()
+}
+
+/// Resolve a collection's declared entry shape from the lock row's string form (if
+/// present) or by reconstructing it from the key_path as a fallback for locks not yet
+/// updated to include the field. Mirrors the same fallback logic
+/// [`collection_address_from_row`](crate::kind::collection_address_from_row) applies.
+fn entry_shape_of(shape_label: &Option<String>, collection_key: &str) -> crate::kind::EntryShape {
+    if let Some(label) = shape_label {
+        // Wire format: "object", "scalar(field)", "group-array(member_key;lifted_fields)"
+        if label == "object" {
+            crate::kind::EntryShape::Object
+        } else if label.starts_with("scalar(") && label.ends_with(')') {
+            let field = label[7..label.len() - 1].to_string();
+            crate::kind::EntryShape::Scalar { field }
+        } else if label.starts_with("group-array(") && label.ends_with(')') {
+            let inner = &label[12..label.len() - 1];
+            let parts: Vec<&str> = inner.splitn(2, ';').collect();
+            if parts.len() == 2 {
+                let member_key = parts[0].to_string();
+                let lifted_fields = parts[1]
+                    .split(',')
+                    .map(|s| s.to_string())
+                    .collect::<Vec<_>>();
+                crate::kind::EntryShape::GroupArray {
+                    member_key,
+                    lifted_fields,
+                }
+            } else {
+                // Fallback for malformed group-array
+                crate::kind::EntryShape::Object
+            }
+        } else {
+            // Fallback for unknown format
+            crate::kind::EntryShape::Object
+        }
+    } else {
+        // Infer from collection key when shape is absent (backward compatibility)
+        match collection_key {
+            "hooks" => crate::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
+            "enabledPlugins" => crate::kind::EntryShape::Scalar {
+                field: "enabled".to_string(),
+            },
+            _ => crate::kind::EntryShape::Object,
+        }
+    }
 }
 
 /// Regenerate one represented manifest whole through the canonical write face and write it

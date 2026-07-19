@@ -388,7 +388,7 @@ impl Manifest {
         for address in addresses {
             let collection = address.key_path.collection_key();
             consumed.insert(collection);
-            for (key, fields) in manifest_members(&manifest, collection) {
+            for (key, fields) in manifest_members(&manifest, collection, &address.entry_shape) {
                 members.push(RegistrationMember {
                     collection: collection.to_string(),
                     key,
@@ -520,48 +520,47 @@ fn render_object(members: &[(&str, JsonValue)]) -> String {
 }
 
 /// Read a manifest collection's members: each entry unwraps into a member's raw fields
-/// under the manifest format. Three special-cased shapes:
+/// under the manifest format. Dispatches on the collection's declared entry-shape:
 ///
-/// `hooks.<Event>` — a **matcher-group array** — decomposes each group into flat
-/// {matcher?, type, command, …} fields, one member per handler (via
-/// [`hook_member_fields`]);
+/// - **Object shape** — entries decode as objects — their key/value pairs carry directly
+///   (via [`entry_fields`]); a non-object entry passes no fields.
+/// - **Scalar shape** — each entry's value is a bare scalar — lifts it as one declared
+///   field (via [`enablement_member_fields`]).
+/// - **GroupArray shape** — an array of matcher groups — decomposes each group into flat
+///   lifted fields plus handler fields, one member per handler (via [`hook_member_fields`]).
 ///
-/// `enabledPlugins` — a **bare-scalar collection** where each entry's value is
-/// a boolean (the manifest format's permissive-load alternative to the object) —
-/// lifts each scalar as one field (via [`enablement_member_fields`]). All other
-/// collections' entries decode as objects — their key/value pairs carry directly
-/// (via [`entry_fields`]); a non-object entry passes no fields. The read and write
-/// faces ride this grammar — that invariant is the answer to the lock-row lifter's
-/// contract-edge challenge (decision 0040): the grammar is the one channel,
-/// the divergence the write face ([`hook_matcher_group`]) mirrors. Every other
-/// collection reads each entry object's members verbatim ([`entry_fields`]).
+/// The read and write faces ride this grammar — that invariant is the answer to the
+/// lock-row lifter's contract-edge challenge (decision 0040): the grammar is the one
+/// channel, the divergence the write face mirrors.
 fn manifest_members(
     manifest: &JsonMap<String, JsonValue>,
     collection_key: &str,
+    entry_shape: &crate::kind::EntryShape,
 ) -> Vec<(String, BTreeMap<String, JsonValue>)> {
     let Some(JsonValue::Object(collection)) = manifest.get(collection_key) else {
         return Vec::new();
     };
-    if collection_key == crate::kind::CollectionKeyPath::HooksEvent.collection_key() {
-        return collection
+    match entry_shape {
+        crate::kind::EntryShape::GroupArray {
+            member_key,
+            lifted_fields,
+        } => collection
             .iter()
             .flat_map(|(event, value)| {
-                hook_member_fields(value)
+                hook_member_fields(value, member_key, lifted_fields)
                     .into_iter()
                     .map(move |fields| (event.clone(), fields))
             })
-            .collect();
-    }
-    if collection_key == crate::kind::CollectionKeyPath::EnabledPlugins.collection_key() {
-        return collection
+            .collect(),
+        crate::kind::EntryShape::Scalar { field } => collection
             .iter()
-            .map(|(plugin, value)| (plugin.clone(), enablement_member_fields(value)))
-            .collect();
+            .map(|(plugin, value)| (plugin.clone(), enablement_member_fields(value, field)))
+            .collect(),
+        crate::kind::EntryShape::Object => collection
+            .iter()
+            .map(|(key, value)| (key.clone(), entry_fields(value)))
+            .collect(),
     }
-    collection
-        .iter()
-        .map(|(key, value)| (key.clone(), entry_fields(value)))
-        .collect()
 }
 
 /// One registration entry's raw fields: an object's members carried verbatim as JSON; a
@@ -578,15 +577,15 @@ fn entry_fields(value: &JsonValue) -> BTreeMap<String, JsonValue> {
     }
 }
 
-/// Decompose one `enabledPlugins` entry value into the fields its member carries. The
-/// third collection-entry shape, and the only **scalar** one: where a hook's event value
-/// is an array of matcher groups and an MCP server's entry an object whose keys fold in,
-/// an enablement entry's value is a bare boolean — Claude Code "writes `true` for it" at
-/// install or enable time (`code.claude.com/docs/en/plugins-reference`, "Default
-/// enablement", retrieved 2026-07-16), and schemastore's `claude-code-settings.json`
-/// types `enabledPlugins` an object whose values `anyOf` a boolean, a string array, or
-/// nothing (retrieved 2026-07-16). So the member has no object to fold: it carries the
-/// entry's whole value as its one declared [`crate::kind::ENABLEMENT_FIELD`].
+/// Decompose one scalar-shape entry value into the fields its member carries. The
+/// **scalar** entry shape: where a group-array's value is an array of matcher groups
+/// and an object shape's entry is an object whose keys fold in, a scalar entry's value
+/// is a bare scalar — Claude Code "writes `true` for an enablement" at install or enable
+/// time (`code.claude.com/docs/en/plugins-reference`, "Default enablement", retrieved
+/// 2026-07-16), and schemastore's `claude-code-settings.json` types `enabledPlugins` an
+/// object whose values `anyOf` a boolean, a string array, or nothing (retrieved
+/// 2026-07-16). So the member has no object to fold: it carries the entry's whole value
+/// as its one declared `field` (the shape parameter).
 ///
 /// The value is carried **whatever its JSON type** — the same permissive read the
 /// frontmatter face gives an unknown key. Only the documented boolean has documented
@@ -595,39 +594,42 @@ fn entry_fields(value: &JsonValue) -> BTreeMap<String, JsonValue> {
 /// would forge a finding on a manifest the format admits. The inverse of
 /// [`enablement_entry_value`], so an entry read off `settings.json` re-renders to the
 /// identical bytes on write.
-fn enablement_member_fields(entry_value: &JsonValue) -> BTreeMap<String, JsonValue> {
-    BTreeMap::from([(
-        crate::kind::ENABLEMENT_FIELD.to_string(),
-        entry_value.clone(),
-    )])
+fn enablement_member_fields(entry_value: &JsonValue, field: &str) -> BTreeMap<String, JsonValue> {
+    BTreeMap::from([(field.to_string(), entry_value.clone())])
 }
 
-/// Render one enablement member's fields back to its `enabledPlugins` entry value — the
-/// bare scalar the wire carries, read straight off [`crate::kind::ENABLEMENT_FIELD`]. The inverse of
+/// Render one scalar-shape member's fields back to its entry value — the bare scalar
+/// the wire carries, read straight off the declared `field`. The inverse of
 /// [`enablement_member_fields`], and the reason emit writes the scalar Claude Code loads
-/// rather than the `{enabled: …}` object a naive entry-object write would land.
+/// rather than the `{field: …}` object a naive entry-object write would land.
 ///
-/// A member declaring no `enabled` field renders `true`: the documented value Claude Code
+/// A member declaring no `field` renders `true`: the documented value Claude Code
 /// itself writes when it enables a plugin (same source), so an entry authored at all reads
 /// as the enablement it spells. Any other field a member carries has no home on the wire —
 /// the entry's value is one scalar — and is dropped rather than invented into a shape the
 /// format does not document.
-pub(crate) fn enablement_entry_value(fields: &[(String, JsonValue)]) -> JsonValue {
+pub(crate) fn enablement_entry_value(fields: &[(String, JsonValue)], field: &str) -> JsonValue {
     fields
         .iter()
-        .find(|(key, _)| key == crate::kind::ENABLEMENT_FIELD)
+        .find(|(key, _)| key == field)
         .map_or(JsonValue::Bool(true), |(_, value)| value.clone())
 }
 
-/// Decompose one `hooks.<Event>` value — Claude Code's array of matcher groups
+/// Decompose one group-array entry value — Claude Code's array of matcher groups
 /// (`[{matcher?, hooks:[{type, command}]}]`, code.claude.com/docs/en/hooks) — into the
-/// flat fields a fields-only hook member carries, one per handler: the group's `matcher`
-/// (when present) lifted alongside each handler object's own keys (`type`, `command`, …).
-/// The inverse of [`hook_matcher_group`], so a hook read back off `settings.json` re-nests
-/// to the identical bytes on write. A value that is not an array, a group that is not an
-/// object, or an entry with no `hooks` handler array yields no member — a shape Claude Code
-/// would itself ignore infers nothing.
-fn hook_member_fields(event_value: &JsonValue) -> Vec<BTreeMap<String, JsonValue>> {
+/// flat fields a fields-only member carries, one per handler: each group's lifted fields
+/// (when present) alongside each handler object's own keys (`type`, `command`, …). The
+/// `member_key` is the key of the handler array within each group (e.g., `"hooks"`), and
+/// `lifted_fields` are the names of fields to lift from the group level to each handler's
+/// flat representation (e.g., `["matcher"]`). The inverse of [`hook_matcher_group`], so
+/// an entry read back off `settings.json` re-nests to the identical bytes on write. A value
+/// that is not an array, a group that is not an object, or an entry with no handler array
+/// yields no member — a shape Claude Code would itself ignore infers nothing.
+fn hook_member_fields(
+    event_value: &JsonValue,
+    member_key: &str,
+    lifted_fields: &[String],
+) -> Vec<BTreeMap<String, JsonValue>> {
     let JsonValue::Array(groups) = event_value else {
         return Vec::new();
     };
@@ -636,8 +638,7 @@ fn hook_member_fields(event_value: &JsonValue) -> Vec<BTreeMap<String, JsonValue
         let JsonValue::Object(group) = group else {
             continue;
         };
-        let matcher = group.get("matcher");
-        let Some(JsonValue::Array(handlers)) = group.get("hooks") else {
+        let Some(JsonValue::Array(handlers)) = group.get(member_key) else {
             continue;
         };
         for handler in handlers {
@@ -645,8 +646,10 @@ fn hook_member_fields(event_value: &JsonValue) -> Vec<BTreeMap<String, JsonValue
                 continue;
             };
             let mut fields = BTreeMap::new();
-            if let Some(matcher) = matcher {
-                fields.insert("matcher".to_string(), matcher.clone());
+            for lifted_field in lifted_fields {
+                if let Some(value) = group.get(lifted_field) {
+                    fields.insert(lifted_field.clone(), value.clone());
+                }
             }
             for (key, value) in handler {
                 fields.insert(key.clone(), value.clone());
@@ -657,29 +660,35 @@ fn hook_member_fields(event_value: &JsonValue) -> Vec<BTreeMap<String, JsonValue
     members
 }
 
-/// Nest one hook member's flat fields back into a `hooks.<Event>` matcher group —
-/// `{matcher?, hooks:[{...handler}]}`: the `matcher` field lifts to the group level (when
-/// present), every other field becomes the single handler's own. The inverse of
-/// [`hook_member_fields`], and the reason emit writes the array-of-matcher-groups shape
-/// Claude Code loads rather than the flat `hooks.<Event> = {…}` object it silently ignores.
-/// `pub(crate)` so the write face (`crate::drift`) nests through the one shape this module's
-/// read face decomposes.
-pub(crate) fn hook_matcher_group(fields: &[(String, JsonValue)]) -> JsonValue {
-    let mut matcher = None;
+/// Nest one group-array member's flat fields back into its entry value — a matcher group
+/// `{lifted?, member_key:[{...handler}]}`: each lifted field lifts to the group level
+/// (when present), every other field becomes the single handler's own. The `member_key` is
+/// the key of the handler array within each group (e.g., `"hooks"`), and `lifted_fields`
+/// are the names of fields to lift to the group level (e.g., `["matcher"]`). The inverse
+/// of [`hook_member_fields`], and the reason emit writes the array-of-groups shape Claude
+/// Code loads rather than the flat object form it silently ignores. `pub(crate)` so the
+/// write face (`crate::drift`) nests through the one shape this module's read face
+/// decomposes.
+pub(crate) fn hook_matcher_group(
+    fields: &[(String, JsonValue)],
+    member_key: &str,
+    lifted_fields: &[String],
+) -> JsonValue {
+    let mut lifted = BTreeMap::new();
     let mut handler = JsonMap::new();
     for (key, value) in fields {
-        if key == "matcher" {
-            matcher = Some(value.clone());
+        if lifted_fields.contains(key) {
+            lifted.insert(key.clone(), value.clone());
         } else {
             handler.insert(key.clone(), value.clone());
         }
     }
     let mut group = JsonMap::new();
-    if let Some(matcher) = matcher {
-        group.insert("matcher".to_string(), matcher);
+    for (key, value) in lifted {
+        group.insert(key, value);
     }
     group.insert(
-        "hooks".to_string(),
+        member_key.to_string(),
         JsonValue::Array(vec![JsonValue::Object(handler)]),
     );
     JsonValue::Object(group)
@@ -958,7 +967,7 @@ mod tests {
         });
         let manifest = manifest.as_object().unwrap();
 
-        let members = manifest_members(manifest, "mcpServers");
+        let members = manifest_members(manifest, "mcpServers", &crate::kind::EntryShape::Object);
         let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
         assert_eq!(keys, vec!["gmail", "opaque"]);
 
@@ -969,7 +978,7 @@ mod tests {
         assert!(members[1].1.is_empty());
 
         // An absent collection key yields no members — absent, never errored.
-        assert!(manifest_members(manifest, "hooks").is_empty());
+        assert!(manifest_members(manifest, "hooks", &crate::kind::EntryShape::Object).is_empty());
     }
 
     #[test]
@@ -985,7 +994,13 @@ mod tests {
         });
         let manifest = manifest.as_object().unwrap();
 
-        let members = manifest_members(manifest, "enabledPlugins");
+        let members = manifest_members(
+            manifest,
+            "enabledPlugins",
+            &crate::kind::EntryShape::Scalar {
+                field: "enabled".to_string(),
+            },
+        );
         let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
         assert_eq!(
             keys,
@@ -1002,20 +1017,23 @@ mod tests {
             let round_tripped: Vec<(String, JsonValue)> =
                 fields.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
             assert_eq!(
-                enablement_entry_value(&round_tripped),
+                enablement_entry_value(&round_tripped, "enabled"),
                 JsonValue::Bool(expected)
             );
         }
 
         // An absent collection key yields no members — absent, never errored.
-        assert!(manifest_members(manifest, "hooks").is_empty());
+        assert!(manifest_members(manifest, "hooks", &crate::kind::EntryShape::Object).is_empty());
     }
 
     #[test]
     fn an_enablement_member_with_no_enabled_field_renders_the_documented_true() {
         // Claude Code writes `true` when it enables a plugin, so a member that declares no
         // `enabled` field renders as the enablement it spells rather than an invented shape.
-        assert_eq!(enablement_entry_value(&[]), JsonValue::Bool(true));
+        assert_eq!(
+            enablement_entry_value(&[], "enabled"),
+            JsonValue::Bool(true)
+        );
     }
 
     #[test]
@@ -1035,7 +1053,14 @@ mod tests {
         });
         let manifest = manifest.as_object().unwrap();
 
-        let members = manifest_members(manifest, "hooks");
+        let members = manifest_members(
+            manifest,
+            "hooks",
+            &crate::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
+        );
         let keys: Vec<&str> = members.iter().map(|(key, _)| key.as_str()).collect();
         assert_eq!(keys, vec!["PreToolUse", "SessionStart"]);
 
@@ -1050,7 +1075,7 @@ mod tests {
         // Re-nesting a decomposed member is the inverse of the read — byte-for-byte the
         // group it came from.
         let fields: Vec<(String, JsonValue)> = pre.clone().into_iter().collect();
-        let regrouped = hook_matcher_group(&fields);
+        let regrouped = hook_matcher_group(&fields, "hooks", &["matcher".to_string()]);
         let source_group = manifest["hooks"]["PreToolUse"].as_array().unwrap()[0].clone();
         assert_eq!(regrouped, source_group);
     }

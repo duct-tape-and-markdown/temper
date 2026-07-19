@@ -1224,6 +1224,25 @@ fn entry_shape_from_label(label: &str) -> Option<EntryShape> {
     }
 }
 
+/// Render an [`EntryShape`] to its wire label — the closed vocabulary `object`,
+/// `scalar(field)`, or `group-array(member_key;lifted_field1,lifted_field2,...)`.
+/// Not currently used by the emit side (collection_address_table doesn't write entry_shape
+/// yet), but exists for future serialization of entry_shape to the lock.
+#[allow(dead_code)]
+fn entry_shape_to_label(shape: &EntryShape) -> String {
+    match shape {
+        EntryShape::Object => "object".to_string(),
+        EntryShape::Scalar { field } => format!("scalar({field})"),
+        EntryShape::GroupArray {
+            member_key,
+            lifted_fields,
+        } => {
+            let lifted = lifted_fields.join(",");
+            format!("group-array({member_key};{lifted})")
+        }
+    }
+}
+
 /// Parse a [`CollectionAddressRow::key_path`](crate::drift::CollectionAddressRow::key_path)
 /// label into its typed [`CollectionKeyPath`] — `None` for any label outside the closed
 /// vocabulary (`hooks.<Event>`, `mcpServers.*`, `enabledPlugins.*`,
