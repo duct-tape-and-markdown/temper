@@ -63,54 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "KIND-LAYOUT-READER-MODULE-EXTRACT",
-    "summary": "kind.rs's self-contained layout-document reader (Layout family, 284-565, needs only extract) extracts to a new flat layout module — human-ruled split, the algebra stays whole",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/layout.rs",
-          "description": "New flat module, model subsystem (architecture.md's codemap) — the layout-document reader moved verbatim from kind.rs: Layout (struct, 284-287), LayoutRegion (291-313), LayoutReading (322-337), LayoutMember (343-356), LayoutError (362-389), impl Layout (396-479, the read method), next_heading (484-491), read_collection_member (497-525), parse_edge_entries (532-538), slugify (544-559). Verified: depends only on crate::extract and std path/collection types, no CustomKind reference anywhere in the moved body. SATISFIES_EDGE_FIELD (kind.rs 394) stays behind — textually inside the moved range but logically CustomKind's own edge-slot vocabulary (used by CustomKind::edge_slots at kind.rs 894/904, and externally by drift.rs/main.rs), never read by Layout's own methods — layout.rs imports it from crate::kind rather than owning a copy."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Delete the moved Layout family (284-390, 396-565 — SATISFIES_EDGE_FIELD at 394 is the one line in that span that stays). Content's Layout variant (141+) now wraps crate::layout::Layout."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Imports Layout/LayoutRegion from crate::kind (line 30) and uses them at 1095, 1701, 1715, 1758-1761 — requalify every reference to crate::layout, no re-export shim in kind.rs."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "References kind::Layout (1269), kind::LayoutError (1262 doc), kind::Content::Layout (1434, 1782) — requalify the Layout/LayoutError references to crate::layout."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "existing layout-document read/gate coverage stays green — the move is location-only, no read-behavior change"
-      },
-      {
-        "path": "tests/layout_edge_slot.rs",
-        "asserts": "edge-field parsing (satisfies among them) stays green — SATISFIES_EDGE_FIELD's cross-module wiring (layout.rs importing kind.rs's const) resolves identically"
-      }
-    ],
-    "acceptance": "src/layout.rs exists in the model subsystem carrying the Layout family verbatim; kind.rs no longer defines Layout/LayoutRegion/LayoutReading/LayoutMember/LayoutError/next_heading/read_collection_member/parse_edge_entries/slugify. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Human-ruled via inbox (600ffd5, kind-cohesion capture): layout reader → new flat layout module. MAIN-IMPORT-EDGES-DOC-PARAM-COLLAPSE shipped (cb4f989) — unblocked, but collides on main.rs with the now-open GRAPH-RESOLVED-EDGE-WALK-CONSOLIDATE; reserialized behind it. Also shares drift.rs with the now-open DRIFT-EMIT-OUTCOME-LABEL-ZERO-CONSUMER-PRUNE — single-tag blockedBy can't express both waits; the graph entry is queue-front, ships first regardless. scoped at 612f2a5."
-  },
-  {
     "tag": "KIND-GLOB-CACHE-MODULE-EXTRACT",
     "summary": "kind.rs's crate-wide glob-compilation cache (compile_glob/GLOB_CACHE/pins, 1223-1284) extracts to a new flat foundation module glob — human-ruled split, three external callers by its own doc",
     "per": {
@@ -118,8 +70,7 @@
       "section": "One job, one home"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "KIND-LAYOUT-READER-MODULE-EXTRACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
