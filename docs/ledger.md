@@ -29,7 +29,7 @@ hard.
 
 ## Parked (pointers only)
 
-- flume 0.3.1 publish (John): both 07-18 runtime fixes are LIVE via a
+- flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
   patched installed dist in temper's node_modules (ephemeral — a
   reinstall wipes it) and mirrored on flume branch
   fix/worktree-escape-and-loop-lock (written against 0.2.0 source;
@@ -37,7 +37,11 @@ hard.
   relocate outside the repo (FLUME_WORKTREES_DIR; temper's chain sets
   ~/.cache/flume-worktrees/<repo>) — root cause of the stray writes
   was models deriving the root checkout from the worktree path prefix.
-  Fix 2: loop pidfile lock refuses a second supervisor.
+  Fix 2: loop pidfile lock refuses a second supervisor. Fix 3: a
+  merge-reverted entry's actual commit footprint persists as
+  entry.observedFiles and joins the partition, so retries never ride
+  with what they collided with. The wave-chaining auto-unblock rides
+  the same branch.
 
 - Guidance layer: 4 source-verified deltas awaiting curation —
   claude.ai/code/artifact/97362c3b-f2eb-4e2a-98de-7a19a29855c8.
