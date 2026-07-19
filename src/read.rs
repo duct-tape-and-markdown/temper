@@ -255,7 +255,7 @@ pub fn explain(
     match resolve(by_kind, roster, target) {
         Species::Member(name) => {
             let member_index = build_member_index(by_kind);
-            let mut out = why_with_index(
+            let mut out = why_impl(
                 custom,
                 roster,
                 contracts,
@@ -266,7 +266,7 @@ pub fn explain(
                 name,
             );
             out.push('\n');
-            out.push_str(&impact_with_index(
+            out.push_str(&impact_impl(
                 roster,
                 by_kind,
                 registrations,
@@ -277,7 +277,7 @@ pub fn explain(
                 name,
             ));
             out.push('\n');
-            out.push_str(&context_with_index(by_kind, citations, &member_index, name));
+            out.push_str(&context_impl(by_kind, citations, &member_index, name));
             // The field strand is evidence, not a gate: an absent/empty log narrates
             // nothing (an empty string), so it is only joined when the tap log carried
             // records to narrate.
@@ -351,71 +351,17 @@ pub fn why(
     mention_edges: &[ResolvedEdge],
     member: &str,
 ) -> String {
-    // The resolved edge set the gate ranges over — computed once, filtered per matched
-    // node below. One source of truth: the exact arcs `graph::check` resolves, plus the
-    // mention edges route-resolved against this corpus exactly as the gate's
-    // `route_mentions` does. A mention whose target is absent from the corpus dangles: it
-    // stays out of the resolved set and narrates as the gate's route finding, never as a
-    // resolved edge.
-    let mut resolved = graph::resolved_edges(edges, by_kind).resolved;
-    let (resolved_mentions, dangling_mentions) =
-        graph::partition_mentions(mention_edges, by_kind, roster);
-    resolved.extend(resolved_mentions);
-
-    // Every `(kind, id)` naming `member`: the rationale-carrying custom listing,
-    // unioned with `by_kind` — the same decidable corpus the dispatcher's own species
-    // resolution (`resolve`) already checked to dispatch here. Existence must never be
-    // decided off the custom listing alone: it can lag `by_kind`
-    // (a member resolved live off disk but not yet re-imported), and checking it first
-    // was the not-found-then-narrates-anyway defect (`explain` calls `why` then
-    // `impact`/`context`, and only `why` disagreed with the resolver). A `by_kind`-only
-    // match narrates with no rationale (`Features::satisfies` carries none).
-    let mut matches: Vec<Member> = members(custom)
-        .into_iter()
-        .filter(|m| m.id == member)
-        .collect();
-    for (&kind, features_slice) in by_kind {
-        for features in *features_slice {
-            if features.id == member && !matches.iter().any(|m| m.kind == kind) {
-                matches.push(Member {
-                    kind: kind.to_string(),
-                    id: member.to_string(),
-                    satisfies: features
-                        .satisfies
-                        .iter()
-                        .cloned()
-                        .map(Satisfies::new)
-                        .collect(),
-                });
-            }
-        }
-    }
-
-    if matches.is_empty() {
-        return format!(
-            "No member named `{member}` is in the surface. `why` reads the authored \
-             surface's members — skills, rules, and every custom kind's members; check \
-             the name.\n"
-        );
-    }
-
-    let mut out = String::new();
-    for (index, member) in matches.iter().enumerate() {
-        // A blank line between multiple same-named members (a skill and a rule may
-        // share a name), each narrated in full under its own kind.
-        if index > 0 {
-            out.push('\n');
-        }
-        why_one(
-            &mut out,
-            member,
-            roster,
-            contracts,
-            &resolved,
-            &dangling_mentions,
-        );
-    }
-    out
+    let member_index = build_member_index(by_kind);
+    why_impl(
+        custom,
+        roster,
+        contracts,
+        by_kind,
+        edges,
+        mention_edges,
+        &member_index,
+        member,
+    )
 }
 
 /// Narrate the default contract `kind` binds, and every clause in it **by address** —
@@ -457,10 +403,10 @@ fn narrate_governing_contract(
     out.push('\n');
 }
 
-/// Like [`why`], but uses a pre-built member index to avoid rescanning by_kind.
+/// Implementation of [`why`] using a pre-built member index.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
-fn why_with_index(
+fn why_impl(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     contracts: &BTreeMap<String, Contract>,
@@ -688,52 +634,23 @@ fn impact(
     citations: &[Citation],
     target: &str,
 ) -> String {
-    // A `/`-bearing target is a leaf address (member ids never carry a slash), so it
-    // dispatches to leaf grain; a bare name stays the member-grain blast radius below.
-    if target.contains('/') {
-        return impact_leaf(by_kind, citations, target);
-    }
-
-    // Every `(kind, id)` node bearing the name — a skill and a rule may share one, each
-    // with its own blast radius. Sorted, since `by_kind` is a `BTreeMap` over name-sorted
-    // slices.
-    let matches: Vec<(&str, &Features)> = by_kind
-        .iter()
-        .flat_map(|(&kind, members)| members.iter().map(move |features| (kind, features)))
-        .filter(|(_, features)| features.id == target)
-        .collect();
-
-    if matches.is_empty() {
-        return format!(
-            "No member named `{target}` is in the surface. `impact` reads the authored \
-             surface's members — skills, rules, and every custom kind's members; check \
-             the name.\n"
-        );
-    }
-
-    let mut out = String::new();
-    for (index, (kind, features)) in matches.iter().enumerate() {
-        if index > 0 {
-            out.push('\n');
-        }
-        impact_one(
-            &mut out,
-            kind,
-            features,
-            roster,
-            by_kind,
-            registrations,
-            repo_files,
-            directive_edges,
-        );
-    }
-    out
+    let member_index = build_member_index(by_kind);
+    impact_impl(
+        roster,
+        by_kind,
+        registrations,
+        repo_files,
+        directive_edges,
+        citations,
+        &member_index,
+        target,
+    )
 }
 
-/// Like [`impact`], but uses a pre-built member index to avoid rescanning by_kind.
+/// Implementation of [`impact`] using a pre-built member index.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
-fn impact_with_index(
+fn impact_impl(
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
@@ -765,7 +682,7 @@ fn impact_with_index(
         if index > 0 {
             out.push('\n');
         }
-        impact_one_with_index(
+        impact_one_impl(
             &mut out,
             kind,
             features,
@@ -1004,15 +921,12 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 /// still exits zero.
 #[must_use]
 fn context(by_kind: &BTreeMap<&str, &[Features]>, citations: &[Citation], address: &str) -> String {
-    if address.contains('/') {
-        context_leaf(by_kind, citations, address)
-    } else {
-        context_member(by_kind, citations, address)
-    }
+    let member_index = build_member_index(by_kind);
+    context_impl(by_kind, citations, &member_index, address)
 }
 
-/// Like [`context`], but uses a pre-built member index to avoid rescanning by_kind.
-fn context_with_index(
+/// Implementation of [`context`] using a pre-built member index.
+fn context_impl(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
@@ -1021,7 +935,7 @@ fn context_with_index(
     if address.contains('/') {
         context_leaf(by_kind, citations, address)
     } else {
-        context_member_with_index(by_kind, citations, member_index, address)
+        context_member_impl(by_kind, citations, member_index, address)
     }
 }
 
@@ -1104,46 +1018,8 @@ fn context_leaf(
     out
 }
 
-/// Narrate a member's neighborhood: the nested members it carries (each nested member and
-/// its leaf child paths), the members that cite any of its leaves, and the requirements it
-/// satisfies — then the shared coverage disclosure. A member name bearing no `/` takes this
-/// path; every `(kind, id)` node bearing the name is narrated, each under its own kind.
-fn context_member(
-    by_kind: &BTreeMap<&str, &[Features]>,
-    citations: &[Citation],
-    member: &str,
-) -> String {
-    let matches: Vec<(&str, &Features)> = by_kind
-        .iter()
-        .flat_map(|(&kind, members)| members.iter().map(move |features| (kind, features)))
-        .filter(|(_, features)| features.id == member)
-        .collect();
-
-    if matches.is_empty() {
-        return format!(
-            "No member named `{member}` is in the surface. `context` reads the authored \
-             surface's members — skills, rules, and every custom kind's members; check the \
-             name.\n"
-        );
-    }
-
-    let mut out = String::new();
-    for (index, (kind, features)) in matches.iter().enumerate() {
-        if index > 0 {
-            out.push('\n');
-        }
-        context_member_one(&mut out, kind, features, by_kind, citations);
-    }
-
-    // Coverage — a member's neighborhood is a leaf-grain answer too (it enumerates the member's
-    // nested members), so it names what it cannot see, once at the end.
-    disclose_coverage(&mut out, by_kind);
-
-    out
-}
-
-/// Like [`context_member`], but uses a pre-built member index to avoid rescanning by_kind.
-fn context_member_with_index(
+/// Implementation of [`context_member`] using a pre-built member index.
+fn context_member_impl(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
@@ -1167,7 +1043,7 @@ fn context_member_with_index(
         if index > 0 {
             out.push('\n');
         }
-        context_member_one_with_index(&mut out, kind, features, by_kind, citations, member_index);
+        context_member_one_impl(&mut out, kind, features, by_kind, citations, member_index);
     }
 
     disclose_coverage(&mut out, by_kind);
@@ -1175,84 +1051,8 @@ fn context_member_with_index(
     out
 }
 
-/// Narrate one matched member's neighborhood into `out` — its nested members, the citations
-/// naming any of its leaves, and the requirements it satisfies.
-fn context_member_one(
-    out: &mut String,
-    kind: &str,
-    features: &Features,
-    by_kind: &BTreeMap<&str, &[Features]>,
-    citations: &[Citation],
-) {
-    let _ = writeln!(
-        out,
-        "Member `{}` ({kind}) — its declared neighborhood:\n",
-        features.id
-    );
-
-    // Nested members — each embedded member the member carries, with its leaf child paths
-    // (the leaves an author addresses under this member at leaf grain).
-    if features.nested_members.is_empty() {
-        let _ = writeln!(
-            out,
-            "Nested members: none — it carries no nested member, so it holds no leaf at leaf \
-             grain."
-        );
-    } else {
-        let _ = writeln!(out, "Nested members (the embedded members it carries):");
-        for nested in &features.nested_members {
-            let fields: Vec<String> = nested
-                .addressed_leaves()
-                .into_iter()
-                .map(|(child_path, _)| child_path)
-                .collect();
-            let _ = writeln!(
-                out,
-                "  • `{}` member `{}` — leaves: {}",
-                nested.kind,
-                nested.key,
-                fields.join(", ")
-            );
-        }
-    }
-    out.push('\n');
-
-    // Citers — every declared one-way edge naming a leaf in this member, using the shared
-    // selection helper so the two verbs cannot disagree on what cites a member.
-    let citers = select_citers(citations, |citation| citation.target.member == features.id);
-    if citers.is_empty() {
-        let _ = writeln!(
-            out,
-            "Citations (declared one-way edges naming any of its leaves — obligation-free): none \
-             — no member cites it."
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "Citations (declared one-way edges naming any of its leaves — obligation-free):"
-        );
-        for citation in citers {
-            let target = &citation.target;
-            let _ = writeln!(
-                out,
-                "  • `{}` ({}) cites `{}/{}/{}/{}` — a resolved citation, obligation-free.",
-                citation.from,
-                citation.from_kind,
-                target.member,
-                target.kind,
-                target.key,
-                target.child_path
-            );
-        }
-    }
-    out.push('\n');
-
-    // Satisfied requirements — the demands this member opts into filling.
-    narrate_satisfied(out, by_kind, &features.id);
-}
-
-/// Like [`context_member_one`], but uses a pre-built member index for narrate_satisfied.
-fn context_member_one_with_index(
+/// Implementation of [`context_member_one`] using a pre-built member index.
+fn context_member_one_impl(
     out: &mut String,
     kind: &str,
     features: &Features,
@@ -1319,7 +1119,7 @@ fn context_member_one_with_index(
     }
     out.push('\n');
 
-    narrate_satisfied_with_index(out, member_index, &features.id);
+    narrate_satisfied_impl(out, member_index, &features.id);
 }
 
 /// The other leaves of the nested member `(member, kind, key)` — every serialized leaf of
@@ -1353,30 +1153,12 @@ fn sibling_leaves<'a>(
 /// member's serialized `satisfies` (`Features::satisfies`), the lock-only view the leaf-grain
 /// read stands on. A member fills only the demands it names, so an empty set is stated plainly.
 fn narrate_satisfied(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>, member: &str) {
-    let satisfied: Vec<&str> = by_kind
-        .values()
-        .flat_map(|members| members.iter())
-        .filter(|features| features.id == member)
-        .flat_map(|features| features.satisfies.iter().map(String::as_str))
-        .collect();
-    if satisfied.is_empty() {
-        let _ = writeln!(
-            out,
-            "Satisfied requirements: none — member `{member}` opts into no `satisfies` link."
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "Satisfied requirements (the demands member `{member}` fills):"
-        );
-        for name in satisfied {
-            let _ = writeln!(out, "  • `{name}`");
-        }
-    }
+    let member_index = build_member_index(by_kind);
+    narrate_satisfied_impl(out, &member_index, member);
 }
 
-/// Like [`narrate_satisfied`], but uses a pre-built member index to avoid rescanning by_kind.
-fn narrate_satisfied_with_index(
+/// Implementation of [`narrate_satisfied`] using a pre-built member index.
+fn narrate_satisfied_impl(
     out: &mut String,
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     member: &str,
@@ -1406,15 +1188,27 @@ fn narrate_satisfied_with_index(
     }
 }
 
-/// Narrate one matched node's blast radius into `out` — the three strands for a single
-/// `(kind, id)`.
+/// The count of members opting into the requirement named `name`, across every kind —
+/// the same opt-in join coverage counts, read off [`Features::satisfies`] so `impact`
+/// agrees with a green `check`.
+fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize {
+    by_kind
+        .values()
+        .flat_map(|members| members.iter())
+        .filter(|features| features.satisfies.iter().any(|req| req == name))
+        .count()
+}
+
+/// Narrate one matched node's blast radius into `out` — uses the member index for count_satisfiers.
 #[allow(clippy::too_many_arguments)]
-fn impact_one(
+/// Implementation of [`impact_one`] using a pre-built member index.
+fn impact_one_impl(
     out: &mut String,
     kind: &str,
     features: &Features,
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
+    _member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
@@ -1431,140 +1225,6 @@ fn impact_one(
         .iter()
         .filter_map(|name| roster.get(name))
         .filter(|requirement| count_satisfiers(by_kind, &requirement.name) == 1)
-        .collect();
-    if sole.is_empty() {
-        let _ = writeln!(
-            out,
-            "Requirements left unfilled: none — every requirement it fills has another \
-             satisfier, so its removal drops no requirement to zero coverage."
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "Requirements left unfilled (it is the only member filling them):"
-        );
-        for requirement in sole {
-            if requirement.required {
-                let _ = writeln!(
-                    out,
-                    "  • `{}` — required, so removing `{}` leaves it unfilled and fails the gate.",
-                    requirement.name, features.id
-                );
-            } else {
-                let _ = writeln!(
-                    out,
-                    "  • `{}` — advisory, so removing `{}` leaves it unfilled but never gates.",
-                    requirement.name, features.id
-                );
-            }
-        }
-    }
-    out.push('\n');
-
-    // (2) `@import` directive edges that point at this member's file — removing the file
-    // unbacks each.
-    let node = (kind.to_string(), features.id.clone());
-    let unbacked: Vec<&ResolvedEdge> = directive_edges
-        .iter()
-        .filter(|edge| edge.to == node)
-        .collect();
-    if unbacked.is_empty() {
-        let _ = writeln!(
-            out,
-            "Directive edges left unbacked: none — no member `@import`s it, so removing it \
-             leaves no import pointing at nothing."
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "Directive edges left unbacked (members that `@import` it — removing its file \
-             leaves each import loading nothing):"
-        );
-        for edge in unbacked {
-            let (from_kind, from_id) = &edge.from;
-            let _ = writeln!(
-                out,
-                "  • `{from_id}` ({from_kind}) imports it via `@{}` — the import would be unbacked.",
-                DIRECTIVE_FIELD
-            );
-        }
-    }
-    out.push('\n');
-
-    // (3) Members reachable now only because this one carried their liveness across an
-    // import — removing it unreaches them.
-    let orphaned =
-        graph::reachability_orphaned(&node, registrations, by_kind, repo_files, directive_edges);
-    if orphaned.is_empty() {
-        let _ = writeln!(
-            out,
-            "Reachability that dies with it: none — no member depends on it to reach the \
-             harness, so removing it leaves every other member as reachable as before."
-        );
-    } else {
-        let _ = writeln!(
-            out,
-            "Reachability that dies with it (members live now only because it imports them):"
-        );
-        for (orphan_kind, orphan_id) in orphaned {
-            let _ = writeln!(
-                out,
-                "  • `{orphan_id}` ({orphan_kind}) — its own registration is dead, and removing \
-                 `{}` leaves no live importer to reach it.",
-                features.id
-            );
-        }
-    }
-}
-
-/// The count of members opting into the requirement named `name`, across every kind —
-/// the same opt-in join coverage counts, read off [`Features::satisfies`] so `impact`
-/// agrees with a green `check`.
-fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize {
-    by_kind
-        .values()
-        .flat_map(|members| members.iter())
-        .filter(|features| features.satisfies.iter().any(|req| req == name))
-        .count()
-}
-
-/// Like [`count_satisfiers`], but uses a pre-built member index to avoid rescanning by_kind.
-fn count_satisfiers_with_index(
-    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
-    name: &str,
-) -> usize {
-    member_index
-        .values()
-        .flat_map(|entries| entries.iter())
-        .filter(|(_, features)| features.satisfies.iter().any(|req| req == name))
-        .count()
-}
-
-/// Narrate one matched node's blast radius into `out` — uses the member index for count_satisfiers.
-#[allow(clippy::too_many_arguments)]
-fn impact_one_with_index(
-    out: &mut String,
-    kind: &str,
-    features: &Features,
-    roster: &BTreeMap<String, Requirement>,
-    by_kind: &BTreeMap<&str, &[Features]>,
-    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
-    registrations: &BTreeMap<&str, Vec<Registration>>,
-    repo_files: &[String],
-    directive_edges: &[ResolvedEdge],
-) {
-    let _ = writeln!(
-        out,
-        "Member `{}` ({kind}) — the blast radius if it is removed or renamed:\n",
-        features.id
-    );
-
-    // (1) Requirements it is the sole satisfier of — removing it drops them to zero.
-    let sole: Vec<&Requirement> = features
-        .satisfies
-        .iter()
-        .filter_map(|name| roster.get(name))
-        .filter(|requirement| count_satisfiers_with_index(member_index, &requirement.name) == 1)
         .collect();
     if sole.is_empty() {
         let _ = writeln!(
