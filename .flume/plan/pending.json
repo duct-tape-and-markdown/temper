@@ -1,56 +1,5 @@
 [
   {
-    "tag": "REGISTRATION-ENABLEMENT-LABEL-FIELD-CARRYING",
-    "summary": "SDK `registrationLabel`'s `enablement` case still emits the bare wire label though `Registration::Enablement` now carries a field; the engine reader refuses bare and demands `enablement(<field>)`.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`registrationLabel`'s `case \"enablement\"` (206-207) still returns the bare `\"enablement\"` string; 30c52e1 made `Registration`'s `enablement` variant field-carrying (`{ via: \"enablement\", field: string }`, `sdk/src/kind.ts:51`) but left this one arm unchanged, unlike its three siblings in the same switch (`description-trigger`, `paths-match`, `event`, each already `` `${name}(${registration.field})` ``). Change the arm to `` `enablement(${registration.field})` ``."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "Regenerate per the file's own header discipline (re-run the memberless builtin emit `tests/builtin_lock_frozen.rs` derives, re-embed the resulting declaration rows verbatim, never hand-edit) once `registrationLabel` is fixed — the `installed-plugin` kind's `registration` row (currently line 90, `registration = [\"enablement\"]`) becomes `registration = [\"enablement(enabled)\"]`."
-        },
-        {
-          "path": "tests/installed_plugin_kind.rs",
-          "description": "`the_embedded_builtin_lock_carries_the_installed_plugin_kind_and_no_clause` (line 260) pins the stale wire label: `assert_eq!(plugin.registration, vec![\"enablement\".to_string()]);`. Update to `vec![\"enablement(enabled)\".to_string()]` — this test currently asserts the bug's own output as correct."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "Same stale pin at line 2185 (`assert_eq!(plugin.registration, vec![\"enablement\".to_string()]);`), same fix."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "`the_embedded_builtin_lock_byte_equals_the_sdk_modules_own_memberless_emit` only byte-compares the SDK's derived lock text against the embedded snapshot — writer vs writer, so a one-sided writer/reader respell like this one stays green. Add the seam's missing half after the byte-compare: parse the derived lock text through `drift::parse_declarations`, take the `installed-plugin` `KindFactRow`, and decode it through `kind::CustomKind::from_kind_fact_row` (`src/kind.rs:551`, `pub`), asserting `Ok(_)` and that the decoded registration set contains `Registration::Enablement { field: \"enabled\".to_string() }` — serializer output proven readable by the real reader, not just self-consistent against its own snapshot."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the SDK-derived installed-plugin registration row round-trips through the engine's real lock reader (`CustomKind::from_kind_fact_row`) without a `Vocabulary` error, decoding to the field-carrying `Enablement` variant"
-      },
-      {
-        "path": "tests/installed_plugin_kind.rs",
-        "asserts": "the embedded builtin lock's installed-plugin kind fact carries the field-carrying `enablement(enabled)` wire label, not the bare form"
-      }
-    ],
-    "acceptance": "`registrationLabel` emits `enablement(<field>)`; `src/builtin_lock.toml`'s installed-plugin row carries the field-carrying label; both Rust tests that previously pinned the bare form now assert the corrected value; `tests/builtin_lock_frozen.rs` proves the derived lock decodes through the engine's real reader. `cargo test` and `pnpm --dir sdk test` both green; a harness with an installed-plugin member no longer fails `check` on an emit-regenerated lock.",
-    "notes": "Field report (centercode 0.0.9), observed at 7410b1d, re-verified on disk at HEAD (ec9fdbc): declarations.ts:206 still returns bare \"enablement\"; src/builtin_lock.toml:90 still embeds it; tests/installed_plugin_kind.rs:260 and tests/lock_declaration_rows.rs:2185 both pin the stale value, so they need updating in the same commit. builtin_lock_frozen.rs only byte-compares writer against writer today — the added round-trip closes exactly that gap. scoped at ec9fdbc."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
