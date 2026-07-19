@@ -54,6 +54,8 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -143,3 +145,39 @@ jobs:
           tar -C artifacts/engine-linux-x64 -czf standalone/temper-x86_64-unknown-linux-gnu.tar.gz temper
           (cd artifacts/engine-win32-x64 && zip -q "$GITHUB_WORKSPACE/standalone/temper-x86_64-pc-windows-msvc.zip" temper.exe)
           gh release create "$GITHUB_REF_NAME" --generate-notes standalone/* || gh release upload "$GITHUB_REF_NAME" standalone/* --clobber
+
+  # The release counts as shipped only when the *published pair* survives the
+  # consumer round-trip: a scratch project installs the SDK from the registry
+  # (which resolves the platform engine through the freshly stamped pins),
+  # represents itself, and runs emit + check across the real SDK→engine seam.
+  # This is the layer provenance checks can't see — 0.0.8 shipped stale pins
+  # and 0.0.9 shipped a one-sided wire respell, both invisible until a clean
+  # install ran the pair together.
+  smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the published pair and round-trip a scratch harness
+        env:
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir smoke && cd smoke
+          git init -q .
+          printf '# Smoke\n\nA one-rule harness exercising the published pair.\n' > CLAUDE.md
+          mkdir -p .claude/rules
+          printf '# Smoke rule\n\nOne line of prose.\n' > .claude/rules/smoke.md
+          npm init -y > /dev/null
+          # Registry propagation lag: wait until the SDK version is viewable.
+          for i in $(seq 1 20); do
+            npm view "@dtmd/temper@$VERSION" version > /dev/null 2>&1 && break
+            sleep 15
+          done
+          npm install "@dtmd/temper@$VERSION" > /dev/null
+          npx temper --version
+          npx temper install --yes .
+          npx temper emit
+          npx temper check .
