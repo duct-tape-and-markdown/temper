@@ -1,5 +1,31 @@
 [
   {
+    "tag": "TELEMETRY-DOC-PROVIDER-FACT-LEAK",
+    "summary": "sdk/src/contract.ts's telemetry() doc embeds the literal Claude Code event vocabulary + URL cite that declarations.ts's TELEMETRY_EVENT_HOOKS already owns as the cited home",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "The provider face is data"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/contract.ts",
+          "description": "`telemetry()`'s doc comment (335-340) names all four documented event strings (`InstructionsLoaded`, `SkillInvoked`, `UserPromptExpansion`, `ToolUse`) plus the `code.claude.com/docs/en/hooks, retrieved 2026-07-17` citation verbatim — the identical enumeration and cite `declarations.ts`'s `TELEMETRY_EVENT_HOOKS` doc comment (743-758) already carries as its home (that doc even names `contract.ts`'s `telemetry` as the consumer of the vocabulary it owns). architecture.md, 'The provider face is data' names this file directly ('The model (`kind`, `contract`) compiles without knowing Claude Code exists'); the Rust-side sibling concept, `Verifier::Telemetry` in `src/compose.rs` (90-118), carries no literal event name or external cite at all — 'Named documented harness events the emitted tap records to a local-locus log — resolved by whether each name is a documented harness event.' Trim `contract.ts`'s doc to the same generic shape (no literal names, no URL), pointing at `declarations.ts`'s table as the one cited home instead of re-stating it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`contract.ts`'s `telemetry()` doc comment names no literal Claude Code event string and no external URL — it stays generic like `src/compose.rs`'s `Verifier::Telemetry` doc, pointing readers at `declarations.ts`'s `TELEMETRY_EVENT_HOOKS` as the one cited home. `pnpm --dir sdk test` stays green (doc-only change, no row/type shape touched).",
+    "notes": "Posture sweep finding, neighborhood sdk/src/contract.ts + its immediate import kind.ts (kind.ts read clean, no findings). Both doc comments carry the identical 'retrieved 2026-07-17' stamp, confirming a copy-paste duplication rather than two independently-sourced facts. Doc-only, mechanical — no design call. scoped at 2221c43."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
