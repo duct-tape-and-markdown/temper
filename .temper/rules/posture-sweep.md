@@ -5,14 +5,22 @@ When running the posture sweep (plan's job 4), this discipline binds:
 - **The pages are the authority as they read this tick** — every section
   of `specs/process/engineering.md`, and the choices in
   `specs/process/architecture.md`. Nothing is swept from a remembered
-  list.
-- At most one **touched neighborhood** — a module the forward window
-  touched, read together with its immediate imports — is swept per
-  tick; that is the context bound. Untouched-since-last-sweep modules
-  (the forward `git log` window is the test, no file reads) **skip
-  forward in bulk within the same tick**; a rotation over a quiet tree
-  closes in one tick, never one tick per skip. **Quiet-on-clean is the
-  normal verdict**, recorded by advancing the rotation alone.
+  list. A ratified phrase change applies from the next rotation
+  forward — it never reopens a stamped window.
+- **The frontier is decidable; the neighborhood is judged.** The
+  rotation's frontier is the window's touched-module list (the forward
+  `git log --name-only` mapped to modules — no file reads). Each tick
+  sweeps at most one neighborhood — one frontier module read together
+  with its immediate imports; that is the context bound — and records
+  every frontier module the neighborhood read as **covered** in the
+  mid-rotation cursor. Covered is settled for the window: a later tick
+  never re-sweeps or re-draws it, even where fresh judgment would cut
+  the boundary differently — the cursor decides coverage, never
+  re-derivation.
+- **The rotation closes when the frontier empties.** Untouched modules
+  never enter the frontier, so a quiet tree closes in one tick, never
+  one tick per skip. **Quiet-on-clean is the normal verdict**,
+  recorded by advancing the cursor alone.
 - A violation counts only when **verified on disk this tick**, cited by
   symbol and line. Beyond the pages' own sections, cohesion (a module
   carrying jobs that want separate homes), dead plumbing
@@ -24,6 +32,7 @@ When running the posture sweep (plan's job 4), this discipline binds:
 - Routing: purely mechanical shape → a pending entry; needs a design
   decision → a `.flume/refactor/` capture. Either cites the owning
   section in `per`. Never against a "Kept on purpose" asymmetry.
-- When the rotation closes, stamp `Posture swept through: <HEAD sha>`;
-  the job re-arms when commits past it touch `src/`, `sdk/src/`, or
-  `tests/`.
+- When the rotation closes, stamp `Posture swept through: <window head>`
+  — the sha the frontier was derived from, never a HEAD that moved
+  mid-rotation; the job re-arms when commits past the stamp touch
+  `src/`, `sdk/src/`, or `tests/`.
