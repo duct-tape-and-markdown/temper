@@ -460,12 +460,6 @@ fn main() -> miette::Result<ExitCode> {
     }
 }
 
-/// Narrate `target` through the one read verb: assemble the same by-kind feature corpus, composed
-/// requirement roster, declared edges, registrations, and directive/reachability inputs
-/// the gate's own predicates range over (READ-EDGE-UNIFY) — over the standard `.temper`
-/// workspace and the harness at the CWD, mirroring `check`'s own two-step corpus
-/// assembly (`gate`) — and dispatch through [`read::explain`]'s target-species
-/// resolution.
 /// Every represented manifest the `PreToolUse` guard checks a pending write against — one
 /// [`install::GuardedManifest`] per manifest kind, whether an embedded built-in
 /// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
@@ -521,11 +515,7 @@ fn guarded_manifests(
 /// governing no locus, which has no host file for the guard to watch.
 fn manifest_path(kind: &CustomKind) -> Option<PathBuf> {
     let governs = kind.governs.as_ref()?;
-    Some(if governs.root == "." {
-        PathBuf::from(&governs.glob)
-    } else {
-        Path::new(&governs.root).join(&governs.glob)
-    })
+    Some(drift::join_locus(&governs.root, &governs.glob))
 }
 
 /// Ask `install`'s one question interactively: read a line from stdin, `y`/`yes` (case-insensitive)

@@ -824,7 +824,7 @@ pub fn harness_root_of(workspace_dir: &Path) -> PathBuf {
 }
 
 /// `relative` joined under a locus `root`, dropping the `.` a root-locus kind carries.
-fn join_locus(root: &str, relative: &str) -> PathBuf {
+pub fn join_locus(root: &str, relative: &str) -> PathBuf {
     if root == "." {
         PathBuf::from(relative)
     } else {
