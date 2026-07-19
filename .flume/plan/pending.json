@@ -63,41 +63,6 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at d1af9a5, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT",
-    "summary": "main.rs's row→model constructors over drift's own Row types move beside the lock-row reading they interpret, into drift.rs",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "Invariants — stated as absences"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/main.rs",
-          "description": "`requirement_from_row` (2474), `clause_from_row` (2502), `edges_from_declarations` (2519) + `edge_column` (2548), `mention_edges_from_declarations` (2559), and `import_edges_from_lock_with_doc` (2578, renamed from `import_edges_from_lock` and gained a `doc: Option<&DocumentMut>` param by the shipped DRIFT-SOURCE-DEP-PARSE-HOIST) move out; their call sites in gate() (893-901) and explain() (583-591) become `drift::` calls."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Gains the six functions beside the `ClauseRow`/`RequirementRow`/`Declarations` definitions they interpret — already the home of `compose::clause_from_row`'s sibling caller, `default_contract_from_rows`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "the gauntlet corpus's gate/explain output is byte-identical across the move — location-only, no behavior change"
-      }
-    ],
-    "acceptance": "The six row→model constructors live in drift.rs; main.rs calls them via drift::. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "First of the ruled MAIN-THIN-DISPATCH-COHESION chain (a8dd112): row→model constructors move beside the lock-row reading they interpret. Re-verified against DRIFT-SOURCE-DEP-PARSE-HOIST (3561798, renamed import_edges_from_lock_with_doc) — cite corrected, move unchanged. Unblocked: IMPORT-ROLLUP-WRITER-PLACEMENT shipped ab2e822. Reserialized behind DRIFT-MANIFEST-SEGMENT-REAP-READ-HOIST, last chain entry on drift.rs, avoiding CONTRACT-REQUIRE-SECTIONS-ROUNDTRIP's chain. rescoped 863e506."
-  },
-  {
     "tag": "MAIN-CORPUS-ASSEMBLY-TO-COMPOSE",
     "summary": "main.rs's corpus-assembly functions (resolve_kind_units, manifest_units, kind_features, assemble_lock_family, assemble_by_kind) move to compose.rs",
     "per": {
@@ -105,8 +70,7 @@
       "section": "Codemap — the engine (`src/`)"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -263,8 +227,7 @@
       "section": "kind"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
