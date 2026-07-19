@@ -1,5 +1,40 @@
 [
   {
+    "tag": "READ-NARRATION-INDEX-TWIN-CONSOLIDATE",
+    "summary": "src/read.rs's 7c2733c index hoist left 8 duplicate narration function pairs unconsolidated; explain() only reaches 3 _with_index twins, leaving 5 plain siblings production-dead",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "8 pairs, each a plain fn and a `_with_index` twin differing only in how the member match set is found (linear scan of by_kind vs. a pre-built member_index lookup), the rest of the body near-identical: why (345, pub) / why_with_index (463); impact (682) / impact_with_index (736); impact_one (1412) / impact_one_with_index (1545); context (1006) / context_with_index (1015); context_member (1111) / context_member_with_index (1146); context_member_one (1180) / context_member_one_with_index (1255); narrate_satisfied (1355) / narrate_satisfied_with_index (1379); count_satisfiers (1523) / count_satisfiers_with_index (1532). `explain` (240, the sole production dispatcher) calls only the _with_index trio for Species::Member (258/269/280) and only the plain impact/context for Species::Leaf (293/303) — each of those two production paths short-circuits its own member-grain-vs-leaf-grain branch (impact()'s target.contains('/') at 693, context()'s at 1007) to always take the SAME side in production (Leaf targets always contain '/', member ids never do). Net: `why`, `impact_one`, `context_member`, `context_member_one`, and `count_satisfiers` are reachable in production through no call chain from `explain` — they run only when a test calls them directly (confirmed: tests/read_verbs.rs, tests/prose_include.rs, tests/layout_prose_import.rs, tests/layout_edge_slot.rs call `read::why` directly; src/read.rs's own #[cfg(test)] mod calls `impact`/`context` with non-'/' targets at lines 2101-2305) rather than through `explain`'s actual dispatch — so no test currently proves the plain and indexed siblings stay in parity via the real production path. `why_one` (526) and `context_leaf` (1034) are the two helpers already correctly shared, not duplicated — the fix pattern to extend, per engineering.md's delete-or-subsume priority: collapse each pair to one implementation (e.g. the plain entry point builds its own index and delegates to the indexed body, or the reverse), never leave a second body a future edit can diverge from unnoticed."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "read::why (pub) narrates a member's rationale/edges identically after consolidation — its existing direct-call tests stay green"
+      },
+      {
+        "path": "src/read.rs",
+        "asserts": "the inline #[cfg(test)] mod's member-grain and leaf-grain impact/context tests (2085-2305) — currently the only exercise of the now-consolidated member-grain path — keep passing with unchanged narration output"
+      }
+    ],
+    "acceptance": "No pair listed in files[].description keeps two divergent bodies doing the same lookup-then-narrate job; `cargo test` green including every cited test file, narration output unchanged (byte-identical) for both the explain()-reached paths and the direct-call test paths.",
+    "notes": "Posture sweep, pipeline neighborhood (drift.rs/import.rs/read.rs vs. engineering.md+architecture.md; builtin_lock.rs/placement.rs untouched since ab01fb4, still covered). All other checked commits since ab01fb4 landed clean, no residue (full list in the plan commit body). drift.rs's tracked RawLockRow stale cite (open-questions.md ride-only list) re-confirmed still at lines 2144-2149, still unclaimed. scoped at b1defc9."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
