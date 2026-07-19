@@ -69,12 +69,10 @@ hard.
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
   then channel 3.
 - On John:
-  **NPM_TOKEN refresh** — v0.0.8 publish failed E404-on-PUT (auth;
-  0.0.7 published fine 07-11, token likely expired). Builds green,
-  nothing partial on the registry. Recovery: mint a token with @dtmd
-  publish rights → `gh secret set NPM_TOKEN` → `gh run rerun
-  29674832584 --failed` (publish steps skip already-published
-  versions, so rerun is safe).
+  **Rotate NPM_TOKEN** — the current one was pasted in chat (07-19,
+  v0.0.8 rescue); treat as exposed. New token → `gh secret set
+  NPM_TOKEN` + `.env`. Note the expiry cadence: the prior token died
+  in ~14 days and cost a release-day debug.
   Apple Developer notarizing (decide at release); USPTO name screen;
   CHANGELOG for the shipped 0.0.x npm cuts.
 
