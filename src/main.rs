@@ -5,7 +5,6 @@
 //! mirrors the pipeline verbs; all logic lives in the
 //! library so `tests/` can drive it.
 
-use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -17,14 +16,10 @@ use temper::builtin_kind;
 use temper::bundle;
 use temper::check::{self, Severity};
 use temper::compose;
-use temper::contract::Contract;
 use temper::drift;
-use temper::extract;
 use temper::gate;
-use temper::graph;
-use temper::import;
 use temper::install;
-use temper::kind::{self, CustomKind};
+use temper::kind::CustomKind;
 use temper::read;
 use temper::reporter;
 use temper::schema;
@@ -472,7 +467,7 @@ fn main() -> miette::Result<ExitCode> {
             Ok(ExitCode::SUCCESS)
         }
         Command::Explain { target } => {
-            print!("{}", explain(&target)?);
+            print!("{}", read::explain_target(&target)?);
             Ok(ExitCode::SUCCESS)
         }
     }
@@ -484,151 +479,6 @@ fn main() -> miette::Result<ExitCode> {
 /// workspace and the harness at the CWD, mirroring `check`'s own two-step corpus
 /// assembly (`gate`) — and dispatch through [`read::explain`]'s target-species
 /// resolution.
-fn explain(target: &str) -> miette::Result<String> {
-    let workspace = PathBuf::from(DEFAULT_WORKSPACE.as_str());
-    let harness_root = Path::new(".");
-    // One ignore-honoring walk per flavor, shared across every kind and nested host this
-    // read discovers ([`import::Discovery`]).
-    let discovery = import::Discovery::new(harness_root);
-
-    // The assembly's own declared facts, read first: the corpus below walks each
-    // kind's governs locus off *this*.
-    // No layers: `explain` narrates what this corpus declares. A policy layer is the
-    // invocation's own, and the invocation here is a read.
-    // Parse the lock document once for reuse across source-dependency checks, hoisting
-    // the read/parse operation per the cost doctrine (engineering.md, "Cost scale is hoisted").
-    let lock_doc = drift::read_lock_document(&workspace)?;
-    // Empty cache for early assembly; will build a proper cache after lock_family returns.
-    let empty_cache: compose::ManifestCache = BTreeMap::new();
-    let compose::LockFamily { declarations, .. } = compose::assemble_lock_family(
-        &discovery,
-        &drift::read_declarations(&workspace)?,
-        &[],
-        &empty_cache,
-    )?;
-
-    // Build a shared manifest cache for this explain invocation.
-    let manifest_cache = compose::build_manifest_cache(&discovery, &declarations)?;
-
-    // Every embedded built-in kind's discovered features — the same generic loop
-    // `gate`'s two-greens runs, not a hardcoded skill/rule pair
-    // (MEMORY-ENTERS-REQUIREMENT-CORPUS), so a memory member's declared `satisfies`
-    // reaches `explain` exactly as it reaches the gate's roster/graph/coverage tiers.
-    let builtin_defs = builtin_kind::definitions();
-    let builtin_units_and_features = compose::builtin_units_and_features_by_kind(
-        &builtin_defs,
-        &discovery,
-        &declarations,
-        &manifest_cache,
-    )?;
-    let builtin_features: BTreeMap<String, Vec<extract::Features>> = builtin_units_and_features
-        .iter()
-        .map(|(k, uaf)| (k.clone(), uaf.features.clone()))
-        .collect();
-
-    // Each kind's resolved contract, lifted exactly as `gate` lifts it, so the clause
-    // addresses `explain` narrates are the ones a finding prints (READ-EDGE-UNIFY).
-    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
-    for kind in builtin_defs.values() {
-        contracts.insert(
-            kind.name.clone(),
-            compose::builtin_contract(&declarations.clauses, &kind.name)?,
-        );
-    }
-
-    // Every lock-declared kind that is not a built-in — the same synthesis `gate` runs
-    // (READ-EDGE-UNIFY), so a read cannot disagree with the gate about which kinds and
-    // members exist.
-    let mut custom_kinds: Vec<compose::CustomKindEntry> = Vec::new();
-    let mut custom_units_and_features: Vec<(CustomKind, compose::KindUnitsAndFeatures)> =
-        Vec::new();
-    let mut custom_members: Vec<read::CustomMember> = Vec::new();
-    let (custom_rows, _collisions) = compose::partition_kind_rows(&declarations, &builtin_defs)?;
-    for row in custom_rows {
-        let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        contracts.insert(
-            row.name.clone(),
-            compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
-        );
-        let uaf = compose::kind_units_and_features(
-            &custom_kind,
-            &discovery,
-            &declarations,
-            &manifest_cache,
-        )?;
-        let features = &uaf.features;
-        let units = &uaf.units;
-        for unit in units {
-            custom_members.push(read::CustomMember {
-                kind: custom_kind.name.clone(),
-                id: unit.id.clone(),
-                satisfies: unit.satisfies_clauses.clone(),
-            });
-        }
-        custom_kinds.push((custom_kind.clone(), features.clone()));
-        custom_units_and_features.push((custom_kind, uaf));
-    }
-    let embedded_features = compose::embedded_features_by_kind(&declarations);
-    let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
-
-    // The one requirement namespace: the assembly's declared `[requirement.*]`
-    // roster — a custom-kind member has no channel of its own to publish one (the
-    // pre-0016 own-path surface that once carried it is retired).
-    let roster: BTreeMap<String, compose::Requirement> = declarations
-        .requirements
-        .iter()
-        .map(|row| Ok((row.name.clone(), drift::requirement_from_row(row)?)))
-        .collect::<Result<_, compose::ClauseRowError>>()?;
-    let assembly_edges = drift::edges_from_declarations(&declarations)?;
-    // Authored mentions (route-resolved at check) and layout prose imports (path-resolved
-    // at emit) both lift off the lock; `why` route-resolves them against this same corpus,
-    // narrating a dangling mention as the gate's route finding rather than a resolved edge,
-    // so a read cannot disagree with the gate (READ-EDGE-UNIFY).
-    let mut mention_edges = drift::mention_edges_from_declarations(&declarations);
-    mention_edges.extend(drift::import_edges_from_doc(&lock_doc)?);
-
-    // The world's inbound registration channel set into each built-in kind — the same
-    // derivation the gate's `reachable` runs, keyed by bare kind name to join `by_kind`.
-    let mut registrations: BTreeMap<&str, Vec<kind::Registration>> = BTreeMap::new();
-    for def in builtin_defs.values() {
-        if !def.registration.is_empty() {
-            registrations.insert(def.name.as_str(), def.registration.clone());
-        }
-    }
-
-    let repo_files = compose::repo_file_set(Path::new("."));
-    let directive_members = compose::directive_members_from_resolved(
-        &builtin_units_and_features,
-        &custom_units_and_features,
-    );
-    let directive_edges = graph::classify_directives(&directive_members, &repo_files).edges;
-
-    // Citations — the declared one-way edges naming a leaf; the floor carries no
-    // producer yet, so the set is empty.
-    let citations: Vec<read::Citation> = Vec::new();
-
-    // The per-machine tap log at the workspace log path — the evidence the field strand
-    // narrates. An absent log yields an empty readout (never an error), so the strand
-    // narrates none.
-    let readout = tap::read_log(&workspace)?;
-
-    Ok(read::explain(
-        &custom_members,
-        &roster,
-        &contracts,
-        &by_kind,
-        &assembly_edges,
-        &mention_edges,
-        &registrations,
-        &repo_files,
-        &directive_edges,
-        &citations,
-        &readout.records,
-        readout.older_version,
-        target,
-    ))
-}
-
 /// Every represented manifest the `PreToolUse` guard checks a pending write against — one
 /// [`install::GuardedManifest`] per manifest kind, whether an embedded built-in
 /// ([`builtin_kind::definitions`]) or a lock-declared custom kind. A manifest kind is one
@@ -797,13 +647,18 @@ fn harness_diagnostics(
 pub use temper::frontmatter;
 
 #[cfg(test)]
+pub use temper::kind;
+
+#[cfg(test)]
 mod test_support;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_support::tmpdir;
+    use std::collections::BTreeMap;
     use std::fs;
+    use temper::import;
 
     /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
     /// `@import` target is backed is a fact about the filesystem the harness loads
