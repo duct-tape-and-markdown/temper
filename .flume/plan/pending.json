@@ -1,52 +1,5 @@
 [
   {
-    "tag": "SDK-TELEMETRY-EVENT-VOCABULARY-DRIFT",
-    "summary": "SDK telemetry() vocabulary (contract.ts doc, declarations.ts's TELEMETRY_EVENT_HOOKS) still keys pre-consolidation names Skill/PostToolUse; ratified SkillInvoked/ToolUse silently synthesize no hook",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/contract.ts",
-          "description": "`telemetry`'s doc comment (335-339) names the admissible event vocabulary as `` `InstructionsLoaded`, `Skill`, `UserPromptExpansion`, `PostToolUse` `` — the pre-ROSTER-DOCUMENTED-EVENTS-CONSOLIDATE (a9cbeed) raw wire spelling. `src/tap.rs`'s `documented_event_names()` (52-59), the actual gate the roster admissibility check (`src/roster.rs:143`) runs every telemetry verifier's events against, now returns `[\"InstructionsLoaded\", \"SkillInvoked\", \"UserPromptExpansion\", \"ToolUse\"]` and its own test (`old_event_names_are_not_documented`, tap.rs:76-82) asserts `Skill`/`PostToolUse` are no longer admissible. Reword the doc to name the four names that actually pass admissibility today, dated to the retrieval this entry re-verifies against (code.claude.com/docs/en/hooks)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`TELEMETRY_EVENT_HOOKS` (759-764) keys its author-facing-name→wire-hook map on the same stale names (`InstructionsLoaded`, `Skill`, `UserPromptExpansion`, `PostToolUse`), and `tapHookRows` (778-804) looks up each of a telemetry verifier's declared `events` in this table, silently skipping any name absent from it (783: `if (mapping !== undefined)`). A requirement that correctly declares `telemetry([\"SkillInvoked\"])` — the only name the Rust roster now admits for that concept — passes `check`'s admissibility (roster.rs never sees the SDK) but `tapHookRows` finds no `SkillInvoked` key and silently emits zero hooks: the requirement's own tap event is never wired into settings.json, with no diagnostic anywhere. Rename the `Skill`/`PostToolUse` keys to `SkillInvoked`/`ToolUse` (values — the actual `event`/`matcher` wire pair — are unchanged, since the raw Claude Code hook is still `PostToolUse` either way); reword the doc comment above the table (742-758) and its stale claim of agreeing with `contract.ts`/`roster.rs`, which is presently false."
-        },
-        {
-          "path": "sdk/test/contract.test.ts",
-          "description": "`the telemetry constructor composes...` (214-223) asserts `telemetry([\"Skill\", \"PostToolUse\"])` round-trips those exact strings — a generic passthrough test (telemetry() validates nothing itself) but its example values are the retired vocabulary; update to `[\"SkillInvoked\", \"ToolUse\"]` so the one example test in the corpus uses names that actually pass the engine's admissibility gate."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Two tests exercise `tapHookRows` through real `emit()` calls with the stale names and would silently start asserting zero registrations once the table's keys move: `\"the shared tap hook...\"` (its verifiers at 1581/1588 read `telemetry([\"Skill\"])` / `telemetry([\"InstructionsLoaded\", \"Skill\"])`, asserted registrations at 1598-1619/1627) and `\"a telemetry verifier naming every documented event...\"` (1637: `telemetry([\"InstructionsLoaded\", \"Skill\", \"UserPromptExpansion\", \"PostToolUse\"])`, asserted matcher pairs at 1644-1652). Update every `telemetry([...])` call to the `SkillInvoked`/`ToolUse` spelling; the asserted output rows are unchanged (the wire event stays `PostToolUse`, the matcher stays `Skill`/`.*` — only the author-facing input vocabulary moves). Update the three comments at 1579-1580/1595-1597/1642-1643 that narrate the old names in prose."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a requirement declaring `telemetry([\"SkillInvoked\", \"ToolUse\"])` (the roster's actual admissible vocabulary) synthesizes both hook registrations — proving the pre-fix tree's silent zero-registration gap on exactly the names `check` accepts"
-      },
-      {
-        "path": "sdk/test/contract.test.ts",
-        "asserts": "`telemetry` composes and lowers the ratified event names unchanged"
-      }
-    ],
-    "acceptance": "contract.ts's telemetry() doc and declarations.ts's TELEMETRY_EVENT_HOOKS both name exactly the four events tap.rs's documented_event_names() canonically holds (InstructionsLoaded/SkillInvoked/UserPromptExpansion/ToolUse); tapHookRows synthesizes a hook for every one, none silently dropped; `pnpm --dir sdk test` green.",
-    "notes": "Found sweeping the pipeline neighborhood (declarations.ts entered the frontier via 55b8539's one-line registrationLabel fix). Verified on disk at 1bfbab8: roster.rs:143 gates on tap::documented_event_names() (tap.rs:52-59, ratified by ROSTER-DOCUMENTED-EVENTS-CONSOLIDATE, a9cbeed); every SDK-side site (contract.ts, declarations.ts, both test files) still speaks the pre-consolidation names. No live .temper/ consumer declares telemetry() yet (grep clean), so no dogfood ripple. scoped at 1bfbab8."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
