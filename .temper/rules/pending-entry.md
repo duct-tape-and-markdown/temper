@@ -33,7 +33,10 @@ rewriting an entry, and any interactive session hand-editing the queue.
   them one `cargo test` failure at a time.
 - **An entry is scoped to one comfortable context.** Build should land
   it well inside a single window. The derivation-time proxy is the
-  `files[]` blast radius — the lines build must read and touch; the
+  `files[]` blast radius — the lines build must read and touch — counted
+  in **call sites, not just files**: threading a new parameter or cache
+  through N callers is N sites of work however few files hold them
+  (`rg` the touched symbol's callers at derivation). The
   measured truth is `.flume/metrics.jsonl`, which the audit motion
   glances. The comfortable band's edges are **learned from our own
   record** — utilization correlating with bails, gate reverts, and

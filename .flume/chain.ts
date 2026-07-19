@@ -502,6 +502,26 @@ const build: Phase = {
     };
   },
   handoff(result) {
+    // Wave outcome row: which tags shipped and which were merge-reverted,
+    // so a re-picked entry's metrics rows are attributable at a glance
+    // (merge thrash vs in-session retry) instead of forensically.
+    try {
+      const reverted = (result as { revertedTags?: readonly string[] })
+        .revertedTags;
+      if (result.shippedTags.length > 0 || (reverted?.length ?? 0) > 0) {
+        appendFileSync(
+          METRICS_PATH,
+          `${JSON.stringify({
+            at: new Date().toISOString(),
+            phase: "merge",
+            shipped: result.shippedTags,
+            reverted: reverted ?? [],
+          })}\n`,
+        );
+      }
+    } catch {
+      // Advisory telemetry only — never fails a handoff.
+    }
     // Waves chain: ship bookkeeping auto-opens blockedBy gates its own wave
     // satisfied (runtime, 07-18), so when pickable entries remain the next
     // wave forms with no plan interim. Plan reconciles at the drain — its
