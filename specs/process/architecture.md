@@ -43,15 +43,18 @@ appears in exactly one.
   pipeline's core), `import` (discovery), `read` (the read verbs'
   resolution), `builtin_lock` (the embedded default lock), `placement`
   (the managed-metadata line vocabulary install places and emit
-  preserves — 0040).
+  preserves — 0040), `telemetry` (explain's field strand — tap-record
+  narration).
 - **judges** — evaluation over the resolved corpus: `engine` (clause
-  evaluation), `graph` (edge resolution and the graph judges), `dial`,
-  `coverage`, `coverage_note`, with `display` and `reporter` as the
-  output faces.
+  evaluation), `graph` (edge resolution and the graph judges),
+  `admissibility` (the per-kind admissibility judges, out of `main`),
+  `dial`, `coverage`, `coverage_note`, with `display` and `reporter`
+  as the output faces.
 - **provider** — the claude-code face: `builtin`, `builtin_kind` (the
   shipped kinds and their cited format facts).
 - **verbs** — entry points and adoption: `main` (CLI dispatch — thin,
-  per the auto-loaded rust rule), `install`, `bundle`, with
+  per the auto-loaded rust rule), `gate` (the gate verb's body, out of
+  `main`), `install`, `bundle`, with
   `lib` exporting the library surface and `test_support` the shared
   fixture home (`engineering.md`, "One job, one home", test bullet).
 
@@ -71,14 +74,12 @@ appears in exactly one.
 - **`main` carries dispatch only** — corpus assembly and judgment live
   in the library.
 
-Two edges in today's tree stand in tension with this map, each ruled
-to resolve toward it (2026-07-18, entries queued): `normalize_path`
-is pure path vocabulary homed in `graph` (judges) with all external
-callers in pipeline — it moves to `address` (foundation); and the
-glob-compilation cache in `kind` is crate-wide leaf infrastructure
-whose own doc names callers across three subsystems — it moves to
-the `glob` foundation module above. Three earlier edges ruled the
-same way (0040) have shipped and are history, not debt. The map is
+One edge in today's tree stands in tension with this map, ruled to
+resolve toward it (2026-07-18, entry queued): the glob-compilation
+cache in `kind` is crate-wide leaf infrastructure whose own doc names
+callers across three subsystems — it moves to the `glob` foundation
+module above. Four earlier edges ruled the same way (0040,
+`normalize_path`) have shipped and are history, not debt. The map is
 intent, and intent loses to a better argument, never to drift.
 
 ## Codemap — the SDK (`sdk/src/`)
