@@ -19,7 +19,7 @@ hard.
   its own harness diffs via `.flume/amendments/` (0044,
   propose-and-ratify only); session-open sweep now covers it.
 - **Distribution**: channel 2 live 07-11 — `npx @dtmd/temper` delivers
-  prebuilt linux/win32 engines (SDK 0.0.9 cut 07-19; 0.0.8 deprecated — stale engine pins, release.yml,
+  prebuilt linux/win32 engines (SDK 0.0.10 cut 07-19; 0.0.8-0.0.9 deprecated — mismatched pins, enablement wire split; post-publish smoke gates every cut; release.yml,
   NPM_TOKEN repo secret). Darwin + plugin channel ride PACKAGING-CHANNELS-REMAINDER
   (parked in pending.json); 0.1.0 is the tag's to stake.
 - **Consumer campaign closed 07-16**: posture-recursion ruled — 0025
