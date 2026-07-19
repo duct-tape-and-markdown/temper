@@ -5,7 +5,9 @@ amendments carry the **diff that would fix it**. An autonomous phase
 that can ground a harness change in a named invariant and an observed
 cost files ONE capture here; humans ratify with one word (apply the
 diff verbatim) or decline (reason in the deleting commit). Git is the
-archive.
+archive. Applying a phrase amendment ends with `flume wake plan` — a
+posture-page delta arms the sweep's full-frontier rotation, and the
+application pass is the ratification's second half.
 
 ## The bar
 

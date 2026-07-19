@@ -121,10 +121,11 @@ rule on a digest line.
 
 4. **Posture sweep** — nothing above is live, and `Posture swept through:`
    is absent, mid-rotation, or names a commit behind a HEAD whose forward
-   window (`git log <sha>..HEAD -- src/ sdk/src/ tests/`) touched any
-   module. **One touched neighborhood per tick**; the administering
-   discipline is the `posture-sweep` rule, loading when you read the
-   posture pages — this prompt remembers nothing.
+   window (`git log <sha>..HEAD -- src/ sdk/src/ tests/
+   specs/process/engineering.md specs/process/architecture.md`) touched
+   any module or posture page. **One neighborhood per tick**; the
+   administering discipline is the `posture-sweep` rule, loading when
+   you read the posture pages — this prompt remembers nothing.
 
 **Closing the tick.** Every job ends, in the same tick, with the closing
 checklist its commit rides on: the queue is disjoint, every gate reason
