@@ -5,14 +5,54 @@
 //! their predicate payloads ([`contract::EdgeBound`] and
 //! friends) live in [`crate::contract`], not here.
 //!
+//! Member composition functions that resolve kinds and units live here too:
+//! [`resolve_kind_units`], [`manifest_units`], [`kind_features`], [`assemble_lock_family`],
+//! and [`assemble_by_kind`], along with their supporting functions. These are the corpus-assembly
+//! functions that discover and resolve a harness's members off disk.
+//!
 //! There is no reader in this module: every value here is populated from the lock's
 //! declaration rows (`crate::drift::Declarations`), the sole producer since `emit`
 //! compiles the SDK program. These are the shared shapes the gate lifts lock rows
 //! into and [`crate::roster`]/[`crate::graph`]/[`crate::coverage`] range over —
 //! the manifest era's reader (`TEMPER-TOML-ZERO`) retired with this file's parser.
 
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use crate::builtin_kind;
 use crate::contract::{self, Contract};
-use crate::drift::ClauseRow;
+use crate::dial;
+use crate::document;
+use crate::drift::{self, ClauseRow};
+use crate::extract;
+use crate::frontmatter;
+use crate::import;
+use crate::json_manifest;
+use crate::kind::{self, CollectionAddress, CustomKind, Unit};
+use crate::toml_document;
+
+thread_local! {
+    static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// This thread's cumulative count of `resolve_kind_units` invocations.
+#[must_use]
+pub fn resolve_kind_units_count() -> usize {
+    RESOLVE_KIND_UNITS_COUNT.with(std::cell::Cell::get)
+}
+
+/// A cache of manifest files read during one gate()/explain() invocation: one read per
+/// manifest file path, shared across all kinds that govern it. Keys are manifest paths
+/// (e.g., ".claude/settings.json"), values are the parsed manifest and its opaque fields.
+pub type ManifestCache =
+    BTreeMap<PathBuf, (json_manifest::Manifest, BTreeMap<String, serde_json::Value>)>;
+
+/// A registered custom kind as the corpus construction carries it: its loaded
+/// [`CustomKind`] definition (identity travels on `.name` — no separate borrowed name
+/// column) and its computed member [`extract::Features`]. Named so the
+/// shared corpus helpers keep a legible signature (`clippy::type_complexity`).
+pub type CustomKindEntry = (CustomKind, Vec<extract::Features>);
 
 /// The harness's declared **enforcement mode** — how firmly the guard binds a tool
 /// call, split by where the finding goes: a closed vocabulary the author declares on
@@ -296,6 +336,656 @@ pub fn kind_narrowing_clause(requirement: &str, kind: &str) -> contract::Clause 
         guidance: None,
         source: None,
     }
+}
+
+/// A kind's resolved units and their extracted features — the corpus of members every
+/// validator and reader consumes. Paired together to hoist the single `resolve_kind_units`
+/// call per kind: both gate/explain and collect_directive_members use this data, and
+/// computing it once per kind per run avoids a second disk read and parse pass.
+pub struct KindUnitsAndFeatures {
+    /// The kind's members resolved live off disk.
+    pub units: Vec<Unit>,
+    /// Each unit's extracted features in parallel order.
+    pub features: Vec<extract::Features>,
+}
+
+/// The run's whole declaration family, assembled once for every consumer below.
+pub struct LockFamily {
+    /// The committed lock's rows, joined with every local-locus kind's read-time derived
+    /// ones — the corpus's own declarations, the set that decides which kinds and members
+    /// exist here.
+    pub declarations: drift::Declarations,
+    /// The clause rows of the locks this invocation joins, each already addressed under
+    /// the layer that carried it ([`qualify_layer_label`]). Kept beside the corpus's own
+    /// rows rather than merged into them: these declare nothing about what this harness
+    /// *is* — they only add checks over what it already declares — and a consumer that
+    /// reads them as the corpus's own would let a layer redefine the corpus.
+    pub joined_clauses: Vec<drift::ClauseRow>,
+    /// Every lock this invocation joined, as `--layer` spelled it — the locks the rows
+    /// above came off, kept beside them because a lock that carried no clause joined the
+    /// run just the same and the announcement names the lock, never its contents.
+    pub joined_locks: Vec<String>,
+    /// Every local member the assembly read, by `<kind>:<id>` address, retained here
+    /// beside the rows its read produced: the documents are uncommitted, so no consumer
+    /// below can find them again short of re-walking the kind's glob — a second read that
+    /// could disagree with this one about which members exist.
+    pub local_members: Vec<String>,
+    /// This machine's own dial: the severities it re-reads the clauses above at. Read
+    /// with the rest of the family for the same one-read reason, and kept apart from both
+    /// row sets for the joined clauses': a dial declares nothing about what this harness
+    /// is, and adds no check to it either — it only re-weighs the checks the rows above
+    /// already carry.
+    pub dial: dial::Dial,
+}
+
+/// This kind's effective declaration: the committed lock's own kind-fact row when the
+/// lock declares one that qualifies for overlay — matched by bare name, the kind's
+/// whole identity — overlaid onto `kind`'s embedded declaration, or `kind` unchanged
+/// when it doesn't: the **built-in lock**, the same declaration shape the engine
+/// carries compiled-in for an unadopted harness. Three facts overlay from the one
+/// matched row: the `governs` locus always (a relocation may declare no other diverging
+/// fact at all), `templates` only when the row declares at least one, and `content` only
+/// when the row declares a layout — an empty row column defers to `kind`'s own (always
+/// empty templates and a `File` body for a built-in), never blanking a nonexistent
+/// override.
+///
+/// # Errors
+///
+/// Propagates errors from reading the kind-fact row.
+pub fn overlay_builtin_kind(
+    kind: &CustomKind,
+    declarations: &drift::Declarations,
+) -> Result<CustomKind, drift::LockRowError> {
+    let mut matched = None;
+    for row in &declarations.kinds {
+        if row.name == kind.name && row_relocates_builtin(row, kind)? {
+            matched = Some(row);
+            break;
+        }
+    }
+    let Some(row) = matched else {
+        return Ok(kind.clone());
+    };
+    let mut overlaid = kind.clone();
+    if let Some((root, glob)) = row.governs_root.clone().zip(row.governs_glob.clone()) {
+        overlaid.governs = Some(kind::Governs { root, glob });
+    }
+    if !row.templates.is_empty() {
+        overlaid = overlaid.overlay_templates(&row.templates);
+    }
+    overlaid = overlaid.overlay_content(row.content.as_ref())?;
+    Ok(overlaid)
+}
+
+/// Read one layout-content document at `file` into a [`Unit`], off the kind's declared
+/// `layout`: the whole file is the body's heading tree, the field sections fill the
+/// unit's fields (each slot's verbatim span, so a clause ranges over it as a field). A
+/// declared-relationship edge slot is the exception: its entries are addresses, folded
+/// onto the unit as a list field the reference graph resolves live off the host's
+/// features — like a file member's frontmatter reference list — while `satisfies` reaches
+/// the unit off the lock's own family, keyed by member id, not off the document here. The
+/// id folds the file's placement under `base` the same way a file-content member's does.
+/// A document that does not fit the layout — a section missing, structure
+/// no primitive admits — refuses loud through [`kind::LayoutError`], naming the file and
+/// heading.
+///
+/// # Errors
+///
+/// Returns an error if the document is unreadable or does not fit its declared layout.
+fn layout_unit(
+    layout: &kind::Layout,
+    file: &Path,
+    base: &Path,
+    edge_fields: &BTreeSet<String>,
+) -> miette::Result<Unit> {
+    let raw = std::fs::read_to_string(file)
+        .map_err(|e| miette::miette!("failed to read layout document {}: {e}", file.display()))?;
+    let reading = layout.read(&raw, file, edge_fields)?;
+    let id = frontmatter::fold_file_id(base, file)?;
+    let mut frontmatter: BTreeMap<String, serde_json::Value> = reading
+        .fields
+        .into_iter()
+        .map(|(slot, span)| (slot, serde_json::Value::String(span)))
+        .collect();
+    for (slot, entries) in reading.edges {
+        if slot == kind::SATISFIES_EDGE_FIELD {
+            continue;
+        }
+        frontmatter.insert(
+            slot,
+            serde_json::Value::Array(entries.into_iter().map(serde_json::Value::String).collect()),
+        );
+    }
+    Ok(Unit {
+        id,
+        frontmatter,
+        body: raw,
+        source_path: file.to_path_buf(),
+        satisfies: Vec::new(),
+        satisfies_clauses: Vec::new(),
+    })
+}
+
+/// One discovered source file as a raw [`Unit`], its id folded against `base` — the read
+/// both file loci share, so a nested file child and a `governs`-scanned member differ only
+/// in the base each composes under. **The one adapter dispatch**: a layout kind's document
+/// is read under its declared layout — its field sections fill the unit's fields, a
+/// non-fitting document refusing loud; a kind declaring the `json-document` or
+/// `toml-document` format reads its whole artifact as one structured document through that
+/// grammar's adapter; every other file kind reads through the generic frontmatter adapter.
+///
+/// # Errors
+///
+/// Returns an error if the file is unreadable, malformed, or does not fit its declared
+/// layout or format.
+fn read_file_unit(
+    kind: &CustomKind,
+    file: &Path,
+    base: &Path,
+    edge_fields: &BTreeSet<String>,
+) -> miette::Result<Unit> {
+    match (&kind.content, &kind.format) {
+        (kind::Content::Layout(layout), _) => layout_unit(layout, file, base, edge_fields),
+        (kind::Content::File | kind::Content::Fields, Some(kind::Format::JsonDocument)) => {
+            Ok(json_manifest::DocumentMember::read(kind, file)?.to_unit())
+        }
+        (kind::Content::File | kind::Content::Fields, Some(kind::Format::TomlDocument)) => {
+            Ok(toml_document::read(kind, file)?.to_unit())
+        }
+        (
+            kind::Content::File | kind::Content::Fields,
+            Some(kind::Format::YamlFrontmatter) | None,
+        ) => {
+            let source = frontmatter::Member::from_source_rooted(kind, file, base)?;
+            Ok(Unit {
+                id: source.id.clone(),
+                frontmatter: source.fields.iter().cloned().collect(),
+                body: source.body.clone(),
+                source_path: source.provenance.source_path.clone(),
+                satisfies: Vec::new(),
+                satisfies_clauses: Vec::new(),
+            })
+        }
+    }
+}
+
+/// Every kind this harness declares, keyed by bare name: each embedded built-in under its
+/// lock overlay, plus each lock-declared custom kind — the same universe `gate`'s own
+/// dispatch ranges over. A nested file kind's host is found here, so the set is what
+/// carries the two halves of its locus that the child kind itself cannot.
+///
+/// # Errors
+///
+/// Returns an error if the embedded kind set fails to load or a lock row falls outside a
+/// closed vocabulary.
+pub fn declared_kinds(
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<String, CustomKind>> {
+    let builtin_defs = builtin_kind::definitions();
+    let mut kinds = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        kinds.insert(kind.name.clone(), overlay_builtin_kind(kind, declarations)?);
+    }
+    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
+    for row in custom_rows {
+        kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
+    }
+    Ok(kinds)
+}
+
+/// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or
+/// `mcpServers.*`) entry the host manifest carries at the kind's declared collection
+/// `address`, read through the JSON manifest adapter ([`json_manifest::Manifest::read_kind`]).
+/// A member's id is its collection key, and that key surfaces under the address's key
+/// field when it names one (`hooks.<Event>` → `event`), so a clause can range over the
+/// lifecycle event a hook keys at. `satisfies` is left empty here — the caller folds it in
+/// off the lock, exactly as for a file member.
+///
+/// # Errors
+///
+/// Returns an error if the manifest cannot be discovered or read.
+pub fn manifest_units(
+    disc: &import::Discovery,
+    kind: &CustomKind,
+    address: &CollectionAddress,
+    cache: &ManifestCache,
+) -> miette::Result<Vec<Unit>> {
+    let (Some(governs),) = (&kind.governs,) else {
+        return Ok(Vec::new());
+    };
+    let files = import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored);
+    let mut units = Vec::new();
+    let collection = address.key_path.collection_key();
+    for file in files {
+        if let Some((manifest, _)) = cache.get(&file) {
+            let source_path = manifest.provenance.source_path.clone();
+            for member in &manifest.members {
+                if member.collection == collection {
+                    units.push(member.to_unit(address, &source_path));
+                }
+            }
+        }
+    }
+    Ok(units)
+}
+
+/// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
+/// range over. Every member is discovered by walking this kind's [`overlay_builtin_kind`]-overlaid
+/// `governs` locus, read straight off harness disk so the corpus can never drift from a
+/// stale copy; its `satisfies` fill edges come from the run's assembled
+/// [`drift::SatisfiesRow`] family, keyed by member id — a committed
+/// member's row off the lock, a local member's derived at
+/// [`assemble_lock_family`], so this read never re-decides which source it has. Its
+/// rationale-carrying `satisfies_clauses` mirrors it: a lock-declared row narrates as a
+/// rationale-less [`document::Satisfies`] — the lock row carries
+/// no rationale text — so `explain` can never disagree with the gate about which
+/// requirements a member fills.
+///
+/// # Errors
+///
+/// Returns an error if a source file is unreadable or malformed, or a governed
+/// directory cannot be enumerated.
+pub fn resolve_kind_units(
+    kind: &CustomKind,
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+    cache: &ManifestCache,
+) -> miette::Result<Vec<Unit>> {
+    RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
+    let overlaid = overlay_builtin_kind(kind, declarations)?;
+    let governs = overlaid.governs.clone();
+    let mut edge_fields = kind.edge_field_slots();
+    edge_fields.extend(drift::layout_edge_fields(
+        &declarations.assembly,
+        &kind.name,
+    )?);
+
+    let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
+        (kind::Content::Fields, Some(address), _) => {
+            manifest_units(disc, &overlaid, address, cache)?
+        }
+        (_, _, None) => {
+            let kinds = declared_kinds(declarations)?;
+            let mut child_units = Vec::new();
+            for found in import::discover_nested_file(
+                disc,
+                &overlaid,
+                &kinds,
+                import::LocalOverride::Honored,
+            ) {
+                child_units.push(read_file_unit(
+                    &overlaid,
+                    &found.file,
+                    &found.host_unit,
+                    &edge_fields,
+                )?);
+            }
+            child_units
+        }
+        (_, _, Some(governs)) => {
+            let base = disc.harness().join(&governs.root);
+            let mut file_units = Vec::new();
+            for file in
+                import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
+            {
+                file_units.push(read_file_unit(&overlaid, &file, &base, &edge_fields)?);
+            }
+            file_units
+        }
+    };
+
+    for unit in &mut units {
+        let address = extract::host_address(&kind.name, &unit.id);
+        for row in &declarations.satisfies {
+            if row.member != address && row.member != unit.id {
+                continue;
+            }
+            if !unit.satisfies.contains(&row.requirement) {
+                unit.satisfies.push(row.requirement.clone());
+            }
+            if !unit
+                .satisfies_clauses
+                .iter()
+                .any(|clause| clause.requirement == row.requirement)
+            {
+                unit.satisfies_clauses
+                    .push(document::Satisfies::new(row.requirement.clone()));
+            }
+        }
+    }
+
+    units.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(units)
+}
+
+/// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
+/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
+/// each member's nested-member facts resolved off the run's assembled `nested_members`
+/// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
+/// Both units and features are returned together to avoid a second resolution pass.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`].
+pub fn kind_units_and_features(
+    kind: &CustomKind,
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+    cache: &ManifestCache,
+) -> miette::Result<KindUnitsAndFeatures> {
+    let kind = overlay_builtin_kind(kind, declarations)?;
+    let units = resolve_kind_units(&kind, disc, declarations, cache)?;
+    let features = units
+        .iter()
+        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
+        .collect();
+    Ok(KindUnitsAndFeatures { units, features })
+}
+
+/// Resolve every embedded built-in kind's discovered units and features off `harness_root`,
+/// keyed by bare kind name — the one loop that both `gate` and `explain` range over.
+/// Used by `explain` to collect directive members without a second resolution pass.
+///
+/// # Errors
+///
+/// As [`kind_units_and_features`].
+pub fn builtin_units_and_features_by_kind(
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+    cache: &ManifestCache,
+) -> miette::Result<BTreeMap<String, KindUnitsAndFeatures>> {
+    let mut by_kind = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        by_kind.insert(
+            kind.name.clone(),
+            kind_units_and_features(kind, disc, declarations, cache)?,
+        );
+    }
+    Ok(by_kind)
+}
+
+/// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
+/// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
+/// each member's nested-member facts resolved off the run's assembled `nested_members`
+/// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`].
+pub fn kind_features(
+    kind: &CustomKind,
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+    cache: &ManifestCache,
+) -> miette::Result<Vec<extract::Features>> {
+    kind_units_and_features(kind, disc, declarations, cache).map(|uaf| uaf.features)
+}
+
+/// A local-locus kind's members' declaration rows, derived off their own documents —
+/// what the lock would carry for a committed kind, and never does for this one.
+///
+/// The rows go through the same reader `emit` lowers a committed layout host's source
+/// with ([`drift::read_layout_document`]), so a local member's rows are the rows its
+/// document declares, not a second interpretation of it.
+///
+/// # Errors
+///
+/// Returns an error when a member's document cannot be read or does not fit the kind's
+/// declared layout.
+fn local_document_rows(
+    kind: &CustomKind,
+    units: &[Unit],
+    declarations: &drift::Declarations,
+) -> miette::Result<drift::LayoutDocumentRows> {
+    let layout = match (&kind.content, &kind.format) {
+        (kind::Content::Layout(layout), _) => layout,
+        (
+            kind::Content::File | kind::Content::Fields,
+            Some(
+                kind::Format::YamlFrontmatter
+                | kind::Format::JsonDocument
+                | kind::Format::TomlDocument,
+            )
+            | None,
+        ) => return Ok(drift::LayoutDocumentRows::default()),
+    };
+    let mut edge_fields = kind.edge_field_slots();
+    edge_fields.extend(drift::layout_edge_fields(
+        &declarations.assembly,
+        &kind.name,
+    )?);
+
+    let mut rows = drift::LayoutDocumentRows::default();
+    for unit in units {
+        let document = drift::read_layout_document(
+            layout,
+            &kind.name,
+            &unit.id,
+            &unit.source_path,
+            &edge_fields,
+        )?;
+        rows.nested.extend(document.nested);
+        rows.satisfies.extend(document.satisfies);
+    }
+    Ok(rows)
+}
+
+/// The lock file a `--layer` argument names: the path itself, or the lock inside it when
+/// the argument names a directory.
+fn layer_lock_path(layer: &Path) -> PathBuf {
+    if layer.is_dir() {
+        layer.join(crate::LOCK_FILENAME)
+    } else {
+        layer.to_path_buf()
+    }
+}
+
+/// The separator between a joined clause's own compiled address and the layer that
+/// carried it: `<label>@<layer>`.
+///
+/// A compiled address is dot-joined ([`contract::clause_label`]), so `@` appears in no
+/// label emit can write — which is what makes a joined address unable to collide with a
+/// host's, whatever the two locks happen to declare.
+const LAYER_QUALIFIER: char = '@';
+
+/// The locks an invocation joined, and the clause rows they carried.
+struct JoinedLayers {
+    /// Each joined lock, as the invocation spelled it — the same spelling every clause
+    /// below is addressed under, and deduped on the same identity, so a lock named twice
+    /// is one layer here too.
+    locks: Vec<String>,
+    /// Every joined clause row, addressed under the layer that carried it.
+    clauses: Vec<drift::ClauseRow>,
+}
+
+/// The clause rows of every lock `layers` names, each addressed under the layer that
+/// carried it, with the locks themselves.
+///
+/// Only the clause family joins. A layer hardens the gate over *this* corpus; the rows
+/// that say what this corpus is — its kinds, its members' fills, its requirements — stay
+/// the committed lock's alone, because joining those would let a layer relocate a kind's
+/// locus or forge a fill and so *soften* the very gate it claims to tighten. Clauses are
+/// the family a join can only add to.
+///
+/// # Errors
+///
+/// A named layer that cannot be read, or whose lock is malformed, is an error, not an
+/// empty set: an absent lock the invocation named is a layer that did not gate, and a
+/// layer silently gating nothing is the one outcome fail-closed forbids. (The *host*
+/// lock's absence is legitimate — an unadopted harness has none — which is why that read
+/// tolerates it and this one cannot.)
+fn read_layer_clauses(layers: &[PathBuf]) -> miette::Result<JoinedLayers> {
+    let mut joined = JoinedLayers {
+        locks: Vec::new(),
+        clauses: Vec::new(),
+    };
+    let mut seen: BTreeSet<PathBuf> = BTreeSet::new();
+    for layer in layers {
+        let path = layer_lock_path(layer);
+        let identity = fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+        if !seen.insert(identity) {
+            continue;
+        }
+        let text = fs::read_to_string(&path).map_err(|source| {
+            miette::miette!(
+                "failed to read joined layer lock {}: {source}",
+                path.display()
+            )
+        })?;
+        let spelling = layer.display().to_string();
+        for row in drift::parse_declarations(&path, &text)?.clauses {
+            joined.clauses.push(qualify_layer_label(row, &spelling));
+        }
+        joined.locks.push(spelling);
+    }
+    Ok(joined)
+}
+
+/// One joined clause row, re-addressed under the layer that carried it.
+///
+/// A row carrying no address is left as it is: every emitted row is stamped with one, so
+/// a row without one is a lock emit did not write, and the contract lift is the one home
+/// that refuses it ([`clause_from_row`]) — re-deciding that here would be a
+/// second verdict on the same fact.
+fn qualify_layer_label(mut row: drift::ClauseRow, layer: &str) -> drift::ClauseRow {
+    if let Some(label) = row.label.take() {
+        row.label = Some(format!("{label}{LAYER_QUALIFIER}{layer}"));
+    }
+    row
+}
+
+/// This machine's [`dial::Dial`], read off the shipped `dial` kind's own members.
+///
+/// The kind is embedded rather than lock-declared, so it is the definition that is
+/// reached for here rather than the loop above's declared set — a harness gets its dial
+/// from adopting temper at all, never from declaring one. The read is the same
+/// [`kind_features`] the gate's own dispatcher runs over the kind, which is what keeps
+/// the entries this returns and the document the contract judges from ever being two
+/// different reads of one file.
+///
+/// # Errors
+///
+/// As [`kind_features`] — a malformed dial document fails the run rather than reading as
+/// an empty dial, since a dial silently applying nothing is the fail-open case.
+fn read_dial(
+    disc: &import::Discovery,
+    declarations: &drift::Declarations,
+    cache: &ManifestCache,
+) -> miette::Result<dial::Dial> {
+    let Some(kind) = builtin_kind::definition(dial::KIND) else {
+        return Ok(dial::Dial::default());
+    };
+    Ok(dial::Dial::from_features(&kind_features(
+        &kind,
+        disc,
+        declarations,
+        cache,
+    )?))
+}
+
+/// The run's whole declaration family: the committed lock, every local-locus kind's
+/// read-time derived rows ([`local_document_rows`]), and the clause rows of the locks
+/// `layers` names.
+///
+/// A local kind is committed but its members' documents are not, so the lock carries no
+/// row of theirs. Deriving them *here* — once, before any consumer reads — is what lets
+/// every consumer below read one family: a clause bound to an embedded kind selects a
+/// local host's members exactly as it selects a committed host's, and a local member's
+/// fills reach the roster on the same read. A consumer re-deciding which of two sources it
+/// reads is the shape this replaces; the derivation runs against the committed family,
+/// which is what decides the kinds and loci the members are discovered under.
+///
+/// A joined lock and this machine's dial are read here for the same reason: one read,
+/// before any consumer, so no call site below re-opens a layered input and re-decides
+/// what it says.
+///
+/// # Errors
+///
+/// As [`resolve_kind_units`], [`local_document_rows`] and [`read_layer_clauses`].
+pub fn assemble_lock_family(
+    disc: &import::Discovery,
+    committed: &drift::Declarations,
+    layers: &[PathBuf],
+    cache: &ManifestCache,
+) -> miette::Result<LockFamily> {
+    let mut assembled = committed.clone();
+    let mut local_members: BTreeSet<String> = BTreeSet::new();
+    for kind in declared_kinds(committed)?.values() {
+        if kind.commitment != Some(kind::Commitment::Local) {
+            continue;
+        }
+        let units = resolve_kind_units(kind, disc, committed, cache)?;
+        let rows = local_document_rows(kind, &units, committed)?;
+        local_members.extend(
+            units
+                .iter()
+                .map(|unit| extract::host_address(&kind.name, &unit.id)),
+        );
+        assembled.nested_members.extend(rows.nested);
+        assembled.satisfies.extend(rows.satisfies);
+    }
+    let joined = read_layer_clauses(layers)?;
+    Ok(LockFamily {
+        dial: read_dial(disc, committed, cache)?,
+        declarations: assembled,
+        joined_clauses: joined.clauses,
+        joined_locks: joined.locks,
+        local_members: local_members.into_iter().collect(),
+    })
+}
+
+/// Assemble the by-kind [`extract::Features`] corpus every set-scope and
+/// graph predicate ranges over: every built-in kind's resolved features
+/// plus each lock-declared custom kind's features, keyed by kind name. Borrows every
+/// slice, so the caller holds the owned feature vecs for the map's lifetime.
+pub fn assemble_by_kind<'a>(
+    builtin_features: &'a BTreeMap<String, Vec<extract::Features>>,
+    custom_kinds: &'a [CustomKindEntry],
+    embedded_features: &'a BTreeMap<String, Vec<extract::Features>>,
+) -> BTreeMap<&'a str, &'a [extract::Features]> {
+    let mut by_kind: BTreeMap<&str, &[extract::Features]> = builtin_features
+        .iter()
+        .map(|(name, features)| (name.as_str(), features.as_slice()))
+        .collect();
+    for (kind, features) in custom_kinds {
+        by_kind.insert(kind.name.as_str(), features.as_slice());
+    }
+    for (kind, features) in embedded_features {
+        by_kind.insert(kind.as_str(), features.as_slice());
+    }
+    by_kind
+}
+
+/// Determine whether a kind-fact row qualifies to overlay a built-in kind's definition.
+fn row_relocates_builtin(
+    row: &drift::KindFactRow,
+    builtin: &CustomKind,
+) -> Result<bool, drift::LockRowError> {
+    let declared = CustomKind::from_kind_fact_row(row)?;
+    Ok(
+        (declared.format.is_none() || declared.format == builtin.format)
+            && (declared.unit_shape.is_none() || declared.unit_shape == builtin.unit_shape)
+            && (declared.registration.is_empty() || declared.registration == builtin.registration),
+    )
+}
+
+/// Partition kind-fact rows into custom kinds (not relocating built-ins) and
+/// collision kinds (relocating built-ins but mismatched).
+pub fn partition_kind_rows<'a>(
+    declarations: &'a drift::Declarations,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+) -> Result<(Vec<&'a drift::KindFactRow>, Vec<&'a drift::KindFactRow>), drift::LockRowError> {
+    let mut custom = Vec::new();
+    let mut collisions = Vec::new();
+    for row in &declarations.kinds {
+        match builtin_defs.get(&row.name) {
+            None => custom.push(row),
+            Some(builtin) if !row_relocates_builtin(row, builtin)? => collisions.push(row),
+            Some(_) => {}
+        }
+    }
+    Ok((custom, collisions))
 }
 
 #[cfg(test)]
