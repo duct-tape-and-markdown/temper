@@ -1,5 +1,36 @@
 [
   {
+    "tag": "READ-DEAD-INDEX-PARAM-STALE-DOC-PRUNE",
+    "summary": "impact_one_impl/context_member_one_impl carry unused index/by_kind params from ee69164's consolidation, and three doc comments still cite the wrapper fns it deleted",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Two dead-plumbed parameters left behind by ee69164 (READ-NARRATION-INDEX-TWIN-CONSOLIDATE's build commit, which deleted the `impact_one`/`context_member`/`context_member_one` wrapper fns and had their callers build a member_index once and delegate to `_impl` fns): `impact_one_impl` (1205-1215) takes `_member_index: &BTreeMap<&str, Vec<(&str, &Features)>>` (1211) that its body never reads — its only lookup is `count_satisfiers(by_kind, ...)` (1227), keyed off `by_kind` not the index — yet its caller `impact_impl` (685-696) still computes `member_index` and passes it in. `context_member_one_impl` (1055-1062) takes `_by_kind: &BTreeMap<&str, &[Features]>` (1059) never read in its body, threaded from `context_member_impl`'s call at 1046. Drop both parameters from their signatures and both call sites. Same commit also left three broken intra-doc links citing wrapper fns it deleted outright (never renamed, so nothing resolves): `impact_one_impl`'s doc comment (1202-1204) is split across two `///` blocks by an intervening `#[allow(clippy::too_many_arguments)]` (1203) — the first block ('uses the member index for count_satisfiers') is now false given the param drop above, and the second cites `[`impact_one`]`, deleted; `context_member_impl`'s doc (1021) cites `[`context_member`]`, deleted; `context_member_one_impl`'s doc (1054) cites `[`context_member_one`]`, deleted. Collapse each into one accurate `///` block directly above its `fn`, naming the real caller (`impact`/`context`) instead of the defunct symbol."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/read.rs",
+        "asserts": "the existing `impact_tests` module and the read_verbs.rs/prose_include.rs/layout_prose_import.rs/layout_edge_slot.rs e2e suites stay green with byte-identical narration after both dead params are dropped, proving their removal changes no behavior"
+      }
+    ],
+    "acceptance": "read.rs carries no `_`-prefixed dead parameter and no intra-doc `[`...`]` link naming `impact_one`, `context_member`, or `context_member_one` (all three deleted by ee69164); `cargo clippy --all-targets -- -D warnings` and `cargo test` stay green, narration unchanged.",
+    "notes": "Posture sweep, pipeline neighborhood — read.rs was the only pipeline module touched since 03f19a2 (drift.rs/import.rs/builtin_lock.rs/placement.rs at 0 touches, still covered). Residue left by ee69164 (READ-NARRATION-INDEX-TWIN-CONSOLIDATE's build commit): it deleted 3 wrapper fns outright but left 2 unused params threaded through and 3 doc comments citing the deleted names. scoped at 8baf50a."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {

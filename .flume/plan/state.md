@@ -1,10 +1,10 @@
 # Plan state
 
 - Spec derived through: b645125 — unchanged, not this tick's job.
-- Audited through: 2bfcccd — window 9d3aed0..2bfcccd (ee69164, e25f62f) audited: both build tags shipped and drained from pending.json already; verified live on disk, not just via log.
-- Residue swept through: 2bfcccd — same window swept: no leftover `_with_index` duplicates (grep clean), `RESOLVE_KIND_UNITS_COUNT` now sole-sourced in compose.rs, no dangling refs in main.rs/tests. `cargo test --lib` (274) and the pinned `resolve_kind_units_runs_once_per_kind_not_twice` green.
-- Posture swept through: 1adf7f0 — unchanged; re-arms next tick (this window's ee69164/e25f62f touch src/read.rs and src/main.rs, both posture-eligible), but posture sweep is job 4 and wasn't this tick's job.
-- This tick: POST-SHIP RECONCILIATION, window 9d3aed0..2bfcccd. Audit: READ-NARRATION-INDEX-TWIN-CONSOLIDATE and MAIN-RESOLVE-KIND-UNITS-COUNT-DEAD-PRUNE both shipped clean (build had already drained them from pending.json; re-verified the actual diffs and re-ran tests rather than trusting the log). Sweep: no residue found in the window — see commit body. Both parked entries' blockers (hop-count ruling, darwin/release signing) are untouched by this window (graph.rs, release.yml not in diff), so left as-is.
-- Queue: 2 pending, 0 open, 0 blockedBy, 2 parked. Refactor: 0 live. Friction: 0 live. Inbox: 0 notes.
+- Audited through: 2bfcccd — unchanged; 2bfcccd..HEAD touches no src/tests/sdk (only the prior plan commit 8baf50a landed since, verified this tick).
+- Residue swept through: 2bfcccd — unchanged, same reasoning.
+- Posture swept through: verbs next (mid-rotation) — pipeline neighborhood swept this tick: read.rs read whole (the only pipeline module touched since 03f19a2; drift.rs/import.rs/builtin_lock.rs/placement.rs still covered, 0 touches since then).
+- This tick: POSTURE SWEEP, pipeline neighborhood. Fresh cycle armed by the prior tick's build window (1adf7f0..HEAD touched src/read.rs via ee69164 and src/main.rs via e25f62f) — pipeline (read.rs) sorts before verbs (main.rs) in the fixed rotation order, so pipeline swept first. Found dead-plumbed params (`impact_one_impl`'s unused `_member_index`, `context_member_one_impl`'s unused `_by_kind`) and three broken intra-doc links (`impact_one`/`context_member`/`context_member_one`, all deleted by ee69164) — residue from that same consolidation commit. Filed READ-DEAD-INDEX-PARAM-STALE-DOC-PRUNE (open, no blockers). Rotation advances to verbs (main.rs needs a fresh full read next tick — touched by e25f62f since its last full read at d01c0a2 — foundation/model/formats/judges/provider stay skipped, untouched this cycle).
+- Queue: 3 pending, 1 open, 0 blockedBy, 2 parked. Refactor: 0 live. Friction: 0 live. Inbox: 0 notes.
 
-Plan continues: yes — posture sweep re-arms next tick (Posture swept through 1adf7f0's forward window now touches src/read.rs and src/main.rs), and no pickable entries exist to hand build meanwhile (both queue entries are parked), so the next tick runs the sweep directly rather than idling.
+Plan continues: yes — the rotation's frontier still holds verbs (main.rs), so it is not closed; next tick sweeps verbs directly rather than idling.
