@@ -25,6 +25,7 @@ pub const WORKSPACE_DIR: &str = ".temper";
 pub const LOCK_FILENAME: &str = "lock.toml";
 
 pub mod address;
+pub mod admissibility;
 pub mod builtin;
 pub mod builtin_kind;
 pub mod builtin_lock;
