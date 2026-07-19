@@ -99,7 +99,11 @@
       }
     ],
     "acceptance": "explain's dispatch body lives in src/read.rs (its own 'read verbs' resolution' home) under a name that doesn't collide with read::explain's existing target-species resolution; main.rs's CLI dispatch calls it, no logic left behind. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308."
+    "notes": "Item 3 of inbox RULED (session, standing delegation, observed b4a6947): completes MAIN-JUDGE-VERB-HOME-RULING's second half, explain's piece — read.rs already IS the read-resolution home, no new module. Serialized behind MAIN-GATE-VERB-MODULE-EXTRACT (shared main.rs); the read::explain name collision is a real, disk-verified fact, not a hypothetical. scoped at 8104308.",
+    "observedFiles": [
+      "src/main.rs",
+      "src/read.rs"
+    ]
   },
   {
     "tag": "GRAPH-ENABLEMENT-FIELD-RETIRE",
