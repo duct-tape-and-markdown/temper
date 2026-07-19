@@ -19,6 +19,7 @@ use std::time::Instant;
 use common::tmpdir;
 use temper::builtin_kind;
 use temper::frontmatter::Member;
+use temper::glob;
 use temper::import::{self, Discovery, LocalOverride};
 use temper::kind;
 
@@ -144,12 +145,12 @@ fn check_cost_is_diagnosed_and_glob_compilation_is_pinned_per_distinct_glob() {
     // Phase 1 — the shared ignore-honoring tree walk, once per flavor (`import::Discovery`).
     let disc = Discovery::new(&harness);
     let walks_before = import::walk_count();
-    let compiles_before = kind::glob_compile_count();
+    let compiles_before = glob::glob_compile_count();
     let walk_start = Instant::now();
     let discovered = discover_all(&disc, &harness);
     let discover_ms = walk_start.elapsed().as_millis();
     let walks = import::walk_count() - walks_before;
-    let compiles = kind::glob_compile_count() - compiles_before;
+    let compiles = glob::glob_compile_count() - compiles_before;
 
     // Phase 2 — read + hash every discovered member (the read-side phase).
     let read_files = discovered.len();

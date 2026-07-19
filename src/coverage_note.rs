@@ -26,7 +26,8 @@ use crate::builtin_kind::Segment;
 use crate::builtin_kind::{CLAUDE_ROOT, KNOWN_SURFACES, KnownSurface};
 use crate::check::Diagnostic;
 use crate::drift;
-use crate::kind::{CustomKind, compile_glob};
+use crate::glob::compile_glob;
+use crate::kind::CustomKind;
 
 /// The advisory rule id for the per-kind member-count summary.
 const CHECKED_RULE: &str = "coverage.checked";

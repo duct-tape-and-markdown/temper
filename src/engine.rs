@@ -1033,7 +1033,7 @@ fn decide(
         }),
 
         // `glob-valid` checks every glob the field carries parses under the one
-        // shared `globset` surface (`crate::kind::compile_glob`, brace-aware). An
+        // shared `globset` surface (`crate::glob::compile_glob`, brace-aware). An
         // unparseable pattern matches nothing silently, so a dead scope becomes a
         // finding — one per offending glob, each naming itself. Silent on absence
         // (the `required` clause's concern).
@@ -1046,7 +1046,7 @@ fn decide(
                     .flat_map(|(address, value)| {
                         crate::graph::extract_globs(&value)
                             .into_iter()
-                            .filter(|glob| crate::kind::compile_glob(glob).is_none())
+                            .filter(|glob| crate::glob::compile_glob(glob).is_none())
                             .map(|glob| {
                                 format!(
                                     "field `{address}` glob `{glob}` does not parse under globset, so it silently matches nothing"

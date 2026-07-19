@@ -43,6 +43,7 @@ pub mod engine;
 pub mod extract;
 pub mod frontmatter;
 pub mod gate;
+pub mod glob;
 pub mod graph;
 pub(crate) mod hash;
 pub mod import;

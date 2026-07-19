@@ -758,7 +758,7 @@ fn dead_registration(
             // cries wolf on a `paths-match` pattern it failed to understand.
             let dead = !globs.is_empty()
                 && !globs.iter().any(|glob| {
-                    crate::kind::compile_glob(glob)
+                    crate::glob::compile_glob(glob)
                         .is_none_or(|matcher| repo_files.iter().any(|file| matcher.is_match(file)))
                 });
             dead.then(|| {
@@ -1909,9 +1909,9 @@ mod tests {
 
     #[test]
     fn a_paths_match_glob_dies_only_when_no_repo_file_matches_it() {
-        // `reachable` leans on `crate::kind::compile_glob` to decide a `paths-match`
+        // `reachable` leans on `crate::glob::compile_glob` to decide a `paths-match`
         // glob dead — `**/` crossing segments and a flat `*` staying within one segment
-        // are exercised directly on that shared surface (`kind::tests`), so this proves
+        // are exercised directly on that shared surface (`glob::tests`), so this proves
         // only the wiring: `dead_registration` reports dead exactly when every declared
         // glob matches nothing in `repo_files`.
         let channel = Registration::PathsMatch {
