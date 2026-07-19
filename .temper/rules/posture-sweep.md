@@ -24,6 +24,10 @@ When running the posture sweep (plan's job 4), this discipline binds:
   never enter the frontier, so a quiet tree closes in one tick, never
   one tick per skip. **Quiet-on-clean is the normal verdict**,
   recorded by advancing the cursor alone.
+- **An open rotation is live input.** While the frontier is non-empty,
+  the tick's closing marker is `Plan continues: yes` — the rotation
+  drives itself to close and is never left waiting on a forced wake.
+  Hibernation is the empty frontier's verdict alone.
 - A violation counts only when **verified on disk this tick**, cited by
   symbol and line. Beyond the pages' own sections, cohesion (a module
   carrying jobs that want separate homes), dead plumbing
