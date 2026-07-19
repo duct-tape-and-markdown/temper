@@ -28,6 +28,19 @@ hard.
   as SKILL-NESTED-REFERENCE-DOCS. Open forks live in
   `.flume/plan/open-questions.md` (four; none block the queue).
 
+## Next session's one focus (John, 07-18)
+
+- **Govern `.flume/` with temper's own dogfood.** The authoring surface
+  expanded (amendments channel, protocol slits, sweep frontier spanning
+  prompt + rule + README, fence globs) and every shift now fans out
+  across surfaces by hand narration — the drift class the product
+  gates. Bring the flume operating layer under `.temper/` as governed
+  members: prompts, PROTOCOL, capture READMEs as documents with layout
+  contracts; each cross-surface fact declared once and projected.
+  Open question `(.flume/ is ungoverned)` re-armed — its 07-09
+  "cosmetic" narrowing predates the expansion; the custom-kind
+  precondition it waited on is proven (0036, base-harness example).
+
 ## Parked (pointers only)
 
 - flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a

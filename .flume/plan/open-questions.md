@@ -194,8 +194,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   now refuse if either loses its satisfier). What remains genuinely
   ungoverned: the prompts' prose *spells the identifier* outside any gate —
   a member rename moves the graph edge with it but leaves the prompt's text
-  stale-but-harmless (neither trigger mechanism reads the prose). Kept — a
-  cosmetic residual, not the drift risk originally logged here.
+  stale-but-harmless (neither trigger mechanism reads the prose).
+  **Re-armed 2026-07-18** (was: kept as cosmetic): the operating layer
+  grew past the narrowing's premise — the amendments channel (0044), the
+  protocol's slit enumeration, and the sweep-frontier mechanics now span
+  prompts, rules, and READMEs as hand-synchronized restatements, the
+  drift class temper gates. Organizing it under the dogfood is the
+  ledgered next-session focus (interactive-session work, not a pending
+  entry — the flume harness is outside build's fence).
 
 - **`docs/` is candidate intent, not intent** — human territory,
   fence-excluded; plan never reads a horizon entry as intent.
