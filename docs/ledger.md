@@ -27,6 +27,14 @@ hard.
   `docs/proposals/posture-recursion/`; the built-in adoption is flume's
   as SKILL-NESTED-REFERENCE-DOCS. Open forks live in
   `.flume/plan/open-questions.md` (four; none block the queue).
+- **centercode = the structural-half dogfood (07-20)**: the consumer
+  testbed exercises layout/requirements/graph/degree/count/nested-docs
+  hard (9 embedded kinds, one factory); the behavioral half — verifiers,
+  `when`/`dial`/`extent`, local commitment — is un-field-tested and is
+  the latent-bug surface (`read_dial` + `when`-guard both lived there).
+  Standing direction: validate it (dogfood + adversarial passes), never
+  cut valuable capability for want of a week-old consumer; lean cuts fat
+  (restatement, ceremony, over-claim), not capability-ahead-of-adoption.
 
 ## Next session's one focus (John, 07-18)
 

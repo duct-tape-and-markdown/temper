@@ -76,6 +76,13 @@ if it cannot check, it fails loud. The emit payload — the compiled program
 the SDK pipes to its pinned engine — is internal, versioned in lockstep,
 never a public format; the committed interface is artifacts plus the lock.
 
+The Claude Code facts these placements name — the `SessionStart` and
+`PreToolUse` hook shapes, the `additionalContext` cap, the
+`yaml-language-server` modeline, the SARIF version — are external facts,
+each cited at its enforcement site in the engine (`reporter.rs`, the
+guard, `install`), never asserted bare here (the `builtins.md` discipline,
+placement facts held to the same bar as kind-format facts).
+
 ## The offering — terms and the road to a stranger
 
 The README is the landing page: ~800 words, a tagline naming category and
