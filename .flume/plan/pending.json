@@ -1,44 +1,5 @@
 [
   {
-    "tag": "FRONTMATTER-MATTER-STRIP-DEDUP",
-    "summary": "project_modeline/project_note (install.rs) and placement_lines (placement.rs) each duplicate the strip_prefix(\"---\\n\") + closing_delimiter stanza -- consolidate into one frontmatter.rs helper",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/frontmatter.rs",
-          "description": "Add a `pub(crate)` helper next to `closing_delimiter` (340-359) — e.g. `frontmatter_matter(source: &str) -> Option<(&str, &str)>` returning `(rest, matter)` — wrapping `source.strip_prefix(\"---\\n\")` followed by `closing_delimiter(rest)`. `closing_delimiter`'s own doc comment (344-347) already states the intent that install.rs's projectors and `placement_lines` 'share the same closing-delimiter scan... rather than a second implementation that could drift'; the scan itself is shared, but the strip_prefix wrapper around it is not."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "`project_modeline` (1607-1618) and `project_note` (1637-1653) each open with the identical two-line stanza `let rest = source.strip_prefix(\"---\\n\")?; let inner = frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)?;` — replace both with a call to the new frontmatter.rs helper."
-        },
-        {
-          "path": "src/placement.rs",
-          "description": "`placement_lines` (23-32) repeats the same composite scan in a third, differently-styled spelling (`if let Some(rest) = source.strip_prefix(\"---\\n\") && let Some((inner, _)) = frontmatter::closing_delimiter(rest)`) — replace with the new helper."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/frontmatter.rs",
-        "asserts": "the new helper returns the (rest, matter) pair for a well-formed `---\\n`-opened frontmatter source, and `None` for a source with no opening delimiter or an unterminated one"
-      }
-    ],
-    "acceptance": "One frontmatter.rs helper backs all three call sites; project_modeline/project_note/placement_lines behavior is unchanged — existing install.rs, placement.rs, and tests/install.rs coverage stays green. `cargo test` green.",
-    "notes": "scoped at 5fede95. Found during the src/install.rs posture-sweep neighborhood; frontmatter.rs closing_delimiter (340-359) doc comment already states the three-site-sharing intent this residual strip_prefix wrapper duplication still defeats."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
