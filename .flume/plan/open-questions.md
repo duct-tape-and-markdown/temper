@@ -117,9 +117,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Eight live orphans** (six re-verified at HEAD df57610, the seventh at
-  8415088, the eighth at 721cab6, the ninth new at 11ab0ab, one — extract.rs's
-  own, a different one — discharged at 2a6e488). `src/json_splice.rs`'s
+  **Ten live orphans** (six re-verified at HEAD df57610, the seventh at
+  8415088, the eighth at 721cab6, the ninth at 11ab0ab, the tenth new this
+  tick, one — extract.rs's own, a different one — discharged at 2a6e488). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
   "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -209,6 +209,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   both functions' only present caller is `src/layout.rs` (124, 143, 157), not
   kind.rs. No pending entry currently opens extract.rs, so per the ride-only
   rule it rides whichever one first does.
+  **A tenth, surfaced this tick's posture sweep of src/roster.rs.**
+  `tests/contract_template.rs`'s doc comment (255-258, authored 94ac5f1,
+  2026-07-07) and `tests/read_verbs.rs`'s inline comment (215-216, authored
+  7c66611, same day) each still cite `roster::check` — the function
+  `src/roster.rs` carried under that name until 28ad61f (build: judge the
+  set predicates over any declared selection, 2026-07-16) split it into
+  [`selections`] (opt-in resolution) and [`admissibility`] (definition
+  validation); neither symbol has existed in this module since.
+  `tests/requirement_roster.rs`'s neighboring `roster::candidates(by_kind)`
+  cite (877) names the private helper that still carries that exact name
+  today, so it is not part of this orphan. No pending entry currently opens
+  either citing file, so each rides whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
