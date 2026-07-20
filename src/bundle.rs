@@ -47,6 +47,11 @@ use serde_json::{Value as JsonValue, json};
 /// directory the operate-the-gate skill lands under (`skills/temper/`). `temper` is
 /// outside the `deny`ed skill names (`anthropic`, `claude`), so the bundled skill
 /// passes `temper`'s own skill contract — the dogfood holds.
+/// Plugin skill locations (`skills/<name>/SKILL.md`) are plugin-root-relative, distinct
+/// from the installed-harness skill locus (`.claude/skills/*/SKILL.md` per the `skill`
+/// kind's governs; see builtin_kind.rs line 397–399 on plugin-contributed surfaces
+/// lying outside the corpus). Both are documented plugin layouts
+/// (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
 const PLUGIN_NAME: &str = "temper";
 
 /// The plugin/marketplace description — what the gate delivers, not what a good
@@ -210,6 +215,7 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     write_member(out, "marketplace", &marketplace_manifest(), &mut files)?;
 
     // The operate-the-gate skill — embedded prose, byte-faithful.
+    // Plugin skill location: `skills/<name>/SKILL.md` (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
     write_text(
         out,
         Path::new("skills/temper/SKILL.md"),
@@ -218,6 +224,7 @@ pub fn run(_surface: &Path, out: &Path) -> miette::Result<BundleReport> {
     )?;
 
     // The `SessionStart` hook, in its own `hooks.json`.
+    // Plugin hooks location: `hooks/hooks.json` (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
     write_json(
         out,
         Path::new("hooks/hooks.json"),
@@ -272,6 +279,8 @@ fn marketplace_manifest() -> BTreeMap<String, JsonValue> {
 /// exec-form `temper check . --reporter session-start` command Claude Code spawns at
 /// session start. Same shape `temper install` merges into `.claude/settings.json`, so the
 /// plugin and `install` deliver the identical gate.
+/// Plugin hooks configuration resides at `hooks/hooks.json` in the plugin root
+/// (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
 fn hooks_manifest() -> BTreeMap<String, JsonValue> {
     BTreeMap::from([(
         "hooks".to_string(),
