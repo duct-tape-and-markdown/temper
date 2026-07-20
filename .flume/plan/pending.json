@@ -1,5 +1,46 @@
 [
   {
+    "tag": "MAIN-TEST-MODULE-COMPOSE-RELOCATE",
+    "summary": "main.rs's entire #[cfg(test)] mod tests exercises compose.rs internals, not CLI dispatch — the tests never followed fe58bc2's move of the code they cover",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The `#[cfg(test)] mod tests` block (632-912) is main.rs's *entire* test module, and not one test in it drives `Cli::parse()` or the `Command` match in `fn main` — every test exercises `compose::` internals. `repo_file_set_stays_raw_disk_including_gitignored_targets` (647-662) calls `compose::repo_file_set` directly. `a_full_check_run_walks_each_consulted_flavor_once` (676-700), `resolve_kind_units_runs_once_per_kind_not_twice` (707-768), and `overlay_builtin_kind_count_increments_once_per_application` (771-798) build a harness and call `gate::gate` to pin `compose::resolve_kind_units_count`/`compose::overlay_builtin_kind_count` deltas — the same count-pin shape `tests/check_cost.rs` already uses for `import::walk_count`. The `citation_row`/`placement_feature` helpers (803-845) and the three tests that use them (851-911) hand-construct a `drift::Declarations` and call `compose::edge_fields_by_kind` + `compose::embedded_member_features` directly — pure unit tests of compose.rs with zero CLI involvement. Retire the whole module (and its now-unused `use` list at 634-638) once its tests land at their new homes; this is why main.rs's own module doc (1-6) and rust.md ('Keep main.rs a thin clap dispatch … logic lives in the library so tests/ can drive it') both read as violated today."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Already carries these functions (`resolve_kind_units_count`/`overlay_builtin_kind_count` at 44/50, `edge_fields_by_kind`/`embedded_member_features` at 1067/1094, `repo_file_set` at 1169) since fe58bc2 moved the implementation out of main.rs but left the tests behind — and already carries its own `#[cfg(test)] mod tests` (1274). Add the `citation_row`/`placement_feature`-style unit tests here (`edge_fields_by_kind`/`embedded_member_features` need no cross-crate boundary or harness fixture) and `repo_file_set_stays_raw_disk_including_gitignored_targets`."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Already pins `import::walk_count` around a synthetic-harness `check`-shaped run — the established home for this repo's gate/compose count-pins. Extend it with the three `gate::gate`-driven count-pin tests moved from main.rs (`resolve_kind_units_count`, `overlay_builtin_kind_count` deltas), or a sibling file in the same style if the fixture scale doesn't fit; either way they move out of the binary crate's own test module and into the integration-test layer the library's own doc header says tests/ owns."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/compose.rs",
+        "asserts": "edge_fields_by_kind/embedded_member_features's placement-feature join (unplaced vs unfilled vs no-format-rendered) and repo_file_set's raw-disk (gitignore-inclusive) read, relocated verbatim from main.rs"
+      },
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "resolve_kind_units and overlay_builtin_kind each run exactly once per kind over a full gate::gate invocation, relocated verbatim from main.rs"
+      }
+    ],
+    "acceptance": "src/main.rs carries no #[cfg(test)] mod tests testing compose.rs internals — its test surface (if any remains) drives CLI dispatch only; the nine relocated tests pass unchanged at their new homes; `cargo test` green; `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` clean.",
+    "notes": "Posture sweep, src/main.rs neighborhood (rotation continues to the crate's remaining modules — main.rs was the last tree-order candidate). Cohesion lens: fe58bc2 (build: move corpus-assembly functions to compose.rs) moved the implementation but not its tests, so main.rs has carried library-internal unit tests for two months. Mechanical relocation, no design call — precedent for both destinations already exists on disk. scoped at b30dc3f."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
