@@ -359,6 +359,15 @@ pub(crate) fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
     None
 }
 
+/// Strip a `---\n` opening frontmatter delimiter and scan for the closing `---`,
+/// returning everything after the opening delimiter and the frontmatter matter.
+/// Wraps [`closing_delimiter`] to consolidate the split-frontmatter pattern used
+/// by `src/install.rs`'s projectors and `src/placement.rs`'s placement line scanner.
+pub(crate) fn frontmatter_matter(source: &str) -> Option<(&str, &str)> {
+    let rest = source.strip_prefix("---\n")?;
+    closing_delimiter(rest).map(|(matter, _)| (rest, matter))
+}
+
 /// Derive a **file-shaped** unit's surface id, folding the directory placement below
 /// the `governs`-root directory `base` into it. A unit
 /// directly under `base` keeps its bare filename stem — the common flat case, unchanged
@@ -534,5 +543,25 @@ Last line, no newline.";
             Some(&serde_json::json!(["src/**/*.rs"]))
         );
         assert!(member.has_field("description"));
+    }
+
+    #[test]
+    fn frontmatter_matter_returns_rest_and_matter_for_well_formed_source() {
+        let source = "---\nname: test\n---\n# Body\n";
+        let (rest, matter) = frontmatter_matter(source).unwrap();
+        assert_eq!(rest, "name: test\n---\n# Body\n");
+        assert_eq!(matter, "name: test\n");
+    }
+
+    #[test]
+    fn frontmatter_matter_returns_none_for_missing_opening_delimiter() {
+        let source = "# No frontmatter\n";
+        assert_eq!(frontmatter_matter(source), None);
+    }
+
+    #[test]
+    fn frontmatter_matter_returns_none_for_unterminated_frontmatter() {
+        let source = "---\nname: test\n";
+        assert_eq!(frontmatter_matter(source), None);
     }
 }

@@ -21,10 +21,8 @@ pub const BANNER_MARKER: &str = "<!-- temper: managed projection";
 pub const MODELINE_MARKER: &str = "# yaml-language-server:";
 
 pub(crate) fn placement_lines(source: &str) -> Vec<String> {
-    if let Some(rest) = source.strip_prefix("---\n")
-        && let Some((inner, _)) = frontmatter::closing_delimiter(rest)
-    {
-        return inner
+    if let Some((_, matter)) = frontmatter::frontmatter_matter(source) {
+        return matter
             .lines()
             .filter(|line| is_placement_comment(line))
             .map(str::to_string)

@@ -1605,9 +1605,8 @@ fn schema_ref(root: &Path, source: &Path, kind: &str) -> String {
 /// the other frontmatter fields, comments, and the whole body — is preserved
 /// exactly (`.claude/rules/rust.md`, round-trip discipline).
 fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
-    let rest = source.strip_prefix("---\n")?;
-    let inner = frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)?;
-    if inner
+    let (rest, matter) = frontmatter::frontmatter_matter(source)?;
+    if matter
         .lines()
         .any(|line| line.trim_start().starts_with(MODELINE_MARKER))
     {
@@ -1635,9 +1634,8 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// is not authored surface content, so the content-faithful projector
 /// never re-emits it.
 fn project_note(source: &str) -> Option<String> {
-    let rest = source.strip_prefix("---\n")?;
-    let inner = frontmatter::closing_delimiter(rest).map(|(matter, _)| matter)?;
-    if let Some(existing) = inner
+    let (rest, matter) = frontmatter::frontmatter_matter(source)?;
+    if let Some(existing) = matter
         .lines()
         .find(|line| line.trim_start().starts_with(NOTE_MARKER))
     {
