@@ -1,5 +1,29 @@
 [
   {
+    "tag": "SCHEMA-MODULE-HEADER-MAPPING-NARRATION-PRUNE",
+    "summary": "src/schema.rs's module header restates \"What maps, and what does not\" (27-50) — a paragraph already pinned by the exhaustive match's inline comments and its own test suite; shrink to a pointer.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Narration is the ladder's bottom rung"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/schema.rs",
+          "description": "The module-header `## What maps, and what does not` section (27-50) restates in prose exactly what the exhaustive `match &clause.predicate` (74-170) already encodes per-arm, several with their own explanatory comments (`Deny` at 104-110, `Shape` at 115-123, `ClosedKeys` at 129-133, the remaining-predicates block at 134-169) — and what the test suite already pins: `every_decidable_predicate_maps_to_its_json_schema_keyword` (471-497), `structural_and_cross_artifact_predicates_ride_no_channel` (499-533), `allowed_chars_yields_the_expected_charclass_pattern` (535-556), `the_container_kinds_are_renamed_to_json_schema_vocabulary` (599-618), `a_declared_set_of_kinds_emits_json_schemas_own_type_array` (620-638), and `closed_keys_projects_the_objects_own_additional_properties_keyword` (823-831). A property pinned by both a compiler-enforced exhaustive match and a test suite has been promoted past the rung this paragraph occupies, so the paragraph is residue: shrink it to a short pointer at the match/tests, keeping only the surrounding rationale (why validation/docs are split, why a nested-path clause rides neither channel) that names no rung above prose."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "The module header's mapping enumeration (27-50) no longer restates the match's per-predicate keyword projection in prose; a short pointer (or nothing) replaces it, and the surrounding two-channel design rationale plus the nested-field-clause paragraph survive untouched. `cargo test`/`clippy`/`fmt` stay green (doc-only change, no behavior to test).",
+    "notes": "Doc-only prune per rust.md's exit clause (deleting/tag-ifying a comment the taxonomy cuts is always in scope) and engineering.md's \"Narration is the ladder's bottom rung\" promoted-scaffolding class. No behavior change; cargo test/clippy/fmt stay green. scoped at cce75c7."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
