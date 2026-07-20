@@ -1,5 +1,31 @@
 [
   {
+    "tag": "KIND-ENTRY-SHAPE-LABEL-PRUNE",
+    "summary": "`entry_shape_to_label` in kind.rs is zero-consumer dead code behind `#[allow(dead_code)]` — delete it, an export-earns-its-consumer violation",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Delete `entry_shape_to_label` (948-965: doc comment + `#[allow(dead_code)]` + fn) — the `EntryShape`→wire-label renderer with no caller anywhere in the tree (grep-verified across src/, tests/, sdk/: sole hit is the definition). Its own doc comment admits it 'not currently used by the emit side ... exists for future serialization' and names no consumer — exactly the scaffolding-outlives-its-scaffold shape this section retires. `entry_shape_from_label` (908-946), the read-side inverse it mirrors, keeps its real consumer at `collection_address_from_row` (878-882) — only the write-side half is pruned."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`entry_shape_to_label` and its `#[allow(dead_code)]` are gone from src/kind.rs; `cargo clippy --all-targets -- -D warnings` and `cargo test` stay green with no allow needed to suppress it.",
+    "notes": "Found by this tick's posture sweep of src/kind.rs (rotation: json_splice.rs → kind.rs). `collection_address_table` (drift.rs:4096-4101) still writes only `manifest`/`key_path`, never `entry_shape`, so the function's own staleness claim holds true rather than being itself stale — there is no live write path it serves. scoped at 9a78b5a."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
