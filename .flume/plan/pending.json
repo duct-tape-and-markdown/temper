@@ -1,5 +1,40 @@
 [
   {
+    "tag": "TELEMETRY-READ-PLURAL-CONSOLIDATE",
+    "summary": "src/telemetry.rs and src/read.rs each hand-roll a singular/plural word branch instead of the shared `crate::display::plural(n)` suffix helper — consolidate both onto it",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/telemetry.rs",
+          "description": "Line 81: `let plural = if older_version == 1 { \"line\" } else { \"lines\" };` reimplements the exact singular/plural job `crate::display::plural(n: usize) -> &'static str` (src/display.rs:121) already owns and four other call sites (coverage_note.rs, reporter.rs, install.rs, bundle.rs) already consume. Replace with `crate::display::plural(older_version)` composed onto the `line` stem so line 84's message renders byte-identical text (`1 line` / `N lines`)."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`roster_overview` (1341), lines 1353-1357: `let plural = if roster.len() == 1 { \"requirement\" } else { \"requirements\" };` is the same hand-rolled job on the `requirement` stem. Replace with `crate::display::plural(roster.len())` so line 1358's message renders byte-identical text (`1 requirement` / `N requirements`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "already pins the telemetry singular case (line 487: output contains \"Older records: 1 line an older tap wrote\") — passes unchanged since the consolidation is output-preserving; build confirms it stays green rather than re-deriving new coverage for a text-identical refactor"
+      }
+    ],
+    "acceptance": "Both hand-rolled branches are gone; `src/telemetry.rs` and `src/read.rs` call `crate::display::plural`; rendered text at both call sites is byte-identical to before (tests/read_verbs.rs:487 and full `cargo test` stay green); `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "Posture sweep of src/display.rs (job 4), neighborhood read together with its sole import src/extract.rs — no findings there. Grepped `\\bplural\\b` repo-wide: every other call site already consumes `crate::display::plural` (consolidated there by 4baac1b, 2026-07-08, whose commit body names the same residue class); these two never migrated. Purely mechanical, no design call — scoped at 327c22d."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
