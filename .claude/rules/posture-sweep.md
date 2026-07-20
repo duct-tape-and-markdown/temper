@@ -44,6 +44,13 @@ When running the posture sweep (plan's job 4), this discipline binds:
   payload schemas — as literals outside the provider face: the
   knowledge-form of an upward edge, invisible to the import graph)
   are sweep lenses.
+- **An absence verdict never rests on a bare `rg`.** A zero-consumer or
+  dead-symbol finding turns on proving a symbol is *un*-referenced, and
+  `grep`/`rg` silently skip a file carrying a NUL byte (or any binary
+  marker) as non-text — so a bare `rg <symbol>` returning nothing is not
+  proof of no consumer; an invisible file reads as an empty result.
+  Confirm every absence with a matcher that reads all files (`rg -a`) or
+  with LSP references (`rust.md`'s standing rule), never a plain no-hits.
 - Routing: purely mechanical shape → a pending entry; needs a design
   decision → a `.flume/refactor/` capture. Either cites the owning
   section in `per`. Never against a "Kept on purpose" asymmetry.
