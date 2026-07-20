@@ -222,6 +222,18 @@ pub fn acyclic(resolved: &[ResolvedEdge]) -> Vec<Diagnostic> {
     Vec::new()
 }
 
+/// Whether any selection carries a clause matching the given predicate test — an
+/// opt-in guard both [`degree`] and [`mention_reachable`] consult to avoid unnecessary
+/// graph work when no clause declares the predicate.
+fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool) -> bool {
+    selections.iter().any(|selection| {
+        selection
+            .clauses
+            .iter()
+            .any(|clause| matches(&clause.predicate))
+    })
+}
+
 /// Check the **`degree`** predicate over every declared [`Selection`]: for each `degree`
 /// clause bound to one, return a [`Diagnostic`] — at the clause's own declared severity
 /// — per selected member whose in/out edge count over the resolved arcs falls outside
@@ -249,13 +261,9 @@ pub fn degree(
     resolved: &[ResolvedEdge],
     mention_edges: &[ResolvedEdge],
 ) -> Vec<Diagnostic> {
-    let any_degree_clause = selections.iter().any(|selection| {
-        selection
-            .clauses
-            .iter()
-            .any(|clause| matches!(clause.predicate, Predicate::Degree { .. }))
-    });
-    if !any_degree_clause {
+    if !any_clause_of(selections, |predicate| {
+        matches!(predicate, Predicate::Degree { .. })
+    }) {
         return Vec::new();
     }
 
@@ -369,13 +377,9 @@ pub fn mention_reachable(
     by_kind: &BTreeMap<&str, &[Features]>,
     embedded_hosts: &BTreeMap<Node, Node>,
 ) -> Vec<Diagnostic> {
-    let any_clause = selections.iter().any(|selection| {
-        selection
-            .clauses
-            .iter()
-            .any(|clause| matches!(clause.predicate, Predicate::MentionReachable { .. }))
-    });
-    if !any_clause {
+    if !any_clause_of(selections, |predicate| {
+        matches!(predicate, Predicate::MentionReachable { .. })
+    }) {
         return Vec::new();
     }
     let mut all_edges = resolved.to_vec();
