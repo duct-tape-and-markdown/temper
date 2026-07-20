@@ -61,7 +61,7 @@ pub struct Segment {
 
 /// The Claude Code settings docs, retrieved 2026-07-16 — the shared citation for the
 /// curated surfaces below, each of which is documented there.
-pub const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-16)";
+const SETTINGS_DOC: &str = "code.claude.com/docs/en/settings (retrieved 2026-07-16)";
 
 /// The curated known-surface list. Every entry is a documented Claude Code surface
 /// (verified against the settings docs, [`SETTINGS_DOC`]) that **no built-in kind
