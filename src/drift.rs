@@ -462,13 +462,12 @@ pub(crate) struct RollupEntry {
     pub(crate) emit_hash: String,
 }
 
-/// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per emitted member —
-/// the built-in kinds first (key-sorted) then the custom kinds (name-sorted) — each with
-/// `name`, `source_path`, `source_hash`, and the `emit_hash` fingerprint. Both maps are
-/// key-sorted, so the emitted order is deterministic. `emit` is the sole caller:
-/// a kind with no emitted member simply has no entry, matching the toml round-trip
-/// reality — an empty `ArrayOfTables` emits nothing, so a written-then-vanished section
-/// would break idempotence against a re-parse that never sees it.
+/// Write the `<into>/lock.toml` roll-up: one `[[<kind>]]` table per emitted member,
+/// key-sorted, each with `name`, `source_path`, `source_hash`, and the `emit_hash`
+/// fingerprint. `emit` is the sole caller: a kind with no emitted member simply has
+/// no entry, matching the toml round-trip reality — an empty `ArrayOfTables` emits
+/// nothing, so a written-then-vanished section would break idempotence against a
+/// re-parse that never sees it.
 ///
 /// After the per-member sections come the program's **declaration rows** — kind facts,
 /// clauses, requirements, assembly facts under an implicit `[declaration]` table;
@@ -481,18 +480,14 @@ pub(crate) struct RollupEntry {
 /// under their own families.
 pub(crate) fn write_rollup(
     into: &Path,
-    builtins: &BTreeMap<String, Vec<RollupEntry>>,
-    custom: &BTreeMap<String, Vec<RollupEntry>>,
+    rollups: &BTreeMap<String, Vec<RollupEntry>>,
     declarations: &Declarations,
     layout_imports: &[LayoutImportRow],
     includes: &[LayoutImportRow],
 ) -> Result<(), DriftError> {
     let mut doc = DocumentMut::new();
-    for (kind, rows) in builtins {
+    for (kind, rows) in rollups {
         doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(rows));
-    }
-    for (kind, units) in custom {
-        doc[kind.as_str()] = Item::ArrayOfTables(rollup_tables(units));
     }
     declarations.write_into(&mut doc);
     write_source_deps(&mut doc, "layout_import", layout_imports);
@@ -1499,7 +1494,6 @@ pub fn emit(
         write_rollup(
             workspace_dir,
             &rollups,
-            &BTreeMap::new(),
             &declarations,
             &layout_import_rows,
             &include_rows,
