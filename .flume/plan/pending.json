@@ -28,7 +28,13 @@
       }
     ],
     "acceptance": "`rg 'Authoring notes the clauses cannot carry|What the clauses cannot carry, as guidance' sdk/src/builtins.ts` finds nothing — each note lives as its kind's `guidance` fact, visible through `schema`/`explain`. `pnpm --dir sdk test` green.",
-    "notes": "(c) of the inbox's split (0045 Consequences: 'the built-in kinds' JSDoc authoring notes move into the channel'). All six confirmed kind-wide, none field-scoped — the field-declaration half has no consumer among them (GUIDANCE-FIELD-DECLARATION-CHANNEL, deferred). blockedBy GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN so the migration ships already-visible, not silently inert. scoped at 946e303."
+    "notes": "(c) of the inbox's split (0045 Consequences: 'the built-in kinds' JSDoc authoring notes move into the channel'). All six confirmed kind-wide, none field-scoped — the field-declaration half has no consumer among them (GUIDANCE-FIELD-DECLARATION-CHANNEL, deferred). blockedBy GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN so the migration ships already-visible, not silently inert. scoped at 946e303.",
+    "observedFiles": [
+      "sdk/src/builtins.ts",
+      "sdk/test/builtins.test.ts",
+      "sdk/test/emit.test.ts",
+      "src/builtin_lock.toml"
+    ]
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
