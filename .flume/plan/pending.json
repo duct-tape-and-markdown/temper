@@ -1,5 +1,36 @@
 [
   {
+    "tag": "COMPOSE-GOVERNED-ROOT-DOT-STRIP-PREFIX",
+    "summary": "A `.`-rooted harness (`temper check .`) folds a governed member's nested id to its bare stem — compose.rs's `base` skips the normalize_path its import.rs sibling fix already applies, colliding ids",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`resolve_kind_units`'s third match arm (617-648, the `(_, _, Some(governs))` case for a kind with its own governs — neither the manifest arm nor the nested-file `None`-governs arm) builds `base = disc.harness().join(&governs.root)` at 640 with no normalization, then hands it to `read_file_unit` (497-526) for every file `discover_kind_files` returns. For a `UnitShape::File`/undeclared-shape kind with no declared identity field (the built-in `memory` kind: `governs.root = \".\"`, glob `\"**/CLAUDE.md\"` — `src/builtin_kind.rs`'s `claude_code_memory`), `read_file_unit` reaches `frontmatter::fold_file_id(base, file)` (compose.rs:460) or `Member::from_source_rooted` (compose.rs:515) whose `UnitShape::File` arm calls the same `fold_file_id` (frontmatter.rs:224). Under a `.`-rooted `Discovery` (`temper check .`), `base` still carries the unstripped leading `./` while `file` comes back already normalized (`discover_kind_units`'s `scan_locus` normalizes its own root internally, import.rs:351) — `fold_file_id`'s `strip_prefix(base)` (frontmatter.rs:403) never matches, and its documented no-match fallback (frontmatter.rs:380-383: 'a caller with no root context... folds no placement, degrading to the bare stem') silently drops the file's subdirectory placement from its id. Two nested files that should fold to distinct ids (`CLAUDE.md` → `CLAUDE`, `sub/CLAUDE.md` → `sub-CLAUDE`) both collapse to the bare stem `CLAUDE` and collide. Fix: wrap `base`'s construction at 640 with `crate::address::normalize_path`, the exact idiom `import.rs:234` already applies to `discover_nested_file`'s sibling root (IMPORT-NESTED-FILE-DOT-ROOT-STRIP-PREFIX, shipped 0bf526a) — this is the second instance of the identical unnormalized-join pattern, previously flagged but left unscoped in that entry's notes."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/compose.rs",
+        "asserts": "`resolve_kind_units`'s own-governs match arm folds a nested member's id with placement preserved (e.g. `sub-CLAUDE`, not a bare `CLAUDE` colliding with the root member) when `Discovery`'s harness root is unnormalized (e.g. `.`) — a synthetic unnormalized `Path` literal at the fn boundary, not a real relative-cwd run, mirroring import.rs's `unit_dir_resolves_a_host_unit_with_normalized_paths`/`normalize_path_strips_leading_dot_component` pair so the test stays cwd-independent"
+      }
+    ],
+    "acceptance": "A governed File-shape kind (the built-in `memory` kind, or any custom kind sharing its shape) folds identical, non-colliding ids for nested-placement members whether `Discovery`'s harness root is `.` or an absolute path — no bare-stem id collision under `temper check .`. `cargo test` green.",
+    "notes": "Follow-up to IMPORT-NESTED-FILE-DOT-ROOT-STRIP-PREFIX (shipped 0bf526a/bc0d8c0): its notes flagged this site (compose.rs:640) as 'no repro'd symptom, left out of scope' after a nested-CLAUDE.md-under-relative-root repro showed a bare-stem degrade. Re-confirmed: strip_prefix fails on the unnormalized leading '.' (verified standalone), and the built-in memory kind (root '.', glob '**/CLAUDE.md', File shape) is a live consumer whose ids collide under `temper check .`. scoped at bc0d8c0."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
