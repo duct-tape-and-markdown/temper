@@ -20,6 +20,31 @@ use crate::install;
 use crate::kind::CustomKind;
 use crate::roster;
 
+/// Dispatch a single kind through the shared "two-greens" contract validation:
+/// admissibility (contract checks the definition) then conformance (artifacts
+/// check the contract). Returns the (possibly dial-modified) contract and the
+/// collected diagnostics.
+fn two_greens_dispatch(
+    mut contract: Contract,
+    locus: &engine::Locus,
+    features: &[extract::Features],
+    dial: &dial::Dial,
+    mode: compose::EnforcementMode,
+    skip_dial: bool,
+    dialed: &mut BTreeSet<String>,
+) -> (Contract, Vec<check::Diagnostic>) {
+    let mut diagnostics = Vec::new();
+
+    if !skip_dial {
+        dialed.extend(dial.apply(mode, &mut contract.clauses));
+    }
+
+    diagnostics.extend(engine::admissibility(&contract, locus));
+    diagnostics.extend(engine::validate(&contract, features));
+
+    (contract, diagnostics)
+}
+
 /// Produce the merged diagnostic set for a surface `workspace` against the active
 /// by-kind contracts, with the [`check::Announcement`] of the inputs that judged it —
 /// the shared gate behind both `check` and the session-start
@@ -115,14 +140,12 @@ pub fn gate(
     let mut builtin_units_and_features: BTreeMap<String, compose::KindUnitsAndFeatures> =
         BTreeMap::new();
     for (kind_name, kind) in &overlaid_builtin_kinds {
-        // Two greens: admissibility — the contract validated
-        // against the definition before it is trusted to judge — then conformance.
         // The contract is the lock's declared `clauses` for the kind when it names any,
         // else the embedded default (`builtin_contract`). The invocation's joined clauses
         // are appended *after* that fallback decides, never folded into the rows it reads:
         // a layer's row is not this harness declaring one, so it must never be what tips a
         // built-in off its embedded default and onto a contract of the layer's alone.
-        let mut contract = compose::with_joined_clauses(
+        let contract = compose::with_joined_clauses(
             compose::builtin_contract(&declarations.clauses, kind_name)?,
             &joined_clauses,
             kind_name,
@@ -131,9 +154,7 @@ pub fn gate(
         // envelope the dial document is checked against, so a machine that could soften
         // them could spell its way out of the shape that bounds it. `dial::refusals`
         // reports the entry that tried rather than leaving it silently inert.
-        if kind_name != dial::KIND {
-            dialed.extend(dial.apply(mode, &mut contract.clauses));
-        }
+        let skip_dial = kind_name == dial::KIND;
 
         let uaf = compose::kind_units_and_features(
             kind,
@@ -144,8 +165,16 @@ pub fn gate(
         )?;
         let features = &uaf.features;
 
-        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
-        diagnostics.extend(engine::validate(&contract, features));
+        let (contract, dispatch_diags) = two_greens_dispatch(
+            contract,
+            &engine::Locus::Document,
+            features,
+            &dial,
+            mode,
+            skip_dial,
+            &mut dialed,
+        );
+        diagnostics.extend(dispatch_diags);
         member_counts.insert(kind_name.clone(), features.len());
         contracts.insert(kind_name.clone(), contract);
         builtin_features.insert(kind_name.clone(), features.clone());
@@ -187,12 +216,11 @@ pub fn gate(
     )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
-        let mut contract = compose::with_joined_clauses(
+        let contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
             &joined_clauses,
             &row.name,
         )?;
-        dialed.extend(dial.apply(mode, &mut contract.clauses));
         let uaf = compose::kind_units_and_features(
             &custom_kind,
             &discovery,
@@ -202,8 +230,16 @@ pub fn gate(
         )?;
         let features = &uaf.features;
 
-        diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
-        diagnostics.extend(engine::validate(&contract, features));
+        let (contract, dispatch_diags) = two_greens_dispatch(
+            contract,
+            &engine::Locus::Document,
+            features,
+            &dial,
+            mode,
+            false,
+            &mut dialed,
+        );
+        diagnostics.extend(dispatch_diags);
         member_counts.insert(row.name.clone(), features.len());
         contracts.insert(row.name.clone(), contract);
         custom_kinds.push((custom_kind.clone(), features.clone()));
@@ -263,18 +299,22 @@ pub fn gate(
     // embedded kind has none of, and an embedded member's host file is already counted
     // under its own kind.
     for (kind, features) in &embedded_features {
-        let mut contract = compose::with_joined_clauses(
+        let contract = compose::with_joined_clauses(
             compose::default_contract_from_rows(&declarations.clauses, kind)?,
             &joined_clauses,
             kind,
         )?;
-        dialed.extend(dial.apply(mode, &mut contract.clauses));
 
-        diagnostics.extend(engine::admissibility(
-            &contract,
+        let (contract, dispatch_diags) = two_greens_dispatch(
+            contract,
             &engine::Locus::Embedded(kind.clone()),
-        ));
-        diagnostics.extend(engine::validate(&contract, features));
+            features,
+            &dial,
+            mode,
+            false,
+            &mut dialed,
+        );
+        diagnostics.extend(dispatch_diags);
         contracts.insert(kind.clone(), contract);
     }
 
