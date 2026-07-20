@@ -33,11 +33,11 @@ export interface Admission {
 }
 
 /**
- * The declared enforcement-mode vocabulary — how firmly the `PreToolUse` guard
- * binds a tool call, split by where the finding goes.
- * `block`: denies the call.
- * `warn` (default): allows the call and surfaces the finding in-band, into the
- * live context. `note`: allows the call and records the finding out-of-band
+ * The declared enforcement-mode vocabulary — how firmly a guard binds an
+ * intercepted action, split by where the finding goes.
+ * `block`: denies the action.
+ * `warn` (default): allows the action and surfaces the finding in-band, into the
+ * live context. `note`: allows the action and records the finding out-of-band
  * only — the next report, never the session.
  */
 export type EnforcementMode = "note" | "warn" | "block";
