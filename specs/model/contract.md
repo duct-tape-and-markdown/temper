@@ -46,6 +46,16 @@ One **predicate** plus the **severity** its author declared, with optional
 decides error-versus-warning; the clause does, and the guidance channel is
 how the gate teaches at the moment of failure.
 
+**Guidance is not the clause's alone** (decision 0045). The same channel —
+advisory intent, optionally cited — attaches directly to a **kind** or a
+**field**, carrying no predicate: authoring counsel the author reads at
+authoring time (`schema` hover, `explain`), teaching before there is anything
+to fail. One channel, two attachment points — on a clause it teaches at the
+moment of failure; on a kind or field it counsels at the moment of authoring
+(intent.md, invariant 8). It never gates: a field's guidance is not a length
+check, and advice hardened into a numeric rule is the linter temper sits
+downstream of (invariant 5).
+
 The predicate vocabulary is **closed**: the enum in code is the authority, an
 unknown predicate is rejected at load, never skipped, and adding one is a
 deliberate language change. The corpus does not enumerate it (equal
