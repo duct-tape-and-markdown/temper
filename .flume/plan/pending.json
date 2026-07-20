@@ -33,7 +33,7 @@
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at a23269d and holds — nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
+    "notes": "Park re-tested at ba1f982 and holds — nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
@@ -60,6 +60,6 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at a23269d, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff 68fae5c..HEAD -- .github/` is empty. scoped b676656."
+    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at ba1f982, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff a23269d..HEAD -- .github/` is empty. scoped b676656."
   }
 ]
