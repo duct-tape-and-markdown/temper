@@ -8,26 +8,6 @@
 //! wired `verifier`. What `check` gates is the **decidable shadow**: referential
 //! coverage over the declared requirements and the authored `satisfies` edges.
 //!
-//! Two decidable, true-positive diagnostics — each ranges over skill *and* rule
-//! features (every artifact kind that can opt in), the flattened stream the gate
-//! assembles:
-//!
-//! - [`REQUIREMENT_UNFILLED_RULE`] — every `required` requirement is satisfied by **≥1
-//!   artifact whose representation declares a resolving `satisfies` link naming it** —
-//!   opt-in `satisfies` is the sole fill. A `required` requirement no artifact opts into
-//!   is an `error`: the intent has no resolving home. A non-`required` requirement left
-//!   unfilled is *not* a violation — `temper` never fabricates a gate the author did
-//!   not declare.
-//! - [`REQUIREMENT_DANGLING_RULE`] — every `satisfies` entry on any artifact names a
-//!   **declared** requirement. A `satisfies` resolving to no requirement is an
-//!   `error` on that artifact: a dangling link is a silent no-op, the very failure
-//!   the decidable-only invariant forbids.
-//!
-//! This is the **referential** primitive — decidable coverage, a true positive
-//! every time. `temper` NEVER judges
-//! whether the artifact *actually* fulfils `prose`; the judged tier is delegated and
-//! advisory, never this gate.
-//!
 //! # Kinship with the graph scope — and why coverage stays here
 //!
 //! The two checks are the graph-scope predicates ([`crate::graph`]) re-cast over a
