@@ -1,48 +1,5 @@
 [
   {
-    "tag": "GUIDANCE-KIND-SDK-LOCK-FACT",
-    "summary": "0045 frees guidance from the clause for a kind: give `KindFacts` an advisory `guidance`/`cite` pair and serialize it as a new `KindFactRow` lock column",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "Add `readonly guidance?: string` and `readonly cite?: string` to `KindFacts` (168-209) — advisory authoring counsel for the kind as a whole (decision 0045), no predicate, no severity, mirroring the doc comment `Contract.guidance` already carries at src/contract.rs:32-36 (unwired — see GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`kindFactRow()` (294-315) copies `facts.guidance`/`facts.cite` into the returned row's new `guidance`/`cite` fields, alongside its existing flat fact copies."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Add `guidance: Option<String>` and `cite: Option<String>` to `KindFactRow` (3045-3106), the tolerant-round-trip optional-fact pattern every other column takes; extend `KindFactRow::to_table`/`from_table` (3953-4015) with the same `if let Some(...) table.insert(...)` / `opt_str(table, ...)` pair `ClauseRow`'s own guidance/cite columns already use (~3229)."
-        },
-        {
-          "path": "tests/seam_bindings_current.rs",
-          "description": "Rerun with `BLESS_SEAM_BINDINGS=1` to regenerate `sdk/src/generated/KindFactRow.ts` with the two new fields (doc comment 1-8 names the bless procedure); commit the diff."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "KindFactRow (lock row) gains two optional string columns: `guidance`, `cite`.",
-    "tests": [
-      {
-        "path": "src/drift.rs",
-        "asserts": "a KindFactRow with guidance+cite round-trips through to_table/from_table unchanged; a row declaring neither omits both columns, the tolerant round-trip every other optional fact takes"
-      }
-    ],
-    "acceptance": "`KindFacts.guidance`/`cite` exist in the SDK and serialize into a committed lock's kind-fact row; `sdk/src/generated/KindFactRow.ts` and `src/drift.rs`'s `KindFactRow` agree (bindings test green). No reader consumes the new columns yet. `cargo test` and `pnpm --dir sdk test` green.",
-    "notes": "(a) of the inbox's guidance-channel split (0045; contract.md 'clause'). `Contract.guidance` (src/contract.rs:32-36) already exists but is dead: every construction site sets it `None`, nothing reads it. blockedBy DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE — both edit sdk/src/declarations.ts (pending-entry rule, 'Disjoint, or serialized'), that entry smaller and already pickable. scoped at 946e303."
-  },
-  {
     "tag": "GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN",
     "summary": "Thread a kind's lock-carried guidance into the long-dead `Contract.guidance` and deliver it: `schema`'s top-level `description`, `explain`'s governing-contract narration",
     "per": {
@@ -50,8 +7,7 @@
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GUIDANCE-KIND-SDK-LOCK-FACT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
