@@ -1,5 +1,34 @@
 [
   {
+    "tag": "SHAPE-LEADING-DOT-SLASH-UNTESTED",
+    "summary": "`Shape::LeadingDotSlash` (live on marketplace's `plugins[*].source`) has zero behavioral test coverage, unlike its two sibling shapes which are fully tested",
+    "per": {
+      "path": ".claude/rules/rust.md",
+      "section": "Tests"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/shape_predicate.rs",
+          "description": "The two positive/negative test pairs for `hyphen-placement` (68-105) and `no-xml-tags` (108-146) each drive `engine::validate` over real members; no such pair exists for `leading-dot-slash`, the third and only remaining shipped `Shape` variant (src/contract.rs:867), which sdk/src/builtins.ts:1113 already gates the marketplace kind's `plugins[*].source` field with. Add `a_relative_path_missing_leading_dot_slash_is_a_finding` and `a_dot_slash_relative_path_holds_the_shape`, mirroring the hyphen-placement pair, on the `name` field (values without/with a leading `./`), asserting the finding message `field \\`name\\` does not hold the \\`leading-dot-slash\\` shape: the value is a relative path starting with \\`./\\`` (src/engine.rs:1024-1033's format). Also extend the row-decode lift loop (171-183) with `(\"leading-dot-slash\", Shape::LeadingDotSlash)` alongside the existing two tuples."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/shape_predicate.rs",
+        "asserts": "Shape::LeadingDotSlash fires with demand()'s message on a value lacking a leading `./` and holds clean on one that has it; predicate_from_row lifts \"leading-dot-slash\" to Predicate::Shape{shape: Shape::LeadingDotSlash}"
+      }
+    ],
+    "acceptance": "tests/shape_predicate.rs proves Shape::LeadingDotSlash fires and holds exactly as its two siblings do, and the lift loop confirms the third shape round-trips through predicate_from_row — parity restored, and the module doc's line 4-5 claim ('each shipped shape decides its documented rule over a real member') becomes true. cargo test green.",
+    "notes": "scoped at 8415088. src/contract.rs needs no edit — LeadingDotSlash's impl (867-869, 900, 915, 926, 939, 952, 976) is complete and correct; only its test is missing. Its own stale `crate::contract::tests` doc cite (884-885 — that module doesn't exist in this file) rides whichever entry next opens contract.rs, per the ride-only rule; noted in open-questions.md rather than filed here."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {

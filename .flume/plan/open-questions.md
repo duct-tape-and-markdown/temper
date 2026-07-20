@@ -117,7 +117,8 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Six live orphans, re-verified at HEAD (df57610).** `src/json_splice.rs`'s
+  **Seven live orphans** (six re-verified at HEAD df57610, the seventh new
+  at 8415088). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
   "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -174,6 +175,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5) — both adf69b3..7173a59 — have
   since shipped touching json_manifest.rs, neither reaching line 347; no
   entry currently open chains onto it, so it rides whichever next does.
+  **A seventh, surfaced this tick's posture sweep of contract.rs.**
+  `src/contract.rs`'s `SHAPE_PATTERNS` doc comment (884-885, re-read at
+  8415088) claims compilation "cannot fail" is "covered by
+  [`crate::contract::tests`]" — a module this file no longer carries (a
+  `mod tests` block was present through e1de1f0 and is gone by HEAD; the
+  three shape patterns' only exercise today is the standalone
+  `tests/shape_predicate.rs`). No pending entry currently opens
+  contract.rs for edit — SHAPE-LEADING-DOT-SLASH-UNTESTED, filed this
+  tick, only touches tests/shape_predicate.rs — so it rides whichever one
+  first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
