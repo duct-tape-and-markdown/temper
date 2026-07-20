@@ -1,5 +1,155 @@
 [
   {
+    "tag": "WHEN-BODY-ELEMENT-SCOPE-EVALUATE",
+    "summary": "`when` body clauses evaluate against the whole member instead of the guard's matched element \u2014 the shipped `marketplace` kind's required-field checks silently never fire",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "`decide`'s (896) `Predicate::When` arm (1226) loops `for body_clause in body { for msg in evaluate(contract, &body_clause.predicate, features, all) }` \u2014 `features` is the whole member, unchanged from the outer call, so `body_clause`'s own `field` re-resolves from the member root rather than the guard's matched element. contract.md's `clause` section: guard and body 'share one address binding: each element the guard's path locates is judged independently, the body evaluating at that element.' Fix: construct a per-element evaluation view rooted at the matched element (`address`/`value` from `features.locate(&path)`, already in scope at 1240-1241) and evaluate each body clause against it, so a body field composes relative to the matched element \u2014 matching how `sdk/src/builtins.ts`'s `marketplace` contract already authors body fields as element-relative sub-paths under an array-addressed guard (`source.repo` under `plugins[*].source.source`, sdk/src/builtins.ts:1122-1167), not as absolute paths."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/marketplace_kind.rs",
+        "asserts": "a catalog entry with an array-addressed guard match (e.g. `source.source: \"github\"`) missing its guarded required sub-field (`source.repo`) now fails `temper check`, where today it passes clean"
+      },
+      {
+        "path": "src/engine.rs",
+        "asserts": "an array-addressed guard/body pair resolves each body finding to its own matched element's address, never another element's"
+      }
+    ],
+    "acceptance": "A `when` body clause resolves its field relative to the guard's matched element (contract.md, `clause`: 'the body evaluating at that element'); the marketplace kind's four source-specific required-field clauses (github/url/git-subdir/npm) actually fire on a malformed catalog entry, proven by a new negative test \u2014 the existing well-formed-catalog test alone cannot prove this (engineering.md, 'A green verdict is proven non-vacuous'). `cargo test`/`clippy`/`fmt` green.",
+    "notes": "Escalated from an inbox note framed low-severity/design-undetermined/unreachable. Re-verified: NOT unreachable \u2014 the shipped `marketplace` kind already authors this shape, and an empirical probe (added, run, reverted, never committed) confirmed a github-source entry missing `repo` passes `temper check` clean today. contract.md settles the semantic, so this is a confirmed bug, not a fork \u2014 `(when-body-element-relative-addressing)` is resolved/deleted, not left open. scoped at 087b90a."
+  },
+  {
+    "tag": "WHEN-BODY-ADMISSIBILITY-FENCE",
+    "summary": "`when`'s guard and body clauses bypass the admissibility fence \u2014 a nested vacuous clause reaches conformance instead of being refused",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "well-formedness"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "WHEN-BODY-ELEMENT-SCOPE-EVALUATE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "`inadmissibilities` (153-164) runs `judgeless`/`bodyless`/`unaddressable`/`vacuities` on the top-level predicate only, then calls `when_restrictions` (168-188) \u2014 which checks solely that a `when`'s guard is `enum`/`type` and that no body clause nests another `when`; it never recurses the other four checks into the guard or the body clauses. `vacuities` (374-511) has no `When` arm \u2014 `Predicate::When { .. } => Vec::new()` at 509 \u2014 confirming a `when`'s own guard/body predicates are never passed through it at all. Fix: thread `locus: &Locus` into `when_restrictions` (already available in `inadmissibilities`'s scope) and, in place of the current two checks, recurse: where the guard is `enum`/`type`, extend with `inadmissibilities(guard.as_ref(), locus, body)`; for each body clause not itself a nested `when`, extend with `inadmissibilities(&clause.predicate, locus, body)` (siblings = the body's own clause set, mirroring `vacuities`' documented per-clause-set contract for `closed-keys`). The nested-`when` refusal stays as its own message, unrecursed. `src/roster.rs:162` calls `engine::inadmissibilities` directly for a requirement's own clauses, so the fix applies there with no separate edit \u2014 a requirement's `when` clause gets the same fence for free."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "a `when` clause whose body carries an empty-`enum` clause is refused by `admissibility` as inadmissible rather than reaching conformance; a `when` clause whose guard is an empty-`enum` is likewise refused"
+      }
+    ],
+    "acceptance": "`admissibility`/`inadmissibilities` recurse the well-formedness checks into a `when`'s guard and every body clause, at the same locus the outer clause is bound to; the two new tests pass; existing `when_guard_*` tests (src/engine.rs:2712-2865) and roster tests stay green; `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` all green.",
+    "notes": "Routed from inbox, observed at 863149f: engine's own invariant ('the fence, not an upstream layer, makes decide's empty floors unreachable') is violated for anything nested under `when`. Confirmed on disk this tick. Serialized after WHEN-BODY-ELEMENT-SCOPE-EVALUATE \u2014 both reshape `when`'s engine.rs handling, the same seam. Its sibling gap is no longer a fork (`(when-body-element-relative-addressing)` resolved into that entry directly, a confirmed bug not a design call). scoped at 087b90a."
+  },
+  {
+    "tag": "REPORTER-EXTERNAL-FACT-CITE",
+    "summary": "Dated-cite reporter.rs's three external facts (additionalContext cap, SessionStart payload shape, SARIF version) delegated to it by distribution.md",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/reporter.rs",
+          "description": "Three doc comments state Claude Code / OASIS facts with no dated source, the gap distribution.md's delegation sentence (79-84) now points at: (1) `ADDITIONAL_CONTEXT_CAP`'s doc comment (50-51, 'Claude Code's cap on the additionalContext string...') \u2014 cite the current hooks doc for the 10k cap and the cap-then-truncate behavior; (2) `session_start`'s doc comment (63-72, describes the hookSpecificOutput/additionalContext envelope shape) \u2014 cite the current hooks doc for the `SessionStart` payload shape; (3) `SARIF_VERSION`'s doc comment (151-152, 'the OASIS standard...') \u2014 cite the OASIS SARIF 2.1.0 spec. Fetch each doc fresh (collaboration rule: verify before encoding, never from memory) and cite it `(source, retrieved <date>)` in the same style as `src/placement.rs:20-22`'s MODELINE_MARKER cite and `src/builtin_kind.rs`'s `code.claude.com/docs/en/hooks (retrieved 2026-07-16/17)` cites \u2014 do not assert a URL unverified."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`ADDITIONAL_CONTEXT_CAP`, `session_start`, and `SARIF_VERSION`'s doc comments each carry a dated external-fact cite, matching the cite bar collaboration.md sets and the pattern MODELINE-MARKER-CITE (8396d34) already shipped for placement.rs. `cargo fmt --all --check` clean (comment-only change).",
+    "notes": "Routed from inbox, observed at 863149f. distribution.md's delegation sentence already ships (087b90a); the yaml-language-server modeline half of the same inbox ask already landed separately (MODELINE-MARKER-CITE, 8396d34) \u2014 this entry is the reporter.rs remainder. Comment-only; no behavior change. scoped at 087b90a."
+  },
+  {
+    "tag": "GUARD-HOOK-SHAPE-CITE",
+    "summary": "Dated-cite install.rs's `PreToolUse` guard hook group shape, delegated to it by distribution.md",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`guard_group`'s doc comment (1153, 'The `PreToolUse` guard group temper installs, running `command` at [`GUARD_MATCHER`].') states the `{matcher, hooks: [{type, command}]}` shape with no dated source \u2014 the `PreToolUse` half of distribution.md's delegation sentence (79-84). Fetch the current hooks doc fresh (collaboration rule: verify before encoding) and cite it in the same style as `src/builtin_kind.rs`'s `code.claude.com/docs/en/hooks (retrieved 2026-07-16/17)` cites \u2014 do not assert a URL unverified. `GUARD_MATCHER`'s own doc comment (128-131) states a related but distinct fact (the matcher binds this provider's writes only) and is not part of this cite gap."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`guard_group`'s doc comment carries a dated external-fact cite for the `PreToolUse` hook group shape, matching the cite bar collaboration.md sets. `cargo fmt --all --check` clean (comment-only change).",
+    "notes": "Routed from inbox, observed at 863149f. Companion to REPORTER-EXTERNAL-FACT-CITE (reporter.rs's three facts) \u2014 kept as a separate entry since it's a different file with no shared edit surface, so both can run disjointly. Comment-only; no behavior change. scoped at 087b90a."
+  },
+  {
+    "tag": "DIRECTIVE-BACKING-PATH-DOMAIN",
+    "summary": "`repo_file_set` strips the harness root while directive-target resolution keeps it \u2014 the two domains only coincide when the root is `.`, misfiring the backing check otherwise",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`repo_file_set` (1173) does `entry.path().strip_prefix(root)` before pushing \u2014 root-RELATIVE output. `graph::classify_directives`'s index (from `member.source_path`, root-prefixed) and `resolve_directive_target`'s joined+normalized targets both stay root-PREFIXED; the domains coincide only when `root` is exactly `.` (join+normalize drops the leading `.`, coincidentally matching the stripped form). Fix: stop stripping \u2014 normalize the full entry path instead of the stripped relative one, so `repo_file_set`'s output shares the index's root-prefixed domain. Its doc comment (1171-1172) and its own test (1454, `repo_file_set_stays_raw_disk_including_gitignored_targets`) need updating to the new shape."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/directive_classing.rs",
+        "asserts": "a directive target resolving to a real (non-member) repo file backs correctly \u2014 no `graph.directive-unbacked` finding \u2014 when the harness root is an absolute path or a relative subdirectory, not just `.`"
+      }
+    ],
+    "acceptance": "A directive target resolving to a real repo file backs correctly regardless of the harness root's own spelling (`.`, absolute, or a relative subdirectory) \u2014 no false `graph.directive-unbacked` finding from a path-domain mismatch alone. `cargo test` green.",
+    "notes": "Routed from inbox, observed at 863149f \u2014 THIRD instance of the unnormalized/mismatched-path-domain class (IMPORT-NESTED-FILE-DOT-ROOT-STRIP-PREFIX, COMPOSE-GOVERNED-ROOT-DOT-STRIP-PREFIX). Scoped as the mechanism fix (engineering.md, 'the fix lands at the mechanism') over a fourth point-patch: `repo_file_set`'s only two callers are gate.rs (variable root, the live bug) and read.rs (hardcoded `.`, output-invariant here, confirmed by `rg`) \u2014 fix contained to compose.rs. scoped at 087b90a."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
@@ -8,7 +158,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "A human probe rules the hop semantics — the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (⇒ 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (⇒ 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence — never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
+      "reason": "A human probe rules the hop semantics \u2014 the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (\u21d2 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (\u21d2 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence \u2014 never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
     },
     "dependsOnForks": [],
     "files": {
@@ -16,11 +166,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (75) sits under a doc (71-74) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (650) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (677), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 548 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 647-648 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 672-675 ('capped at the format's import recursion depth'). f6731fb (DIRECTIVE_FIELD consolidated into graph.rs ahead of this region, in the d1af9a5..HEAD window) shifted every address below its insertion point; re-read and confirmed at HEAD (0522eff), so every address above now carries at its new line."
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (75) sits under a doc (71-74) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' \u2014 a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (650) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (677), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts \u2014 hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it \u2014 548 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 647-648 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') \u2014 carry the same claim and move with it, as does the propagation comment at 672-675 ('capped at the format's import recursion depth'). f6731fb (DIRECTIVE_FIELD consolidated into graph.rs ahead of this region, in the d1af9a5..HEAD window) shifted every address below its insertion point; re-read and confirmed at HEAD (0522eff), so every address above now carries at its new line."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1547) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1548-1552) spells 'capped at the format's five-hop import recursion' (1550) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. Addresses re-read and confirmed at HEAD (0522eff) after upstream graph.rs/test-file shifts; they carry at these lines."
+          "description": "`the_import_closure_is_hop_capped` (1547) already pins the boundary mechanically rather than in a comment \u2014 `r1..r5` rescued from a live seed, `r6` dead as the sole finding \u2014 so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1548-1552) spells 'capped at the format's five-hop import recursion' (1550) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. Addresses re-read and confirmed at HEAD (0522eff) after upstream graph.rs/test-file shifts; they carry at these lines."
         }
       ],
       "retire": []
@@ -29,22 +179,22 @@
     "tests": [
       {
         "path": "tests/graph.rs",
-        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper — the boundary hop pinned at the ruled number, in the ruled counting"
+        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper \u2014 the boundary hop pinned at the ruled number, in the ruled counting"
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at ac40c72 and holds — nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
+    "notes": "Park re-tested at ac40c72 and holds \u2014 nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
-    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary\u2194npm version lockstep at the v0.1 tag",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships — three channels"
+      "section": "What ships \u2014 three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
