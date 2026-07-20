@@ -16,7 +16,7 @@ import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kin
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
-import { SETTINGS_MANIFEST } from "./builtins.js";
+import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS } from "./builtins.js";
 
 import type {
   AssemblyFactRow,
@@ -739,30 +739,6 @@ export function registrationRows(harness: Harness): RegistrationRow[] {
  * session-start reporter, appending one event record to the per-machine log
  * (`src/tap.rs`). Every synthesized hook's `command` field carries it verbatim. */
 const TAP_COMMAND = "temper tap";
-
-/**
- * The `settings.json` lifecycle event and matcher one documented telemetry event-name
- * projects its tap hook at. The event-name is the author-facing token a telemetry
- * verifier names (`contract.ts`'s `telemetry`, the `roster.rs` admissibility set); the
- * `event` is the `hooks.<Event>` key the tap registers under, and the `matcher` scopes
- * the fire to the telemetry-relevant subset — each an external fact
- * (code.claude.com/docs/en/hooks, retrieved 2026-07-17):
- *
- * - `InstructionsLoaded` fires on a rule/memory load; its matcher filters the load
- *   reason, and `path_glob_match` is the lazy per-path load the coverage tap reads.
- * - `SkillInvoked` is a skill invocation, surfaced under `PostToolUse` with the tool-name
- *   matcher `Skill` — the tap's own read of a skill call.
- * - `UserPromptExpansion` fires on a command expansion; its matcher filters the command
- *   name, `.*` capturing every one.
- * - `ToolUse` fires after any tool call; its matcher filters the tool name, `.*`
- *   capturing every one.
- */
-const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; readonly matcher: string }>> = {
-  InstructionsLoaded: { event: "InstructionsLoaded", matcher: "path_glob_match" },
-  SkillInvoked: { event: "PostToolUse", matcher: "Skill" },
-  UserPromptExpansion: { event: "UserPromptExpansion", matcher: ".*" },
-  ToolUse: { event: "PostToolUse", matcher: ".*" },
-};
 
 /**
  * Builds a collision-safe dedup key for a tap hook (event, matcher) pair.
