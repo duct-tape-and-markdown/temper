@@ -78,11 +78,11 @@ pub fn field(
     }
 
     if older_version > 0 {
-        let plural = if older_version == 1 { "line" } else { "lines" };
         let _ = writeln!(
             out,
-            "Older records: {older_version} {plural} an older tap wrote — counted, never \
-             silently skipped."
+            "Older records: {older_version} line{} an older tap wrote — counted, never \
+             silently skipped.",
+            crate::display::plural(older_version)
         );
     }
 

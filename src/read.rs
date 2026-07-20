@@ -1350,12 +1350,12 @@ fn roster_overview(
     }
 
     let mut out = String::new();
-    let plural = if roster.len() == 1 {
-        "requirement"
-    } else {
-        "requirements"
-    };
-    let _ = writeln!(out, "The requirement roster ({} {plural}):\n", roster.len());
+    let _ = writeln!(
+        out,
+        "The requirement roster ({} requirement{}):\n",
+        roster.len(),
+        crate::display::plural(roster.len())
+    );
     for requirement in roster.values() {
         let satisfiers = satisfiers_of(members, by_kind, &requirement.name);
         let _ = writeln!(
