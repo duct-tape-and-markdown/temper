@@ -1149,10 +1149,12 @@ fn a_templates_element_outside_both_spellings_still_refuses_loud() {
     );
 }
 
-/// A kind's `layout`-content fact round-trips SDK emit → lock kind row → engine
-/// `CustomKind` (`KIND-CONTENT-FACT`): the declared regions survive the lock byte-stably
-/// and reach `CustomKind::from_kind_fact_row`'s `content`, while a kind declaring no
-/// content reads as `Content::File` everywhere — the column absent from its row.
+/// A kind's `layout`-content fact round-trips the lock via hand-built payload → compiler emit
+/// → lock read-back → engine `CustomKind` (`KIND-CONTENT-FACT`): the declared regions survive
+/// the lock byte-stably and reach `CustomKind::from_kind_fact_row`'s `content`, while a kind
+/// declaring no content reads as `Content::File` everywhere — the column absent from its row.
+/// For the real SDK-emit agreement claim (live SDK emit → lock kind row → engine CustomKind),
+/// see `tests/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
 #[test]
 fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kind() {
     let payload = golden_payload(Declarations {
@@ -1223,11 +1225,13 @@ fn a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kin
     );
 }
 
-/// A registration kind's two manifest-authoring facts round-trip SDK emit → lock kind row
-/// → engine `CustomKind`: the fields-only `shape` lifts to `Content::Fields` and the
-/// `collection_address` to the typed `CollectionAddress`, byte-stably across a double
-/// emit, while a file-locus body-bearing kind (`rule`) carries neither column — nothing
-/// file-locus or body-bearing regresses.
+/// A registration kind's two manifest-authoring facts round-trip the lock via hand-built payload
+/// → compiler emit → lock read-back → engine `CustomKind`: the fields-only `shape` lifts to
+/// `Content::Fields` and the `collection_address` to the typed `CollectionAddress`, byte-stably
+/// across a double emit, while a file-locus body-bearing kind (`rule`) carries neither column —
+/// nothing file-locus or body-bearing regresses.
+/// For the real SDK-emit agreement claim (live SDK emit → lock kind row → engine CustomKind),
+/// see `tests/emit.rs:emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end`.
 #[test]
 fn a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine() {
     let payload = golden_payload(Declarations {

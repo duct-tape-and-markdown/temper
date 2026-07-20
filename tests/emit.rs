@@ -1835,6 +1835,149 @@ fn emit_program_executes_the_sdk_program_and_byte_reproduces_across_a_second_run
     );
 }
 
+/// A fixture SDK program declaring a custom kind with `content: Layout` (three
+/// regions: prose, field, collection) and a second custom kind with
+/// `shape: "fields"` + `collectionAddress` — proving the real SDK emits a
+/// custom kind's layout content and fields-only shape+collectionAddress
+/// facts end to end, reaching `CustomKind::from_kind_fact_row`'s typed
+/// fields byte-stably.
+const CUSTOM_KIND_CONTENT_PROGRAM: &str = r#"
+import { kind, emit, harness, text } from "@dtmd/temper";
+
+// A custom kind with layout content: prose (import), field (slot), and collection (member_kind + key).
+const layoutKind = kind({
+  name: "spec",
+  locus: { kind: "at", root: "specs", glob: "*.md" },
+  unitShape: "file",
+  format: "yaml-frontmatter",
+  registration: [],
+  content: {
+    regions: [
+      { region: "prose", import: "specs/intent.md" },
+      { region: "field", slot: "intent" },
+      { region: "collection", memberKind: "invariant", key: "core" },
+    ],
+  },
+});
+
+// A custom kind with fields-only shape and collection address (mimics hook).
+const registrationKind = kind({
+  name: "custom-hook",
+  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  unitShape: "file",
+  registration: [{ via: "event", field: "event" }],
+  shape: "fields",
+  collectionAddress: {
+    manifest: "settings.json",
+    keyPath: "hooks.<Event>",
+    entryShape: "group-array(hooks;matcher)",
+  },
+});
+
+const program = harness({
+  members: [],
+  expect: [
+    { kind: layoutKind, clauses: [] },
+    { kind: registrationKind, clauses: [] },
+  ],
+});
+
+process.stdout.write(emit(program).seam);
+"#;
+
+#[test]
+fn emit_program_emits_a_custom_kinds_layout_content_and_fields_shape_end_to_end() {
+    let (_harness, into) =
+        common::wire_sdk_harness("custom-kind-content", CUSTOM_KIND_CONTENT_PROGRAM);
+
+    drift::emit_program(&into, EmitOptions::default()).unwrap();
+
+    let declarations = drift::read_declarations(&into).unwrap();
+
+    // The layout-content kind's three regions survive the SDK emit → lock round-trip.
+    let spec_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "spec")
+        .expect("the layout-content kind row is recorded");
+    let spec = temper::kind::CustomKind::from_kind_fact_row(spec_row)
+        .expect("the layout-content kind fact decodes through the engine reader");
+
+    assert_eq!(
+        spec.content,
+        temper::kind::Content::Layout(temper::layout::Layout {
+            regions: vec![
+                temper::layout::LayoutRegion::Prose {
+                    import: Some("specs/intent.md".to_string()),
+                },
+                temper::layout::LayoutRegion::Field {
+                    slot: "intent".to_string(),
+                },
+                temper::layout::LayoutRegion::Collection {
+                    member_kind: "invariant".to_string(),
+                    key: Some("core".to_string()),
+                },
+            ],
+        }),
+        "the layout kind's declared content reaches the engine CustomKind"
+    );
+
+    // The fields-only registration kind's shape and collection address survive the round-trip.
+    let hook_row = declarations
+        .kinds
+        .iter()
+        .find(|k| k.name == "custom-hook")
+        .expect("the fields-only registration kind row is recorded");
+    assert_eq!(
+        hook_row.shape.as_deref(),
+        Some("fields"),
+        "the registration kind carries the fields-only shape column"
+    );
+    let hook = temper::kind::CustomKind::from_kind_fact_row(hook_row)
+        .expect("the fields-only registration kind fact decodes through the engine reader");
+
+    assert_eq!(
+        hook.content,
+        temper::kind::Content::Fields,
+        "the fields-only shape lifts to Content::Fields"
+    );
+    assert_eq!(
+        hook.collection_address,
+        Some(temper::kind::CollectionAddress {
+            manifest: "settings.json".to_string(),
+            key_path: temper::kind::CollectionKeyPath::HooksEvent,
+            entry_shape: temper::kind::EntryShape::GroupArray {
+                member_key: "hooks".to_string(),
+                lifted_fields: vec!["matcher".to_string()],
+            },
+        }),
+        "the fields-only registration kind's collection address reaches the engine CustomKind"
+    );
+
+    // The lock carries both kinds' declaration rows, decorated with their respective facts.
+    let lock = fs::read_to_string(into.join("lock.toml")).unwrap();
+    assert!(
+        lock.contains(r#"name = "spec""#),
+        "the layout-content kind fact is recorded in the lock: {lock}"
+    );
+    assert!(
+        lock.contains(r#"name = "custom-hook""#),
+        "the fields-only registration kind fact is recorded in the lock: {lock}"
+    );
+    assert!(
+        lock.contains("region = \"prose\""),
+        "the layout regions are recorded in the lock: {lock}"
+    );
+    assert!(
+        lock.contains("shape = \"fields\""),
+        "the fields-only shape is recorded in the lock: {lock}"
+    );
+    assert!(
+        lock.contains("manifest = \"settings.json\""),
+        "the collection address is recorded in the lock: {lock}"
+    );
+}
+
 /// A fixture SDK program that records the entry path Node actually received
 /// (`process.argv[1]`) to a sibling file before emitting — the probe for the
 /// `\\?\`-verbatim cascade (field report 1): `run_sdk_program` canonicalizes
