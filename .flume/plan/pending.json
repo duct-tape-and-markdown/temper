@@ -1,5 +1,34 @@
 [
   {
+    "tag": "BUILTINS-SETTINGS-MANIFEST-LITERAL-DEDUP",
+    "summary": "sdk/src/builtins.ts hardcodes the `settings.json` literal at 5 more sites the `SETTINGS_MANIFEST` constant (388) exists to name — only `hook`'s collectionAddress uses it",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`SETTINGS_MANIFEST` (388) was minted by 5adcc4d to hold the one settings.json fact-and-citation and wired into `hook`'s `collectionAddress.manifest` (403) — but the identical literal string still sits hardcoded at 5 more sites in this same provider-face file: `hook`'s own `locus.glob` (399), `installedPlugin`'s `locus.glob` (486) and `collectionAddress.manifest` (490), and `knownMarketplace`'s `locus.glob` (561) and `collectionAddress.manifest` (565). All six name the identical physical file. Swap each hardcoded `\"settings.json\"` for `SETTINGS_MANIFEST` at the five unmigrated sites — value-preserving, since the constant's value is the string itself."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "installedPlugin.facts.locus/collectionAddress.manifest and knownMarketplace.facts.locus/collectionAddress.manifest still equal \"settings.json\" (159, 163, 180, 185) — unchanged in value, so these existing assertions stay green and need no edit"
+      }
+    ],
+    "acceptance": "Grepping sdk/src/builtins.ts for a hardcoded `\"settings.json\"` string literal finds only the constant's own definition (388); every kind referencing the manifest reads `SETTINGS_MANIFEST`. `pnpm --dir sdk test` green; `cargo test --test builtin_lock_frozen` unchanged (byte-identical emit, since the constant's value is unchanged).",
+    "notes": "Surfaced by this tick's posture sweep of sdk/src/builtins.ts (the tree-order frontier module the 8911c38 phrase delta armed). 5adcc4d's own commit body states the purpose — provider facts belong in the provider face alone, never as literals elsewhere — but the migration stopped at hook's collectionAddress, leaving hook's own locus and both younger manifest kinds (installedPlugin, knownMarketplace) unmigrated. scoped at a2e2276"
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
