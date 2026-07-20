@@ -25,14 +25,14 @@ emit_hash = "7202d0c8f56eb2de8d27489fb34c1cb218534a3b2fd57a3bf216c9d6db80a34b"
 [[rule]]
 name = "plan-state"
 source_path = ".claude/rules/plan-state.md"
-source_hash = "dbed97187a848fdccc5fae275de34c0faa9c3e97377263cd51e416863d62f712"
-emit_hash = "dbed97187a848fdccc5fae275de34c0faa9c3e97377263cd51e416863d62f712"
+source_hash = "527eeaecba5c137af082b7864950c2f55ffb376fa96dc97a3ef8d722baf7f971"
+emit_hash = "527eeaecba5c137af082b7864950c2f55ffb376fa96dc97a3ef8d722baf7f971"
 
 [[rule]]
 name = "posture-sweep"
 source_path = ".claude/rules/posture-sweep.md"
-source_hash = "4ef9e6c18fd7e20099a582a105e73ce22afbeae770fe087cf00c4ab29159be05"
-emit_hash = "4ef9e6c18fd7e20099a582a105e73ce22afbeae770fe087cf00c4ab29159be05"
+source_hash = "b95c359160a61eb77efc6d188329f40d37894857984158836d526718d2a60c99"
+emit_hash = "b95c359160a61eb77efc6d188329f40d37894857984158836d526718d2a60c99"
 
 [[rule]]
 name = "public-prose"

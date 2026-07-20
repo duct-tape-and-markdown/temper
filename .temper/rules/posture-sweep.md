@@ -24,14 +24,12 @@ When running the posture sweep (plan's job 4), this discipline binds:
   never enter the frontier, so a quiet tree closes in one tick, never
   one tick per skip. **Quiet-on-clean is the normal verdict**,
   recorded by advancing the cursor alone.
-- **An armed or open rotation is live input.** From the tick a delta
-  arms the sweep until the frontier empties, the closing marker follows
-  `plan-state.md`'s mechanic — `after-build` when pickable entries
-  exist (ready work ships first; the sweep resumes when the wave hands
-  back), `yes` otherwise — so the rotation drives itself open and then
-  closed, never waiting on a forced wake. Hibernation is the empty
-  frontier's verdict alone; a rotation owed but not yet opened is not
-  that verdict.
+- **An armed or open rotation is a live plan job.** From the tick a
+  delta arms the sweep until the frontier empties, the rotation is
+  plan's to drive; `plan-state.md`'s marker mechanic carries it (an open
+  rotation is never `no`), so the sweep advances one neighborhood a tick
+  to an empty frontier, never waiting on a forced wake. Hibernation is
+  the empty frontier's verdict alone.
 - A violation counts only when **verified on disk this tick**, cited by
   symbol and line. Beyond the pages' own sections, cohesion (a module
   carrying jobs that want separate homes), dead plumbing
