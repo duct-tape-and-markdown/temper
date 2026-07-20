@@ -1,45 +1,14 @@
 [
   {
-    "tag": "DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE",
-    "summary": "`sdk/src/declarations.ts`'s `TELEMETRY_EVENT_HOOKS` hardcodes Claude Code hook event/matcher literals (cited to code.claude.com/docs/en/hooks) outside the provider face `builtins.ts` already owns",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "The provider face is data"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Add an exported data table beside `DOCUMENTED_HOOK_EVENTS` (~1546) and `hookDefaultContract` (~1600), carrying the four (telemetry event name -> {event, matcher}) pairs `declarations.ts` currently hardcodes — InstructionsLoaded->{InstructionsLoaded,path_glob_match}, SkillInvoked->{PostToolUse,Skill}, UserPromptExpansion->{UserPromptExpansion,.*}, ToolUse->{PostToolUse,.*} — with the same citation (code.claude.com/docs/en/hooks, retrieved 2026-07-17) declarations.ts's doc comment already states."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Remove the local `TELEMETRY_EVENT_HOOKS` const + doc comment (743-765), the literal Claude Code hook event/matcher facts sitting outside the provider face; import the relocated table from `./builtins.js` instead, alongside the existing `SETTINGS_MANIFEST` import (19). `tapHookRows` (788-814) reads the same shape unchanged — pure relocation, no behavior change."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "\"a telemetry verifier projects one tap hook per lifecycle event, deduped across verifiers naming the same event\" (1567) and \"a telemetry verifier naming every documented event synthesizes each event's tap hook\" (1631) already assert the exact event/matcher pairs end to end through emit() — unchanged behavior, exercised through the moved table"
-      }
-    ],
-    "acceptance": "`sdk/src/declarations.ts` no longer spells the Claude Code hook facts `PostToolUse`, `path_glob_match`, or a matcher literal — those move to `sdk/src/builtins.ts`, imported by name; declarations.ts keeps only its own telemetry event-name keys (InstructionsLoaded/SkillInvoked/UserPromptExpansion/ToolUse). `pnpm --dir sdk test` green.",
-    "notes": "Mechanical move, no design call — precedented by TAP-SESSION-ID-PROVIDER-FACE-MOVE (79e0079) and ASSEMBLY-ENFORCEMENT-MODE-PROVIDER-FACT-LEAK (8d7709c), same lens and class, this time actual data rather than a doc-comment mention. Posture-sweep finding: sdk/src/ rotation, frontier module declarations.ts (immediate imports assembly.ts/kind.ts/contract.ts/prose.ts/builtins.ts read for context, not covered this tick). scoped at 7371df9."
-  },
-  {
     "tag": "DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE",
     "summary": "`mentionScope` and `SEAM_VERSION` (sdk/src/declarations.ts) are exported with zero callers anywhere in sdk/src or sdk/test — each used only inside its own defining file",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
     },
-    "gate": { "kind": "blockedBy", "tag": "DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
