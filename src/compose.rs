@@ -533,7 +533,7 @@ fn read_file_unit(
 ///
 /// Returns an error if the embedded kind set fails to load or a lock row falls outside a
 /// closed vocabulary.
-pub fn declared_kinds_with_overlaid(
+fn declared_kinds_with_overlaid(
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     declarations: &drift::Declarations,
 ) -> miette::Result<BTreeMap<String, CustomKind>> {
@@ -557,7 +557,7 @@ pub fn declared_kinds_with_overlaid(
 /// # Errors
 ///
 /// Returns an error if the manifest cannot be discovered or read.
-pub fn manifest_units(
+fn manifest_units(
     disc: &import::Discovery,
     kind: &CustomKind,
     address: &CollectionAddress,
