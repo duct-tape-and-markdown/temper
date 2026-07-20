@@ -146,6 +146,43 @@ fn prose_spelling_a_comparison_is_not_a_tag() {
 }
 
 #[test]
+fn a_relative_path_missing_leading_dot_slash_is_a_finding() {
+    let contract = shaped("name", Shape::LeadingDotSlash);
+    for name in ["src/path", "config", "path/to/file", "module.txt"] {
+        let member = skill(name, "Does a thing. Use when needed.");
+        let diagnostics = engine::validate(&contract, std::slice::from_ref(&member));
+        assert_eq!(
+            messages(&diagnostics),
+            vec![
+                "field `name` does not hold the `leading-dot-slash` shape: the value is a \
+                 relative path starting with `./`"
+            ],
+            "`{name}` lacks a leading dot-slash"
+        );
+        assert_eq!(diagnostics[0].rule, "skill.shape.name");
+        assert_eq!(diagnostics[0].severity, Severity::Error);
+    }
+}
+
+#[test]
+fn a_dot_slash_relative_path_holds_the_shape() {
+    let contract = shaped("name", Shape::LeadingDotSlash);
+    for name in [
+        "./src/path",
+        "./config",
+        "./path/to/file",
+        "./module.txt",
+        "./",
+    ] {
+        let member = skill(name, "Does a thing. Use when needed.");
+        assert!(
+            engine::validate(&contract, std::slice::from_ref(&member)).is_empty(),
+            "`{name}` holds the leading-dot-slash shape"
+        );
+    }
+}
+
+#[test]
 fn a_lock_row_naming_a_shape_the_enum_does_not_carry_is_refused_at_load() {
     let mut row = common::clause("shape", "required");
     row.field = Some("name".to_string());
@@ -166,11 +203,12 @@ fn a_lock_row_naming_a_shape_the_enum_does_not_carry_is_refused_at_load() {
     row.shape = None;
     assert_eq!(contract::predicate_from_row(&row), None);
 
-    // And the two the engine does implement lift, so the refusal is the enum's edge and
+    // And the three the engine does implement lift, so the refusal is the enum's edge and
     // not a decoder that rejects everything.
     for (name, shape) in [
         ("hyphen-placement", Shape::HyphenPlacement),
         ("no-xml-tags", Shape::NoXmlTags),
+        ("leading-dot-slash", Shape::LeadingDotSlash),
     ] {
         row.shape = Some(name.to_string());
         assert_eq!(
