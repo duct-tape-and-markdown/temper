@@ -865,6 +865,25 @@ impl Outcome {
     }
 }
 
+/// Test whether a Type or Enum guard predicate admits the given value.
+/// Returns `true` if the value fails the membership test (i.e., the guard should reject it).
+fn guard_membership_fails(guard: &Predicate, value: &FeatureValue) -> bool {
+    match guard {
+        Predicate::Enum { values, .. } => {
+            let text = match value.as_scalar() {
+                Some(t) => t,
+                None => return true,
+            };
+            !values.iter().any(|v| v == text)
+        }
+        Predicate::Type { kinds, .. } => {
+            let actual = value.kind();
+            !kinds.contains(&actual)
+        }
+        _ => false,
+    }
+}
+
 /// The decision table — one arm per primitive. Every arm is decidable *given the
 /// feature it names*; the predicates ranging over a whole selection rather than one
 /// member ([`Predicate::ranges_over_selection`]) return [`Outcome::Indeterminate`] here
@@ -1215,21 +1234,7 @@ fn decide(
                 Some(path) => {
                     let mut violations = Vec::new();
                     for (address, value) in features.locate(&path) {
-                        if match guard.as_ref() {
-                            Predicate::Enum { values, .. } => {
-                                let text = if let Some(scalar) = value.as_scalar() {
-                                    scalar
-                                } else {
-                                    continue;
-                                };
-                                !values.iter().any(|v| v == text)
-                            }
-                            Predicate::Type { kinds, .. } => {
-                                let actual = value.kind();
-                                !kinds.contains(&actual)
-                            }
-                            _ => continue,
-                        } {
+                        if guard_membership_fails(guard.as_ref(), &value) {
                             continue;
                         }
                         for body_clause in body {
@@ -2702,5 +2707,131 @@ mod tests {
         let conforming = features("demo", &[("name", scalar("demo"))], 12, Some("demo"));
 
         assert!(validate(&contract, std::slice::from_ref(&conforming)).is_empty());
+    }
+
+    #[test]
+    fn when_guard_enum_matches_and_body_evaluates() {
+        let clauses = vec![clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Enum {
+                    field: "status".to_string(),
+                    values: vec!["active".to_string(), "pending".to_string()],
+                }),
+                body: vec![clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Required {
+                        field: "description".to_string(),
+                    },
+                )],
+            },
+        )];
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses,
+        };
+
+        // Guard matches ("active"), body evaluates, description missing fires.
+        let artifact = features("demo", &[("status", scalar("active"))], 1, None);
+        let diags = validate(&contract, std::slice::from_ref(&artifact));
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains("description"));
+
+        // Guard doesn't match ("inactive"), body skipped, no firing.
+        let artifact = features("demo", &[("status", scalar("inactive"))], 1, None);
+        assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+
+        // Guard matches and description present, body satisfied.
+        let artifact = features(
+            "demo",
+            &[
+                ("status", scalar("pending")),
+                ("description", scalar("A description")),
+            ],
+            1,
+            None,
+        );
+        assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+    }
+
+    #[test]
+    fn when_guard_type_matches_and_body_evaluates() {
+        let clauses = vec![clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Type {
+                    field: "config".to_string(),
+                    kinds: BTreeSet::from([ValueType::Map]),
+                }),
+                body: vec![clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Required {
+                        field: "key".to_string(),
+                    },
+                )],
+            },
+        )];
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses,
+        };
+
+        // Guard matches (map), body evaluates, key missing fires.
+        let artifact = features("demo", &[("config", json!({}))], 1, None);
+        let diags = validate(&contract, std::slice::from_ref(&artifact));
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains("key"));
+
+        // Guard doesn't match (string), body skipped, no firing.
+        let artifact = features("demo", &[("config", scalar("not a map"))], 1, None);
+        assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+
+        // Guard matches and key present, body satisfied.
+        let artifact = features(
+            "demo",
+            &[
+                ("config", json!({"key": "value"})),
+                ("key", scalar("value")),
+            ],
+            1,
+            None,
+        );
+        assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+    }
+
+    #[test]
+    fn when_guard_field_absent_is_silent() {
+        let clauses = vec![clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Enum {
+                    field: "status".to_string(),
+                    values: vec!["active".to_string()],
+                }),
+                body: vec![clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Required {
+                        field: "description".to_string(),
+                    },
+                )],
+            },
+        )];
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses,
+        };
+
+        // Guard field absent: guard doesn't locate any element, body is silent.
+        let artifact = features("demo", &[], 1, None);
+        assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
     }
 }
