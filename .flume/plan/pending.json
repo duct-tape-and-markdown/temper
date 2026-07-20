@@ -1,5 +1,31 @@
 [
   {
+    "tag": "MODELINE-MARKER-CITE",
+    "summary": "MODELINE_MARKER hard-codes the yaml-language-server `$schema` modeline syntax with no source citation; an external format fact must carry its source where it's enforced",
+    "per": {
+      "path": "specs/process/spec-system.md",
+      "section": "Form rules"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/placement.rs",
+          "description": "`MODELINE_MARKER` (18-21, `\"# yaml-language-server:\"`) is the literal that fixes an external editor convention — the schema-association modeline `install::project_modeline` builds from it (`src/install.rs:1615`, `format!(\"{MODELINE_MARKER} $schema={schema_ref}\")`) and keys its own idempotence on (`src/install.rs:1611`) — with no source cited anywhere the fact is enforced, violating 'External facts cited at the point of enforcement' (spec-system.md, Form rules): 'a claim about a format the outside world owns carries its source and retrieval date where it is enforced... verified against current docs when written.' Verified live this tick (github.com/redhat-developer/yaml-language-server README, retrieved 2026-07-20): the primary syntax is exactly `# yaml-language-server: $schema=<schema-url-or-path>`, matching what temper already emits — no behavior change, only the missing cite. Add the source + retrieval date to `MODELINE_MARKER`'s doc comment (18-20), stating the syntax it encodes; the doc-comment churn rule (`.claude/rules/rust.md`) permits this since the constraint itself is what's being added, not reworded."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`MODELINE_MARKER`'s doc comment states the `yaml-language-server` `$schema` modeline syntax it encodes and cites its source with a retrieval date, matching the collaboration rule's external-fact bar; no behavior changes. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` stay clean.",
+    "notes": "Surfaced by the src/placement.rs posture sweep (Narration is the ladder's bottom rung / spec-system.md Form rules lens). Pure doc-comment addition — no code path changes, no new test needed. scoped at 6734fc4."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
