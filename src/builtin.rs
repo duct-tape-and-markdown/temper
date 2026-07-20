@@ -1,12 +1,10 @@
 //! The embedded built-in floor projection.
 //!
-//! Each built-in kind's floor [`Contract`] (`agent`, `command`, `skill`, `rule`,
-//! `memory`) is a lossless
-//! projection of the embedded built-in lock's clause rows
-//! (`crate::builtin_lock::declarations`), grouped by kind label — never a
-//! hand-written mirror. The lock
-//! itself is `@dtmd/temper/claude-code`'s own emit; this module only lifts its
-//! `ClauseRow`s back into the typed [`Contract`] algebra the gate already runs on.
+//! Every embedded kind's floor [`Contract`] is a lossless projection of the
+//! embedded built-in lock's clause rows (`crate::builtin_lock::declarations`),
+//! grouped by kind label — never a hand-written mirror. The lock itself is
+//! `@dtmd/temper/claude-code`'s own emit; this module only lifts its `ClauseRow`s
+//! back into the typed [`Contract`] algebra the gate already runs on.
 
 use std::collections::BTreeMap;
 
