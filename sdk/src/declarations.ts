@@ -846,7 +846,7 @@ export function declaredAtLocusKinds(harness: Harness): Set<string> {
 }
 
 /** The full {@link MentionScope} the program resolves a mention against — its addresses and its deferral kinds. */
-export function mentionScope(harness: Harness): MentionScope {
+function mentionScope(harness: Harness): MentionScope {
   return { mentionable: declaredAddresses(harness), deferrableKinds: declaredAtLocusKinds(harness) };
 }
 
@@ -888,7 +888,7 @@ export function compileDeclarations(
 }
 
 /** The SDK's pinned engine/interchange version — the JSON pipe rides it in lockstep. */
-export const SEAM_VERSION = 2;
+const SEAM_VERSION = 2;
 
 /**
  * Serialize the seam payload to the internal versioned JSON pipe — `encodeSeam`
