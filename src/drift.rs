@@ -2590,32 +2590,8 @@ const CONFIG_STALE_RULE: &str = "config.stale";
 /// in-place member cannot drift.
 #[must_use]
 pub fn config_stale(workspace_dir: &Path) -> Vec<crate::check::Diagnostic> {
-    let mut findings = Vec::new();
-    let harness_root = harness_root_of(workspace_dir);
-    for raw in walk_lock_rows(workspace_dir) {
-        let (Some(name), Some(source_path), Some(emit_hash)) =
-            (raw.name, raw.source_path, raw.emit_hash)
-        else {
-            continue;
-        };
-        // Only a present-and-differing projection is stale: a source that is gone
-        // (or otherwise unreadable) is the `removed`/drift axis, never forged here.
-        // The row is harness-relative, so it resolves under the harness this check
-        // was aimed at, whatever the cwd.
-        let Ok(bytes) = fs::read(harness_root.join(&source_path)) else {
-            continue;
-        };
-        if sha256_hex(&bytes) != emit_hash {
-            findings.push(crate::check::Diagnostic::warn(
-                CONFIG_STALE_RULE,
- &source_path,
-                format!(
-                    "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
-                ),
- ));
-        }
-    }
-    findings
+    let doc = read_lock_document_for_emit(workspace_dir);
+    config_stale_from_doc(&doc, workspace_dir)
 }
 
 /// Staleness findings from the given lock document without re-reading from disk.
