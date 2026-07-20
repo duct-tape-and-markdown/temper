@@ -62,6 +62,17 @@ checks are well-formedness: the preconditions of checking at all
    source temper reads, or a projection temper writes. No projection is read
    back for meaning; no source is regenerated; no file is part-authored,
    part-emitted.
+8. **Guidance is delivered; judgment is the author's.** Beside the gate, a
+   kind carries **guidance** for its members — the intent behind its shape,
+   advisory and never a check — and temper delivers it to the author at
+   authoring time (`schema` hover, `explain`), counsel rather than verdict.
+   What no predicate can decide (invariant 2) temper does not fake with a
+   proxy (invariant 5); the quality judgment is the author's. A temper
+   harness is primarily AI-authored, so the author renders that judgment
+   continuously, as a byproduct of building and maintaining the surface —
+   the verifier invariant 2 delegates behavior to is, first, the author
+   itself. The gate holds the decidable floor; guidance carries the intent;
+   the author verifies above it.
 
 ## Positioning
 
