@@ -124,6 +124,25 @@ fn an_explicit_key_survives_a_heading_retitle() {
 }
 
 #[test]
+fn a_collection_member_missing_its_declared_explicit_key_fires_loud() {
+    let layout = Layout {
+        regions: vec![LayoutRegion::Collection {
+            member_kind: "invariant".to_string(),
+            key: Some("id".to_string()),
+        }],
+    };
+    let doc = "# Invariants\n\n## Loud or nothing\nthe member body without id subheading\n";
+
+    let err = layout
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
+        .unwrap_err();
+
+    assert!(matches!(err, LayoutError::MissingKey { .. }));
+    assert!(err.to_string().contains("Loud or nothing"));
+    assert!(err.to_string().contains("id"));
+}
+
+#[test]
 fn an_unfilled_region_reads_empty_not_loud() {
     // A prose-only document under the intent layout: only the leading prose region has
     // anything to bind — the `intent` field section and the `invariant` collection have
