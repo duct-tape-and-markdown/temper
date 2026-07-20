@@ -1,38 +1,5 @@
 [
   {
-    "tag": "GRAPH-CLAUSE-GUARD-DEDUP",
-    "summary": "degree() and mention_reachable() in graph.rs each open with an identical opt-in guard shape differing only in the Predicate variant matched — extract one shared helper",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "`degree` (247) opens with `any_degree_clause` (252-260): `selections.iter().any(|selection| selection.clauses.iter().any(|clause| matches!(clause.predicate, Predicate::Degree { .. })))`, then `if !any_degree_clause { return Vec::new(); }`. `mention_reachable` (365) opens with `any_clause` (372-380): the byte-identical shape over `Predicate::MentionReachable { .. }`. Both are the same 'does any selection carry a clause of this predicate variant, else do no graph work' opt-in guard (the module's own doc calls both 'opt-in' at 237 and 350) — a second implementation of one job, verified on disk at HEAD 1855bfc (no existing shared matcher elsewhere in src/: `rg \"clause.predicate\" src/*.rs` outside graph.rs hits engine.rs/contract.rs/roster.rs/schema.rs, none the same shape). Extract one private helper — e.g. `fn any_clause_of(selections: &[Selection], matches: impl Fn(&Predicate) -> bool) -> bool` — and route both call sites through it, mirroring the precedent GATE-TWO-GREENS-DISPATCH-DEDUP set for gate.rs's own triplicated dispatch idiom (175d8d5)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/graph.rs",
-        "asserts": "`a_roster_declaring_no_degree_bound_does_no_graph_work` (tests mod) still passes unchanged — a requirement with no `degree` clause does no graph work through the extracted helper"
-      },
-      {
-        "path": "tests/graph.rs",
-        "asserts": "the existing `mention_reachable_run`-driven cases (541-610) still pass unchanged through the extracted helper; no case currently pins mention_reachable's opt-in silence when no selection carries a `MentionReachable` clause — build may add one alongside the extraction, mirroring degree's, since none exists today"
-      }
-    ],
-    "acceptance": "One shared guard helper in src/graph.rs backs both degree's and mention_reachable's opt-in checks; no duplicate `any(...).any(matches!(clause.predicate, Predicate::X { .. }))` shape remains. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Purely mechanical extraction, no behavior change — both guards are boolean-equivalent modulo the matched variant. scoped at 1855bfc."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
