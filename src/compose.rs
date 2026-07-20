@@ -13,8 +13,7 @@
 //! There is no reader in this module: every value here is populated from the lock's
 //! declaration rows (`crate::drift::Declarations`), the sole producer since `emit`
 //! compiles the SDK program. These are the shared shapes the gate lifts lock rows
-//! into and [`crate::roster`]/[`crate::graph`]/[`crate::coverage`] range over —
-//! the manifest era's reader (`TEMPER-TOML-ZERO`) retired with this file's parser.
+//! into and [`crate::roster`]/[`crate::graph`]/[`crate::coverage`] range over.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
