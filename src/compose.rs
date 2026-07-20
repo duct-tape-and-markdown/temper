@@ -526,30 +526,6 @@ fn read_file_unit(
     }
 }
 
-/// Every kind this harness declares, keyed by bare name: each embedded built-in under its
-/// lock overlay, plus each lock-declared custom kind — the same universe `gate`'s own
-/// dispatch ranges over. A nested file kind's host is found here, so the set is what
-/// carries the two halves of its locus that the child kind itself cannot.
-///
-/// # Errors
-///
-/// Returns an error if the embedded kind set fails to load or a lock row falls outside a
-/// closed vocabulary.
-pub fn declared_kinds(
-    declarations: &drift::Declarations,
-) -> miette::Result<BTreeMap<String, CustomKind>> {
-    let builtin_defs = builtin_kind::definitions();
-    let mut kinds = BTreeMap::new();
-    for kind in builtin_defs.values() {
-        kinds.insert(kind.name.clone(), overlay_builtin_kind(kind, declarations)?);
-    }
-    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
-    for row in custom_rows {
-        kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
-    }
-    Ok(kinds)
-}
-
 /// Every kind this harness declares, keyed by bare name, using pre-overlaid builtin kinds
 /// to avoid re-deriving the overlay. The `overlaid_builtin_kinds` should come from
 /// [`LockFamily::overlaid_builtin_kinds`].
