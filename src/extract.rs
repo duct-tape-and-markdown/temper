@@ -409,7 +409,7 @@ impl Features {
     /// reads kilobyte files — a clone per clause costs nothing a reader should pay for in
     /// indirection.
     #[must_use]
-    fn root(&self) -> JsonValue {
+    pub fn root(&self) -> JsonValue {
         JsonValue::Object(
             self.fields
                 .iter()

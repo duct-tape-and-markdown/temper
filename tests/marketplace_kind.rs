@@ -309,6 +309,47 @@ fn a_well_formed_catalog_passes_every_addressing_clause() {
 }
 
 #[test]
+fn when_body_clauses_fire_on_guarded_elements_that_violate_them() {
+    // A `when` guard's body clauses evaluate relative to the matched element, not the root.
+    // A github source missing its required `repo` field should fire the `when` body clause.
+    // This is a regression test: before the fix, the body clause resolved `source.repo`
+    // against the root member instead of the matched `plugins[*].source` element, so the
+    // required field check silently passed on malformed entries.
+    let harness = common::tmpdir("marketplace-when-guard-body");
+    write_marketplace_json(
+        &harness,
+        r#"{
+  "name": "acme-tools",
+  "owner": { "name": "DevTools Team" },
+  "plugins": [
+    { "name": "github-plugin", "source": { "source": "github" } }
+  ]
+}
+"#,
+    );
+
+    let (findings, ok) = check_harness(&harness);
+    assert!(
+        !ok,
+        "a github source missing `repo` fails the gate: {findings:?}"
+    );
+    // The body clause should fire on the github source element, named by the guard label.
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.contains("marketplace.when.plugins[*].source.source")),
+        "the when clause fires with the guard's label: {findings:?}"
+    );
+    // The finding should reference the array element's address and mention the missing field.
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.contains("plugins[0]") && f.contains("source.repo")),
+        "the finding names the array element's address: {findings:?}"
+    );
+}
+
+#[test]
 fn this_repo_authors_no_marketplace_so_the_kind_counts_zero_members() {
     // Honest, not a gap: temper's own harness is not a distribution catalog, so the shipped
     // kind has nothing to govern here — the `plugin-manifest`/`supporting-doc` precedent.
