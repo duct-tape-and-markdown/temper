@@ -1,40 +1,5 @@
 [
   {
-    "tag": "TAP-SESSION-ID-PROVIDER-FACE-MOVE",
-    "summary": "src/tap.rs hardcodes the Claude Code hook payload's `session_id` field literal, a provider fact living outside builtin_kind.rs, the module architecture.md designates as the provider face",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "The provider face is data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "Add a small `pub(crate)` function beside `classify_claude_code_hook_payload` (696) — e.g. `hook_payload_session_id(value: &JsonValue) -> String` — reading the payload's top-level `session_id` field the same way `classify_claude_code_hook_payload` reads its own string fields (`value.get(key).and_then(JsonValue::as_str)`), carrying the same external-fact citation this module already states for the hook contract (code.claude.com/docs/en/hooks, retrieved 2026-07-17)."
-        },
-        {
-          "path": "src/tap.rs",
-          "description": "`record_from_payload` (164) currently reads `string(\"session_id\").unwrap_or_default().to_string()` (167) directly — the one payload-schema literal in this file, sitting outside the provider face. Replace it with a call to the new `builtin_kind::hook_payload_session_id(&value)`, dropping the now-unused local `string` closure's `session_id` use (the closure stays; `classify_claude_code_hook_payload` still needs it internally, unchanged)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/tap.rs",
-        "asserts": "tap_appends_one_record_carrying_identity_and_discriminant_and_no_prose (39) already asserts `record.session == \"sess-1\"` end to end through `temper tap` on stdin — unchanged behavior, exercised through the moved extraction"
-      }
-    ],
-    "acceptance": "No `\"session_id\"` string literal remains in src/tap.rs; the field is read once, in src/builtin_kind.rs, beside the rest of the Claude Code hook contract's cited fields. `cargo test` green, tests/tap.rs unmodified and passing.",
-    "notes": "The provider face lens: builtin_kind.rs already owns `classify_claude_code_hook_payload` with the same external-fact citation (code.claude.com/docs/en/hooks, retrieved 2026-07-17) for hook_event_name/file_path/etc; `session_id` is the one field of that same documented payload still read as a bare literal in tap.rs (167), invisible to the import graph. Mechanical move, no design call. scoped at eb52144"
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
