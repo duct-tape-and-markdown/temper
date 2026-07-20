@@ -1,5 +1,84 @@
 [
   {
+    "tag": "RESOLVE-KIND-UNITS-DEAD-OVERLAY",
+    "summary": "resolve_kind_units re-derives compose::overlay_builtin_kind on a kind its own two callers already overlaid — dead per-kind work run twice per resolution",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "resolve_kind_units (591) opens with `let overlaid = overlay_builtin_kind(kind, declarations)?;` (598) — but its only two callers (`rg` confirmed) already pass a pre-overlaid kind: kind_units_and_features (673-680) overlays explicitly right before calling it, and assemble_lock_family's local-kind loop (909+) iterates `declared_kinds(committed)?.values()`, which overlays every builtin kind inside declared_kinds (524-536) before resolve_kind_units ever sees it. `CustomKind::overlay_templates`/`overlay_content` (kind.rs) replace wholesale rather than accumulate, so re-deriving reproduces the identical CustomKind — replace the re-derivation with `let overlaid = kind.clone();`. The `declarations` param stays: resolve_kind_units still needs it below (layout_edge_fields, declared_kinds, manifest_units)."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Add an `OVERLAY_BUILTIN_KIND_COUNT` thread-local + `overlay_builtin_kind_count()` accessor beside `RESOLVE_KIND_UNITS_COUNT`/`resolve_kind_units_count()` (30-46), incremented inside `overlay_builtin_kind` (398) itself — the count-pin this fix ships, mirroring the existing precedent for the identical 'called twice per kind' bug shape one layer up."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/main.rs",
+        "asserts": "kind_units_and_features resolved over one builtin kind calls overlay_builtin_kind exactly once (pre-fix: twice — once explicit in kind_units_and_features, once inside resolve_kind_units), the same doubled-call shape RESOLVE_KIND_UNITS_COUNT already pins one layer up (main.rs:743-765), applied to this layer"
+      }
+    ],
+    "acceptance": "overlay_builtin_kind_count() delta for a single kind_units_and_features call over one builtin kind is 1, not 2. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Split off .flume/refactor/plan-overlay-builtin-kind-dedup.md (filed 17a1eb5, observed 29c5baf; re-verified at HEAD 17a1eb5 — no src/sdk/tests commits landed since). This is the capture's #4, the mechanical low-risk sub-fix the capture itself flagged as shippable alone regardless of the wider hoist. scoped at 17a1eb5."
+  },
+  {
+    "tag": "OVERLAY-BUILTIN-KIND-SHARED-HOIST",
+    "summary": "compose::overlay_builtin_kind is independently re-derived per builtin kind at five remaining call sites in one gate()/explain() run though declarations.kinds never changes across them",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "RESOLVE-KIND-UNITS-DEAD-OVERLAY"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "Compute the overlaid builtin-kind map (`BTreeMap<String, CustomKind>`) once per invocation, mirroring the `ManifestCache`/`build_manifest_cache` precedent (GATE-MANIFEST-SHARED-READ-HOIST). The natural hoist point sits earlier than any current consumer: `assemble_lock_family` (909) is called first (gate.rs:63), before builtin_defs/manifest_cache/either admissibility call exist — so `LockFamily` (struct at 356) likely grows a field carrying the map out, and assemble_lock_family's own local-kind loop, `declared_kinds` (524-536, called again independently by build_manifest_cache at 1159), and kind_units_and_features's explicit overlay call (673-679) all thread from the hoisted map instead of recomputing."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Thread the hoisted map through the dispatch loop's kind_units_and_features call (137) and both admissibility calls (168 governs_collision_diagnostics, 176 local_locus_admissibility — called back-to-back with identical &builtin_defs/&declarations args) instead of each recomputing the overlay from builtin_defs+declarations."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "governs_collision_diagnostics (262) and local_locus_admissibility (209) each call compose::overlay_builtin_kind per builtin kind internally today — change their signature to accept the pre-overlaid map (from gate.rs) instead of re-deriving from builtin_defs/declarations."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "The explain path's assemble_lock_family call (1554) is LockFamily's second consumer — thread the hoisted map out here too so the subsequent build_manifest_cache/builtin_units_and_features_by_kind calls reuse it rather than re-deriving, keeping explain and gate's cost shape identical."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "human-readable: LockFamily (src/compose.rs) gains a field carrying the shared overlaid builtin-kind map",
+    "tests": [
+      {
+        "path": "src/main.rs",
+        "asserts": "one full gate() run over a harness with N builtin kinds calls overlay_builtin_kind at most N times total (once per builtin kind), not once per the five call sites named in files[] — extends the overlay_builtin_kind_count() pin RESOLVE-KIND-UNITS-DEAD-OVERLAY ships, mirroring resolve_kind_units_count's own shape (main.rs:743-765)"
+      }
+    ],
+    "acceptance": "overlay_builtin_kind_count() delta for one full gate()/explain() invocation equals the number of builtin kinds needing overlay, not that count times five; LockFamily carries the shared map to every consumer named in files[]. cargo test and cargo clippy --all-targets -- -D warnings green.",
+    "notes": "Split off .flume/refactor/plan-overlay-builtin-kind-dedup.md (17a1eb5; observed 29c5baf; re-verified at HEAD — no src/sdk/tests commits since). Capture flagged the hoist point as a design call, not mechanical; files[] carries the sketch (mirrors the ManifestCache precedent, GATE-MANIFEST-SHARED-READ-HOIST) so build implements rather than invents it. blockedBy the narrow sub-fix, avoiding two open entries touching the same overlay_builtin_kind neighborhood at once. scoped at 17a1eb5."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
