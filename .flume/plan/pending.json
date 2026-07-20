@@ -1,40 +1,5 @@
 [
   {
-    "tag": "RESOLVE-KIND-UNITS-DEAD-OVERLAY",
-    "summary": "resolve_kind_units re-derives compose::overlay_builtin_kind on a kind its own two callers already overlaid — dead per-kind work run twice per resolution",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "resolve_kind_units (591) opens with `let overlaid = overlay_builtin_kind(kind, declarations)?;` (598) — but its only two callers (`rg` confirmed) already pass a pre-overlaid kind: kind_units_and_features (673-680) overlays explicitly right before calling it, and assemble_lock_family's local-kind loop (909+) iterates `declared_kinds(committed)?.values()`, which overlays every builtin kind inside declared_kinds (524-536) before resolve_kind_units ever sees it. `CustomKind::overlay_templates`/`overlay_content` (kind.rs) replace wholesale rather than accumulate, so re-deriving reproduces the identical CustomKind — replace the re-derivation with `let overlaid = kind.clone();`. The `declarations` param stays: resolve_kind_units still needs it below (layout_edge_fields, declared_kinds, manifest_units)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Add an `OVERLAY_BUILTIN_KIND_COUNT` thread-local + `overlay_builtin_kind_count()` accessor beside `RESOLVE_KIND_UNITS_COUNT`/`resolve_kind_units_count()` (30-46), incremented inside `overlay_builtin_kind` (398) itself — the count-pin this fix ships, mirroring the existing precedent for the identical 'called twice per kind' bug shape one layer up."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/main.rs",
-        "asserts": "kind_units_and_features resolved over one builtin kind calls overlay_builtin_kind exactly once (pre-fix: twice — once explicit in kind_units_and_features, once inside resolve_kind_units), the same doubled-call shape RESOLVE_KIND_UNITS_COUNT already pins one layer up (main.rs:743-765), applied to this layer"
-      }
-    ],
-    "acceptance": "overlay_builtin_kind_count() delta for a single kind_units_and_features call over one builtin kind is 1, not 2. cargo test and cargo clippy --all-targets -- -D warnings green.",
-    "notes": "Split off .flume/refactor/plan-overlay-builtin-kind-dedup.md (filed 17a1eb5, observed 29c5baf; re-verified at HEAD 17a1eb5 — no src/sdk/tests commits landed since). This is the capture's #4, the mechanical low-risk sub-fix the capture itself flagged as shippable alone regardless of the wider hoist. scoped at 17a1eb5."
-  },
-  {
     "tag": "OVERLAY-BUILTIN-KIND-SHARED-HOIST",
     "summary": "compose::overlay_builtin_kind is independently re-derived per builtin kind at five remaining call sites in one gate()/explain() run though declarations.kinds never changes across them",
     "per": {
@@ -42,8 +7,7 @@
       "section": "Cost scale is hoisted, and pinned by count"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "RESOLVE-KIND-UNITS-DEAD-OVERLAY"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
