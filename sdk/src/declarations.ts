@@ -782,7 +782,7 @@ export function tapHookRows(harness: Harness): RegistrationRow[] {
     if (requirement.verifier?.species !== "telemetry") return;
     for (const name of requirement.verifier.events) {
       const mapping = TELEMETRY_EVENT_HOOKS[name];
-      if (mapping !== undefined) deduped.set(`${mapping.event} ${mapping.matcher}`, mapping);
+      if (mapping !== undefined) deduped.set(`${mapping.event}${mapping.matcher}`, mapping);
     }
   };
   for (const requirement of Object.values(harness.require)) collect(requirement);
