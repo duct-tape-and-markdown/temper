@@ -1,5 +1,36 @@
 [
   {
+    "tag": "ENGINE-DECIDE-TYPE-ENUM-ARMS-GUARD-HELPER-REUSE",
+    "summary": "decide()'s Type/Enum arms still hand-write the membership boolean guard_membership_fails already extracts — the When-arm consolidation left a third home, not one",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "ENGINE-WHEN-GUARD-MEMBERSHIP-DEDUP (8a47d84) extracted `guard_membership_fails` (870-883) and rewired only `Predicate::When`'s guard match (1237) to call it; its commit message claimed 'the Type/Enum arms call it for violations' but on disk they don't. `Predicate::Type`'s decide arm (935-944) still inlines `!kinds.contains(&actual)` and `Predicate::Enum`'s decide arm (972-980) still inlines `!values.iter().any(|v| v == text)` — the exact two booleans `guard_membership_fails` already computes. Call the helper for the boolean in both arms, keeping each arm's own diagnostic-message formatting (the helper returns bool only, never a message) — completing the consolidation to one home instead of three."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "existing `type_fires_on_a_kind_mismatch_and_is_silent_on_match_and_absence` (1458) and `enum_fires_off_the_permitted_set` (2267) pin the Type/Enum decide arms' behavior unchanged after the boolean is routed through the shared helper"
+      }
+    ],
+    "acceptance": "`Predicate::Type` and `Predicate::Enum`'s decide arms compute their membership boolean via `guard_membership_fails` rather than a hand-written duplicate; `cargo test` green with no new test needed (existing Type/Enum decide tests already pin the behavior).",
+    "notes": "Found in this tick's post-ship reconciliation audit of 8a47d84 (per collaboration.md, 'Investigation discipline': read the disk, never the commit message alone). scoped at c9d8b24."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
