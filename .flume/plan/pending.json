@@ -1,5 +1,92 @@
 [
   {
+    "tag": "DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP",
+    "summary": "src/drift.rs's entry_shape_of hand-reparses the collection-address wire label kind::collection_address_from_row already resolves loud; wire the emit call site to the shared function instead",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`entry_shape_of` (1599-1645) hand-parses the `object`/`scalar(field)`/`group-array(member_key;fields)` wire label plus a hooks/enabledPlugins fallback — the exact job `crate::kind::entry_shape_from_label` (reached through the already-imported `collection_address_from_row`, `use crate::kind::{..., collection_address_from_row}` at line 33) already performs through the vocab-checked path. The doc comment at 1601-1602 admits it 'Mirrors the same fallback logic [`collection_address_from_row`] applies'. Its sole call site (1143-1150) already holds `facts: &KindFactRow` and can call `collection_address_from_row(facts)?.map(|addr| addr.entry_shape)` instead — the identical pattern this same file already uses at line 1754 inside `manifest_segment_reaps` on the same `KindFactRow` shape. Delete `entry_shape_of` (1599-1645) once the call site is rewired. `collection_key_of` (1595-1597) is untouched — it resolves a different fact (a registration's manifest segment key off `RegistrationRow::key_path`, still needed at line 1135) that `collection_address_from_row` does not compute. The consolidation also tightens behavior: `entry_shape_of` silently falls back to `EntryShape::Object` on a malformed `group-array(...)` or an unrecognized label (1624-1631), where the shared path rejects the identical malformed input loud via `LockRowError::Vocabulary` — already unit-tested (`src/kind.rs` ~1608/1634/1787; `tests/lock_declaration_rows.rs:1399,1416`)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_loop and a_represented_manifest_emits_whole_through_the_write_face_not_json_splice still resolve GroupArray/Object entry shapes identically through the registration loop after the consolidation"
+      }
+    ],
+    "acceptance": "The registration loop's entry-shape resolution in src/drift.rs runs through `collection_address_from_row` alone; `entry_shape_of` no longer exists in the file. `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "collection_key_of is not touched — it computes a different fact (a registration's manifest segment key) with no shared-function precedent to fold onto. Scoped at 721cab6."
+  },
+  {
+    "tag": "DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE",
+    "summary": "src/drift.rs's config_stale reimplements config_stale_from_doc's loop verbatim instead of parsing once and delegating, unlike every other path/doc sibling pair in the same file",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "blockedBy", "tag": "DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`config_stale` (2642-2669) reimplements `config_stale_from_doc`'s (2674-2704) whole loop body verbatim — same field destructure, same read-and-hash comparison, same `Diagnostic::warn` construction — instead of parsing the lock once and delegating. Every other path/doc sibling pair in this same file already delegates: `walk_lock_rows` (2193-2196) calls `walk_lock_rows_from_doc`, `source_deps` (2807-2823) calls `source_deps_from_doc`, `source_dep_stale` (2919-2941) calls `source_dep_stale_from_doc`. Rewrite `config_stale` to call `read_lock_document_for_emit(workspace_dir)` (the same parse `walk_lock_rows` already performs) then `config_stale_from_doc(&doc, workspace_dir)`, deleting the duplicated loop (2643-2668 collapses to the delegation)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the existing config_stale assertions (lines 539, 613) still pass unchanged once config_stale delegates instead of reimplementing"
+      }
+    ],
+    "acceptance": "`config_stale` contains no comparison loop of its own — it parses the lock once and calls `config_stale_from_doc`. `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "Same cost profile either way — walk_lock_rows-equivalent parsing already does one read plus one parse — so this is a duplication fix, not a cost-hoist fix. Scoped at 721cab6."
+  },
+  {
+    "tag": "DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE",
+    "summary": "src/drift.rs's write_rollup carries a dead custom rollup-map parameter and loop — its sole call site already merges every kind into one map and passes an empty placeholder for custom",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "gate": { "kind": "blockedBy", "tag": "DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`write_rollup`'s `custom: &BTreeMap<String, Vec<RollupEntry>>` parameter (485) and its write loop (494-496) are dead: `emit`'s own rollup construction (1437-1467) already accumulates every kind — built-in and custom-declared alike — into one `rollups: BTreeMap<String, Vec<RollupEntry>>` keyed by `projection.kind`, and the sole call site (1501-1508) passes that one map as `builtins` and always passes `&BTreeMap::new()` as `custom`. `write_rollup` is `pub(crate)` with `emit` as its only caller (no other call site in `src/`/`tests/`), so the parameter can never receive a non-empty map in production. Collapse the signature to one rollup-entries map parameter, drop the dead loop, and update the doc comment (465-471) which still narrates 'the built-in kinds first (key-sorted) then the custom kinds (name-sorted)' — a two-partition story the data no longer carries."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "lock.toml roll-up output is byte-unchanged (kind rows still key-sorted, name-sorted within a kind) after write_rollup collapses to one map parameter"
+      }
+    ],
+    "acceptance": "`write_rollup` takes one rollup-entries map; no call site constructs an empty placeholder map to satisfy a second parameter. `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean.",
+    "notes": "Likely residue from the retired custom/builtin kind split (open-questions.md's 'kinds/ + packages/ curated trees — RETIRED' record); this entry only prunes the dead parameter, it doesn't chase that history further. Scoped at 721cab6."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
