@@ -1,5 +1,36 @@
 [
   {
+    "tag": "MANIFEST-CACHE-READ-COUNT-PIN",
+    "summary": "`json_manifest::manifest_read_count()` is a zero-consumer export: no test pins the gate/check/explain manifest-read hoist its own doc comment claims exists",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Add a count-pin test mirroring `emit_represented_manifest_read_is_hoisted_once_per_manifest` (543) and `gate_resolved_edge_walk_is_hoisted_per_gate_invocation` (409), but for the gate/check/explain path: build a `Declarations`/`overlaid_builtin_kinds` fixture with two manifest kinds whose `collection_address` both target the same manifest file (e.g. two distinct `hooks.<Event>`-shaped addresses, or a hook + an installed-plugin address, both naming `settings.json`), call `compose::build_manifest_cache` (compose.rs:1186) once, and assert `json_manifest::manifest_read_count()`'s delta is 1 — the file read once and shared across both governing kinds, not once per kind (the regression GATE-MANIFEST-SHARED-READ-HOIST, 83fbdd5, fixed)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/check_cost.rs",
+        "asserts": "build_manifest_cache reads a manifest file governed by two kinds exactly once, not once per governing kind"
+      }
+    ],
+    "acceptance": "A new count-pin test calls `json_manifest::manifest_read_count()` before/after `compose::build_manifest_cache` over a fixture with 2+ kinds sharing one manifest file, asserting the delta is 1; `cargo test` green. `json_manifest::manifest_read_count`'s own doc comment (json_manifest.rs:40-42, 'Pinned by count-tests') stops being aspirational.",
+    "notes": "Verified on disk at 69f08fd: rg manifest_read_count across src/+tests/ finds only its own definition (json_manifest.rs:44) and drift.rs separate, already-tested counter (drift.rs:71, pinned by check_cost.rs:543 emit test) — zero callers of the json_manifest one anywhere. compose::build_manifest_cache (compose.rs:1186-1213, wired from gate.rs:131) is the real consumer of the hoist and does call Manifest::read, so the counter is meaningful — just never asserted. scoped at 69f08fd."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
