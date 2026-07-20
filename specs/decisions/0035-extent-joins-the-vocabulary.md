@@ -86,3 +86,22 @@ enters the defaults. The deriving entry defines the measured span and
 carries the shift in its guidance. Retirement is loud where it lands: a lock still carrying
 `max_lines` refuses at load — the closed vocabulary's ordinary
 behavior, never a silent migration shim. Plan derives the entry.
+
+## Amendment (2026-07-20) — extent ranges over the embedded locus
+
+centercode's directive/step/orientation budgets — this decision's own
+original driver — were withdrawn a second time: extent ranges over a
+body's rendered lines, and an embedded member owns no body of its own. So
+`extent` extends to the embedded locus, measuring the member's **rendered
+span** — the lines its block composes to in the host document — consistent
+with this decision's rendered-side measurement ruling (source-side
+counting stays rejected). The budget stays decidable and judgment-free.
+
+Guidance carried per invariant 8 (`intent.md`): extent is a **budget, not a
+style rule** — a decidable ceiling under runaway length, and that is the
+whole of its job. An author reaching for extent to encode good writing (a
+line must be short, a sentence simple) is building the linter temper sits
+downstream of (invariant 5). The quality judgment is the author's, rendered
+as a byproduct of authoring; the kind delivers its brevity intent to that
+author as guidance, and the gate holds only the floor. Session-argued,
+human-ruled 2026-07-20. Plan derives the embedded-span entry.
