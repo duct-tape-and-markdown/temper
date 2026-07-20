@@ -83,6 +83,17 @@ hard.
   ladder — "push every check to the most deterministic layer that can
   express it"; the harness pin (John, 07-18) — "our job in the harness
   is to name the invariants, and let the loop settle".
+- Consumer-format constants' home (parked, John 07-20): `MAX_IMPORT_HOPS`
+  (src/graph.rs) is a target-format fact baked as an engine constant with
+  its cite in a comment — it drifted (5 vs the real 4, fixed 14719f2).
+  Considered declaring such caps on the cited kind (memory kind's
+  import-directive), engine reading them through the lock; deferred — a
+  lock-schema extension for a single one-format fact, and it only dedups
+  the low-harm internal axis (guidance prose is advisory; the engine
+  constant is the sole load-bearing home). **Trigger to revisit: a second
+  import-bearing format** makes per-format declared caps non-speculative.
+  Freshness (engine-vs-reality drift) is an inherent bound — temper is
+  offline/decidable-only, so only re-verification catches it; not encoded.
 - Base harness dogfood: primer `docs/base-harness-primer.md`; example at
   `examples/base-harness/` (third cut shipped 549969f); built-in-kind doc
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
