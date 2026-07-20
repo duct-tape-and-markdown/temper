@@ -1,5 +1,31 @@
 [
   {
+    "tag": "BUILTIN-CONTRACT-DOC-KIND-LIST-STALE",
+    "summary": "builtin.rs's module doc names only 5 kinds (agent, command, skill, rule, memory) as getting floor Contracts; contract()/contracts() actually project all 14 embedded kinds — stale enumeration",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Narration is the ladder's bottom rung"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/builtin.rs",
+          "description": "Module header (1-9) reads \"Each built-in kind's floor [`Contract`] (`agent`, `command`, `skill`, `rule`, `memory`) is a lossless projection...\" — a named 5-kind subset last updated at 81b6ab4 (skill/rule/memory → +agent/command) and never touched again as more kinds shipped. Verified at HEAD: `src/builtin_lock.rs`'s own test (`the_embedded_lock_parses_into_kind_facts_and_floor_clauses_only`) shows the embedded lock carries 14 kind rows, 12 of which (adding `dial`, `hook`, `marketplace`, `mcp-server`, `plugin-manifest`, `settings-local`, `supporting-doc` to the named 5) own non-empty floor clauses, and `contract()`/`contracts()` (28-48, this file) run every embedded kind through the identical `contract_for_kind` lift with no special-casing by name — the remaining 2 (`installed-plugin`, `known-marketplace`) still resolve `Some` with an empty clause vec. Reword the header to state the mechanism generically (every embedded kind's floor, not a fixed named subset) so the prose can't drift stale again as the lock's kind set grows."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "src/builtin.rs's module header no longer hand-enumerates a kind subset that understates what `contract`/`contracts` actually cover — it states the mechanism runs over every embedded kind, verified against `builtin_lock::declarations().kinds`. cargo test and cargo clippy --all-targets -D warnings green (comment-only diff).",
+    "notes": "Posture-sweep finding, src/builtin.rs neighborhood (builtin.rs + its immediate imports builtin_lock.rs/compose.rs/contract.rs), tree-order continuation from address.rs/admissibility.rs. Comment-only; no behavior change. scoped at e19350e."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
