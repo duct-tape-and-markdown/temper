@@ -1,10 +1,10 @@
 # Plan state
 
 - Spec derived through: 8911c38 — unchanged, not this tick's job.
-- Audited through: f17678f — unchanged, not this tick's job (no src/tests/sdk commits past it; da11845 is a plan-only commit).
-- Residue swept through: f17678f — unchanged, not this tick's job.
-- Posture swept through: src/builtin.rs, src/builtin_kind.rs covered, mid-rotation — advanced from src/builtin.rs. Frontier still holds every module past src/builtin_kind.rs; src/builtin_lock.rs is the tree-order candidate next time posture sweep is live.
-- This tick: POSTURE SWEEP, src/builtin_kind.rs neighborhood (frontier module + its immediate imports: compose::Edge, drift::NestedMemberRow, extract::{Features, host_address}, kind::*, tap::TapEvent). Found one violation, verified on disk: `pub const SETTINGS_DOC` (line 64) is read only at its own two use sites in this file (84, 112) — rg-confirmed zero callers in src/, tests/, sdk/ — an "An export earns its consumer" violation, the same lens that already pruned `qualified` from this module. Filed BUILTIN-KIND-SETTINGS-DOC-VISIBILITY-NARROW (open, mechanical: drop `pub`). No cohesion or embedded-provider-knowledge violation: the module's dual role (built-in kind roster + known-Claude-Code-surface registry) is architecture.md's own designated provider face, not a fileable cohesion split. `all_kinds()`'s per-call reconstruction is O(1) fixed-size literal data, not input-scaling — not a cost-scale-hoisted violation.
-- Queue: 3 pending, 1 open (BUILTIN-KIND-SETTINGS-DOC-VISIBILITY-NARROW), 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — unchanged, not this tick's job; re-verified still holding). Refactor: 0 live. Friction: 0 live. Amendments: 0 live. Inbox: 0 notes.
+- Audited through: 1b0ea01 — advanced from f17678f.
+- Residue swept through: 1b0ea01 — advanced from f17678f.
+- Posture swept through: src/builtin.rs, src/builtin_kind.rs covered, mid-rotation — unchanged this tick (job order pre-empted it). src/builtin_lock.rs is the tree-order candidate next.
+- This tick: POST-SHIP RECONCILIATION, window f17678f..1b0ea01 — audited BUILTIN-KIND-SETTINGS-DOC-VISIBILITY-NARROW shipped correctly on disk, swept the same window for residue and found none; both parked entries re-verified still holding (details in commit body).
+- Queue: 2 pending, 0 open, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — re-verified still holding). Refactor: 0 live. Friction: 0 live. Amendments: 0 live. Inbox: 0 notes.
 
-Plan continues: after-build — the only remaining live job is the posture sweep (mid-rotation, frontier open past src/builtin_kind.rs) and a pickable entry now exists (BUILTIN-KIND-SETTINGS-DOC-VISIBILITY-NARROW), so ready work ships first; the sweep resumes at src/builtin_lock.rs when the wave hands back.
+Plan continues: yes — the posture sweep is mid-rotation with its frontier open past src/builtin_kind.rs, no pickable entry exists to hand off to build, so plan resumes it next tick at src/builtin_lock.rs.
