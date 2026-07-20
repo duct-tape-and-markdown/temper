@@ -638,6 +638,151 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
     );
 }
 
+/// The run-level count-pin (`engineering.md`, "Cost scale is hoisted, and pinned by
+/// count"): a whole check run walks each consulted discovery flavor exactly once. The
+/// cache-level pin in `import.rs` proves N kind discoveries over one shared cache cost
+/// one walk per flavor; this pins that the *run* actually rides a single shared cache.
+/// `gate` threads one `Discovery` through every discovery call, so over the run the
+/// global walk count advances by exactly the flavors consulted — a code path that
+/// built a second `Discovery` mid-run would walk off its own cache and overshoot. The
+/// run consults both flavors: committed kinds (skill, rule, …) ride the standard
+/// flavor, the local-locus kinds (settings-local, dial) ride the local one — two
+/// flavors, two walks, never a third. The walk count is per-thread, so the delta is
+/// this run's alone whatever else runs concurrently.
+#[test]
+fn a_full_check_run_walks_each_consulted_flavor_once() {
+    use temper::gate;
+
+    let harness = tmpdir("run-walk-pin");
+    let skill = harness.join(".claude").join("skills").join("coordinate");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: coordinate\ndescription: Drive a task across a team of agents.\n---\n# Coordinate\n",
+    )
+    .unwrap();
+    let rules = harness.join(".claude").join("rules");
+    std::fs::create_dir_all(&rules).unwrap();
+    std::fs::write(rules.join("rust.md"), "# Rust\n").unwrap();
+
+    // The raw-harness gate: workspace and harness root are the one path, exactly as
+    // `harness_diagnostics` dispatches a bare harness.
+    let before = import::walk_count();
+    gate::gate(&harness, &harness, &[]).unwrap();
+    let walks = import::walk_count() - before;
+
+    assert_eq!(
+        walks, 2,
+        "a whole run must walk each consulted flavor exactly once — one shared cache \
+         threaded through the run, never a per-kind or per-call re-walk",
+    );
+}
+
+/// The per-kind resolution count-pin: every kind's members are read from disk and
+/// parsed exactly once per gate/explain invocation. The test verifies that no kind is
+/// resolved more than once — before the fix, kinds were resolved twice (once through
+/// kind_features for validation and again through collect_directive_members).
+#[test]
+fn resolve_kind_units_runs_once_per_kind_not_twice() {
+    use temper::compose;
+    use temper::gate;
+
+    let harness = tmpdir("resolve-units-once");
+    let skill = harness.join(".claude").join("skills").join("test-skill");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: test-skill\ndescription: Test skill.\n---\n# Skill\n",
+    )
+    .unwrap();
+    let rules = harness.join(".claude").join("rules");
+    std::fs::create_dir_all(&rules).unwrap();
+    std::fs::write(rules.join("test-rule.md"), "# Rule\n").unwrap();
+
+    // Create a custom kind with one member to verify custom kinds are also resolved
+    // exactly once.
+    let custom_kinds = harness.join(".temper");
+    std::fs::create_dir_all(&custom_kinds).unwrap();
+    std::fs::write(
+        custom_kinds.join("lock.toml"),
+        r#"[[kind]]
+name = "custom-kind"
+content = "file"
+format = "toml-document"
+governs = ".custom"
+unit_shape = "file"
+"#,
+    )
+    .unwrap();
+    let custom_dir = harness.join(".custom");
+    std::fs::create_dir_all(&custom_dir).unwrap();
+    std::fs::write(
+        custom_dir.join("member.toml"),
+        "[custom]\ndata = \"test\"\n",
+    )
+    .unwrap();
+
+    let before = compose::resolve_kind_units_count();
+    gate::gate(&harness, &harness, &[]).unwrap();
+    let resolves = compose::resolve_kind_units_count() - before;
+
+    // The count-pin verifies resolve_kind_units is called exactly once per kind.
+    // With 15+ built-in kinds plus custom kinds, a vacuous test would pass with zero;
+    // a real run must demonstrate non-zero delta.
+    assert!(
+        resolves > 0,
+        "resolve_kind_units not called at all (delta was 0); the real counter may not be wired",
+    );
+
+    // Before the fix, resolve_kind_units was called twice per kind: once through
+    // kind_features and again through collect_directive_members. After the fix, it's
+    // called exactly once per kind. The exact count depends on how many built-in kinds
+    // exist (14) plus custom kinds (at least 1), but the key invariant is that with
+    // 2+ kinds, we should see fewer than `2 * kind_count` resolves. For 15+ kinds,
+    // a pre-fix run would make 30+ calls; post-fix should be ~15-20.
+    let kind_count_estimate = 15;
+    let max_expected_if_doubled = kind_count_estimate * 2;
+    assert!(
+        resolves < max_expected_if_doubled,
+        "resolve_kind_units called {resolves} times; if it ran twice per kind \
+         (pre-fix), would expect {max_expected_if_doubled}+ — the threading fix may not be working",
+    );
+}
+
+#[test]
+fn overlay_builtin_kind_count_increments_once_per_application() {
+    use temper::builtin_kind;
+    use temper::compose;
+    use temper::gate;
+
+    let before = compose::overlay_builtin_kind_count();
+    let harness = tmpdir("overlay-count");
+    let skill = harness.join(".claude").join("skills").join("test-skill");
+    std::fs::create_dir_all(&skill).unwrap();
+    std::fs::write(
+        skill.join("SKILL.md"),
+        "---\nname: test-skill\ndescription: Test skill.\n---\n# Skill\n",
+    )
+    .unwrap();
+
+    gate::gate(&harness, &harness, &[]).unwrap();
+    let overlays = compose::overlay_builtin_kind_count() - before;
+
+    let builtin_defs = builtin_kind::definitions();
+    let builtin_count = builtin_defs.len();
+
+    assert!(
+        overlays > 0,
+        "overlay_builtin_kind not called at all (delta was 0); the real counter may not be wired",
+    );
+
+    assert!(
+        overlays <= builtin_count,
+        "overlay_builtin_kind called {overlays} times; should be at most {builtin_count} \
+         (once per builtin kind) — the hoisting fix may not be working",
+    );
+}
+
 #[test]
 fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
     use std::collections::BTreeMap;

@@ -1275,6 +1275,7 @@ mod tests {
     use super::*;
 
     use crate::contract::{Clause, Predicate, Severity};
+    use std::collections::BTreeMap;
 
     /// A [`ClauseRow`] at `severity`, every other column defaulted — the base the
     /// reject-loud cases struct-update, overriding only `kind`/`predicate` and any
@@ -1437,5 +1438,145 @@ mod tests {
             default_contract_from_rows(&bad_severity, "spec"),
             Err(ClauseRowError::Severity { severity, .. }) if severity == "blocking"
         ));
+    }
+
+    /// The directive-backing set reads **raw disk**, never ignore-filtered: whether an
+    /// `@import` target is backed is a fact about the filesystem the harness loads
+    /// regardless of `.gitignore`, and the safe direction fixes it — an extra backing file only *suppresses* a
+    /// finding, while pruning one could *forge* an unbacked finding on a target that
+    /// exists. This is the counterpart to discovery, which *does* prune — two sets,
+    /// two rules, never merged.
+    #[test]
+    fn repo_file_set_stays_raw_disk_including_gitignored_targets() {
+        use crate::test_support::tmpdir;
+        use std::fs;
+
+        let root = tmpdir("repo-file-set");
+        let dep = root.join("node_modules").join("dep");
+        fs::create_dir_all(&dep).unwrap();
+        fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
+        fs::write(root.join("CLAUDE.md"), "# root\n").unwrap();
+        // An `@import` target the harness loads even though `.gitignore` excludes it.
+        fs::write(dep.join("SHARED.md"), "shared\n").unwrap();
+
+        let files = repo_file_set(&root);
+        assert!(
+            files.iter().any(|f| f == "node_modules/dep/SHARED.md"),
+            "the gitignored backing target must still be seen (raw disk): {files:?}"
+        );
+        assert!(files.iter().any(|f| f == "CLAUDE.md"));
+    }
+
+    /// One `nested_member` row of a `citation` kind declaring the edges `edges` names,
+    /// filling the leaves `leaves` names, whose format placed `placed` (`None` ⇒ no
+    /// format rendered the value).
+    fn citation_row(
+        edges: &[&str],
+        leaves: &[&str],
+        placed: Option<Vec<String>>,
+    ) -> drift::Declarations {
+        drift::Declarations {
+            assembly: edges
+                .iter()
+                .map(|field| drift::AssemblyFactRow {
+                    fact: "edge".to_string(),
+                    from: Some("citation".to_string()),
+                    field: Some((*field).to_string()),
+                    to: Some(vec!["rule".to_string()]),
+                    value: None,
+                })
+                .collect(),
+            nested_members: vec![drift::NestedMemberRow {
+                host: "memory:CLAUDE".to_string(),
+                kind: "citation".to_string(),
+                key: "the-standard".to_string(),
+                leaves: leaves
+                    .iter()
+                    .map(|leaf| ((*leaf).to_string(), "rule:rust".to_string()))
+                    .collect(),
+                collections: Vec::new(),
+                placed_edges: placed,
+                rendered_lines: None,
+                rendered_chars: None,
+            }],
+            ..drift::Declarations::default()
+        }
+    }
+
+    /// The placement feature of the row `declarations` carries, against its kind's
+    /// declared edges — the join the lift performs.
+    fn placement_feature(declarations: &drift::Declarations) -> Option<BTreeMap<String, bool>> {
+        let edges = edge_fields_by_kind(declarations);
+        embedded_member_features(
+            &declarations.nested_members[0],
+            edges.get("citation").unwrap(),
+        )
+        .edge_placements
+    }
+
+    /// A member's placement feature is the join of two lock families: the edges the
+    /// `assembly` family says its kind declares, against the `placed_edges` its own row
+    /// says the format rendered. Neither alone decides a `format-places-edges` clause.
+    #[test]
+    fn an_embedded_members_placement_feature_joins_declared_edges_against_the_placed_set() {
+        let declarations = citation_row(
+            &["source", "supersedes"],
+            &["source", "supersedes"],
+            Some(vec!["source".to_string()]),
+        );
+        assert_eq!(
+            placement_feature(&declarations),
+            Some(BTreeMap::from([
+                ("source".to_string(), true),
+                ("supersedes".to_string(), false),
+            ])),
+            "the edge the format never selected must read as unplaced",
+        );
+    }
+
+    /// An edge field the value never filled is no edge, so it is no placement obligation:
+    /// ranging over the kind's whole declared set would read the absent field as one the
+    /// format dropped. An empty leaf is unfilled the same way an absent one is.
+    #[test]
+    fn an_unfilled_edge_field_carries_no_placement_obligation() {
+        let unfilled = citation_row(
+            &["source", "supersedes"],
+            &["source"],
+            Some(vec!["source".to_string()]),
+        );
+        assert_eq!(
+            placement_feature(&unfilled),
+            Some(BTreeMap::from([("source".to_string(), true)])),
+            "the unfilled `supersedes` is no edge, so the format omitted nothing",
+        );
+
+        let mut empty_leaf = citation_row(&["source"], &["source"], Some(Vec::new()));
+        empty_leaf.nested_members[0]
+            .leaves
+            .insert("source".to_string(), String::new());
+        assert_eq!(placement_feature(&empty_leaf), Some(BTreeMap::new()));
+    }
+
+    /// The two ways a member offers nothing to indict stay apart: no format rendered the
+    /// value at all (a layout host's document is source), versus a format that ran over a
+    /// value carrying no edge. Both hold at the gate, but only this lift can tell them
+    /// apart — an empty map standing for both is what left the clause undecidable.
+    #[test]
+    fn a_value_no_format_rendered_is_distinct_from_a_format_with_nothing_to_place() {
+        assert_eq!(
+            placement_feature(&citation_row(&["source"], &["source"], None)),
+            None
+        );
+        assert_eq!(
+            placement_feature(&citation_row(&["source"], &[], Some(Vec::new()))),
+            Some(BTreeMap::new()),
+        );
+
+        // The row whose format ran over a filled edge and placed nothing does carry the
+        // fact — an unplaced edge, which is the finding the clause exists to make.
+        assert_eq!(
+            placement_feature(&citation_row(&["source"], &["source"], Some(Vec::new()))),
+            Some(BTreeMap::from([("source".to_string(), false)])),
+        );
     }
 }
