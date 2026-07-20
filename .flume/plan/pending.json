@@ -1,31 +1,5 @@
 [
   {
-    "tag": "COVERAGE-DOC-HEADER-RULE-NARRATION-DUP",
-    "summary": "src/coverage.rs's module header (11-24) re-narrates both diagnostics that check()'s own doc (65-80) and the two rule consts' docs (57-58, 61-63) already state",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage.rs",
-          "description": "Module header (11-24): the per-rule bullet list under 'Two decidable, true-positive diagnostics' restates, in near-identical prose, what `check`'s own doc comment (65-80, numbered list 1/2) and the two rule consts' own doc comments (`REQUIREMENT_UNFILLED_RULE` at 57-58, `REQUIREMENT_DANGLING_RULE` at 61-63) already carry at their point of use — the same two facts stated three times in one 386-line file. Cut the header's bullet list; keep the header's opening framing (1-9, the requirement/satisfies/prose model) and the 'Kinship with the graph scope' section (31-49), which is a design rationale — why coverage.rs is not merged into graph.rs — inexpressible at any lower rung and not restated anywhere else in the file."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "src/coverage.rs's module header states the module's job and the graph-kinship rationale once, without repeating the per-rule behavioral description `check`'s and the two rule consts' own doc comments already carry. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green (comment-only change, no behavior pinned).",
-    "notes": "scoped at b188811. Neighborhood: coverage.rs plus its internal imports (check::Diagnostic, compose::Requirement, extract::Features) — all resolve to live, non-duplicated fields; no other violation found (single consumer gate.rs:414, kinship-with-graph.rs section verified accurate against src/graph.rs's live check/degree fns, vacuity-pin test present at 375-385). Comment-only fix, no regression test per rust.md's editorial comment lifecycle."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
