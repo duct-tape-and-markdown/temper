@@ -2,8 +2,7 @@
 //!
 //! Carries the [`Diagnostic`] value the generic engine emits. The clauses
 //! themselves are validated by the generic engine over the closed algebra —
-//! there is no per-rule code here; the heuristic rule registry it replaced is
-//! retired (kill the heuristic rule registry).
+//! there is no per-rule code here.
 //!
 //! A [`Diagnostic`] is a value the engine *collects*, not a thrown error — one
 //! `error`-severity finding drives `check`'s non-zero exit ([`any_error`]), and
