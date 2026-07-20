@@ -1,31 +1,5 @@
 [
   {
-    "tag": "DECLARED-KINDS-ZERO-CONSUMER",
-    "summary": "compose::declared_kinds is now zero-consumer: OVERLAY-BUILTIN-KIND-SHARED-HOIST migrated every call site to declared_kinds_with_overlaid, leaving it with no caller",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "declared_kinds (doc comment 529-537, fn 538-551) has zero callers anywhere in src/, tests/, sdk/ (`rg` confirmed — only hit is its own definition; the unrelated engine.rs::declared_kinds is a same-named different fn over BTreeSet<ValueType>, not this one). OVERLAY-BUILTIN-KIND-SHARED-HOIST (d108fbf) added declared_kinds_with_overlaid (553-572) and migrated every real call site (compose.rs:647,967,1217; gate.rs; read.rs) to it, but left the un-hoisted original behind. Delete declared_kinds entirely; declared_kinds_with_overlaid is the sole surviving surface for 'every declared kind, keyed by bare name.'"
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "compose::declared_kinds no longer exists in src/compose.rs; cargo build, cargo test, and cargo clippy --all-targets -- -D warnings all green with zero remaining references to the symbol.",
-    "notes": "Residue from OVERLAY-BUILTIN-KIND-SHARED-HOIST (d108fbf) -- the hoist's files[] scoped call-site migration but never named retiring the un-hoisted declared_kinds it superseded. rg confirmed zero callers in src/, tests/, sdk/ at 92960fd (only self-reference is its own definition; unrelated engine.rs::declared_kinds is a same-named different fn over BTreeSet<ValueType>, not this one). scoped at 92960fd."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
