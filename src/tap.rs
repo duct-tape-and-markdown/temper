@@ -163,8 +163,7 @@ pub(crate) fn log_path(workspace_dir: &Path) -> PathBuf {
 #[must_use]
 pub fn record_from_payload(payload: &str) -> Option<TapRecord> {
     let value: JsonValue = serde_json::from_str(payload).ok()?;
-    let string = |key: &str| value.get(key).and_then(JsonValue::as_str);
-    let session = string("session_id").unwrap_or_default().to_string();
+    let session = builtin_kind::hook_payload_session_id(&value);
 
     let (event, identity, reason) = builtin_kind::classify_claude_code_hook_payload(&value)?;
 

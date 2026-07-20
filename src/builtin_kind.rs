@@ -724,6 +724,21 @@ pub(crate) fn classify_claude_code_hook_payload(
     }
 }
 
+/// Extract the session ID from a Claude Code hook payload.
+///
+/// The session_id field is part of Claude Code's hook contract, an external fact:
+/// code.claude.com/docs/en/hooks (retrieved 2026-07-17).
+///
+/// Returns the session ID as a string, or an empty string if the field is absent or invalid.
+#[must_use]
+pub(crate) fn hook_payload_session_id(value: &JsonValue) -> String {
+    value
+        .get("session_id")
+        .and_then(JsonValue::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
