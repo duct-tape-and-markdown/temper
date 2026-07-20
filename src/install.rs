@@ -1150,7 +1150,8 @@ pub(crate) fn session_start_group() -> JsonValue {
     json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
 }
 
-/// The `PreToolUse` guard group temper installs, running `command` at [`GUARD_MATCHER`].
+/// The `PreToolUse` guard group temper installs: `{matcher, hooks: [{type, command}]}` shape
+/// (`code.claude.com/docs/en/hooks`, retrieved 2026-07-20), running `command` at [`GUARD_MATCHER`].
 fn guard_group(command: &str) -> JsonValue {
     json!({
         "matcher": GUARD_MATCHER,
