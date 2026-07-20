@@ -13,6 +13,7 @@ import {
   degree,
   enumOf,
   extent,
+  formatPlacesEdges,
   harness,
   membership,
   mentionReachable,
@@ -147,6 +148,11 @@ test("sectionContains composes a heading/marker predicate landing its section co
     heading: "Decision",
     marker: "Rejected",
   });
+});
+
+test("formatPlacesEdges composes a format-verification predicate with no field", () => {
+  assert.deepEqual(formatPlacesEdges(), { key: "format-places-edges" });
+  assert.equal(skillClauseRow(formatPlacesEdges()).predicate, "format-places-edges");
 });
 
 test("extent composes a render-side budget landing its unit and bound columns", () => {
