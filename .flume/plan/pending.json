@@ -1,34 +1,5 @@
 [
   {
-    "tag": "LAYOUT-MISSING-KEY-UNTESTED",
-    "summary": "`LayoutError::MissingKey` has zero test coverage, unlike its sibling `Unadmitted` which tests/layout_kind.rs exercises directly",
-    "per": {
-      "path": ".claude/rules/rust.md",
-      "section": "Tests"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "`an_unadmitted_top_level_heading_refuses_loud` (168-183) directly drives `LayoutError::Unadmitted`; no test drives the collection-with-explicit-key error path in `read_collection_member` (src/layout.rs:232-243), which returns `LayoutError::MissingKey` (src/layout.rs:236-240) when a member heading carries no sub-heading matching the declared `key`. The positive case (key sub-heading present) is already covered by `an_explicit_key_survives_a_heading_retitle` (92-124); add its negative twin — a `Collection` region with `key: Some(\"id\")` read over a member heading with no `id` sub-heading — asserting `LayoutError::MissingKey` fires and the error message names the heading and key (mirroring the `Unadmitted` test's `err.to_string().contains(...)` shape)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a collection member missing its declared explicit-key sub-heading fires `LayoutError::MissingKey`, naming the offending heading and key in the message"
-      }
-    ],
-    "acceptance": "`LayoutError::MissingKey` has a dedicated test proving it fires with the right heading/key, giving both `LayoutError` variants matching coverage (rust.md, \"Tests\": each rule/error path proven to fire, not just to compile). `cargo test` green.",
-    "notes": "Found sweeping src/layout.rs (posture sweep, tree-order after src/kind.rs). `LayoutRegion::Prose`'s `import` path is exercised separately by tests/layout_prose_import.rs — not a gap. A stale extract.rs cite (the layout reader moved to src/layout.rs at cfa545e) surfaced in the same read; recorded in open-questions.md per the ride-only rule, not filed here. scoped at 11ab0ab."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
