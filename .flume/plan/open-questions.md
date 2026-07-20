@@ -117,8 +117,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Eight live orphans** (six re-verified at HEAD df57610, the seventh at
-  8415088, the eighth new at 721cab6). `src/json_splice.rs`'s
+  **Seven live orphans** (six re-verified at HEAD df57610, the seventh at
+  8415088, the eighth new at 721cab6, one — extract.rs's own — discharged
+  at 2a6e488). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
   "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -160,29 +161,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   1509-1546) — have all shipped touching install.rs, none reaching this
   range; no entry currently open chains onto it, so it rides whichever
   next does.
-  `src/extract.rs`'s doc comment for `manifest_members` (surfaced this
-  tick's posture sweep of foundation) was orphaned mid-function by the
-  same extraction commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE)
-  that moved `manifest_members` to json_manifest.rs: lines 954-964
-  (re-read at 86ea7f0, shifted +1 from the prior 954-963 read) still
-  carry the function's own opening paragraphs, but its closing sentence
-  truncates ("The `hooks` collection nests one level deeper than every
-  other: an event's value is an") and runs straight into `number_kind`'s
-  unrelated doc comment two lines below, no blank line marking the
-  seam — dead prose describing a function that no longer lives in this
-  file, read as `number_kind`'s opening paragraph.
-  EXTRACT-BODY-HEADINGS-COLLECT-HEADS-DEDUP, filed this tick (this
-  posture sweep's own neighborhood), opens extract.rs for a
-  `body_headings`/`collect_heads` consolidation and names this cite in
-  its own scope — discharge verifies once it ships. The
-  same commit left a companion stale cite: `src/json_manifest.rs`'s
-  `Manifest::read` doc comment (now line 347) still names
-  `[extract::manifest_members]`, though the function it points at moved
-  into this same file — the module prefix is self-referential and wrong.
-  JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE (89cfc64) and
-  GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5) — both adf69b3..7173a59 — have
-  since shipped touching json_manifest.rs, neither reaching line 347; no
-  entry currently open chains onto it, so it rides whichever next does.
+  `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 347)
+  still names `[extract::manifest_members]`, though the function it
+  points at moved into this same file when `manifest_members` was
+  extracted from extract.rs to json_manifest.rs (404b73a,
+  EXTRACT-FOUNDATION-BOUNDARY-RESTORE) — the module prefix is
+  self-referential and wrong. JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE
+  (89cfc64) and GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5) — both
+  adf69b3..7173a59 — have since shipped touching json_manifest.rs,
+  neither reaching line 347; no entry currently open chains onto it, so
+  it rides whichever next does.
   **A seventh, surfaced this tick's posture sweep of contract.rs.**
   `src/contract.rs`'s `SHAPE_PATTERNS` doc comment (884-885, re-read at
   8415088) claims compilation "cannot fail" is "covered by
@@ -214,7 +202,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
-  exactly the ride-only rule's predicted resolution.
+  exactly the ride-only rule's predicted resolution. A second orphan,
+  `src/extract.rs`'s orphaned `manifest_members` doc-comment fragment
+  (954-964, the same 404b73a extraction that left the json_manifest.rs
+  companion cite above), discharged at 2a6e488 — EXTRACT-BODY-HEADINGS-COLLECT-HEADS-DEDUP
+  opened extract.rs for its `body_headings`/`collect_heads` consolidation
+  and excised the dead prose in scope, the same predicted resolution a
+  second time.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` /
   `10-contracts.md` strings, `src/read.rs`'s `20-surface` member ids,
