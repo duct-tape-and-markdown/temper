@@ -1,36 +1,5 @@
 [
   {
-    "tag": "IMPORT-NESTED-FILE-DOT-ROOT-STRIP-PREFIX",
-    "summary": "A `.`-rooted harness (`temper check .`) silently drops every nested-file member (e.g. a skill's supporting docs) — `unit_dir`'s `strip_prefix` never matches an unnormalized root",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "nesting"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/import.rs",
-          "description": "`discover_nested_file` (210-251) builds `root = disc.harness().join(&governs.root)` at 234 with no normalization, then hands it to `unit_dir` (267-273) for `entry.strip_prefix(root)` at 268. The shared `Discoverable` index keys every walked entry through `crate::address::normalize_path` (472), which drops `Component::CurDir` — so a `.`-rooted `Discovery` (`temper check .`) yields normalized entries with no leading `./`, while `root` here still carries it. `strip_prefix` never matches, `unit_dir` returns `None` for every entry, and the whole nested-file roster comes back empty. Confirmed by direct repro with the built binary: a fixture `.claude/skills/x/{SKILL.md,reference.md}` checked as `temper check $(pwd)` reports `supporting-doc (1)`; the identical tree checked as `temper check .` reports `supporting-doc (0)`, the member silently gone (no error, no exit-1). The sibling scanner `scan_locus` (340-358) already normalizes its own `root` at 351 for exactly this reason — its comment states 'the index is keyed by normalized paths, so a `.`-rooted locus... resolves to the harness root the walk keyed its top-level entries under' — `discover_nested_file` never got the same treatment. Fix: wrap the `root` construction at 234 with `crate::address::normalize_path`, matching `scan_locus`'s idiom exactly."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "`unit_dir` (private, exercised from `import.rs`'s own `mod tests`) resolves a host unit when `root` carries an unnormalized leading `.` component — e.g. `root = Path::new(\"./.claude/skills\")` against an `entry` already in the normalized form the shared index stores it in (no leading `./`); today this returns `None`, must return `Some(root.join(name))` after the fix. This is cwd-independent and does not need a real relative-CWD run. An additional end-to-end proof at the `discover_nested_file`/`discover_builtin` level, or in `tests/nested_member.rs`, is welcome if buildable without cwd-dependent flakiness (every existing case there constructs `Discovery` over an absolute `tempfile` dir), but is not required beyond the `unit_dir`-level proof."
-      }
-    ],
-    "acceptance": "`temper check .` and `temper check <absolute-path>` run against the identical tree report the identical nested-file member count (`coverage.checked`'s per-kind tally) — no silent roster loss on a `.`-rooted harness. `cargo test` green.",
-    "notes": "Routed from inbox (centercode PR #23, observed at b5f7d7c = HEAD). Repro'd with the built binary; every discover_nested_file/discover_builtin test uses an absolute tempdir, never a relative root, hence CI silence. Sibling `compose.rs:640` shares the same unnormalized-join pattern but degrades to a bare-stem id rather than dropping the member; no repro'd symptom, left out of scope, flagged for follow-up. scoped at b5f7d7c."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
