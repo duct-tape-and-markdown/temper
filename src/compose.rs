@@ -1169,15 +1169,18 @@ pub fn directive_members_from_resolved(
 }
 
 /// Every represented manifest file on disk as a raw [`Vec<String>`] of paths,
-/// walked once per run to avoid re-reading per-kind.
+/// walked once per run to avoid re-reading per-kind. Paths are normalized
+/// (`.`/`..` segments resolved) to match the format `graph::classify_directives`'s
+/// index uses: when root is absolute, entries are absolute; when root is relative,
+/// entries are relative. This ensures the backing check's path-domain join holds
+/// regardless of the harness root's spelling.
 pub fn repo_file_set(root: &Path) -> Vec<String> {
     let mut files = Vec::new();
     for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
         let Ok(entry) = entry else { continue };
-        if entry.file_type().is_file()
-            && let Ok(rel) = entry.path().strip_prefix(root)
-        {
-            files.push(rel.to_string_lossy().replace('\\', "/"));
+        if entry.file_type().is_file() {
+            let normalized = crate::address::normalize_path(entry.path());
+            files.push(normalized.to_string_lossy().replace('\\', "/"));
         }
     }
     files
@@ -1449,7 +1452,10 @@ mod tests {
     /// regardless of `.gitignore`, and the safe direction fixes it — an extra backing file only *suppresses* a
     /// finding, while pruning one could *forge* an unbacked finding on a target that
     /// exists. This is the counterpart to discovery, which *does* prune — two sets,
-    /// two rules, never merged.
+    /// two rules, never merged. Paths are normalized to match discovery's format:
+    /// absolute when root is absolute, relative when root is relative. An `@import`
+    /// target even if excluded by `.gitignore` stays visible, so backed pointers aren't
+    /// falsely unbacked by discovery's ignore-honoring pruning.
     #[test]
     fn repo_file_set_stays_raw_disk_including_gitignored_targets() {
         use crate::test_support::tmpdir;
@@ -1464,11 +1470,74 @@ mod tests {
         fs::write(dep.join("SHARED.md"), "shared\n").unwrap();
 
         let files = repo_file_set(&root);
+        let expected_shared = root
+            .join("node_modules/dep/SHARED.md")
+            .to_string_lossy()
+            .replace('\\', "/");
+        let expected_claude = root.join("CLAUDE.md").to_string_lossy().replace('\\', "/");
         assert!(
-            files.iter().any(|f| f == "node_modules/dep/SHARED.md"),
+            files.iter().any(|f| f == &expected_shared),
             "the gitignored backing target must still be seen (raw disk): {files:?}"
         );
-        assert!(files.iter().any(|f| f == "CLAUDE.md"));
+        assert!(files.iter().any(|f| f == &expected_claude));
+    }
+
+    /// repo_file_set with an absolute harness root produces absolute paths
+    /// (normalized), matching the format directive-target resolution uses.
+    #[test]
+    fn repo_file_set_normalizes_absolute_paths() {
+        use crate::test_support::tmpdir;
+        use std::fs;
+
+        let root = tmpdir("repo-file-set-absolute");
+        let subdir = root.join("src");
+        fs::create_dir_all(&subdir).unwrap();
+        fs::write(root.join("root.md"), "root").unwrap();
+        fs::write(subdir.join("child.md"), "child").unwrap();
+
+        let files = repo_file_set(&root);
+        // When root is absolute, output paths are absolute (not stripped).
+        let expected_root = root.join("root.md").to_string_lossy().replace('\\', "/");
+        let expected_child = root
+            .join("src/child.md")
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        assert!(
+            files.iter().any(|f| f == &expected_root),
+            "absolute root produces absolute paths: {files:?}"
+        );
+        assert!(
+            files.iter().any(|f| f == &expected_child),
+            "nested file is also absolute: {files:?}"
+        );
+    }
+
+    /// repo_file_set with a relative harness root produces relative paths
+    /// (normalized), matching the format directive-target resolution uses.
+    #[test]
+    fn repo_file_set_normalizes_relative_paths() {
+        use std::fs;
+        use std::path::PathBuf;
+
+        let root = PathBuf::from(".");
+        // Create test files in the current directory.
+        let test_file = PathBuf::from("test-directive-backing-relative.md");
+        if !test_file.exists() {
+            fs::write(&test_file, "test").unwrap();
+        }
+        let cleanup = test_file.clone();
+
+        let files = repo_file_set(&root);
+        // When root is `.`, output paths are relative (normalized, with `.` removed).
+        assert!(
+            files
+                .iter()
+                .any(|f| f == "test-directive-backing-relative.md"),
+            "relative root produces relative paths: {files:?}"
+        );
+
+        let _ = fs::remove_file(cleanup);
     }
 
     /// One `nested_member` row of a `citation` kind declaring the edges `edges` names,

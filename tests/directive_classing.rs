@@ -201,3 +201,47 @@ fn the_three_verdicts_partition_one_members_occurrences() {
     assert_eq!(classing.findings[0].artifact, "root");
     assert!(classing.findings[0].message.contains("ghost.md"));
 }
+
+#[test]
+fn a_backing_repo_file_is_found_with_absolute_harness_root() {
+    use std::fs;
+    use std::path::Path;
+    use temper::address;
+    use temper::compose;
+
+    let temp_dir = tempfile::tempdir().expect("create temp dir");
+    let root = temp_dir.path();
+    let subdir = root.join("src");
+    fs::create_dir_all(&subdir).expect("create subdir");
+    fs::write(root.join("CLAUDE.md"), "root").expect("write root file");
+    fs::write(subdir.join("helper.md"), "helper").expect("write helper file");
+
+    // Member imports a repo file using a relative path.
+    let member_path = subdir
+        .join("CLAUDE.md")
+        .to_string_lossy()
+        .replace('\\', "/");
+    let members = [member("memory", "root", &member_path, &["./helper.md"])];
+
+    // repo_file_set with absolute root produces absolute paths.
+    let repo_files = compose::repo_file_set(root);
+
+    // Normalize the repo files in the same way classify_directives does.
+    let repo_files_normalized: Vec<String> = repo_files
+        .iter()
+        .map(|f| {
+            address::normalize_path(Path::new(f))
+                .to_string_lossy()
+                .replace('\\', "/")
+                .to_string()
+        })
+        .collect();
+
+    let classing = classify_directives(&members, &repo_files_normalized);
+
+    assert!(
+        classing.findings.is_empty(),
+        "an absolute-root backed repo-file import is no finding, got: {:?}",
+        classing.findings
+    );
+}
