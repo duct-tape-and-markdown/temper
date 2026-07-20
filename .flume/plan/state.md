@@ -1,10 +1,10 @@
 # Plan state
 
-- Spec derived through: caf29fa — unchanged; no specs/ commits past it.
-- Audited through: 4ab6fe2 — advanced from a00e14a; DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE (19258b7/a6db2b5) verified shipped clean on disk (TELEMETRY_EVENT_HOOKS re-grepped: zero references left in declarations.ts, both live uses in builtins.ts correct).
-- Residue swept through: 4ab6fe2 — advanced from a00e14a; one finding, both handled this tick (see "This tick" below).
+- Spec derived through: caf29fa — unchanged; 946e303 (chore(spec): 0045, guidance decouples from the clause) still awaits the spec-delta job proper, but this tick's inbox drain already derived it in full (three chained entries below cover the decision's Consequences) — next tick's spec-delta pass can verify-and-close rather than derive fresh.
+- Audited through: 4ab6fe2 — unchanged; `git log 4ab6fe2..HEAD -- src/ tests/ sdk/` is empty (946e303 is spec-only).
+- Residue swept through: 4ab6fe2 — unchanged, same empty window.
 - Posture swept through: sdk/src/declarations.ts (+ its immediate imports assembly.ts/kind.ts/contract.ts/prose.ts/builtins.ts) covered; sdk/src/dial.ts next in rotation. Unchanged this tick.
-- This tick: POST-SHIP RECONCILIATION over a00e14a..HEAD. Audit: shipped move verified clean, no pending entry to drop. Sweep: the move's own line-shift (-24 in declarations.ts) had gone unreflected in DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE's cited lines (873/908/915/924 → corrected to 849/884/891/900) — rescoped in place. A second finding, the move's stale cite at sdk/src/contract.ts:338 ("declarations.ts" for TELEMETRY_EVENT_HOOKS, now builtins.ts), is comment/cite staleness — per the ride-only rule, filed as the open-questions record's eleventh orphan, not a standalone entry. Both cursors advance to 4ab6fe2.
-- Queue: 3 pending — 1 open (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE, lines rescoped this tick), 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds). Friction: 0. Amendments: 0. Inbox: 0 notes.
+- This tick: INBOX. One note (decision 0045's guidance-decouples-from-clause, observed at 946e303) routed into three chained entries — GUIDANCE-KIND-FIELD-SDK-CHANNEL, GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY (blockedBy it), BUILTINS-STRANDED-NOTES-PROMOTE-TO-GUIDANCE (blockedBy that) — matching the note's own (a)/(b)/(c) split. The SDK entry is itself blockedBy DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE (both edit sdk/src/declarations.ts, pending-entry rule's "Disjoint, or serialized"). Also fixed a live gate violation found on disk: DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE's `notes` had drifted to 509 chars (over the 500 cap — the prior tick's revert cause); trimmed to 409, same substance, no line-cite change.
+- Queue: 6 pending — 1 open (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE), 3 blockedBy in the new chain, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds). Friction: 0. Amendments: 0. Inbox: 0 notes.
 
-Plan continues: after-build — the only remaining live job is the dial.ts posture rotation, and DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE is pickable now.
+Plan continues: yes — spec delta (verify-and-close 946e303) is next, ahead of the open dial.ts posture rotation.

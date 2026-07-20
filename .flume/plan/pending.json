@@ -23,7 +23,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`export` is gone from `mentionScope` and `SEAM_VERSION` in sdk/src/declarations.ts; `rg 'export function mentionScope|export const SEAM_VERSION' sdk/src/declarations.ts` finds nothing. `pnpm --dir sdk test` green, unchanged behavior.",
-    "notes": "Zero-consumer, grep-verified over sdk/src + sdk/test excluding declarations.ts's own definitions. The SDK root deliberately excludes both from its public surface too (sdk/test/emit.test.ts:683 asserts SEAM_VERSION/compileDeclarations absent from the package root). Its blocker DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE shipped (19258b7/a6db2b5) — verified on disk, re-grepped clean — so the entry stands unblocked; its cited lines rescoped -24 this tick for the shift that move caused. scoped at 4ab6fe2."
+    "notes": "Zero-consumer, grep-verified over sdk/src + sdk/test excluding declarations.ts's own definitions. SDK root also excludes both from its public surface (sdk/test/emit.test.ts:683 asserts SEAM_VERSION/compileDeclarations absent). Blocker DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE shipped (19258b7/a6db2b5), verified clean — entry unblocked; cited lines rescoped -24 for that move's shift. scoped at 4ab6fe2."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -87,5 +87,125 @@
     "tests": [],
     "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at ac40c72, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff a23269d..HEAD -- .github/` is empty. scoped b676656."
+  },
+  {
+    "tag": "GUIDANCE-KIND-FIELD-SDK-CHANNEL",
+    "summary": "Add a predicate-less `guidance` channel to `kind()` and to field declarations (decision 0045), serialized into the lock as a new kind/field-attached fact distinct from a clause's guidance column",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`KindOptions` (319-321) gains an advisory `guidance?: string` (kind-level authoring counsel) and a new field-level slot — e.g. `fieldGuidance?: readonly { field: string; guidance: string; cite?: string }[]` — composed the way `clause()` already composes a predicate's severity/guidance/cite (contract.ts:310-315). Both erase before `kind()`'s `construct` (330-343) builds a member, riding on the returned `KindDefinition` the way `options.render` already does, never on the member itself."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`kindFactRow()` (294) serializes the new kind-level `guidance` and the field-guidance list into the row it returns, alongside the five facts it already lifts."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`KindFactRow` (3045) gains an optional `guidance: Option<String>` column plus a new optional field-guidance row list (its own struct: field name + guidance + optional cite), the same tolerant `#[serde(default)]` absent/empty round-trip `templates`/`registration` already take. `to_table`/`from_table` (3953-) extend to match. The generated TS bindings under `sdk/src/generated/` regenerate from these structs via the project's existing ts-rs export step."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "`from_kind_fact_row` (577) lifts both new columns into the reconstructed `CustomKind` alongside the facts it already lifts (588-601) — a name-keyed guidance-string list, not the per-kind `Field` primitive the file's own comment (556-566) says the engine deliberately holds none of."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "New optional `guidance` column on KindFactRow (kind-level) plus a new optional field-guidance row list (field name -> guidance string, optional cite, no predicate/severity).",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a kind() carrying `guidance` and a field carrying `fieldGuidance` round-trip unchanged through emit into their lock rows"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "KindFactRow round-trips byte-identically when the new guidance columns are absent, and reads back a present kind/field guidance unchanged"
+      }
+    ],
+    "acceptance": "kind() and field declarations carry an optional, predicate-less `guidance` (kind-level) / field-guidance list (field-level); both serialize into the lock. `pnpm --dir sdk test` and `cargo test` green.",
+    "notes": "First of three (decision 0045's SDK/engine-deliver/promote-notes split, inbox-routed). blockedBy DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE — both edit sdk/src/declarations.ts (pending-entry rule, 'Disjoint, or serialized'), that entry sized smaller and already pickable. No existing field-declaration primitive to extend, so this introduces the first one, scoped to name+guidance+cite, never a field type/shape registry. scoped at 946e303."
+  },
+  {
+    "tag": "GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY",
+    "summary": "`temper schema` renders kind/field guidance as JSON Schema hover description and `temper explain` narrates it — authoring counsel delivered at authoring time, never a check (decision 0045)",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GUIDANCE-KIND-FIELD-SDK-CHANNEL"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/schema.rs",
+          "description": "`emit()` (51) merges a kind's own guidance into the schema's top-level `description`, and a field's no-predicate guidance into that field's property `description` (the docs channel described at 9-25), joined alongside any clause guidance already riding that property the same way a field's several guided clauses already join into one description."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`explain` (240) narrates a member; extend it to surface an attached kind/field guidance alongside its existing narration — evidence narrated, never judged, the same posture `contract.md`'s 'Read verbs' already states for the rest of `explain`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/schema.rs",
+        "asserts": "a kind()-level guidance with zero clauses at all still produces a schema carrying a top-level `description`; a field's guidance with zero clauses on that field still gets a property `description`"
+      },
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain's output includes a kind/field's attached guidance text"
+      }
+    ],
+    "acceptance": "A kind/field carrying guidance surfaces it through `schema` and `explain`; a guidance-only kind or field never fails `check`, pinned by a test asserting an otherwise-empty contract still passes. `cargo test` green.",
+    "notes": "Second of three; blockedBy the SDK/lock entry since it needs KindFactRow's new columns to read. The docs-channel split (schema.rs:9-25) already keeps guidance out of validation keywords — this only widens which guidance sources feed that one existing channel, never a new keyword. scoped at 946e303."
+  },
+  {
+    "tag": "BUILTINS-STRANDED-NOTES-PROMOTE-TO-GUIDANCE",
+    "summary": "Promote the built-ins' stranded JSDoc 'Authoring notes the clauses cannot carry' (plugin-manifest, marketplace, skill) into the new guidance channel, cut from the doc comment once moved",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Three stranded blocks move from doc-comment prose into the new guidance channel at their kind's own `kind()`/contract call: `pluginManifestDefaultContract`'s `version`/`defaultEnabled` note (705-707), `marketplaceDefaultContract`'s `source`-resolution/`defaultEnabled`-precedence note (1049-1052), and `skillDefaultContract`'s naming/versioning note (1279-1284). Each doc comment is cut once its content is promoted — `rg 'Authoring notes the clauses cannot carry' sdk/src/builtins.ts` finds zero left."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "each promoted note is reachable through the moved kind/field's guidance (schema hover / explain), the same way the entry before this one pinned delivery"
+      }
+    ],
+    "acceptance": "`rg 'Authoring notes the clauses cannot carry' sdk/src/builtins.ts` finds nothing; every promoted note surfaces through `schema`/`explain` on its kind or field. `pnpm --dir sdk test` green.",
+    "notes": "Third of three, blockedBy the delivery entry — moving prose into a channel that doesn't deliver yet would strand it worse (invisible in a doc comment AND absent from schema/explain). scoped at 946e303."
   }
 ]
