@@ -1,42 +1,5 @@
 [
   {
-    "tag": "GUIDANCE-BUILTIN-NOTES-PROMOTE",
-    "summary": "Promote the six built-in kinds' stranded 'authoring notes the clauses cannot carry' JSDoc paragraphs in sdk/src/builtins.ts into real kind-attached `guidance`",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Move each of the six kind-wide stranded paragraphs into its kind()'s new `guidance` fact, trimming the doc comment to its non-stranded remainder: `plugin-manifest` (paragraph 705-706, kind() 669-676), `marketplace` (1049-1050, kind() 990-997), `skill` (1279-1280, kind() 182-190), `rule` (1467-1468, kind() 335-341), `memory` (1515-1528, kind() 357-361), `hook` (1595-1596, kind() 397-404)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "each of the six kinds' `KindFacts.guidance` matches its promoted authoring note, retrievable off the kind's `facts`"
-      }
-    ],
-    "acceptance": "`rg 'Authoring notes the clauses cannot carry|What the clauses cannot carry, as guidance' sdk/src/builtins.ts` finds nothing — each note lives as its kind's `guidance` fact, visible through `schema`/`explain`. `pnpm --dir sdk test` green.",
-    "notes": "(c) of the inbox's split (0045 Consequences: 'the built-in kinds' JSDoc authoring notes move into the channel'). All six confirmed kind-wide, none field-scoped — the field-declaration half has no consumer among them (GUIDANCE-FIELD-DECLARATION-CHANNEL, deferred). blockedBy GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN so the migration ships already-visible, not silently inert. scoped at 946e303.",
-    "observedFiles": [
-      "sdk/src/builtins.ts",
-      "sdk/test/builtins.test.ts",
-      "sdk/test/emit.test.ts",
-      "src/builtin_lock.toml"
-    ]
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
