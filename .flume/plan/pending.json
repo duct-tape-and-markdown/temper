@@ -66,6 +66,41 @@
     "notes": "Confirmed on disk at c4e0998: src/engine.rs:883 reads `_ => false`; call site at 1237 is `if guard_membership_fails(...) { continue }`. Routed from inbox (independent blind review, observed at 943603a). scoped at c4e0998."
   },
   {
+    "tag": "TAP-HOOK-DEDUP-KEY-SEPARATOR-RESTORE",
+    "summary": "tapHookRows dedup Map key concatenates event+matcher bare (no separator) — collision-prone by construction, left over when 749f06f deleted the NUL byte standing in for one",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "tapHookRows (779-802) builds its `deduped: Map<string, {event,matcher}>` dedup key as `` `${mapping.event}${mapping.matcher}` `` (785) — two fields concatenated with nothing between them, so a future TELEMETRY_EVENT_HOOKS (760-765) addition whose event+matcher strings straddle differently (e.g. event `Foo` + matcher `BarBaz` vs event `FooBar` + matcher `Baz`) silently aliases to the same Map key and one of the two hook registrations vanishes with no signal — the exact silent-drop shape 'Telemetry' rules out ('a reader meeting records ... tolerates them out loud — a count in the narration, never a silent skip' is the read side's version of the same non-negotiable; the write side's is simply never producing a colliding key). Give the join a collision-safe form (e.g. `JSON.stringify([mapping.event, mapping.matcher])`, or any construction where two distinct pairs cannot alias) in place of the bare concatenation. Today's fixed 4-entry table happens not to collide either way, so no output row changes — this is closing the construction, not chasing a live symptom."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The 'Telemetry' test block (1563-1650+) already covers today's 4-entry table's dedup behavior end to end but cannot exercise a collision through it (TELEMETRY_EVENT_HOOKS is module-private and the table never collides). Add a narrow, non-vacuous unit test that calls the fixed join construction directly (import it if extracted as its own named function, or call tapHookRows with a harness whose telemetry events are chosen so their table entries' event/matcher strings would alias under bare concatenation but must not alias under the fix) and asserts the two resulting registrations both survive rather than one silently deduping away the other."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "two distinct (event, matcher) pairs whose bare string concatenation would alias to the same Map key produce two distinct dedup keys and both survive as separate registrations — a test that fails against the pre-fix `` `${event}${matcher}` `` join and passes against the fixed one (non-vacuous)"
+      }
+    ],
+    "acceptance": "tapHookRows' dedup key can no longer alias two distinct (event, matcher) pairs to the same string; the added test fails on the current bare-concatenation join and passes once fixed; the existing 'Telemetry' dedup tests in emit.test.ts stay green unchanged. `pnpm --dir sdk test` green.",
+    "notes": "declarations.ts:785 is `${mapping.event}${mapping.matcher}`. That byte was a literal NUL since tapHookRows authoring (7b26b4e) — invisible to grep/rg (binary-file skip), why BUILTINS-SETTINGS-MANIFEST-EXPORT-PRUNE mis-scoped SETTINGS_MANIFEST consumer-less at 7653fa7, burning 25 build attempts (metrics.jsonl) before landing empty at c4e0998. 749f06f deleted the NUL (msg: null-byte fix) but named no separator; TELEMETRY_EVENT_HOOKS (4 entries) happens not to collide today. scoped at bfe147c."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
