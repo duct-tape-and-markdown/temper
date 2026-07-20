@@ -146,7 +146,7 @@ impl FieldPath {
         let element_spelling = steps_to_spelling(&element_steps);
 
         let tail = if last_each_idx + 1 < self.steps.len() {
-            Some(steps_to_suffix(&self.steps[last_each_idx + 1..]))
+            Some(steps_to_spelling(&self.steps[last_each_idx + 1..]))
         } else {
             None
         };
@@ -218,25 +218,6 @@ fn steps_to_spelling(steps: &[Step]) -> String {
                 out.push_str(name);
             }
             Step::EachElement => out.push_str("[*]"),
-        }
-    }
-    out
-}
-
-/// Reconstruct a suffix string from tail steps (everything after the last [*]).
-fn steps_to_suffix(steps: &[Step]) -> String {
-    let mut out = String::new();
-    for step in steps {
-        match step {
-            Step::Name(name) => {
-                if !out.is_empty() {
-                    out.push('.');
-                }
-                out.push_str(name);
-            }
-            Step::EachElement => {
-                out.push_str("[*]");
-            }
         }
     }
     out
