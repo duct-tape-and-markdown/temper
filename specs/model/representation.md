@@ -86,7 +86,10 @@ Where a member serializes. Three spellings:
   `pipeline.md`) and its members' rows never enter the lock, deriving at
   read time instead (decisions 0032, 0034),
 - **embedded** — the member lives inside its parent's body, addressed per
-  the parent's format, or
+  the parent's format; like any locus with no file of its own, an embedded
+  member loads through its host, never on its own, so it registers
+  nothing — its registration is empty, and a non-empty registration is a
+  well-formedness fault, or
 - **nested file** — the member owns a file whose path composes from its
   host's unit and the host template's path pattern (the template fact
   above): the pattern is the host's declared fact, the child kind governs
