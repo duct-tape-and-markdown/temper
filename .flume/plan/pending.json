@@ -1,42 +1,5 @@
 [
   {
-    "tag": "IMPORT-BARE-ROOT-SKILL-DATA-DRIVE",
-    "summary": "`discover_kind_files` special-cases `kind.name == \"skill\"` for the bare-root-is-a-skill convention — a provider fact embedded as a literal outside `builtin_kind.rs`, uncited",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "The provider face is data"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "`CustomKind` (74-134) gains a new declared field — the filename a kind additionally recognizes directly at the harness root, alongside its `governs` subdirectory locus (`None` for every kind but `skill` today). `with_locus` (472-489) defaults it to `None` alongside the other declare-nothing defaults."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`claude_code_skill()` (168-186) sets the new field to `Some(\"SKILL.md\".to_string())` — the one place the bare-root-is-a-skill fact is now declared, with its own doc-comment citation (verify against current code.claude.com/docs/en/skills alongside the file's other skill cites at 160-161/191/214, or mark UNVERIFIED per collaboration.md if the live page doesn't state it)."
-        },
-        {
-          "path": "src/import.rs",
-          "description": "`discover_kind_files` (288-304) drops the `if kind.name == \"skill\"` literal (295) and instead pushes `disc.harness().join(bare)` when `kind`'s new field is `Some(bare)` — the mechanism generalizes to any kind that declares a bare-root file, not just `skill` by name. Its doc comment (149-167, 275-287) is reworded off the `skill`-specific narration to describe the declared-fact mechanism; the `discover_builtin` header (149-167) keeps its skill example but states it as an instance of the general fact, not a hardwired path."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "CustomKind: +1 optional string field (the bare-root filename), default None.",
-    "tests": [
-      {
-        "path": "src/import.rs",
-        "asserts": "a synthetic non-\"skill\" kind declaring the new field is discovered at its harness-root bare file too — the declared fact, not the literal name, drives the mechanism"
-      }
-    ],
-    "acceptance": "`rg 'kind.name == \"skill\"'` in src/import.rs returns nothing; the bare-root fact is `CustomKind` data declared once in builtin_kind.rs with a citation; the existing bare-harness-skill test (`discover_builtin_finds_a_bare_harness_that_is_itself_a_skill`) and the new synthetic-kind test both green; `cargo test` green.",
-    "notes": "Matches two sections: architecture.md (a provider fact as a literal outside the provider face) and engineering.md 'The fix lands at the mechanism' (a kind-name test inside a kind-generic judge). Only `kind.name ==` literal in import.rs; builtin_lock.rs's two are lock-row lookups, a different class. No citation exists anywhere for the bare-root convention itself — verify against current docs or mark UNVERIFIED. scoped at b3416e0."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
