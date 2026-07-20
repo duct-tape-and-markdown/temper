@@ -161,16 +161,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   1509-1546) — have all shipped touching install.rs, none reaching this
   range; no entry currently open chains onto it, so it rides whichever
   next does.
-  `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 347)
-  still names `[extract::manifest_members]`, though the function it
-  points at moved into this same file when `manifest_members` was
-  extracted from extract.rs to json_manifest.rs (404b73a,
-  EXTRACT-FOUNDATION-BOUNDARY-RESTORE) — the module prefix is
+  `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 352,
+  re-read at f88e96d) still names `[extract::manifest_members]`, though
+  the function it points at moved into this same file when
+  `manifest_members` was extracted from extract.rs to json_manifest.rs
+  (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE) — the module prefix is
   self-referential and wrong. JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE
-  (89cfc64) and GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5) — both
-  adf69b3..7173a59 — have since shipped touching json_manifest.rs,
-  neither reaching line 347; no entry currently open chains onto it, so
-  it rides whichever next does.
+  (89cfc64), GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5), and
+  MANIFEST-CACHE-READ-COUNT-PIN (c27b411) have all since shipped
+  touching json_manifest.rs, none reaching line 352 — the last edited
+  only the `manifest_read_count` doc comment at 40-43; no entry
+  currently open chains onto it, so it rides whichever next does.
   **A seventh, surfaced this tick's posture sweep of contract.rs.**
   `src/contract.rs`'s `SHAPE_PATTERNS` doc comment (884-885, re-read at
   8415088) claims compilation "cannot fail" is "covered by
