@@ -163,14 +163,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   `src/extract.rs`'s doc comment for `manifest_members` (surfaced this
   tick's posture sweep of foundation) was orphaned mid-function by the
   same extraction commit (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE)
-  that moved `manifest_members` to json_manifest.rs: lines 954-963 still
+  that moved `manifest_members` to json_manifest.rs: lines 954-964
+  (re-read at 86ea7f0, shifted +1 from the prior 954-963 read) still
   carry the function's own opening paragraphs, but its closing sentence
   truncates ("The `hooks` collection nests one level deeper than every
   other: an event's value is an") and runs straight into `number_kind`'s
-  unrelated doc comment three lines below, no blank line marking the
+  unrelated doc comment two lines below, no blank line marking the
   seam — dead prose describing a function that no longer lives in this
-  file, read as `number_kind`'s opening paragraph. No pending entry
-  currently opens extract.rs, so it rides whichever one first does. The
+  file, read as `number_kind`'s opening paragraph.
+  EXTRACT-BODY-HEADINGS-COLLECT-HEADS-DEDUP, filed this tick (this
+  posture sweep's own neighborhood), opens extract.rs for a
+  `body_headings`/`collect_heads` consolidation and names this cite in
+  its own scope — discharge verifies once it ships. The
   same commit left a companion stale cite: `src/json_manifest.rs`'s
   `Manifest::read` doc comment (now line 347) still names
   `[extract::manifest_members]`, though the function it points at moved
