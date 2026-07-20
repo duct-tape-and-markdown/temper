@@ -396,7 +396,7 @@ export const SETTINGS_MANIFEST = "settings.json";
  */
 export const hook: KindDefinition<Hook> = kind<Hook>({
   name: "hook",
-  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  locus: { kind: "at", root: ".claude", glob: SETTINGS_MANIFEST },
   unitShape: "file",
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
@@ -483,11 +483,11 @@ export interface InstalledPlugin {
  */
 export const installedPlugin: KindDefinition<InstalledPlugin> = kind<InstalledPlugin>({
   name: "installed-plugin",
-  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  locus: { kind: "at", root: ".claude", glob: SETTINGS_MANIFEST },
   unitShape: "file",
   registration: [{ via: "enablement", field: "enabled" }],
   shape: "fields",
-  collectionAddress: { manifest: "settings.json", keyPath: "enabledPlugins.*", entryShape: "scalar(enabled)" },
+  collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: "enabledPlugins.*", entryShape: "scalar(enabled)" },
   // The marketplace half of the `<plugin>@<marketplace>` key is a declared edge to the
   // `known-marketplace` member it names (decision 0039). The half is not an authored field
   // — the engine splits it off the composite key at read (`src/kind.rs`, the read-time fold
@@ -558,11 +558,11 @@ export interface KnownMarketplace {
  */
 export const knownMarketplace: KindDefinition<KnownMarketplace> = kind<KnownMarketplace>({
   name: "known-marketplace",
-  locus: { kind: "at", root: ".claude", glob: "settings.json" },
+  locus: { kind: "at", root: ".claude", glob: SETTINGS_MANIFEST },
   unitShape: "file",
   registration: [{ via: "registry" }],
   shape: "fields",
-  collectionAddress: { manifest: "settings.json", keyPath: "extraKnownMarketplaces.*", entryShape: "object" },
+  collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: "extraKnownMarketplaces.*", entryShape: "object" },
 });
 
 /**
