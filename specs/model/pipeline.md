@@ -39,8 +39,8 @@ same merge the SDK already speaks — later layers win by array surgery, one
 algebra for every layer, no layer a special species (decision 0030). Which
 slots exist and their order is the **provider's documented fact**, carried
 as cited data on the provider face, never chosen here; the claude-code
-face emulates the product's own precedence — user < project < local <
-invocation — with the user slot named and reserved, ungoverned today.
+face emulates the product's own precedence, with the user slot named and
+reserved, ungoverned.
 Temper adopts the provider's ordering, not its override semantics: the
 bounds below are this gate's own rules.
 
@@ -49,19 +49,16 @@ of a kind whose locus is local, or a lock the invocation joins. Two rules
 attach to anything **uncommitted** — content review never saw — never to
 a layer's name:
 
-- **Check-side, structurally.** A local member is read-side only: its
-  document is the governed source, read in place under whatever format
-  its kind declares — never an emit input or target (emit's codomain is
-  the committed tree, decision 0034) — and the lock captures the
-  committed harness alone, so committed bytes are layer-invariant by
-  construction. A local member's rows derive at read
-  time under the kind the committed lock declares: review fixes what a
-  local file may say; the gate reads what it says.
+- **Check-side, structurally.** A local member (the read-side-only class,
+  `representation.md`, locus §) contributes no emit output, so the lock
+  captures the committed harness alone and committed bytes are
+  layer-invariant by construction. Its rows derive at read time under the
+  kind the committed lock declares: review fixes what a local file may
+  say; the gate reads what it says.
 - **Review is the price of softening.** The committed harness may soften
   anything — that is a reviewed diff. Uncommitted content hardens
   without bound, in every mode; it softens only through the shipped dial
-  kind (`contract.md`, "clause"), whose schema cannot spell deletion —
-  a dialed clause still reports — and its softening is inert in block
+  kind (`contract.md`, "clause"), whose softening is inert in block
   mode, so a block-mode pass on any machine implies the shared gate's
   pass.
 

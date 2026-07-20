@@ -107,14 +107,16 @@ the assembly and the lock). Its template:
 - **prose** — the authored intent the requirement exists to carry; never
   interpreted,
 - a **verifier** — the typed delegate that judges the behavioral remainder,
-  one of three declared species: a **script** (a path-resolved reference
-  to the test or CI job that executes the judgment), a **telemetry**
+  one of two shipped species: a **script** (a path-resolved reference
+  to the test or CI job that executes the judgment) or a **telemetry**
   declaration (named, documented harness events the emitted tap records
-  to a local-locus log, judged by reading the field record), or a
+  to a local-locus log, judged by reading the field record). A third, the
   **probe** (a fixture harness plus a headless session, judged over the
-  run's own record). The gate checks the declaration resolves — a
-  script's path, a telemetry event's documented name, a probe's fixture —
-  and never runs, records into, or aggregates over it: sessions execute
+  run's own record), stays a documented pattern — deferred until a
+  consumer types it (decision 0037), named here but not yet spellable.
+  The gate checks the declaration resolves — a script's path, a telemetry
+  event's documented name — and never runs, records into, or aggregates
+  over it: sessions execute
   elsewhere, and no verifier's verdict enters `check`'s exit code,
 - **attached clauses** over its opt-in selection. "This must be filled" is
   the shipped default: a whole-grain cardinality clause (at least one
