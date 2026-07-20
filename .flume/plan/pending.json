@@ -1,5 +1,29 @@
 [
   {
+    "tag": "ASSEMBLY-ENFORCEMENT-MODE-PROVIDER-FACT-LEAK",
+    "summary": "`sdk/src/assembly.ts`'s generic `EnforcementMode` doc comment names the Claude-Code-specific `PreToolUse` hook — a provider fact leaked outside the provider face",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "The provider face is data"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/assembly.ts",
+          "description": "The `EnforcementMode` doc comment (35-43, `note`/`warn`/`block`) states the type is 'how firmly the `PreToolUse` guard binds a tool call' — `PreToolUse` is a documented Claude Code hook lifecycle event (cited properly as such in `sdk/src/builtins.ts`'s `DOCUMENTED_HOOK_EVENTS`, ~1543-1546, and in `src/install.rs`'s guard doc comments, e.g. 101/134/159/600). `assembly.ts` imports only from `./kind.js` and `./contract.js` — no provider-face import — so this is the knowledge-form leak architecture.md names: an upward edge invisible to the import graph. Reword the comment to describe `mode` generically (a guard's enforcement firmness over an intercepted action), with no hook name; the `PreToolUse` mapping stays where it is already cited, in the provider face."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`sdk/src/assembly.ts`'s `EnforcementMode` doc comment carries no Claude-Code-specific hook name or other provider fact; `rg PreToolUse sdk/src/assembly.ts` finds nothing. `pnpm --dir sdk test` green.",
+    "notes": "Doc-comment-only fix, one file, no schema/behavior change. Precedented this window by TAP-SESSION-ID-PROVIDER-FACE-MOVE (79e0079) and TELEMETRY-DOC-PROVIDER-FACT-LEAK (1fe148c) — same lens, same class. Posture-sweep finding: sdk/src/ neighborhood, frontier module assembly.ts (immediate imports kind.ts/contract.ts read for context, not covered this tick). scoped at 2e2b32a."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
