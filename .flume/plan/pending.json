@@ -1,31 +1,5 @@
 [
   {
-    "tag": "BUNDLE-PLUGIN-LAYOUT-CITE",
-    "summary": "bundle.rs hardcodes the plugin's skill (`skills/temper/SKILL.md`) and hooks (`hooks/hooks.json`) paths as uncited Claude Code layout facts, one diverging from the skill kind's own locus undeclared",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "The provider face is data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/bundle.rs",
-          "description": "Cite the two Claude Code plugin-layout facts this file asserts as bare literals with no source: the skill's plugin-relative placement (`skills/temper/SKILL.md`, the `write_text` call's `Path::new` at 215, named again in the module header at 47-49 and 62-63) and the plugin's `hooks/hooks.json` placement (the `write_json` call's `Path::new` at 223, named in `hooks_manifest`'s doc comment at 271-274). Fetch and cite current Claude Code plugin docs (URL + retrieved date) per the collaboration rule's external-facts bar — every other Claude-Code fact in builtin_kind.rs already carries one (e.g. its `code.claude.com/docs/en/plugins-reference` cites); these two do not. The skill path also silently diverges from the `skill` kind's own governs locus (`.claude/skills/*/SKILL.md`, builtin_kind.rs 179-182) with no comment marking the divergence as deliberate — state explicitly, at the site, that a plugin's own skill directory is plugin-root-relative, a distinct fact from the installed-harness locus, per this section's 'the fix lands at the mechanism' companion (a genuine per-instance divergence is declared and cited, never left looking like an accident)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "Both plugin-layout literals in bundle.rs carry a citation (URL + retrieved date) verified against current Claude Code plugin docs, and the skill path's divergence from the `skill` kind's own `.claude/skills/*/SKILL.md` locus is stated as deliberate at the site. `cargo test` green; no behavior change.",
-    "notes": "Purely a citation + declared-divergence fix, no behavior/format change, so no new test (narration only, engineering.md 'narration is the ladder's bottom rung': these are cited external facts, not yet a decidable pin). Do not model the plugin-relative skill/hooks paths as kind data — builtin_kind.rs's installed-plugin doc (397-399) already rules a plugin's own contributed surface 'unmodeled' by design; this entry is citation-only. scoped at dbacfcf."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
