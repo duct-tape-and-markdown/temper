@@ -36,7 +36,7 @@ import {
 } from "../src/index.js";
 import * as sdk from "../src/index.js";
 import type { ResolvedEmbeddedMemberValue } from "../src/index.js";
-import { compileDeclarations } from "../src/declarations.js";
+import { buildTapHookDedupeKey, compileDeclarations } from "../src/declarations.js";
 import { agent, hook, mcpServer, memory, rule, skill } from "../src/claude-code.js";
 
 function projectedHarness() {
@@ -1655,6 +1655,25 @@ test("a telemetry verifier naming every documented event synthesizes each event'
 test("a script verifier synthesizes no tap hook", () => {
   const result = emit(fullHarness());
   assert.deepEqual(result.registrations, []);
+});
+
+test("tap hook dedup key is collision-safe: distinct (event, matcher) pairs produce distinct keys", () => {
+  // Two distinct pairs that would alias under bare string concatenation
+  // (e.g., "Foo" + "BarBaz" → "FooBarBaz" vs "FooBar" + "Baz" → "FooBarBaz")
+  // must produce different keys under the JSON.stringify construction.
+  const key1 = buildTapHookDedupeKey("Foo", "BarBaz");
+  const key2 = buildTapHookDedupeKey("FooBar", "Baz");
+  assert.notEqual(key1, key2, "Distinct (event, matcher) pairs must produce distinct dedup keys");
+
+  // Additional cases to confirm the construction is collision-safe.
+  const key3 = buildTapHookDedupeKey("A", "BC");
+  const key4 = buildTapHookDedupeKey("AB", "C");
+  assert.notEqual(key3, key4, "Additional pair should also produce distinct keys");
+
+  // Same pair should always produce the same key.
+  const key5 = buildTapHookDedupeKey("Test", ".*");
+  const key6 = buildTapHookDedupeKey("Test", ".*");
+  assert.equal(key5, key6, "Identical pairs should produce identical keys");
 });
 
 // ---------------------------------------------------------------------------

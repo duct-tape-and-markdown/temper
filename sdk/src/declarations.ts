@@ -765,6 +765,15 @@ const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; r
 };
 
 /**
+ * Builds a collision-safe dedup key for a tap hook (event, matcher) pair.
+ * Two distinct pairs cannot produce the same key (e.g., ("Foo", "BarBaz") ≠ ("FooBar", "Baz")).
+ * @internal
+ */
+export function buildTapHookDedupeKey(event: string, matcher: string): string {
+  return JSON.stringify([event, matcher]);
+}
+
+/**
  * The synthesized tap-hook `registration` rows — one deduped `hooks.<Event>`
  * registration per (lifecycle event, matcher) any telemetry verifier names. Scans the
  * same requirement sources {@link requirementRows} reads (assembly `require` ∪ each
@@ -782,7 +791,7 @@ export function tapHookRows(harness: Harness): RegistrationRow[] {
     if (requirement.verifier?.species !== "telemetry") return;
     for (const name of requirement.verifier.events) {
       const mapping = TELEMETRY_EVENT_HOOKS[name];
-      if (mapping !== undefined) deduped.set(`${mapping.event}${mapping.matcher}`, mapping);
+      if (mapping !== undefined) deduped.set(buildTapHookDedupeKey(mapping.event, mapping.matcher), mapping);
     }
   };
   for (const requirement of Object.values(harness.require)) collect(requirement);
