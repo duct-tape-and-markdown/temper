@@ -8,9 +8,11 @@
 //! makes softening inert in block mode, so a block-mode pass on any machine implies the
 //! shared gate's pass.
 //!
-//! The dial is temper's own kind, so no case here writes a kind row: a harness gets its
-//! dial from adopting temper at all. `tests/local_locus.rs` owns the locus class the dial
-//! rides; these cases own what the dial does with it.
+//! The dial is temper's own kind. Most cases get its dial from adopting temper at all.
+//! A lock can relocate the dial's `governs` via a `[[declaration.kind]]` row; the dial
+//! at the relocated locus is honored instead of silently falling back to the embedded
+//! default. `tests/local_locus.rs` owns the locus class the dial rides; these cases
+//! own what the dial does with it.
 
 use std::fs;
 use std::path::Path;
@@ -342,5 +344,61 @@ fn a_dial_document_is_read_in_place_and_no_row_of_it_reaches_the_lock() {
     assert!(
         !before.contains("workstation"),
         "no row of a local member's ever enters the lock: {before}"
+    );
+}
+
+#[test]
+fn a_lock_relocating_the_dial_kind_governs_is_honored() {
+    // The dial is temper's own kind. The lock may declare a relocated governs path via
+    // a `[[declaration.kind]]` row naming the dial. This case verifies that the relocated
+    // path is read, not the embedded default — the regression was that read_dial called
+    // builtin_kind::definition directly, ignoring the overlay map that would have carried
+    // the relocation.
+    let harness = harness_at_mode("dial-relocated", "warn", UNDESCRIBED_SKILL);
+
+    // Verify the finding at the embedded default path first (no relocation yet).
+    let (before, _) = common::check_harness(&harness);
+    assert_eq!(
+        reported_severity(&before, "skill.required.description").as_deref(),
+        Some("error"),
+        "the undescribed skill fails: {before:?}"
+    );
+
+    // Relocate the dial to a custom path via a kind fact row.
+    let mut dial_kind = common::kind_facts("dial", ".temper/custom", "dial.toml");
+    dial_kind.commitment = Some("local".to_string());
+    common::write_lock(
+        &harness,
+        temper::drift::Declarations {
+            kinds: vec![dial_kind],
+            assembly: vec![temper::drift::AssemblyFactRow {
+                fact: "mode".to_string(),
+                value: Some("warn".to_string()),
+                from: None,
+                field: None,
+                to: None,
+            }],
+            ..Default::default()
+        },
+    );
+
+    // Write the dial at the relocated path and soften the finding.
+    common::write_sibling(
+        &harness,
+        ".temper/custom/dial.toml",
+        &dial_entry("skill.required.description", "advisory"),
+    );
+
+    let (after, ok) = common::check_harness(&harness);
+
+    // The relocated dial is read: the finding is now softened.
+    assert_eq!(
+        reported_severity(&after, "skill.required.description").as_deref(),
+        Some("warning"),
+        "the dial at the relocated path is read and honored: {after:?}"
+    );
+    assert!(
+        ok,
+        "an advisory finding no longer blocks this machine: {after:?}"
     );
 }

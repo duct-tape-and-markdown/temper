@@ -893,7 +893,11 @@ fn read_dial(
     cache: &ManifestCache,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<dial::Dial> {
-    let Some(kind) = builtin_kind::definition(dial::KIND) else {
+    let Some(kind) = overlaid_builtin_kinds
+        .get(dial::KIND)
+        .cloned()
+        .or_else(|| builtin_kind::definition(dial::KIND))
+    else {
         return Ok(dial::Dial::default());
     };
     Ok(dial::Dial::from_features(&kind_features(
