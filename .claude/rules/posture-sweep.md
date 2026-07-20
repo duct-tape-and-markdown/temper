@@ -14,8 +14,11 @@ When running the posture sweep (plan's job 4), this discipline binds:
   kinds arm it, both read off the forward `git log --name-only` (no
   file reads): a **code delta** puts the window's touched modules in
   the frontier; a **phrase delta** — the window touched a posture page
-  itself — puts the whole module list in, because a changed phrase has
-  been applied to nothing yet. Each tick
+  itself — puts **every module across the sweep domain (`src/`,
+  `sdk/src/`, `tests/`)** in the frontier, because a changed phrase has
+  been applied to nothing yet. A phrase delta scoped to `src/` alone
+  under-covers the trees the phrase governs — the frontier is empty only
+  when all three have run. Each tick
   sweeps at most one neighborhood — one frontier module read together
   with its immediate imports; that is the context bound — and records
   every frontier module the neighborhood read as **covered** in the

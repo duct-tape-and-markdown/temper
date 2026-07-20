@@ -31,8 +31,8 @@ emit_hash = "527eeaecba5c137af082b7864950c2f55ffb376fa96dc97a3ef8d722baf7f971"
 [[rule]]
 name = "posture-sweep"
 source_path = ".claude/rules/posture-sweep.md"
-source_hash = "b95c359160a61eb77efc6d188329f40d37894857984158836d526718d2a60c99"
-emit_hash = "b95c359160a61eb77efc6d188329f40d37894857984158836d526718d2a60c99"
+source_hash = "479adf5e76782c8510fefd0e2ceec1fa5e00118e22d0ba7d93480ff849ca7bce"
+emit_hash = "479adf5e76782c8510fefd0e2ceec1fa5e00118e22d0ba7d93480ff849ca7bce"
 
 [[rule]]
 name = "public-prose"

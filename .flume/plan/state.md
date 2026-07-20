@@ -3,8 +3,8 @@
 - Spec derived through: 8911c38 — unchanged, not this tick's job.
 - Audited through: 79e0079 — unchanged, no new src/tests/sdk commits since.
 - Residue swept through: 79e0079 — unchanged, same reason.
-- Posture swept through: 79e0079 — rotation closed, frontier empty (full src/ list covered).
-- This tick: POSTURE SWEEP, src/toml_document.rs neighborhood (last module in the list). Clean: cohesive read-only TOML face, exhaustive `UnitShape` match, no dead `TomlDocumentError` variants, no embedded provider knowledge; the module's own no-write-face claim (decision 0034) checked live against `src/drift.rs`'s `project_bytes` and still consistent. Frontier now empty — rotation closes.
-- Queue: 2 pending, 0 open, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — unaffected by this tick, HEAD unchanged since their last re-check). Refactor: 0 live. Friction: 0 live. Amendments: 0 live. Inbox: 0 notes.
+- Posture swept through: full src/ list covered — mid-rotation, reopened. Phrase delta 8911c38 arms the whole sweep domain (src/, sdk/src/, tests/); only src/ ran before the frontier was wrongly called empty. sdk/src/ + tests/ frontier remains; sdk/src/ is the tree-order candidate next.
+- This tick: governance correction — the phrase-delta frontier was under-scoped to src/ (posture-sweep rule clarified same commit); the rotation reopens over sdk/src/ + tests/, src/ stays covered and is not re-swept.
+- Queue: 2 pending, 0 open, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — unaffected, HEAD unchanged since their last re-check). Refactor: 0 live. Friction: 0 live. Amendments: 0 live. Inbox: 0 notes.
 
-Plan continues: no — posture rotation closed with an empty frontier; inbox/spec-delta/reconciliation all unchanged since 79e0079; queue holds only the 2 parked entries with nothing pickable, so the loop hibernates.
+Plan continues: yes — posture rotation reopened over sdk/src/ + tests/; the phrase-delta frontier spans all three trees and only src/ has run.
