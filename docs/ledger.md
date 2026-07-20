@@ -51,6 +51,17 @@ hard.
 
 ## Parked (pointers only)
 
+- Sweep-dock blend (John, 07-20): flume-dock base uplifted to
+  temper-standard discipline + sweep preset shipped (flume-dock 748c487,
+  688a16d; SPEC decisions 15-16, build items 10-11); testbed
+  centercode-platform carries uncommitted-on-WIP: remedy/governs grammar,
+  engineering postures pack, sweep-discipline rule (emit+check green, 51
+  members). Design ledger = this session's grill (A-F + amendments).
+  Next: John commits the testbed overhaul WIP, then twin calibration
+  waves over 9c8d78aa47..d0734c2643 (sonnet discarded, haiku tagged).
+  Watch items: standard-delta backfill (park, don't drown);
+  install.gate-installed advisory in testbed check.
+
 - flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
   patched installed dist in temper's node_modules (ephemeral — a
   reinstall wipes it) and mirrored on flume branch
