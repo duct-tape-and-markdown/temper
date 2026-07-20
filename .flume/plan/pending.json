@@ -1,5 +1,37 @@
 [
   {
+    "tag": "EMIT-NEEDS-ZERO-CONSUMER-EXPORTS-PRUNE",
+    "summary": "`ResolveOptions`/`edgePlacements`/`renderedExtents` (sdk/src/emit.ts) and `capability` (sdk/src/needs.ts) are exported with zero callers outside their own defining file",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "Drop `export` from `ResolveOptions` (47), `edgePlacements` (441), and `renderedExtents` (481) — each read or called only inside `emit()`'s own `compile()` closure (760-765) or this file's own helpers (`scopeOf`, `resolveMemberLeaves`, `placedEdges`, `renderMemberBlock`, `resolveBody`, `orderedMembers`). Zero callers anywhere else, grep-verified over sdk/src, sdk/test, src/, tests/, .temper/: tests/builtin_lock_frozen.rs's real-SDK-emit seam import (33) names only `dial, dialDefaultContract, emit, harness`. No behavior change."
+        },
+        {
+          "path": "sdk/src/needs.ts",
+          "description": "Remove the `capability` function (29-31) and its doc comment (28) — the generic verbatim-permission escape hatch beside `bash()` (24-26). Unlike the emit.ts trio, `capability` has zero callers anywhere at all, not even internally within needs.ts, so this deletes it outright rather than de-exporting it. `Capability` (the interface) and `permissionUnion` keep both their code and export — each has a live caller outside needs.ts (`Capability`: `bash`'s return type and `kind.ts`'s `needs` field; `permissionUnion`: `emit.ts`'s `permissionUnion(harness.members.flatMap(...))` call)."
+        },
+        {
+          "path": "sdk/src/index.ts",
+          "description": "Drop `capability` from the `export { bash, capability, permissionUnion }` line (22) and `ResolveOptions` from the `export type { EmitResult, RegistrationFact, ResolveOptions, SettingsResidue }` line (91) — the two root re-exports naming symbols this entry removes or de-exports."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`export` is gone from `ResolveOptions`, `edgePlacements`, and `renderedExtents` in sdk/src/emit.ts (module-private, unchanged behavior); `capability` is gone entirely from sdk/src/needs.ts and both sdk/src/index.ts re-export lines. `rg 'export (function edgePlacements|function renderedExtents|interface ResolveOptions)' sdk/src/emit.ts` and `rg 'capability' sdk/src sdk/test .temper` (excluding `Capability` and its doc-comment mentions) both come up empty. `pnpm --dir sdk test` green, `emit`/`bash`/`permissionUnion` unchanged.",
+    "notes": "Grep-verified zero-consumer over sdk/src, sdk/test, src/, tests/, .temper/. The emit.ts trio mirrors DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE's mentionScope/SEAM_VERSION (called internally, wrongly public); capability has no call site at all, so it is deleted outright instead of de-exported. Posture-sweep finding: sdk/src/ rotation, frontier module emit.ts (imports assembly/kind/prose/declarations already covered, re-read for context; needs.ts newly covered this tick). scoped at 9e29380."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {

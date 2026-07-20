@@ -5,25 +5,24 @@
   32a4c9c..HEAD -- src/ tests/ sdk/` empty).
 - Residue swept through: 32a4c9c — unchanged, same reason.
 - Posture swept through: sdk/src/declarations.ts (+ assembly.ts/kind.ts/contract.ts/prose.ts/
-  builtins.ts) covered, plus sdk/src/claude-code.ts (covered earlier in this rotation) and now
-  sdk/src/dial.ts covered too this tick — mid-rotation. sdk/src/emit.ts next in rotation (tree
-  order; kind.ts/prose.ts already covered leaves emit.ts, index.ts, needs.ts remaining in
-  sdk/src/, then the tests/ tree — phrase delta 2e2b32a still arms the whole sweep domain).
-- This tick: POSTURE SWEEP, sdk/src/dial.ts neighborhood (immediate imports: contract.ts's
-  clause/closedKeys/enumOf/required/type/Clause/Severity, kind.ts's kind/KindDefinition — both
-  already covered from the declarations.ts sweep, re-read here for context only, not re-judged).
-  Clean: single-purpose shipped-kind module, doc comment states and the code matches — dial is
-  deliberately root-exported (not the claude-code provider subpath) since it is a claim about
-  temper's own gate, not an external harness fact, so no embedded-provider-knowledge violation.
-  `dial`/`dialDefaultContract`/`Dial`/`DialEntry` all have live consumers (index.ts root export,
-  tests/builtin_lock_frozen.rs's real-SDK-emit seam gate, src/gate.rs's dial-skip logic) — no
-  zero-consumer export. No cohesion or dead-plumbing finding. The one stale cite the neighborhood
-  touches — contract.ts:338's `telemetry` doc comment still pointing at `TELEMETRY_EVENT_HOOKS` in
-  declarations.ts though it moved to builtins.ts — is already the eleventh entry in
-  open-questions.md's ride-only record; not refiled.
-- Queue: 3 pending — 0 open, 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 2 parked
-  (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection,
-  lazy-grounds), unchanged. Friction: 0. Amendments: 0. Inbox: 0 notes.
+  builtins.ts) covered, sdk/src/claude-code.ts and sdk/src/dial.ts covered (earlier this
+  rotation), and now sdk/src/emit.ts (+ its immediate import needs.ts, newly covered this tick)
+  covered too — mid-rotation. sdk/src/index.ts next in rotation (tree order; the only sdk/src/
+  module the phrase delta 2e2b32a still owes — dial.ts/emit.ts/needs.ts now covered close the
+  rest of the alphabetical remainder — then the tests/ tree).
+- This tick: POSTURE SWEEP, sdk/src/emit.ts neighborhood (assembly.ts/kind.ts/prose.ts/
+  declarations.ts already covered, re-read for context only; needs.ts not yet covered, read and
+  judged this tick). Filed EMIT-NEEDS-ZERO-CONSUMER-EXPORTS-PRUNE (open): `ResolveOptions`/
+  `edgePlacements`/`renderedExtents` (emit.ts) called only inside `emit()`'s own `compile()` —
+  same shape as DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE (de-export, don't delete); `capability`
+  (needs.ts) has zero call sites anywhere, grep-verified over sdk/src, sdk/test, src/, tests/,
+  .temper/ — deleted outright. `bash`/`permissionUnion`/`Capability`/`RegistrationFact`/
+  `SettingsResidue`/`EmitResult` all keep live external callers. No other neighborhood finding.
+- Queue: 4 pending — 1 open (EMIT-NEEDS-ZERO-CONSUMER-EXPORTS-PRUNE), 1 deferred
+  (GUIDANCE-FIELD-DECLARATION-CHANNEL), 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-
+  REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds), unchanged. Friction: 0.
+  Amendments: 0. Inbox: 0 notes.
 
-Plan continues: yes — the posture-sweep rotation remains open (sdk/src/emit.ts next) and is the
-only live input; no pickable entry exists in the queue to interleave with it.
+Plan continues: after-build — the posture rotation is the only remaining live job and a pickable
+entry now exists (EMIT-NEEDS-ZERO-CONSUMER-EXPORTS-PRUNE), so the wave ships it before the sweep
+resumes.
