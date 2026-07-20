@@ -1,31 +1,5 @@
 [
   {
-    "tag": "COMPOSE-DOC-HEADER-ERA-NARRATION-CUT",
-    "summary": "src/compose.rs's module header narrates the retired TEMPER-TOML-ZERO manifest reader's demise instead of stating only the module's current invariant",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Module header (13-17): 'There is no reader in this module: every value here is populated from the lock's declaration rows (`crate::drift::Declarations`), the sole producer since `emit` compiles the SDK program. These are the shared shapes the gate lifts lock rows into and [`crate::roster`]/[`crate::graph`]/[`crate::coverage`] range over — the manifest era's reader (`TEMPER-TOML-ZERO`) retired with this file's parser.' The em-dash clause narrates a past demolition — none of the section's three licensed grades (cited external fact, inexpressible intent commitment, promoted-scaffolding pointer) — and is rust.md's own named cut category ('renamed from', 'shipped in Y' is commit-body material, git owns history), the identical class CHECK-DOC-HEADER-ERA-NARRATION-CUT (85f5bd9) just fixed in src/check.rs. Cut the em-dash clause; end the sentence at 'range over.' with a period, leaving the declaration-rows invariant standing alone."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "src/compose.rs's module header states only its current invariant (every value here is populated from the lock's declaration rows, shared by roster/graph/coverage) with no mention of the retired TEMPER-TOML-ZERO parser. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green (comment-only, no behavior pinned).",
-    "notes": "scoped at 61fb5b9. Posture sweep of src/compose.rs (tree-order candidate after check.rs). Comment-only fix, no regression test per rust.md's editorial comment lifecycle — same shape as CHECK-DOC-HEADER-ERA-NARRATION-CUT."
-  },
-  {
     "tag": "COMPOSE-ZERO-CONSUMER-VISIBILITY-NARROW",
     "summary": "compose.rs's declared_kinds_with_overlaid and manifest_units are pub with zero callers outside their own file — narrow both to private",
     "per": {
