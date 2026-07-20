@@ -1,5 +1,37 @@
 [
   {
+    "tag": "HASH-READ-UTF8-ERROR-MAP-DEDUP",
+    "summary": "Three call sites hand-match crate::hash::ReadUtf8Error into their own error type field-for-field identically — replace each with a From impl and let `?` convert",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/toml_document.rs",
+          "description": "`read` (32-38) maps `crate::hash::ReadUtf8Error` to `TomlDocumentError` with `.map_err(|err| match err { Io{path,source} => Io{path,source}, NotUtf8{path,source} => NotUtf8{path,source} })?` — a field-for-field rename, no logic. `TomlDocumentError` (107-128) already carries the identical `Io{path,source:io::Error}`/`NotUtf8{path,source:FromUtf8Error}` shape. Add `impl From<crate::hash::ReadUtf8Error> for TomlDocumentError`, then shrink the call site to plain `crate::hash::read_utf8(source_file)?`."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`from_source_rooted` (166-178) carries the same match-and-rename from `ReadUtf8Error` to `FrontmatterError` (69-90, same Io/NotUtf8 shape). Add `impl From<crate::hash::ReadUtf8Error> for FrontmatterError` and shrink the call site to `crate::hash::read_utf8(source_file)?`."
+        },
+        {
+          "path": "src/json_manifest.rs",
+          "description": "`read_to_string` (309-315) carries the same match-and-rename from `ReadUtf8Error` to `JsonManifestError` (237-258, same Io/NotUtf8 shape). Add `impl From<crate::hash::ReadUtf8Error> for JsonManifestError` and shrink the call site to `crate::hash::read_utf8(source_file)?`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "No `.map_err(|err| match err { crate::hash::ReadUtf8Error::... })` shape remains in src/ (`rg 'ReadUtf8Error::Io' src/` hits only the three new `From` impls and hash.rs's own definition). `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Purely mechanical: each match arm renames Io->Io and NotUtf8->NotUtf8 with identical fields, exactly the idiomatic `From`+`?` case. No behavior change — no test exercises the Io/NotUtf8 paths today (verified: `rg 'NotUtf8|ReadUtf8' tests/` is empty), so none is added; existing tests over the three read paths are the regression guard. scoped at 507eb7a."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
