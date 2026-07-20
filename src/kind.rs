@@ -131,6 +131,12 @@ pub struct CustomKind {
     /// [`local_locus_fault`](CustomKind::local_locus_fault) states; admissible over any
     /// declared content and format. Read back off the row's `commitment` column.
     pub commitment: Option<Commitment>,
+    /// The filename a kind additionally recognizes directly at the harness root,
+    /// alongside its `governs` subdirectory locus. `None` for every kind today except
+    /// `skill`, which declares `Some("SKILL.md".to_string())` — the bare-root-is-a-skill
+    /// convention (code.claude.com/docs/en/skills, retrieved 2026-07-16). The mechanism
+    /// generalizes to any kind that declares a bare-root file, not hardwired by name.
+    pub bare_root_file: Option<String>,
 }
 
 /// A kind's declared **content** — how a member's authored body is shaped. The body is
@@ -486,6 +492,7 @@ impl CustomKind {
             content: Content::File,
             collection_address: None,
             commitment: None,
+            bare_root_file: None,
         }
     }
 
@@ -568,6 +575,7 @@ impl CustomKind {
             content: content_from_row(row)?,
             collection_address: collection_address_from_row(row)?,
             commitment: commitment_from_row(row)?,
+            bare_root_file: None,
             ..CustomKind::with_locus(
                 row.name.clone(),
                 // The two columns are one spelling: an `at` locus writes both, a nested file

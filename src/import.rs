@@ -273,14 +273,15 @@ fn unit_dir(root: &Path, entry: &Path) -> Option<PathBuf> {
 }
 
 /// Discover a `kind`'s member source files under `harness`, matching an explicit
-/// `governs` locus — the generalized scan [`discover_kind_units`] runs, plus `skill`'s
-/// bare-root special case (a `<harness>/SKILL.md`, a harness that is itself a skill).
-/// Decoupled from the kind's own [`CustomKind::governs`] so a caller can walk a
-/// *different* declared locus for the same kind — the committed lock's own kind-fact
-/// row on an adopted
-/// harness, the kind's embedded default otherwise (the built-in lock) — while the
-/// bare-root-skill convention still applies wherever `skill`'s locus is walked from.
-/// [`discover_builtin`] is the thin caller that always walks the kind's own governs.
+/// `governs` locus — the generalized scan [`discover_kind_units`] runs, plus any
+/// bare-root file declared in the kind's `bare_root_file` field (e.g., a
+/// `<harness>/SKILL.md`, a harness that is itself a skill). Decoupled from the kind's
+/// own [`CustomKind::governs`] so a caller can walk a *different* declared locus for the
+/// same kind — the committed lock's own kind-fact row on an adopted harness, the
+/// kind's embedded default otherwise (the built-in lock) — while the bare-root fact
+/// is a declared property of the kind itself and applies wherever its locus is walked
+/// from. [`discover_builtin`] is the thin caller that always walks the kind's own
+/// governs.
 ///
 /// `over` decides whether the kind's own commitment class may override discovery's
 /// presumptions for this walk; the `kind` is what carries that class, which is why the
@@ -292,11 +293,11 @@ pub fn discover_kind_files(
     over: LocalOverride,
 ) -> Vec<PathBuf> {
     let mut files = discover_kind_units(disc, governs, local_governs(kind, over));
-    if kind.name == "skill" {
-        let bare = disc.harness().join("SKILL.md");
+    if let Some(bare_file) = &kind.bare_root_file {
+        let bare = disc.harness().join(bare_file);
         if bare.is_file() {
             files.push(bare);
-            // Re-sort so the bare root skill lands in name order beside the children.
+            // Re-sort so the bare root file lands in name order beside the children.
             files.sort();
         }
     }
@@ -786,6 +787,35 @@ Last line, no newline.";
             LocalOverride::Honored,
         );
         assert_eq!(found, vec![harness.join("SKILL.md")]);
+    }
+
+    #[test]
+    fn a_synthetic_non_skill_kind_declaring_bare_root_file_discovers_it() {
+        // The bare-root fact is a declared field on any kind, not a hardwired mechanism
+        // for `skill` alone: a synthetic `reference` kind declaring `bare_root_file =
+        // Some("REF.md")` discovers a `<harness>/REF.md` exactly as skill discovers its
+        // `SKILL.md`, proving the mechanism is generalized to any kind that declares it.
+        let harness = tmpdir("synthetic-bare-root");
+        fs::create_dir_all(&harness).unwrap();
+        fs::write(harness.join("REF.md"), "# Reference\n").unwrap();
+
+        let mut reference_kind = CustomKind::new(
+            "reference",
+            Governs {
+                root: "refs".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        );
+        reference_kind.bare_root_file = Some("REF.md".to_string());
+
+        let found = discover_builtin(
+            &Discovery::new(&harness),
+            &reference_kind,
+            &no_hosts(),
+            LocalOverride::Honored,
+        );
+        assert_eq!(found, vec![harness.join("REF.md")]);
     }
 
     #[test]

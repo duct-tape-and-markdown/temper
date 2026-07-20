@@ -165,6 +165,11 @@ fn skill_surface_registration() -> Vec<Registration> {
 /// placement (same source, "Add supporting files"). The pattern is the host's fact, so
 /// it is what discovery classifies a skill's companion files through; a supporting file
 /// of another type matches nothing and stays unmodeled.
+///
+/// The kind additionally recognizes a bare-root skill — a harness that is itself a skill,
+/// at `<harness>/SKILL.md`, the documented bare-skill-repo convention
+/// (code.claude.com/docs/en/skills, retrieved 2026-07-16). This fact is declared
+/// in the `bare_root_file` field rather than hardwired by name.
 fn claude_code_skill() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -174,6 +179,7 @@ fn claude_code_skill() -> CustomKind {
             kind: "supporting-doc".to_string(),
             path: Some("*.md".to_string()),
         }],
+        bare_root_file: Some("SKILL.md".to_string()),
         ..CustomKind::new(
             "skill",
             Governs {
