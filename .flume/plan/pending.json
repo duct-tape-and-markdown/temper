@@ -1,36 +1,5 @@
 [
   {
-    "tag": "ENGINE-WHEN-GUARD-MEMBERSHIP-DEDUP",
-    "summary": "`decide`'s `when` guard re-implements the Enum/Type membership test its own Type/Enum arms already compute — the identical boolean check written twice, no shared helper",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "The Enum/Type membership test is hand-written twice in `decide`: the `Predicate::Type` arm's verdict closure (918, `!kinds.contains(&actual)`) and the `Predicate::Enum` arm's (955, `!values.iter().any(|v| v == text)`), each reached via `addressed()`; and again inline inside the `Predicate::When` arm's guard match (1225, 1229 — the identical two boolean expressions, copy-pasted to decide whether the guard admits the element before evaluating `body`). Extract one shared fn both the Type/Enum arms and the When arm call, so the membership test has one home per `specs/process/engineering.md`'s 'A shared concept is one type'."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "a `when` clause's Enum guard and Type guard each gate the body's evaluation at runtime through `validate` — firing on a matching element, silent on a non-matching one. No existing test drives `Predicate::When` through `decide`/`validate` at all today (only a lock round-trip in `tests/lock_declaration_rows.rs` and an unrelated exhaustive-match fixture in `tests/manifest_schema_oracle.rs` touch `when`) — the consolidation needs this direct coverage to be safe."
-      }
-    ],
-    "acceptance": "The Enum/Type membership test lives in one function that both `decide`'s Type/Enum arms and its `When` arm call; `cargo test --lib` includes a direct `Predicate::When` runtime test; `cargo clippy --all-targets -- -D warnings` and `cargo fmt --all --check` clean.",
-    "notes": "Posture sweep, src/engine.rs neighborhood. Verified on disk at 4d81d73: lines 918/955 (Type/Enum arms) and 1225/1229 (When arm's guard match) carry the identical two boolean expressions verbatim. scoped at 4d81d73"
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
