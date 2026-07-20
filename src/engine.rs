@@ -932,9 +932,9 @@ fn decide(
         // `string|array` is gated by the set, never by picking one of the two. An
         // absent field is the `required` clause's concern, so `type` stays silent on
         // absence (like the other field predicates).
-        Predicate::Type { field, kinds } => addressed(features, field, |address, value| {
-            let actual = value.kind();
-            (!kinds.contains(&actual)).then(|| {
+        pred @ Predicate::Type { field, kinds } => addressed(features, field, |address, value| {
+            guard_membership_fails(pred, value).then(|| {
+                let actual = value.kind();
                 format!(
                     "field `{address}` is `{}` but the contract declares `{}`",
                     actual.name(),
@@ -969,9 +969,9 @@ fn decide(
                 .then(|| format!("field `{address}` value {n} is outside the range [{min}, {max}]"))
         }),
 
-        Predicate::Enum { field, values } => addressed(features, field, |address, value| {
+        pred @ Predicate::Enum { field, values } => addressed(features, field, |address, value| {
             let text = value.as_scalar()?;
-            (!values.iter().any(|v| v == text)).then(|| {
+            guard_membership_fails(pred, value).then(|| {
                 format!(
                     "field `{address}` value `{text}` is not one of [{}]",
                     values.join(", ")
