@@ -1,31 +1,5 @@
 [
   {
-    "tag": "CHECK-DOC-HEADER-ERA-NARRATION-CUT",
-    "summary": "src/check.rs's module header narrates a retired heuristic rule registry's demise instead of stating check.rs's own current constraint",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "Module header (1-10): 'there is no per-rule code here; the heuristic rule registry it replaced is retired (kill the heuristic rule registry).' The first clause is the live invariant (validation lives in the generic engine over the closed algebra, not per-kind in this module); the parenthetical is era narration of a past demolition — none of the section's three licensed grades (cited external fact, inexpressible intent commitment, promoted-scaffolding pointer) — and is rust.md's own named cut category ('renamed from', 'shipped in Y' is commit-body material, git owns history). Cut the retired-registry clause; keep the per-rule-code invariant standing alone."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "src/check.rs's module header states only check.rs's current invariant (no per-rule code, validated by the generic engine); no mention of the retired heuristic rule registry remains. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green (comment-only change, no behavior pinned).",
-    "notes": "scoped at fe62d82. Posture sweep of src/check.rs: the frontier neighborhood is check.rs alone (its own imports are std::fmt and miette, nothing internal to extend coverage to). Comment-only fix, no regression test per rust.md's editorial comment lifecycle."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
