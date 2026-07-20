@@ -590,6 +590,8 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
                     key_path: "hooks.<Event>".to_string(),
                     entry_shape: Some("group-array(hooks;matcher)".to_string()),
                 }),
+                guidance: None,
+                cite: None,
             }],
             registrations: vec![drift::RegistrationRow {
                 kind: "hook".to_string(),
@@ -866,6 +868,8 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
                 key_path: "hooks.<Event>".to_string(),
                 entry_shape: Some("group-array(hooks;matcher)".to_string()),
             }),
+            guidance: None,
+            cite: None,
         },
         KindFactRow {
             name: "installed-plugin".to_string(),
@@ -884,6 +888,8 @@ fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
                 key_path: "enabledPlugins.*".to_string(),
                 entry_shape: Some("scalar(enabled)".to_string()),
             }),
+            guidance: None,
+            cite: None,
         },
     ];
 

@@ -206,6 +206,12 @@ export interface KindFacts {
   /** Fact 7, template — one {@link Template} per inner layer of nested members the kind
    * hosts; absent for a kind that nests nothing. */
   readonly templates?: readonly Template[];
+  /** Advisory authoring counsel for the kind as a whole — teaching at authoring time via
+   * `schema` hover or `explain`, carrying no predicate or severity (decision 0045). */
+  readonly guidance?: string;
+  /** External-fact source backing the guidance — a doc URL plus retrieved date,
+   * carried as data. */
+  readonly cite?: string;
 }
 
 /**

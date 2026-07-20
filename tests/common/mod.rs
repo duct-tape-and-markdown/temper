@@ -530,6 +530,8 @@ pub fn skill_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFa
         content: None,
         shape: None,
         collection_address: None,
+        guidance: None,
+        cite: None,
     }
 }
 
@@ -549,6 +551,8 @@ pub fn rule_kind_facts(provider: Option<&str>, registration: &[&str]) -> KindFac
         content: None,
         shape: None,
         collection_address: None,
+        guidance: None,
+        cite: None,
     }
 }
 
@@ -571,6 +575,8 @@ pub fn kind_facts(name: &str, governs_root: &str, governs_glob: &str) -> KindFac
         content: None,
         shape: None,
         collection_address: None,
+        guidance: None,
+        cite: None,
     }
 }
 

@@ -128,6 +128,8 @@ fn a_dangling_import_refuses_before_any_byte_is_written() {
         content: None,
         shape: None,
         collection_address: None,
+        guidance: None,
+        cite: None,
     };
     let payload = Payload {
         version: drift::SEAM_VERSION,

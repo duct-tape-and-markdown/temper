@@ -578,6 +578,7 @@ pub enum LockRowError {
 /// A declaration-row column problem before the family that scopes it is known — the
 /// per-column lifts raise this, and [`family`] attaches the family name to make a
 /// [`LockRowError`].
+#[derive(Debug)]
 enum RowError {
     Missing { column: String },
     WrongType { column: String, want: &'static str },
@@ -3104,6 +3105,13 @@ pub struct KindFactRow {
     /// file-locus kind, so an ordinary row stays byte-identical.
     #[serde(default)]
     pub collection_address: Option<CollectionAddressRow>,
+    /// Advisory authoring counsel for the kind as a whole — teaching at authoring time via
+    /// `schema` hover or `explain`, carrying no predicate or severity (decision 0045).
+    #[serde(default)]
+    pub guidance: Option<String>,
+    /// External-fact source backing the guidance — a doc URL plus retrieved date.
+    #[serde(default)]
+    pub cite: Option<String>,
 }
 
 /// A kind's declared **nesting template** row — one inner layer of nested members the
@@ -3990,6 +3998,12 @@ impl KindFactRow {
                 value(collection_address_table(address)),
             );
         }
+        if let Some(guidance) = &self.guidance {
+            table.insert("guidance", value(guidance.clone()));
+        }
+        if let Some(cite) = &self.cite {
+            table.insert("cite", value(cite.clone()));
+        }
         table
     }
 
@@ -4013,7 +4027,15 @@ impl KindFactRow {
                 Some(address) => Some(collection_address_from_table(address)?),
                 None => None,
             },
+            guidance: opt_str(table, "guidance")?,
+            cite: opt_str(table, "cite")?,
         })
+    }
+
+    #[cfg(test)]
+    fn round_trip_through_table(&self) -> Result<Self, RowError> {
+        let table = self.to_table();
+        Self::from_table(&table)
     }
 }
 
@@ -5099,5 +5121,59 @@ mod tests {
             entry.member.leaves.get("because").map(String::as_str),
             Some("a stamping projector breaks law 5")
         );
+    }
+
+    #[test]
+    fn kind_fact_row_with_guidance_and_cite_round_trips_unchanged() {
+        let row = KindFactRow {
+            name: "rule".to_string(),
+            provider: None,
+            governs_root: Some(".claude/rules".to_string()),
+            governs_glob: Some("*.md".to_string()),
+            commitment: None,
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("file".to_string()),
+            registration: vec!["paths-match(paths)".to_string()],
+            templates: Vec::new(),
+            content: None,
+            shape: None,
+            collection_address: None,
+            guidance: Some("Best practices for authoring rules.".to_string()),
+            cite: Some("code.claude.com/docs/rules, retrieved 2026-07-20".to_string()),
+        };
+
+        let round_tripped = row
+            .round_trip_through_table()
+            .expect("round-trip succeeded");
+        assert_eq!(row, round_tripped);
+    }
+
+    #[test]
+    fn kind_fact_row_omits_absent_guidance_and_cite_columns() {
+        let row = KindFactRow {
+            name: "rule".to_string(),
+            provider: None,
+            governs_root: Some(".claude/rules".to_string()),
+            governs_glob: Some("*.md".to_string()),
+            commitment: None,
+            format: Some("yaml-frontmatter".to_string()),
+            unit_shape: Some("file".to_string()),
+            registration: vec!["paths-match(paths)".to_string()],
+            templates: Vec::new(),
+            content: None,
+            shape: None,
+            collection_address: None,
+            guidance: None,
+            cite: None,
+        };
+
+        let table = row.to_table();
+        assert!(!table.contains_key("guidance"));
+        assert!(!table.contains_key("cite"));
+
+        let round_tripped = row
+            .round_trip_through_table()
+            .expect("round-trip succeeded");
+        assert_eq!(row, round_tripped);
     }
 }

@@ -578,6 +578,8 @@ mod tests {
                     content: None,
                     shape: None,
                     collection_address: None,
+                    guidance: None,
+                    cite: None,
                 }],
                 ..crate::drift::Declarations::default()
             },

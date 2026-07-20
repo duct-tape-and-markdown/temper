@@ -212,6 +212,8 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       content: undefined,
       shape: undefined,
       collection_address: undefined,
+      guidance: undefined,
+      cite: undefined,
  },
   ]);
   assert.deepEqual(declarations.clauses, [

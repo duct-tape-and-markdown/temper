@@ -289,7 +289,7 @@ function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefine
  * the same spelling, absent for the committed default. `templates` names the embedded kinds the
  * corpus admits over it, and `content` lowers a declared layout (absent for a
  * `file`-content kind). A registration kind extends the row with its `shape` marker and
- * `collection_address`.
+ * `collection_address`. Advisory `guidance`/`cite` pair rides alongside (decision 0045).
  */
 function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRow {
   if (facts.locus.kind === "embedded") {
@@ -311,6 +311,8 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
     content: contentRow(facts.content),
     shape: facts.shape,
     collection_address: collectionAddressRow(facts),
+    guidance: facts.guidance,
+    cite: facts.cite,
   };
 }
 

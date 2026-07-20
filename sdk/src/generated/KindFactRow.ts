@@ -80,4 +80,13 @@ shape?: string,
  * host manifest, which manifest and which key path it keys at. Absent for a
  * file-locus kind, so an ordinary row stays byte-identical.
  */
-collection_address?: CollectionAddressRow, };
+collection_address?: CollectionAddressRow, 
+/**
+ * Advisory authoring counsel for the kind as a whole — teaching at authoring time via
+ * `schema` hover or `explain`, carrying no predicate or severity (decision 0045).
+ */
+guidance?: string, 
+/**
+ * External-fact source backing the guidance — a doc URL plus retrieved date.
+ */
+cite?: string, };

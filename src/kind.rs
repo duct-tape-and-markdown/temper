@@ -1518,6 +1518,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         }
     }
 
@@ -1561,6 +1563,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
 
@@ -1610,6 +1614,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         };
         let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
         assert!(
@@ -1636,6 +1642,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         };
         let err = CustomKind::from_kind_fact_row(&row).unwrap_err();
         assert!(
@@ -1664,6 +1672,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(
@@ -1692,6 +1702,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(kind.format, None);
@@ -1848,6 +1860,8 @@ Composed like `15-kinds.md` over `10-contracts.md`.\n\
             content: None,
             shape: None,
             collection_address: None,
+            guidance: None,
+            cite: None,
         };
         let kind = CustomKind::from_kind_fact_row(&row).unwrap();
         assert_eq!(
