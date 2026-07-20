@@ -615,20 +615,9 @@ pub(crate) fn body_line_count(body: &str) -> usize {
 /// `pub(crate)` so the data-driven [`crate::kind`] composer reuses this exact
 /// ATX/fence logic rather than reimplementing it.
 pub(crate) fn body_headings(body: &str) -> Vec<String> {
-    let mut headings = Vec::new();
-    // The open fence's char and run length, while inside a fenced code block.
-    let mut fence: Option<(char, usize)> = None;
-    for line in body.lines() {
-        if track_fence(line, &mut fence) {
-            continue;
-        }
-        if fence.is_none()
-            && let Some((_, text)) = atx_heading(line)
-        {
-            headings.push(text);
-        }
-    }
-    headings
+    let lines: Vec<&str> = body.lines().collect();
+    let heads = collect_heads(&lines);
+    heads.into_iter().map(|(_, _, text)| text).collect()
 }
 
 /// Extract the ATX **sections** of a byte-faithful markdown body: each heading
@@ -951,17 +940,6 @@ pub(crate) fn json_to_feature(value: &JsonValue) -> FeatureValue {
     }
 }
 
-/// Walk a parsed JSON manifest to a collection address's **registration members**:
-/// resolve the top-level object named by `collection_key` and read each of its entries as
-/// a fields-only member — the entry key paired with its own **raw** JSON fields, kept
-/// unprojected so the one shared fold ([`crate::builtin_kind::features`]) projects them
-/// kind-preserving at read time, the same soundness boundary and the same projection point
-/// a frontmatter member's fields ride. Entries come back in the collection's own sorted key
-/// order (`serde_json::Map` is a `BTreeMap`), so a re-read is byte-identical. Absent — never
-/// errored — when the manifest carries no such collection object: an unrepresented manifest
-/// infers no member at that address.
-///
-/// The `hooks` collection nests one level deeper than every other: an event's value is an
 /// The source kind of a JSON number: `integer` when it parsed as a whole number
 /// (`i64`/`u64`), else `number` (a floating-point value).
 fn number_kind(n: &serde_json::Number) -> ValueType {
