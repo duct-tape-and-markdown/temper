@@ -1,40 +1,5 @@
 [
   {
-    "tag": "EXTRACT-BODY-HEADINGS-COLLECT-HEADS-DEDUP",
-    "summary": "`body_headings` (617) re-runs its own track_fence/atx_heading scan instead of delegating to `collect_heads` (513), the shared scan `body_sections`/`body_heading_tree` already consolidate through",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/extract.rs",
-          "description": "`body_headings` (608-632) independently loops `body.lines()` tracking fences via `track_fence` and matching `atx_heading` to build its `Vec<String>` — the identical scan `collect_heads` (513-527) already performs, and that `body_heading_tree` (542) and `body_sections` (650) both already consolidate through. `body_headings`'s own doc comment (615-616) claims callers 'reuse this exact ATX/fence logic rather than reimplementing it,' but the function itself reimplements the outer scan rather than calling `collect_heads` and discarding index/level. Rewrite `body_headings` to collect lines once and map `collect_heads`'s output to text only — same primitives (`track_fence`, `atx_heading`), one scan. Same touch also excises the orphaned `manifest_members` doc-comment fragment (954-964) glued onto `number_kind`'s doc comment — dead prose left by 404b73a (EXTRACT-FOUNDATION-BOUNDARY-RESTORE) moving `manifest_members` to json_manifest.rs, tracked as a ride-only stale cite in open-questions.md; this is the first entry to open extract.rs since, so it names and discharges it."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/extract.rs",
-        "asserts": "`body_sections_pair_each_heading_with_its_nested_span_and_skip_fences` and `a_heading_or_inner_marker_inside_a_fence_is_interior_content` (the latter asserts `body_headings` directly) stay green unchanged — the consolidation is behavior-preserving"
-      },
-      {
-        "path": "tests/extract_equivalence.rs",
-        "asserts": "the pinned `skill_features`/`rule_features` snapshots (headings among the pinned fields) stay byte-identical"
-      }
-    ],
-    "acceptance": "`body_headings` delegates to `collect_heads` rather than re-scanning; the orphaned `manifest_members` doc fragment is gone and `number_kind` carries only its own doc comment; `cargo test` green with unchanged snapshots.",
-    "notes": "Verified on disk at 86ea7f0: body_headings 608-632, collect_heads 513-527, the two already-consolidated callers at 542/650, the orphaned fragment at 954-964. scoped at 86ea7f0."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
