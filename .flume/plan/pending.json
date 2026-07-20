@@ -1,64 +1,5 @@
 [
   {
-    "tag": "GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN",
-    "summary": "Thread a kind's lock-carried guidance into the long-dead `Contract.guidance` and deliver it: `schema`'s top-level `description`, `explain`'s governing-contract narration",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "`default_contract_from_rows` (190-203) and `builtin_contract` (1238-1245) each gain a `kinds: &[KindFactRow]` parameter, look up the row named `kind`, and set `Contract.guidance` from its `.guidance` — currently hardcoded `None` at line 202 (and inherited via 1240), the same per-kind lift `clause_from_row` already runs per-clause."
-        },
-        {
-          "path": "src/builtin.rs",
-          "description": "`contract_for_kind` (19-23) passes `&builtin_lock::declarations().kinds` through, so an embedded kind's own SDK-authored guidance (GUIDANCE-BUILTIN-NOTES-PROMOTE) reaches `Contract.guidance`; its doc comment (17-18), which claims the constructed contract's guidance 'stays `None`', is corrected."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Three `default_contract_from_rows`/`builtin_contract` call sites (149, 225, 308) pass `&declarations.kinds` alongside the `&declarations.clauses` each already threads."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "Four call sites (283, 289, 485, 501) pass `&declarations.kinds` alongside `&declarations.clauses`."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Two call sites (1591, 1607) pass `&declarations.kinds`; `narrate_governing_contract` (374-402) prints the kind's `contract.guidance`, when present, as an authoring-counsel line alongside the existing clause-label bullets."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "`joined_kind_admissibility` (362-375) judges kinds this corpus declares none of, so it has no corpus-owned kinds list to source guidance from — passes `&[]`, leaving `Contract.guidance` `None` there rather than forcing an unresolvable lookup."
-        },
-        {
-          "path": "src/schema.rs",
-          "description": "`emit()` (51-208) inserts a top-level `description` key from `contract.guidance` (never read today), assembled alongside `$schema`/`type` (186-207) under the same 'docs channel, never mixed into validation' discipline the per-field loop (156-172) already holds."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/schema.rs",
-        "asserts": "a contract with kind-level guidance emits a top-level `description`; absent guidance emits none, and it never leaks into `properties`/`required`/`allOf`"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`explain` narrates a kind's authored guidance when its governing contract carries one, and omits the line when absent"
-      }
-    ],
-    "acceptance": "`temper schema --kind X` for a kind with authored guidance carries a top-level `description`; `temper explain` narrates it. Every `default_contract_from_rows`/`builtin_contract` caller compiles against the widened signature. `cargo test` green.",
-    "notes": "(b) of the inbox's split (0045; contract.md 'clause'). Every calling site but one already holds `declarations.kinds` beside `declarations.clauses` (gate.rs/main.rs/read.rs/builtin.rs); admissibility.rs's foreign-kind path is the exception, scoped to `&[]`. blockedBy GUIDANCE-KIND-SDK-LOCK-FACT for the row column this reads. scoped at 946e303."
-  },
-  {
     "tag": "GUIDANCE-BUILTIN-NOTES-PROMOTE",
     "summary": "Promote the six built-in kinds' stranded 'authoring notes the clauses cannot carry' JSDoc paragraphs in sdk/src/builtins.ts into real kind-attached `guidance`",
     "per": {
@@ -66,8 +7,7 @@
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
