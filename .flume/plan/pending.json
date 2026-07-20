@@ -1,36 +1,5 @@
 [
   {
-    "tag": "DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE",
-    "summary": "src/drift.rs's write_rollup carries a dead custom rollup-map parameter and loop — its sole call site already merges every kind into one map and passes an empty placeholder for custom",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`write_rollup`'s `custom: &BTreeMap<String, Vec<RollupEntry>>` parameter (485) and its write loop (494-496) are dead: `emit`'s own rollup construction (1437-1467) already accumulates every kind — built-in and custom-declared alike — into one `rollups: BTreeMap<String, Vec<RollupEntry>>` keyed by `projection.kind`, and the sole call site (1501-1508) passes that one map as `builtins` and always passes `&BTreeMap::new()` as `custom`. `write_rollup` is `pub(crate)` with `emit` as its only caller (no other call site in `src/`/`tests/`), so the parameter can never receive a non-empty map in production. Collapse the signature to one rollup-entries map parameter, drop the dead loop, and update the doc comment (465-471) which still narrates 'the built-in kinds first (key-sorted) then the custom kinds (name-sorted)' — a two-partition story the data no longer carries."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "lock.toml roll-up output is byte-unchanged (kind rows still key-sorted, name-sorted within a kind) after write_rollup collapses to one map parameter"
-      }
-    ],
-    "acceptance": "`write_rollup` takes one rollup-entries map; no call site constructs an empty placeholder map to satisfy a second parameter. `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "Likely residue from the retired custom/builtin kind split (open-questions.md's 'kinds/ + packages/ curated trees — RETIRED' record); this entry only prunes the dead parameter, it doesn't chase that history further. Scoped at 721cab6."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
