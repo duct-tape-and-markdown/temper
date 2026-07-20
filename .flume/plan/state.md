@@ -1,10 +1,30 @@
 # Plan state
 
-- Spec derived through: caf29fa — unchanged; 946e303 (chore(spec): 0045, guidance decouples from the clause) still awaits the spec-delta job proper, but this tick's inbox drain already derived it in full (three chained entries below cover the decision's Consequences) — next tick's spec-delta pass can verify-and-close rather than derive fresh.
+- Spec derived through: 946e303 — advanced from caf29fa. This tick's inbox drain routes decision
+  0045's Consequences in full: the spec-text bullet (contract.md's own generalization) is already
+  ratified in the commit itself; the SDK/lock-fact and engine-delivery bullets are filed as
+  GUIDANCE-KIND-SDK-LOCK-FACT and GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN; the built-in-notes bullet is
+  GUIDANCE-BUILTIN-NOTES-PROMOTE; the field-declaration half of the SDK bullet is deferred as
+  GUIDANCE-FIELD-DECLARATION-CHANNEL (no consumer — none of the six promoted notes target a field).
 - Audited through: 4ab6fe2 — unchanged; `git log 4ab6fe2..HEAD -- src/ tests/ sdk/` is empty (946e303 is spec-only).
 - Residue swept through: 4ab6fe2 — unchanged, same empty window.
 - Posture swept through: sdk/src/declarations.ts (+ its immediate imports assembly.ts/kind.ts/contract.ts/prose.ts/builtins.ts) covered; sdk/src/dial.ts next in rotation. Unchanged this tick.
-- This tick: INBOX. One note (decision 0045's guidance-decouples-from-clause, observed at 946e303) routed into three chained entries — GUIDANCE-KIND-FIELD-SDK-CHANNEL, GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY (blockedBy it), BUILTINS-STRANDED-NOTES-PROMOTE-TO-GUIDANCE (blockedBy that) — matching the note's own (a)/(b)/(c) split. The SDK entry is itself blockedBy DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE (both edit sdk/src/declarations.ts, pending-entry rule's "Disjoint, or serialized"). Also fixed a live gate violation found on disk: DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE's `notes` had drifted to 509 chars (over the 500 cap — the prior tick's revert cause); trimmed to 409, same substance, no line-cite change.
-- Queue: 6 pending — 1 open (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE), 3 blockedBy in the new chain, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds). Friction: 0. Amendments: 0. Inbox: 0 notes.
+- This tick: INBOX. Decision 0045's guidance-channel note (observed at 946e303) routed into a
+  3-entry chain matching its own (a)/(b)/(c) split — GUIDANCE-KIND-SDK-LOCK-FACT (blockedBy
+  DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE, both edit sdk/src/declarations.ts), GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN
+  (blockedBy it), GUIDANCE-BUILTIN-NOTES-PROMOTE (blockedBy that) — plus GUIDANCE-FIELD-DECLARATION-CHANNEL,
+  deferred. Mid-tick, pending.json gained a second, independent derivation of the same note
+  (GUIDANCE-KIND-FIELD-SDK-CHANNEL / GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY /
+  BUILTINS-STRANDED-NOTES-PROMOTE-TO-GUIDANCE) from outside this session; its builtins.ts promotion
+  covered only 3 of the 6 stranded notes (missed `rule`/`memory`/`hook`) and its SDK entry carried
+  guidance on `KindOptions` while describing it as erased-like-`render`, inconsistent with its own
+  claim that `kindFactRow()` serializes it. This tick's chain supersedes it; all three dropped.
+  Also re-fixed the live `notes`-length gate violation on disk (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE
+  had drifted to 509 chars, over the 500 cap — the prior tick's revert cause) — trimmed, same substance.
+- Queue: 7 pending — 1 open (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE), 3 chained blockedBy in the
+  guidance work, 1 deferred (guidance, field-declaration half), 2 parked (IMPORT-HOP-CAP-CITE,
+  PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds). Friction: 0.
+  Amendments: 0. Inbox: 0 notes.
 
-Plan continues: yes — spec delta (verify-and-close 946e303) is next, ahead of the open dial.ts posture rotation.
+Plan continues: after-build — the only remaining live job is the dial.ts posture rotation, and
+DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE is pickable now, unblocking the guidance chain behind it.

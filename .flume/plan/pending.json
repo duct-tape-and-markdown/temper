@@ -1,7 +1,7 @@
 [
   {
     "tag": "DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE",
-    "summary": "`mentionScope` and `SEAM_VERSION` (sdk/src/declarations.ts) are exported with zero callers anywhere in sdk/src or sdk/test — each used only inside its own defining file",
+    "summary": "`mentionScope` and `SEAM_VERSION` (sdk/src/declarations.ts) are exported with zero callers anywhere in sdk/src or sdk/test \u2014 each used only inside its own defining file",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -23,7 +23,143 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`export` is gone from `mentionScope` and `SEAM_VERSION` in sdk/src/declarations.ts; `rg 'export function mentionScope|export const SEAM_VERSION' sdk/src/declarations.ts` finds nothing. `pnpm --dir sdk test` green, unchanged behavior.",
-    "notes": "Zero-consumer, grep-verified over sdk/src + sdk/test excluding declarations.ts's own definitions. SDK root also excludes both from its public surface (sdk/test/emit.test.ts:683 asserts SEAM_VERSION/compileDeclarations absent). Blocker DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE shipped (19258b7/a6db2b5), verified clean — entry unblocked; cited lines rescoped -24 for that move's shift. scoped at 4ab6fe2."
+    "notes": "Zero-consumer, grep-verified over sdk/src + sdk/test excluding declarations.ts's own definitions. SDK root also excludes both from its public surface (sdk/test/emit.test.ts:683 asserts SEAM_VERSION/compileDeclarations absent). Blocker DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE shipped (19258b7/a6db2b5), verified clean \u2014 entry unblocked; cited lines rescoped -24 for that move's shift. scoped at 4ab6fe2."
+  },
+  {
+    "tag": "GUIDANCE-KIND-SDK-LOCK-FACT",
+    "summary": "0045 frees guidance from the clause for a kind: give `KindFacts` an advisory `guidance`/`cite` pair and serialize it as a new `KindFactRow` lock column",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Add `readonly guidance?: string` and `readonly cite?: string` to `KindFacts` (168-209) \u2014 advisory authoring counsel for the kind as a whole (decision 0045), no predicate, no severity, mirroring the doc comment `Contract.guidance` already carries at src/contract.rs:32-36 (unwired \u2014 see GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`kindFactRow()` (294-315) copies `facts.guidance`/`facts.cite` into the returned row's new `guidance`/`cite` fields, alongside its existing flat fact copies."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Add `guidance: Option<String>` and `cite: Option<String>` to `KindFactRow` (3045-3106), the tolerant-round-trip optional-fact pattern every other column takes; extend `KindFactRow::to_table`/`from_table` (3953-4015) with the same `if let Some(...) table.insert(...)` / `opt_str(table, ...)` pair `ClauseRow`'s own guidance/cite columns already use (~3229)."
+        },
+        {
+          "path": "tests/seam_bindings_current.rs",
+          "description": "Rerun with `BLESS_SEAM_BINDINGS=1` to regenerate `sdk/src/generated/KindFactRow.ts` with the two new fields (doc comment 1-8 names the bless procedure); commit the diff."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "KindFactRow (lock row) gains two optional string columns: `guidance`, `cite`.",
+    "tests": [
+      {
+        "path": "src/drift.rs",
+        "asserts": "a KindFactRow with guidance+cite round-trips through to_table/from_table unchanged; a row declaring neither omits both columns, the tolerant round-trip every other optional fact takes"
+      }
+    ],
+    "acceptance": "`KindFacts.guidance`/`cite` exist in the SDK and serialize into a committed lock's kind-fact row; `sdk/src/generated/KindFactRow.ts` and `src/drift.rs`'s `KindFactRow` agree (bindings test green). No reader consumes the new columns yet. `cargo test` and `pnpm --dir sdk test` green.",
+    "notes": "(a) of the inbox's guidance-channel split (0045; contract.md 'clause'). `Contract.guidance` (src/contract.rs:32-36) already exists but is dead: every construction site sets it `None`, nothing reads it. blockedBy DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE \u2014 both edit sdk/src/declarations.ts (pending-entry rule, 'Disjoint, or serialized'), that entry smaller and already pickable. scoped at 946e303."
+  },
+  {
+    "tag": "GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN",
+    "summary": "Thread a kind's lock-carried guidance into the long-dead `Contract.guidance` and deliver it: `schema`'s top-level `description`, `explain`'s governing-contract narration",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GUIDANCE-KIND-SDK-LOCK-FACT"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`default_contract_from_rows` (190-203) and `builtin_contract` (1238-1245) each gain a `kinds: &[KindFactRow]` parameter, look up the row named `kind`, and set `Contract.guidance` from its `.guidance` \u2014 currently hardcoded `None` at line 202 (and inherited via 1240), the same per-kind lift `clause_from_row` already runs per-clause."
+        },
+        {
+          "path": "src/builtin.rs",
+          "description": "`contract_for_kind` (19-23) passes `&builtin_lock::declarations().kinds` through, so an embedded kind's own SDK-authored guidance (GUIDANCE-BUILTIN-NOTES-PROMOTE) reaches `Contract.guidance`; its doc comment (17-18), which claims the constructed contract's guidance 'stays `None`', is corrected."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Three `default_contract_from_rows`/`builtin_contract` call sites (149, 225, 308) pass `&declarations.kinds` alongside the `&declarations.clauses` each already threads."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Four call sites (283, 289, 485, 501) pass `&declarations.kinds` alongside `&declarations.clauses`."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Two call sites (1591, 1607) pass `&declarations.kinds`; `narrate_governing_contract` (374-402) prints the kind's `contract.guidance`, when present, as an authoring-counsel line alongside the existing clause-label bullets."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "`joined_kind_admissibility` (362-375) judges kinds this corpus declares none of, so it has no corpus-owned kinds list to source guidance from \u2014 passes `&[]`, leaving `Contract.guidance` `None` there rather than forcing an unresolvable lookup."
+        },
+        {
+          "path": "src/schema.rs",
+          "description": "`emit()` (51-208) inserts a top-level `description` key from `contract.guidance` (never read today), assembled alongside `$schema`/`type` (186-207) under the same 'docs channel, never mixed into validation' discipline the per-field loop (156-172) already holds."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/schema.rs",
+        "asserts": "a contract with kind-level guidance emits a top-level `description`; absent guidance emits none, and it never leaks into `properties`/`required`/`allOf`"
+      },
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "`explain` narrates a kind's authored guidance when its governing contract carries one, and omits the line when absent"
+      }
+    ],
+    "acceptance": "`temper schema --kind X` for a kind with authored guidance carries a top-level `description`; `temper explain` narrates it. Every `default_contract_from_rows`/`builtin_contract` caller compiles against the widened signature. `cargo test` green.",
+    "notes": "(b) of the inbox's split (0045; contract.md 'clause'). Every calling site but one already holds `declarations.kinds` beside `declarations.clauses` (gate.rs/main.rs/read.rs/builtin.rs); admissibility.rs's foreign-kind path is the exception, scoped to `&[]`. blockedBy GUIDANCE-KIND-SDK-LOCK-FACT for the row column this reads. scoped at 946e303."
+  },
+  {
+    "tag": "GUIDANCE-BUILTIN-NOTES-PROMOTE",
+    "summary": "Promote the six built-in kinds' stranded 'authoring notes the clauses cannot carry' JSDoc paragraphs in sdk/src/builtins.ts into real kind-attached `guidance`",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Move each of the six kind-wide stranded paragraphs into its kind()'s new `guidance` fact, trimming the doc comment to its non-stranded remainder: `plugin-manifest` (paragraph 705-706, kind() 669-676), `marketplace` (1049-1050, kind() 990-997), `skill` (1279-1280, kind() 182-190), `rule` (1467-1468, kind() 335-341), `memory` (1515-1528, kind() 357-361), `hook` (1595-1596, kind() 397-404)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "each of the six kinds' `KindFacts.guidance` matches its promoted authoring note, retrievable off the kind's `facts`"
+      }
+    ],
+    "acceptance": "`rg 'Authoring notes the clauses cannot carry|What the clauses cannot carry, as guidance' sdk/src/builtins.ts` finds nothing \u2014 each note lives as its kind's `guidance` fact, visible through `schema`/`explain`. `pnpm --dir sdk test` green.",
+    "notes": "(c) of the inbox's split (0045 Consequences: 'the built-in kinds' JSDoc authoring notes move into the channel'). All six confirmed kind-wide, none field-scoped \u2014 the field-declaration half has no consumer among them (GUIDANCE-FIELD-DECLARATION-CHANNEL, deferred). blockedBy GUIDANCE-KIND-CONTRACT-SCHEMA-EXPLAIN so the migration ships already-visible, not silently inert. scoped at 946e303."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",
@@ -34,7 +170,7 @@
     },
     "gate": {
       "kind": "parked",
-      "reason": "A human probe rules the hop semantics — the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (⇒ 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (⇒ 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence — never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
+      "reason": "A human probe rules the hop semantics \u2014 the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (\u21d2 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (\u21d2 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence \u2014 never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
     },
     "dependsOnForks": [],
     "files": {
@@ -42,11 +178,11 @@
       "edit": [
         {
           "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (75) sits under a doc (71-74) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (650) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (677), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 548 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 647-648 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 672-675 ('capped at the format's import recursion depth'). f6731fb (DIRECTIVE_FIELD consolidated into graph.rs ahead of this region, in the d1af9a5..HEAD window) shifted every address below its insertion point; re-read and confirmed at HEAD (0522eff), so every address above now carries at its new line."
+          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (75) sits under a doc (71-74) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' \u2014 a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (650) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (677), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts \u2014 hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it \u2014 548 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 647-648 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') \u2014 carry the same claim and move with it, as does the propagation comment at 672-675 ('capped at the format's import recursion depth'). f6731fb (DIRECTIVE_FIELD consolidated into graph.rs ahead of this region, in the d1af9a5..HEAD window) shifted every address below its insertion point; re-read and confirmed at HEAD (0522eff), so every address above now carries at its new line."
         },
         {
           "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1547) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1548-1552) spells 'capped at the format's five-hop import recursion' (1550) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. Addresses re-read and confirmed at HEAD (0522eff) after upstream graph.rs/test-file shifts; they carry at these lines."
+          "description": "`the_import_closure_is_hop_capped` (1547) already pins the boundary mechanically rather than in a comment \u2014 `r1..r5` rescued from a live seed, `r6` dead as the sole finding \u2014 so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1548-1552) spells 'capped at the format's five-hop import recursion' (1550) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. Addresses re-read and confirmed at HEAD (0522eff) after upstream graph.rs/test-file shifts; they carry at these lines."
         }
       ],
       "retire": []
@@ -55,22 +191,22 @@
     "tests": [
       {
         "path": "tests/graph.rs",
-        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper — the boundary hop pinned at the ruled number, in the ruled counting"
+        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper \u2014 the boundary hop pinned at the ruled number, in the ruled counting"
       }
     ],
     "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at ac40c72 and holds — nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
+    "notes": "Park re-tested at ac40c72 and holds \u2014 nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
-    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary\u2194npm version lockstep at the v0.1 tag",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships — three channels"
+      "section": "What ships \u2014 three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
@@ -89,15 +225,15 @@
     "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at ac40c72, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff a23269d..HEAD -- .github/` is empty. scoped b676656."
   },
   {
-    "tag": "GUIDANCE-KIND-FIELD-SDK-CHANNEL",
-    "summary": "Add a predicate-less `guidance` channel to `kind()` and to field declarations (decision 0045), serialized into the lock as a new kind/field-attached fact distinct from a clause's guidance column",
+    "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
+    "summary": "0045 also frees guidance onto a field declaration, no predicate \u2014 deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
     "per": {
       "path": "specs/model/contract.md",
       "section": "clause"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE"
+      "kind": "deferred",
+      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) \u2014 no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field; inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
     },
     "dependsOnForks": [],
     "files": {
@@ -105,107 +241,26 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "`KindOptions` (319-321) gains an advisory `guidance?: string` (kind-level authoring counsel) and a new field-level slot — e.g. `fieldGuidance?: readonly { field: string; guidance: string; cite?: string }[]` — composed the way `clause()` already composes a predicate's severity/guidance/cite (contract.ts:310-315). Both erase before `kind()`'s `construct` (330-343) builds a member, riding on the returned `KindDefinition` the way `options.render` already does, never on the member itself."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`kindFactRow()` (294) serializes the new kind-level `guidance` and the field-guidance list into the row it returns, alongside the five facts it already lifts."
+          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields \u2014 shape unset; no field in any built-in kind wants one yet."
         },
         {
           "path": "src/drift.rs",
-          "description": "`KindFactRow` (3045) gains an optional `guidance: Option<String>` column plus a new optional field-guidance row list (its own struct: field name + guidance + optional cite), the same tolerant `#[serde(default)]` absent/empty round-trip `templates`/`registration` already take. `to_table`/`from_table` (3953-) extend to match. The generated TS bindings under `sdk/src/generated/` regenerate from these structs via the project's existing ts-rs export step."
+          "description": "Anticipated: a `KindFactRow` column (or sibling row) carrying per-field guidance/cite, following the `to_table`/`from_table` pattern GUIDANCE-KIND-SDK-LOCK-FACT establishes for the kind-level pair."
         },
         {
-          "path": "src/kind.rs",
-          "description": "`from_kind_fact_row` (577) lifts both new columns into the reconstructed `CustomKind` alongside the facts it already lifts (588-601) — a name-keyed guidance-string list, not the per-kind `Field` primitive the file's own comment (556-566) says the engine deliberately holds none of."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "New optional `guidance` column on KindFactRow (kind-level) plus a new optional field-guidance row list (field name -> guidance string, optional cite, no predicate/severity).",
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "a kind() carrying `guidance` and a field carrying `fieldGuidance` round-trip unchanged through emit into their lock rows"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "KindFactRow round-trips byte-identically when the new guidance columns are absent, and reads back a present kind/field guidance unchanged"
-      }
-    ],
-    "acceptance": "kind() and field declarations carry an optional, predicate-less `guidance` (kind-level) / field-guidance list (field-level); both serialize into the lock. `pnpm --dir sdk test` and `cargo test` green.",
-    "notes": "First of three (decision 0045's SDK/engine-deliver/promote-notes split, inbox-routed). blockedBy DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE — both edit sdk/src/declarations.ts (pending-entry rule, 'Disjoint, or serialized'), that entry sized smaller and already pickable. No existing field-declaration primitive to extend, so this introduces the first one, scoped to name+guidance+cite, never a field type/shape registry. scoped at 946e303."
-  },
-  {
-    "tag": "GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY",
-    "summary": "`temper schema` renders kind/field guidance as JSON Schema hover description and `temper explain` narrates it — authoring counsel delivered at authoring time, never a check (decision 0045)",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "GUIDANCE-KIND-FIELD-SDK-CHANNEL"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
           "path": "src/schema.rs",
-          "description": "`emit()` (51) merges a kind's own guidance into the schema's top-level `description`, and a field's no-predicate guidance into that field's property `description` (the docs channel described at 9-25), joined alongside any clause guidance already riding that property the same way a field's several guided clauses already join into one description."
+          "description": "Anticipated: `emit()`'s per-property `description` (156-172) folds field-declaration guidance in alongside a clause's, the same 'join into one description' discipline `push_description` (316-329) already runs for several guided clauses on one field."
         },
         {
           "path": "src/read.rs",
-          "description": "`explain` (240) narrates a member; extend it to surface an attached kind/field guidance alongside its existing narration — evidence narrated, never judged, the same posture `contract.md`'s 'Read verbs' already states for the rest of `explain`."
+          "description": "Anticipated: field-level narration extends `narrate_governing_contract` (374-402) or a sibling to print a field's declared guidance."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/schema.rs",
-        "asserts": "a kind()-level guidance with zero clauses at all still produces a schema carrying a top-level `description`; a field's guidance with zero clauses on that field still gets a property `description`"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain's output includes a kind/field's attached guidance text"
-      }
-    ],
-    "acceptance": "A kind/field carrying guidance surfaces it through `schema` and `explain`; a guidance-only kind or field never fails `check`, pinned by a test asserting an otherwise-empty contract still passes. `cargo test` green.",
-    "notes": "Second of three; blockedBy the SDK/lock entry since it needs KindFactRow's new columns to read. The docs-channel split (schema.rs:9-25) already keeps guidance out of validation keywords — this only widens which guidance sources feed that one existing channel, never a new keyword. scoped at 946e303."
-  },
-  {
-    "tag": "BUILTINS-STRANDED-NOTES-PROMOTE-TO-GUIDANCE",
-    "summary": "Promote the built-ins' stranded JSDoc 'Authoring notes the clauses cannot carry' (plugin-manifest, marketplace, skill) into the new guidance channel, cut from the doc comment once moved",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": {
-      "kind": "blockedBy",
-      "tag": "GUIDANCE-KIND-FIELD-SCHEMA-EXPLAIN-DELIVERY"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "Three stranded blocks move from doc-comment prose into the new guidance channel at their kind's own `kind()`/contract call: `pluginManifestDefaultContract`'s `version`/`defaultEnabled` note (705-707), `marketplaceDefaultContract`'s `source`-resolution/`defaultEnabled`-precedence note (1049-1052), and `skillDefaultContract`'s naming/versioning note (1279-1284). Each doc comment is cut once its content is promoted — `rg 'Authoring notes the clauses cannot carry' sdk/src/builtins.ts` finds zero left."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "each promoted note is reachable through the moved kind/field's guidance (schema hover / explain), the same way the entry before this one pinned delivery"
-      }
-    ],
-    "acceptance": "`rg 'Authoring notes the clauses cannot carry' sdk/src/builtins.ts` finds nothing; every promoted note surfaces through `schema`/`explain` on its kind or field. `pnpm --dir sdk test` green.",
-    "notes": "Third of three, blockedBy the delivery entry — moving prose into a channel that doesn't deliver yet would strand it worse (invisible in a doc comment AND absent from schema/explain). scoped at 946e303."
+    "tests": [],
+    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating \u2014 provable once a real kind needs one.",
+    "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
   }
 ]
