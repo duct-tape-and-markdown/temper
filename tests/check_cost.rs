@@ -637,3 +637,135 @@ emit_hash = "0000000000000000000000000000000000000000000000000000000000000000"
          {reads} reads (before {reads_before}, after {reads_after})",
     );
 }
+
+#[test]
+fn gate_manifest_cache_read_is_hoisted_across_governing_kinds() {
+    use std::collections::BTreeMap;
+    use temper::compose;
+    use temper::drift::{CollectionAddressRow, Declarations, KindFactRow};
+    use temper::import::Discovery;
+    use temper::json_manifest;
+    use temper::kind::{CollectionAddress, CollectionKeyPath, EntryShape, Extraction};
+
+    let harness = tmpdir("gate-manifest-cache-read-hoist");
+
+    // Create a settings.json manifest with entries for two different collection types:
+    // - hooks (lifecycle event collection)
+    // - enabledPlugins (scalar collection)
+    common::write_settings(
+        &harness,
+        r#"{"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "echo hi"}]}]}, "enabledPlugins": {"test-plugin@my-marketplace": true}}"#,
+    );
+
+    // Create a Discovery instance to traverse the file tree
+    let discovery = Discovery::new(&harness);
+
+    // Build two kinds programmatically that both govern settings.json:
+    // - "hook" kind with a hooks.<Event> collection address
+    // - "installed-plugin" kind with an enabledPlugins.* collection address
+    let mut overlaid_builtin_kinds = BTreeMap::new();
+
+    // First kind: hook
+    let mut hook_kind = temper::kind::CustomKind::new(
+        "hook".to_string(),
+        temper::kind::Governs {
+            root: ".claude".to_string(),
+            glob: "settings.json".to_string(),
+        },
+        Extraction::new(Vec::new()),
+    );
+    hook_kind.collection_address = Some(CollectionAddress {
+        manifest: "settings.json".to_string(),
+        key_path: CollectionKeyPath::HooksEvent,
+        entry_shape: EntryShape::GroupArray {
+            member_key: "hooks".to_string(),
+            lifted_fields: vec!["matcher".to_string()],
+        },
+    });
+    overlaid_builtin_kinds.insert("hook".to_string(), hook_kind);
+
+    // Second kind: installed-plugin
+    let mut plugin_kind = temper::kind::CustomKind::new(
+        "installed-plugin".to_string(),
+        temper::kind::Governs {
+            root: ".claude".to_string(),
+            glob: "settings.json".to_string(),
+        },
+        Extraction::new(Vec::new()),
+    );
+    plugin_kind.collection_address = Some(CollectionAddress {
+        manifest: "settings.json".to_string(),
+        key_path: CollectionKeyPath::EnabledPlugins,
+        entry_shape: EntryShape::Scalar {
+            field: "enabled".to_string(),
+        },
+    });
+    overlaid_builtin_kinds.insert("installed-plugin".to_string(), plugin_kind);
+
+    // Build declarations with the two kinds
+    let kind_rows = vec![
+        KindFactRow {
+            name: "hook".to_string(),
+            provider: None,
+            governs_root: Some(".claude".to_string()),
+            governs_glob: Some("settings.json".to_string()),
+            commitment: None,
+            format: None,
+            unit_shape: None,
+            registration: vec![],
+            templates: Vec::new(),
+            content: None,
+            shape: None,
+            collection_address: Some(CollectionAddressRow {
+                manifest: "settings.json".to_string(),
+                key_path: "hooks.<Event>".to_string(),
+                entry_shape: Some("group-array(hooks;matcher)".to_string()),
+            }),
+        },
+        KindFactRow {
+            name: "installed-plugin".to_string(),
+            provider: None,
+            governs_root: Some(".claude".to_string()),
+            governs_glob: Some("settings.json".to_string()),
+            commitment: None,
+            format: None,
+            unit_shape: None,
+            registration: vec![],
+            templates: Vec::new(),
+            content: None,
+            shape: None,
+            collection_address: Some(CollectionAddressRow {
+                manifest: "settings.json".to_string(),
+                key_path: "enabledPlugins.*".to_string(),
+                entry_shape: Some("scalar(enabled)".to_string()),
+            }),
+        },
+    ];
+
+    let declarations = Declarations {
+        kinds: kind_rows,
+        ..Default::default()
+    };
+
+    // Read counts before build_manifest_cache
+    let reads_before = json_manifest::manifest_read_count();
+
+    // Call build_manifest_cache — this should read settings.json exactly once,
+    // even though two kinds govern it with different collection addresses.
+    let _ = compose::build_manifest_cache(&discovery, &declarations, &overlaid_builtin_kinds)
+        .expect("build_manifest_cache should succeed");
+
+    // Read counts after build_manifest_cache
+    let reads_after = json_manifest::manifest_read_count();
+
+    let reads = reads_after - reads_before;
+
+    // The cost doctrine (engineering.md, "Cost scale is hoisted, and pinned by count"):
+    // a manifest file is read exactly once per gate invocation, shared across all
+    // kinds that govern it, never once per governing kind.
+    assert_eq!(
+        reads, 1,
+        "build_manifest_cache must read each manifest exactly once, shared across \
+         all governing kinds, not once per kind: {reads} reads (before {reads_before}, after {reads_after})",
+    );
+}

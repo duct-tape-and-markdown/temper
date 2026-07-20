@@ -39,7 +39,8 @@ thread_local! {
 
 /// This thread's cumulative count of manifest file read operations. Pinned by count-tests
 /// to enforce the cost doctrine: manifest files are read exactly once per run, never once
-/// per governing kind (GATE-MANIFEST-SHARED-READ-HOIST).
+/// per governing kind (GATE-MANIFEST-SHARED-READ-HOIST, pinned by
+/// `check_cost.rs::gate_manifest_cache_read_is_hoisted_across_governing_kinds`).
 #[must_use]
 pub fn manifest_read_count() -> usize {
     MANIFEST_READ_COUNT.with(std::cell::Cell::get)
