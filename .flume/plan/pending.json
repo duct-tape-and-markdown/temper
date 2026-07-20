@@ -1,36 +1,5 @@
 [
   {
-    "tag": "CONTRACT-FORMAT-PLACES-EDGES-ZERO-CONSUMER",
-    "summary": "`formatPlacesEdges` (sdk/src/contract.ts) is root-exported with zero callers in sdk/src or sdk/test, unlike every sibling predicate constructor",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/test/contract.test.ts",
-          "description": "Add a test exercising `formatPlacesEdges()` (`sdk/src/contract.ts:229`) — re-exported from the package root (`index.ts:36`) but currently called nowhere in `sdk/src` or `sdk/test`: `rg formatPlacesEdges sdk/src sdk/test` finds only its own definition and the root re-export. No built-in kind adopts the clause (mirrors the Rust side, where `tests/contract_template.rs::no_built_in_contract_adopts_the_format_places_edges_clause` asserts this is deliberately author-opt-in), but every sibling predicate constructor still carries its own composition test here regardless of built-in adoption — `mentionReachable` and `sectionContains` (119-151) are the nearest pattern: assert the bare `Predicate` value, then assert the field(s) land correctly on a compiled `ClauseRow` via the file's `skillClauseRow` helper."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "sdk/test/contract.test.ts",
-        "asserts": "`formatPlacesEdges()` composes to `{ key: \"format-places-edges\" }` with no field, and that value lowers unchanged into a clause row through `compileDeclarations` — the same round-trip every sibling predicate constructor's test already pins"
-      }
-    ],
-    "acceptance": "`formatPlacesEdges` has a real caller outside its own module — `sdk/test/contract.test.ts` composes and round-trips it — so the SDK's root-exported predicate vocabulary carries no zero-consumer member (engineering.md, 'An export earns its consumer': 'each needs a caller outside its own module (a test counts)'). `pnpm --dir sdk test` green.",
-    "notes": "Posture sweep of sdk/src/contract.ts (frontier module this rotation) plus its immediate import kind.ts. Zero-consumer verified by `rg formatPlacesEdges` over sdk/src and sdk/test, excluding generated/ and dist/. Cross-checked src/contract.rs and tests/contract_template.rs: the Rust engine keeps the predicate live and deliberately opt-in, so the fix is adding the missing constructor test, never deleting the export. scoped at dbb030a."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
