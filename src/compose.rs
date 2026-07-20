@@ -637,7 +637,7 @@ pub fn resolve_kind_units(
             child_units
         }
         (_, _, Some(governs)) => {
-            let base = disc.harness().join(&governs.root);
+            let base = crate::address::normalize_path(&disc.harness().join(&governs.root));
             let mut file_units = Vec::new();
             for file in
                 import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
@@ -1581,6 +1581,68 @@ mod tests {
         assert_eq!(
             placement_feature(&citation_row(&["source"], &["source"], Some(Vec::new()))),
             Some(BTreeMap::from([("source".to_string(), false)])),
+        );
+    }
+
+    /// A governed File-shape kind's nested member ids fold with placement preserved when
+    /// Discovery's harness root is unnormalized (e.g. `.`), mirroring the fix applied to
+    /// discover_nested_file's sibling root normalization.
+    #[test]
+    fn resolve_kind_units_folds_nested_member_ids_with_placement_under_unnormalized_root() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        let temp = TempDir::new().expect("temp dir");
+        let harness = temp.path();
+
+        // Create a Memory-like directory structure with nested CLAUDE.md files.
+        fs::create_dir_all(harness.join("sub")).expect("create dir");
+        fs::write(
+            harness.join("CLAUDE.md"),
+            "# Root memory\n\nRoot-level knowledge.\n",
+        )
+        .expect("write root CLAUDE.md");
+        fs::write(
+            harness.join("sub/CLAUDE.md"),
+            "# Sub memory\n\nNested knowledge.\n",
+        )
+        .expect("write nested CLAUDE.md");
+
+        // Create a Discovery with the test harness, simulating `temper check`.
+        let disc = import::Discovery::new(harness);
+
+        // Get the memory kind from builtins.
+        let memory_kind = builtin_kind::definition("memory").expect("memory kind exists");
+
+        let declarations = drift::Declarations::default();
+        let cache = BTreeMap::new();
+        let overlaid_builtin_kinds = BTreeMap::from([(
+            "memory".to_string(),
+            overlay_builtin_kind(&memory_kind, &declarations).expect("overlay"),
+        )]);
+
+        // Resolve units for the memory kind with unnormalized harness root.
+        let units = resolve_kind_units(
+            &memory_kind,
+            &disc,
+            &declarations,
+            &cache,
+            &overlaid_builtin_kinds,
+        )
+        .expect("resolve_kind_units succeeds");
+
+        // Both files should be discovered with distinct ids (placement preserved).
+        assert_eq!(units.len(), 2, "both CLAUDE.md files should be found");
+
+        let mut ids: Vec<String> = units.iter().map(|u| u.id.clone()).collect();
+        ids.sort();
+
+        // Root CLAUDE.md should have id "CLAUDE", nested should have id "sub-CLAUDE".
+        // If the fix is not applied, both would collapse to "CLAUDE" and cause a duplicate.
+        assert_eq!(
+            ids,
+            vec!["CLAUDE".to_string(), "sub-CLAUDE".to_string()],
+            "nested members should fold with distinct ids, placement preserved"
         );
     }
 }
