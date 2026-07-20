@@ -161,17 +161,19 @@ pub(crate) fn inadmissibilities(
     messages.extend(bodyless(predicate, locus));
     messages.extend(unaddressable(predicate));
     messages.extend(vacuities(predicate, siblings));
-    messages.extend(when_restrictions(predicate));
+    messages.extend(when_restrictions(predicate, locus));
     messages
 }
 
 /// The admissibility violations specific to `when` predicates — guard restriction and
-/// no-nesting checks.
-fn when_restrictions(predicate: &Predicate) -> Vec<String> {
+/// no-nesting checks, plus recursion into guard and body clauses.
+fn when_restrictions(predicate: &Predicate, locus: &Locus) -> Vec<String> {
     let Predicate::When { guard, body } = predicate else {
         return Vec::new();
     };
     let mut messages = Vec::new();
+
+    // Guard must be enum or type; if valid, recurse to check its admissibilities.
     if !matches!(
         guard.as_ref(),
         Predicate::Enum { .. } | Predicate::Type { .. }
@@ -180,12 +182,19 @@ fn when_restrictions(predicate: &Predicate) -> Vec<String> {
             "`when` guard must be `enum` or `type`; other guard predicates are inadmissible"
                 .to_string(),
         );
+    } else {
+        messages.extend(inadmissibilities(guard.as_ref(), locus, body));
     }
+
+    // Body clauses must not nest another when. Non-nested clauses recurse.
     for clause in body {
         if matches!(clause.predicate, Predicate::When { .. }) {
             messages.push("`when` guard body cannot nest another `when` clause".to_string());
+        } else {
+            messages.extend(inadmissibilities(&clause.predicate, locus, body));
         }
     }
+
     messages
 }
 
@@ -3048,5 +3057,88 @@ mod tests {
         // Guard is neither Enum nor Type: membership always fails, body is silent.
         let artifact = features("demo", &[("status", scalar("active"))], 1, None);
         assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+    }
+
+    #[test]
+    fn when_guard_with_empty_enum_is_inadmissible() {
+        let clauses = vec![clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Enum {
+                    field: "status".to_string(),
+                    values: Vec::new(),
+                }),
+                body: vec![clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Required {
+                        field: "description".to_string(),
+                    },
+                )],
+            },
+        )];
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses,
+        };
+
+        let diags = admissibility(&contract, &Locus::Document);
+        assert_eq!(
+            diags.len(),
+            1,
+            "when guard with empty enum should fire once, got: {diags:?}"
+        );
+        assert!(
+            diags[0].message.contains("enum"),
+            "message should mention enum"
+        );
+        assert!(
+            diags[0].message.contains("no values"),
+            "message should mention no values"
+        );
+    }
+
+    #[test]
+    fn when_body_with_empty_enum_is_inadmissible() {
+        let clauses = vec![clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Enum {
+                    field: "status".to_string(),
+                    values: vec!["active".to_string()],
+                }),
+                body: vec![clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Enum {
+                        field: "type".to_string(),
+                        values: Vec::new(),
+                    },
+                )],
+            },
+        )];
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses,
+        };
+
+        let diags = admissibility(&contract, &Locus::Document);
+        assert_eq!(
+            diags.len(),
+            1,
+            "when body with empty enum should fire once, got: {diags:?}"
+        );
+        assert!(
+            diags[0].message.contains("enum"),
+            "message should mention enum"
+        );
+        assert!(
+            diags[0].message.contains("no values"),
+            "message should mention no values"
+        );
     }
 }
