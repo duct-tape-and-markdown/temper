@@ -1,16 +1,8 @@
-//! The wedge's advisory coverage note — silence about an unchecked surface must
-//! never read as "checked".
-//!
-//! Fail-loud delivery — the invariant. The
-//! gate checks each built-in kind's members and stays silent about everything else,
-//! but silence about a surface temper carries no kind for (`settings.json`, an
-//! `.mcp.json`) is indistinguishable from "checked and clean".
-//! This module makes the coverage explicit: one advisory note stating which kinds
-//! checked how many members, one finding per known Claude Code surface present on
-//! disk that no in-scope kind governs, and one finding per stray entry directly under
-//! `.claude/` that neither a kind nor a known surface claims. Every finding is `warn`
-//! — the note narrates coverage, it never gates, and the session-start reporter
-//! ignores it.
+//! Fail-loud delivery — the invariant. The gate checks each built-in kind's
+//! members and stays silent about everything else, but silence about a surface
+//! temper carries no kind for (`settings.json`, an `.mcp.json`) is indistinguishable
+//! from "checked and clean". One additional finding class: a stray entry directly under
+//! `.claude/` that neither a kind nor a known surface claims.
 //!
 //! The known-surface list is an **external fact** (.claude/rules/collaboration.md,
 //! "External facts are cited"): each entry carries its Claude Code docs citation at
