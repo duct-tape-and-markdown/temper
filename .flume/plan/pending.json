@@ -1,31 +1,5 @@
 [
   {
-    "tag": "COVERAGE-NOTE-DOC-HEADER-NARRATION-DUP",
-    "summary": "src/coverage_note.rs's module header (1-13) re-narrates what check()'s own doc comment (43-53) already states: the checked-summary + unmodeled-surface findings and their warn-only severity",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "Module header (1-13): 'This module makes the coverage explicit: one advisory note stating which kinds checked how many members, one finding per known Claude Code surface present on disk that no in-scope kind governs, ... Every finding is `warn` — the note narrates coverage, it never gates, and the session-start reporter ignores it' (8-13) restates, in near-duplicate prose, exactly what `check`'s own doc comment already carries at its point of use: 'Returns `warn`-severity diagnostics only (never `error`, never a session-start verdict): a summary of what was checked, then one finding per known Claude Code surface present on disk that no in-scope kind governs' (49-53). The header's opening frame (1-2, 'silence... must never read as checked') duplicates the same fact a third time. Cut the header's restatement of check()'s return-shape/severity; keep the fail-loud rationale (4-7, the module's *why* — inexpressible at any lower rung and not restated in check()'s doc) and the unclaimed-entry mention (10-11, the one finding class check()'s own doc comment omits, so not itself a duplicate) and the external-fact pointer (15-17)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "src/coverage_note.rs's module header states the module's job and the fail-loud rationale once, without repeating the checked-summary/unmodeled-surface behavior `check`'s own doc comment already states at its point of use. `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` green (comment-only change, no behavior pinned).",
-    "notes": "scoped at c4fd772. Neighborhood: coverage_note.rs plus its internal imports (builtin_kind::{CLAUDE_ROOT,KNOWN_SURFACES,KnownSurface}, check::Diagnostic, drift, glob::compile_glob, kind::CustomKind, json_manifest::Manifest) — sole consumer gate.rs:428, called once per run (no cost-scale issue); no zero-consumer or shared-enumeration issue found. Comment-only fix, no regression test per rust.md's editorial comment lifecycle."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
