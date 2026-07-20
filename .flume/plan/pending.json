@@ -1,31 +1,5 @@
 [
   {
-    "tag": "DIAL-DOC-HEADER-BOUNDS-NARRATION-DUP",
-    "summary": "src/dial.rs module header re-narrates both bounds (softening-inert-under-Block, no-self-dial) already stated in full at apply()'s doc and refusals()'s own-prefix diagnostic",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/dial.rs",
-          "description": "Module header's third paragraph (8-11) previews the module's two bounds: 'softening is inert under [`EnforcementMode::Block`], so a block-mode pass on any machine implies the shared gate's pass; and the dial can never dial its own contract, which is what keeps the envelope out of reach of the file it bounds.' Both facts are already carried in full at their point of use: `apply()`'s doc (86-89) restates bound 1 ('the machine can only ever be stricter than the shared gate, never laxer'); `refusals()`'s own-prefix branch (125-130) restates bound 2 ('names the dial's own contract, which no dial may re-read: that contract is the envelope this document is checked against'). Cut the restated bound facts from the header; keep the header's 'why here, not the schema' framing (1-7) — the rationale itself is not duplicated anywhere else."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "src/dial.rs's module header states only the design rationale for why the two bounds live in code rather than the schema, without restating the bound facts themselves — those stay solely at apply()'s doc comment and refusals()'s own-prefix diagnostic message. cargo fmt/clippy/test green.",
-    "notes": "Third instance of this rotation's pattern (coverage.rs's REQUIREMENT_* bullets, fixed 701b4c0; coverage_note.rs's fail-loud bullets, fixed e60e1d3): a module //! header previews behavior a point-of-use doc already carries whole. Posture-sweep neighborhood: dial.rs + immediate imports (check.rs, compose.rs, contract.rs already covered; extract.rs read for context, clean). scoped at b19719f."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
