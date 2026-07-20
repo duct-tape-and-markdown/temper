@@ -880,7 +880,7 @@ fn guard_membership_fails(guard: &Predicate, value: &FeatureValue) -> bool {
             let actual = value.kind();
             !kinds.contains(&actual)
         }
-        _ => false,
+        _ => true,
     }
 }
 
@@ -2832,6 +2832,35 @@ mod tests {
 
         // Guard field absent: guard doesn't locate any element, body is silent.
         let artifact = features("demo", &[], 1, None);
+        assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
+    }
+
+    #[test]
+    fn when_guard_non_enum_type_is_silent() {
+        let clauses = vec![clause(
+            "skill",
+            ClauseSeverity::Required,
+            Predicate::When {
+                guard: Box::new(Predicate::Required {
+                    field: "status".to_string(),
+                }),
+                body: vec![clause(
+                    "skill",
+                    ClauseSeverity::Required,
+                    Predicate::Required {
+                        field: "description".to_string(),
+                    },
+                )],
+            },
+        )];
+        let contract = Contract {
+            name: "skill".to_string(),
+            guidance: None,
+            clauses,
+        };
+
+        // Guard is neither Enum nor Type: membership always fails, body is silent.
+        let artifact = features("demo", &[("status", scalar("active"))], 1, None);
         assert!(validate(&contract, std::slice::from_ref(&artifact)).is_empty());
     }
 }
