@@ -37,12 +37,19 @@ use walkdir;
 
 thread_local! {
     static RESOLVE_KIND_UNITS_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static OVERLAY_BUILTIN_KIND_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 /// This thread's cumulative count of `resolve_kind_units` invocations.
 #[must_use]
 pub fn resolve_kind_units_count() -> usize {
     RESOLVE_KIND_UNITS_COUNT.with(std::cell::Cell::get)
+}
+
+/// This thread's cumulative count of `overlay_builtin_kind` invocations.
+#[must_use]
+pub fn overlay_builtin_kind_count() -> usize {
+    OVERLAY_BUILTIN_KIND_COUNT.with(std::cell::Cell::get)
 }
 
 /// A cache of manifest files read during one gate()/explain() invocation: one read per
@@ -399,6 +406,7 @@ pub fn overlay_builtin_kind(
     kind: &CustomKind,
     declarations: &drift::Declarations,
 ) -> Result<CustomKind, drift::LockRowError> {
+    OVERLAY_BUILTIN_KIND_COUNT.with(|c| c.set(c.get() + 1));
     let mut matched = None;
     for row in &declarations.kinds {
         if row.name == kind.name && row_relocates_builtin(row, kind)? {
@@ -595,7 +603,7 @@ pub fn resolve_kind_units(
     cache: &ManifestCache,
 ) -> miette::Result<Vec<Unit>> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
-    let overlaid = overlay_builtin_kind(kind, declarations)?;
+    let overlaid = kind.clone();
     let governs = overlaid.governs.clone();
     let mut edge_fields = kind.edge_field_slots();
     edge_fields.extend(drift::layout_edge_fields(
