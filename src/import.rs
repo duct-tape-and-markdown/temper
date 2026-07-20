@@ -231,7 +231,7 @@ pub fn discover_nested_file(
             continue;
         }
         let discoverable = disc.discoverable(local_governs(host, over));
-        let root = disc.harness().join(&governs.root);
+        let root = crate::address::normalize_path(&disc.harness().join(&governs.root));
         for entry in discover_kind_files(disc, host, governs, over) {
             let Some(host_unit) = unit_dir(&root, &entry) else {
                 continue;
@@ -990,5 +990,31 @@ Last line, no newline.";
         // one non-local flavor: three kinds and the nested host's per-host scan cost one
         // walk, not four.
         assert_eq!(shared.flavors_walked(), 1);
+    }
+
+    #[test]
+    fn unit_dir_resolves_a_host_unit_with_normalized_paths() {
+        // The shared index keys entries as normalized paths (no leading `./`), so `unit_dir`
+        // receives a normalized root (the fix normalizes it before calling `unit_dir`).
+        // This test verifies `unit_dir` correctly extracts the host unit directory.
+        let root = Path::new(".claude/skills");
+        let entry = Path::new(".claude/skills/coordinate/SKILL.md");
+        let result = unit_dir(root, entry);
+        assert_eq!(result, Some(root.join("coordinate")));
+    }
+
+    #[test]
+    fn normalize_path_strips_leading_dot_component() {
+        // The fix normalizes the root before passing it to `unit_dir`. This test verifies
+        // that normalize_path correctly strips the leading `.` that a `.`-rooted harness
+        // would introduce (e.g., `.` joined with `.claude/skills` yields `./.claude/skills`).
+        let unnormalized = Path::new("./.claude/skills");
+        let normalized = crate::address::normalize_path(unnormalized);
+        assert_eq!(normalized, Path::new(".claude/skills"));
+
+        // Now `unit_dir` can correctly match the normalized root against normalized entries.
+        let entry = Path::new(".claude/skills/coordinate/SKILL.md");
+        let result = unit_dir(&normalized, entry);
+        assert_eq!(result, Some(normalized.join("coordinate")));
     }
 }
