@@ -1,5 +1,36 @@
 [
   {
+    "tag": "ADDRESS-STEP-ENCODER-DEDUP",
+    "summary": "address.rs's split_element() (bb1b5c3) introduced steps_to_spelling and steps_to_suffix with byte-identical bodies — two encoders for one job",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/address.rs",
+          "description": "`steps_to_spelling` (210-224) and `steps_to_suffix` (227-243), both added by bb1b5c3 for `split_element` (137-162), are the same function twice: identical match over `&[Step]`, identical `.`-join on `Name`, identical `[*]` push on `EachElement`. `steps_to_suffix` is only ever called on `&self.steps[last_each_idx + 1..]` (149) — the slice strictly after the *last* `EachElement`, which by construction (`rposition`, 141) can never contain another `EachElement` — so its `EachElement` arm (237-239) is additionally dead on every real call. Consolidate to one fn (keep `steps_to_spelling`'s name; it has no such unreachable arm) and point both call sites (146, 149) at it."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/address.rs",
+        "asserts": "`split_element_truncates_to_the_last_array_element_selector` (485) already exercises both the element-scope spelling and the tail suffix through the one consolidated fn — no new test needed, behavior unchanged"
+      }
+    ],
+    "acceptance": "one string-building fn backs both `split_element` outputs; `steps_to_suffix` is gone; `cargo test` green; `cargo clippy --all-targets -- -D warnings` clean",
+    "notes": "scoped at f4e7650. Filed by this tick's post-ship reconciliation sweep over 491c695..HEAD (bb1b5c3, the WHEN-ELEMENT-ADDRESS-DEDUP build) — the very commit that just consolidated engine.rs onto FieldPath left this small residue behind it."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
