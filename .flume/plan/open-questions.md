@@ -189,22 +189,24 @@ condition arrives, it is the next break. If work touches one, surface it.
   contract.rs for edit — SHAPE-LEADING-DOT-SLASH-UNTESTED, filed this
   tick, only touches tests/shape_predicate.rs — so it rides whichever one
   first does.
-  **An eighth, surfaced this tick's posture sweep of drift.rs.**
-  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (2867-2886) is two
-  glued doc blocks: the first paragraph and its `# Errors` (2867-2876) claims
+  **An eighth, surfaced the drift.rs posture sweep, re-read at c9d6cea.**
+  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2787-2806,
+  shifted -80 by the three entries the sweep itself filed) is two glued doc
+  blocks: the first paragraph and its `# Errors` (2787-2796) claims
   "Returns a [`DriftError`] if the lock cannot be read/parsed or a present
-  row is malformed" — that is `source_dep_stale`'s (2919-2941) contract, the
+  row is malformed" — that is `source_dep_stale`'s (2839-2861) contract, the
   sibling that reads and parses the lock file itself; `source_dep_stale_from_doc`
-  (2887-2917) takes an already-parsed `doc: &DocumentMut` and can only fail on
+  (2807-2837) takes an already-parsed `doc: &DocumentMut` and can only fail on
   a malformed row, correctly stated by the second, glued-on paragraph
-  (2877-2886). `source_dep_stale` carries no doc comment of its own — the
+  (2797-2806). `source_dep_stale` carries no doc comment of its own — the
   split evidently pasted the pre-split doc onto the new `_from_doc` function
   without trimming it to match, then never gave the surviving read+parse
-  wrapper its own. No pending entry currently opens drift.rs at this range:
-  DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP and
-  DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE reach 1143-1150/1595-1645 and
-  2642-2704 respectively, neither touching 2867-2941 — so it rides
-  whichever one first does.
+  wrapper its own. DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP,
+  DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE, and DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE
+  have all since shipped (a96d0b0, f0880ce, c52a1db), each confirmed on disk
+  touching 1140-1148, the `config_stale` body, and `write_rollup`/its call
+  site respectively — none reaching 2787-2861. No entry is currently open on
+  drift.rs at all, so it rides whichever one next does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
