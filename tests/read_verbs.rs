@@ -599,3 +599,118 @@ mod mention_narration {
         );
     }
 }
+
+#[test]
+fn explain_narrates_kind_guidance_in_governing_contract() {
+    // A kind's authored guidance in its contract rides the governing contract
+    // narration, visible at the moment of authoring via `explain`.
+    use temper::contract::{Clause, Contract, Predicate, Severity};
+    let custom = [CustomMember {
+        kind: "spec".to_string(),
+        id: "myspec".to_string(),
+        satisfies: Vec::new(),
+    }];
+    let members = [feature("myspec", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    contracts.insert(
+        "spec".to_string(),
+        Contract {
+            name: "spec".to_string(),
+            guidance: Some("A spec documents the harness's shape.".to_string()),
+            clauses: vec![Clause {
+                label: "spec.required".to_string(),
+                severity: Severity::Required,
+                guidance: None,
+                source: None,
+                predicate: Predicate::Required {
+                    field: "name".to_string(),
+                },
+            }],
+        },
+    );
+
+    let registrations = BTreeMap::new();
+    let out = temper::read::explain(
+        &custom,
+        &roster,
+        &contracts,
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &[],
+        0,
+        "myspec",
+    );
+    assert!(
+        out.contains("A spec documents the harness's shape."),
+        "guidance appears in the governing contract narration: {out}"
+    );
+    assert!(
+        out.contains("spec.required"),
+        "clauses still appear alongside guidance: {out}"
+    );
+}
+
+#[test]
+fn explain_omits_governing_contract_guidance_when_absent() {
+    // A kind with no guidance emits no guidance line in the governing contract
+    // narration, but still narrates the clauses normally.
+    use temper::contract::{Clause, Contract, Predicate, Severity};
+    let custom = [CustomMember {
+        kind: "spec".to_string(),
+        id: "myspec".to_string(),
+        satisfies: Vec::new(),
+    }];
+    let members = [feature("myspec", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("spec", &members[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    contracts.insert(
+        "spec".to_string(),
+        Contract {
+            name: "spec".to_string(),
+            guidance: None,
+            clauses: vec![Clause {
+                label: "spec.required".to_string(),
+                severity: Severity::Required,
+                guidance: None,
+                source: None,
+                predicate: Predicate::Required {
+                    field: "name".to_string(),
+                },
+            }],
+        },
+    );
+
+    let registrations = BTreeMap::new();
+    let out = temper::read::explain(
+        &custom,
+        &roster,
+        &contracts,
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &[],
+        0,
+        "myspec",
+    );
+    // Guidance narration marker (‣) should not appear.
+    assert!(
+        !out.contains("‣"),
+        "no guidance marker appears when guidance is absent: {out}"
+    );
+    assert!(
+        out.contains("spec.required"),
+        "clauses still narrate normally: {out}"
+    );
+}

@@ -370,7 +370,7 @@ pub fn joined_kind_admissibility(
         .collect();
     let mut diagnostics = Vec::new();
     for kind in undeclared {
-        let contract = compose::default_contract_from_rows(joined, kind)?;
+        let contract = compose::default_contract_from_rows(joined, &[], kind)?;
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
     }
     Ok(diagnostics)

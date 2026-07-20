@@ -280,13 +280,21 @@ fn main() -> miette::Result<ExitCode> {
                                 "unknown kind `{requested}` (temper models: skill, rule)"
                             )
                         })?;
-                    let contract = compose::builtin_contract(&declarations.clauses, name)?;
+                    let contract = compose::builtin_contract(
+                        &declarations.clauses,
+                        &declarations.kinds,
+                        name,
+                    )?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
                     for name in BUILTIN_DEFAULT_CONTRACT_KINDS {
-                        let contract = compose::builtin_contract(&declarations.clauses, name)?;
+                        let contract = compose::builtin_contract(
+                            &declarations.clauses,
+                            &declarations.kinds,
+                            name,
+                        )?;
                         map.insert((*name).to_string(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
@@ -482,7 +490,8 @@ fn guarded_manifests(
         else {
             continue;
         };
-        let contract = compose::builtin_contract(&declarations.clauses, &kind.name)?;
+        let contract =
+            compose::builtin_contract(&declarations.clauses, &declarations.kinds, &kind.name)?;
         manifests.push(install::GuardedManifest {
             path,
             kind,
@@ -498,7 +507,11 @@ fn guarded_manifests(
         else {
             continue;
         };
-        let contract = compose::default_contract_from_rows(&declarations.clauses, &row.name)?;
+        let contract = compose::default_contract_from_rows(
+            &declarations.clauses,
+            &declarations.kinds,
+            &row.name,
+        )?;
         manifests.push(install::GuardedManifest {
             path,
             kind,

@@ -23,7 +23,7 @@ use crate::builtin_kind;
 use crate::contract::{self, Contract};
 use crate::dial;
 use crate::document;
-use crate::drift::{self, ClauseRow};
+use crate::drift::{self, ClauseRow, KindFactRow};
 use crate::extract;
 use crate::frontmatter;
 use crate::graph;
@@ -189,17 +189,22 @@ pub struct Requirement {
 /// admit is a corrupt lock rejected loud, never a clause silently dropped.
 pub fn default_contract_from_rows(
     clauses: &[ClauseRow],
+    kinds: &[KindFactRow],
     kind: &str,
 ) -> Result<Contract, ClauseRowError> {
-    let clauses = clauses
+    let contract_clauses = clauses
         .iter()
         .filter(|row| row.kind.as_deref() == Some(kind))
         .map(clause_from_row)
         .collect::<Result<Vec<_>, _>>()?;
+    let guidance = kinds
+        .iter()
+        .find(|row| row.name == kind)
+        .and_then(|row| row.guidance.clone());
     Ok(Contract {
         name: kind.to_string(),
-        clauses,
-        guidance: None,
+        clauses: contract_clauses,
+        guidance,
     })
 }
 
@@ -1235,13 +1240,22 @@ pub fn build_manifest_cache(
 /// Propagates the [`ClauseRowError`] the row lift raises for a row the closed
 /// vocabulary cannot admit, or the missing-embedded-contract error if a rowless kind
 /// ships none.
-pub fn builtin_contract(clauses: &[ClauseRow], kind: &str) -> miette::Result<Contract> {
+pub fn builtin_contract(
+    clauses: &[ClauseRow],
+    kinds: &[KindFactRow],
+    kind: &str,
+) -> miette::Result<Contract> {
     if clauses.iter().any(|row| row.kind.as_deref() == Some(kind)) {
-        Ok(default_contract_from_rows(clauses, kind)?)
+        Ok(default_contract_from_rows(clauses, kinds, kind)?)
     } else {
-        crate::builtin::contract(kind).ok_or_else(|| {
+        let mut contract = crate::builtin::contract(kind).ok_or_else(|| {
             miette::miette!("built-in kind `{kind}` ships no embedded default contract")
-        })
+        })?;
+        // Set guidance from the kind's row if present
+        if let Some(kind_row) = kinds.iter().find(|row| row.name == kind) {
+            contract.guidance = kind_row.guidance.clone();
+        }
+        Ok(contract)
     }
 }
 
@@ -1379,7 +1393,7 @@ mod tests {
             },
         ];
 
-        let contract = default_contract_from_rows(&rows, "spec").unwrap();
+        let contract = default_contract_from_rows(&rows, &[], "spec").unwrap();
         assert_eq!(contract.name, "spec");
         assert_eq!(
             contract.clauses,
@@ -1410,7 +1424,7 @@ mod tests {
             ..clause_row("advisory")
         }];
         assert!(matches!(
-            default_contract_from_rows(&unknown, "spec"),
+            default_contract_from_rows(&unknown, &[], "spec"),
             Err(ClauseRowError::Predicate { predicate }) if predicate == "not_a_predicate"
         ));
 
@@ -1424,7 +1438,7 @@ mod tests {
             ..clause_row("advisory")
         }];
         assert!(matches!(
-            default_contract_from_rows(&missing_arg, "spec"),
+            default_contract_from_rows(&missing_arg, &[], "spec"),
             Err(ClauseRowError::Predicate { .. })
         ));
 
@@ -1442,7 +1456,7 @@ mod tests {
             ..clause_row("blocking")
         }];
         assert!(matches!(
-            default_contract_from_rows(&bad_severity, "spec"),
+            default_contract_from_rows(&bad_severity, &[], "spec"),
             Err(ClauseRowError::Severity { severity, .. }) if severity == "blocking"
         ));
     }

@@ -385,6 +385,9 @@ fn narrate_governing_contract(
         out.push('\n');
         return;
     };
+    if let Some(guidance) = &contract.guidance {
+        let _ = writeln!(out, "  ‣ {guidance}");
+    }
     if contract.clauses.is_empty() {
         let _ = writeln!(
             out,
@@ -1588,7 +1591,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     for kind in builtin_defs.values() {
         contracts.insert(
             kind.name.clone(),
-            compose::builtin_contract(&declarations.clauses, &kind.name)?,
+            compose::builtin_contract(&declarations.clauses, &declarations.kinds, &kind.name)?,
         );
     }
 
@@ -1604,7 +1607,11 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         contracts.insert(
             row.name.clone(),
-            compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
+            compose::default_contract_from_rows(
+                &declarations.clauses,
+                &declarations.kinds,
+                &row.name,
+            )?,
         );
         let uaf = compose::kind_units_and_features(
             &custom_kind,

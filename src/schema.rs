@@ -190,6 +190,9 @@ pub fn emit(contract: &Contract) -> Value {
         Value::from("http://json-schema.org/draft-07/schema#"),
     );
     schema.insert("type".to_string(), Value::from("object"));
+    if let Some(guidance) = &contract.guidance {
+        schema.insert("description".to_string(), Value::from(guidance.as_str()));
+    }
     if closed {
         schema.insert("additionalProperties".to_string(), Value::from(false));
     }
@@ -844,5 +847,39 @@ mod tests {
                 .get("additionalProperties")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn contract_guidance_emits_top_level_description() {
+        // A contract with kind-level guidance projects it to the schema's root
+        // `description` alongside `$schema` and `type`, never into properties or required.
+        let contract = Contract {
+            name: "guided-kind".to_string(),
+            guidance: Some("This kind holds global configuration.".to_string()),
+            clauses: vec![clause(Predicate::Required {
+                field: "name".to_string(),
+            })],
+        };
+        let schema = emit(&contract);
+        assert_eq!(
+            schema["description"],
+            json!("This kind holds global configuration.")
+        );
+        // The required field is still present and correct.
+        assert_eq!(schema["required"], json!(["name"]));
+        // Guidance never leaks into properties/required/allOf.
+        assert!(schema["properties"].get("description").is_none());
+    }
+
+    #[test]
+    fn absent_contract_guidance_emits_no_description() {
+        // A contract without guidance emits no root `description` key.
+        let contract = Contract {
+            name: "unguided-kind".to_string(),
+            guidance: None,
+            clauses: vec![],
+        };
+        let schema = emit(&contract);
+        assert!(schema.get("description").is_none());
     }
 }

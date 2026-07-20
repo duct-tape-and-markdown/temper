@@ -146,7 +146,7 @@ pub fn gate(
         // a layer's row is not this harness declaring one, so it must never be what tips a
         // built-in off its embedded default and onto a contract of the layer's alone.
         let contract = compose::with_joined_clauses(
-            compose::builtin_contract(&declarations.clauses, kind_name)?,
+            compose::builtin_contract(&declarations.clauses, &declarations.kinds, kind_name)?,
             &joined_clauses,
             kind_name,
         )?;
@@ -222,7 +222,11 @@ pub fn gate(
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::with_joined_clauses(
-            compose::default_contract_from_rows(&declarations.clauses, &row.name)?,
+            compose::default_contract_from_rows(
+                &declarations.clauses,
+                &declarations.kinds,
+                &row.name,
+            )?,
             &joined_clauses,
             &row.name,
         )?;
@@ -305,7 +309,7 @@ pub fn gate(
     // under its own kind.
     for (kind, features) in &embedded_features {
         let contract = compose::with_joined_clauses(
-            compose::default_contract_from_rows(&declarations.clauses, kind)?,
+            compose::default_contract_from_rows(&declarations.clauses, &declarations.kinds, kind)?,
             &joined_clauses,
             kind,
         )?;

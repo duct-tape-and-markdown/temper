@@ -14,10 +14,10 @@ use crate::contract::Contract;
 
 /// The floor [`Contract`] for `kind` — every embedded clause row naming it, in
 /// declaration order, projected into typed clauses. A floor is an exported clause
-/// array: the constructed contract's own
-/// `guidance` stays `None` — every clause's guidance already rides its row.
+/// array; the constructed contract carries its kind's guidance when the lock declares it.
 fn contract_for_kind(kind: &str) -> Contract {
-    compose::default_contract_from_rows(&builtin_lock::declarations().clauses, kind).expect(
+    let decl = builtin_lock::declarations();
+    compose::default_contract_from_rows(&decl.clauses, &decl.kinds, kind).expect(
         "the embedded built-in lock declares only required/advisory severities and \
              this projection's supported predicates, each carrying its required argument",
     )
