@@ -1,5 +1,31 @@
 [
   {
+    "tag": "BUILTINS-SETTINGS-MANIFEST-EXPORT-PRUNE",
+    "summary": "`SETTINGS_MANIFEST` (sdk/src/builtins.ts:388) is `export`ed but has zero consumer outside its own module — drop the export, keep it module-private",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "An export earns its consumer"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`export const SETTINGS_MANIFEST = \"settings.json\";` (388) is builtins.ts's only top-level const not re-exported by claude-code.ts (11-54 there lists 14 types + 26 of its 27 consts) and no other sdk/ file imports it (`rg SETTINGS_MANIFEST sdk/src sdk/test` hits only builtins.ts's own 6 use sites: 388, 399, 403, 486, 490, 561, 565). builtins.ts's own doc header (1-11) commits every export to surface through the `@dtmd/temper/claude-code` subpath 'never from the root' — this one doesn't, and has no caller to justify the export either way. Drop the leading `export` so it reads `const SETTINGS_MANIFEST = ...` — value and all 6 use sites unchanged, purely a visibility narrowing."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`SETTINGS_MANIFEST` is a module-private `const` in sdk/src/builtins.ts, not `export`ed; `rg \"export const SETTINGS_MANIFEST\"` finds nothing; `pnpm --dir sdk test` stays green (strict `tsc` would fail loud if any file outside builtins.ts still imported it).",
+    "notes": "scoped at 943603a. Surfaced this tick's posture sweep of sdk/src/claude-code.ts (frontier module) read against its immediate import builtins.ts (already covered as its own neighborhood at a2d4c71, which found the literal-dedup residue now shipped — this is a separate, freshly-verified finding: export-consumption, not literal duplication). Purely mechanical, no design call."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
