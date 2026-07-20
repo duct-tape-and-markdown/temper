@@ -1,45 +1,14 @@
 [
   {
-    "tag": "MENTION-REACHABLE-GATE-SDK-AGREEMENT",
-    "summary": "No real SDK-emit→engine-reader test decodes the mention-reachable clause's `gate` column; lock_declaration_rows.rs's hand-built test wrongly claims that coverage",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A seam gate reads what the real writer wrote"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader (122-140) already parses the real SDK-derived declarations (MEMBERLESS_BUILTIN_PROGRAM's emit, which carries rule's default-contract mention-reachable clause row — src/builtin_lock.toml:985-992, `gate = \"paths\"`) but only decodes kind facts through CustomKind::from_kind_fact_row, never a clause row through contract::predicate_from_row (src/contract.rs:435). Add an assertion (new test or extend this one) that finds the derived declarations' rule.mention-reachable clause row and decodes it via predicate_from_row, asserting Predicate::MentionReachable { scope_field: \"paths\", gate_field: \"paths\" } — the real writer's gate-column spelling actually lifting through the real reader, the claim tests/lock_declaration_rows.rs's hand-built test names but never exercises."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "a_mention_reachable_clause_row_round_trips_both_field_ends (553-558) drives contract::predicate_from_row entirely over a hand-built ClauseRow (golden_payload/drift::emit/drift::read_declarations, no node/SDK involved) yet its doc comment claims 'the SDK writing it must spell exactly what the engine reads' (556) — an SDK-agreement claim this compiler-tier test (tests/emit.rs:3-11's own three-tier taxonomy) never verifies. Reword the comment to honestly scope it as the hand-built compiler-tier round trip it is, pointing at the new SDK-driven assertion (builtin_lock_frozen.rs) for the actual agreement claim."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/builtin_lock_frozen.rs",
-        "asserts": "the real SDK-derived rule.mention-reachable clause row decodes through contract::predicate_from_row to Predicate::MentionReachable{scope_field:\"paths\", gate_field:\"paths\"}"
-      }
-    ],
-    "acceptance": "A real node+SDK emit's mention-reachable gate-column spelling is decoded and asserted through the engine's typed Predicate by a live test (not a hand-built row); lock_declaration_rows.rs's compiler-tier test's comment no longer claims SDK-spelling coverage it doesn't exercise. cargo test green.",
-    "notes": "scoped at 00c3a22. src/builtin_lock.toml:985-992 already carries the real SDK-derived gate=\"paths\" row (rule's default contract) — no new SDK fixture needed, only a new decode assertion over declarations already parsed at builtin_lock_frozen.rs:122-130. Derived from engineering.md's new section (8911c38, phrase delta); surveyed every seam/agreement-keyword test file — this and CUSTOM-KIND-CONTENT-SDK-AGREEMENT are the two live findings."
-  },
-  {
     "tag": "CUSTOM-KIND-CONTENT-SDK-AGREEMENT",
     "summary": "No real SDK-emit test exercises a custom kind's layout content or fields-only shape+collectionAddress; lock_declaration_rows.rs's hand-built tests wrongly claim that SDK coverage",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "A seam gate reads what the real writer wrote"
     },
-    "gate": { "kind": "blockedBy", "tag": "MENTION-REACHABLE-GATE-SDK-AGREEMENT" },
+    "gate": {
+      "kind": "open"
+    },
     "dependsOnForks": [],
     "files": {
       "new": [],
