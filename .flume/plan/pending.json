@@ -1,36 +1,5 @@
 [
   {
-    "tag": "WHEN-BODY-ADMISSIBILITY-FENCE",
-    "summary": "`when`'s guard and body clauses bypass the admissibility fence — a nested vacuous clause reaches conformance instead of being refused",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "well-formedness"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`inadmissibilities` (153-164) runs `judgeless`/`bodyless`/`unaddressable`/`vacuities` on the top-level predicate only, then calls `when_restrictions` (168-188) — which checks solely that a `when`'s guard is `enum`/`type` and that no body clause nests another `when`; it never recurses the other four checks into the guard or the body clauses. `vacuities` (374-511) has no `When` arm — `Predicate::When { .. } => Vec::new()` at 509 — confirming a `when`'s own guard/body predicates are never passed through it at all. Fix: thread `locus: &Locus` into `when_restrictions` (already available in `inadmissibilities`'s scope) and, in place of the current two checks, recurse: where the guard is `enum`/`type`, extend with `inadmissibilities(guard.as_ref(), locus, body)`; for each body clause not itself a nested `when`, extend with `inadmissibilities(&clause.predicate, locus, body)` (siblings = the body's own clause set, mirroring `vacuities`' documented per-clause-set contract for `closed-keys`). The nested-`when` refusal stays as its own message, unrecursed. `src/roster.rs:162` calls `engine::inadmissibilities` directly for a requirement's own clauses, so the fix applies there with no separate edit — a requirement's `when` clause gets the same fence for free."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/engine.rs",
-        "asserts": "a `when` clause whose body carries an empty-`enum` clause is refused by `admissibility` as inadmissible rather than reaching conformance; a `when` clause whose guard is an empty-`enum` is likewise refused"
-      }
-    ],
-    "acceptance": "`admissibility`/`inadmissibilities` recurse the well-formedness checks into a `when`'s guard and every body clause, at the same locus the outer clause is bound to; the two new tests pass; existing `when_guard_*` tests (src/engine.rs:2712-2865) and roster tests stay green; `cargo test`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check` all green.",
-    "notes": "Routed from inbox, observed at 863149f: engine's own invariant ('the fence, not an upstream layer, makes decide's empty floors unreachable') is violated for anything nested under `when`. Confirmed on disk this tick. Serialized after WHEN-BODY-ELEMENT-SCOPE-EVALUATE — both reshape `when`'s engine.rs handling, the same seam. Its sibling gap is no longer a fork (`(when-body-element-relative-addressing)` resolved into that entry directly, a confirmed bug not a design call). scoped at 087b90a."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
