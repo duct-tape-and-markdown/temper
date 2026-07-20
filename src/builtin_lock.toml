@@ -81,6 +81,7 @@ unit_shape = "file"
 registration = ["event(event)"]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
 
 [[declaration.kind]]
 name = "installed-plugin"
@@ -106,6 +107,7 @@ governs_root = ".claude-plugin"
 governs_glob = "marketplace.json"
 format = "json-document"
 unit_shape = "named-field(name)"
+guidance = "a relative-path `source` resolves against a *local copy* of the marketplace, so it silently fails to resolve for users who added the marketplace by direct URL to `marketplace.json` — only that one file is downloaded. Reach for `github`, `url`, or `npm` when the catalog is distributed by URL. Where a git source pins both `ref` and `sha`, the `sha` is the effective pin. A marketplace entry's `defaultEnabled` beats the same field in the plugin's own `plugin.json`, while `version` runs the other way — `plugin.json` wins."
 
 [[declaration.kind]]
 name = "mcp-server"
@@ -122,6 +124,7 @@ governs_root = "."
 governs_glob = "**/CLAUDE.md"
 unit_shape = "file"
 registration = ["always"]
+guidance = "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level."
 
 [[declaration.kind]]
 name = "plugin-manifest"
@@ -129,6 +132,7 @@ governs_root = ".claude-plugin"
 governs_glob = "plugin.json"
 format = "json-document"
 unit_shape = "named-field(name)"
+guidance = "leave `version` unset while iterating, so the commit SHA drives updates and users are not stranded on a stale pin; set it once the plugin has a release cycle, and bump it every time — pushing commits without bumping is a no-op. Reach for `defaultEnabled: false` when the plugin costs money or scope on load."
 
 [[declaration.kind]]
 name = "rule"
@@ -137,6 +141,7 @@ governs_glob = "*.md"
 format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
+guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 
 [[declaration.kind]]
 name = "settings-local"
@@ -154,6 +159,7 @@ format = "yaml-frontmatter"
 unit_shape = "directory"
 registration = ["user-invoked", "description-trigger(description)"]
 templates = [{ kind = "supporting-doc", path = "*.md" }]
+guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field."
 
 [[declaration.kind]]
 name = "supporting-doc"

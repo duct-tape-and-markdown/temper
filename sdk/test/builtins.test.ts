@@ -13,6 +13,7 @@ import {
   agentDefaultContract,
   command,
   commandDefaultContract,
+  hook,
   hookDefaultContract,
   installedPlugin,
   installedPluginDefaultContract,
@@ -635,6 +636,38 @@ test("skill/command register on both documented invocation channels; agent/rule/
   assert.deepEqual(agent.facts.registration, [{ via: "description-trigger", field: "description" }]);
   assert.deepEqual(rule.facts.registration, [{ via: "paths-match", field: "paths" }]);
   assert.deepEqual(memory.facts.registration, [{ via: "always" }]);
+});
+
+test("the six builtin kinds carry their promoted authoring notes as guidance facts", () => {
+  // plugin-manifest
+  assert.ok(pluginManifest.facts.guidance);
+  assert.match(pluginManifest.facts.guidance, /leave `version` unset/);
+  assert.match(pluginManifest.facts.guidance, /defaultEnabled.*false/);
+
+  // marketplace
+  assert.ok(marketplace.facts.guidance);
+  assert.match(marketplace.facts.guidance, /relative-path.*source.*resolves/);
+  assert.match(marketplace.facts.guidance, /github.*url.*npm/);
+
+  // skill
+  assert.ok(skill.facts.guidance);
+  assert.match(skill.facts.guidance, /gerund or noun-phrase names/);
+  assert.match(skill.facts.guidance, /disable-model-invocation/);
+
+  // rule
+  assert.ok(rule.facts.guidance);
+  assert.match(rule.facts.guidance, /keep a rule to facts Claude/);
+  assert.match(rule.facts.guidance, /Treat rules like code/);
+
+  // memory
+  assert.ok(memory.facts.guidance);
+  assert.match(memory.facts.guidance, /paths.*frontmatter block/);
+  assert.match(memory.facts.guidance, /CLAUDE.local.md/);
+
+  // hook
+  assert.ok(hook.facts.guidance);
+  assert.match(hook.facts.guidance, /type.*command.*http.*mcp_tool/);
+  assert.match(hook.facts.guidance, /UserPromptSubmit.*Stop/);
 });
 
 test("agentDefaultContract requires name and description, gates the lowercase-hyphen charset, and pins per-scope uniqueness", () => {

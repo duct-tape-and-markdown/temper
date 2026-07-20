@@ -212,7 +212,8 @@ test("compileDeclarations produces all eight families, satisfies and mentions in
       content: undefined,
       shape: undefined,
       collection_address: undefined,
-      guidance: undefined,
+      guidance:
+        "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
       cite: undefined,
  },
   ]);

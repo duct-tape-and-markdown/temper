@@ -1,6 +1,5 @@
 ---
 source: tests/gauntlet.rs
-assertion_line: 276
 expression: "projection_tree(&harness, &report)"
 ---
 # emit report
@@ -119,6 +118,7 @@ unit_shape = "file"
 registration = ["event(event)"]
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+guidance = "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings)."
 
 [[declaration.kind]]
 name = "installed-plugin"
@@ -154,6 +154,7 @@ format = "yaml-frontmatter"
 unit_shape = "file"
 registration = ["paths-match(paths)"]
 templates = [{ kind = "citation" }]
+guidance = "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts."
 
 [[declaration.kind]]
 name = "spec"

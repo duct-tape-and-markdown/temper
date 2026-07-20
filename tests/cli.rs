@@ -358,8 +358,9 @@ fn schema_kind_skill_emits_guidance_as_the_docs_channel_description() {
     // The prose stays in the docs channel — it never became a validation keyword.
     assert!(json["properties"]["name"].get("enum").is_none());
     assert!(json["properties"]["name"].get("const").is_none());
-    // Guidance never leaks to the schema root, only onto property `description`s.
-    assert!(json.get("description").is_none());
+    // Kind guidance appears at the schema root when present (decision 0045).
+    assert!(json.get("description").is_some());
+    assert!(json["description"].is_string());
 }
 
 #[test]

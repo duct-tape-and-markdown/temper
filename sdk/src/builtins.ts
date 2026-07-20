@@ -187,6 +187,8 @@ export const skill: KindDefinition<Skill> = kind<Skill>({
   registration: [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   identityField: "name",
   templates: [{ kind: supportingDoc, path: "*.md" }],
+  guidance:
+    "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field.",
 });
 
 /**
@@ -338,6 +340,8 @@ export const rule: KindDefinition<Rule> = kind<Rule>({
   format: "yaml-frontmatter",
   unitShape: "file",
   registration: [{ via: "paths-match", field: "paths" }],
+  guidance:
+    "keep a rule to facts Claude should hold whenever the rule is in scope — concrete enough to verify ('use 2-space indentation', not 'format code properly'). If an entry is a multi-step procedure or only matters occasionally, it belongs in a skill (on-demand) rather than a rule (always-on). Prefer path-scoped rules when one convention governs scattered paths; prefer per-directory CLAUDE.md when directory owners maintain their own. Treat rules like code: prune them when behavior drifts, and test a change by watching whether Claude's behavior actually shifts.",
 });
 
 /** A Claude Code memory file — `CLAUDE.md`, loaded in full at launch, no frontmatter. */
@@ -359,6 +363,8 @@ export const memory: KindDefinition<Memory> = kind<Memory>({
   locus: { kind: "at", root: ".", glob: "**/CLAUDE.md" },
   unitShape: "file",
   registration: [{ via: "always" }],
+  guidance:
+    "a `paths:` frontmatter block belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory docs document `paths` only for rules, so a rules-style header on `CLAUDE.md` is dead configuration. Split a large file with `@path` imports (resolved relative to the importing file, absolute allowed, recursion capped at four hops; wrap a path in backticks to mention it without importing). If the repo already ships an `AGENTS.md` for other agents, don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or symlink, except on Windows where the import is the recommended bridge). Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at launch, while files in subdirectories load only when Claude reads a file there — so a rule that must always hold belongs above the working directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md` (gitignored), appended after `CLAUDE.md` at its level.",
 });
 
 /**
@@ -401,6 +407,8 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
   collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: "hooks.<Event>", entryShape: "group-array(hooks;matcher)" },
+  guidance:
+    "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).",
 });
 
 /**
@@ -673,6 +681,8 @@ export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifes
   unitShape: "named-field",
   registration: [],
   identityField: "name",
+  guidance:
+    "leave `version` unset while iterating, so the commit SHA drives updates and users are not stranded on a stale pin; set it once the plugin has a release cycle, and bump it every time — pushing commits without bumping is a no-op. Reach for `defaultEnabled: false` when the plugin costs money or scope on load.",
 });
 
 /**
@@ -701,11 +711,6 @@ export const pluginManifest: KindDefinition<PluginManifest> = kind<PluginManifes
  *
  * Deliberately absent as undecidable: whether the `description` reads well, whether
  * `keywords` aid discovery, whether `name` names the pack aptly.
- *
- * Authoring notes the clauses cannot carry: leave `version` unset while iterating, so the
- * commit SHA drives updates and users are not stranded on a stale pin; set it once the
- * plugin has a release cycle, and bump it every time — pushing commits without bumping is
- * a no-op. Reach for `defaultEnabled: false` when the plugin costs money or scope on load.
  */
 export const pluginManifestDefaultContract: readonly Clause[] = [
   clause(required("name"), {
@@ -994,6 +999,8 @@ export const marketplace: KindDefinition<Marketplace> = kind<Marketplace>({
   unitShape: "named-field",
   registration: [],
   identityField: "name",
+  guidance:
+    "a relative-path `source` resolves against a *local copy* of the marketplace, so it silently fails to resolve for users who added the marketplace by direct URL to `marketplace.json` — only that one file is downloaded. Reach for `github`, `url`, or `npm` when the catalog is distributed by URL. Where a git source pins both `ref` and `sha`, the `sha` is the effective pin. A marketplace entry's `defaultEnabled` beats the same field in the plugin's own `plugin.json`, while `version` runs the other way — `plugin.json` wins.",
 });
 
 /**
@@ -1045,14 +1052,6 @@ const RESERVED_MARKETPLACE_NAMES: readonly string[] = [
  * there is no predicate that decides it, and a clause that guessed would fire on true
  * negatives. The enumerated deny list is the decidable subset; the impersonation rule rides
  * as guidance below.
- *
- * Authoring notes the clauses cannot carry: a relative-path `source` resolves against a
- * *local copy* of the marketplace, so it silently fails to resolve for users who added the
- * marketplace by direct URL to `marketplace.json` — only that one file is downloaded. Reach
- * for `github`, `url`, or `npm` when the catalog is distributed by URL. Where a git source
- * pins both `ref` and `sha`, the `sha` is the effective pin. A marketplace entry's
- * `defaultEnabled` beats the same field in the plugin's own `plugin.json`, while `version`
- * runs the other way — `plugin.json` wins.
  */
 export const marketplaceDefaultContract: readonly Clause[] = [
   clause(required("name"), {
@@ -1275,13 +1274,6 @@ export const settingsLocalDefaultContract: readonly Clause[] = [
  * vagueness/no-op detection (semantic); gerund naming (judgment). Nothing
  * decidable is held: the name's hyphen placement and the platform's "no XML
  * tags in the description" are the two `shape` clauses below.
- *
- * Authoring notes the clauses cannot carry: prefer gerund or noun-phrase
- * names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`,
- * `utils`); `disable-model-invocation: true` for side-effectful workflows you
- * want to time yourself; `user-invocable: false` for background knowledge
- * that is not a command; `metadata` is the sanctioned home for versioning —
- * there is no top-level `version` field.
  */
 export const skillDefaultContract: readonly Clause[] = [
   clause(required("name"), {
@@ -1463,16 +1455,6 @@ export const agentDefaultContract: readonly Clause[] = [
  * own: `required` is the one
  * presence predicate, and its absence is not itself a predicate.)
  * https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)
- *
- * What the clauses cannot carry, as guidance: keep a rule to facts Claude
- * should hold whenever the rule is in scope — concrete enough to verify ("use
- * 2-space indentation", not "format code properly"). If an entry is a
- * multi-step procedure or only matters occasionally, it belongs in a skill
- * (on-demand) rather than a rule (always-on). Prefer path-scoped rules when
- * one convention governs scattered paths; prefer per-directory CLAUDE.md when
- * directory owners maintain their own. Treat rules like code: prune them when
- * behavior drifts, and test a change by watching whether Claude's behavior
- * actually shifts.
  */
 export const ruleDefaultContract: readonly Clause[] = [
   clause(forbiddenKeys(["description", "globs", "alwaysApply"]), {
@@ -1511,21 +1493,6 @@ export const ruleDefaultContract: readonly Clause[] = [
  * schema to gate — manufacturing a required field or a forbidden-key list
  * would fake a check the format does not carry. The single clause is a context-cost
  * budget; everything else the contract could say is guidance.
- *
- * What the clauses cannot carry, as guidance: a `paths:` frontmatter block
- * belongs on a `.claude/rules/*.md` file, not on `CLAUDE.md` — the memory
- * docs document `paths` only for rules, so a rules-style header on
- * `CLAUDE.md` is dead configuration. Split a large file with `@path` imports
- * (resolved relative to the importing file, absolute allowed, recursion
- * capped at four hops; wrap a path in backticks to mention it without
- * importing). If the repo already ships an `AGENTS.md` for other agents,
- * don't duplicate it — create a `CLAUDE.md` that `@AGENTS.md`-imports it (or
- * symlink, except on Windows where the import is the recommended bridge).
- * Mind the loading asymmetry: every ancestor `CLAUDE.md` loads in full at
- * launch, while files in subdirectories load only when Claude reads a file
- * there — so a rule that must always hold belongs above the working
- * directory, not below it. Personal, un-shared notes go in `CLAUDE.local.md`
- * (gitignored), appended after `CLAUDE.md` at its level.
  */
 export const memoryAnthropicDefaultContract: readonly Clause[] = [
   clause(extent("lines", 200), {
@@ -1592,10 +1559,6 @@ const DOCUMENTED_HOOK_EVENTS = [
  * vocabulary's when/enumOf/type extensions, addressing still cannot spell a path into the
  * handler array (e.g., `hooks.<Event>[0].type`). A clause over it would range over a field
  * the read never surfaces, so it is no clause at all — the addressing-reach gap remains.
- * What the clauses cannot carry, as guidance: keep a handler's `type` among
- * `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an
- * `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events
- * that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).
  */
 export const hookDefaultContract: readonly Clause[] = [
   clause(enumOf("event", DOCUMENTED_HOOK_EVENTS), {
