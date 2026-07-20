@@ -221,6 +221,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   cite (877) names the private helper that still carries that exact name
   today, so it is not part of this orphan. No pending entry currently opens
   either citing file, so each rides whichever one first does.
+  **An eleventh, surfaced this tick's post-ship reconciliation over
+  a00e14a..HEAD.** `sdk/src/contract.ts`'s `telemetry` doc comment (338)
+  reads "See `TELEMETRY_EVENT_HOOKS` in `declarations.ts` for the
+  vocabulary" — but DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE
+  (19258b7/a6db2b5), shipped inside this very window, relocated
+  `TELEMETRY_EVENT_HOOKS` to `sdk/src/builtins.ts` (provider-face data
+  belongs beside `hookDefaultContract`); the cite in contract.ts was not
+  updated with it, so it now names the wrong module. No pending entry
+  currently opens contract.ts (CONTRACT-FORMAT-PLACES-EDGES-ZERO-CONSUMER
+  already shipped, a00e14a), so it rides whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,

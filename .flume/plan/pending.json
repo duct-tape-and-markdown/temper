@@ -15,7 +15,7 @@
       "edit": [
         {
           "path": "sdk/src/declarations.ts",
-          "description": "Drop the `export` keyword from `mentionScope` (873, called only internally at 908's `nestedMemberRows` call) and from `SEAM_VERSION` (915, read only internally at 924's `encodeSeam`); `rg 'mentionScope|SEAM_VERSION' sdk/src sdk/test` (excluding declarations.ts's own definitions and doc-comment @link mentions) finds no import or call site anywhere else. Both stay module-private; no behavior change."
+          "description": "Drop the `export` keyword from `mentionScope` (849, called only internally at 884's `nestedMemberRows` call) and from `SEAM_VERSION` (891, read only internally at 900's `encodeSeam`); `rg 'mentionScope|SEAM_VERSION' sdk/src sdk/test` (excluding declarations.ts's own definitions and doc-comment @link mentions) finds no import or call site anywhere else. Both stay module-private; no behavior change. Addresses re-read and shifted -24 by DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE (a6db2b5), which removed the TELEMETRY_EVENT_HOOKS block ahead of this region; confirmed at HEAD (4ab6fe2)."
         }
       ],
       "retire": []
@@ -23,7 +23,7 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "`export` is gone from `mentionScope` and `SEAM_VERSION` in sdk/src/declarations.ts; `rg 'export function mentionScope|export const SEAM_VERSION' sdk/src/declarations.ts` finds nothing. `pnpm --dir sdk test` green, unchanged behavior.",
-    "notes": "Zero-consumer, grep-verified over sdk/src + sdk/test excluding declarations.ts's own definitions. The SDK root deliberately excludes both from its public surface too (sdk/test/emit.test.ts:683 asserts SEAM_VERSION/compileDeclarations absent from the package root). Serialized after DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE — both entries edit declarations.ts (pending-entry rule, 'Disjoint, or serialized'). scoped at 7371df9."
+    "notes": "Zero-consumer, grep-verified over sdk/src + sdk/test excluding declarations.ts's own definitions. The SDK root deliberately excludes both from its public surface too (sdk/test/emit.test.ts:683 asserts SEAM_VERSION/compileDeclarations absent from the package root). Its blocker DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE shipped (19258b7/a6db2b5) — verified on disk, re-grepped clean — so the entry stands unblocked; its cited lines rescoped -24 this tick for the shift that move caused. scoped at 4ab6fe2."
   },
   {
     "tag": "IMPORT-HOP-CAP-CITE",

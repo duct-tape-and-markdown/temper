@@ -1,10 +1,10 @@
 # Plan state
 
-- Spec derived through: caf29fa — advanced from 087b90a; both commits routed this tick with zero entries filed (see "This tick" below).
-- Audited through: a00e14a — unchanged; 19258b7 (ship DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE, build a6db2b5) touched sdk/src/declarations.ts + sdk/src/builtins.ts since — a00e14a..HEAD is a live post-ship reconciliation window, next live input.
-- Residue swept through: a00e14a — same open window as above; unreconciled.
-- Posture swept through: sdk/src/declarations.ts (+ its immediate imports assembly.ts/kind.ts/contract.ts/prose.ts/builtins.ts, read for context per the posture-sweep rule) covered; sdk/src/dial.ts next in rotation (tree order after declarations.ts; the phrase delta at 2e2b32a still owes sdk/src/ the remainder — dial.ts, emit.ts, index.ts, kind.ts, needs.ts, prose.ts — then the tests/ tree). Unchanged this tick.
-- This tick: SPEC DELTA. Routed 049ae18 (invariant 8, intent.md) and caf29fa (0035 embedded-locus amendment) — zero entries filed, both verified-already-moot on disk (detail in commit body). Cursor advanced to caf29fa.
-- Queue: 3 pending — 1 open (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE, unblocked since 19258b7 shipped its blocker), 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds). Friction: 0. Amendments: 0. Inbox: 0 notes.
+- Spec derived through: caf29fa — unchanged; no specs/ commits past it.
+- Audited through: 4ab6fe2 — advanced from a00e14a; DECLARATIONS-TELEMETRY-HOOK-PROVIDER-FACE-MOVE (19258b7/a6db2b5) verified shipped clean on disk (TELEMETRY_EVENT_HOOKS re-grepped: zero references left in declarations.ts, both live uses in builtins.ts correct).
+- Residue swept through: 4ab6fe2 — advanced from a00e14a; one finding, both handled this tick (see "This tick" below).
+- Posture swept through: sdk/src/declarations.ts (+ its immediate imports assembly.ts/kind.ts/contract.ts/prose.ts/builtins.ts) covered; sdk/src/dial.ts next in rotation. Unchanged this tick.
+- This tick: POST-SHIP RECONCILIATION over a00e14a..HEAD. Audit: shipped move verified clean, no pending entry to drop. Sweep: the move's own line-shift (-24 in declarations.ts) had gone unreflected in DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE's cited lines (873/908/915/924 → corrected to 849/884/891/900) — rescoped in place. A second finding, the move's stale cite at sdk/src/contract.ts:338 ("declarations.ts" for TELEMETRY_EVENT_HOOKS, now builtins.ts), is comment/cite staleness — per the ride-only rule, filed as the open-questions record's eleventh orphan, not a standalone entry. Both cursors advance to 4ab6fe2.
+- Queue: 3 pending — 1 open (DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE, lines rescoped this tick), 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER). Open forks: 2 (multi-harness-projection, lazy-grounds). Friction: 0. Amendments: 0. Inbox: 0 notes.
 
-Plan continues: yes — post-ship reconciliation over a00e14a..HEAD is the next live input, ahead of the open dial.ts posture rotation.
+Plan continues: after-build — the only remaining live job is the dial.ts posture rotation, and DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE is pickable now.
