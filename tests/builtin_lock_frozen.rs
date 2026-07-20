@@ -15,6 +15,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use temper::contract::{self, Predicate};
 use temper::drift::{self, EmitOptions};
 use temper::kind::{CustomKind, Registration};
 
@@ -160,5 +161,24 @@ fn the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader()
             field: "enabled".to_string()
         }),
         "the decoded registration set contains the field-carrying Enablement variant"
+    );
+
+    let rule_mention_reachable_row = declarations
+        .clauses
+        .iter()
+        .find(|c| {
+            c.predicate == "mention-reachable"
+                && c.kind.as_deref() == Some("rule")
+                && c.field.as_deref() == Some("paths")
+        })
+        .expect("the derived lock carries the rule's mention-reachable clause row");
+
+    assert_eq!(
+        contract::predicate_from_row(rule_mention_reachable_row),
+        Some(Predicate::MentionReachable {
+            scope_field: "paths".to_string(),
+            gate_field: "paths".to_string()
+        }),
+        "the real SDK-derived rule.mention-reachable gate-column spelling lifts through the engine reader"
     );
 }

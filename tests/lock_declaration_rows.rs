@@ -553,7 +553,10 @@ fn a_clause_row_carrying_set_and_edge_scope_args_round_trips_byte_stably() {
 /// A `mention-reachable` clause row round-trips **both** field ends — the source's scope
 /// on the shared `field` column and the target's gate on its own `gate` column. The one
 /// two-argument predicate: `field` alone cannot carry both, so the `gate` column is the
-/// seam's vocabulary, and the SDK writing it must spell exactly what the engine reads.
+/// seam's vocabulary. This is a hand-built compiler-tier test of the lock's own row round-trip
+/// (emit/read_declarations). For the SDK-agreement claim — verifying the real SDK writes and
+/// the engine reads both ends identically — see
+/// `tests/builtin_lock_frozen.rs::the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader`.
 #[test]
 fn a_mention_reachable_clause_row_round_trips_both_field_ends() {
     let mut declarations = rich_declarations();
