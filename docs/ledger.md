@@ -53,12 +53,12 @@ hard.
 
 - Sweep-dock blend (John, 07-20): flume-dock base uplifted to
   temper-standard discipline + sweep preset shipped (flume-dock 748c487,
-  688a16d; SPEC decisions 15-16, build items 10-11); testbed
-  centercode-platform carries uncommitted-on-WIP: remedy/governs grammar,
+  688a16d, e499e18; SPEC decisions 15-16, build items 10-11); testbed
+  centercode-platform bd75aeddc4 lands: remedy/governs grammar,
   engineering postures pack, sweep-discipline rule (emit+check green, 51
   members). Design ledger = this session's grill (A-F + amendments).
-  Next: John commits the testbed overhaul WIP, then twin calibration
-  waves over 9c8d78aa47..d0734c2643 (sonnet discarded, haiku tagged).
+  Calibration waves over 9c8d78aa47..d0734c2643 in flight (wave A sonnet
+  on dock/cal-wave-a; wave B haiku next, tagged).
   Watch items: standard-delta backfill (park, don't drown);
   install.gate-installed advisory in testbed check.
 
