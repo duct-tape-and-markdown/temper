@@ -1,36 +1,5 @@
 [
   {
-    "tag": "DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE",
-    "summary": "src/drift.rs's config_stale reimplements config_stale_from_doc's loop verbatim instead of parsing once and delegating, unlike every other path/doc sibling pair in the same file",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`config_stale` (2642-2669) reimplements `config_stale_from_doc`'s (2674-2704) whole loop body verbatim — same field destructure, same read-and-hash comparison, same `Diagnostic::warn` construction — instead of parsing the lock once and delegating. Every other path/doc sibling pair in this same file already delegates: `walk_lock_rows` (2193-2196) calls `walk_lock_rows_from_doc`, `source_deps` (2807-2823) calls `source_deps_from_doc`, `source_dep_stale` (2919-2941) calls `source_dep_stale_from_doc`. Rewrite `config_stale` to call `read_lock_document_for_emit(workspace_dir)` (the same parse `walk_lock_rows` already performs) then `config_stale_from_doc(&doc, workspace_dir)`, deleting the duplicated loop (2643-2668 collapses to the delegation)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "the existing config_stale assertions (lines 539, 613) still pass unchanged once config_stale delegates instead of reimplementing"
-      }
-    ],
-    "acceptance": "`config_stale` contains no comparison loop of its own — it parses the lock once and calls `config_stale_from_doc`. `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean.",
-    "notes": "Same cost profile either way — walk_lock_rows-equivalent parsing already does one read plus one parse — so this is a duplication fix, not a cost-hoist fix. Scoped at 721cab6."
-  },
-  {
     "tag": "DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE",
     "summary": "src/drift.rs's write_rollup carries a dead custom rollup-map parameter and loop — its sole call site already merges every kind into one map and passes an empty placeholder for custom",
     "per": {
@@ -38,8 +7,7 @@
       "section": "A shared concept is one type"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
