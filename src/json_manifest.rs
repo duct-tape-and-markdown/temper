@@ -304,15 +304,19 @@ pub enum JsonManifestError {
     },
 }
 
+impl From<crate::hash::ReadUtf8Error> for JsonManifestError {
+    fn from(err: crate::hash::ReadUtf8Error) -> Self {
+        match err {
+            crate::hash::ReadUtf8Error::Io { path, source } => Self::Io { path, source },
+            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => Self::NotUtf8 { path, source },
+        }
+    }
+}
+
 /// Read a file and decode it as UTF-8, mapping I/O and encoding errors to [`JsonManifestError`].
 /// Shared by [`Manifest::read`] and [`DocumentMember::read`].
 fn read_to_string(source_file: &Path) -> Result<String, JsonManifestError> {
-    let (_bytes, string) = crate::hash::read_utf8(source_file).map_err(|err| match err {
-        crate::hash::ReadUtf8Error::Io { path, source } => JsonManifestError::Io { path, source },
-        crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
-            JsonManifestError::NotUtf8 { path, source }
-        }
-    })?;
+    let (_bytes, string) = crate::hash::read_utf8(source_file)?;
     Ok(string)
 }
 

@@ -30,12 +30,7 @@ use crate::kind::{CustomKind, UnitShape};
 /// [`TomlDocumentError::NoDeclaredIdentity`] if `kind` declares no identity field for its
 /// document to be named by.
 pub fn read(kind: &CustomKind, source_file: &Path) -> Result<DocumentMember, TomlDocumentError> {
-    let (_bytes, raw) = crate::hash::read_utf8(source_file).map_err(|err| match err {
-        crate::hash::ReadUtf8Error::Io { path, source } => TomlDocumentError::Io { path, source },
-        crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
-            TomlDocumentError::NotUtf8 { path, source }
-        }
-    })?;
+    let (_bytes, raw) = crate::hash::read_utf8(source_file)?;
     parse(kind, source_file, &raw)
 }
 
@@ -160,4 +155,13 @@ pub enum TomlDocumentError {
         /// The top-level key the id was to be read from.
         field: String,
     },
+}
+
+impl From<crate::hash::ReadUtf8Error> for TomlDocumentError {
+    fn from(err: crate::hash::ReadUtf8Error) -> Self {
+        match err {
+            crate::hash::ReadUtf8Error::Io { path, source } => Self::Io { path, source },
+            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => Self::NotUtf8 { path, source },
+        }
+    }
 }

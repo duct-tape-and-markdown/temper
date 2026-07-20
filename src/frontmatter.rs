@@ -127,6 +127,15 @@ pub enum FrontmatterError {
     },
 }
 
+impl From<crate::hash::ReadUtf8Error> for FrontmatterError {
+    fn from(err: crate::hash::ReadUtf8Error) -> Self {
+        match err {
+            crate::hash::ReadUtf8Error::Io { path, source } => Self::Io { path, source },
+            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => Self::NotUtf8 { path, source },
+        }
+    }
+}
+
 impl Member {
     /// Import a member from its source file, driven by the kind's declared unit shape
     /// and `field` extractors: split the YAML frontmatter, derive the id (file stem,
@@ -168,14 +177,7 @@ impl Member {
         source_file: &Path,
         base: &Path,
     ) -> Result<Self, FrontmatterError> {
-        let (bytes, raw) = crate::hash::read_utf8(source_file).map_err(|err| match err {
-            crate::hash::ReadUtf8Error::Io { path, source } => {
-                FrontmatterError::Io { path, source }
-            }
-            crate::hash::ReadUtf8Error::NotUtf8 { path, source } => {
-                FrontmatterError::NotUtf8 { path, source }
-            }
-        })?;
+        let (bytes, raw) = crate::hash::read_utf8(source_file)?;
         let source_hash = crate::hash::sha256_hex(&bytes);
 
         let parsed = parse_frontmatter(&raw).map_err(|detail| FrontmatterError::Malformed {
