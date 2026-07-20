@@ -1,31 +1,5 @@
 [
   {
-    "tag": "COMPOSE-ZERO-CONSUMER-VISIBILITY-NARROW",
-    "summary": "compose.rs's declared_kinds_with_overlaid and manifest_units are pub with zero callers outside their own file — narrow both to private",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "`pub fn declared_kinds_with_overlaid` (537) is called only at its own three in-file use sites (623, 943, 1193); `pub fn manifest_units` (561) only at its own in-file use site (620). `rg` across src/, tests/, sdk/ confirms zero callers outside compose.rs for either — the same lens this file already paid out against once (`compose::declared_kinds` retired zero-consumer, 83d16ed). Drop `pub` from both signatures; leave their doc comments and bodies untouched. The module header's intra-doc fn-list (9) names `manifest_units` — drop that link's backtick-brackets to plain text since it no longer resolves to a public item, or leave it (rustdoc intra-doc links to private items in the same crate still resolve; not a gate)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`declared_kinds_with_overlaid` and `manifest_units` are private fns in src/compose.rs, called only within the module; `cargo build`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt --all --check`, and `cargo test` stay green with no behavior change.",
-    "notes": "scoped at 61fb5b9. rg-verified crate-wide (src/, tests/, sdk/): zero callers outside compose.rs for either fn. No test asserts a private-vs-pub fn's visibility; the compiler and clippy are the gate, same as BUILTIN-KIND-SETTINGS-DOC-VISIBILITY-NARROW's precedent."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
