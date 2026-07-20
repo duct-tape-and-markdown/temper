@@ -117,9 +117,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Seven live orphans** (six re-verified at HEAD df57610, the seventh at
-  8415088, the eighth new at 721cab6, one — extract.rs's own — discharged
-  at 2a6e488). `src/json_splice.rs`'s
+  **Eight live orphans** (six re-verified at HEAD df57610, the seventh at
+  8415088, the eighth at 721cab6, the ninth new at 11ab0ab, one — extract.rs's
+  own, a different one — discharged at 2a6e488). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
   "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -200,6 +200,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   touching 1140-1148, the `config_stale` body, and `write_rollup`/its call
   site respectively — none reaching 2787-2861. No entry is currently open on
   drift.rs at all, so it rides whichever one next does.
+  **A ninth, surfaced this tick's posture sweep of src/layout.rs's immediate
+  import.** `src/extract.rs`'s `body_heading_tree` (538) and `body_preamble`
+  (588) doc comments each justify their `pub(crate)` visibility as "so the
+  [`crate::kind`] layout reader" stands on/places prose off this substrate —
+  but the layout reader moved out of kind.rs into its own module at cfa545e
+  (build: extract layout-document reader to new layout module); `rg` confirms
+  both functions' only present caller is `src/layout.rs` (124, 143, 157), not
+  kind.rs. No pending entry currently opens extract.rs, so per the ride-only
+  rule it rides whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
