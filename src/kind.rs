@@ -533,6 +533,25 @@ impl CustomKind {
         None
     }
 
+    /// A kind with no file locus declares a non-empty `registration`.
+    ///
+    /// Like any locus with no file of its own, an embedded (or nested-file) member loads
+    /// through its host, never on its own, so it registers nothing — a non-empty
+    /// registration is a well-formedness fault.
+    #[must_use]
+    pub fn registration_locus_fault(&self) -> Option<String> {
+        if self.governs.is_none() && !self.registration.is_empty() {
+            return Some(
+                "like any locus with no file of its own, an embedded member loads \
+                 through its host, never on its own, so it registers nothing — its \
+                 registration is empty, and a non-empty registration is a well-formedness \
+                 fault"
+                    .to_string(),
+            );
+        }
+        None
+    }
+
     /// Reconstruct a kind's declared definition from the committed lock's own
     /// [`KindFactRow`]: the row's five-fact residue lifts into `governs`/`format`/
     /// `unit_shape`/`registration` directly. The reconstructed extractor stays the

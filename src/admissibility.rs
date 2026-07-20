@@ -234,6 +234,43 @@ pub fn local_locus_admissibility(
         .collect())
 }
 
+/// The diagnostic `rule` id a kind declaring a non-empty `registration` with no file locus
+/// reports under. Sibling of [`LOCAL_LOCUS_RULE`]: both guard the locus's own coherence
+/// before the corpus is trusted to model the harness — that one within a kind's file
+/// declaration, this one within a kind's locus declaration.
+const REGISTRATION_LOCUS_RULE: &str = "kind.registration-locus";
+
+/// A [`REGISTRATION_LOCUS_RULE`] finding per kind whose declared `registration` is
+/// inadmissible under its locus — the registration fence ([`CustomKind::registration_locus_fault`]),
+/// raised over every kind in play before their members are read.
+pub fn registration_locus_admissibility(
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+    _declarations: &drift::Declarations,
+) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
+    let mut kinds = Vec::new();
+    for kind in overlaid_builtin_kinds.values() {
+        kinds.push(kind.clone());
+    }
+    for row in custom_rows {
+        kinds.push(CustomKind::from_kind_fact_row(row)?);
+    }
+    Ok(kinds
+        .iter()
+        .filter_map(|kind| {
+            let fault = kind.registration_locus_fault()?;
+            Some(check::Diagnostic::error(
+                REGISTRATION_LOCUS_RULE,
+                &kind.name,
+                format!(
+                    "kind `{}` declares a non-empty `registration`, but {fault}",
+                    kind.name
+                ),
+            ))
+        })
+        .collect())
+}
+
 /// The diagnostic `rule` id for two distinct kinds resolving to the same `governs`
 /// (root+glob) locus. Sibling of [`KIND_COLLISION_RULE`], which guards the bare-name
 /// namespace; this one guards the locus namespace — a document's kind is its position

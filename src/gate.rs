@@ -214,6 +214,11 @@ pub fn gate(
         &custom_rows,
         &declarations,
     )?);
+    diagnostics.extend(admissibility::registration_locus_admissibility(
+        &overlaid_builtin_kinds,
+        &custom_rows,
+        &declarations,
+    )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::with_joined_clauses(
