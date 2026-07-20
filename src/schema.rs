@@ -24,24 +24,7 @@
 //! enforces the keystroke: the editor delivers the decidable contract as validation and
 //! the guidance as documentation, and cannot confuse the two.
 //!
-//! ## What maps, and what does not
-//!
-//! Each decidable field/structural clause projects to its JSON-Schema keyword:
-//! `required`→`required[]`, `type`→`type` (over the closed lattice, with `list`
-//! and `map` spelled `array`/`object` as JSON Schema names them), `min_len`/
-//! `max_len`→`minLength`/`maxLength`, `enum`→`enum`, `deny`→`not`/`enum`,
-//! `range`→`minimum`/`maximum`, `allowed_chars`→a generated `pattern` charclass,
-//! `shape`→the named shape's own expression, composed into the property's `allOf`,
-//! `forbidden_keys`→a `not`/`required` combinator per key, and `closed-keys`→the whole
-//! object's `additionalProperties: false`, the one clause whose face is the object's
-//! rather than a property's. The remaining
-//! predicates name no frontmatter JSON-Schema keyword — a body budget
-//! (`extent`), a section requirement (`require_sections`), a body marker
-//! (`must_define`), the `optional` documentation clause, and the cross-artifact
-//! predicates (`name-matches-dir`, `unique-name`, `dependency-exists`) — so they
-//! ride no channel here. The emitted validation keywords are therefore *exactly*
-//! the decidable clauses the editor can decide against a single artifact's
-//! frontmatter.
+//! See [`emit`]'s match for the per-predicate mapping; tests below pin the complete coverage.
 //!
 //! A clause whose `field` addresses past the top level (`owner.name`,
 //! `plugins[*].source`) names no property of this object, so it rides neither channel:
