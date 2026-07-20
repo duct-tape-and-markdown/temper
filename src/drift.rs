@@ -1140,10 +1140,8 @@ pub fn emit(
             .entry(collection.clone())
             .or_default();
 
-        let entry_shape = facts
-            .collection_address
-            .as_ref()
-            .map(|addr| entry_shape_of(&addr.entry_shape, &collection_key_of(&addr.key_path)))
+        let entry_shape = collection_address_from_row(facts)?
+            .map(|addr| addr.entry_shape)
             .ok_or_else(|| DriftError::UnknownKind {
                 kind: registration.kind.clone(),
                 member: registration.key.clone(),
@@ -1594,54 +1592,6 @@ fn manifest_path_for(manifest: &str, kind_facts: &BTreeMap<&str, &KindFactRow>) 
 /// `mcpServers`: the collection is the label's head, before the first `.`.
 fn collection_key_of(key_path: &str) -> String {
     key_path.split('.').next().unwrap_or(key_path).to_string()
-}
-
-/// Resolve a collection's declared entry shape from the lock row's string form (if
-/// present) or by reconstructing it from the key_path as a fallback for locks not yet
-/// updated to include the field. Mirrors the same fallback logic
-/// [`collection_address_from_row`](crate::kind::collection_address_from_row) applies.
-fn entry_shape_of(shape_label: &Option<String>, collection_key: &str) -> crate::kind::EntryShape {
-    if let Some(label) = shape_label {
-        // Wire format: "object", "scalar(field)", "group-array(member_key;lifted_fields)"
-        if label == "object" {
-            crate::kind::EntryShape::Object
-        } else if label.starts_with("scalar(") && label.ends_with(')') {
-            let field = label[7..label.len() - 1].to_string();
-            crate::kind::EntryShape::Scalar { field }
-        } else if label.starts_with("group-array(") && label.ends_with(')') {
-            let inner = &label[12..label.len() - 1];
-            let parts: Vec<&str> = inner.splitn(2, ';').collect();
-            if parts.len() == 2 {
-                let member_key = parts[0].to_string();
-                let lifted_fields = parts[1]
-                    .split(',')
-                    .map(|s| s.to_string())
-                    .collect::<Vec<_>>();
-                crate::kind::EntryShape::GroupArray {
-                    member_key,
-                    lifted_fields,
-                }
-            } else {
-                // Fallback for malformed group-array
-                crate::kind::EntryShape::Object
-            }
-        } else {
-            // Fallback for unknown format
-            crate::kind::EntryShape::Object
-        }
-    } else {
-        // Infer from collection key when shape is absent (backward compatibility)
-        match collection_key {
-            "hooks" => crate::kind::EntryShape::GroupArray {
-                member_key: "hooks".to_string(),
-                lifted_fields: vec!["matcher".to_string()],
-            },
-            "enabledPlugins" => crate::kind::EntryShape::Scalar {
-                field: "enabled".to_string(),
-            },
-            _ => crate::kind::EntryShape::Object,
-        }
-    }
 }
 
 /// Regenerate one represented manifest whole through the canonical write face and write it
