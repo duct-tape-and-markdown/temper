@@ -1,10 +1,10 @@
 # Plan state
 
 - Spec derived through: 8911c38 — unchanged, not this tick's job.
-- Audited through: 7b8927e — unchanged, not this tick's job.
-- Residue swept through: 7b8927e — unchanged, not this tick's job.
+- Audited through: 83a3cd9 — advanced from 7b8927e.
+- Residue swept through: 83a3cd9 — advanced from 7b8927e.
 - Posture swept through: src/builtin.rs, src/builtin_kind.rs, src/builtin_lock.rs, src/bundle.rs, src/check.rs covered, mid-rotation — advanced from src/bundle.rs. src/compose.rs is the tree-order candidate next.
-- This tick: POSTURE SWEEP, src/check.rs — neighborhood is check.rs alone (its own imports are std::fmt and miette, nothing internal). Found the module header (1-10) narrating a retired heuristic rule registry's demolition in a parenthetical alongside the still-live per-rule-code invariant — era narration, none of engineering.md's three licensed narration grades, and rust.md's own named cut category. Filed CHECK-DOC-HEADER-ERA-NARRATION-CUT (open, comment-only). No other violation verified on disk: Diagnostic/Severity/Announcement/render/any_error each have live consumers (gate.rs, main.rs, reporter.rs, engine.rs, admissibility.rs, drift.rs, install.rs, coverage.rs, coverage_note.rs, roster.rs, dial.rs, graph.rs, tests/*), no parallel diagnostic-rendering surface found elsewhere, no dead-plumbing or embedded-provider-literal found.
-- Queue: 3 pending, 1 open, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — unchanged, not this tick's job). Refactor: 0 live. Friction: 0 live. Amendments: 0 live. Inbox: 0 notes.
+- This tick: POST-SHIP RECONCILIATION, window 7b8927e..83a3cd9. Audit: CHECK-DOC-HEADER-ERA-NARRATION-CUT shipped (85f5bd9) and verified on disk — src/check.rs's header (2-6) now reads "there is no per-rule code here" with the retired-registry parenthetical cut, exactly the entry's scope; the ship commit (83a3cd9) removed the entry from pending.json, leaving it disjoint. metrics.jsonl shows the build tick at 17 turns, in the smart zone. Both parked entries (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER) re-tested: neither's blocker (a human hop-semantics ruling; Apple notarizing + v0.1 tag) is touched by this window, both still hold. Sweep: the window's only src/ change is the 3-line comment cut itself — no retirement named, no demolition left dangling, no residue introduced. `cargo check` green (build output above, unrelated tick but confirms tree health).
+- Queue: 2 pending, 0 open, 2 parked (IMPORT-HOP-CAP-CITE, PACKAGING-CHANNELS-REMAINDER — unchanged, not this tick's job). Refactor: 0 live. Friction: 0 live. Amendments: 0 live. Inbox: 0 notes.
 
-Plan continues: after-build — build ships CHECK-DOC-HEADER-ERA-NARRATION-CUT, then the posture sweep resumes at src/compose.rs.
+Plan continues: no — reconciliation caught up through 83a3cd9, no fresh residue, no pickable (open-gate) entries for build to pick up; next tick's live job is the posture sweep resuming at src/compose.rs.
