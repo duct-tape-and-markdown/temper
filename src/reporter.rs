@@ -48,7 +48,8 @@ use serde_json::json;
 use crate::check::{Announcement, Diagnostic, Severity};
 
 /// Claude Code's cap on the `additionalContext` string a `SessionStart` hook may
-/// inject. The rendered verdict is truncated to fit.
+/// inject. The rendered verdict is truncated to fit
+/// (code.claude.com/docs/en/hooks, retrieved 2026-07-20).
 pub const ADDITIONAL_CONTEXT_CAP: usize = 10_000;
 
 /// The `hookEventName` Claude Code expects in a `SessionStart` hook's
@@ -69,7 +70,9 @@ const NOTIFY_INSTRUCTION: &str =
 /// [`ADDITIONAL_CONTEXT_CAP`]; a clean harness judged by its committed lock alone
 /// yields the quiet envelope — no `additionalContext`, nothing injected. The gate
 /// never blocks, so this reporter carries no failure signal of its own; the caller
-/// exits zero regardless.
+/// exits zero regardless. The payload envelope shape — `hookSpecificOutput` with
+/// `hookEventName` and `additionalContext` fields — is defined by Claude Code's
+/// `SessionStart` hook (code.claude.com/docs/en/hooks, retrieved 2026-07-20).
 #[must_use]
 pub fn session_start(diagnostics: &[Diagnostic], announcement: &Announcement) -> String {
     let payload = match context(diagnostics, announcement) {
@@ -149,7 +152,8 @@ fn cap(text: &str) -> String {
 }
 
 /// The SARIF version this reporter emits. 2.1.0 is the OASIS standard
-/// GitHub code-scanning and the wider ecosystem ingest.
+/// GitHub code-scanning and the wider ecosystem ingest
+/// (docs.oasis-open.org/sarif/sarif/v2.1.0/os/sarif-v2.1.0-os.html, retrieved 2026-07-20).
 const SARIF_VERSION: &str = "2.1.0";
 
 /// The `title=` an announcement's `::notice` line carries — the one title for all
