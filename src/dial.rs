@@ -5,10 +5,7 @@
 //! — [`crate::builtin_kind`] declares the kind, `dialDefaultContract` closes its key set
 //! — so deletion is unspellable and a dialed clause still reports.
 //!
-//! Two bounds hold here rather than in the schema, because neither is a shape:
-//! softening is inert under [`EnforcementMode::Block`], so a block-mode pass on any
-//! machine implies the shared gate's pass; and the dial can never dial its own contract,
-//! which is what keeps the envelope out of reach of the file it bounds.
+//! Two bounds hold here rather than in the schema, because neither is a shape.
 
 use std::collections::{BTreeMap, BTreeSet};
 
