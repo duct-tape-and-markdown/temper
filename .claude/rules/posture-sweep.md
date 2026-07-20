@@ -28,9 +28,11 @@ When running the posture sweep (plan's job 4), this discipline binds:
   one tick per skip. **Quiet-on-clean is the normal verdict**,
   recorded by advancing the cursor alone.
 - **An open rotation is live input.** While the frontier is non-empty,
-  the tick's closing marker is `Plan continues: yes` — the rotation
-  drives itself to close and is never left waiting on a forced wake.
-  Hibernation is the empty frontier's verdict alone.
+  the tick's closing marker follows `plan-state.md`'s mechanic —
+  `after-build` when pickable entries exist (ready work ships first;
+  the sweep resumes when the wave hands back), `yes` otherwise — so the
+  rotation always drives itself to close and is never left waiting on a
+  forced wake. Hibernation is the empty frontier's verdict alone.
 - A violation counts only when **verified on disk this tick**, cited by
   symbol and line. Beyond the pages' own sections, cohesion (a module
   carrying jobs that want separate homes), dead plumbing
