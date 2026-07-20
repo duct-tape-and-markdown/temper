@@ -17,7 +17,9 @@ pub const BANNER_MARKER: &str = "<!-- temper: managed projection";
 
 /// The schema modeline's stable marker — the frontmatter comment prefix `install` keys
 /// its idempotence on and `emit` keys its preservation on, so both projectors agree on
-/// which line is the modeline.
+/// which line is the modeline. The prefix encodes the yaml-language-server modeline syntax
+/// `# yaml-language-server: $schema=<schema-url-or-path>` per github.com/redhat-developer/yaml-language-server
+/// README (retrieved 2026-07-20).
 pub const MODELINE_MARKER: &str = "# yaml-language-server:";
 
 pub(crate) fn placement_lines(source: &str) -> Vec<String> {
