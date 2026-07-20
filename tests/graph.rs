@@ -1545,13 +1545,13 @@ mod reachability {
 
     #[test]
     fn the_import_closure_is_hop_capped() {
-        // A chain `root → r1 → … → r6`: `root` (a memory member) is unconditionally live,
+        // A chain `root → r1 → … → r5`: `root` (a memory member) is unconditionally live,
         // and every `rN` rule has a zero-match `paths` glob (dead own-edge). Liveness
-        // propagates one hop per round, capped at the format's five-hop import recursion:
-        // `r1..r5` are rescued, but `r6` — six hops from the live seed — stays dead and is
+        // propagates one hop per round, capped at the format's four-hop import recursion:
+        // `r1..r4` are rescued, but `r5` — five hops from the live seed — stays dead and is
         // the sole finding.
         let memories = [member("root", None)];
-        let rules: Vec<Features> = (1..=6)
+        let rules: Vec<Features> = (1..=5)
             .map(|n| {
                 member(
                     &format!("r{n}"),
@@ -1563,7 +1563,7 @@ mod reachability {
             BTreeMap::from([("memory", &memories[..]), ("rule", &rules[..])]);
         let registrations = BTreeMap::from([("rule", vec![paths_match("paths")])]);
         let mut edges = vec![import_edge(("memory", "root"), ("rule", "r1"))];
-        for n in 1..=5 {
+        for n in 1..=4 {
             edges.push(import_edge(
                 ("rule", &format!("r{n}")),
                 ("rule", &format!("r{}", n + 1)),
@@ -1573,7 +1573,7 @@ mod reachability {
 
         let diags = reachable(&registrations, &by_kind, &files, &edges, Severity::Error);
         assert_eq!(diags.len(), 1, "only the past-cap member stays dead");
-        assert_eq!(diags[0].artifact, "r6");
+        assert_eq!(diags[0].artifact, "r5");
     }
 
     #[test]
