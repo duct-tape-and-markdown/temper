@@ -1,40 +1,5 @@
 [
   {
-    "tag": "CUSTOM-KIND-CONTENT-SDK-AGREEMENT",
-    "summary": "No real SDK-emit test exercises a custom kind's layout content or fields-only shape+collectionAddress; lock_declaration_rows.rs's hand-built tests wrongly claim that SDK coverage",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A seam gate reads what the real writer wrote"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/emit.rs",
-          "description": "No SDK fixture program declares a custom kind via the generic kind() factory (sdk/src/kind.ts:330, exported off the SDK root) with content: Layout (regions) or shape: \"fields\" + collectionAddress — every existing node-driven fixture (HARNESS_PROGRAM, REQUIREMENT_CLAUSES_PROGRAM, MEMBERLESS_BUILTIN_PROGRAM in tests/builtin_lock_frozen.rs) sticks to built-in provider kinds. Add a new fixture program + test, following REQUIREMENT_CLAUSES_PROGRAM's pattern (1707-1776), declaring a kind() with a three-region layout (prose/field/collection, mirroring tests/lock_declaration_rows.rs's hand-built spec_kind_facts_with_layout) and a second fields-only kind with a collectionAddress (mirroring hook_kind_facts), driven through emit_program and decoded via CustomKind::from_kind_fact_row (src/kind.rs:551), asserting content/shape/collection_address reconstruct to the declared values."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kind (1149-1154) and a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine (1223-1229) both drive CustomKind::from_kind_fact_row entirely over hand-built KindFactRows (golden_payload/drift::emit, no node/SDK) yet their doc comments claim 'round trips SDK emit → lock kind row → engine CustomKind' — an SDK-agreement claim neither test exercises. Reword both comments to honestly scope them as hand-built compiler-tier round trips, pointing at the new SDK-driven test (tests/emit.rs) for the actual agreement claim."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a real SDK-authored custom kind's layout content and fields-only shape+collectionAddress decode through CustomKind::from_kind_fact_row to the declared typed values"
-      }
-    ],
-    "acceptance": "A real node+SDK-authored custom kind's content/shape/collectionAddress spelling is decoded and asserted through CustomKind by a live SDK-driven test; lock_declaration_rows.rs's two compiler-tier tests' comments no longer claim SDK-emit coverage they don't exercise. cargo test green.",
-    "notes": "scoped at 00c3a22. sdk/src/kind.ts:330's kind() factory already supports content/shape/collectionAddress (168-205); confirmed no existing fixture uses it (rg 'customKind' across tests/*.rs and sdk/src/*.ts: zero hits). blockedBy MENTION-REACHABLE-GATE-SDK-AGREEMENT: both entries edit tests/lock_declaration_rows.rs (disjoint lines, same file — serialized per pending-entry rule)."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
