@@ -1,31 +1,5 @@
 [
   {
-    "tag": "BUILTIN-KIND-SETTINGS-DOC-VISIBILITY-NARROW",
-    "summary": "`pub const SETTINGS_DOC` in src/builtin_kind.rs has zero consumers outside its own module — narrow it to private",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "`pub const SETTINGS_DOC` (64) is read only at its two own use sites inside this file — the `.claude/settings.json` and `.mcp.json` `KnownSurface` entries' `source` field (84, 112) — rg-confirmed no caller in src/, tests/, or sdk/. Drop `pub`; the doc comment (62-63) and the two use sites are untouched."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`SETTINGS_DOC` is a private module const, `cargo build` and `cargo clippy --all-targets -- -D warnings` stay green, and the two `KnownSurface` entries still carry it as their `source`.",
-    "notes": "Found sweeping the builtin_kind neighborhood (posture-sweep rotation, src/builtin_kind.rs), the same lens that already pruned `qualified` from this module (BUILTIN-KIND-QUALIFIED-ZERO-CONSUMER-PRUNE). No test asserts a private-vs-pub const's visibility; the compiler and clippy are the gate. scoped at da11845."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
