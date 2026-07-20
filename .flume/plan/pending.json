@@ -1,40 +1,5 @@
 [
   {
-    "tag": "GATE-TWO-GREENS-DISPATCH-DEDUP",
-    "summary": "gate()'s three kind-dispatch loops (built-in/custom/embedded) each hand-copy the identical with_joined_clauses->dial->admissibility->validate 'two-greens' sequence instead of sharing one dispatcher",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/gate.rs",
-          "description": "Three kind-population loops each hand-run the gate's 'two-greens' dispatch (specs/intent.md's own term) rather than sharing one: the built-in loop (117-153) sources its contract via compose::builtin_contract, skips dial for dial::KIND, judges Locus::Document, and books member_counts/builtin_features/builtin_units_and_features; the custom loop (188-211) sources via compose::default_contract_from_rows, dials unconditionally, judges Locus::Document, and books custom_kinds/custom_units_and_features; the embedded loop (265-279) sources via compose::default_contract_from_rows, dials unconditionally, judges Locus::Embedded(kind), and books contracts only. All three share the identical with_joined_clauses(...)? -> [dial.apply] -> engine::admissibility(&contract, &locus) -> engine::validate(&contract, features) sequence (confirmed via rg: with_joined_clauses/engine::admissibility/engine::validate/dial.apply each appear at exactly these three sites in the file). Extract a private helper taking the contract source, name, Locus, features, mode, and a skip-dial flag, returning (Contract, Vec<check::Diagnostic>); each loop keeps only its own distinct post-dispatch bookkeeping."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/gauntlet.rs",
-        "asserts": "`the_gauntlet_corpus_emits_and_checks_to_stable_snapshots` stays byte-identical — the kitchen-sink fixture composes built-in, custom, and embedded kinds together through the one wired `check` CLI path, so the consolidated dispatcher's output must match all three loops' current behavior exactly"
-      },
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "embedded-kind member facts and their gate judgment stay unchanged (the embedded loop's distinct Locus::Embedded + contracts-only bookkeeping is the one most likely to regress under consolidation)"
-      }
-    ],
-    "acceptance": "gate() dispatches every kind population's two-greens check (admissibility + validate) through one shared helper; the three loops retain only their distinct post-dispatch bookkeeping (member_counts/builtin_features/builtin_units_and_features, custom_kinds/custom_units_and_features, or contracts-only). `cargo test` green, `cargo clippy --all-targets -- -D warnings` clean, no snapshot changes.",
-    "notes": "Verified on disk at 0f5c29a: three near-identical two-greens dispatch loops at src/gate.rs:117-153 (built-in), 188-211 (custom), 265-279 (embedded), each running with_joined_clauses then optional dial.apply then engine::admissibility then engine::validate. The code's own comments (82, 161, 256) already name the shape 'two-greens'/'identical two-greens', the spec's own spine term (specs/intent.md, 'the bound is two greens'). scoped at 0f5c29a."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
