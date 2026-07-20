@@ -1250,12 +1250,38 @@ fn decide(
                         if guard_membership_fails(guard.as_ref(), &feature_value) {
                             continue;
                         }
-                        let element_address = element_address_for_guard(&path, &address);
-                        let element_json = parent_json_of(&root, &element_address);
-                        let scoped_features = scoped_element_features(features, &element_json);
-                        for body_clause in body {
-                            for msg in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
-                                violations.push(format!("{element_address}: {msg}"));
+                        // Use FieldPath's split_element to get the element scope and tail suffix.
+                        if let Some((element_scope, tail)) = path.split_element() {
+                            // Compute the element address by removing the tail suffix from the
+                            // matched address.
+                            let element_address = if let Some(tail_str) = &tail {
+                                address
+                                    .strip_suffix(&format!(".{tail_str}"))
+                                    .unwrap_or(address.as_str())
+                            } else {
+                                address.as_str()
+                            };
+                            // Find the element JSON by locating it through element_scope.
+                            let element_json = element_scope
+                                .locate(&root)
+                                .into_iter()
+                                .find(|(addr, _)| addr == element_address)
+                                .map(|(_, json)| json.clone())
+                                .unwrap_or(JsonValue::Null);
+                            let scoped_features = scoped_element_features(features, &element_json);
+                            for body_clause in body {
+                                for msg in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
+                                    violations.push(format!("{element_address}: {msg}"));
+                                }
+                            }
+                        } else {
+                            // Path has no [*]: treat the root as the element.
+                            let element_json = root.clone();
+                            let scoped_features = scoped_element_features(features, &element_json);
+                            for body_clause in body {
+                                for msg in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
+                                    violations.push(format!("{}: {msg}", ""));
+                                }
                             }
                         }
                     }
@@ -1268,155 +1294,6 @@ fn decide(
             }
         },
     }
-}
-
-/// Determine the address where the body clause should be rooted, based on the guard path.
-/// If the guard has an array component (`[*]`), root at the array element level.
-/// For `plugins[*].source.source` matching `plugins[1].source.source`, root at `plugins[1]`.
-/// For guards without arrays (like `status`), root at the root level (empty address).
-fn element_address_for_guard(
-    _guard_path: &crate::address::FieldPath,
-    match_address: &str,
-) -> String {
-    let mut chars_iter = match_address.chars().peekable();
-    let mut result = String::new();
-    let mut bracket_depth = 0;
-    let mut found_bracket = false;
-
-    while let Some(ch) = chars_iter.next() {
-        result.push(ch);
-        if ch == '[' {
-            found_bracket = true;
-            bracket_depth += 1;
-            while bracket_depth > 0 {
-                if let Some(next) = chars_iter.next() {
-                    result.push(next);
-                    if next == '[' {
-                        bracket_depth += 1;
-                    } else if next == ']' {
-                        bracket_depth -= 1;
-                    }
-                } else {
-                    break;
-                }
-            }
-            if bracket_depth == 0 && chars_iter.peek() == Some(&'.') {
-                chars_iter.next();
-                break;
-            }
-        }
-    }
-    if found_bracket { result } else { String::new() }
-}
-
-/// Strip the last segment from an address string to get the parent address.
-/// `plugins[0].source.source` becomes `plugins[0].source`.
-/// A bare name returns an empty string (the root).
-#[allow(dead_code)]
-fn parent_address_of(address: &str) -> String {
-    if address.is_empty() {
-        return String::new();
-    }
-    let mut last_segment_start = 0;
-    let chars: Vec<char> = address.chars().collect();
-    let mut i = 0;
-    while i < chars.len() {
-        match chars[i] {
-            '[' => {
-                while i < chars.len() && chars[i] != ']' {
-                    i += 1;
-                }
-            }
-            '.' => {
-                last_segment_start = i + 1;
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    if last_segment_start == 0 {
-        String::new()
-    } else {
-        address[..last_segment_start - 1].to_string()
-    }
-}
-
-/// Locate a JSON value by its address string in the root JSON.
-/// Empty address returns the root itself.
-/// Addresses like "plugins[0].source" are parsed into steps and navigated.
-fn parent_json_of(root: &JsonValue, parent_address: &str) -> JsonValue {
-    if parent_address.is_empty() {
-        return root.clone();
-    }
-    let mut current = root.clone();
-    let mut chars = parent_address.chars().peekable();
-    let mut current_segment = String::new();
-
-    while let Some(ch) = chars.next() {
-        match ch {
-            '.' => {
-                if !current_segment.is_empty() {
-                    if let JsonValue::Object(obj) = &current {
-                        if let Some(val) = obj.get(&current_segment) {
-                            current = val.clone();
-                        } else {
-                            return JsonValue::Null;
-                        }
-                    } else {
-                        return JsonValue::Null;
-                    }
-                    current_segment.clear();
-                }
-            }
-            '[' => {
-                if !current_segment.is_empty() {
-                    if let JsonValue::Object(obj) = &current {
-                        if let Some(val) = obj.get(&current_segment) {
-                            current = val.clone();
-                        } else {
-                            return JsonValue::Null;
-                        }
-                    } else {
-                        return JsonValue::Null;
-                    }
-                    current_segment.clear();
-                }
-                let mut index_str = String::new();
-                while let Some(&ch) = chars.peek() {
-                    if ch == ']' {
-                        chars.next();
-                        break;
-                    }
-                    index_str.push(chars.next().unwrap());
-                }
-                if let Ok(index) = index_str.parse::<usize>() {
-                    if let JsonValue::Array(arr) = &current {
-                        if index < arr.len() {
-                            current = arr[index].clone();
-                        } else {
-                            return JsonValue::Null;
-                        }
-                    } else {
-                        return JsonValue::Null;
-                    }
-                } else {
-                    return JsonValue::Null;
-                }
-            }
-            _ => {
-                current_segment.push(ch);
-            }
-        }
-    }
-    if !current_segment.is_empty() {
-        if let JsonValue::Object(obj) = &current
-            && let Some(val) = obj.get(&current_segment)
-        {
-            return val.clone();
-        }
-        return JsonValue::Null;
-    }
-    current
 }
 
 /// Create a Features object scoped to a single matched element, so that body clauses

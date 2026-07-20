@@ -125,6 +125,42 @@ impl FieldPath {
         ))
     }
 
+    /// The sub-path truncated through the last `Step::EachElement`, paired with the
+    /// remaining suffix — the decomposition a when-body scoping needs to locate the
+    /// element a guard match belongs to.
+    ///
+    /// For `plugins[*].source`, returns `(plugins[*], Some("source"))`.
+    /// For `plugins[*].source.source`, returns `(plugins[*], Some("source.source"))`.
+    /// For `plugins[*]`, returns `(plugins[*], None)`.
+    /// For `name` (no `[*]`), returns `None`.
+    #[must_use]
+    pub fn split_element(&self) -> Option<(FieldPath, Option<String>)> {
+        let last_each_idx = self
+            .steps
+            .iter()
+            .rposition(|s| matches!(s, Step::EachElement))?;
+        let element_steps = self.steps[..=last_each_idx].to_vec();
+        let rendered = query_of(&element_steps);
+        let query = JsonPath::parse(&rendered).ok()?;
+
+        let element_spelling = steps_to_spelling(&element_steps);
+
+        let tail = if last_each_idx + 1 < self.steps.len() {
+            Some(steps_to_suffix(&self.steps[last_each_idx + 1..]))
+        } else {
+            None
+        };
+
+        Some((
+            FieldPath {
+                spelling: element_spelling,
+                steps: element_steps,
+                query,
+            },
+            tail,
+        ))
+    }
+
     /// Every node this path locates in `root`, each paired with the concrete address it
     /// resolved to (`plugins[0].source`) — one node for a path of name segments, one per
     /// element under each `[*]`, in document order.
@@ -168,6 +204,42 @@ fn render_address(location: &serde_json_path::NormalizedPath) -> String {
 fn parent_spelling(spelling: &str, leaf: &str) -> String {
     let head = &spelling[..spelling.len() - leaf.len()];
     head.strip_suffix('.').unwrap_or(head).to_string()
+}
+
+/// Reconstruct a path's spelling from its steps.
+fn steps_to_spelling(steps: &[Step]) -> String {
+    let mut out = String::new();
+    for step in steps {
+        match step {
+            Step::Name(name) => {
+                if !out.is_empty() {
+                    out.push('.');
+                }
+                out.push_str(name);
+            }
+            Step::EachElement => out.push_str("[*]"),
+        }
+    }
+    out
+}
+
+/// Reconstruct a suffix string from tail steps (everything after the last [*]).
+fn steps_to_suffix(steps: &[Step]) -> String {
+    let mut out = String::new();
+    for step in steps {
+        match step {
+            Step::Name(name) => {
+                if !out.is_empty() {
+                    out.push('.');
+                }
+                out.push_str(name);
+            }
+            Step::EachElement => {
+                out.push_str("[*]");
+            }
+        }
+    }
+    out
 }
 
 /// Tokenize `spelling` into its steps, or return the refusal naming what put it outside
@@ -408,5 +480,50 @@ mod tests {
                 "{spelling} steps past the top level"
             );
         }
+    }
+
+    #[test]
+    fn split_element_truncates_to_the_last_array_element_selector() {
+        // A path with [*] splits into the element scope and a tail.
+        let with_tail = FieldPath::parse("plugins[*].source").expect("parses");
+        let (element_scope, tail) = with_tail.split_element().expect("a path with [*] splits");
+        assert_eq!(element_scope.spelling(), "plugins[*]");
+        assert_eq!(tail, Some("source".to_string()));
+
+        // A path with multiple segments after [*].
+        let with_multi_tail = FieldPath::parse("plugins[*].source.source").expect("parses");
+        let (element_scope, tail) = with_multi_tail
+            .split_element()
+            .expect("a path with [*] splits");
+        assert_eq!(element_scope.spelling(), "plugins[*]");
+        assert_eq!(tail, Some("source.source".to_string()));
+
+        // A path ending in [*] has no tail.
+        let no_tail = FieldPath::parse("plugins[*]").expect("parses");
+        let (element_scope, tail) = no_tail
+            .split_element()
+            .expect("a path ending in [*] splits");
+        assert_eq!(element_scope.spelling(), "plugins[*]");
+        assert_eq!(tail, None);
+
+        // A path with no [*] cannot split.
+        let no_each = FieldPath::parse("name").expect("parses");
+        assert!(no_each.split_element().is_none());
+
+        let nested = FieldPath::parse("owner.name").expect("parses");
+        assert!(nested.split_element().is_none());
+
+        // A path with nested [*] truncates to the *last* one.
+        let root = json!({"matrix": [[{"id": "a"}], [{"id": "b"}]]});
+        let nested_each = FieldPath::parse("matrix[*][*].id").expect("parses");
+        let (element_scope, tail) = nested_each
+            .split_element()
+            .expect("nested [*] splits to the last");
+        assert_eq!(element_scope.spelling(), "matrix[*][*]");
+        assert_eq!(tail, Some("id".to_string()));
+
+        // The element scope locates correctly.
+        let scope_matches = element_scope.locate(&root);
+        assert_eq!(scope_matches.len(), 2, "two elements in the nested array");
     }
 }
