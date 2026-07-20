@@ -207,13 +207,13 @@ const LOCAL_LOCUS_RULE: &str = "kind.local-locus";
 /// inadmissible — the locus fence ([`CustomKind::local_locus_fault`]), raised over every
 /// kind in play before their members are read.
 pub fn local_locus_admissibility(
-    builtin_defs: &BTreeMap<String, CustomKind>,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     custom_rows: &[&drift::KindFactRow],
-    declarations: &drift::Declarations,
+    _declarations: &drift::Declarations,
 ) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
     let mut kinds = Vec::new();
-    for kind in builtin_defs.values() {
-        kinds.push(compose::overlay_builtin_kind(kind, declarations)?);
+    for kind in overlaid_builtin_kinds.values() {
+        kinds.push(kind.clone());
     }
     for row in custom_rows {
         kinds.push(CustomKind::from_kind_fact_row(row)?);
@@ -260,17 +260,16 @@ const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
 /// members' paths compose from their host's unit and the host template's pattern — so it
 /// enters no bucket and can contend with nobody. That is the whole point of the locus.
 pub fn governs_collision_diagnostics(
-    builtin_defs: &BTreeMap<String, CustomKind>,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     custom_rows: &[&drift::KindFactRow],
-    declarations: &drift::Declarations,
+    _declarations: &drift::Declarations,
 ) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
     let mut by_governs: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
-    for kind in builtin_defs.values() {
-        let overlaid = compose::overlay_builtin_kind(kind, declarations)?;
-        let Some(governs) = overlaid.governs else {
+    for kind in overlaid_builtin_kinds.values() {
+        let Some(governs) = kind.governs.clone() else {
             continue;
         };
-        if overlaid.collection_address.is_some() {
+        if kind.collection_address.is_some() {
             continue;
         }
         by_governs

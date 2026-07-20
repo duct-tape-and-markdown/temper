@@ -770,10 +770,6 @@ unit_shape = "file"
     #[test]
     fn overlay_builtin_kind_count_increments_once_per_application() {
         let before = compose::overlay_builtin_kind_count();
-        // Call overlay_builtin_kind once by calling kind_units_and_features with the skill kind.
-        // The skill kind is a built-in, so declared_kinds has already been called by gate.
-        // We measure that the count advances by exactly 1, not 2 (pre-fix would be 2:
-        // once in kind_units_and_features at line 679, once in resolve_kind_units at line 598).
         let harness = tmpdir("overlay-count");
         let skill = harness.join(".claude").join("skills").join("test-skill");
         fs::create_dir_all(&skill).unwrap();
@@ -783,16 +779,21 @@ unit_shape = "file"
         )
         .unwrap();
 
-        // Call gate which will internally use kind_units_and_features.
-        // The test verifies the counter advances; its absolute value depends on how many
-        // times declared_kinds is called in a full run (multiple call sites), so we only
-        // assert that it's non-zero and advances monotonically.
         gate::gate(&harness, &harness, &[]).unwrap();
         let overlays = compose::overlay_builtin_kind_count() - before;
+
+        let builtin_defs = builtin_kind::definitions();
+        let builtin_count = builtin_defs.len();
 
         assert!(
             overlays > 0,
             "overlay_builtin_kind not called at all (delta was 0); the real counter may not be wired",
+        );
+
+        assert!(
+            overlays <= builtin_count,
+            "overlay_builtin_kind called {overlays} times; should be at most {builtin_count} \
+             (once per builtin kind) — the hoisting fix may not be working",
         );
     }
 

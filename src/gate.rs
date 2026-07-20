@@ -60,6 +60,7 @@ pub fn gate(
         joined_locks,
         local_members,
         dial,
+        overlaid_builtin_kinds,
     } = compose::assemble_lock_family(&discovery, &committed, layers, &empty_cache)?;
     // Every address the dial reached, accumulated across the contracts and selections
     // below: an entry that reached none is the one thing a dial can be wrong about that
@@ -101,7 +102,8 @@ pub fn gate(
 
     // Build a shared manifest cache: one read per manifest file, shared across all
     // manifest kinds that govern it (GATE-MANIFEST-SHARED-READ-HOIST).
-    let manifest_cache = compose::build_manifest_cache(&discovery, &declarations)?;
+    let manifest_cache =
+        compose::build_manifest_cache(&discovery, &declarations, &overlaid_builtin_kinds)?;
 
     // Every clause's address is unique across the lock, decided before a single contract
     // is lifted: a clause no finding can name unambiguously cannot be judged usefully.
@@ -112,7 +114,7 @@ pub fn gate(
     let builtin_defs = builtin_kind::definitions();
     let mut builtin_units_and_features: BTreeMap<String, compose::KindUnitsAndFeatures> =
         BTreeMap::new();
-    for kind in builtin_defs.values() {
+    for (kind_name, kind) in &overlaid_builtin_kinds {
         // Two greens: admissibility — the contract validated
         // against the definition before it is trusted to judge — then conformance.
         // The contract is the lock's declared `clauses` for the kind when it names any,
@@ -121,28 +123,33 @@ pub fn gate(
         // a layer's row is not this harness declaring one, so it must never be what tips a
         // built-in off its embedded default and onto a contract of the layer's alone.
         let mut contract = compose::with_joined_clauses(
-            compose::builtin_contract(&declarations.clauses, &kind.name)?,
+            compose::builtin_contract(&declarations.clauses, kind_name)?,
             &joined_clauses,
-            &kind.name,
+            kind_name,
         )?;
         // Every kind's contract is dialable but the dial's own: its clauses are the
         // envelope the dial document is checked against, so a machine that could soften
         // them could spell its way out of the shape that bounds it. `dial::refusals`
         // reports the entry that tried rather than leaving it silently inert.
-        if kind.name != dial::KIND {
+        if kind_name != dial::KIND {
             dialed.extend(dial.apply(mode, &mut contract.clauses));
         }
 
-        let uaf =
-            compose::kind_units_and_features(kind, &discovery, &declarations, &manifest_cache)?;
+        let uaf = compose::kind_units_and_features(
+            kind,
+            &discovery,
+            &declarations,
+            &manifest_cache,
+            &overlaid_builtin_kinds,
+        )?;
         let features = &uaf.features;
 
         diagnostics.extend(engine::admissibility(&contract, &engine::Locus::Document));
         diagnostics.extend(engine::validate(&contract, features));
-        member_counts.insert(kind.name.clone(), features.len());
-        contracts.insert(kind.name.clone(), contract);
-        builtin_features.insert(kind.name.clone(), features.clone());
-        builtin_units_and_features.insert(kind.name.clone(), uaf);
+        member_counts.insert(kind_name.clone(), features.len());
+        contracts.insert(kind_name.clone(), contract);
+        builtin_features.insert(kind_name.clone(), features.clone());
+        builtin_units_and_features.insert(kind_name.clone(), uaf);
     }
 
     // Every lock-declared kind that is not one of the embedded built-ins:
@@ -166,7 +173,7 @@ pub fn gate(
     // matching document into both member sets — a document's kind is its position
     // alone, never its content — so a shared locus refuses loud here.
     diagnostics.extend(admissibility::governs_collision_diagnostics(
-        &builtin_defs,
+        &overlaid_builtin_kinds,
         &custom_rows,
         &declarations,
     )?);
@@ -174,7 +181,7 @@ pub fn gate(
     // locus's other coherence check, before any member is read under a kind whose own
     // declaration does not hold together.
     diagnostics.extend(admissibility::local_locus_admissibility(
-        &builtin_defs,
+        &overlaid_builtin_kinds,
         &custom_rows,
         &declarations,
     )?);
@@ -191,6 +198,7 @@ pub fn gate(
             &discovery,
             &declarations,
             &manifest_cache,
+            &overlaid_builtin_kinds,
         )?;
         let features = &uaf.features;
 

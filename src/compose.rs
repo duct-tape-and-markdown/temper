@@ -386,6 +386,12 @@ pub struct LockFamily {
     /// is, and adds no check to it either — it only re-weighs the checks the rows above
     /// already carry.
     pub dial: dial::Dial,
+    /// Every embedded built-in kind with any lock-declared overlay applied, keyed by bare
+    /// kind name. Computed once per invocation and shared with every consumer —
+    /// [`kind_units_and_features`], [`admissibility::local_locus_admissibility`],
+    /// [`admissibility::governs_collision_diagnostics`] — to hoist the computation cost
+    /// per the cost doctrine (engineering.md, "Cost scale is hoisted").
+    pub overlaid_builtin_kinds: BTreeMap<String, CustomKind>,
 }
 
 /// This kind's effective declaration: the committed lock's own kind-fact row when the
@@ -544,6 +550,27 @@ pub fn declared_kinds(
     Ok(kinds)
 }
 
+/// Every kind this harness declares, keyed by bare name, using pre-overlaid builtin kinds
+/// to avoid re-deriving the overlay. The `overlaid_builtin_kinds` should come from
+/// [`LockFamily::overlaid_builtin_kinds`].
+///
+/// # Errors
+///
+/// Returns an error if the embedded kind set fails to load or a lock row falls outside a
+/// closed vocabulary.
+pub fn declared_kinds_with_overlaid(
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    declarations: &drift::Declarations,
+) -> miette::Result<BTreeMap<String, CustomKind>> {
+    let builtin_defs = builtin_kind::definitions();
+    let mut kinds = overlaid_builtin_kinds.clone();
+    let (custom_rows, _collisions) = partition_kind_rows(declarations, &builtin_defs)?;
+    for row in custom_rows {
+        kinds.insert(row.name.clone(), CustomKind::from_kind_fact_row(row)?);
+    }
+    Ok(kinds)
+}
+
 /// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or
 /// `mcpServers.*`) entry the host manifest carries at the kind's declared collection
 /// `address`, read through the JSON manifest adapter ([`json_manifest::Manifest::read_kind`]).
@@ -601,6 +628,7 @@ pub fn resolve_kind_units(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<Vec<Unit>> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
     let overlaid = kind.clone();
@@ -616,7 +644,7 @@ pub fn resolve_kind_units(
             manifest_units(disc, &overlaid, address, cache)?
         }
         (_, _, None) => {
-            let kinds = declared_kinds(declarations)?;
+            let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
             let mut child_units = Vec::new();
             for found in import::discover_nested_file(
                 disc,
@@ -674,6 +702,7 @@ pub fn resolve_kind_units(
 /// each member's nested-member facts resolved off the run's assembled `nested_members`
 /// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
 /// Both units and features are returned together to avoid a second resolution pass.
+/// The `kind` parameter should be the pre-overlaid form from [`LockFamily::overlaid_builtin_kinds`].
 ///
 /// # Errors
 ///
@@ -683,12 +712,12 @@ pub fn kind_units_and_features(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnitsAndFeatures> {
-    let kind = overlay_builtin_kind(kind, declarations)?;
-    let units = resolve_kind_units(&kind, disc, declarations, cache)?;
+    let units = resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
     let features = units
         .iter()
-        .map(|unit| builtin_kind::features(&kind, unit, &declarations.nested_members))
+        .map(|unit| builtin_kind::features(kind, unit, &declarations.nested_members))
         .collect();
     Ok(KindUnitsAndFeatures { units, features })
 }
@@ -696,21 +725,22 @@ pub fn kind_units_and_features(
 /// Resolve every embedded built-in kind's discovered units and features off `harness_root`,
 /// keyed by bare kind name — the one loop that both `gate` and `explain` range over.
 /// Used by `explain` to collect directive members without a second resolution pass.
+/// The `overlaid_builtin_kinds` should come from [`LockFamily::overlaid_builtin_kinds`].
 ///
 /// # Errors
 ///
 /// As [`kind_units_and_features`].
 pub fn builtin_units_and_features_by_kind(
-    builtin_defs: &BTreeMap<String, CustomKind>,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
 ) -> miette::Result<BTreeMap<String, KindUnitsAndFeatures>> {
     let mut by_kind = BTreeMap::new();
-    for kind in builtin_defs.values() {
+    for kind in overlaid_builtin_kinds.values() {
         by_kind.insert(
             kind.name.clone(),
-            kind_units_and_features(kind, disc, declarations, cache)?,
+            kind_units_and_features(kind, disc, declarations, cache, overlaid_builtin_kinds)?,
         );
     }
     Ok(by_kind)
@@ -720,6 +750,7 @@ pub fn builtin_units_and_features_by_kind(
 /// run through the [`overlay_builtin_kind`]-overlaid kind's own composed extraction,
 /// each member's nested-member facts resolved off the run's assembled `nested_members`
 /// rows by address ([`builtin_kind::features`]), never by re-parsing its rendered body.
+/// The `overlaid_builtin_kinds` should come from [`LockFamily::overlaid_builtin_kinds`].
 ///
 /// # Errors
 ///
@@ -729,8 +760,10 @@ pub fn kind_features(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<Vec<extract::Features>> {
-    kind_units_and_features(kind, disc, declarations, cache).map(|uaf| uaf.features)
+    kind_units_and_features(kind, disc, declarations, cache, overlaid_builtin_kinds)
+        .map(|uaf| uaf.features)
 }
 
 /// A local-locus kind's members' declaration rows, derived off their own documents —
@@ -883,6 +916,7 @@ fn read_dial(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<dial::Dial> {
     let Some(kind) = builtin_kind::definition(dial::KIND) else {
         return Ok(dial::Dial::default());
@@ -892,6 +926,7 @@ fn read_dial(
         disc,
         declarations,
         cache,
+        overlaid_builtin_kinds,
     )?))
 }
 
@@ -922,11 +957,19 @@ pub fn assemble_lock_family(
 ) -> miette::Result<LockFamily> {
     let mut assembled = committed.clone();
     let mut local_members: BTreeSet<String> = BTreeSet::new();
-    for kind in declared_kinds(committed)?.values() {
+
+    let builtin_defs = builtin_kind::definitions();
+    let mut overlaid_builtin_kinds = BTreeMap::new();
+    for kind in builtin_defs.values() {
+        overlaid_builtin_kinds.insert(kind.name.clone(), overlay_builtin_kind(kind, committed)?);
+    }
+
+    let all_declared = declared_kinds_with_overlaid(&overlaid_builtin_kinds, committed)?;
+    for kind in all_declared.values() {
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
         }
-        let units = resolve_kind_units(kind, disc, committed, cache)?;
+        let units = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
         let rows = local_document_rows(kind, &units, committed)?;
         local_members.extend(
             units
@@ -938,11 +981,12 @@ pub fn assemble_lock_family(
     }
     let joined = read_layer_clauses(layers)?;
     Ok(LockFamily {
-        dial: read_dial(disc, committed, cache)?,
+        dial: read_dial(disc, committed, cache, &overlaid_builtin_kinds)?,
         declarations: assembled,
         joined_clauses: joined.clauses,
         joined_locks: joined.locks,
         local_members: local_members.into_iter().collect(),
+        overlaid_builtin_kinds,
     })
 }
 
@@ -1167,9 +1211,10 @@ pub fn repo_file_set(root: &Path) -> Vec<String> {
 pub fn build_manifest_cache(
     disc: &import::Discovery,
     declarations: &drift::Declarations,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<ManifestCache> {
     let mut cache: ManifestCache = BTreeMap::new();
-    let kinds = declared_kinds(declarations)?;
+    let kinds = declared_kinds_with_overlaid(overlaid_builtin_kinds, declarations)?;
 
     // Group manifest kinds by their manifest file path.
     let mut by_manifest: BTreeMap<PathBuf, Vec<&CollectionAddress>> = BTreeMap::new();
