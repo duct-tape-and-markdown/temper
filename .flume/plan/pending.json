@@ -1,5 +1,71 @@
 [
   {
+    "tag": "MENTION-REACHABLE-GATE-SDK-AGREEMENT",
+    "summary": "No real SDK-emit→engine-reader test decodes the mention-reachable clause's `gate` column; lock_declaration_rows.rs's hand-built test wrongly claims that coverage",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A seam gate reads what the real writer wrote"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "the_sdk_derived_installed_plugin_kind_round_trips_through_the_engine_reader (122-140) already parses the real SDK-derived declarations (MEMBERLESS_BUILTIN_PROGRAM's emit, which carries rule's default-contract mention-reachable clause row — src/builtin_lock.toml:985-992, `gate = \"paths\"`) but only decodes kind facts through CustomKind::from_kind_fact_row, never a clause row through contract::predicate_from_row (src/contract.rs:435). Add an assertion (new test or extend this one) that finds the derived declarations' rule.mention-reachable clause row and decodes it via predicate_from_row, asserting Predicate::MentionReachable { scope_field: \"paths\", gate_field: \"paths\" } — the real writer's gate-column spelling actually lifting through the real reader, the claim tests/lock_declaration_rows.rs's hand-built test names but never exercises."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "a_mention_reachable_clause_row_round_trips_both_field_ends (553-558) drives contract::predicate_from_row entirely over a hand-built ClauseRow (golden_payload/drift::emit/drift::read_declarations, no node/SDK involved) yet its doc comment claims 'the SDK writing it must spell exactly what the engine reads' (556) — an SDK-agreement claim this compiler-tier test (tests/emit.rs:3-11's own three-tier taxonomy) never verifies. Reword the comment to honestly scope it as the hand-built compiler-tier round trip it is, pointing at the new SDK-driven assertion (builtin_lock_frozen.rs) for the actual agreement claim."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/builtin_lock_frozen.rs",
+        "asserts": "the real SDK-derived rule.mention-reachable clause row decodes through contract::predicate_from_row to Predicate::MentionReachable{scope_field:\"paths\", gate_field:\"paths\"}"
+      }
+    ],
+    "acceptance": "A real node+SDK emit's mention-reachable gate-column spelling is decoded and asserted through the engine's typed Predicate by a live test (not a hand-built row); lock_declaration_rows.rs's compiler-tier test's comment no longer claims SDK-spelling coverage it doesn't exercise. cargo test green.",
+    "notes": "scoped at 00c3a22. src/builtin_lock.toml:985-992 already carries the real SDK-derived gate=\"paths\" row (rule's default contract) — no new SDK fixture needed, only a new decode assertion over declarations already parsed at builtin_lock_frozen.rs:122-130. Derived from engineering.md's new section (8911c38, phrase delta); surveyed every seam/agreement-keyword test file — this and CUSTOM-KIND-CONTENT-SDK-AGREEMENT are the two live findings."
+  },
+  {
+    "tag": "CUSTOM-KIND-CONTENT-SDK-AGREEMENT",
+    "summary": "No real SDK-emit test exercises a custom kind's layout content or fields-only shape+collectionAddress; lock_declaration_rows.rs's hand-built tests wrongly claim that SDK coverage",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A seam gate reads what the real writer wrote"
+    },
+    "gate": { "kind": "blockedBy", "tag": "MENTION-REACHABLE-GATE-SDK-AGREEMENT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/emit.rs",
+          "description": "No SDK fixture program declares a custom kind via the generic kind() factory (sdk/src/kind.ts:330, exported off the SDK root) with content: Layout (regions) or shape: \"fields\" + collectionAddress — every existing node-driven fixture (HARNESS_PROGRAM, REQUIREMENT_CLAUSES_PROGRAM, MEMBERLESS_BUILTIN_PROGRAM in tests/builtin_lock_frozen.rs) sticks to built-in provider kinds. Add a new fixture program + test, following REQUIREMENT_CLAUSES_PROGRAM's pattern (1707-1776), declaring a kind() with a three-region layout (prose/field/collection, mirroring tests/lock_declaration_rows.rs's hand-built spec_kind_facts_with_layout) and a second fields-only kind with a collectionAddress (mirroring hook_kind_facts), driven through emit_program and decoded via CustomKind::from_kind_fact_row (src/kind.rs:551), asserting content/shape/collection_address reconstruct to the declared values."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "a_kinds_layout_content_round_trips_the_lock_and_reaches_the_engine_custom_kind (1149-1154) and a_kinds_fields_only_shape_and_collection_address_round_trip_the_lock_and_reach_the_engine (1223-1229) both drive CustomKind::from_kind_fact_row entirely over hand-built KindFactRows (golden_payload/drift::emit, no node/SDK) yet their doc comments claim 'round trips SDK emit → lock kind row → engine CustomKind' — an SDK-agreement claim neither test exercises. Reword both comments to honestly scope them as hand-built compiler-tier round trips, pointing at the new SDK-driven test (tests/emit.rs) for the actual agreement claim."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a real SDK-authored custom kind's layout content and fields-only shape+collectionAddress decode through CustomKind::from_kind_fact_row to the declared typed values"
+      }
+    ],
+    "acceptance": "A real node+SDK-authored custom kind's content/shape/collectionAddress spelling is decoded and asserted through CustomKind by a live SDK-driven test; lock_declaration_rows.rs's two compiler-tier tests' comments no longer claim SDK-emit coverage they don't exercise. cargo test green.",
+    "notes": "scoped at 00c3a22. sdk/src/kind.ts:330's kind() factory already supports content/shape/collectionAddress (168-205); confirmed no existing fixture uses it (rg 'customKind' across tests/*.rs and sdk/src/*.ts: zero hits). blockedBy MENTION-REACHABLE-GATE-SDK-AGREEMENT: both entries edit tests/lock_declaration_rows.rs (disjoint lines, same file — serialized per pending-entry rule)."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
