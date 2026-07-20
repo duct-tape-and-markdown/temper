@@ -1,5 +1,71 @@
 [
   {
+    "tag": "READ-DIAL-OVERLAY-MIGRATE",
+    "summary": "read_dial reads the raw embedded dial definition instead of the overlaid_builtin_kinds map, so a lock relocating the dial's `governs` is silently ignored",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "read_dial (890-905) calls `builtin_kind::definition(dial::KIND)` directly instead of looking the dial up in the `overlaid_builtin_kinds` map it already receives as a parameter. OVERLAY-BUILTIN-KIND-SHARED-HOIST (d108fbf) migrated every other `kind_features` caller to read from that map (declared_kinds_with_overlaid at 541, resolve_kind_units's caller at 690, kind_features's own wrapper at 738, assemble_lock_family's per-kind loop at 947) but missed this one, so a committed lock's `[[declaration.kind]] name = \"dial\"` row relocating the dial's governed locus is read from the pre-overlay embedded definition and silently has no effect. Fix: `overlaid_builtin_kinds.get(dial::KIND).cloned().or_else(|| builtin_kind::definition(dial::KIND))` (or equivalent), falling back to the embedded definition only when the lock declares no overlay for it — the gate reads declarations from the lock family and nowhere else (pipeline.md, 'The lock')."
+        },
+        {
+          "path": "tests/dial_kind.rs",
+          "description": "This module's own header (11-13) states no case here writes a kind row, since 'a harness gets its dial from adopting temper at all' — true of every case filed so far, and the reason the regression shipped unseen. Add the first exception: write a lock `[[declaration.kind]] name = \"dial\"` row relocating the dial's `governs` to a non-default path, place the dial document there, and assert it is the one read (not the embedded default path, and not silently ignored). Reword lines 11-13 off the now-false absolute — the class stays temper's own kind, but the overlay mechanism now has a live case."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/dial_kind.rs",
+        "asserts": "a committed lock relocating the dial kind's `governs` via a `[[declaration.kind]]` row is honored — the dial document at the relocated locus is read, not the embedded default"
+      }
+    ],
+    "acceptance": "read_dial resolves the dial kind through overlaid_builtin_kinds like every other kind_features caller in this file; a lock-relocated dial governs is honored instead of silently falling back to the embedded default. `cargo test` green.",
+    "notes": "Confirmed on disk at c4e0998: src/compose.rs:896 calls builtin_kind::definition(dial::KIND) raw; every sibling caller (541, 606, 690, 738) takes overlaid_builtin_kinds. Latent only today (dial ships embedded-only, no kind-fact row emitted yet) but the mechanism is live code and untested. Routed from inbox (independent blind review, observed at 943603a). scoped at c4e0998."
+  },
+  {
+    "tag": "GUARD-MEMBERSHIP-FALLTHROUGH-RESTORE",
+    "summary": "guard_membership_fails' `_` arm returns false where the pre-extraction inline match returned continue, so a non-Enum/Type `when` guard evaluates its body instead of staying silent",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "guard_membership_fails (870-885) returns `_ => false` for any guard predicate outside Enum/Type. Its sole call site (1237, the `When` arm of `decide`) reads `if guard_membership_fails(guard, &value) { continue }`, so `false` no longer skips the element — the body clauses now evaluate against every element a non-Enum/Type guard's field locates, instead of staying silent (contract.md, 'clause': 'where [the guard] does not [hold] ... the body is silent'). `git show d865e30:src/engine.rs:1231` shows the pre-extraction inline `When` arm used `_ => continue` — the extraction inverted the fallthrough. Bounded but live: `when_restrictions` (168) flags a non-Enum/Type guard inadmissible, but `validate`'s per-member dispatch runs regardless of admissibility, so an inadmissible guard still produces spurious per-element findings on an already-failing contract rather than staying silent. Fix: flip the `_` arm to `true` (membership fails → skip)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "a `When` clause whose guard is neither Enum nor Type (e.g. Predicate::Required) emits no body findings for any element — added beside the existing when_guard_enum_matches_and_body_evaluates / when_guard_type_matches_and_body_evaluates / when_guard_field_absent_is_silent cases (2713-2809+)"
+      }
+    ],
+    "acceptance": "guard_membership_fails' `_` arm returns true, restoring the pre-extraction skip-on-non-Enum/Type-guard behavior; a regression test pins it. `cargo test` green.",
+    "notes": "Confirmed on disk at c4e0998: src/engine.rs:883 reads `_ => false`; call site at 1237 is `if guard_membership_fails(...) { continue }`. Routed from inbox (independent blind review, observed at 943603a). scoped at c4e0998."
+  },
+  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
