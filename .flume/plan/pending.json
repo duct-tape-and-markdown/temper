@@ -1,44 +1,5 @@
 [
   {
-    "tag": "WHEN-ELEMENT-ADDRESS-DEDUP",
-    "summary": "engine.rs's when-body element scoping hand-rolls JSON address parsing/walking and ships dead code, duplicating address.rs's FieldPath — consolidate onto the sanctioned mechanism",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/engine.rs",
-          "description": "`decide`'s `Predicate::When` arm (1237-1269) locates the guard's matches via `path.locate(&root)` (sanctioned), then hand-rolls the rest: `element_address_for_guard` (1277-1310) bracket-depth-slices the matched address string down to its array-element prefix, and `parent_json_of` (1347-1417) re-walks the JSON tree character-by-character from that sliced string to fetch the element node — both duplicating `src/address.rs`'s `FieldPath` parse/locate grammar the module's own header calls exclusive ('Nothing here walks a JSON tree by hand'). `parent_address_of` (1316-1345, `#[allow(dead_code)]`) is dead: `rg` confirms zero callers. Delete all three hand-rolled fns and `scoped_element_features`'s (1429) construction should instead resolve the element via the extended `FieldPath` below."
-        },
-        {
-          "path": "src/address.rs",
-          "description": "Add the decomposition `FieldPath` currently lacks: a method returning the sub-path truncated through its **last `Step::EachElement`** (the array-element prefix `element_address_for_guard` reimplements), following the same shape `split_leaf` (109) already established for `locate_presence`'s parent decomposition. Pair it with the existing `locate` so engine.rs resolves the element's address and JSON node through one call, never a hand-rolled string walk."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/marketplace_kind.rs",
-        "asserts": "the source-specific required-field checks (github/url/git-subdir/npm) still fire per malformed array element after the element-resolution path moves onto `FieldPath` — behavior unchanged, black-box"
-      },
-      {
-        "path": "tests/field_addressing.rs",
-        "asserts": "the new `FieldPath` decomposition method locates the correct array-element prefix for a guard path with `[*]` (and returns the whole path/root for one without)"
-      }
-    ],
-    "acceptance": "`element_address_for_guard`, `parent_json_of`, and the dead `parent_address_of` are gone from engine.rs; the when-body element scope resolves through `FieldPath`'s own parse/locate mechanism in address.rs; `cargo clippy --all-targets -- -D warnings` and `cargo test` green with tests/marketplace_kind.rs unchanged in behavior.",
-    "notes": "Surfaced this tick's post-ship reconciliation sweep of the WHEN-BODY-ELEMENT-SCOPE-EVALUATE wave (ff6ec84, 863149f..HEAD window). engineering.md, 'One job, one home': 'A second implementation of one job... is residue, fileable against this section whenever no pending entry consolidates it.' scoped at 491c695."
-  },
-  {
     "tag": "IMPORT-HOP-CAP-CITE",
     "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
     "per": {
