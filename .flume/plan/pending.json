@@ -1,29 +1,5 @@
 [
   {
-    "tag": "COMPOSE-ZERO-CONSUMER-VISIBILITY-PRUNE",
-    "summary": "src/compose.rs: `edge_fields_by_kind` and `embedded_member_features` are `pub` with zero consumers outside their own module — narrow both to private `fn`.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Change `pub fn edge_fields_by_kind` (1076) and `pub fn embedded_member_features` (1103) to plain `fn` — neither has a caller outside compose.rs (the production call sites are `embedded_features_by_kind` at 1057/1061, both in this same file), so `pub` visibility is unearned residue. No other file references either symbol."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "cargo build and cargo clippy --all-targets -- -D warnings stay green with both functions private; the existing compose.rs test module (which calls both) continues to compile and pass, since a child module sees its parent's private items.",
-    "notes": "Verified via rg: both symbols' only callers sit inside compose.rs — edge_fields_by_kind from embedded_features_by_kind (1057) plus its test (1596); embedded_member_features from the same fn (1061) plus its test (1597). No hit elsewhere in src/, tests/, main.rs. Every other internal helper here (row_relocates_builtin, layer_lock_path, read_dial) is already plain `fn`, not pub. Distinct from the tracked stale manifest_units cite (556), untouched here, still rides forward. scoped at 6b9175e"
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
