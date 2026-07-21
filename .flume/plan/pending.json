@@ -1,46 +1,5 @@
 [
   {
-    "tag": "WRITE-CREATING-PARENTS-CONSOLIDATE",
-    "summary": "Dedup the mkdir-parent-then-write-file mechanic duplicated 4x across bundle.rs, install.rs, and drift.rs (drift.rs carries two copies itself)",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/fs_util.rs",
-          "description": "Leaf module (flat, alongside path.rs's precedent for a small shared no-error-type-coupling mechanic): `pub(crate) fn write_creating_parents(path: &Path, bytes: &[u8]) -> std::io::Result<()>` — create the path's parent dirs then write the bytes, the one implementation of the mechanic every call site below currently reimplements."
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Declare `pub(crate) mod fs_util;` alongside the other leaf modules (path.rs at line 55)."
-        },
-        {
-          "path": "src/bundle.rs",
-          "description": "`write_text` (342-361) inlines create_dir_all+fs::write mapped to BundleError::Write; collapse its body to one call to `fs_util::write_creating_parents`, mapping the io::Error into BundleError::Write — call sites (write_member, write_json) unchanged."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "`write_scaffold_file` (1454-1462) is the identical mechanic mapped to InstallError::Write; collapse its body to one call to `fs_util::write_creating_parents`."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Two internal copies of the same mechanic, both mapped to DriftError::Write: `create_dir_all`/`write_bytes` (517-528, used by write_rollup) and `write_placement`'s inline mkdir+write (2543-2553, used by the merge/apply path). Collapse both to `fs_util::write_creating_parents`; write_rollup's create_dir_all(into) + write_bytes(...) becomes one call, write_placement's inline block becomes one call — no signature or call-site change at either site."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`rg -B2 'fs::write\\(' src/*.rs` shows the create-parent-dirs-then-write mechanic implemented exactly once, in src/fs_util.rs; bundle.rs, install.rs, and drift.rs's two former call sites all delegate to it with behavior unchanged (existing tests/bundle.rs, tests/install.rs, and drift's lock/placement round-trip tests stay green with no edits).",
-    "notes": "Found this tick's posture sweep of src/bundle.rs's neighborhood (install.rs and drift.rs are its immediate imports via install::session_start_group/SESSION_START_COMMAND and drift::project_bytes). Pure mechanical dedup, no behavior change, so no new test — existing write-path tests in each of the three files already pin the observable behavior. scoped at 35cd3fd."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
