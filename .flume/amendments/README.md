@@ -9,11 +9,8 @@ archive. Applying a phrase amendment ends with `flume wake plan` — a
 posture-page delta arms the sweep's full-frontier rotation, and the
 application pass is the ratification's second half.
 
-## The bar
-
-Everything the friction bar demands — exceptional never a duty, actual
-cost THIS tick, check the directory before filing — plus two of its
-own:
+The universal filing bar (exceptional, never a duty) lives in the
+`capture-friction` skill. This channel adds two demands of its own:
 
 - **The diff is concrete and complete.** A unified diff a human can
   apply without authoring anything. A proposal that still needs
