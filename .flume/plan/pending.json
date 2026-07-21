@@ -1,29 +1,5 @@
 [
   {
-    "tag": "FRONTMATTER-CLOSING-DELIMITER-ZERO-CONSUMER-PRUNE",
-    "summary": "src/frontmatter.rs: `closing_delimiter` is `pub(crate)` with zero consumers outside its own module — narrow to private `fn` and fix its stale visibility justification.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/frontmatter.rs",
-          "description": "Change `pub(crate) fn closing_delimiter` (348) to plain `fn` — LSP findReferences confirms exactly 3 references, all inside this file (`split_frontmatter` at 333, its own definition at 348, `frontmatter_matter` at 368); no caller in tests/ or elsewhere in src/. Rewrite its doc comment (345-347), which justifies the `pub(crate)` by claiming `src/install.rs`'s modeline/note projectors and `placement_lines` 'share the same closing-delimiter scan' — wrong on two counts: those consumers call the wrapper `frontmatter_matter` (362-369), never `closing_delimiter` directly, and `placement_lines` moved to `src/placement.rs` (PLACEMENT-MODULE-EXTRACTION, 8704036), not `src/install.rs`. `frontmatter_matter`'s own doc comment (362-365), which makes the accurate version of this claim, is untouched."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "cargo build and cargo clippy --all-targets -- -D warnings stay green with `closing_delimiter` private; the existing frontmatter.rs tests (which exercise it only indirectly, through `split_frontmatter`/`frontmatter_matter`) continue to pass unchanged.",
-    "notes": "Verified via `rg -a closing_delimiter` (whole repo) and LSP findReferences from its definition site (frontmatter.rs:348) — both agree: 3 references, all within frontmatter.rs. `frontmatter_matter`, the pub(crate) wrapper it justifies, is the actual shared surface (install.rs:1605,1634; placement.rs:26) and keeps its own accurate doc comment. scoped at 01e2db1"
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
