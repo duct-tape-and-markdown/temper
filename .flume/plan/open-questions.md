@@ -117,7 +117,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Ten live orphans** (six re-verified at HEAD df57610, the seventh at
+  **Eleven live orphans** (six re-verified at HEAD df57610, the seventh at
   8415088, the eighth at 721cab6, the ninth at 11ab0ab, the tenth new this
   tick, one — extract.rs's own, a different one — discharged at 2a6e488). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
@@ -231,6 +231,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   updated with it, so it now names the wrong module. No pending entry
   currently opens contract.ts (CONTRACT-FORMAT-PLACES-EDGES-ZERO-CONSUMER
   already shipped, a00e14a), so it rides whichever one first does.
+  **A twelfth, surfaced this tick's posture sweep of src/compose.rs.**
+  `src/compose.rs`'s `manifest_units` doc comment (556) still claims a
+  manifest kind's members are "read through the JSON manifest adapter
+  (`json_manifest::Manifest::read_kind`)" — true at the function's birth
+  (76aaa83, where it called `read_kind` directly), but
+  GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5) rewired it to read a
+  pre-populated `ManifestCache` instead (built once per manifest path by
+  `Manifest::read` in `build_manifest_cache`); `rg` confirms `read_kind`'s
+  only remaining callers are its own module's tests and `tests/**`, none in
+  `manifest_units`'s real path. No pending entry currently opens
+  compose.rs, so it rides whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
