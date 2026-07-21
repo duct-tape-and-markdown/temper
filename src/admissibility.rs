@@ -1,6 +1,6 @@
 //! Admissibility judges for declared-program well-formedness.
 //!
-//! Seven judges cluster by one job: validating declared kinds, clauses, members,
+//! Eight judges cluster by one job: validating declared kinds, clauses, members,
 //! and collisions before the corpus is trusted to model the harness. Each judge
 //! answers one narrow question about the lock's coherence, running in the assembly
 //! tier before any member is read.
@@ -197,6 +197,22 @@ pub fn clause_collision_diagnostics(
         .collect()
 }
 
+/// Builds the effective kind set: every built-in kind, optionally overlaid with any
+/// relocation, plus every custom kind from the lock.
+fn effective_kinds(
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+) -> Result<Vec<CustomKind>, drift::LockRowError> {
+    let mut kinds = Vec::new();
+    for kind in overlaid_builtin_kinds.values() {
+        kinds.push(kind.clone());
+    }
+    for row in custom_rows {
+        kinds.push(CustomKind::from_kind_fact_row(row)?);
+    }
+    Ok(kinds)
+}
+
 /// The diagnostic `rule` id a kind declaring an inadmissible commitment class reports
 /// under. Sibling of [`GOVERNS_COLLISION_RULE`]: both guard the locus's own coherence
 /// before the corpus is trusted to model the harness — that one across kinds, this one
@@ -211,13 +227,7 @@ pub fn local_locus_admissibility(
     custom_rows: &[&drift::KindFactRow],
     _declarations: &drift::Declarations,
 ) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let mut kinds = Vec::new();
-    for kind in overlaid_builtin_kinds.values() {
-        kinds.push(kind.clone());
-    }
-    for row in custom_rows {
-        kinds.push(CustomKind::from_kind_fact_row(row)?);
-    }
+    let kinds = effective_kinds(overlaid_builtin_kinds, custom_rows)?;
     Ok(kinds
         .iter()
         .filter_map(|kind| {
@@ -248,13 +258,7 @@ pub fn registration_locus_admissibility(
     custom_rows: &[&drift::KindFactRow],
     _declarations: &drift::Declarations,
 ) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
-    let mut kinds = Vec::new();
-    for kind in overlaid_builtin_kinds.values() {
-        kinds.push(kind.clone());
-    }
-    for row in custom_rows {
-        kinds.push(CustomKind::from_kind_fact_row(row)?);
-    }
+    let kinds = effective_kinds(overlaid_builtin_kinds, custom_rows)?;
     Ok(kinds
         .iter()
         .filter_map(|kind| {
