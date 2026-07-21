@@ -1,31 +1,5 @@
 [
   {
-    "tag": "ADMISSIBILITY-EFFECTIVE-KIND-SET-DEDUP",
-    "summary": "src/admissibility.rs: dedupe the identical kind-set-building loop in local_locus_admissibility/registration_locus_admissibility; fix the stale \"Seven judges\" header count (now eight).",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "Extract the identical 'build Vec<CustomKind> from overlaid_builtin_kinds.values().cloned() then custom_rows via CustomKind::from_kind_fact_row' loop — duplicated verbatim in local_locus_admissibility (214-220) and registration_locus_admissibility (251-257) — into one shared helper (e.g. `effective_kinds(overlaid_builtin_kinds, custom_rows) -> Result<Vec<CustomKind>, drift::LockRowError>`) both call. Also correct the module //! header's stale 'Seven judges cluster by one job' — dd96b6e added registration_locus_admissibility as an eighth judge without updating the count/list."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "local_locus_admissibility and registration_locus_admissibility share one kind-set-building helper with no duplicated loop; the module header states the accurate judge count; existing tests/local_locus.rs and tests/registration_locus.rs stay green; cargo clippy/test clean.",
-    "notes": "Verified on disk (posture sweep, src/admissibility.rs neighborhood). Loops at 214-220 and 251-257 are byte-identical modulo the fault-fetching closure; gate.rs (212-221) calls both with identical (&overlaid_builtin_kinds, &custom_rows, &declarations) args. governs_collision_diagnostics builds its map differently (reads governs_root/glob off rows directly, no CustomKind construction) -- not a third duplicate. dd96b6e added the eighth judge without updating the header's count. scoped at 7dd30ee."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
