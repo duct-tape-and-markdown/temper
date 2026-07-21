@@ -1,29 +1,30 @@
 # Plan state
 
 - Spec derived through: 946e303 — unchanged; `git log 946e303..HEAD -- specs/` is empty.
-- Audited through: 9329952 — unchanged; `git log 9329952..HEAD -- src/ tests/ sdk/` is empty.
-- Residue swept through: 9329952 — same, unchanged.
+- Audited through: 3f1af5f — was 9329952; `git log 9329952..3f1af5f -- src/ tests/ sdk/`
+  is one commit, d71a050 (build: extract effective_kinds helper in admissibility.rs;
+  update judge count), shipped as ADMISSIBILITY-EFFECTIVE-KIND-SET-DEDUP (3f1af5f).
+  Verified on disk, not just the log: src/admissibility.rs's module header now reads
+  "Eight judges" (was "Seven"), and both local_locus_admissibility and
+  registration_locus_admissibility now call the new `effective_kinds` helper
+  (202-215) instead of each carrying the loop — `rg` confirms no third inline
+  copy of the loop remains. The pending entry is already absent from
+  pending.json (build/merge's job, not plan's) — nothing to drop. Metrics
+  glanced: the build tick ran 22 turns/130s (metrics.jsonl), consistent with
+  this queue's recent tick sizes — no oversize signal.
+- Residue swept through: 3f1af5f — was 9329952; same window, same single
+  commit, and it did exactly the one job the entry named (consolidate the
+  duplicate loop, fix the stale count) with no other vocabulary or
+  hand-rolled surface introduced — nothing further to file.
 - Posture swept through: sdk/src/ tree fully covered; src/address.rs, src/admissibility.rs
   covered. src/builtin.rs next in tree order — mid-rotation.
-- This tick: POSTURE SWEEP of src/admissibility.rs (+ immediate imports check/compose/
-  contract/drift/engine/extract/kind::CustomKind, read for context only). Two findings,
-  both verified on disk, filed as ADMISSIBILITY-EFFECTIVE-KIND-SET-DEDUP (per
-  engineering.md "One job, one home"): (1) local_locus_admissibility (214-220) and
-  registration_locus_admissibility (251-257) duplicate an identical loop building
-  Vec<CustomKind> from overlaid_builtin_kinds + custom_rows — governs_collision_diagnostics
-  checked and ruled out as a third instance (it reads governs_root/glob off rows directly,
-  never constructs CustomKind). (2) the module //! header's "Seven judges" is stale —
-  dd96b6e added registration_locus_admissibility as an eighth judge without updating the
-  count; folded into the same entry's files[].description rather than a standalone
-  ride-only open-questions note, since this tick's entry is exactly "whichever one first
-  opens the file." No other lens (libraries-before-hand-rolls, shared-concept exhaustiveness,
-  cost hoisting, export-earns-consumer — all nine pub items have a gate.rs caller,
-  confirmed via rg -a) found anything on this module.
-- Queue: 3 pending — 1 open (ADMISSIBILITY-EFFECTIVE-KIND-SET-DEDUP), 1 deferred
-  (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked (PACKAGING-CHANNELS-REMAINDER). Open
-  forks: 2, unchanged. Friction: 0. Amendments: 1, still awaiting ratification. Inbox: 0.
+- This tick: POST-SHIP RECONCILIATION over 9329952..3f1af5f (see Audited/Residue
+  swept lines above for the full account). No new pending entries; no open
+  questions touched.
+- Queue: 2 pending — 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked
+  (PACKAGING-CHANNELS-REMAINDER); 0 open. Open forks: 2, unchanged. Friction: 0.
+  Amendments: 1, still awaiting ratification. Inbox: 0.
 
-Plan continues: after-build — the only remaining live job is the posture rotation
-(mid-rotation, src/builtin.rs next) and a pickable entry now exists
-(ADMISSIBILITY-EFFECTIVE-KIND-SET-DEDUP); ready work ships first, the sweep resumes at
-src/builtin.rs when the wave hands back.
+Plan continues: yes — no open pending entry and no live inbox/spec-delta/
+reconciliation input remains, so the only live job left is the posture
+rotation, mid-rotation, resuming at src/builtin.rs next tick.
