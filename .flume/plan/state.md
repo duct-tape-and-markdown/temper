@@ -12,15 +12,14 @@
 - Residue swept through: 35e700b — same window: a two-line fix introduces
   no new symbol, retirement, or vocabulary; no residue found, 0 entries
   filed.
-- Posture swept through: mid-rotation, at src/engine.rs — filed
-  WHEN-ROOT-GUARD-STRAY-COLON-PREFIX; `src/extract.rs` next in the
-  c9d11d5 re-arm rotation's frontier.
-- This tick: POST-SHIP RECONCILIATION over 0d91b96..35e700b — audit + sweep
-  both clean, cursors advanced; see commit body.
+- Posture swept through: mid-rotation, at src/extract.rs — clean;
+  `src/frontmatter.rs` next in the c9d11d5 re-arm rotation's frontier.
+- This tick: POSTURE SWEEP src/extract.rs (+ immediate import address.rs's
+  `FieldPath`) — clean; see commit body.
 - Queue: 2 pending — 0 open, 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL),
-  1 parked (PACKAGING-CHANNELS-REMAINDER); both conditions re-checked,
-  unchanged by this window. Open forks: 2, unchanged. Friction: 0.
-  Amendments: 0. Inbox: 0.
+  1 parked (PACKAGING-CHANNELS-REMAINDER); 0 open questions unresolved by
+  this queue. Open forks: 2, unchanged. Friction: 0. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — no pickable entry exists to hand build, so the open
-posture rotation (src/extract.rs next) is next tick's live input.
+Plan continues: yes — the posture rotation is open (frontmatter.rs onward
+unswept) and the queue now holds no pickable entry, so plan drives the
+sweep itself next tick rather than waiting on a wave.
