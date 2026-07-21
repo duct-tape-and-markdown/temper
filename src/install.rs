@@ -1452,15 +1452,11 @@ fn harness_entry_source(members: &[ScaffoldedMember]) -> String {
 
 /// Write a scaffold file, creating any missing parent directories.
 fn write_scaffold_file(path: &Path, contents: &str) -> Result<(), InstallError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|source| InstallError::Write {
-            path: parent.to_path_buf(),
+    crate::fs_util::write_creating_parents(path, contents.as_bytes()).map_err(|source| {
+        InstallError::Write {
+            path: path.to_path_buf(),
             source,
-        })?;
-    }
-    fs::write(path, contents).map_err(|source| InstallError::Write {
-        path: path.to_path_buf(),
-        source,
+        }
     })
 }
 

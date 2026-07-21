@@ -42,6 +42,7 @@ pub mod drift;
 pub mod engine;
 pub mod extract;
 pub mod frontmatter;
+pub(crate) mod fs_util;
 pub mod gate;
 pub mod glob;
 pub mod graph;

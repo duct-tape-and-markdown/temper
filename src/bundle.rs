@@ -38,7 +38,6 @@
 //! plugin is reviewable and diff-stable.
 
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value as JsonValue, json};
@@ -346,15 +345,11 @@ fn write_text(
     files: &mut Vec<PathBuf>,
 ) -> Result<(), BundleError> {
     let path = out.join(relative);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|source| BundleError::Write {
-            path: parent.to_path_buf(),
+    crate::fs_util::write_creating_parents(&path, contents.as_bytes()).map_err(|source| {
+        BundleError::Write {
+            path: path.clone(),
             source,
-        })?;
-    }
-    fs::write(&path, contents.as_bytes()).map_err(|source| BundleError::Write {
-        path: path.clone(),
-        source,
+        }
     })?;
     files.push(relative.to_path_buf());
     Ok(())
@@ -386,6 +381,7 @@ pub fn render(report: &BundleReport) -> String {
 mod tests {
     use super::*;
     use crate::test_support::tmpdir;
+    use std::fs;
 
     #[test]
     fn the_bundled_skill_passes_tempers_own_skill_contract() {

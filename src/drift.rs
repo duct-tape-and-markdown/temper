@@ -493,8 +493,9 @@ pub(crate) fn write_rollup(
     write_source_deps(&mut doc, "layout_import", layout_imports);
     write_source_deps(&mut doc, "include", includes);
 
-    create_dir_all(into)?;
-    write_bytes(&into.join(crate::LOCK_FILENAME), doc.to_string().as_bytes())
+    let path = into.join(crate::LOCK_FILENAME);
+    crate::fs_util::write_creating_parents(&path, doc.to_string().as_bytes())
+        .map_err(|source| DriftError::Write { path, source })
 }
 
 /// Build the `ArrayOfTables` for one kind's roll-up rows — the four shared columns
@@ -511,22 +512,6 @@ fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
         tables.push(table);
     }
     tables
-}
-
-/// `fs::create_dir_all`, mapping failure to a [`DriftError::Write`].
-fn create_dir_all(path: &Path) -> Result<(), DriftError> {
-    fs::create_dir_all(path).map_err(|source| DriftError::Write {
-        path: path.to_path_buf(),
-        source,
-    })
-}
-
-/// `fs::write`, mapping failure to a [`DriftError::Write`].
-fn write_bytes(path: &Path, bytes: &[u8]) -> Result<(), DriftError> {
-    fs::write(path, bytes).map_err(|source| DriftError::Write {
-        path: path.to_path_buf(),
-        source,
-    })
 }
 
 /// A present declaration row the lock reader could not lift. The lock is tool-written
@@ -2541,15 +2526,11 @@ pub fn place(
 /// Both failures surface as [`DriftError::Write`] so a placement that cannot be
 /// written **errors loudly** rather than silently skipping.
 fn write_placement(path: &Path, desired: &str) -> Result<(), DriftError> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|source| DriftError::Write {
-            path: parent.to_path_buf(),
+    crate::fs_util::write_creating_parents(path, desired.as_bytes()).map_err(|source| {
+        DriftError::Write {
+            path: path.to_path_buf(),
             source,
-        })?;
-    }
-    fs::write(path, desired.as_bytes()).map_err(|source| DriftError::Write {
-        path: path.to_path_buf(),
-        source,
+        }
     })
 }
 
