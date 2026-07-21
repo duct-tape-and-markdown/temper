@@ -11,14 +11,15 @@
 - Residue swept through: 0d91b96 — same window: a six-line visibility
   narrowing introduces no new symbol, retirement, or vocabulary; no residue
   found, 0 entries filed.
-- Posture swept through: mid-rotation, at src/coverage.rs — clean; `src/coverage_note.rs`
-  next in the c9d11d5 re-arm rotation's frontier (already swept clean under the
-  prior rotation at a88f83a, but the phrase delta re-arms the whole domain).
-- This tick: POSTURE SWEEP src/coverage.rs — clean; see commit body.
+- Posture swept through: mid-rotation, at src/coverage_note.rs — clean;
+  `src/dial.rs` next in the c9d11d5 re-arm rotation's frontier.
+- This tick: POSTURE SWEEP src/coverage_note.rs (+ immediate imports
+  builtin_kind.rs, check.rs, drift.rs, glob.rs, kind.rs, json_manifest.rs) —
+  clean; see commit body.
 - Queue: 2 pending — 0 open, 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL),
   1 parked (PACKAGING-CHANNELS-REMAINDER); 0 open questions unresolved by
   this queue. Open forks: 2, unchanged. Friction: 0. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is open (coverage_note.rs onward
+Plan continues: yes — the posture rotation is open (dial.rs onward
 unswept) and the queue now holds no pickable entry, so plan drives the
 sweep itself next tick rather than waiting on a wave.
