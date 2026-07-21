@@ -1,26 +1,28 @@
 # Plan state
 
 - Spec derived through: 946e303 — unchanged; `git log 946e303..HEAD -- specs/` is empty.
-- Audited through: 638f051 — unchanged, no new src/tests/sdk commits past it.
-- Residue swept through: 638f051 — unchanged, same reason.
-- Posture swept through: sdk/src/ tree fully covered; src/address.rs now covered too
-  (no internal imports, so its neighborhood was itself alone) — mid-rotation.
-  src/admissibility.rs next in tree order.
-- This tick: POSTURE SWEEP, src/address.rs neighborhood (zero `use crate::` imports —
-  leaf module, no immediate-import fan-out). Filed ADDRESS-NORMALIZE-PATH-COHESION-SPLIT
-  (open): `normalize_path` (filesystem lexical normalization, 327-345) and `FieldPath`
-  (JSON field addressing, the module's whole stated job per its own //! header) are two
-  unrelated jobs in one file. normalize_path landed here at dc3a5a4 under architecture.md's
-  then-current subsystem framework (53df138's ruling); that framework was cut from
-  architecture.md at 0522eff, already behind the spec cursor — the placement's rationale
-  is gone, current architecture.md hands cohesion judgment to the posture sweep. All eight
-  `normalize_path` call sites (drift.rs x3, compose.rs x2, graph.rs x3, import.rs x3+test)
-  and all `FieldPath` consumers (contract.rs, engine.rs, schema.rs, extract.rs) verified
-  live — no zero-consumer or dead-plumbing finding otherwise.
-- Queue: 3 pending — 1 open (ADDRESS-NORMALIZE-PATH-COHESION-SPLIT), 1 deferred
-  (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked (PACKAGING-CHANNELS-REMAINDER). Open
-  forks: 2, unchanged. Friction: 0. Amendments: 1, still awaiting ratification. Inbox: 0.
+- Audited through: 9329952 — window 638f051..9329952 touching src/tests/sdk was one
+  commit (c732006, build: extract normalize_path to path.rs).
+- Residue swept through: 9329952 — same window, same commit.
+- Posture swept through: sdk/src/ tree fully covered; src/address.rs covered.
+  src/admissibility.rs next in tree order — mid-rotation.
+- This tick: POST-SHIP RECONCILIATION over 638f051..9329952. Audit: c732006 ships exactly
+  what ADDRESS-NORMALIZE-PATH-COHESION-SPLIT scoped — normalize_path (with its doc comment
+  and Component/Path/PathBuf imports) moved verbatim to new leaf module src/path.rs;
+  address.rs's //! header now describes only field addressing; all call sites (drift.rs
+  x3, compose.rs x2, graph.rs x3, import.rs x3+test, tests/directive_classing.rs)
+  requalified to crate::path::normalize_path, no stale address::normalize_path reference
+  anywhere (`rg` confirms); cargo build is clean; the ship commit (9329952) already
+  removed the entry from pending.json — nothing left to drop. Stale-gate re-test: window
+  touches no .github/ (PACKAGING-CHANNELS-REMAINDER's park unaffected, `git log
+  ac40c72..HEAD -- .github/` empty) and no sdk/src/kind.ts or field-guidance surface
+  (GUIDANCE-FIELD-DECLARATION-CHANNEL's defer unaffected) — both gates still hold as
+  stated. Sweep: same window, no retirement named, no orphaned vocabulary, no second
+  implementation — clean.
+- Queue: 2 pending — 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked
+  (PACKAGING-CHANNELS-REMAINDER); 0 open. Open forks: 2, unchanged. Friction: 0.
+  Amendments: 1, still awaiting ratification. Inbox: 0.
 
-Plan continues: after-build — the posture rotation is the only remaining live job and a
-pickable entry now exists (ADDRESS-NORMALIZE-PATH-COHESION-SPLIT), so the wave ships it
-before the sweep resumes.
+Plan continues: yes — posture rotation is mid-rotation with no pickable entry in queue
+(both remaining entries are parked/deferred), so plan drives the sweep to
+src/admissibility.rs next tick rather than waiting on build.
