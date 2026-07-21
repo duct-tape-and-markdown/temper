@@ -1073,9 +1073,7 @@ pub fn embedded_features_by_kind(
 /// ([`embedded_member_features`]). A malformed edge fact is
 /// [`edges_from_declarations`]'s own load error, raised before any check runs, so this
 /// fold reads the well-formed rows rather than raise the identical fault twice.
-pub fn edge_fields_by_kind(
-    declarations: &drift::Declarations,
-) -> BTreeMap<String, BTreeSet<String>> {
+fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, BTreeSet<String>> {
     let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
     for fact in &declarations.assembly {
         if fact.fact != "edge" {
@@ -1100,7 +1098,7 @@ pub fn edge_fields_by_kind(
 /// `format-places-edges` clause decidable without the engine ever seeing the format that
 /// rendered the value. An unfilled field is no edge, so it is no obligation: ranging over
 /// the kind's whole declared set would read an absent edge as one the format dropped.
-pub fn embedded_member_features(
+fn embedded_member_features(
     row: &drift::NestedMemberRow,
     edge_fields: &BTreeSet<String>,
 ) -> extract::Features {
