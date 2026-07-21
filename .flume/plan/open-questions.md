@@ -170,9 +170,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   touching json_manifest.rs, none reaching line 352 — the last edited
   only the `manifest_read_count` doc comment at 40-43; no entry
   currently open chains onto it, so it rides whichever next does.
-  **A seventh, surfaced this tick's posture sweep of contract.rs.**
-  `src/contract.rs`'s `SHAPE_PATTERNS` doc comment (884-885, re-read at
-  8415088) claims compilation "cannot fail" is "covered by
+  **A seventh, surfaced by an earlier posture sweep and re-read at this
+  tick's sweep of contract.rs.** `src/contract.rs`'s `SHAPE_PATTERNS` doc
+  comment (883-885, re-read at f8a3031 — contract.rs itself unchanged
+  since 8415088, confirmed by `git log 8415088..f8a3031 -- src/contract.rs`
+  returning empty) claims compilation "cannot fail" is "covered by
   [`crate::contract::tests`]" — a module this file no longer carries (a
   `mod tests` block was present through e1de1f0 and is gone by HEAD; the
   three shape patterns' only exercise today is the standalone
