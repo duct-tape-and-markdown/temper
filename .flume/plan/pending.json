@@ -1,5 +1,36 @@
 [
   {
+    "tag": "WHEN-ROOT-GUARD-STRAY-COLON-PREFIX",
+    "summary": "A `when` clause's root-scoped body findings (guard with no `[*]`) carry a stray leading `: ` — the empty element address prefixed onto every message instead of omitted.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/engine.rs",
+          "description": "decide()'s Predicate::When arm, the no-`[*]` branch (~1277-1286): replace `violations.push(format!(\"{}: {msg}\", \"\"));` with `violations.push(msg);` — a root-scoped guard locates no sub-address, so contract.md's 'a finding names the concrete address it fired at' names none rather than an empty one."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/engine.rs",
+        "asserts": "when_guard_enum_matches_and_body_evaluates (~2810-2813) tightens its loose `.contains(\"description\")` check to `assert_eq!` on the full message text, pinning no leading `: `."
+      }
+    ],
+    "acceptance": "A `when` clause whose guard addresses no array element (the common case: a bare field like `status`) reports its body findings' messages verbatim, with no stray leading `: `.",
+    "notes": "Verified on disk in this tick's src/engine.rs posture sweep, decide()'s Predicate::When arm, 1277-1286: the no-`[*]` branch does `format!(\"{}: {msg}\", \"\")`, always emitting `\": <message>\"`. Predates bb1b5c3 (FieldPath consolidation) -- the deleted element_address_for_guard already returned empty String for a root guard, so this is not that rewrite's regression. Messages render verbatim to users (check.rs:226, reporter.rs:135/196/224). scoped at ec2b409."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
