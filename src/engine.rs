@@ -1280,7 +1280,7 @@ fn decide(
                             let scoped_features = scoped_element_features(features, &element_json);
                             for body_clause in body {
                                 for msg in evaluate(contract, &body_clause.predicate, &scoped_features, all) {
-                                    violations.push(format!("{}: {msg}", ""));
+                                    violations.push(msg);
                                 }
                             }
                         }
@@ -2810,7 +2810,7 @@ mod tests {
         let artifact = features("demo", &[("status", scalar("active"))], 1, None);
         let diags = validate(&contract, std::slice::from_ref(&artifact));
         assert_eq!(diags.len(), 1);
-        assert!(diags[0].message.contains("description"));
+        assert_eq!(diags[0].message, "required field `description` is absent");
 
         // Guard doesn't match ("inactive"), body skipped, no firing.
         let artifact = features("demo", &[("status", scalar("inactive"))], 1, None);
