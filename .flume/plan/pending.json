@@ -1,5 +1,40 @@
 [
   {
+    "tag": "GRAPH-IMPORT-HOP-CAP-TO-PROVIDER-FACE",
+    "summary": "Move src/graph.rs's MAX_IMPORT_HOPS (the at-import 4-hop recursion cap) into builtin_kind.rs — a Claude Code format fact embedded as a private literal in graph algorithm code, not the provider face",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "The provider face is data"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "Delete the private `const MAX_IMPORT_HOPS: usize = 4` and its doc comment (72-75); `use crate::builtin_kind::MAX_IMPORT_HOPS` instead. The three consumers (`reachable`'s doc comment at 552, `live_members` at 651/681) keep working via the intra-doc `[MAX_IMPORT_HOPS]` link and the `0..MAX_IMPORT_HOPS` loop, now reading the imported constant — no behavior change."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "Add `pub const MAX_IMPORT_HOPS: usize = 4;` carrying graph.rs's exact doc comment and citation (the `at-import` grammar is recursion-capped at four hops, code.claude.com/docs/en/memory) — placed beside `CLAUDE_ROOT` (29), this module's existing home for cited Claude Code format facts (`SETTINGS_DOC`/`KNOWN_SURFACES` follow the same pattern)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "`the_import_closure_is_hop_capped` (1546) already exercises the four-hop cap behaviorally (r1..r4 rescued, r5 stays dead) — stays green unchanged, proving the move carries no behavior drift."
+      }
+    ],
+    "acceptance": "MAX_IMPORT_HOPS is a `pub const` in builtin_kind.rs beside CLAUDE_ROOT, carrying its code.claude.com/docs/en/memory citation; src/graph.rs holds no local definition and imports it instead; `cargo test` and `cargo clippy --all-targets -- -D warnings` stay clean.",
+    "notes": "Posture sweep of src/graph.rs (rotation frontier after src/glob.rs) — the 'embedded provider knowledge' lens (posture-sweep.md): a documented external fact (Claude Code's @path import recursion cap) as a literal in engine code, architecture.md's rule violated in the same shape CLAUDE_ROOT/KNOWN_SURFACES already exist to hold. Mechanical move, no rename, no behavior change. rg confirms no other src/ or tests/ file references MAX_IMPORT_HOPS. scoped at 2fdaceb."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {

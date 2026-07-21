@@ -6,16 +6,23 @@
   build tick); verified clean, see commit body.
 - Residue swept through: 8dd1436 — same window: a one-line visibility
   change + doc-comment trim, no new symbol/retirement/vocabulary; 0 filed.
-- Posture swept through: mid-rotation, at src/glob.rs — clean;
-  src/graph.rs next in the c9d11d5 re-arm rotation's frontier.
-- This tick: POSTURE SWEEP src/glob.rs (neighborhood: zero crate-internal
-  imports — foundation vocabulary; its 4 crate-internal consumers
-  (kind::owns_source, import, coverage_note, graph) and
-  tests/check_cost.rs's glob_compile_count use all verified against the
-  module's own doc comments) — clean; see commit body.
-- Queue: 2 pending — 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1
-  parked (PACKAGING-CHANNELS-REMAINDER); both gate reasons re-checked,
+- Posture swept through: mid-rotation, at src/graph.rs — filed
+  GRAPH-IMPORT-HOP-CAP-TO-PROVIDER-FACE; src/hash.rs next in the c9d11d5
+  re-arm rotation's frontier.
+- This tick: POSTURE SWEEP src/graph.rs (neighborhood: the module itself,
+  read whole — the five graph-scope checks sharing one resolved-edge
+  enumeration, a cohesive single job per its own header, not flagged) —
+  filed GRAPH-IMPORT-HOP-CAP-TO-PROVIDER-FACE: `MAX_IMPORT_HOPS`, the
+  at-import four-hop recursion cap (code.claude.com/docs/en/memory), is a
+  cited Claude Code format fact held as a private literal in graph.rs
+  instead of the provider face — architecture.md's rule, the same shape
+  `builtin_kind.rs`'s `CLAUDE_ROOT`/`KNOWN_SURFACES` already exist to
+  hold; see commit body.
+- Queue: 3 pending — 1 open (GRAPH-IMPORT-HOP-CAP-TO-PROVIDER-FACE), 1
+  deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked
+  (PACKAGING-CHANNELS-REMAINDER); both carried gate reasons re-checked,
   unchanged. Open forks: 2, unchanged. Friction: 0. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — posture rotation is open with no pickable entries;
-resumes at src/graph.rs next tick.
+Plan continues: after-build — ready work
+(GRAPH-IMPORT-HOP-CAP-TO-PROVIDER-FACE) ships first; the open posture
+rotation resumes at src/hash.rs once the wave hands back.
