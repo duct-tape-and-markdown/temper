@@ -12,14 +12,18 @@
 - Residue swept through: 35e700b — same window: a two-line fix introduces
   no new symbol, retirement, or vocabulary; no residue found, 0 entries
   filed.
-- Posture swept through: mid-rotation, at src/extract.rs — clean;
-  `src/frontmatter.rs` next in the c9d11d5 re-arm rotation's frontier.
-- This tick: POSTURE SWEEP src/extract.rs (+ immediate import address.rs's
-  `FieldPath`) — clean; see commit body.
-- Queue: 2 pending — 0 open, 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL),
-  1 parked (PACKAGING-CHANNELS-REMAINDER); 0 open questions unresolved by
-  this queue. Open forks: 2, unchanged. Friction: 0. Amendments: 0. Inbox: 0.
+- Posture swept through: mid-rotation, at src/frontmatter.rs — filed
+  FRONTMATTER-CLOSING-DELIMITER-ZERO-CONSUMER-PRUNE; `src/fs_util.rs` next
+  in the c9d11d5 re-arm rotation's frontier.
+- This tick: POSTURE SWEEP src/frontmatter.rs (+ immediate imports
+  document.rs's `Satisfies`, kind.rs's `CustomKind`/`UnitShape`) — filed
+  FRONTMATTER-CLOSING-DELIMITER-ZERO-CONSUMER-PRUNE; see commit body.
+- Queue: 3 pending — 1 open (FRONTMATTER-CLOSING-DELIMITER-ZERO-CONSUMER-PRUNE),
+  1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked
+  (PACKAGING-CHANNELS-REMAINDER); 0 open questions unresolved by this
+  queue. Open forks: 2, unchanged. Friction: 0. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is open (frontmatter.rs onward
-unswept) and the queue now holds no pickable entry, so plan drives the
-sweep itself next tick rather than waiting on a wave.
+Plan continues: after-build — the posture rotation is the only remaining
+live job and a pickable entry now exists
+(FRONTMATTER-CLOSING-DELIMITER-ZERO-CONSUMER-PRUNE), so build ships it
+before the sweep resumes at fs_util.rs.
