@@ -9,16 +9,9 @@ directory, verifies each claim at HEAD, files the verified gap as a pending
 entry citing `specs/process/engineering.md`, and deletes the capture. Git is
 the archive.
 
-## The bar
-
-Capture what you TOUCHED or READ this tick and could not fix in scope —
-never a speculative redesign, never adjacent-code window shopping, never a
-substitute for finishing the entry. The test is the engineering-shape
-standard (`specs/process/engineering.md`): a second implementation of one
-job, a hand-roll where the sanctioned set carries the mechanic, per-file
-copies of shared scaffolding. Check the directory first; never re-file a
-filed capture. Consolidation *inside* your entry's own surface needs no
-capture — unifying a duplicate you would otherwise extend is in scope.
+The filing bar (exceptional, never a duty) and what qualifies as structural
+debt live in the `capture-friction` skill; this README is the format and
+draining reference.
 
 ## Format
 

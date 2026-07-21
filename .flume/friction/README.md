@@ -6,24 +6,9 @@ two harnesses. An autonomous phase that hits real friction files ONE file
 here; humans drain it out of band (session-open sweep), implement or route
 the fix, and delete the file. Git is the archive.
 
-## The bar
-
-Capture is **exceptional, never a duty** — most ticks file nothing. A capture
-must name friction you actually hit THIS tick, with its actual cost. Never
-speculative improvement, never flattery, never a substitute for finishing the
-job. Check the directory first: if your friction is already filed, don't
-re-file it.
-
-What qualifies — the test is *recurrence × cost*, something an agent likely
-hits every session where a simple capture would spare the next one:
-
-- a pitfall the harness could have warned about (you burned time discovering
-  a fact a rule/CLAUDE.md line could state),
-- a disproportionately lengthy process (tests too slow → suggest lightening
-  them; a gate that mostly waits),
-- missing operational knowledge (a command, a location, a convention you had
-  to reverse-engineer),
-- a gate or fence firing on a false positive.
+The filing bar (exceptional, never a duty) and what qualifies as friction
+live in the `capture-friction` skill; this README is the format and draining
+reference.
 
 ## Format
 
