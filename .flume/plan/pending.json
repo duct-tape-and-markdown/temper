@@ -1,36 +1,5 @@
 [
   {
-    "tag": "TAP-EVENT-DOCUMENTED-NAMES-DEDUP",
-    "summary": "src/tap.rs hand-lists TapEvent's 4 variant names as raw strings in documented_event_names() and again in two tests — consolidate onto one exhaustive match over TapEvent",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/tap.rs",
-          "description": "documented_event_names() (52-59) and its two tests (65-82) hand-duplicate TapEvent's own four variant names (34-48) as bare string literals — three independently hand-kept copies of one enumeration, none tied to the enum by the compiler. Replace with one exhaustive match from TapEvent to its documented wire-name string (the Format/project_bytes precedent engineering.md names: a new variant fails to compile until the match answers it); documented_event_names() reads its returned slice through that match instead of restating the strings, and the two existing tests keep asserting the same behavior off the consolidated source."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/tap.rs",
-        "asserts": "documented_event_names_are_the_canonical_tap_event_variants and old_event_names_are_not_documented keep passing unchanged in behavior, now sourced through the one match rather than a second hand-kept literal list"
-      }
-    ],
-    "acceptance": "tap.rs carries exactly one hand-authored TapEvent-variant-to-wire-name mapping (an exhaustive match); documented_event_names() (and its sole consumer, roster.rs:143's telemetry-verifier admissibility check) read through it, and adding a TapEvent variant fails compilation until the match names it.",
-    "notes": "Verified on disk at 910cd0f: tap.rs:52-59 is a raw-string array, tap.rs:65-82 re-lists the same 4 names across two tests, and TapEvent's own variants (34-48) are a third, canonical copy of the same set — engineering.md's 'shared concept is one type' class exactly. roster.rs:143 is the sole external consumer. Filed by this tick's posture sweep of src/builtin_kind.rs's immediate imports (tap::TapEvent). scoped at 910cd0f."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
