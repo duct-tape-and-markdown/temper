@@ -242,8 +242,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   pre-populated `ManifestCache` instead (built once per manifest path by
   `Manifest::read` in `build_manifest_cache`); `rg` confirms `read_kind`'s
   only remaining callers are its own module's tests and `tests/**`, none in
-  `manifest_units`'s real path. No pending entry currently opens
-  compose.rs, so it rides whichever one first does.
+  `manifest_units`'s real path. COMPOSE-ZERO-CONSUMER-VISIBILITY-PRUNE,
+  filed this tick, now opens compose.rs but only touches the visibility of
+  `edge_fields_by_kind`/`embedded_member_features` (1076/1103) — not
+  reaching 556 — so the cite still rides whichever entry next reaches it.
   **A thirteenth, surfaced this tick's posture sweep of src/bundle.rs.**
   `src/bundle.rs`'s `PLUGIN_NAME` doc comment (51) cites "builtin_kind.rs
   line 397–399" for the claim that a plugin's contributed surfaces (its
