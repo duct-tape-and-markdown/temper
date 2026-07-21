@@ -1,29 +1,5 @@
 [
   {
-    "tag": "EMIT-NEEDS-ZERO-CONSUMER-EXPORTS-PRUNE",
-    "summary": "`edgePlacements`/`renderedExtents` (sdk/src/emit.ts) are exported with zero callers outside their own file; un-export those two only",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "An export earns its consumer"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Drop `export` from `edgePlacements` (441) and `renderedExtents` (481) only — each read or called only inside `emit()`'s own `compile()` closure (763-764) or this file's own helpers (`scopeOf`, `resolveMemberLeaves`, `placedEdges`, `renderMemberBlock`, `resolveBody`, `orderedMembers`). Zero callers anywhere else, grep-verified over sdk/src, sdk/test, src/, tests/, .temper/. `ResolveOptions` (47) keeps its `export`: it is re-exported from `sdk/src/index.ts:91` as public API, a consumer distinct from an in-repo caller (the amendment filed against this section's wording, `.flume/amendments/plan-export-consumer-reexport-carveout.md`). No behavior change."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "`export` is gone from `edgePlacements` and `renderedExtents` in sdk/src/emit.ts (module-private, unchanged behavior); `ResolveOptions` keeps its `export` and its index.ts re-export untouched, and `sdk/src/needs.ts`/`sdk/src/index.ts` are untouched entirely. `rg 'export (function edgePlacements|function renderedExtents)' sdk/src/emit.ts` comes up empty; `rg 'export interface ResolveOptions' sdk/src/emit.ts` still matches. `pnpm --dir sdk test` green.",
-    "notes": "Re-scoped at 97af15c (observed at 14719f2): the prior entry wrongly counted `ResolveOptions` (index.ts:91) and `capability`/`Capability` (index.ts:21-22) as zero-consumer — both are public API re-exported from the root entry point, a real consumer for a pre-adoption library. Branch flume/emit-needs-zero-consumer-exports-prune (63cbefe) un-exports all four and must not merge as-is; this entry supersedes it, scoped to emit.ts only. Amendment filed against the section's wording."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
     "per": {
