@@ -28,6 +28,12 @@ use crate::tap::TapEvent;
 /// The Claude Code harness root directory.
 pub const CLAUDE_ROOT: &str = ".claude";
 
+/// The maximum import-recursion depth reachability propagates a live importer's
+/// liveness across — the `at-import` grammar is recursion-capped at four hops
+/// (code.claude.com/docs/en/memory, retrieved 2026-07-20), so an import chain
+/// deeper than this loads nothing at runtime and cannot carry liveness either.
+pub const MAX_IMPORT_HOPS: usize = 4;
+
 /// A known Claude Code harness surface temper's built-in kinds do not govern — an
 /// external fact carrying its citation at the point of claim
 /// (.claude/rules/collaboration.md, "External facts are cited").

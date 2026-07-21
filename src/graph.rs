@@ -15,6 +15,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use crate::builtin_kind::MAX_IMPORT_HOPS;
 use crate::check::{Diagnostic, Severity};
 use crate::compose::{Edge, Requirement};
 use crate::contract::{EdgeBound, Predicate};
@@ -67,12 +68,6 @@ const MENTION_FIELD: &str = "mention";
 /// include of a file's contents, not a frontmatter field. Lets a reader tell an import
 /// edge from a declared reference edge in the one resolved-edge set.
 const IMPORT_FIELD: &str = "import";
-
-/// The maximum import-recursion depth reachability propagates a live importer's
-/// liveness across — the `at-import` grammar is recursion-capped at four hops
-/// (code.claude.com/docs/en/memory, retrieved 2026-07-20), so an import chain
-/// deeper than this loads nothing at runtime and cannot carry liveness either.
-const MAX_IMPORT_HOPS: usize = 4;
 
 /// A node in the artifact-level reference graph: `(kind, id)`. An id is unique only
 /// *within* a kind and an edge resolves only within its target kind, so the kind is
