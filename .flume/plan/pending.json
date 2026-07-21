@@ -1,7 +1,7 @@
 [
   {
     "tag": "EMIT-NEEDS-ZERO-CONSUMER-EXPORTS-PRUNE",
-    "summary": "`ResolveOptions`/`edgePlacements`/`renderedExtents` (sdk/src/emit.ts) and `capability` (sdk/src/needs.ts) are exported with zero callers outside their own defining file",
+    "summary": "`edgePlacements`/`renderedExtents` (sdk/src/emit.ts) are exported with zero callers outside their own file; un-export those two only",
     "per": {
       "path": "specs/process/engineering.md",
       "section": "An export earns its consumer"
@@ -13,59 +13,15 @@
       "edit": [
         {
           "path": "sdk/src/emit.ts",
-          "description": "Drop `export` from `ResolveOptions` (47), `edgePlacements` (441), and `renderedExtents` (481) — each read or called only inside `emit()`'s own `compile()` closure (760-765) or this file's own helpers (`scopeOf`, `resolveMemberLeaves`, `placedEdges`, `renderMemberBlock`, `resolveBody`, `orderedMembers`). Zero callers anywhere else, grep-verified over sdk/src, sdk/test, src/, tests/, .temper/: tests/builtin_lock_frozen.rs's real-SDK-emit seam import (33) names only `dial, dialDefaultContract, emit, harness`. No behavior change."
-        },
-        {
-          "path": "sdk/src/needs.ts",
-          "description": "Remove the `capability` function (29-31) and its doc comment (28) — the generic verbatim-permission escape hatch beside `bash()` (24-26). Unlike the emit.ts trio, `capability` has zero callers anywhere at all, not even internally within needs.ts, so this deletes it outright rather than de-exporting it. `Capability` (the interface) and `permissionUnion` keep both their code and export — each has a live caller outside needs.ts (`Capability`: `bash`'s return type and `kind.ts`'s `needs` field; `permissionUnion`: `emit.ts`'s `permissionUnion(harness.members.flatMap(...))` call)."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "Drop `capability` from the `export { bash, capability, permissionUnion }` line (22) and `ResolveOptions` from the `export type { EmitResult, RegistrationFact, ResolveOptions, SettingsResidue }` line (91) — the two root re-exports naming symbols this entry removes or de-exports."
+          "description": "Drop `export` from `edgePlacements` (441) and `renderedExtents` (481) only — each read or called only inside `emit()`'s own `compile()` closure (763-764) or this file's own helpers (`scopeOf`, `resolveMemberLeaves`, `placedEdges`, `renderMemberBlock`, `resolveBody`, `orderedMembers`). Zero callers anywhere else, grep-verified over sdk/src, sdk/test, src/, tests/, .temper/. `ResolveOptions` (47) keeps its `export`: it is re-exported from `sdk/src/index.ts:91` as public API, a consumer distinct from an in-repo caller (the amendment filed against this section's wording, `.flume/amendments/plan-export-consumer-reexport-carveout.md`). No behavior change."
         }
       ],
       "retire": []
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "`export` is gone from `ResolveOptions`, `edgePlacements`, and `renderedExtents` in sdk/src/emit.ts (module-private, unchanged behavior); `capability` is gone entirely from sdk/src/needs.ts and both sdk/src/index.ts re-export lines. `rg 'export (function edgePlacements|function renderedExtents|interface ResolveOptions)' sdk/src/emit.ts` and `rg 'capability' sdk/src sdk/test .temper` (excluding `Capability` and its doc-comment mentions) both come up empty. `pnpm --dir sdk test` green, `emit`/`bash`/`permissionUnion` unchanged.",
-    "notes": "Grep-verified zero-consumer over sdk/src, sdk/test, src/, tests/, .temper/. The emit.ts trio mirrors DECLARATIONS-ZERO-CONSUMER-EXPORTS-PRUNE's mentionScope/SEAM_VERSION (called internally, wrongly public); capability has no call site at all, so it is deleted outright instead of de-exported. Posture-sweep finding: sdk/src/ rotation, frontier module emit.ts (imports assembly/kind/prose/declarations already covered, re-read for context; needs.ts newly covered this tick). scoped at 9e29380."
-  },
-  {
-    "tag": "IMPORT-HOP-CAP-CITE",
-    "summary": "`MAX_IMPORT_HOPS = 5` cites a memory doc that now reads four hops: the gate constant and its own source disagree, and the doc sentence cannot settle which counting is temper's",
-    "per": {
-      "path": "specs/process/spec-system.md",
-      "section": "Form rules"
-    },
-    "gate": {
-      "kind": "parked",
-      "reason": "A human probe rules the hop semantics — the doc text cannot. Fetched live at 420da04 (code.claude.com/docs/en/memory, retrieved 2026-07-16): 'Imported files can recursively import other files, with a maximum depth of four hops.' Both readings survive that sentence: the root's own import is hop 1 and the chain caps at four edges (⇒ 4), or 'imported files ... recursively import' names a recursion four deep ATOP that first import (⇒ 5, today's constant). Only measuring the runtime's actual load depth decides it, the headless-testbed act that produced the `(mention-gate-containment)` evidence — never plan's to guess and never build's to fetch, because guessing here edits a live gate's semantics: a cap too low forges a dead-member finding on a member that loads, a cap too high suppresses a real one (intent.md invariant 2)."
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "The constant and the cite that justifies it. `MAX_IMPORT_HOPS = 5` (75) sits under a doc (71-74) asserting 'the `at-import` grammar is recursion-capped at five hops (code.claude.com/docs/en/memory, retrieved 2026-07-02)' — a number the live page does not say. temper's own indexing IS decidable on disk and needs no ruling: `live_members` (650) seeds every own-live member and runs `for _ in 0..MAX_IMPORT_HOPS` BFS rounds (677), one import edge per round, so the constant counts EDGES traversed from a live seed. What no reading of the disk settles is which edges the doc's 'four hops' counts — hence the park. Whatever the ruling: the cite is re-retrieved, re-dated, and re-worded to state the hop-counting it encodes, never left asserting a bare number its source does not carry. The two narration cites deferring to it — 548 ('hop-capped at [`MAX_IMPORT_HOPS`]') and 647-648 ('capped at [`MAX_IMPORT_HOPS`] hops (the `at-import` recursion depth the format documents)') — carry the same claim and move with it, as does the propagation comment at 672-675 ('capped at the format's import recursion depth'). f6731fb (DIRECTIVE_FIELD consolidated into graph.rs ahead of this region, in the d1af9a5..HEAD window) shifted every address below its insertion point; re-read and confirmed at HEAD (0522eff), so every address above now carries at its new line."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "`the_import_closure_is_hop_capped` (1547) already pins the boundary mechanically rather than in a comment — `r1..r5` rescued from a live seed, `r6` dead as the sole finding — so it encodes today's 5 in the one place a flip cannot silently miss, and it is the test that moves if the ruling is four. Its comment (1548-1552) spells 'capped at the format's five-hop import recursion' (1550) and carries the same claim as the constant's cite; re-word it to the ruled reading rather than leaving the fixture narrating the retired number. Addresses re-read and confirmed at HEAD (0522eff) after upstream graph.rs/test-file shifts; they carry at these lines."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "the import closure rescues a chain exactly as deep as the ruled cap and no deeper — the boundary hop pinned at the ruled number, in the ruled counting"
-      }
-    ],
-    "acceptance": "`MAX_IMPORT_HOPS`, its doc cite, and the two narration cites that defer to it all agree with the live docs, and each states which hop-counting it encodes (spec-system.md, 'Form rules': an external fact carries its source and retrieval date where it is enforced, verified against current docs, never encoded from memory). The boundary hop stays pinned by a test at the ruled number. `cargo test` green.",
-    "notes": "Park re-tested at ac40c72 and holds — nothing ruled the hop semantics. f6731fb shifted graph.rs's const region from 59/55-58 to 75/71-74 (DIRECTIVE_FIELD moved in ahead of it); value and cite date unchanged (5, 2026-07-02). `files[]` line cites rewritten to match. The park's subject is untouched, and may still be wrong. A build-side friction capture records the same disagreement; the human's to read, not plan's to drain. rescoped 0522eff."
+    "acceptance": "`export` is gone from `edgePlacements` and `renderedExtents` in sdk/src/emit.ts (module-private, unchanged behavior); `ResolveOptions` keeps its `export` and its index.ts re-export untouched, and `sdk/src/needs.ts`/`sdk/src/index.ts` are untouched entirely. `rg 'export (function edgePlacements|function renderedExtents)' sdk/src/emit.ts` comes up empty; `rg 'export interface ResolveOptions' sdk/src/emit.ts` still matches. `pnpm --dir sdk test` green.",
+    "notes": "Re-scoped at 97af15c (observed at 14719f2): the prior entry wrongly counted `ResolveOptions` (index.ts:91) and `capability`/`Capability` (index.ts:21-22) as zero-consumer — both are public API re-exported from the root entry point, a real consumer for a pre-adoption library. Branch flume/emit-needs-zero-consumer-exports-prune (63cbefe) un-exports all four and must not merge as-is; this entry supersedes it, scoped to emit.ts only. Amendment filed against the section's wording."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
