@@ -341,11 +341,7 @@ fn split_frontmatter(raw: &str) -> (Option<&str>, &str) {
 /// delimiter line, returning the frontmatter matter and the byte-faithful body split
 /// around it. `None` when no line is a bare `---` (an opening delimiter with no
 /// close, so not a frontmatter block after all).
-///
-/// `pub(crate)` so `src/install.rs`'s modeline/note projectors and
-/// `placement_lines` share the same closing-delimiter scan the loaders use,
-/// rather than a second implementation that could drift.
-pub(crate) fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
+fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
     let mut offset = 0;
     for line in rest.split_inclusive('\n') {
         let content = line.strip_suffix('\n').unwrap_or(line);
