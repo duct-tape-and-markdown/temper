@@ -125,19 +125,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   object_shape/insert_member/pretty_at — no pending entry currently opens
   json_splice.rs, so per the rule it rides the next one that does rather
   than filing here. `src/drift.rs`'s `RawLockRow` doc comment (now
-  2144-2149 — three more entries inserted code ahead of it since the
-  region was last read) still names `[read_prior_provenance]` in its
-  intra-doc link list; DRIFT-EMIT-LOCK-PARSE-HOIST (112b188) renamed that
-  fn to `read_prior_provenance_from_doc`. DRIFT-SOURCE-DEP-PARSE-HOIST
-  (2df42a0), IMPORT-ROLLUP-WRITER-PLACEMENT (ab2e822), and
-  MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT (e97fc81, adf69b3..7173a59 window)
-  have all since shipped, each confirmed on disk not touching lines
-  2144-2149 (the two module-move entries append at the file's tail; the
-  parse-hoist entry never reaches the region). Three entries now open on
-  drift.rs this tick (DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP,
-  DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE, DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE)
-  touch 1143-1150/1595-1645, 2642-2704, and 465-508/1437-1467/1501-1508 —
-  none reaching 2144-2149 — so it still rides whichever entry first does.
+  2074-2079, re-read at 126c264) still names `[read_prior_provenance]` in
+  its intra-doc link list; DRIFT-EMIT-LOCK-PARSE-HOIST (112b188) renamed
+  that fn to `read_prior_provenance_from_doc`. DRIFT-SOURCE-DEP-PARSE-HOIST
+  (2df42a0), IMPORT-ROLLUP-WRITER-PLACEMENT (ab2e822),
+  MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT (e97fc81), DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP
+  (a96d0b0), DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE (f0880ce),
+  DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE (c52a1db), and
+  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588) have all since shipped
+  touching drift.rs, none reaching the region — so it still rides
+  whichever entry first does.
   `src/document.rs`'s
   `item_to_json` doc comment (surfaced the formats posture sweep) cites
   "the built-in adapters' `json_to_toml_value`" as the function's
@@ -145,7 +142,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   the citing sentence — stale from the moment it was authored. No pending
   entry currently opens document.rs, so it rides whichever one first does.
   `src/install.rs`'s orphaned `placement_lines` doc comment (now
-  1690-1696, re-read at f130ebc) is dead prose the extraction commit
+  1685-1691, re-read at 126c264) is dead prose the extraction commit
   (8704036, PLACEMENT-MODULE-EXTRACTION) left behind: it moved
   `placement_lines`/`is_placement_comment` to `src/placement.rs` verbatim
   but not their preceding doc comment, which still sits glued — no blank
@@ -155,10 +152,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   INSTALL-GUARD-MANIFEST-MESSAGE-PRUNE, INSTALL-PLACEMENT-KIND-ENUM,
   BUNDLE-INSTALL-SESSION-START-SHAPE-CONSOLIDATE,
   INSTALL-ERROR-ZERO-CONSUMER-PRUNE (2c037ba), and
-  GUARD-DECLARED-LOCUS-FILTER (a5e154f) — plus, new since the last read,
-  INSTALL-PACKAGE-JSON-ANCESTOR-SHORT-CIRCUIT (9bf9ebb, the
-  ensure_package_json/spawn_npm_install split at lines 7-13/443-452/
-  1509-1546) — have all shipped touching install.rs, none reaching this
+  GUARD-DECLARED-LOCUS-FILTER (a5e154f) — plus INSTALL-PACKAGE-JSON-ANCESTOR-SHORT-CIRCUIT
+  (9bf9ebb, the ensure_package_json/spawn_npm_install split at lines
+  7-13/443-452/1509-1546) and, new since the last read,
+  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588, write_scaffold_file's body
+  at 1454) — have all shipped touching install.rs, none reaching this
   range; no entry currently open chains onto it, so it rides whichever
   next does.
   `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 352,
@@ -182,24 +180,26 @@ condition arrives, it is the next break. If work touches one, surface it.
   contract.rs for edit — SHAPE-LEADING-DOT-SLASH-UNTESTED, filed this
   tick, only touches tests/shape_predicate.rs — so it rides whichever one
   first does.
-  **An eighth, surfaced the drift.rs posture sweep, re-read at c9d6cea.**
-  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2787-2806,
-  shifted -80 by the three entries the sweep itself filed) is two glued doc
-  blocks: the first paragraph and its `# Errors` (2787-2796) claims
-  "Returns a [`DriftError`] if the lock cannot be read/parsed or a present
-  row is malformed" — that is `source_dep_stale`'s (2839-2861) contract, the
-  sibling that reads and parses the lock file itself; `source_dep_stale_from_doc`
-  (2807-2837) takes an already-parsed `doc: &DocumentMut` and can only fail on
-  a malformed row, correctly stated by the second, glued-on paragraph
-  (2797-2806). `source_dep_stale` carries no doc comment of its own — the
-  split evidently pasted the pre-split doc onto the new `_from_doc` function
-  without trimming it to match, then never gave the surviving read+parse
-  wrapper its own. DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP,
-  DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE, and DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE
-  have all since shipped (a96d0b0, f0880ce, c52a1db), each confirmed on disk
-  touching 1140-1148, the `config_stale` body, and `write_rollup`/its call
-  site respectively — none reaching 2787-2861. No entry is currently open on
-  drift.rs at all, so it rides whichever one next does.
+  **An eighth, surfaced the drift.rs posture sweep, re-read at 126c264.**
+  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2769-2788)
+  is two glued doc blocks: the first paragraph and its `# Errors`
+  (2769-2778) claims "Returns a [`DriftError`] if the lock cannot be
+  read/parsed or a present row is malformed" — that is `source_dep_stale`'s
+  (2821-2843) contract, the sibling that reads and parses the lock file
+  itself; `source_dep_stale_from_doc` (2789-2819) takes an already-parsed
+  `doc: &DocumentMut` and can only fail on a malformed row, correctly
+  stated by the second, glued-on paragraph (2779-2788). `source_dep_stale`
+  carries no doc comment of its own — the split evidently pasted the
+  pre-split doc onto the new `_from_doc` function without trimming it to
+  match, then never gave the surviving read+parse wrapper its own.
+  DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP, DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE,
+  DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE, and WRITE-CREATING-PARENTS-CONSOLIDATE
+  have all since shipped (a96d0b0, f0880ce, c52a1db, 700b588), each
+  confirmed on disk touching 1140-1148, the `config_stale` body,
+  `write_rollup`'s custom-param call site, and `write_rollup`'s own
+  create-parent-dirs-then-write body respectively — none reaching
+  2769-2843. No entry is currently open on drift.rs at all, so it rides
+  whichever one next does.
   **A ninth, surfaced this tick's posture sweep of src/layout.rs's immediate
   import.** `src/extract.rs`'s `body_heading_tree` (538) and `body_preamble`
   (588) doc comments each justify their `pub(crate)` visibility as "so the
