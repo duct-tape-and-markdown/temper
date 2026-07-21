@@ -206,8 +206,8 @@ fn the_three_verdicts_partition_one_members_occurrences() {
 fn a_backing_repo_file_is_found_with_absolute_harness_root() {
     use std::fs;
     use std::path::Path;
-    use temper::address;
     use temper::compose;
+    use temper::path;
 
     let temp_dir = tempfile::tempdir().expect("create temp dir");
     let root = temp_dir.path();
@@ -230,7 +230,7 @@ fn a_backing_repo_file_is_found_with_absolute_harness_root() {
     let repo_files_normalized: Vec<String> = repo_files
         .iter()
         .map(|f| {
-            address::normalize_path(Path::new(f))
+            path::normalize_path(Path::new(f))
                 .to_string_lossy()
                 .replace('\\', "/")
                 .to_string()

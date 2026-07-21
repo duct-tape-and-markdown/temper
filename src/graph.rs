@@ -897,7 +897,7 @@ pub fn classify_directives(
         .iter()
         .map(|member| {
             (
-                crate::address::normalize_path(&member.source_path),
+                crate::path::normalize_path(&member.source_path),
                 (member.kind.clone(), member.id.clone()),
             )
         })
@@ -905,7 +905,7 @@ pub fn classify_directives(
     // The repo file-set, normalized the identical way so a resolved target joins it.
     let repo: BTreeSet<PathBuf> = repo_files
         .iter()
-        .map(|file| crate::address::normalize_path(Path::new(file)))
+        .map(|file| crate::path::normalize_path(Path::new(file)))
         .collect();
 
     let mut edges = Vec::new();
@@ -943,7 +943,7 @@ fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
             .parent()
             .map_or_else(|| target.to_path_buf(), |dir| dir.join(target))
     };
-    crate::address::normalize_path(&joined)
+    crate::path::normalize_path(&joined)
 }
 
 /// The finding for an **unbacked pointer** — a directive occurrence resolving to

@@ -642,7 +642,7 @@ pub fn resolve_kind_units(
             child_units
         }
         (_, _, Some(governs)) => {
-            let base = crate::address::normalize_path(&disc.harness().join(&governs.root));
+            let base = crate::path::normalize_path(&disc.harness().join(&governs.root));
             let mut file_units = Vec::new();
             for file in
                 import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
@@ -1184,7 +1184,7 @@ pub fn repo_file_set(root: &Path) -> Vec<String> {
     for entry in walkdir::WalkDir::new(root).min_depth(1).sort_by_file_name() {
         let Ok(entry) = entry else { continue };
         if entry.file_type().is_file() {
-            let normalized = crate::address::normalize_path(entry.path());
+            let normalized = crate::path::normalize_path(entry.path());
             files.push(normalized.to_string_lossy().replace('\\', "/"));
         }
     }
