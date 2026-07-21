@@ -6,12 +6,13 @@
   build tick); verified clean, see commit body.
 - Residue swept through: 8dd1436 — same window: a one-line visibility
   change + doc-comment trim, no new symbol/retirement/vocabulary; 0 filed.
-- Posture swept through: mid-rotation, at src/frontmatter.rs — unchanged;
-  src/fs_util.rs next in the c9d11d5 re-arm rotation's frontier.
-- This tick: POST-SHIP RECONCILIATION over 35e700b..8dd1436 — clean.
+- Posture swept through: mid-rotation, at src/fs_util.rs — clean;
+  src/gate.rs next in the c9d11d5 re-arm rotation's frontier.
+- This tick: POSTURE SWEEP src/fs_util.rs (no crate-internal imports —
+  neighborhood is the module alone) — clean; see commit body.
 - Queue: 2 pending — 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1
-  parked (PACKAGING-CHANNELS-REMAINDER); 0 open. Open forks: 2, unchanged.
-  Friction: 0. Amendments: 0. Inbox: 0.
+  parked (PACKAGING-CHANNELS-REMAINDER); both gate reasons re-checked,
+  unchanged. Open forks: 2, unchanged. Friction: 0. Amendments: 0. Inbox: 0.
 
 Plan continues: yes — posture rotation is open with no pickable entries;
-resumes at src/fs_util.rs next tick.
+resumes at src/gate.rs next tick.
