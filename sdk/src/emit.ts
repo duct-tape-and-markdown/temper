@@ -438,7 +438,7 @@ function placedEdges(
  * `nested_member` row carries its own format's placement record. Iterates exactly the
  * values `nestedMemberRows` does, so every edge-bearing row it builds has an observation.
  */
-export function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, string[]> {
+function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, string[]> {
   const placements = new Map<string, string[]>();
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
@@ -478,7 +478,7 @@ function renderedLineCount(block: string): number {
  * the engine, not this pass, and reaches its row with no span (the `placed_edges`
  * distinction between an observed empty and an unobserved absence).
  */
-export function renderedExtents(harness: Harness, options: ResolveOptions): Map<string, RenderedExtent> {
+function renderedExtents(harness: Harness, options: ResolveOptions): Map<string, RenderedExtent> {
   const extents = new Map<string, RenderedExtent>();
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
