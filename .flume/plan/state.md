@@ -1,16 +1,19 @@
 # Plan state
 
-- Spec derived through: 946e303 — unchanged; `git log 946e303..HEAD -- specs/` is empty.
+- Spec derived through: c9d11d5 — routed in full, 0 new entries; see commit body.
 - Audited through: 126c264 — unchanged; `git log 126c264..HEAD -- src/ tests/ sdk/` is empty.
 - Residue swept through: 126c264 — unchanged, same reason.
-- Posture swept through: sdk/src/ tree fully covered; src/address.rs, src/admissibility.rs,
-  src/builtin.rs, src/builtin_kind.rs, src/builtin_lock.rs, src/bundle.rs, src/check.rs,
-  src/compose.rs, src/contract.rs, src/coverage.rs, src/coverage_note.rs covered. src/dial.rs
-  next in tree order — mid-rotation.
-- This tick: POSTURE SWEEP src/coverage_note.rs — clean; see commit body.
+- Posture swept through: re-armed — c9d11d5 edits specs/process/engineering.md itself (the
+  "An export earns its consumer" section) past the a88f83a coverage window, so per the
+  phrase-delta rule the whole sweep domain (`src/`, `sdk/src/`, `tests/`) re-enters the
+  frontier — the prior window's per-file coverage (sdk/src/ tree; src/address.rs..
+  src/coverage_note.rs) settled only that window, not this one. Rotation resumes next tick.
+- This tick: SPEC DELTA c9d11d5 (amendment ratification) — 0 new entries, already fully
+  implemented; see commit body.
 - Queue: 2 pending — 0 open, 1 deferred (GUIDANCE-FIELD-DECLARATION-CHANNEL), 1 parked
   (PACKAGING-CHANNELS-REMAINDER); 0 open questions unresolved by this queue. Open forks: 2,
-  unchanged. Friction: 0. Amendments: 1, still awaiting ratification. Inbox: 0.
+  unchanged. Friction: 0. Amendments: 0 (the one live amendment ratified at c9d11d5, record
+  deleted). Inbox: 0.
 
 Plan continues: yes — no pickable entry exists (both remaining are parked/deferred), so the
-open posture rotation drives itself next tick, resuming at src/dial.rs.
+re-armed posture rotation drives itself next tick, restarting across the full domain.
