@@ -46,16 +46,28 @@ pub enum TapEvent {
     ToolUse,
 }
 
+/// Map a TapEvent to its documented wire-name string — the exhaustive match that
+/// forces any new TapEvent variant to declare its documented name.
+const fn documented_name(event: TapEvent) -> &'static str {
+    match event {
+        TapEvent::InstructionsLoaded => "InstructionsLoaded",
+        TapEvent::SkillInvoked => "SkillInvoked",
+        TapEvent::UserPromptExpansion => "UserPromptExpansion",
+        TapEvent::ToolUse => "ToolUse",
+    }
+}
+
 /// The canonical event names a telemetry verifier may name — the variants of
 /// the `TapEvent` enumeration, used to validate documented-event names.
 /// A telemetry verifier declaring any other name is inadmissible.
 pub fn documented_event_names() -> &'static [&'static str] {
-    &[
-        "InstructionsLoaded",
-        "SkillInvoked",
-        "UserPromptExpansion",
-        "ToolUse",
-    ]
+    const NAMES: &[&str] = &[
+        documented_name(TapEvent::InstructionsLoaded),
+        documented_name(TapEvent::SkillInvoked),
+        documented_name(TapEvent::UserPromptExpansion),
+        documented_name(TapEvent::ToolUse),
+    ];
+    NAMES
 }
 
 #[cfg(test)]
