@@ -52,20 +52,23 @@ hard.
 
 ## Parked (pointers only)
 
-- Sweep-dock blend (John, 07-20/21): flume-dock base uplifted + sweep
-  preset shipped and re-cut per the ruling "the dock is apparatus, never
-  law" (SPEC decisions 15-17): the whole sweep discipline lives in the
-  centercode harness as the `sweep` skill (testbed ec80996dfe, 52 members
-  green); dock prompts are thin briefs; chain gates hold coverage/settle/
-  harness-drift. First field runs reclassified as shakedown, not
-  calibration: sonnet wave A's 21 findings stand as the answer key
-  (scratchpad snapshots); haiku fabricated coverage twice (gates now
-  catch it) and violated the routing rubric once. Filed to temper inbox:
-  session-start reporter mute on drift (ENGINE BUG w/ repro), emit vs
-  managed-by placement, engine/SDK version-skew error, guard advisory
-  semantics. Next: toy sweep-validation dock, telemetry verifiers wired
-  (tap), then clean twins over 9c8d78aa47..d0734c2643. Undock needs a
-  --discard mode; mirror-pushing a reverting dock branch needs a ruling.
+- Sweep-dock blend (John, 07-20/22): settled model — two authored
+  surfaces, one product. Harness = standing law (invariants + operating
+  conduct, sweep-agnostic; sweep skill dissolved, conduct generalized
+  into protocol, `.temper/inbox.md` registered as its feedback intake —
+  testbed acf5919178, 52 green, tap wired). Runtime = flume-dock: briefs
+  carry effort procedure + injected data, gates enforce, friction.md is
+  the loop-to-operator channel surfaced at undock (SPEC decision 18,
+  flume-dock 86174f4). Agent = product, never authored; every failure
+  charges to one surface. Shakedown history: sonnet wave A's 21 findings
+  are the answer key (scratchpad snapshots); haiku fabricated coverage
+  (now gated) and violated routing (rubric still prose — routing gate is
+  the next dock cut). Filed to temper inbox: session-start reporter mute
+  on drift (ENGINE BUG w/ repro), emit vs managed-by placement,
+  engine/SDK version-skew error, guard advisory semantics. Next: routing
+  gate, toy sweep-validation dock, clean twins over
+  9c8d78aa47..d0734c2643 with tap aggregation. Mirror-pushing a
+  reverting dock branch still needs a ruling.
 
 - flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
   patched installed dist in temper's node_modules (ephemeral — a
