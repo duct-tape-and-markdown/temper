@@ -9,5 +9,22 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
-Nothing tagged yet. The npm channel has shipped early `0.0.x` cuts ahead of
-the first tagged release; this section collects changes headed for that tag.
+_Nothing yet._
+
+## [0.0.11] — 2026-07-21
+
+First cut recorded here; `0.0.8`–`0.0.10` were npm bootstrap cuts (release
+plumbing and engine-pin fixes) that predate the changelog.
+
+### Added
+
+- Kind guidance now flows into the contract and rides its findings: `schema`
+  carries it as editor hover text and `explain` narrates it, so guidance and
+  the member it advises travel together whether or not a clause failed.
+
+### Fixed
+
+- `when`-body clauses now evaluate at the guarded array element's scope, so a
+  conditional requirement no longer judges the wrong element.
+- Root-scoped `when`-guard findings no longer carry a stray `: ` prefix.
+- Import recursion is capped at four hops (the guard was off by one).

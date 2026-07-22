@@ -1,6 +1,6 @@
 [package]
 name = "temper"
-version = "0.1.0"
+version = "0.0.11"
 edition = "2024"
 description = "A typed maintenance surface for the Claude Code harness — import, lint, compose, and apply skills, hooks, rules, agents, and plugin/marketplace manifests."
 license = "MIT OR Apache-2.0"
