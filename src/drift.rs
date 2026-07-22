@@ -950,6 +950,7 @@ pub fn emit_program(workspace_dir: &Path, options: EmitOptions) -> miette::Resul
         .into());
     }
     let json = run_sdk_program(&harness_entry)?;
+    peek_and_validate_seam_version(&json)?;
     let payload: Payload =
         serde_json::from_str(&json).map_err(|source| DriftError::PayloadParse {
             path: harness_entry.clone(),
@@ -1012,6 +1013,30 @@ fn strip_verbatim_prefix(path: &Path) -> PathBuf {
     } else {
         path.to_path_buf()
     }
+}
+
+/// Peek at the `version` field in a raw JSON payload string and validate it matches
+/// [`SEAM_VERSION`]. Extracts the version before attempting a full strict deserialize, so a
+/// mismatched version surfaces as [`DriftError::UnsupportedSeamVersion`] even when the
+/// remaining payload shape is incompatible with [`Payload`].
+///
+/// # Errors
+/// Returns [`DriftError::UnsupportedSeamVersion`] if the version field does not match
+/// [`SEAM_VERSION`].
+fn peek_and_validate_seam_version(json: &str) -> Result<(), DriftError> {
+    #[derive(Deserialize)]
+    struct VersionPeek {
+        version: u32,
+    }
+
+    let peek: VersionPeek =
+        serde_json::from_str(json).map_err(|_| DriftError::UnsupportedSeamVersion { got: 0 })?;
+
+    if peek.version != SEAM_VERSION {
+        return Err(DriftError::UnsupportedSeamVersion { got: peek.version });
+    }
+
+    Ok(())
 }
 
 /// Compile a seam `payload` into every projection and the whole lock — the sole
@@ -5156,5 +5181,27 @@ mod tests {
             .round_trip_through_table()
             .expect("round-trip succeeded");
         assert_eq!(row, round_tripped);
+    }
+
+    #[test]
+    fn peek_and_validate_seam_version_accepts_matching_version() {
+        let json = r#"{"version": 2, "declarations": {}, "members": []}"#;
+        assert!(peek_and_validate_seam_version(json).is_ok());
+    }
+
+    #[test]
+    fn peek_and_validate_seam_version_rejects_mismatched_version() {
+        let json = r#"{"version": 999, "declarations": {}, "members": []}"#;
+        let err = peek_and_validate_seam_version(json).unwrap_err();
+        assert!(format!("{err}").contains("999"));
+        assert!(format!("{err}").contains(&SEAM_VERSION.to_string()));
+    }
+
+    #[test]
+    fn peek_and_validate_seam_version_rejects_mismatched_version_with_incompatible_shape() {
+        let json = r#"{"version": 999, "invalid": "shape"}"#;
+        let err = peek_and_validate_seam_version(json).unwrap_err();
+        assert!(format!("{err}").contains("999"));
+        assert!(format!("{err}").contains(&SEAM_VERSION.to_string()));
     }
 }
