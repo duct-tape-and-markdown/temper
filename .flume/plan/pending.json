@@ -232,14 +232,14 @@
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
-    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary\u2194npm version lockstep at the v0.1 tag",
+    "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
       "path": "specs/distribution.md",
       "section": "What ships \u2014 three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
     },
     "dependsOnForks": [],
     "files": {
@@ -254,8 +254,8 @@
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json); the binary self-reports 0.1.0 in lockstep with the v0.1 npm cut (distribution.md: prebuilt binaries install on all three OSes; lockstep engine pin).",
-    "notes": "Release infra outside src/; cargo gates can't validate npm/bundle publish. Park re-tested on disk at ac40c72, holding on every clause: no v0.1 tag (only era tags), crate 0.1.0, release.yml still states the darwin + channel-3 deferral verbatim. `git diff a23269d..HEAD -- .github/` is empty. scoped b676656."
+    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) \u2014 distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
+    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0\u21920.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11\u2192da77c60 fired release.yml with a green smoke gate per its own commit body \u2014 channel 2 is proven live, not just wired. scoped 01ba369."
   },
   {
     "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
