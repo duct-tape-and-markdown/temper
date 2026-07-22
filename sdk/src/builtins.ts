@@ -1391,16 +1391,18 @@ export const supportingDocDefaultContract: readonly Clause[] = [
 ];
 
 /**
- * The default contract for `command` — `skillDefaultContract`'s clauses minus `nameMatchesDir`: a
- * command is a lone file with no parent directory to match, so the one clause
- * that ranges over the directory relationship does not apply; every other
- * documented skill-schema recommendation, name-requiredness included, still
- * governs a command by the same import (code.claude.com/docs/en/skills,
- * retrieved 2026-07-15).
+ * The default contract for `command` — deliberately empty. A command is a lone
+ * markdown file whose frontmatter is entirely optional, matching the Claude Code
+ * runtime's documented flexibility. Where a skill requires `name` and
+ * `description` by the Agent Skills open standard, a command file may carry any,
+ * all, or none of them — identity comes from the filename stem, not a field
+ * (code.claude.com/docs/en/slash-commands, retrieved 2026-07-22).
+ *
+ * A command that passes here holds no contract constraint and loads everywhere
+ * the format is honored. The strictness stays with the skill kind, which enforces
+ * the portable profile for skill directories.
  */
-export const commandDefaultContract: readonly Clause[] = skillDefaultContract.filter(
-  (entry) => entry.predicate.key !== "name-matches-dir",
-);
+export const commandDefaultContract: readonly Clause[] = [];
 
 /**
  * The default contract for `agent` — Anthropic's documented subagent contract

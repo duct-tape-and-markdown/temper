@@ -100,22 +100,13 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
   assert.equal(skillDefaultContract[14].predicate.field, "paths");
 });
 
-test("commandDefaultContract is skillDefaultContract minus the directory-name clause", () => {
-  assert.deepEqual(
-    commandDefaultContract.map((c) => c.predicate.key),
-    skillDefaultContract.map((c) => c.predicate.key).filter((key) => key !== "name-matches-dir"),
-  );
-  assert.equal(
-    commandDefaultContract.some((c) => c.predicate.key === "name-matches-dir"),
-    false,
-    "a command is a lone file — no parent directory to match",
-  );
-  // `name` requiredness rides over unchanged: a command still declares no `name`
-  // field for identity (file-stem, like `rule`), but the skill schema's own
-  // `required`/`min_len`/`allowed_chars`/`max_len`/`deny` clauses over `name` still
-  // apply by import.
-  assert.equal(commandDefaultContract[0].predicate.key, "required");
-  assert.equal(commandDefaultContract[0].predicate.field, "name");
+test("commandDefaultContract is empty — command frontmatter is entirely optional", () => {
+  // A command is a lone markdown file whose frontmatter is entirely optional. All
+  // command frontmatter is optional (code.claude.com/docs/en/slash-commands, retrieved
+  // 2026-07-22), so the command kind requires no field — the forgiving legacy
+  // placement. Identity comes from the file stem (like `rule`, not from a `name`
+  // field), and any fields present are extracted as context; nothing gates the check.
+  assert.deepEqual(commandDefaultContract, []);
 });
 
 test("ruleDefaultContract forbids Cursor keys, validates path globs, budgets body size, and gates mentions", () => {

@@ -2,13 +2,14 @@
 //! (`specs/builtins.md`, "The shipped kinds").
 //!
 //! Discovery folds a lone `.claude/commands/*.md` file into a `command` member with
-//! file-stem identity (like `rule` — no `name` field required for identity) and the
-//! skill's field schema (imported, not re-derived): both invocation channels, the
-//! same declared fields `skill` extracts. Driven at the crate-public API a real
-//! `import`/`check` read takes — `import::discover_kind_files`, `Member::from_source`,
-//! and the generic surface loader `builtin_kind::features` — over a fixture
-//! mirroring the real Claude Code layout (`.claude/rules/rust.md`, "Harness-input
-//! fixtures mirror the real Claude Code layout").
+//! file-stem identity (like `rule` — no `name` field required for identity) and no
+//! required frontmatter fields — all command frontmatter is optional: both
+//! invocation channels, and any fields the frontmatter carries are extracted as
+//! context. Driven at the crate-public API a real `import`/`check` read takes —
+//! `import::discover_kind_files`, `Member::from_source`, and the generic surface
+//! loader `builtin_kind::features` — over a fixture mirroring the real Claude Code
+//! layout (`.claude/rules/rust.md`, "Harness-input fixtures mirror the real Claude
+//! Code layout").
 
 use std::fs;
 use std::path::PathBuf;
@@ -92,8 +93,21 @@ fn a_command_member_registers_on_both_documented_invocation_channels() {
 }
 
 #[test]
-fn a_command_member_extracts_the_skills_declared_field_schema() {
-    let harness = common::tmpdir("deploy-schema");
+fn a_command_member_with_no_frontmatter_fields_is_valid() {
+    let harness = common::tmpdir("no-fields");
+    let body = "# Deploy\n\nRun the release pipeline.\n";
+    let source = write_command(&harness, "deploy", body);
+
+    let command_kind = builtin_kind::definition("command").expect("command is embedded");
+    let member = Member::from_source(&command_kind, &source).unwrap();
+
+    // A command file with no frontmatter at all is valid — the contract is empty.
+    assert_eq!(member.id, "deploy");
+}
+
+#[test]
+fn a_command_member_can_optionally_carry_frontmatter_fields() {
+    let harness = common::tmpdir("deploy-fields");
     let source = write_command(&harness, "deploy", DEPLOY_COMMAND);
 
     let command_kind = builtin_kind::definition("command").expect("command is embedded");
@@ -101,8 +115,8 @@ fn a_command_member_extracts_the_skills_declared_field_schema() {
     let unit = common::surface_unit(&member);
     let features = builtin_kind::features(&command_kind, &unit, &[]);
 
-    // The skill's field schema by import: `description` extracts exactly as it does
-    // off a `SKILL.md`.
+    // When frontmatter fields are present, they extract as context: `description`
+    // is carried, but it is not required.
     assert_eq!(
         features.field("description"),
         Some(FeatureValue::scalar(

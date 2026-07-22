@@ -221,9 +221,9 @@ fn claude_code_supporting_doc() -> CustomKind {
 
 /// Anthropic's documented `.claude/commands/*.md` kind: the skill surface's legacy
 /// file placement (Claude Code merged commands into skills), a lone file whose
-/// identity is the filename stem, the skill's field schema by import, registered on
-/// the same two documented invocation channels as `skill`
-/// (code.claude.com/docs/en/skills, retrieved 2026-07-16).
+/// identity is the filename stem, with no required frontmatter fields, registered
+/// on the same two documented invocation channels as `skill`
+/// (code.claude.com/docs/en/slash-commands, retrieved 2026-07-22).
 fn claude_code_command() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
