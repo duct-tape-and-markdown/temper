@@ -10,6 +10,15 @@ hard.
 
 ## State of the era (2026-07-16)
 
+- **Next focus — external yield (07-21)**: the self-dogfood catches only
+  cosmetics (advisories, note placement); the datapoint that matters is
+  whether `temper check` flags *would-fix* findings in external real
+  harnesses. Run it against a corpus of public Claude Code harnesses
+  (awesome-lists, popular skill/plugin repos) — the parked stranger dry run,
+  turned adversarial. Yield gates the bigger move (re-craft the canonical
+  dogfood onto an external consumer); do **not** restructure before the
+  evidence. Reconcile with `examples/base-harness/` + the primer, don't
+  reinvent.
 - **The center (0019)**: temper types the documents that program agents;
   the launch demo is this repo's spec corpus governing itself. Kernel
   corpus in `specs/model/`; decisions outside every read path.
