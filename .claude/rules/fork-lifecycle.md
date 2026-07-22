@@ -1,4 +1,5 @@
 ---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 paths: [".flume/plan/open-questions.md"]
 ---
 # fork-lifecycle — open-questions.md holds OPEN forks only

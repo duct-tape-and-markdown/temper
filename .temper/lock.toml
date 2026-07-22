@@ -13,8 +13,8 @@ emit_hash = "a8bb717defb4eb8743165841966293d60b9d267622647d112df25da8291c8207"
 [[rule]]
 name = "fork-lifecycle"
 source_path = ".claude/rules/fork-lifecycle.md"
-source_hash = "ddb4decb257e084003e6785c16b902b56a13ed737d58a2eb3d03a4618031b3f2"
-emit_hash = "ddb4decb257e084003e6785c16b902b56a13ed737d58a2eb3d03a4618031b3f2"
+source_hash = "9b903784aea6b49de18f5b3921e8381c6409fb2df7d69420968850cfc5649597"
+emit_hash = "9b903784aea6b49de18f5b3921e8381c6409fb2df7d69420968850cfc5649597"
 
 [[rule]]
 name = "pending-entry"
@@ -25,14 +25,14 @@ emit_hash = "7202d0c8f56eb2de8d27489fb34c1cb218534a3b2fd57a3bf216c9d6db80a34b"
 [[rule]]
 name = "plan-state"
 source_path = ".claude/rules/plan-state.md"
-source_hash = "527eeaecba5c137af082b7864950c2f55ffb376fa96dc97a3ef8d722baf7f971"
-emit_hash = "527eeaecba5c137af082b7864950c2f55ffb376fa96dc97a3ef8d722baf7f971"
+source_hash = "0016527b88bc4a3b56f9f29dd76e16e591c1c9052d9dcf9f51cf09220b9beea3"
+emit_hash = "0016527b88bc4a3b56f9f29dd76e16e591c1c9052d9dcf9f51cf09220b9beea3"
 
 [[rule]]
 name = "posture-sweep"
 source_path = ".claude/rules/posture-sweep.md"
-source_hash = "14184f8df37d026470d4d01a6f84b4c0a040c91ce0f80688336385eb28ade395"
-emit_hash = "14184f8df37d026470d4d01a6f84b4c0a040c91ce0f80688336385eb28ade395"
+source_hash = "20a7ff7e0d34d074e6ce11f44063b3585d4b674403938d0f1f587fc596c25b5a"
+emit_hash = "20a7ff7e0d34d074e6ce11f44063b3585d4b674403938d0f1f587fc596c25b5a"
 
 [[rule]]
 name = "public-prose"
