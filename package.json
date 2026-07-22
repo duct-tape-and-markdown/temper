@@ -9,7 +9,7 @@
     "typecheck:chain": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@dtmd/flume": "^0.3.0"
+    "@dtmd/flume": "^0.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
