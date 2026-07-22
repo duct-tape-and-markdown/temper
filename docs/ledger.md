@@ -75,11 +75,18 @@ hard.
   write guard). Shakedown: sonnet wave A's 21 findings = answer key
   (scratchpad); haiku coverage fabrication now gated. Temper inbox holds
   4 engine findings (reporter mute w/ repro, managed-by placement,
-  version-skew, guard semantics). Next: toy sweep-validation dock — pass
-  bar includes dictation sufficiency (cheap model executes from entry +
-  injections alone; corpus spelunking = plan defect) — then clean twins
-  over 9c8d78aa47..d0734c2643 with tap aggregation, docked with
-  `--intake .temper/inbox.md`. Mirror-push ruling still open.
+  version-skew, guard semantics). Toy validation GREEN (07-22, 4 cycles,
+  fixture standing at Repos/toy-sweep-target): v4 = full answer key,
+  mechanical settle, self-hibernation, zero routing reverts on haiku both
+  phases; fixes per cycle: one-job prohibition, routing gate + diff-step,
+  coverage-format gate, <remediable> lookup (judgment→data). flume seams
+  landed upstream same day and adopted (--plan-model/--build-model,
+  entryChannelPaths; flume-dock rides file:../flume @0.3.1+v0.4).
+  Residual candidates: tag-middle fidelity; settle could require audit
+  cursor ≥ last ship; undock flushes dirty channel files. Next: clean
+  twins over 9c8d78aa47..d0734c2643 (--plan-model sonnet-class,
+  --build-model haiku, --intake .temper/inbox.md, tap aggregation).
+  Mirror-push ruling still open before any remote-pushed wave.
 
 - flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
   patched installed dist in temper's node_modules (ephemeral — a
