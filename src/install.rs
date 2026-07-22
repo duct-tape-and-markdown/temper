@@ -519,6 +519,9 @@ fn run_represented(
 #[must_use]
 pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     let temper_dir = root.join(crate::WORKSPACE_DIR);
+    if !temper_dir.is_dir() {
+        return Vec::new();
+    }
     let represented = temper_dir.join(HARNESS_ENTRY).is_file();
     let Ok(entries) = (if represented {
         evaluate_placements(root, &temper_dir, true)
@@ -530,8 +533,8 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
 
     // Tally the missing/drifted placements by kind. The hook and guard are single
     // placements; modelines and managed-by notes are one per modeled artifact, so
-    // they collapse to a count.
-    let (mut hook, mut guard, mut modelines, mut notes) = (false, false, 0u32, 0u32);
+    // they're retained for detailed reporting.
+    let (mut hook, mut guard, mut modelines, mut notes) = (false, false, Vec::new(), Vec::new());
     for entry in &entries {
         if entry.outcome == ApplyOutcome::Unchanged {
             continue;
@@ -539,11 +542,11 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
         match entry.placement {
             Placement::SessionStart => hook = true,
             Placement::GuardHook => guard = true,
-            Placement::Note => notes += 1,
-            Placement::Modeline => modelines += 1,
+            Placement::Note => notes.push(entry.path.clone()),
+            Placement::Modeline => modelines.push(entry.path.clone()),
         }
     }
-    if !hook && !guard && modelines == 0 && notes == 0 {
+    if !hook && !guard && modelines.is_empty() && notes.is_empty() {
         return Vec::new();
     }
 
@@ -554,17 +557,15 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
     if guard {
         parts.push(Placement::GuardHook.to_string());
     }
-    if modelines > 0 {
-        parts.push(format!(
-            "{modelines} schema modeline{}",
-            crate::display::plural(modelines as usize)
-        ));
+    if !modelines.is_empty() {
+        for path in &modelines {
+            parts.push(format!("schema modeline: {}", path.display()));
+        }
     }
-    if notes > 0 {
-        parts.push(format!(
-            "{notes} managed-by note{}",
-            crate::display::plural(notes as usize)
-        ));
+    if !notes.is_empty() {
+        for path in &notes {
+            parts.push(format!("managed-by note: {}", path.display()));
+        }
     }
 
     vec![Diagnostic::warn(

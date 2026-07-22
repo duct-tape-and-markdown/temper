@@ -949,11 +949,13 @@ fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
 fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
     let root = write_harness("gate", false);
 
-    // Unrepresented: only the missing hook is nudged.
+    // Foreign harness with no .temper/ directory: gate_installed is silent.
     let before = install::gate_installed(&root);
-    assert_eq!(before.len(), 1, "got: {before:?}");
-    assert!(before[0].message.contains("session-start hook"));
-    assert!(before[0].message.contains("temper install"));
+    assert_eq!(
+        before.len(),
+        0,
+        "gate_installed must be silent on foreign harness with no .temper/, got: {before:?}"
+    );
     assert!(
         !root.join(".temper").exists(),
         "gate_installed must never scaffold or adopt"
@@ -974,6 +976,66 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
         install::gate_installed(&root).is_empty(),
         "got: {:?}",
         install::gate_installed(&root)
+    );
+}
+
+#[test]
+fn gate_installed_names_drifted_un_noted_files() {
+    let root = write_harness("gate-drifted", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // Represent and install: the managed-by notes land on the skill and rules.
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // Check what notes were placed.
+    let has_notes = outcome
+        .entries
+        .iter()
+        .any(|e| e.placement == temper::install::Placement::Note);
+    assert!(has_notes, "install must place managed-by notes");
+
+    // Verify gate is clean after initial install.
+    assert!(
+        install::gate_installed(&root).is_empty(),
+        "gate_installed must be clean after successful install"
+    );
+
+    // Simulate drift: remove the entire managed-by note from one file by replacing
+    // the first line (which should be the note comment or heading).
+    let skill_file = root
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    let content = fs::read_to_string(&skill_file).unwrap();
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Remove first line (which should be the managed-by comment or heading).
+    let modified = if lines.len() > 1 {
+        lines[1..].join("\n") + "\n"
+    } else {
+        String::new()
+    };
+    fs::write(&skill_file, modified).unwrap();
+
+    // gate_installed should now report the drifted file.
+    let findings = install::gate_installed(&root);
+    assert_eq!(
+        findings.len(),
+        1,
+        "gate_installed must report one drifted placement, got: {findings:?}"
+    );
+    let msg = &findings[0].message;
+    assert!(
+        msg.contains("managed-by note"),
+        "message must mention managed-by note, got: {msg}"
+    );
+    assert!(
+        msg.contains("SKILL.md"),
+        "message must name the specific un-noted file, got: {msg}"
     );
 }
 
