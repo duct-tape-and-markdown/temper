@@ -107,7 +107,11 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
         .iter()
         .filter(|diagnostic| diagnostic.severity == Severity::Error)
         .collect();
-    if blocking.is_empty() && announcement.is_empty() {
+    let advisory: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Warn)
+        .collect();
+    if blocking.is_empty() && advisory.is_empty() && announcement.is_empty() {
         return None;
     }
 
@@ -129,7 +133,19 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
     }
     if !blocking.is_empty() {
         out.push_str("Blocking findings:\n");
-        for diagnostic in blocking {
+        for diagnostic in &blocking {
+            out.push_str(&format!(
+                "  - [{}] {}: {}\n",
+                diagnostic.rule, diagnostic.artifact, diagnostic.message
+            ));
+        }
+    }
+    if !advisory.is_empty() {
+        if !blocking.is_empty() {
+            out.push('\n');
+        }
+        out.push_str("Advisory findings:\n");
+        for diagnostic in &advisory {
             out.push_str(&format!(
                 "  - [{}] {}: {}\n",
                 diagnostic.rule, diagnostic.artifact, diagnostic.message
@@ -330,14 +346,22 @@ mod tests {
         assert_eq!(json["hookSpecificOutput"]["hookEventName"], "SessionStart");
         assert!(json["hookSpecificOutput"]["additionalContext"].is_null());
 
-        // Advisory-only is still a clean *contract* (no error severity) — quiet.
+        // Advisory-only surfaces in additionalContext, distinguishable from a clean run.
         let advisory = vec![Diagnostic::warn(
             "extent",
             "coordinate",
             "rendered extent is over budget",
         )];
         let json = payload(&advisory);
-        assert!(json["hookSpecificOutput"]["additionalContext"].is_null());
+        let context = json["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .expect("advisory-only diagnostics must carry additionalContext");
+        assert!(context.contains("Advisory findings:"));
+        assert!(context.contains("extent"));
+        assert!(context.contains("coordinate"));
+        // Advisory-only should not carry the notify-and-approve instruction
+        // (that only leads a failing contract).
+        assert!(!context.contains("approval before continuing"));
     }
 
     #[test]
