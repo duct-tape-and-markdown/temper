@@ -87,3 +87,30 @@ self-dogfood can't surface (temper's own harness is pristine):
    when checking a repo that has not adopted temper, not a drift signal.
    Suppress when the target carries no `.temper/`.
    *observed at b6835e8.*
+
+## Triage dispositions (interactive, 2026-07-22) — for plan's routing
+
+Build-ready (spec cites the intent, no fork):
+- **4** reporter-omits-drift → the session-start reporter must deliver the
+  gate's findings it is a reporter of (`distribution.md`, "Session start").
+- **5** crash→fault → a nameless/malformed member is a well-formedness fault
+  reported (keyed by path when it has no id), never a thrown `Err` that aborts
+  the run (`intent.md`: "checks are well-formedness"; registration-locus
+  precedent).
+- **6 + 7** command → **ruled 07-22: require neither** — command requires no
+  frontmatter (`builtins.md` command bullet, updated 07-22); drop the required
+  name/description clauses and fix the "skill" guidance mislabel.
+- **2** version-skew → pin the sdk/engine version in the lock; turn the
+  `payload_parse` map error into a version-mismatch diagnostic.
+
+Ruled, spec already covers it (no delta):
+- **guard block** → **ruled 07-22: block** — `distribution.md` ("Per tool
+  call") already defines a `block` mode that denies the call. Work: verify
+  `block` emits exit 2, then dial the dogfood guard from `warn`→`block`
+  (`.temper/hooks.ts`); `warn`'s in-band surface is inert for agents
+  (PreToolUse exit-0 stdout is unsurfaced).
+
+My-call defaults (interactive; override if wrong):
+- **8** gate-installed noise → suppress when the target carries no `.temper/`.
+- **3** bare-`temper`-on-PATH → the placed hook fails loudly.
+- **1** emit/install window → `gate-installed` names the un-noted files.

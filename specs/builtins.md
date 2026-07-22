@@ -28,7 +28,11 @@ Twelve kinds ship. Eight are file members:
 - **command** — the skill surface's legacy file placement (Claude Code
   merged commands into skills; code.claude.com/docs/en/skills, retrieved
   2026-07-07): a lone markdown file, the skill's field schema by import,
-  identity from the file stem, the same two channels.
+  identity from the file stem. All command frontmatter is optional
+  (code.claude.com/docs/en/slash-commands, retrieved 2026-07-22), so the
+  command kind requires no field — the forgiving legacy placement; the strict
+  name/description profile stays the skill kind's, never the command's. The
+  same two channels.
 - **agent** — a subagent definition; identity from its frontmatter `name`
   field, never the filename; registers by description delegation
   (code.claude.com/docs/en/sub-agents, retrieved 2026-07-07).
