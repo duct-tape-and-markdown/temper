@@ -51,3 +51,39 @@ routing.
      (exit 0), and PreToolUse exit-0 stdout is not surfaced to the model, so
      the guard nudge may be inert for agents — is a blocking mode (exit 2)
      wanted?
+
+## External-yield probe (filed 2026-07-22) — temper on 9 real external harnesses
+
+Probe: `temper check --harness` against 9 public Claude Code harnesses
+(libtorrent, algolia/instantsearch, liftosaur, freenet-core,
+basedosdados/pipelines, rails_ai_agents, claude-copilot, go-crypto-wallet,
+claude-code-scheduler). Yield confirmed real — freenet's `rule.forbidden_keys`
+caught a Cursor `.mdc` `description` key CC silently ignores (the headline
+value prop, on a real repo). But four robustness/correctness bugs the
+self-dogfood can't surface (temper's own harness is pristine):
+
+5. **`check` hard-errors (aborts the whole run) on a missing `name` or
+   malformed frontmatter, instead of reporting a finding.** 4 of 9 harnesses
+   crashed with `Error: temper::frontmatter::{no_named_field_id,malformed}`
+   and reported nothing else — violates rust.md ("a Diagnostic is a value
+   collected, not a thrown `Err`"). Fix one file, rerun, crash on the next;
+   makes temper unusable on real foreign input. Highest severity.
+   *observed at b6835e8 (claude-copilot, rails_ai_agents, liftosaur,
+   claude-code-scheduler).*
+
+6. **`command` kind marks `name`/`description` REQUIRED (exit 1), but Claude
+   Code makes all command frontmatter optional** — the invocation name comes
+   from the filename [code.claude.com/docs/en/slash-commands, retrieved
+   2026-07-22: "All fields are optional. Only `description` is recommended"].
+   14 false-positive hard-failures across instantsearch + go-crypto-wallet.
+   Downgrade to advisory (portability nudge) or drop.
+   *observed at b6835e8.*
+
+7. **`command.required.*` renders *skill* guidance on a command artifact**
+   ("Every skill declares a `name`…") — wrong kind label in the help text.
+   *observed at b6835e8.*
+
+8. **`install.gate-installed` fires on every foreign harness** — pure noise
+   when checking a repo that has not adopted temper, not a drift signal.
+   Suppress when the target carries no `.temper/`.
+   *observed at b6835e8.*
