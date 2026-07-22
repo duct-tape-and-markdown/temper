@@ -44,41 +44,6 @@
     ]
   },
   {
-    "tag": "GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED",
-    "summary": "install.gate-installed fires as pure noise on any foreign harness with no .temper/, and even when it legitimately fires it counts un-noted files without naming them.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "gate_installed (520-578): (1) it always calls evaluate_placements or place_settings_only regardless of whether `.temper/` exists on disk at all; place_settings_only (588) unconditionally checks whether .claude/settings.json has the hook wired, firing on any repo lacking it even with zero temper adoption. Add an early `if !temper_dir.is_dir() { return Vec::new(); }` before line 523. (2) the notes/modelines tally (534-568) collapses to a bare count in the rendered message (570-577); thread each un-noted InstallEntry's own `path` into the message instead of only counting outcomes."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "gate_installed_never_scaffolds_and_reflects_represented_vs_not (949) and its neighbors (945-976): add a case for a harness with no `.temper/` directory at all, asserting gate_installed is empty; update an existing drifted-notes case to assert the message names the specific un-noted file(s), not just a count."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "gate_installed is silent on a harness carrying no .temper/ directory, and names the specific un-noted file(s) when it fires on an adopted-but-drifted harness"
-      }
-    ],
-    "acceptance": "Checking a plain foreign repo with no .temper/ never emits install.gate-installed; an adopted harness missing managed-by notes reports which files, not just a count.",
-    "notes": "Verified: install.rs 520-529 gate_installed calls evaluate_placements/place_settings_only unconditionally; place_settings_only (588) checks settings.json's hook wiring with no adoption check at all. Count-only message at 570-577 (parts.join). Closes probe finding 8 and dogfood finding 1 together — same function. scoped at 9d4ce81."
-  },
-  {
     "tag": "HOOK-COMMAND-FAILS-LOUD-ON-MISSING-TEMPER",
     "summary": "The placed SessionStart/guard hooks invoke bare `temper ...`; with no binary on PATH they die command-not-found silently, so the gate can never report its own absence.",
     "per": {
@@ -86,8 +51,7 @@
       "section": "The placements and their enforcement modes"
     },
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
