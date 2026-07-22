@@ -103,16 +103,23 @@ Build-ready (spec cites the intent, no fork):
 - **2** version-skew → pin the sdk/engine version in the lock; turn the
   `payload_parse` map error into a version-mismatch diagnostic.
 
-Ruled, spec already covers it (no delta):
-- **guard block** → **ruled 07-22: block** — `distribution.md` ("Per tool
-  call") already defines a `block` mode that denies the call. Work: verify
-  `block` emits exit 2, then dial the dogfood guard from `warn`→`block`
-  (`.temper/hooks.ts`); `warn`'s in-band surface is inert for agents
-  (PreToolUse exit-0 stdout is unsurfaced).
+Ruled, spec already covers it — NOT a build entry (no src half):
+- **guard block** → **ruled 07-22: block**, but the src work is already done:
+  `block` mode denies with exit 2 today (`src/main.rs:126`) and is tested
+  (`tests/cli.rs:448-494` — a `block` lock denies a `.claude/` projection
+  write, states the managed-by message, allows non-projection writes). The
+  only remaining step is dialing the *dogfood's own* guard `warn`→`block` in
+  `.temper/` (harness source) — which is **outside build's writablePaths**: a
+  human `chore(harness):` change, never a pending entry. **plan: do not route
+  any work that writes `.temper/`, `.claude/`, or the emitted `settings.json`
+  — build's fence rejects the whole tick (this tick's revert of
+  `GUARD-DOGFOOD-DIAL-BLOCK`).** The interactive session owns this dial.
 
 My-call defaults (interactive; override if wrong):
 - **8** gate-installed noise → suppress when the target carries no `.temper/`.
-- **3** bare-`temper`-on-PATH → the placed hook fails loudly.
+- **3** bare-`temper`-on-PATH → the placed hook fails loudly — fix in
+  `install`'s command generation (src/), not the emitted `settings.json`
+  (a projection, outside the fence).
 - **1** emit/install window → `gate-installed` names the un-noted files.
 
 ## Centercode dogfood (filed 2026-07-23) — edge-vocabulary gap
