@@ -1,14 +1,245 @@
 [
   {
-    "tag": "PACKAGING-CHANNELS-REMAINDER",
-    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary↔npm version lockstep at the v0.1 tag",
+    "tag": "FRONTMATTER-LOAD-FAULT-AS-DIAGNOSTIC",
+    "summary": "A member whose frontmatter fails to load (no name, malformed YAML) must become a collected error Diagnostic naming the file, never a thrown Err that aborts the whole check run.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "read_file_unit's YamlFrontmatter/None-format arm (502-530) calls frontmatter::Member::from_source_rooted with `?`, and resolve_kind_units's two file-discovery loops (606-654) call read_file_unit with `?` in turn \u2014 a FrontmatterError::{NoId,NoNamedFieldId,Malformed} on any one file aborts the whole kind's resolution via miette::Result. Catch those three variants at this boundary and collect an error-severity Diagnostic (naming the file and the fault) instead, continuing the loop over the remaining files; thread the diagnostics out (e.g. resolve_kind_units/kind_units_and_features return them alongside the units). Leave read_file_unit's other error paths (layout_unit, json_manifest, toml_document, and frontmatter's own Io/NotUtf8) on their existing hard-fail `?` \u2014 outside the verified gap (the probe's crashes were specifically frontmatter::{no_named_field_id,malformed})."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "kind_units_and_features is called from gate's builtin-kind loop (~140-159) and custom-kind loop (~224-233); once compose.rs's chain returns collected load-fault diagnostics alongside a kind's units, merge them into the run's `diagnostics` vec at both call sites."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "a_malformed_frontmatter_block_fails_loud_naming_the_file (136-175) currently asserts the run aborts with zero github-format findings emitted (comment: 'aborts loud; it must not emit field findings') \u2014 that is the behavior this entry reverses. Rewrite: the run still fails (!run.ok), output still names the file and 'mapping', but `run.findings()` now carries a real finding naming the file rather than being empty. Add a second case: a harness with the malformed member plus one clean, unrelated member \u2014 the clean member must still be discovered and checked in the same run (the actual 4/9-harness crash the probe caught)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "a malformed or nameless member's load fault is a collected error Diagnostic naming the file, and every other member in the harness is still discovered and checked in the same run"
+      }
+    ],
+    "acceptance": "check over a harness with one malformed/nameless member plus N clean ones exits non-zero, reports a finding naming the bad file, and still validates the N clean members instead of aborting the whole run.",
+    "notes": "Verified on disk: compose.rs 502-530/606-654 propagate FrontmatterError via `?`, matching the probe's 4/9-harness crash. gate_fail_loud.rs:136 currently encodes today's abort-with-no-findings as deliberate Invariant-6 compliance; Invariant 6 is 'loud', not 'abort-first-file' \u2014 an error Diagnostic is still loud and matches rust.md's own Diagnostic-not-Err rule. scoped at 9d4ce81."
+  },
+  {
+    "tag": "SESSION-START-REPORTER-SURFACES-ADVISORY-FINDINGS",
+    "summary": "The session-start reporter drops every non-error diagnostic from additionalContext, so e.g. drift (config.stale, Warn-severity) can silently never reach the session.",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships — three channels"
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/reporter.rs",
+          "description": "context() (105-139) filters diagnostics to Severity::Error only under 'Blocking findings', and returns None (fully quiet payload) whenever no Error diagnostic and no Announcement are present \u2014 so a run whose only diagnostics are Warn (drift's config_stale, install::gate_installed, coverage_note) is indistinguishable from a genuinely clean run. Extend context() to also surface non-error diagnostics (e.g. a separate 'Advisory findings' section) whenever any diagnostic exists, so the payload is never silent while a real finding exists; the exit-code verdict (session-start never fails the run) stays unchanged \u2014 only visibility changes."
+        },
+        {
+          "path": "src/reporter.rs",
+          "description": "a_clean_harness_is_quiet (326-341, inline #[cfg(test)] mod tests) asserts an advisory-only diagnostic set stays quiet ('Advisory-only is still a clean *contract* \u2014 quiet') \u2014 that assertion is exactly the bug distribution.md's 'never silently passes' forbids; rewrite it so the advisory now surfaces in additionalContext, distinct from the still-absent notify-and-approve instruction a failing (error-severity) contract carries."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/reporter.rs",
+        "asserts": "a run whose only diagnostic is Warn-severity (e.g. drift's config.stale) still carries it in additionalContext, distinguishable from a genuinely clean run with zero diagnostics"
+      }
+    ],
+    "acceptance": "temper check . --reporter session-start's additionalContext names every diagnostic the terminal reporter would show, drift included, whatever its severity; a genuinely clean harness (zero diagnostics, no announcement) is still quiet.",
+    "notes": "Verified: reporter.rs context() 105-112 filters strictly on Severity::Error; gate.rs 465-469's own comment confirms config_stale/gate_installed are deliberately Warn 'because the session-start reporter ignores warn severity' \u2014 the exact mechanism the inbox repro caught (drift invisible, other announced context visible). Fix changes visibility only, never the advisory exit posture. scoped at 9d4ce81."
+  },
+  {
+    "tag": "COMMAND-CONTRACT-EMPTY-NO-SKILL-IMPORT",
+    "summary": "command's default contract still imports skill's whole strict name/description profile (all required, guidance text says 'skill'), though builtins.md now rules command requires no field.",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "commandDefaultContract (1401-1403) is defined as skillDefaultContract.filter(exclude name-matches-dir) \u2014 every one of the remaining eleven clauses (name/description required, min_len, max_len, allowed_chars, shape, deny, plus compatibility's max_len) is exactly the 'strict name/description profile' the 07-22 spec ruling now keeps to skill alone. Replace with an empty array (`[]`) and rewrite the doc comment (1393-1400) off the updated builtins.md bullet and code.claude.com/docs/en/slash-commands (retrieved 2026-07-22) rather than the superseded 2026-07-15 skills-docs cite."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "Generated data (see file header) \u2014 regenerate by re-running the memberless emit so the compiled command.* clause rows (204-338 today: required/min_len/max_len/allowed_chars/shape/deny over name and description, plus compatibility/extent/forbidden_keys/glob-valid) drop to whichever survive an empty commandDefaultContract. Never hand-edit."
+        },
+        {
+          "path": "src/builtin_kind.rs",
+          "description": "claude_code_command()'s doc comment (222-226) claims 'the skill's field schema by import' as the command kind's contract source \u2014 no longer true once commandDefaultContract is empty; correct the doc comment."
+        },
+        {
+          "path": "tests/command_kind.rs",
+          "description": "Module header (1-7) frames command as carrying 'the skill's field schema (imported, not re-derived)'; a_command_member_extracts_the_skills_declared_field_schema (95) asserts that import directly. Rewrite both for the empty contract: a command file with no frontmatter fields at all (not even name/description) must check clean."
+        },
+        {
+          "path": "tests/builtin_lock_frozen.rs",
+          "description": "Data-driven over commandDefaultContract (37-38, 67) \u2014 its SDK-build-and-byte-compare is what forces the builtin_lock.toml regenerate above; no manual edit expected here, listed for the ripple it exercises."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/command_kind.rs",
+        "asserts": "a .claude/commands/*.md file carrying no frontmatter fields at all passes check clean, per the updated builtins.md command bullet"
+      }
+    ],
+    "acceptance": "check over a command file with no name/description/any field is clean; no command-kind guidance text says 'skill'; tests/builtin_lock_frozen.rs's byte-compare passes against the regenerated embedded lock.",
+    "notes": "Verified on disk: sdk/src/builtins.ts:1401 commandDefaultContract = skillDefaultContract minus only name-matches-dir; builtin_lock.toml:204-338 carries the compiled command.* rows. Closes probe findings 6 (14 false-positive hard-fails) and 7 (the 'skill' guidance mislabel) together \u2014 same clauses, same fix. scoped at 9d4ce81."
+  },
+  {
+    "tag": "SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE",
+    "summary": "emit_program strict-parses the SDK payload before checking its seam version, so a shape-incompatible payload surfaces as an opaque payload_parse error, never a version-mismatch diagnostic.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "emit_program (944-958) runs serde_json::from_str::<Payload>(&json) directly, raising DriftError::PayloadParse (954) on any shape mismatch; the SEAM_VERSION comparison (1034, inside emit()) is only reached once that strict parse already succeeded. Peek the payload's `version` field off the raw JSON first (a minimal pre-parse, e.g. into a `{version: u32}`-shaped value or serde_json::Value) and return DriftError::UnsupportedSeamVersion immediately when it doesn't match SEAM_VERSION, before attempting the full strict deserialize. Extract the peek-then-parse into its own function so it is unit-testable without spawning `node`."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/drift.rs",
+        "asserts": "a raw JSON payload string whose `version` field mismatches SEAM_VERSION, and whose remaining shape is also incompatible with Payload, yields UnsupportedSeamVersion naming both versions, never PayloadParse"
+      }
+    ],
+    "acceptance": "A stale-binary-vs-newer-SDK mismatch always reports a version diagnostic naming both versions, never the generic 'invalid type' serde error the inbox's debugging detour hit.",
+    "notes": "Verified: drift.rs 952-958 (emit_program) strict-parses before any version check; SEAM_VERSION compare lives inside emit() at 1034, unreached on a parse failure. tests/emit.rs:406 an_unsupported_seam_version_is_a_clear_refusal only covers the already-parsed-struct case (drift::emit called directly), not the raw-JSON path this entry fixes. scoped at 9d4ce81."
+  },
+  {
+    "tag": "GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED",
+    "summary": "install.gate-installed fires as pure noise on any foreign harness with no .temper/, and even when it legitimately fires it counts un-noted files without naming them.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "gate_installed (520-578): (1) it always calls evaluate_placements or place_settings_only regardless of whether `.temper/` exists on disk at all; place_settings_only (588) unconditionally checks whether .claude/settings.json has the hook wired, firing on any repo lacking it even with zero temper adoption. Add an early `if !temper_dir.is_dir() { return Vec::new(); }` before line 523. (2) the notes/modelines tally (534-568) collapses to a bare count in the rendered message (570-577); thread each un-noted InstallEntry's own `path` into the message instead of only counting outcomes."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "gate_installed_never_scaffolds_and_reflects_represented_vs_not (949) and its neighbors (945-976): add a case for a harness with no `.temper/` directory at all, asserting gate_installed is empty; update an existing drifted-notes case to assert the message names the specific un-noted file(s), not just a count."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "gate_installed is silent on a harness carrying no .temper/ directory, and names the specific un-noted file(s) when it fires on an adopted-but-drifted harness"
+      }
+    ],
+    "acceptance": "Checking a plain foreign repo with no .temper/ never emits install.gate-installed; an adopted harness missing managed-by notes reports which files, not just a count.",
+    "notes": "Verified: install.rs 520-529 gate_installed calls evaluate_placements/place_settings_only unconditionally; place_settings_only (588) checks settings.json's hook wiring with no adoption check at all. Count-only message at 570-577 (parts.join). Closes probe finding 8 and dogfood finding 1 together \u2014 same function. scoped at 9d4ce81."
+  },
+  {
+    "tag": "HOOK-COMMAND-FAILS-LOUD-ON-MISSING-TEMPER",
+    "summary": "The placed SessionStart/guard hooks invoke bare `temper ...`; with no binary on PATH they die command-not-found silently, so the gate can never report its own absence.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "blockedBy",
+      "tag": "GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "SESSION_START_COMMAND (92) and GUARD_COMMAND (138) are bare `temper ...` strings Claude Code's hook runs through a shell. Add a PATH-resolvability guard ahead of the real invocation (e.g. a `command -v temper` prefix that fails loud, naming `temper` as the missing binary, before attempting to run it) so a fresh clone with no `temper` on PATH gets a visible, named failure rather than a silent shell command-not-found \u2014 per distribution.md's fail-loud invariant ('a placement that cannot run the engine errors, never silently skips')."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "~8 call sites assert the literal command strings verbatim (lines 78, 244, 281, 322, 440, 768, 920, 924) \u2014 update each to the new guarded form."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Line 360 splits SESSION_START_COMMAND on whitespace into an argv array for a direct-exec repro; a compound shell-guarded command breaks that split. Re-drive it through an actual shell invocation (or the hook's real dispatch path) instead."
+        },
+        {
+          "path": "tests/bundle.rs",
+          "description": "Line 64 asserts the plugin-shipped hooks.json carries the literal SESSION_START_COMMAND string verbatim; update to the new guarded form."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "the placed SessionStart/guard hook command, run with `temper` absent from PATH, exits non-zero and prints a message naming `temper` as the missing binary rather than a bare shell command-not-found"
+      }
+    ],
+    "acceptance": "A fresh clone with the hook wired but no `temper` on PATH gets a named, visible failure instead of a silent no-op.",
+    "notes": "Verified: install.rs 92/138 SESSION_START_COMMAND/GUARD_COMMAND are bare `temper ...`; ~8 tests across install.rs/session_start.rs/bundle.rs assert the literal strings \u2014 the honest ripple. Serialized behind GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED: both entries edit install.rs, and the pending-entry rule bars two open entries sharing a file. scoped at 9d4ce81."
+  },
+  {
+    "tag": "PACKAGING-CHANNELS-REMAINDER",
+    "summary": "The packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing), the plugin/bundle + marketplace.json, and the binary\u2194npm version lockstep at the v0.1 tag",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "What ships \u2014 three channels"
     },
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package; the v0.1 launch tag that flips the binary's self-reported crate version (0.1.0) into lockstep with npm's 0.0.x. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) + the SDK launcher/optionalDependencies + standalone tag assets shipped 07-11; the standalone-asset step is wired but unexercised until a tag fires."
     },
     "dependsOnForks": [],
     "files": {
@@ -28,14 +259,14 @@
   },
   {
     "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
-    "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
+    "summary": "0045 also frees guidance onto a field declaration, no predicate \u2014 deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
     "per": {
       "path": "specs/model/contract.md",
       "section": "clause"
     },
     "gate": {
       "kind": "deferred",
-      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
+      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) \u2014 no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
     },
     "dependsOnForks": [],
     "files": {
@@ -43,7 +274,7 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
+          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields \u2014 shape unset; no field in any built-in kind wants one yet."
         },
         {
           "path": "src/drift.rs",
@@ -62,7 +293,7 @@
     },
     "schemaDelta": "none",
     "tests": [],
-    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
+    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating \u2014 provable once a real kind needs one.",
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
   }
 ]
