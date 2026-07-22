@@ -52,16 +52,20 @@ hard.
 
 ## Parked (pointers only)
 
-- Sweep-dock blend (John, 07-20): flume-dock base uplifted to
-  temper-standard discipline + sweep preset shipped (flume-dock 748c487,
-  688a16d, e499e18; SPEC decisions 15-16, build items 10-11); testbed
-  centercode-platform bd75aeddc4 lands: remedy/governs grammar,
-  engineering postures pack, sweep-discipline rule (emit+check green, 51
-  members). Design ledger = this session's grill (A-F + amendments).
-  Calibration waves over 9c8d78aa47..d0734c2643 in flight (wave A sonnet
-  on dock/cal-wave-a; wave B haiku next, tagged).
-  Watch items: standard-delta backfill (park, don't drown);
-  install.gate-installed advisory in testbed check.
+- Sweep-dock blend (John, 07-20/21): flume-dock base uplifted + sweep
+  preset shipped and re-cut per the ruling "the dock is apparatus, never
+  law" (SPEC decisions 15-17): the whole sweep discipline lives in the
+  centercode harness as the `sweep` skill (testbed ec80996dfe, 52 members
+  green); dock prompts are thin briefs; chain gates hold coverage/settle/
+  harness-drift. First field runs reclassified as shakedown, not
+  calibration: sonnet wave A's 21 findings stand as the answer key
+  (scratchpad snapshots); haiku fabricated coverage twice (gates now
+  catch it) and violated the routing rubric once. Filed to temper inbox:
+  session-start reporter mute on drift (ENGINE BUG w/ repro), emit vs
+  managed-by placement, engine/SDK version-skew error, guard advisory
+  semantics. Next: toy sweep-validation dock, telemetry verifiers wired
+  (tap), then clean twins over 9c8d78aa47..d0734c2643. Undock needs a
+  --discard mode; mirror-pushing a reverting dock branch needs a ruling.
 
 - flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
   patched installed dist in temper's node_modules (ephemeral — a
