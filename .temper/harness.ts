@@ -7,6 +7,7 @@ import { rule_pendingEntry } from "./rules/pending-entry.ts";
 import { rule_planState } from "./rules/plan-state.ts";
 import { rule_postureSweep } from "./rules/posture-sweep.ts";
 import { rule_publicProse } from "./rules/public-prose.ts";
+import { rule_release } from "./rules/release.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
@@ -63,6 +64,7 @@ const program = harness({
     rule_planState,
     rule_postureSweep,
     rule_publicProse,
+    rule_release,
     rule_rust,
     rule_sdk,
     skill_captureFriction,
