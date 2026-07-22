@@ -62,22 +62,24 @@ hard.
 ## Parked (pointers only)
 
 - Sweep-dock blend (John, 07-20/22): settled model — two authored
-  surfaces, one product. Harness = standing law (invariants + operating
-  conduct, sweep-agnostic; sweep skill dissolved, conduct generalized
-  into protocol, `.temper/inbox.md` registered as its feedback intake —
-  testbed acf5919178, 52 green, tap wired). Runtime = flume-dock: briefs
-  carry effort procedure + injected data, gates enforce, friction.md is
-  the loop-to-operator channel surfaced at undock (SPEC decision 18,
-  flume-dock 86174f4). Agent = product, never authored; every failure
-  charges to one surface. Shakedown history: sonnet wave A's 21 findings
-  are the answer key (scratchpad snapshots); haiku fabricated coverage
-  (now gated) and violated routing (rubric still prose — routing gate is
-  the next dock cut). Filed to temper inbox: session-start reporter mute
-  on drift (ENGINE BUG w/ repro), emit vs managed-by placement,
-  engine/SDK version-skew error, guard advisory semantics. Next: routing
-  gate, toy sweep-validation dock, clean twins over
-  9c8d78aa47..d0734c2643 with tap aggregation. Mirror-pushing a
-  reverting dock branch still needs a ruling.
+  surfaces, one product. Harness = standing law (invariants + conduct,
+  sweep-agnostic; `.temper/inbox.md` is its feedback intake — testbed
+  acf5919178, 52 green, tap wired). Runtime = flume-dock: briefs carry
+  effort procedure + injected data; friction.md = runtime feedback; the
+  loop writes the harness intake directly (`--intake`, operator-declared;
+  extraction pass-through; SPEC 17-19); rubric = Remedy ∧ covers.
+  Three-tier cascade ratified (07-22 research: Spec Kit/Kiro/BMAD/
+  Taskmaster/aider converge): big model dictates spec, mid model derives
+  atoms (entry = objective+files+acceptance+cite), cheap model executes;
+  two flume seams filed to flume's inbox (per-phase model; entry-scoped
+  write guard). Shakedown: sonnet wave A's 21 findings = answer key
+  (scratchpad); haiku coverage fabrication now gated. Temper inbox holds
+  4 engine findings (reporter mute w/ repro, managed-by placement,
+  version-skew, guard semantics). Next: toy sweep-validation dock — pass
+  bar includes dictation sufficiency (cheap model executes from entry +
+  injections alone; corpus spelunking = plan defect) — then clean twins
+  over 9c8d78aa47..d0734c2643 with tap aggregation, docked with
+  `--intake .temper/inbox.md`. Mirror-push ruling still open.
 
 - flume 0.3.1 publish (John): three 07-18 runtime fixes are LIVE via a
   patched installed dist in temper's node_modules (ephemeral — a
