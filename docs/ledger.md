@@ -19,8 +19,9 @@ hard.
   its own harness diffs via `.flume/amendments/` (0044,
   propose-and-ratify only); session-open sweep now covers it.
 - **Distribution**: channel 2 live 07-11 — `npx @dtmd/temper` delivers
-  prebuilt linux/win32 engines (SDK 0.0.10 cut 07-19; 0.0.8-0.0.9 deprecated — mismatched pins, enablement wire split; post-publish smoke gates every cut; release.yml,
-  NPM_TOKEN repo secret). Darwin + plugin channel ride PACKAGING-CHANNELS-REMAINDER
+  prebuilt linux/win32 engines (SDK 0.0.11 cut 07-21, smoke-green — 0.0.10 07-19; 0.0.8-0.0.9 deprecated — mismatched pins, enablement wire split; post-publish smoke gates every cut; release.yml,
+  NPM_TOKEN repo secret; the cut procedure is now encoded in the `release`
+  rule, not here). Darwin + plugin channel ride PACKAGING-CHANNELS-REMAINDER
   (parked in pending.json); 0.1.0 is the tag's to stake.
 - **Consumer campaign closed 07-16**: posture-recursion ruled — 0025
   (82c816e, amended cc5a9b33), prototype at
@@ -99,12 +100,12 @@ hard.
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
   then channel 3.
 - On John:
-  **Rotate NPM_TOKEN** — the current one was pasted in chat (07-19,
-  v0.0.8 rescue); treat as exposed. New token → `gh secret set
-  NPM_TOKEN` + `.env`. Note the expiry cadence: the prior token died
-  in ~14 days and cost a release-day debug.
-  Apple Developer notarizing (decide at release); USPTO name screen;
-  CHANGELOG for the shipped 0.0.x npm cuts.
+  **Rotate NPM_TOKEN** — pasted in chat (07-19, v0.0.8 rescue), treat as
+  exposed; owner accepted the risk 07-21 and it published 0.0.11, so rotate
+  at leisure, not urgently. New token → `gh secret set NPM_TOKEN` + `.env`.
+  Note the expiry cadence: the prior token died in ~14 days and cost a
+  release-day debug.
+  Apple Developer notarizing (decide at release); USPTO name screen.
 
 ## Standing discipline (mechanical, paid for)
 

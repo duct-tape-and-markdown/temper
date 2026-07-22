@@ -13,8 +13,7 @@ _Nothing yet._
 
 ## [0.0.11] — 2026-07-21
 
-First cut recorded here; `0.0.8`–`0.0.10` were npm bootstrap cuts (release
-plumbing and engine-pin fixes) that predate the changelog.
+Entries begin here; earlier `0.0.x` releases predate this changelog.
 
 ### Added
 
