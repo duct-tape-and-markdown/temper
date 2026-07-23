@@ -132,7 +132,7 @@ prose = "the posture sweep needs its administering discipline (pages-as-authorit
 
 [[declaration.assembly]]
 fact = "mode"
-value = "warn"
+value = "block"
 
 [[declaration.satisfies]]
 member = "rule:fork-lifecycle"

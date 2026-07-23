@@ -30,6 +30,11 @@ import { hook_fmtOnWrite, hook_guard, hook_sessionStart } from "./hooks.ts";
 // (a KindDefinition<object> slot must be callable with no T fields at all).
 // Only all-optional-field kinds (rule, memory) can fill `kind:` today.
 const program = harness({
+  // The write-boundary guard blocks: a hand-edit to a managed projection is
+  // denied (exit 2), not merely surfaced. `warn`'s PreToolUse exit-0 stdout is
+  // not read back to the model, so an advisory nudge is inert for an agent —
+  // only a deny reaches it (specs/distribution.md, "Per tool call").
+  mode: "block",
   require: {
     "pending-entry-discipline": {
       prose: "flume's plan phase (and any interactive session) needs pending.json entry-filing constraints available as a rule scoped to .flume/plan/pending.json",
