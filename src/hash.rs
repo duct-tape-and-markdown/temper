@@ -22,6 +22,31 @@ pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
+/// Canonicalize line endings in raw bytes: CRLF (b'\r' b'\n') collapses to LF (b'\n'),
+/// and lone CR (b'\r' not followed by b'\n') becomes LF.
+/// Used for drift comparisons: a checkout git-filtered to CRLF reads clean against an LF baseline.
+pub fn canonicalize_eol(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\r' {
+            if i + 1 < bytes.len() && bytes[i + 1] == b'\n' {
+                // CRLF -> LF
+                out.push(b'\n');
+                i += 2;
+            } else {
+                // Lone CR -> LF
+                out.push(b'\n');
+                i += 1;
+            }
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    out
+}
+
 /// Errors from reading a file and decoding it as UTF-8.
 #[derive(Debug)]
 pub(crate) enum ReadUtf8Error {

@@ -28,7 +28,7 @@ use crate::compose;
 use crate::contract;
 use crate::extract::host_address;
 use crate::graph;
-use crate::hash::sha256_hex;
+use crate::hash::{canonicalize_eol, sha256_hex};
 use crate::kind::{
     CollectionAddress, Commitment, Content, Format, collection_address_from_row,
     commitment_from_row, content_from_row, format_from_row,
@@ -2223,7 +2223,9 @@ fn read_prior_provenance_from_doc(doc: &DocumentMut) -> Vec<ProvenanceRow> {
 /// undo one.
 fn classify_orphan(disk_path: &Path, emit_hash: &str) -> Result<Option<EmitOutcome>, DriftError> {
     match fs::read(disk_path) {
-        Ok(bytes) if sha256_hex(&bytes) == emit_hash => Ok(Some(EmitOutcome::Reaped)),
+        Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == emit_hash => {
+            Ok(Some(EmitOutcome::Reaped))
+        }
         Ok(_) => Ok(Some(EmitOutcome::OrphanDrift)),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(source) => Err(DriftError::Read {
@@ -2536,7 +2538,8 @@ pub fn place(
     // The file differs from desired. With no recorded baseline the merge trusts the
     // projection (an idempotent placement); with one, a drift away from it is a
     // human edit the merge must surface rather than clobber.
-    let drifted_from_baseline = last_applied.is_some_and(|baseline| sha256_hex(&real) != baseline);
+    let drifted_from_baseline =
+        last_applied.is_some_and(|baseline| sha256_hex(&canonicalize_eol(&real)) != baseline);
     if drifted_from_baseline {
         return Ok(ApplyOutcome::Conflicted);
     }
@@ -2617,7 +2620,7 @@ pub fn config_stale_from_doc(
         let Ok(bytes) = fs::read(harness_root.join(&source_path)) else {
             continue;
         };
-        if sha256_hex(&bytes) != emit_hash {
+        if sha256_hex(&canonicalize_eol(&bytes)) != emit_hash {
             findings.push(crate::check::Diagnostic::warn(
                 CONFIG_STALE_RULE,
                 &source_path,
@@ -2821,7 +2824,7 @@ pub fn source_dep_stale_from_doc(
     let mut findings = Vec::new();
     for row in source_deps_from_doc(doc, family)? {
         match fs::read(harness_root.join(&row.source_path)) {
-            Ok(bytes) if sha256_hex(&bytes) == row.import_hash => {}
+            Ok(bytes) if sha256_hex(&canonicalize_eol(&bytes)) == row.import_hash => {}
             Ok(_) => findings.push(crate::check::Diagnostic::warn(
                 rule,
                 &row.source_path,
@@ -5053,6 +5056,30 @@ mod tests {
         let outcome = place(&target, "temper wants this", None, false).unwrap();
         assert_eq!(outcome, ApplyOutcome::Applied);
         assert_eq!(fs::read_to_string(&target).unwrap(), "temper wants this");
+    }
+
+    #[test]
+    fn place_ignores_eol_only_changes_against_a_baseline() {
+        let dir = tmpdir("place-eol");
+        let target = dir.join("file.txt");
+        let lf_body = "line one\nline two\n";
+        let crlf_body = "line one\r\nline two\r\n";
+
+        // Baseline is hashed from LF content.
+        let baseline = sha256_hex(lf_body.as_bytes());
+        fs::write(&target, crlf_body).unwrap();
+
+        // The on-disk CRLF bytes, when canonicalized to LF, match the baseline:
+        // no conflict, clean apply.
+        let outcome = place(&target, lf_body, Some(&baseline), false).unwrap();
+        assert_eq!(outcome, ApplyOutcome::Applied);
+        assert_eq!(fs::read_to_string(&target).unwrap(), lf_body);
+
+        // A genuine (non-EOL) edit still conflicts.
+        fs::write(&target, "human edited this").unwrap();
+        let outcome = place(&target, lf_body, Some(&baseline), false).unwrap();
+        assert_eq!(outcome, ApplyOutcome::Conflicted);
+        assert_eq!(fs::read_to_string(&target).unwrap(), "human edited this");
     }
 
     #[test]

@@ -272,3 +272,74 @@ fn feature(id: &str) -> Features {
         edge_placements: None,
     }
 }
+
+#[test]
+fn crlf_import_target_reads_clean_for_source_dep_stale() {
+    let harness = common::scaffold("layout-import-crlf");
+    let into = harness.join(".temper");
+    const IMPORTED: &str = "shared prose content.\n";
+
+    // Create a layout with an import region and the imported file with LF.
+    fs::write(harness.join("specs/guide.md"), "# Intent\n").unwrap();
+    fs::write(harness.join("specs/included.md"), IMPORTED).unwrap();
+
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![layout_kind(
+                "guide",
+                vec![import_region("included.md"), field_region("intent")],
+            )],
+            ..Default::default()
+        },
+        members: vec![layout_member("guide")],
+    };
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // Verify the import is in the lock with an LF-based fingerprint.
+    let imports = drift::layout_imports(&into).unwrap();
+    assert_eq!(imports.len(), 1);
+
+    // Rewrite the import target to CRLF (same content).
+    let crlf_imported = IMPORTED.replace('\n', "\r\n");
+    fs::write(harness.join("specs/included.md"), &crlf_imported).unwrap();
+
+    // Read the lock document and check for import staleness.
+    let lock_doc = drift::read_lock_document(&into).unwrap();
+    let stale_findings = drift::source_dep_stale_from_doc(
+        &lock_doc,
+        &harness,
+        "layout_import",
+        "layout.import-stale",
+        "layout import",
+    )
+    .unwrap();
+
+    // CRLF-only diff should read clean.
+    assert!(
+        stale_findings.is_empty(),
+        "CRLF-only import-target diff should read clean: {:?}",
+        stale_findings
+    );
+
+    // A genuine content edit must still flag as stale.
+    fs::write(
+        harness.join("specs/included.md"),
+        "shared prose content.\nmodified line.\n",
+    )
+    .unwrap();
+    let lock_doc = drift::read_lock_document(&into).unwrap();
+    let stale_findings = drift::source_dep_stale_from_doc(
+        &lock_doc,
+        &harness,
+        "layout_import",
+        "layout.import-stale",
+        "layout import",
+    )
+    .unwrap();
+
+    assert!(
+        !stale_findings.is_empty(),
+        "genuine content edit should flag as stale"
+    );
+}

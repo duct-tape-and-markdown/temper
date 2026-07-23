@@ -2145,3 +2145,88 @@ fn check_harness_and_session_start_gate_the_raw_harness_with_no_scratch_import()
         "the one-shot gate must never write a lock beside the harness"
     );
 }
+
+#[test]
+fn crlf_checkout_reads_clean_for_config_stale() {
+    let (harness, into) = workspace("crlf-config-stale");
+    const BODY: &str = "# Skill\n\nUse this skill.\n";
+
+    // Emit with LF content, creating a lock with LF-based hashes.
+    let payload = basic_payload(vec![common::skill_member("demo", "demo skill", BODY)]);
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "demo"), EmitOutcome::Emitted);
+
+    let skill_path = harness
+        .join(".claude")
+        .join("skills")
+        .join("demo")
+        .join("SKILL.md");
+
+    // Read the emitted LF content.
+    let lf_content = fs::read_to_string(&skill_path).unwrap();
+
+    // CRLF-only change: rewrite the skill with CRLF but same content.
+    let crlf_content = lf_content.replace('\n', "\r\n");
+    fs::write(&skill_path, &crlf_content).unwrap();
+
+    // config_stale must find no staleness (CRLF is canonicalized away).
+    let stale_findings =
+        drift::config_stale_from_doc(&drift::read_lock_document(&into).unwrap(), &harness);
+    assert!(
+        stale_findings.is_empty(),
+        "CRLF-only diff should read clean: {:?}",
+        stale_findings
+    );
+}
+
+#[test]
+fn crlf_orphan_classifies_as_reaped_not_drift() {
+    use temper::drift::EmitOutcome;
+
+    let (harness, into) = workspace("crlf-orphan");
+    const BODY: &str = "# Rule\n\nRule body.\n";
+
+    // Emit a rule, creating a lock.
+    let payload = basic_payload(vec![common::rule_member("demo", None, BODY)]);
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "demo"), EmitOutcome::Emitted);
+
+    let rule_path = harness.join(".claude").join("rules").join("demo.md");
+
+    // Rewrite the rule to CRLF (same content).
+    fs::write(&rule_path, BODY.replace('\n', "\r\n")).unwrap();
+
+    // Re-emit with the member removed (orphan scenario).
+    let orphan_payload = basic_payload(vec![]);
+    let report = drift::emit(&orphan_payload, &into, EmitOptions::default()).unwrap();
+
+    // The orphan should classify as Reaped (not OrphanDrift) because the CRLF-rewritten
+    // file canonicalizes to the lock's LF-based hash.
+    assert_eq!(outcome(&report, "demo"), EmitOutcome::Reaped);
+
+    // Verify the file is actually gone (reaped).
+    assert!(!rule_path.exists(), "reaped file should be deleted");
+
+    // Now test that a genuine edit causes OrphanDrift classification.
+    let (harness2, into2) = workspace("crlf-orphan-drift");
+    let payload2 = basic_payload(vec![common::rule_member("test", None, BODY)]);
+    drift::emit(&payload2, &into2, EmitOptions::default()).unwrap();
+
+    let rule_path2 = harness2.join(".claude").join("rules").join("test.md");
+
+    // Edit the file (non-EOL change).
+    fs::write(&rule_path2, "# Rule\n\nEdited content.\n").unwrap();
+
+    // Re-emit with the member removed.
+    let orphan_payload2 = basic_payload(vec![]);
+    let report2 = drift::emit(&orphan_payload2, &into2, EmitOptions::default()).unwrap();
+
+    // Now it should be OrphanDrift because of the genuine edit.
+    assert_eq!(outcome(&report2, "test"), EmitOutcome::OrphanDrift);
+
+    // Verify the file still exists (not reaped).
+    assert!(
+        rule_path2.exists(),
+        "orphan-drift file should not be reaped"
+    );
+}
