@@ -64,24 +64,25 @@ routing.
     outside this repo; spurious rewrites reproduced with
     autocrlf=true before the repo-local false override).*
 
-    **Disposition (interactive, 2026-07-23) — build-ready, carries a
-    spec/Decision.** Verified against src at HEAD: the raw-byte
-    compare is real and lives at ≥4 sites (`drift.rs` committed-drift
-    2620, emit-reap 2226, import-hash 2824, guard baseline 2539) over
-    `hash::sha256_hex` — no EOL handling anywhere. Not plan-invents:
-    the gate misreporting its own environment is against intent.
-    Ruling to encode with the entry:
-    - **canonicalize-on-compare** (reporter's pick) — every drift/
-      fingerprint *comparison* strips CRLF→LF; emit and the stored
-      fingerprint stay LF-exact (byte-determinism untouched). The
-      boundary is one ruling: all compare sites canonicalize together,
-      or a split comparator (check forgives, guard/banner don't) is
-      worse than the bug.
-    - **reject EOL-policy-in-lock** unless a consumer wants CRLF
-      projections (none does; Claude Code reads LF): new lock field +
-      three honor sites + migration, buying unrequested config.
-    - **ratify the visible edge:** under canonicalize-on-compare a
-      genuinely CRLF-committed projection reads `check`-clean yet
-      `emit` still rewrites it to LF. Coherent (compare semantic,
-      write canonical) and desirable, but state it as intended.
-    No grill needed — answer is clear; encode precisely, then build.
+    **Disposition (interactive, 2026-07-23) — build-ready against
+    existing intent; no new Decision.** The ruling is already made:
+    `pipeline.md` Drift now states the projection comparison is
+    line-ending-blind (EOL is layout per **Verbatim** / decision 0010,
+    "line endings are layout, never content"), so a comparator that
+    flags an EOL-only diff as a hand-edit contradicts the corpus. The
+    Drift-section clause closing the compare-side seam landed this
+    session; build cites `pipeline.md` Drift + Verbatim.
+    Verified against src at HEAD: the raw-byte compare is real and
+    lives at ≥4 sites (`drift.rs` committed-drift 2620, emit-reap 2226,
+    import-hash 2824, guard baseline 2539) over `hash::sha256_hex` — no
+    EOL handling anywhere. The entry reconciles those to the clause:
+    - **canonicalize-on-compare** — every drift/fingerprint
+      *comparison* strips CRLF→LF; emit and the stored fingerprint stay
+      LF-exact (byte-determinism untouched). One boundary: all compare
+      sites canonicalize together, or a split comparator (check
+      forgives, guard/banner don't) is worse than the bug.
+    - **EOL-policy-in-lock is not the shape** — the spec rules EOL is
+      layout, never configurable; a lock policy would re-open a
+      distinction 0010 closed.
+    - the visible edge is already ratified by the clause: an EOL-only
+      diff reads `check`-clean while `emit` still writes LF.

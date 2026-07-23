@@ -192,6 +192,12 @@ fingerprint (the projection was hand-touched; edit the owning source and
 re-emit). Each finding names the member that owns the bytes, the side that
 moved, and the remedy.
 
+The comparison is line-ending-blind — a projection differing from its
+fingerprint in EOL alone is layout, not a hand-edit (**Verbatim**, above), so
+the comparator canonicalizes EOL before it hashes: a checkout git filtered to
+CRLF reads clean, emit still writes LF. Every non-EOL difference remains the
+hand-edit.
+
 A mismatch is never silently reconciled: no reverse parse from projection to
 source, no merge model — a projection edit routes to the owning member. How
 loudly a projection hand-edit is treated is the author's declared severity,
