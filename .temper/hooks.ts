@@ -4,11 +4,20 @@ import { hook } from "@dtmd/temper/claude-code";
 // Fields-only registration members: no prose, no adjacent document — each
 // folds into its `hooks.<Event>` entry in the settings.json projection.
 
+// PATH-resolvability preamble: a temper-invoking hook fails loud (exit 127)
+// when `temper` is off PATH, rather than a silent shell "command not found".
+// This string MUST stay byte-identical to src/install.rs's SESSION_START_COMMAND
+// / GUARD_COMMAND: `gate_installed` compares the emitted hook against that Rust
+// constant, so any divergence re-reds the gate every session. The cross-language
+// duplication is the smell — single-source follow-up filed in .flume/refactor/.
+const failLoud =
+  'command -v temper >/dev/null 2>&1 || { echo "temper: command not found" >&2; exit 127; } &&';
+
 /** The advisory gate report at session open — always exits zero. */
 export const hook_sessionStart = hook({
   name: "SessionStart",
   type: "command",
-  command: "temper check . --reporter session-start",
+  command: `${failLoud} temper check . --reporter session-start`,
 });
 
 /** The write-boundary guard; mode is read live from the lock (default warn). */
@@ -16,7 +25,7 @@ export const hook_guard = hook({
   name: "PreToolUse",
   matcher: "Write|Edit|MultiEdit",
   type: "command",
-  command: "temper guard .",
+  command: `${failLoud} temper guard .`,
 });
 
 /** Keep Rust formatted as the agent edits; never fails the tool call. */

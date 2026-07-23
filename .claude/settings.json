@@ -15,7 +15,7 @@
       {
         "hooks": [
           {
-            "command": "temper guard .",
+            "command": "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .",
             "type": "command"
           }
         ],
@@ -26,7 +26,7 @@
       {
         "hooks": [
           {
-            "command": "temper check . --reporter session-start",
+            "command": "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start",
             "type": "command"
           }
         ]
