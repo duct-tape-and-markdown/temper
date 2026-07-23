@@ -369,15 +369,14 @@ fn the_install_wired_session_start_command_gates_the_full_declared_model() {
     .unwrap();
 
     // Drive the exact command `install` wires into the SessionStart hook, from the
-    // harness root Claude Code runs it in — the built binary stands in for the `temper`
-    // the hook names.
-    let args: Vec<&str> = temper::install::SESSION_START_COMMAND
-        .split_whitespace()
-        .skip(1)
-        .collect();
-    let output = Command::new(BIN)
+    // harness root Claude Code runs it in. The command includes shell syntax (for the
+    // PATH-resolvability guard), so run it through a shell as Claude Code's hooks do.
+    // Substitute the test binary's path for `temper` in the command.
+    let cmd = temper::install::SESSION_START_COMMAND.replace("temper", BIN);
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(&cmd)
         .current_dir(&harness)
-        .args(&args)
         .output()
         .unwrap();
 

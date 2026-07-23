@@ -89,7 +89,11 @@ fn sdk_version_range() -> &'static str {
 /// surface spelling that would walk members off the workspace dir and read every
 /// requirement unfilled. Public so the session-start acceptance can drive the exact
 /// wired command.
-pub const SESSION_START_COMMAND: &str = "temper check . --reporter session-start";
+///
+/// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
+/// exits non-zero with a clear error message naming the missing binary, per the
+/// fail-loud invariant.
+pub const SESSION_START_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start";
 
 /// The placement kind and its display labels.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,7 +139,13 @@ const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 /// `guard` subcommand, reading the payload from stdin and deciding at the harness's
 /// declared enforcement mode. The `.` roots the
 /// lock the enforcement mode is read from — the project Claude Code runs the hook in.
-const GUARD_COMMAND: &str = "temper guard .";
+///
+/// Guarded by a PATH-resolvability check: if `temper` is not found on PATH,
+/// exits non-zero with a clear error message naming the missing binary, per the
+/// fail-loud invariant.
+///
+/// Public so the guard-hook acceptance can drive the exact wired command.
+pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard .";
 
 /// The stable token the guard command carries so a re-install *replaces* the existing
 /// temper guard in place rather than appending a second one. The command is

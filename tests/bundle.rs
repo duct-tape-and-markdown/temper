@@ -61,7 +61,7 @@ fn bundle_emits_the_plugin_tree_and_marketplace() {
         serde_json::from_str(&fs::read_to_string(&hooks).unwrap()).unwrap();
     assert_eq!(
         hooks_json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "temper check . --reporter session-start"
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
     );
 
     // 3. No curated clause embeds: `bundle` delivers the gate, never clauses.

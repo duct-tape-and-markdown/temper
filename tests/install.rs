@@ -75,7 +75,7 @@ const NON_CANONICAL_SETTINGS: &str = "{\n    \"zeta\": \"first\",\n    \"permiss
 /// [`NON_CANONICAL_SETTINGS`], but with the `SessionStart` hook already merged in —
 /// the starting point for a second merge that only has the `PreToolUse` guard left
 /// to graft.
-const NON_CANONICAL_SETTINGS_WITH_HOOK: &str = "{\n    \"zeta\": \"first\",\n    \"hooks\": {\n        \"SessionStart\": [\n            { \"hooks\": [ { \"type\": \"command\", \"command\": \"temper check . --reporter session-start\" } ] }\n        ]\n    }\n}\n";
+const NON_CANONICAL_SETTINGS_WITH_HOOK: &str = "{\n    \"zeta\": \"first\",\n    \"hooks\": {\n        \"SessionStart\": [\n            { \"hooks\": [ { \"type\": \"command\", \"command\": \"command -v temper >/dev/null 2>&1 || { echo \\\"temper: command not found\\\" >&2; exit 127; } && temper check . --reporter session-start\" } ] }\n        ]\n    }\n}\n";
 
 /// [`NON_CANONICAL_SETTINGS`], but with a `SessionStart` array already populated by a
 /// different, non-temper tool — `session_start_present` reads `false` (the command
@@ -241,7 +241,7 @@ fn declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "temper check . --reporter session-start"
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
     );
     assert!(json["hooks"].get("PreToolUse").is_none());
     assert_eq!(
@@ -278,7 +278,7 @@ fn the_session_start_merge_never_reserializes_a_non_canonical_settings_file() {
     let json: serde_json::Value = serde_json::from_str(&after).unwrap();
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "temper check . --reporter session-start"
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
     );
     assert_eq!(
         json["zeta"], "first",
@@ -319,7 +319,7 @@ fn the_session_start_merge_appends_after_a_sibling_tools_existing_hook() {
     );
     assert_eq!(
         json["hooks"]["SessionStart"][1]["hooks"][0]["command"],
-        "temper check . --reporter session-start",
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start",
         "temper's own group is appended after the sibling entry, never before or in place of it"
     );
     assert_eq!(
@@ -437,7 +437,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        "temper guard ."
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard ."
     );
     assert!(
         !has_entry(&outcome, temper::install::Placement::Modeline),
@@ -765,7 +765,7 @@ fn a_hand_deepened_member_is_emit_owned_exactly_like_a_scaffolded_one() {
     let json: serde_json::Value = serde_json::from_str(&settings).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        "temper guard ."
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard ."
     );
 
     let extra_md = fs::read_to_string(
@@ -917,11 +917,11 @@ fn the_guard_merge_never_reserializes_a_non_canonical_settings_file() {
     let json: serde_json::Value = serde_json::from_str(&after).unwrap();
     assert_eq!(
         json["hooks"]["PreToolUse"][0]["hooks"][0]["command"],
-        "temper guard ."
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper guard ."
     );
     assert_eq!(
         json["hooks"]["SessionStart"][0]["hooks"][0]["command"],
-        "temper check . --reporter session-start"
+        "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start"
     );
     assert_eq!(
         json["zeta"], "first",
@@ -1604,5 +1604,93 @@ fn package_json_written_when_dependency_resolves_via_ancestor() {
     assert!(
         parsed["dependencies"]["@dtmd/temper"].is_string(),
         ".temper/package.json must declare @dtmd/temper dependency"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fail-loud invariant: hooks fail loud when temper is not on PATH
+// ---------------------------------------------------------------------------
+
+#[test]
+fn session_start_hook_fails_loud_when_temper_not_on_path() {
+    // Run the SESSION_START_COMMAND with temper not on PATH to verify it fails
+    // with a clear message naming temper as the missing binary.
+    let tmpdir = tempfile::Builder::new()
+        .prefix("hook-missing-temper-session-start")
+        .tempdir()
+        .unwrap();
+    let harness = tmpdir.path().to_path_buf();
+    let _ = tmpdir.keep();
+
+    // Create a minimal lock so the command can run.
+    let temper_dir = harness.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(temper_dir.join("lock.toml"), "").unwrap();
+
+    // Run the command through a shell with an empty PATH so temper cannot be found.
+    // Use the command that checks for temper on PATH, but remove temper from PATH.
+    let cmd = temper::install::SESSION_START_COMMAND;
+    let output = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(cmd)
+        .current_dir(&harness)
+        .env_clear()
+        .output()
+        .unwrap();
+
+    // The command must fail (non-zero exit) when temper is not on PATH.
+    assert!(
+        !output.status.success(),
+        "session-start must fail when temper is not on PATH"
+    );
+
+    // The error message must name temper as the missing binary.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("temper: command not found"),
+        "stderr must contain 'temper: command not found' to name the missing binary, got:\n{stderr}"
+    );
+}
+
+#[test]
+fn guard_hook_fails_loud_when_temper_not_on_path() {
+    // Run the GUARD_COMMAND with temper not on PATH to verify it fails
+    // with a clear message naming temper as the missing binary.
+    let tmpdir = tempfile::Builder::new()
+        .prefix("hook-missing-temper-guard")
+        .tempdir()
+        .unwrap();
+    let harness = tmpdir.path().to_path_buf();
+    let _ = tmpdir.keep();
+
+    // Create a minimal lock so the command can parse it.
+    let temper_dir = harness.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(temper_dir.join("lock.toml"), "").unwrap();
+
+    // Build a minimal guard payload.
+    let payload = r#"{"tool_name":"Write","tool_input":{"file_path":".claude/test.md"}}"#;
+
+    // Run the command through a shell with an empty PATH so temper cannot be found.
+    let cmd = temper::install::GUARD_COMMAND;
+    let output = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(format!("echo '{payload}' | {cmd}"))
+        .current_dir(&harness)
+        .env_clear()
+        .output()
+        .unwrap();
+
+    // The command must fail (non-zero exit) when temper is not on PATH.
+    assert!(
+        !output.status.success(),
+        "guard must fail when temper is not on PATH"
+    );
+
+    // The error message must name temper as the missing binary.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("temper: command not found"),
+        "stderr must contain 'temper: command not found' to name the missing binary, got:\n{stderr}"
     );
 }
