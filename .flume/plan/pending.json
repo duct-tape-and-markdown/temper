@@ -1,31 +1,5 @@
 [
   {
-    "tag": "COMPOSE-FRONTMATTER-FAULT-MATCH-DEDUP",
-    "summary": "resolve_kind_units's FrontmatterError-to-Diagnostic match arm is duplicated verbatim across both discovery branches; extract one helper.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "Extract the ~25-line `Err(err) => match err.downcast::<frontmatter::FrontmatterError>() { ... }` block — identical at resolve_kind_units's two discovery loops (nested-file loop, now ~645-670; governed-file loop, now ~682-707) — into one helper, e.g. `fn frontmatter_fault_diagnostic(err: miette::Report) -> Result<crate::check::Diagnostic, miette::Report>` mapping NoId/NoNamedFieldId/Malformed to a `member.load-fault` Diagnostic and re-raising any other error/variant; call it from both loop bodies in place of the inline match."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "cargo test passes unchanged (tests/gate_fail_loud.rs's `member.load-fault` findings_for assertions still hold, no test edits); `rg 'FrontmatterError::NoId' src/compose.rs` shows one match arm, not two.",
-    "notes": "Surfaced this tick's post-ship reconciliation sweep of f45e2bf (FRONTMATTER-LOAD-FAULT-AS-DIAGNOSTIC, shipped this window): the same downcast-and-map block appears twice in resolve_kind_units, one per discovery branch. Pure internal dedup, no behavior change expected. scoped at 0eabe0d."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
