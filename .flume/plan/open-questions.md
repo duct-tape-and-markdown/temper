@@ -125,15 +125,17 @@ condition arrives, it is the next break. If work touches one, surface it.
   object_shape/insert_member/pretty_at — no pending entry currently opens
   json_splice.rs, so per the rule it rides the next one that does rather
   than filing here. `src/drift.rs`'s `RawLockRow` doc comment (now
-  2074-2079, re-read at 126c264) still names `[read_prior_provenance]` in
+  2099-2104, re-read at 021c01d) still names `[read_prior_provenance]` in
   its intra-doc link list; DRIFT-EMIT-LOCK-PARSE-HOIST (112b188) renamed
   that fn to `read_prior_provenance_from_doc`. DRIFT-SOURCE-DEP-PARSE-HOIST
   (2df42a0), IMPORT-ROLLUP-WRITER-PLACEMENT (ab2e822),
   MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT (e97fc81), DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP
   (a96d0b0), DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE (f0880ce),
-  DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE (c52a1db), and
-  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588) have all since shipped
-  touching drift.rs, none reaching the region — so it still rides
+  DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE (c52a1db),
+  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588), and
+  SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE (819647c, the 25-line
+  `peek_and_validate_seam_version` insertion at 1015-1040) have all since
+  shipped touching drift.rs, none reaching the region — so it still rides
   whichever entry first does.
   `src/document.rs`'s
   `item_to_json` doc comment (surfaced the formats posture sweep) cites
@@ -142,7 +144,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   the citing sentence — stale from the moment it was authored. No pending
   entry currently opens document.rs, so it rides whichever one first does.
   `src/install.rs`'s orphaned `placement_lines` doc comment (now
-  1685-1691, re-read at 126c264) is dead prose the extraction commit
+  1696-1702, re-read at 021c01d) is dead prose the extraction commit
   (8704036, PLACEMENT-MODULE-EXTRACTION) left behind: it moved
   `placement_lines`/`is_placement_comment` to `src/placement.rs` verbatim
   but not their preceding doc comment, which still sits glued — no blank
@@ -154,11 +156,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   INSTALL-ERROR-ZERO-CONSUMER-PRUNE (2c037ba), and
   GUARD-DECLARED-LOCUS-FILTER (a5e154f) — plus INSTALL-PACKAGE-JSON-ANCESTOR-SHORT-CIRCUIT
   (9bf9ebb, the ensure_package_json/spawn_npm_install split at lines
-  7-13/443-452/1509-1546) and, new since the last read,
-  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588, write_scaffold_file's body
-  at 1454) — have all shipped touching install.rs, none reaching this
-  range; no entry currently open chains onto it, so it rides whichever
-  next does.
+  7-13/443-452/1509-1546), WRITE-CREATING-PARENTS-CONSOLIDATE (700b588,
+  write_scaffold_file's body at 1454), and, new since the last read,
+  GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED (9641ff2, gate_installed's
+  early-return + per-path tally at 519-560) and
+  HOOK-COMMAND-FAILS-LOUD-ON-MISSING-TEMPER (904d204, the PATH-guard
+  rewrite of SESSION_START_COMMAND/GUARD_COMMAND at 89-145) — have all
+  shipped touching install.rs, none reaching this range; no entry
+  currently open chains onto it, so it rides whichever next does.
   `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 352,
   re-read at f88e96d) still names `[extract::manifest_members]`, though
   the function it points at moved into this same file when
@@ -182,15 +187,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   contract.rs for edit — SHAPE-LEADING-DOT-SLASH-UNTESTED, filed this
   tick, only touches tests/shape_predicate.rs — so it rides whichever one
   first does.
-  **An eighth, surfaced the drift.rs posture sweep, re-read at 126c264.**
-  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2769-2788)
+  **An eighth, surfaced the drift.rs posture sweep, re-read at 021c01d.**
+  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2794-2813)
   is two glued doc blocks: the first paragraph and its `# Errors`
-  (2769-2778) claims "Returns a [`DriftError`] if the lock cannot be
+  (2794-2803) claims "Returns a [`DriftError`] if the lock cannot be
   read/parsed or a present row is malformed" — that is `source_dep_stale`'s
-  (2821-2843) contract, the sibling that reads and parses the lock file
-  itself; `source_dep_stale_from_doc` (2789-2819) takes an already-parsed
+  (2846-2868) contract, the sibling that reads and parses the lock file
+  itself; `source_dep_stale_from_doc` (2814-2844) takes an already-parsed
   `doc: &DocumentMut` and can only fail on a malformed row, correctly
-  stated by the second, glued-on paragraph (2779-2788). `source_dep_stale`
+  stated by the second, glued-on paragraph (2804-2813). `source_dep_stale`
   carries no doc comment of its own — the split evidently pasted the
   pre-split doc onto the new `_from_doc` function without trimming it to
   match, then never gave the surviving read+parse wrapper its own.
@@ -199,9 +204,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   have all since shipped (a96d0b0, f0880ce, c52a1db, 700b588), each
   confirmed on disk touching 1140-1148, the `config_stale` body,
   `write_rollup`'s custom-param call site, and `write_rollup`'s own
-  create-parent-dirs-then-write body respectively — none reaching
-  2769-2843. No entry is currently open on drift.rs at all, so it rides
-  whichever one next does.
+  create-parent-dirs-then-write body respectively. New since the last
+  read, SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE (819647c) touched
+  `emit_program` (950) and added `peek_and_validate_seam_version`
+  (1015-1040) — the +25-line shift is why every number above moved from
+  the prior read's 2769-2843. None of the five reach 2794-2868. No entry
+  is currently open on drift.rs at all, so it rides whichever one next
+  does.
   **A ninth, surfaced this tick's posture sweep of src/layout.rs's immediate
   import.** `src/extract.rs`'s `body_heading_tree` (538) and `body_preamble`
   (588) doc comments each justify their `pub(crate)` visibility as "so the
@@ -234,7 +243,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   currently opens contract.ts (CONTRACT-FORMAT-PLACES-EDGES-ZERO-CONSUMER
   already shipped, a00e14a), so it rides whichever one first does.
   **A twelfth, surfaced this tick's posture sweep of src/compose.rs.**
-  `src/compose.rs`'s `manifest_units` doc comment (556) still claims a
+  `src/compose.rs`'s `manifest_units` doc comment (now 558) still claims a
   manifest kind's members are "read through the JSON manifest adapter
   (`json_manifest::Manifest::read_kind`)" — true at the function's birth
   (76aaa83, where it called `read_kind` directly), but
@@ -242,10 +251,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   pre-populated `ManifestCache` instead (built once per manifest path by
   `Manifest::read` in `build_manifest_cache`); `rg` confirms `read_kind`'s
   only remaining callers are its own module's tests and `tests/**`, none in
-  `manifest_units`'s real path. COMPOSE-ZERO-CONSUMER-VISIBILITY-PRUNE,
-  filed this tick, now opens compose.rs but only touches the visibility of
-  `edge_fields_by_kind`/`embedded_member_features` (1076/1103) — not
-  reaching 556 — so the cite still rides whichever entry next reaches it.
+  `manifest_units`'s real path. COMPOSE-ZERO-CONSUMER-VISIBILITY-PRUNE
+  opened compose.rs but only touched the visibility of
+  `edge_fields_by_kind`/`embedded_member_features` (1076/1103); new since
+  that read, FRONTMATTER-LOAD-FAULT-AS-DIAGNOSTIC (a8a674a, `resolve_kind_units`'s
+  doc comment and signature at 601-625) and COMPOSE-FRONTMATTER-FAULT-MATCH-DEDUP
+  (b5c5a5d, the new `frontmatter_fault_diagnostic` helper inserted at 592-624)
+  have both shipped touching compose.rs — neither reaching 558, re-read at
+  021c01d — so the cite still rides whichever entry next reaches it.
   **A thirteenth, surfaced this tick's posture sweep of src/bundle.rs.**
   `src/bundle.rs`'s `PLUGIN_NAME` doc comment (51) cites "builtin_kind.rs
   line 397–399" for the claim that a plugin's contributed surfaces (its
