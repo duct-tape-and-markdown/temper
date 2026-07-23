@@ -37,17 +37,18 @@ This repo carries **two distinct harnesses**; do not conflate them:
    `temper` lints. Changes flow through human `chore(harness):` commits, never
    `build:` ticks.
 
-The **recursive dogfood is live**: this harness is represented at `.temper/`
-(member modules with module-adjacent prose documents, riding the workspace
-SDK via `file:../sdk`; `harness.ts`; the committed `lock.toml`), the
-`SessionStart` reporter and the guard are wired in `settings.json`, and the
-gate is `temper check .`. `CLAUDE.md` and the `.claude/` member files
-are **projections**: edit the owning `.temper/` module or document and
-re-run `temper emit` — a direct edit is drift. A fresh clone builds the SDK
-once (`pnpm -C sdk install && pnpm -C sdk build`) and installs the
-workspace dep (`npm -C .temper install`) before `emit` runs. Friction the
-dogfood surfaces routes to `.flume/inbox.md`, never into hand-patched
-`src/`.
+The **recursive dogfood is live** for one reason: temper runs against a real
+harness — this one — so we feel what an adopter feels before they do. `CLAUDE.md`
+and the `.claude/` member files are **projections** of `.temper/` sources; edit
+the owning module or document and re-run `temper emit`, never the generated file
+(a direct edit is drift the guard blocks). Fresh clone, before the first emit:
+`pnpm -C sdk install && pnpm -C sdk build`, then `npm -C .temper install`.
+
+The dogfood **consumes** the product and adapts to it; it never drives the
+product's design. Friction it surfaces that a real adopter would also hit is
+signal — route it to `.flume/inbox.md`. Friction that exists only because the
+dogfood represents something the product already owns is the dogfood's to
+absorb, never a `src/` change.
 
 Maintenance of either harness prefers **subtraction before addition**, and a
 surface states the rule, never the incident that taught it — these files are
