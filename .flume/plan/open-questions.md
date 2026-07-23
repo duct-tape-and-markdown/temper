@@ -125,16 +125,19 @@ condition arrives, it is the next break. If work touches one, surface it.
   object_shape/insert_member/pretty_at — no pending entry currently opens
   json_splice.rs, so per the rule it rides the next one that does rather
   than filing here. `src/drift.rs`'s `RawLockRow` doc comment (now
-  2099-2104, re-read at 021c01d) still names `[read_prior_provenance]` in
-  its intra-doc link list; DRIFT-EMIT-LOCK-PARSE-HOIST (112b188) renamed
-  that fn to `read_prior_provenance_from_doc`. DRIFT-SOURCE-DEP-PARSE-HOIST
+  2099-2104, re-read at 4d9be4e — all of this window's edits sit below
+  line 2100, so the region is unshifted) still names
+  `[read_prior_provenance]` in its intra-doc link list; DRIFT-EMIT-LOCK-PARSE-HOIST
+  (112b188) renamed that fn to `read_prior_provenance_from_doc`. DRIFT-SOURCE-DEP-PARSE-HOIST
   (2df42a0), IMPORT-ROLLUP-WRITER-PLACEMENT (ab2e822),
   MAIN-LOCK-ROW-CONSTRUCTORS-TO-DRIFT (e97fc81), DRIFT-COLLECTION-ADDRESS-ENTRY-SHAPE-DEDUP
   (a96d0b0), DRIFT-CONFIG-STALE-FROM-DOC-DELEGATE (f0880ce),
   DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE (c52a1db),
-  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588), and
+  WRITE-CREATING-PARENTS-CONSOLIDATE (700b588),
   SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE (819647c, the 25-line
-  `peek_and_validate_seam_version` insertion at 1015-1040) have all since
+  `peek_and_validate_seam_version` insertion at 1015-1040), and
+  DRIFT-COMPARE-EOL-CANONICALIZE (e0de7be, the 4 canonicalize_eol call-site
+  edits at 2226/2542/2623/2827 plus the import line at 31) have all since
   shipped touching drift.rs, none reaching the region — so it still rides
   whichever entry first does.
   `src/document.rs`'s
@@ -187,15 +190,15 @@ condition arrives, it is the next break. If work touches one, surface it.
   contract.rs for edit — SHAPE-LEADING-DOT-SLASH-UNTESTED, filed this
   tick, only touches tests/shape_predicate.rs — so it rides whichever one
   first does.
-  **An eighth, surfaced the drift.rs posture sweep, re-read at 021c01d.**
-  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2794-2813)
+  **An eighth, surfaced the drift.rs posture sweep, re-read at 4d9be4e.**
+  `src/drift.rs`'s `source_dep_stale_from_doc` doc comment (now 2797-2816)
   is two glued doc blocks: the first paragraph and its `# Errors`
-  (2794-2803) claims "Returns a [`DriftError`] if the lock cannot be
+  (2797-2806) claims "Returns a [`DriftError`] if the lock cannot be
   read/parsed or a present row is malformed" — that is `source_dep_stale`'s
-  (2846-2868) contract, the sibling that reads and parses the lock file
-  itself; `source_dep_stale_from_doc` (2814-2844) takes an already-parsed
+  (2849-2871) contract, the sibling that reads and parses the lock file
+  itself; `source_dep_stale_from_doc` (2817-2847) takes an already-parsed
   `doc: &DocumentMut` and can only fail on a malformed row, correctly
-  stated by the second, glued-on paragraph (2804-2813). `source_dep_stale`
+  stated by the second, glued-on paragraph (2807-2816). `source_dep_stale`
   carries no doc comment of its own — the split evidently pasted the
   pre-split doc onto the new `_from_doc` function without trimming it to
   match, then never gave the surviving read+parse wrapper its own.
@@ -204,13 +207,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   have all since shipped (a96d0b0, f0880ce, c52a1db, 700b588), each
   confirmed on disk touching 1140-1148, the `config_stale` body,
   `write_rollup`'s custom-param call site, and `write_rollup`'s own
-  create-parent-dirs-then-write body respectively. New since the last
-  read, SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE (819647c) touched
-  `emit_program` (950) and added `peek_and_validate_seam_version`
-  (1015-1040) — the +25-line shift is why every number above moved from
-  the prior read's 2769-2843. None of the five reach 2794-2868. No entry
-  is currently open on drift.rs at all, so it rides whichever one next
-  does.
+  create-parent-dirs-then-write body respectively. SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE
+  (819647c) touched `emit_program` (950) and added `peek_and_validate_seam_version`
+  (1015-1040) — the +25-line shift that moved the prior read's 2769-2843 to
+  2794-2868. New since that read, DRIFT-COMPARE-EOL-CANONICALIZE (e0de7be)
+  landed its own body edit squarely inside `source_dep_stale_from_doc`
+  (the canonicalize_eol wrap at line 2827) plus 3 net new lines earlier in
+  the file (classify_orphan/place's wraps) — the +3 shift behind every
+  number above moving from 2794-2868 to 2797-2871 — but touched only the
+  match arm, never the doc comment 11 lines above it, so the glued
+  mis-attribution survives untouched. None of the six reach the doc-comment
+  region. No entry is currently open on drift.rs at all, so it rides
+  whichever one next does.
   **A ninth, surfaced this tick's posture sweep of src/layout.rs's immediate
   import.** `src/extract.rs`'s `body_heading_tree` (538) and `body_preamble`
   (588) doc comments each justify their `pub(crate)` visibility as "so the
