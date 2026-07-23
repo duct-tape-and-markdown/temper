@@ -1,5 +1,48 @@
 [
   {
+    "tag": "DRIFT-COMPARE-EOL-CANONICALIZE",
+    "summary": "Canonicalize EOL before hashing in drift.rs's 4 fingerprint/baseline comparisons (config_stale, source_dep_stale, reap classify, place baseline) so a CRLF checkout reads clean, per pipeline.md Drift.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Drift"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "Canonicalize on-disk bytes' CRLF/lone-CR to LF before hashing/comparing, at exactly 4 sites: classify_orphan's reap comparison (2226, Reaped vs OrphanDrift), place's drifted_from_baseline (2539, install's placement-conflict detection), config_stale_from_doc's committed-projection freshness fact (2620), source_dep_stale_from_doc's layout-import/include freshness fact (2824). The stored emit_hash/import_hash/baseline and any freshly-rendered `desired` bytes stay LF-exact, untouched. Do NOT touch the Unchanged-vs-Emitted write-skip comparisons (emit_one 2331, emit_manifest 1661, place's initial `real == desired.as_bytes()` at 2532) — those are write-time idempotency checks the ratified clause explicitly leaves byte-exact ('emit still writes LF')."
+        },
+        {
+          "path": "src/hash.rs",
+          "description": "Likely home for a shared byte-level EOL-canonicalizing helper (its own doc comment already frames this file as the drift engine's single hashing home) — one helper the 4 drift.rs sites share, not four inline copies. Operate on raw &[u8] (no UTF-8 decode required for a CRLF/lone-CR collapse), distinct from drift.rs's existing str-based `normalize_lf` (2239, a write-side helper for authored body content, unrelated to this compare-side fix). Implementer's call whether to add here or reuse/adapt normalize_lf for bytes."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/emit.rs",
+        "asserts": "a CRLF-rewritten-but-content-identical committed projection reports drift::config_stale empty, and an orphaned CRLF-rewritten-but-content-identical projection classifies EmitOutcome::Reaped (not OrphanDrift); a genuine content edit under CRLF still flags config_stale and OrphanDrift respectively."
+      },
+      {
+        "path": "tests/layout_prose_import.rs",
+        "asserts": "a CRLF-rewritten-but-content-identical layout-import target reports source_dep_stale empty; a genuine content edit under CRLF still flags it (tests/prose_include.rs may fit better for the include family — implementer's call, cite whichever family's fixture the test exercises)."
+      },
+      {
+        "path": "src/drift.rs",
+        "asserts": "inline mod tests: place() does not report ApplyOutcome::Conflicted for a CRLF-only rewrite of the target against a baseline hashed from LF content; still reports Conflicted for a genuine (non-EOL) edit — sibling case to the existing place_conflicts_only_against_a_recorded_baseline test."
+      }
+    ],
+    "acceptance": "check's config_stale and source_dep_stale report no finding for an EOL-only (CRLF vs LF) diff between disk and the lock's fingerprint; emit's reap classifies an EOL-only-differing orphan Reaped, not OrphanDrift; install's place() does not report Conflicted for an EOL-only diff against a recorded baseline; each site still flags a genuine non-EOL diff; emit's own write path keeps producing byte-exact LF output unchanged (a_crlf_or_lone_cr_body_emits_an_lf_only_projection and the hash-baseline test stay green).",
+    "notes": "scoped at aee005d. Disposition in .flume/inbox.md item 10 (spec ratified aee005d). Re-verified: the disposition's 4 sha256_hex sites (2620/2226/2824/2539) are exactly the fingerprint/baseline comparisons the clause governs. 3 other raw byte-== sites in the same file (emit_one 2331, emit_manifest 1661, place's initial check 2532) are the Unchanged-vs-Emitted write-skip decision the clause leaves alone (\"emit still writes LF\") — excluded on purpose, not an oversight."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
