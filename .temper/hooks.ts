@@ -7,9 +7,10 @@ import { hook } from "@dtmd/temper/claude-code";
 // PATH-resolvability preamble: a temper-invoking hook fails loud (exit 127)
 // when `temper` is off PATH, rather than a silent shell "command not found".
 // This string MUST stay byte-identical to src/install.rs's SESSION_START_COMMAND
-// / GUARD_COMMAND: `gate_installed` compares the emitted hook against that Rust
-// constant, so any divergence re-reds the gate every session. The cross-language
-// duplication is the smell — single-source follow-up filed in .flume/refactor/.
+// / GUARD_COMMAND — `gate_installed` compares the emitted hook against that Rust
+// constant. The dogfood mirrors the product's canonical form by hand on purpose:
+// this harness is a consumer of temper, so it adapts to the product's gate; the
+// product is never reshaped to spare the dogfood the copy.
 const failLoud =
   'command -v temper >/dev/null 2>&1 || { echo "temper: command not found" >&2; exit 127; } &&';
 
