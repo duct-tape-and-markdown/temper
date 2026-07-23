@@ -136,10 +136,9 @@ fn a_correctly_rooted_check_that_resolves_members_stays_silent() {
 #[test]
 fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
     // A skill whose SKILL.md carries a present-but-non-mapping frontmatter block. The
-    // parse used to degrade to an empty field map, so the floor judged fabricated
-    // absence (a missing `name`/`description`). Invariant 6 wants the malformation
-    // surfaced loud — an error naming the file, never a missing-field finding over
-    // silently-emptied fields.
+    // parse used to abort with no findings; now it surfaces as an error Diagnostic naming
+    // the file. Invariant 6 wants the malformation surfaced loud — an error naming the
+    // file and the fault, continuing to check other members in the harness.
     let root = common::tmpdir("malformed-frontmatter");
     let malformed = "---\n\
         this is a bare scalar, not a mapping\n\
@@ -166,11 +165,69 @@ fn a_malformed_frontmatter_block_fails_loud_naming_the_file() {
         "the error must name the malformation, got:\n{}",
         run.output
     );
-    // The block aborts loud; no field-level finding is emitted over the emptied fields.
+    // The fault is now collected as an error Diagnostic naming the file.
     let findings = run.findings();
+    let fault_findings: Vec<_> = common::findings_for(&findings, "member.load-fault");
+    assert_eq!(
+        fault_findings.len(),
+        1,
+        "a malformed block must emit a load-fault finding, got:\n{findings:#?}"
+    );
     assert!(
-        findings.is_empty(),
-        "a malformed block aborts loud; it must not emit field findings, got:\n{findings:#?}"
+        fault_findings[0].contains("SKILL.md"),
+        "the finding must name the file, got: {}",
+        fault_findings[0]
+    );
+}
+
+#[test]
+fn a_harness_with_one_malformed_member_still_checks_clean_members() {
+    // When a harness carries a malformed member plus N clean members, the malformed
+    // member's load fault is collected as a diagnostic, and the check continues over
+    // the remaining members instead of aborting. This validates the 4/9-harness scenario
+    // where a single malformed member should not prevent the others from being checked.
+    let root = common::tmpdir("malformed-with-clean-members");
+
+    // Add a clean skill.
+    common::write_skill(&root, "coordinate", CLEAN_SKILL);
+
+    // Add a malformed skill.
+    let malformed = "---\n\
+        this is a bare scalar, not a mapping\n\
+        ---\n\
+        # Broken\n\
+        \n\
+        Body.\n";
+    common::write_skill(&root, "broken", malformed);
+
+    let (findings, success) = check_in(&root, &["."]);
+
+    // The run fails due to the malformed member.
+    assert!(
+        !success,
+        "a harness with a malformed member must exit non-zero, got: {findings:#?}"
+    );
+
+    // The malformed member produces a load-fault finding.
+    let fault_findings = common::findings_for(&findings, "member.load-fault");
+    assert_eq!(
+        fault_findings.len(),
+        1,
+        "exactly one load-fault finding for the malformed member, got: {findings:#?}"
+    );
+
+    // The clean member is still discovered and contributes to the member count.
+    let coverage_findings = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        coverage_findings.len(),
+        1,
+        "coverage finding should report member counts, got: {findings:#?}"
+    );
+    // Should report "checked 1 members ... skill (1)" indicating the clean skill was found.
+    assert!(
+        coverage_findings[0].contains("skill (1)"),
+        "the clean skill must still be discovered, got: {}",
+        coverage_findings[0]
     );
 }
 

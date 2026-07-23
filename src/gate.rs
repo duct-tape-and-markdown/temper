@@ -175,6 +175,7 @@ pub fn gate(
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
+        diagnostics.extend(uaf.load_faults.clone());
         member_counts.insert(kind_name.clone(), features.len());
         contracts.insert(kind_name.clone(), contract);
         builtin_features.insert(kind_name.clone(), features.clone());
@@ -249,6 +250,7 @@ pub fn gate(
             &mut dialed,
         );
         diagnostics.extend(dispatch_diags);
+        diagnostics.extend(uaf.load_faults.clone());
         member_counts.insert(row.name.clone(), features.len());
         contracts.insert(row.name.clone(), contract);
         custom_kinds.push((custom_kind.clone(), features.clone()));

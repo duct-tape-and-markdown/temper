@@ -361,6 +361,8 @@ pub struct KindUnitsAndFeatures {
     pub units: Vec<Unit>,
     /// Each unit's extracted features in parallel order.
     pub features: Vec<extract::Features>,
+    /// Frontmatter load faults collected during member discovery, rather than aborting.
+    pub load_faults: Vec<crate::check::Diagnostic>,
 }
 
 /// The run's whole declaration family, assembled once for every consumer below.
@@ -599,17 +601,22 @@ fn manifest_units(
 /// no rationale text — so `explain` can never disagree with the gate about which
 /// requirements a member fills.
 ///
+/// Frontmatter load faults (malformed YAML, missing id field) are collected as
+/// diagnostics rather than aborting the read, so remaining members are still
+/// discovered and checked.
+///
 /// # Errors
 ///
-/// Returns an error if a source file is unreadable or malformed, or a governed
-/// directory cannot be enumerated.
+/// Returns an error if a source file is unreadable or malformed (non-frontmatter errors),
+/// or a governed directory cannot be enumerated. Frontmatter-specific errors (NoId,
+/// NoNamedFieldId, Malformed) are collected as diagnostics, not propagated.
 pub fn resolve_kind_units(
     kind: &CustomKind,
     disc: &import::Discovery,
     declarations: &drift::Declarations,
     cache: &ManifestCache,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
-) -> miette::Result<Vec<Unit>> {
+) -> miette::Result<(Vec<Unit>, Vec<crate::check::Diagnostic>)> {
     RESOLVE_KIND_UNITS_COUNT.with(|c| c.set(c.get() + 1));
     let overlaid = kind.clone();
     let governs = overlaid.governs.clone();
@@ -618,6 +625,7 @@ pub fn resolve_kind_units(
         &declarations.assembly,
         &kind.name,
     )?);
+    let mut load_fault_diagnostics = Vec::new();
 
     let mut units = match (&overlaid.content, &overlaid.collection_address, &governs) {
         (kind::Content::Fields, Some(address), _) => {
@@ -632,12 +640,34 @@ pub fn resolve_kind_units(
                 &kinds,
                 import::LocalOverride::Honored,
             ) {
-                child_units.push(read_file_unit(
-                    &overlaid,
-                    &found.file,
-                    &found.host_unit,
-                    &edge_fields,
-                )?);
+                match read_file_unit(&overlaid, &found.file, &found.host_unit, &edge_fields) {
+                    Ok(unit) => child_units.push(unit),
+                    Err(err) => match err.downcast::<frontmatter::FrontmatterError>() {
+                        Ok(frontmatter::FrontmatterError::NoId { path, shape }) => {
+                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
+                                "member.load-fault",
+                                path.display().to_string(),
+                                format!("member has no {}-shape id from its path", shape),
+                            ));
+                        }
+                        Ok(frontmatter::FrontmatterError::NoNamedFieldId { path, field }) => {
+                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
+                                "member.load-fault",
+                                path.display().to_string(),
+                                format!("member has no `{}` frontmatter field to name it", field),
+                            ));
+                        }
+                        Ok(frontmatter::FrontmatterError::Malformed { path, detail }) => {
+                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
+                                "member.load-fault",
+                                path.display().to_string(),
+                                format!("frontmatter block {}", detail),
+                            ));
+                        }
+                        Ok(fm_err) => return Err(miette::Report::new(fm_err)),
+                        Err(err) => return Err(err),
+                    },
+                }
             }
             child_units
         }
@@ -647,7 +677,34 @@ pub fn resolve_kind_units(
             for file in
                 import::discover_kind_files(disc, kind, governs, import::LocalOverride::Honored)
             {
-                file_units.push(read_file_unit(&overlaid, &file, &base, &edge_fields)?);
+                match read_file_unit(&overlaid, &file, &base, &edge_fields) {
+                    Ok(unit) => file_units.push(unit),
+                    Err(err) => match err.downcast::<frontmatter::FrontmatterError>() {
+                        Ok(frontmatter::FrontmatterError::NoId { path, shape }) => {
+                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
+                                "member.load-fault",
+                                path.display().to_string(),
+                                format!("member has no {}-shape id from its path", shape),
+                            ));
+                        }
+                        Ok(frontmatter::FrontmatterError::NoNamedFieldId { path, field }) => {
+                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
+                                "member.load-fault",
+                                path.display().to_string(),
+                                format!("member has no `{}` frontmatter field to name it", field),
+                            ));
+                        }
+                        Ok(frontmatter::FrontmatterError::Malformed { path, detail }) => {
+                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
+                                "member.load-fault",
+                                path.display().to_string(),
+                                format!("frontmatter block {}", detail),
+                            ));
+                        }
+                        Ok(fm_err) => return Err(miette::Report::new(fm_err)),
+                        Err(err) => return Err(err),
+                    },
+                }
             }
             file_units
         }
@@ -674,7 +731,7 @@ pub fn resolve_kind_units(
     }
 
     units.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(units)
+    Ok((units, load_fault_diagnostics))
 }
 
 /// A kind's members' extracted [`extract::Features`] — [`resolve_kind_units`]
@@ -694,12 +751,17 @@ pub fn kind_units_and_features(
     cache: &ManifestCache,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
 ) -> miette::Result<KindUnitsAndFeatures> {
-    let units = resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
+    let (units, load_faults) =
+        resolve_kind_units(kind, disc, declarations, cache, overlaid_builtin_kinds)?;
     let features = units
         .iter()
         .map(|unit| builtin_kind::features(kind, unit, &declarations.nested_members))
         .collect();
-    Ok(KindUnitsAndFeatures { units, features })
+    Ok(KindUnitsAndFeatures {
+        units,
+        features,
+        load_faults,
+    })
 }
 
 /// Resolve every embedded built-in kind's discovered units and features off `harness_root`,
@@ -953,7 +1015,7 @@ pub fn assemble_lock_family(
         if kind.commitment != Some(kind::Commitment::Local) {
             continue;
         }
-        let units = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
+        let (units, _) = resolve_kind_units(kind, disc, committed, cache, &overlaid_builtin_kinds)?;
         let rows = local_document_rows(kind, &units, committed)?;
         local_members.extend(
             units
@@ -1703,7 +1765,7 @@ mod tests {
         )]);
 
         // Resolve units for the memory kind with unnormalized harness root.
-        let units = resolve_kind_units(
+        let (units, _) = resolve_kind_units(
             &memory_kind,
             &disc,
             &declarations,
