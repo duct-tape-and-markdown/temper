@@ -589,6 +589,41 @@ fn manifest_units(
     Ok(units)
 }
 
+/// Map a frontmatter load fault to a diagnostic, or return the error to propagate.
+/// Called from both discovery branches in [`resolve_kind_units`] to avoid duplication.
+/// Handles the three known load-fault cases (NoId, NoNamedFieldId, Malformed) by
+/// creating a member.load-fault diagnostic; any other frontmatter error or non-frontmatter
+/// error is returned to be re-raised.
+fn frontmatter_fault_diagnostic(
+    err: miette::Report,
+) -> Result<crate::check::Diagnostic, miette::Report> {
+    match err.downcast::<frontmatter::FrontmatterError>() {
+        Ok(frontmatter::FrontmatterError::NoId { path, shape }) => {
+            Ok(crate::check::Diagnostic::error(
+                "member.load-fault",
+                path.display().to_string(),
+                format!("member has no {}-shape id from its path", shape),
+            ))
+        }
+        Ok(frontmatter::FrontmatterError::NoNamedFieldId { path, field }) => {
+            Ok(crate::check::Diagnostic::error(
+                "member.load-fault",
+                path.display().to_string(),
+                format!("member has no `{}` frontmatter field to name it", field),
+            ))
+        }
+        Ok(frontmatter::FrontmatterError::Malformed { path, detail }) => {
+            Ok(crate::check::Diagnostic::error(
+                "member.load-fault",
+                path.display().to_string(),
+                format!("frontmatter block {}", detail),
+            ))
+        }
+        Ok(fm_err) => Err(miette::Report::new(fm_err)),
+        Err(err) => Err(err),
+    }
+}
+
 /// A kind's members, resolved live off disk — the one corpus both `gate` and `explain`
 /// range over. Every member is discovered by walking this kind's [`overlay_builtin_kind`]-overlaid
 /// `governs` locus, read straight off harness disk so the corpus can never drift from a
@@ -642,29 +677,8 @@ pub fn resolve_kind_units(
             ) {
                 match read_file_unit(&overlaid, &found.file, &found.host_unit, &edge_fields) {
                     Ok(unit) => child_units.push(unit),
-                    Err(err) => match err.downcast::<frontmatter::FrontmatterError>() {
-                        Ok(frontmatter::FrontmatterError::NoId { path, shape }) => {
-                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
-                                "member.load-fault",
-                                path.display().to_string(),
-                                format!("member has no {}-shape id from its path", shape),
-                            ));
-                        }
-                        Ok(frontmatter::FrontmatterError::NoNamedFieldId { path, field }) => {
-                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
-                                "member.load-fault",
-                                path.display().to_string(),
-                                format!("member has no `{}` frontmatter field to name it", field),
-                            ));
-                        }
-                        Ok(frontmatter::FrontmatterError::Malformed { path, detail }) => {
-                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
-                                "member.load-fault",
-                                path.display().to_string(),
-                                format!("frontmatter block {}", detail),
-                            ));
-                        }
-                        Ok(fm_err) => return Err(miette::Report::new(fm_err)),
+                    Err(err) => match frontmatter_fault_diagnostic(err) {
+                        Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
                         Err(err) => return Err(err),
                     },
                 }
@@ -679,29 +693,8 @@ pub fn resolve_kind_units(
             {
                 match read_file_unit(&overlaid, &file, &base, &edge_fields) {
                     Ok(unit) => file_units.push(unit),
-                    Err(err) => match err.downcast::<frontmatter::FrontmatterError>() {
-                        Ok(frontmatter::FrontmatterError::NoId { path, shape }) => {
-                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
-                                "member.load-fault",
-                                path.display().to_string(),
-                                format!("member has no {}-shape id from its path", shape),
-                            ));
-                        }
-                        Ok(frontmatter::FrontmatterError::NoNamedFieldId { path, field }) => {
-                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
-                                "member.load-fault",
-                                path.display().to_string(),
-                                format!("member has no `{}` frontmatter field to name it", field),
-                            ));
-                        }
-                        Ok(frontmatter::FrontmatterError::Malformed { path, detail }) => {
-                            load_fault_diagnostics.push(crate::check::Diagnostic::error(
-                                "member.load-fault",
-                                path.display().to_string(),
-                                format!("frontmatter block {}", detail),
-                            ));
-                        }
-                        Ok(fm_err) => return Err(miette::Report::new(fm_err)),
+                    Err(err) => match frontmatter_fault_diagnostic(err) {
+                        Ok(diagnostic) => load_fault_diagnostics.push(diagnostic),
                         Err(err) => return Err(err),
                     },
                 }
