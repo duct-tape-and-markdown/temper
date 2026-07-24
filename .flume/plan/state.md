@@ -7,14 +7,16 @@
   the commit body).
 - Residue swept through: a627178 — same window; one harness gap routed to
   friction, no pending entry (full DATUM in the commit body).
-- Posture swept through: mid-rotation, at src/placement.rs — clean;
-  src/read.rs next in the c9d11d5 rotation's frontier.
-- This tick: POSTURE SWEEP src/placement.rs (+ its immediate import
-  src/frontmatter.rs) — clean, no fileable findings (evidence in the
-  commit body).
+- Posture swept through: mid-rotation, at src/read.rs (+ its immediate
+  imports src/tap.rs, src/telemetry.rs, both themselves frontier modules
+  and folded in) — all clean; src/reporter.rs next in the c9d11d5
+  rotation's frontier.
+- This tick: POSTURE SWEEP src/read.rs (+ its immediate imports
+  src/tap.rs, src/telemetry.rs) — clean, no fileable findings (evidence
+  in the commit body).
 - Queue: 2 pending — 1 parked, 1 deferred, 0 open. Open forks: 2,
   unchanged. Friction: 2, unchanged. Amendments: 0. Inbox: 0.
 
 Plan continues: yes — the posture rotation is still open (frontier
-non-empty: src/read.rs onward) with no pickable entry in the queue
+non-empty: src/reporter.rs onward) with no pickable entry in the queue
 right now, so plan drives the sweep itself next tick.
