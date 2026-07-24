@@ -148,7 +148,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   the citing sentence — stale from the moment it was authored. No pending
   entry currently opens document.rs, so it rides whichever one first does.
   `src/install.rs`'s orphaned `placement_lines` doc comment (now
-  1696-1702, re-read at 021c01d) is dead prose the extraction commit
+  1696-1702, re-read at 4721d57) is dead prose the extraction commit
   (8704036, PLACEMENT-MODULE-EXTRACTION) left behind: it moved
   `placement_lines`/`is_placement_comment` to `src/placement.rs` verbatim
   but not their preceding doc comment, which still sits glued — no blank
@@ -166,8 +166,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   early-return + per-path tally at 519-560) and
   HOOK-COMMAND-FAILS-LOUD-ON-MISSING-TEMPER (904d204, the PATH-guard
   rewrite of SESSION_START_COMMAND/GUARD_COMMAND at 89-145) — have all
-  shipped touching install.rs, none reaching this range; no entry
-  currently open chains onto it, so it rides whichever next does.
+  shipped touching install.rs, none reaching this range. This tick's
+  posture sweep read the file whole and filed
+  INSTALL-CLAUDE-ROOT-PROVIDER-FACE-REUSE (open, unbuilt), scoped to
+  `settings_path`/`is_claude_path` at 593/778 — also not this range, so
+  it still rides whichever entry next reaches it.
   `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 352,
   re-read at f88e96d) still names `[extract::manifest_members]`, though
   the function it points at moved into this same file when
