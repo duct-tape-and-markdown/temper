@@ -131,8 +131,8 @@ const GATE_RULE: &str = "install.gate-installed";
 
 /// The tool-name matcher the guard hook binds — Claude Code's own write boundary.
 /// The guard binds *this provider's* writes only; the stated, unsolved limit
-/// is that other consumers of a shared
-/// file are not instrumented by it.
+/// is that other consumers of a shared file are not instrumented by it.
+/// (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24).
 const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 
 /// The exec-form command the `PreToolUse` guard hook runs: the `temper` binary's own
@@ -1157,6 +1157,8 @@ fn splice_guard_command(
 }
 
 /// The `SessionStart` hook group temper installs: the exec-form command alone.
+/// Shape: `{hooks: [{type, command}]}` (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24);
+/// `matcher` is optional for `SessionStart` (fires on every session start).
 pub(crate) fn session_start_group() -> JsonValue {
     json!({ "hooks": [ { "type": "command", "command": SESSION_START_COMMAND } ] })
 }
