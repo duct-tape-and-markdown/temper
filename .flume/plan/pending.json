@@ -1,5 +1,37 @@
 [
   {
+    "tag": "DEFAULT-WORKSPACE-ONE-HOME",
+    "summary": "main.rs's DEFAULT_WORKSPACE LazyLock and read.rs::explain_target both independently format!(\"./{}\", WORKSPACE_DIR) — hoist the derivation to one library home.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/lib.rs",
+          "description": "Add a `pub fn default_workspace() -> String { format!(\"./{WORKSPACE_DIR}\") }` beside the `WORKSPACE_DIR` const (line 23) — the one home for the `./`-prefixed derivation, so a future WORKSPACE_DIR rename has a single formula to update."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Replace the `DEFAULT_WORKSPACE` LazyLock's body (lines 42-43, `LazyLock::new(|| format!(\"./{}\", temper::WORKSPACE_DIR))`) with `LazyLock::new(temper::default_workspace)` — same value, same laziness, one fewer independent formula."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Replace `explain_target`'s inline `PathBuf::from(format!(\"./{}\", crate::WORKSPACE_DIR))` (line 1602) with `PathBuf::from(crate::default_workspace())` — the second independent implementation of the same derivation the READ-EXPLAIN-DEFAULT-WORKSPACE-DERIVE entry (shipped 3eb13268) stopped short of consolidating."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "Exactly one function computes the `./`-prefixed workspace-default path; main.rs's CLI default and read.rs::explain_target's read both call it, and cargo test/clippy stay green.",
+    "notes": "Found sweeping src/read.rs: d2d89c94 matched read.rs's literal to main.rs's formula-shape but left two independent format! sites computing the identical value — \"one job, one home\"'s own residue class. No new test: not a behavior change, same value both sites already produce. scoped at 00cdb6f1."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
