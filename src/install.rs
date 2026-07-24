@@ -1234,13 +1234,17 @@ fn group_has_command(group: &JsonValue, pred: impl Fn(&str) -> bool) -> bool {
 // the lift — scaffold the SDK program from the discovery report
 // ---------------------------------------------------------------------------
 
-/// The scaffold subdirectory a bare kind's member modules live under.
-fn member_dir(kind: &str) -> &'static str {
+/// The scaffold subdirectory a bare kind's member modules live under. Every
+/// kind gets its own bucket — a shared directory would let two kinds' same-named
+/// members overwrite each other on `write_creating_parents` — so an
+/// unrecognized kind falls through to its own bare name rather than a shared
+/// catch-all.
+fn member_dir(kind: &str) -> String {
     match kind {
-        "skill" => "skills",
-        "rule" => "rules",
-        "memory" => "memory",
-        _ => "members",
+        "skill" => "skills".to_string(),
+        "rule" => "rules".to_string(),
+        "memory" => "memory".to_string(),
+        other => other.to_string(),
     }
 }
 

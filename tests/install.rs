@@ -469,6 +469,63 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     assert!(!collaboration_md.contains("# temper: managed projection"));
 }
 
+/// A `.claude/commands/deploy.md` — no required frontmatter fields.
+const COMMAND_DEPLOY: &str = "---\n\
+description: Deploy the service.\n\
+---\n\
+# Deploy\n\
+\n\
+Ship the command surface's build.\n";
+
+/// A `.claude/agents/deploy.md` sharing the command above's member id — its
+/// identity comes from the `name` field, never the filename, but it still
+/// lands on `deploy`.
+const AGENT_DEPLOY: &str = "---\n\
+name: deploy\n\
+description: Use to deploy the agent surface's build.\n\
+---\n\
+# Deploy\n\
+\n\
+Ship the agent surface's build.\n";
+
+#[test]
+fn a_command_and_an_agent_sharing_a_member_id_scaffold_to_distinct_paths() {
+    let root = common::tmpdir("member-dir-widen");
+    let commands = root.join(".claude").join("commands");
+    fs::create_dir_all(&commands).unwrap();
+    fs::write(commands.join("deploy.md"), COMMAND_DEPLOY).unwrap();
+
+    let agents = root.join(".claude").join("agents");
+    fs::create_dir_all(&agents).unwrap();
+    fs::write(agents.join("deploy.md"), AGENT_DEPLOY).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    let discovery = install::discover(&root).unwrap();
+    let outcome = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    assert!(outcome.represented);
+    assert_eq!(outcome.scaffolded, 2, "one command + one agent");
+
+    let command_module = temper_dir.join("command").join("deploy.ts");
+    let agent_module = temper_dir.join("agent").join("deploy.ts");
+    assert!(
+        command_module.is_file(),
+        "the command must scaffold into its own kind-named directory"
+    );
+    assert!(
+        agent_module.is_file(),
+        "the agent must scaffold into its own kind-named directory, never overwriting the command's file"
+    );
+    assert_ne!(
+        fs::read_to_string(&command_module).unwrap(),
+        fs::read_to_string(&agent_module).unwrap(),
+        "distinct directories must carry each kind's own content rather than one clobbering the other"
+    );
+}
+
 /// A skill whose body is a document — well past the SDK's three-line inline
 /// threshold (`sdk/src/prose.ts`) — the lift's other prose placement: a
 /// module-adjacent file, never a `file()` back-reference to the original
