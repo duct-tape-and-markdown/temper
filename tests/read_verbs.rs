@@ -212,7 +212,7 @@ fn a_member_known_only_to_by_kind_resolves_without_a_spurious_not_found() {
 
 #[test]
 fn a_requirement_satisfied_only_in_by_kind_reports_filled_agreeing_with_the_gate() {
-    // `locked` satisfies `req` only through `by_kind` — the corpus `roster::check`
+    // `locked` satisfies `req` only through `by_kind` — the corpus `roster::selections`
     // (the gate) counts satisfiers from — never threaded into `custom`. `explain` must
     // report the same fill status the gate reports: filled, never unfilled, even
     // though the custom listing carries no rationale-bearing record of it.

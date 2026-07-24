@@ -254,7 +254,7 @@ fn the_kind_narrowing_clause_loads_at_required_severity() {
 
 /// The clause round-trips in a requirement's clause set: attaching it to a
 /// [`temper::compose::Requirement`] and reading it back off `clauses` yields the
-/// identical predicate — the same shape [`temper::roster::check`] evaluates over the
+/// identical predicate — the same shape [`temper::roster::selections`] evaluates over the
 /// kind-blind satisfier set.
 #[test]
 fn the_kind_narrowing_clause_round_trips_in_a_requirements_clause_set() {
