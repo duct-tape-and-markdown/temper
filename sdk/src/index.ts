@@ -9,8 +9,8 @@
  * Every type erases at the seam, and Turing-completeness
  * stays quarantined at authoring time.
  *
- * The first-party Claude Code provider face — the built-in `skill`/`rule`/
- * `memory` kinds — lives at the `./claude-code` subpath, never here.
+ * The first-party Claude Code provider face — the built-in kinds — lives at
+ * the `./claude-code` subpath, never here.
  */
 
 // Prose — three constructors, one field type; references (mention · include) ride `text`.

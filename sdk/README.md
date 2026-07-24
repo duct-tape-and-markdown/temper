@@ -16,8 +16,9 @@ installed:
 npx @dtmd/temper check --harness .
 ```
 
-It validates every skill, rule, and agent against the documented Anthropic
-schemas and best practices, then reports what is malformed, what Claude Code
+It validates every member Claude Code reads, from skills and rules to hooks,
+MCP servers, and plugin manifests, against the documented Anthropic schemas
+and best practices, then reports what is malformed, what Claude Code
 silently ignores, and what a requirement you declared would strand. Every
 finding arrives with its guidance attached.
 
