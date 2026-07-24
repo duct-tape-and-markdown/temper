@@ -13,19 +13,26 @@ tax.
 
 ## Open forks
 
-- `(multi-harness-projection)` — OPEN, strategic. One member projecting to N
-  harnesses (`.claude/rules/` and `.cursor/rules/` from one document) —
-  rulesync's portability as an architecture side effect (`specs/intent.md`,
-  "Positioning"). The engine is corpus-generic (`specs/model/representation.md`,
-  "Reach"), but the write face of foreign formats is open: per-harness
-  capability mismatch, which harness is authoritative, whether a lossy
-  projection is a verdict or an error. Inherits the AGENTS.md kind question
-  (ruled 07-15: not a claude-code kind — Claude Code does not read
-  AGENTS.md, docs retrieved 2026-07-15; its consumer is this fork's
-  cross-tool story). Demand side is no longer zero (07-16 war game,
-  simulated): 2/8 personas rate one-member→N projections an adoption-blocker
-  and want a **counterpart-drift check** — a fourth open face beside the
-  three above. Timing unchanged. No dependents.
+- `(multi-harness-projection)` — OPEN, strategic. Split 07-23 into two
+  faces. The **read face** — `check` on a foreign environment's harness —
+  is correctness downstream (`specs/intent.md`, "Positioning") and
+  architecturally a pure data package: kinds are data
+  (`specs/model/representation.md`, "Reach"), formats are shared engine
+  code, kind rows carry `provider`. Its next probe is a falsification
+  spike, not a feature (parked in `docs/ledger.md`): declare a
+  `cursor-rule` custom kind in a testbed, point `check` at a real Cursor
+  repo — zero `src/` changes proves the thesis; any engine change it
+  forces is a custom-kind gap wanted found pre-0.1.0. First provider when
+  demand shows: AGENTS.md (ruled 07-15: not a claude-code kind — Claude
+  Code does not read it, docs retrieved 2026-07-15 — and the converging
+  cross-tool surface). The **write face** — one member → N harnesses —
+  stays parked under the 0035 evidence bar with its four open faces:
+  per-harness capability mismatch, which harness is authoritative, lossy
+  projection as verdict or error, and the counterpart-drift check (07-16
+  war game, simulated: 2/8 personas rate it an adoption-blocker) —
+  designed only against a real two-tool adopter, never speculatively.
+  Watch condition: a portability tool (rulesync or kin) growing a checker
+  re-times this fork. No dependents.
 
 - `(lazy-grounds)` — OPEN, no live driver. Field demand (centercode, observed
   at 4cc3081): an eager read-only ground (`src`, `**/*.{cs,vb}`) materialized

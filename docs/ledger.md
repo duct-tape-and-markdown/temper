@@ -120,6 +120,11 @@ hard.
   import-bearing format** makes per-format declared caps non-speculative.
   Freshness (engine-vs-reality drift) is an inherent bound — temper is
   offline/decidable-only, so only re-verification catches it; not encoded.
+- Multi-harness read-face spike (John agreed 07-23): declare a
+  `cursor-rule` custom kind in a testbed, point `check` at a real Cursor
+  repo — zero `src/` changes proves kinds-are-data; any engine change is
+  a pre-0.1.0 custom-kind gap. Cheap, post-launch-weighted; the split and
+  the write face's parking live in `(multi-harness-projection)`.
 - Base harness dogfood: primer `docs/base-harness-primer.md`; example at
   `examples/base-harness/` (third cut shipped 549969f); built-in-kind doc
   audit at `docs/market-formats.md`. Sequencing: stranger dry run next,
