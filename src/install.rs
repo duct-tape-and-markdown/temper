@@ -1677,9 +1677,8 @@ fn project_note(source: &str) -> Option<String> {
 /// (and its separating newline) are the only inserted bytes.
 fn project_banner(source: &str) -> Option<String> {
     // A frontmatter source is the note's, not the banner's — never shove a comment
-    // ahead of a leading `---`, which would break the frontmatter block. Tolerate both
-    // LF and CRLF line endings.
-    if source.starts_with("---\n") || source.starts_with("---\r\n") {
+    // ahead of a leading `---`, which would break the frontmatter block.
+    if frontmatter::frontmatter_matter(source).is_some() {
         return None;
     }
     let first = source.lines().next().unwrap_or_default();
@@ -1889,6 +1888,20 @@ mod tests {
         assert!(placed.starts_with(NOTE_BANNER));
         assert!(placed.ends_with("\n\n# Project\n"));
         assert_eq!(placed.matches(BANNER_MARKER).count(), 1);
+    }
+
+    #[test]
+    fn project_banner_declines_a_crlf_opened_frontmatter_source() {
+        assert_eq!(project_banner("---\r\nname: x\r\n---\r\n# Body\n"), None);
+    }
+
+    #[test]
+    fn project_banner_takes_an_unterminated_frontmatter_block() {
+        let unterminated = "---\n# Body without closing delimiter\n";
+        let placed =
+            project_banner(unterminated).expect("an unterminated block is not frontmatter");
+        assert!(placed.starts_with(&format!("{NOTE_BANNER}\n\n")));
+        assert!(placed.ends_with(unterminated));
     }
 
     #[test]
