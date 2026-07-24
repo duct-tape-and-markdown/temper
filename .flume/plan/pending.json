@@ -1,5 +1,56 @@
 [
   {
+    "tag": "FRONTMATTER-CRLF-OPEN-DELIMITER",
+    "summary": "Frontmatter's opening-delimiter test strips only `---\\n`, so a CRLF checkout reads every frontmatter projection as frontmatterless: emit deletes install's note, check reports false gate drift.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`frontmatter_matter` (362-365) strips only `---\\n`, so a `---\\r\\n` source yields `None` — the single root cause of all three cascades below. Accept both openings through one shared helper the projectors reuse rather than a second literal prefix test; `closing_delimiter` (344-356) already tolerates the `\\r` via `trim_end`. Unit tests beside it cover the CRLF source."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "`project_banner`'s guard (1678-1682) repeats the literal `---\\n` test, so on CRLF it composes an HTML banner ahead of a frontmatter block — the drift `gate_installed` reports. Route the guard through the shared helper; extend `project_banner_declines_a_frontmatter_source` (1878) to the CRLF case. `project_note` (1650) and `project_modeline` (1621) need no edit — both inherit the fix. Also correct `project_note`'s doc (1646-1649): \"the note rides `install`, never `emit`\" states the authoring stance but reads as if emit ignores the note, and it names no preservation mechanism — a second field report read it as license to redesign note ownership. Name `placement::placement_lines` as the round-trip half."
+        },
+        {
+          "path": "src/placement.rs",
+          "description": "`placement_lines` (25-41) inherits the fix — no behavior edit. Add the unit test pinning it at its own home: a CRLF frontmatter source still yields its note/modeline lines, which is what stops `emit` from dropping them on re-emit."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "The integration-tier regression, mirroring the LF assertions at 580-680: represent a harness, convert its projections to CRLF on disk, then assert `gate_installed` is quiet, a real `emit` leaves each note in place, and a second `install` converges. Add the verb-composition case the suite lacks at either EOL — `install`, then an authored module edit, then a standalone `emit`, then the gate, with no intervening `install`. `re_representing_never_re_scaffolds_and_settles_on_the_first_run` (580) covers install→install only, which is why the composition gap held."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "On a represented harness whose projections are CRLF on disk: `gate_installed` returns no diagnostic; after `emit`, every frontmatter projection still carries its `# temper: managed projection` line and its modeline; a re-run of `install` reports 0 applied."
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "The verb composition holds at both EOLs: after `install`, an authored module edit, and a standalone `emit`, the projection carries its authored change *and* still its managed-by note, and `check` reports no `install.gate-installed` — with no intervening `install`. The LF half passes today and pins it; the CRLF half is the fix."
+      },
+      {
+        "path": "src/frontmatter.rs",
+        "asserts": "`frontmatter_matter` returns the same matter and rest for a `---\\r\\n` source as for its `---\\n` twin, and still declines a frontmatterless or unterminated source."
+      }
+    ],
+    "acceptance": "On a CRLF checkout of a represented harness, `check` is quiet on `install.gate-installed`, `emit` preserves every projection's managed-by note and schema modeline, and re-running `install` converges — distribution.md's \"re-running converges … every managed line is content-keyed, and `check` verifies its own gate is installed and undrifted\".",
+    "notes": "Two field reports (centercode-platform, Windows 11, temper 0.0.13) name this defect: one as install.rs's missing `canonicalize_eol`, one as `emit` owning the note wrongly. Both diagnoses are wrong; both symptoms are this delimiter. Verified at 43743407: on an LF tree a real re-emit preserves the note, gate clean; on a CRLF copy emit drops it from the 9 frontmatter targets while banner-form files survive. scoped at 43743407."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
