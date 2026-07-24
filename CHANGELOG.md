@@ -11,6 +11,29 @@ breaking changes. Releases are small and frequent.
 
 _Nothing yet._
 
+## [0.0.12] — 2026-07-23
+
+### Fixed
+
+- Windows checkouts no longer report every projection as drifted. Drift
+  comparison treats line endings as layout: a working tree git rewrote to
+  CRLF (the `core.autocrlf` default) reads clean against the LF-emitted lock,
+  while `emit` still writes LF.
+- `check` no longer aborts on a malformed or nameless member. The load fault
+  is collected as a diagnostic and the run continues, so every finding
+  surfaces on a foreign harness instead of the first crash hiding the rest.
+- `command` frontmatter is fully optional, matching Claude Code — the
+  invocation name comes from the filename. A command missing `name` or
+  `description` is no longer flagged.
+- The `install` gate-installed advisory no longer fires on a repository that
+  has not adopted temper (no `.temper/`).
+- Placed hook commands fail loudly when the `temper` binary is not on `PATH`,
+  instead of dying silently and leaving the gate unreported.
+- An engine/SDK version skew reports a version hint rather than a bare
+  payload-parse error.
+- The session-start reporter surfaces advisory diagnostics, not only blocking
+  findings.
+
 ## [0.0.11] — 2026-07-21
 
 Entries begin here; earlier `0.0.x` releases predate this changelog.
