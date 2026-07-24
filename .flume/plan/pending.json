@@ -1,5 +1,29 @@
 [
   {
+    "tag": "READ-EXPLAIN-DEFAULT-WORKSPACE-DERIVE",
+    "summary": "read.rs::explain_target hand-spells \"./.temper\" instead of deriving it from WORKSPACE_DIR, the exact respell main.rs's DEFAULT_WORKSPACE LazyLock was built to avoid.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Derived state is computed, never stored beside its source"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "`explain_target` (1601-1604): drop the local `const DEFAULT_WORKSPACE: &str = \"./.temper\";` and derive the value the same way `main.rs`'s own `DEFAULT_WORKSPACE` static does — `format!(\"./{}\", crate::WORKSPACE_DIR)` — so the two-crate boundary (binary vs library, `rust.md`) still leaves exactly one spelling of `.temper` behind each derivation, never a hand-typed duplicate a `WORKSPACE_DIR` rename would silently strand."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`rg '\"\\./\\.temper\"' src/` finds nothing; `explain`'s existing CLI-driven tests (tests/cli.rs, tests/read_verbs.rs, etc.) stay green unchanged — the derived value is byte-identical to the literal it replaces.",
+    "notes": "Posture sweep, src/main.rs neighborhood (immediate import `read`): main.rs's own doc comment on its DEFAULT_WORKSPACE static explains why a const respell was rejected there (\"which would re-spell the name this const has its one home for\") — read.rs carries exactly that rejected shape. No behavior change, pure derivation fix. scoped at 7acc8798."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
