@@ -1,29 +1,5 @@
 [
   {
-    "tag": "INSTALL-HOOK-SHAPE-CITE-REMAINDER",
-    "summary": "GUARD_MATCHER and session_start_group()'s hook-shape doc comments carry uncited external-fact claims — GUARD-HOOK-SHAPE-CITE (0ba6ffe6) cited only guard_group's shape, not these two.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "Add a dated `code.claude.com/docs/en/hooks` citation to two hook-shape doc comments GUARD-HOOK-SHAPE-CITE's pass (0ba6ffe6) left uncited, matching the style it added to guard_group() (lines 1164-1165): GUARD_MATCHER's doc comment (lines 132-136), citing its tool-name value (`Write|Edit|MultiEdit`); and session_start_group()'s doc comment (lines 1159-1162), citing the matcher-less `{hooks: [{type, command}]}` SessionStart shape (`matcher` is optional there, unlike PreToolUse — its absence means \"fires on every session start\")."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "GUARD_MATCHER and session_start_group() each carry a dated code.claude.com/docs/en/hooks citation for their respective claims, at the standard collaboration.md's external-facts rule and guard_group's own citation already meet.",
-    "notes": "Verified 2026-07-24 against code.claude.com/docs/en/hooks: Write, Edit, MultiEdit, NotebookEdit are Claude Code's documented file-editing tools — NotebookEdit is deliberately left out of GUARD_MATCHER, out of scope here, since it targets .ipynb cells only, never the markdown/JSON artifacts the guard binds. SessionStart's matcher-less form fires on every session start per the same doc. Citation-only, no behavior change. scoped at 8bcb4cbb."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
