@@ -1,5 +1,75 @@
 [
   {
+    "tag": "SCHEMA-KIND-DOMAIN-WIDEN",
+    "summary": "Widen `schema`'s kind domain past the skill/rule fossil to every YAML-frontmatter kind, builtin and declared, with a live-generated unknown-kind error list.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "Replace `BUILTIN_DEFAULT_CONTRACT_KINDS` (line 46, currently `[\"skill\", \"rule\"]`) and both its `Command::Schema` consumers (~279, ~296) with a domain built at dispatch time: every built-in kind from `builtin_kind::definitions()` whose `format` is `Format::YamlFrontmatter` (today: skill, rule, command, agent), plus every declared kind-fact row (`declarations.kinds`, via `compose::partition_kind_rows` the way `read.rs::explain_target` ~1637-1692 already assembles builtin+custom) whose lifted `CustomKind::from_kind_fact_row` format also resolves to `Format::YamlFrontmatter`. `--kind <requested>` looks up this domain (builtin via `compose::builtin_contract`, custom via `compose::default_contract_from_rows` — the same split `read.rs` uses); the unknown-kind error interpolates the live domain instead of the literal string \"skill, rule\". `--kind` omitted still emits the full by-kind map, now over the widened domain."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Extend `schema_without_kind_maps_every_modeled_kind` (~367) to assert `command` and `agent` also appear in the no-`--kind` map; add a case asserting `--kind command` and `--kind agent` each exit zero with an object schema (mirrors `schema_kind_skill_emits_the_skill_floor_decidable_clauses` ~284); keep `schema_rejects_an_unknown_kind` (~383) green."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "`temper schema --kind command` and `--kind agent` succeed and emit an object schema; `temper schema` with no `--kind` includes skill, rule, command, and agent; an unrecognized kind still hard-errors, now against the live domain."
+      }
+    ],
+    "acceptance": "`temper schema --kind <k>` works for every YAML-frontmatter kind in play (builtin: skill/rule/command/agent; any declared kind sharing that format), and the unknown-kind error text is no longer the stale \"temper models: skill, rule\".",
+    "notes": "Re-verified 24-07: BUILTIN_DEFAULT_CONTRACT_KINDS (src/main.rs:46) still [\"skill\",\"rule\"]; error text still says so. YAML-frontmatter builtins today: skill, rule, command, agent (grep confirmed). JSON/TOML kinds (settings-local, plugin-manifest, marketplace, dial) split out to SCHEMA-KEYSTROKE-JSON-TOML-WIRING per the ruling's own scope line. scoped at 162e1cce."
+  },
+  {
+    "tag": "INSTALL-SCAFFOLD-MEMBER-DIR-WIDEN",
+    "summary": "install's scaffold member_dir catch-all buckets 10 of 14 Content::File kinds into one shared \"members/\" dir with no collision check — same-named command+agent silently overwrite.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Install"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`member_dir` (~1238) special-cases skill/rule/memory and falls every other kind through `_ => \"members\"`; replace the catch-all with a per-kind directory (e.g. the bare kind name) so every `Content::File` kind gets its own collision-proof bucket — keep skill/rule/memory's existing directory names as-is (renaming them is its own migration, out of scope here). Both call sites in `scaffold` (~1298 `dir = temper_dir.join(member_dir(kind))`, ~1308 `import_path` format string) ride the same function, no further threading needed."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "New regression test: scaffold a harness with two `Content::File` kinds sharing a member id (e.g. a `command` and an `agent` both named \"deploy\") and assert both scaffold to distinct paths with distinct content — untested today (existing scaffold tests, e.g. ~488, ~523, ~682, exercise skill/rule/memory only)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "A command and an agent sharing a member id scaffold to two distinct files (no silent overwrite); skill/rule/memory scaffold paths are unchanged from today."
+      }
+    ],
+    "acceptance": "Every `Content::File` kind's scaffold lands in its own directory; a command/agent (or any two kinds) sharing a member name no longer collide on `write_creating_parents`.",
+    "notes": "Re-verified 24-07: no src/install.rs commits since 11626a1f; member_dir (line 1238) and its _ => \"members\" catch-all (1243) unchanged. Decision 0014 keeps command/agent separate identity spaces, so the collision is real. Keep skill/rule/memory's existing directory names — a rename is its own migration, out of scope here. scoped at 162e1cce."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
@@ -64,5 +134,32 @@
     "tests": [],
     "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
+  },
+  {
+    "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
+    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "deferred",
+      "reason": "project_modeline (src/install.rs:1615) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
+    "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
   }
 ]
