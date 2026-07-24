@@ -1,18 +1,24 @@
 # Plan state
 
 - Spec derived through: aee005d — unchanged this tick.
-- Audited through: 4d9be4e — advanced from 021c01d. e0de7be
-  (DRIFT-COMPARE-EOL-CANONICALIZE) verified done on disk; its own ship
-  commit had already drained pending.json. See commit body.
-- Residue swept through: 4d9be4e — advanced from 021c01d. No fileable
-  residue; 2 drift.rs ride-only orphans re-verified, refreshed. See
-  commit body.
+- Audited through: 4d9be4e — unchanged this tick.
+- Residue swept through: 4d9be4e — unchanged this tick.
 - Posture swept through: mid-rotation, at src/graph.rs — src/hash.rs next
   in the c9d11d5 rotation's frontier, untouched this tick.
-- This tick: POST-SHIP RECONCILIATION over 021c01d..4d9be4e. Audit clean;
-  sweep refreshed 2 orphan records. Both cursors advanced to 4d9be4e.
+- This tick: INBOX. Drained item 11 (CI Node 20 deprecation). Re-verified
+  its pre-attached disposition rather than transcribing it: the
+  "outside build's writablePaths" claim is false (`.github/**` is in
+  `chain.ts`'s BUILD_WRITABLE_PATHS; 6df1b76 is a `build:` commit that
+  already edited temper.yml). Corrected routing, same accepted-debt
+  outcome for a narrower reason — release.yml is human-only by
+  release.md's own path scope + unbroken chore/fix(release) precedent;
+  temper.yml is fence-eligible but the bump has no specs/-derived `per`
+  to cite, so it stays debt too. See commit body for the DATUMs and
+  verified target majors. Friction filed on the misleading chain.ts
+  comment that caused the mis-disposition.
 - Queue: 2 pending — 0 open, 1 parked, 1 deferred. Open forks: 2, unchanged.
-  Friction: 0. Amendments: 0. Inbox: 0.
+  Friction: 1 (filed this tick). Amendments: 0. Inbox: 0.
 
-Plan continues: yes — no pickable entry exists, so the open posture
-rotation (src/hash.rs, the c9d11d5 frontier) is next tick's job.
+Plan continues: yes — post-ship reconciliation over 4d9be4e..HEAD
+(bf4b5cd, 8272023, afc495e, and this tick's own drain commit) is next
+tick's job.
