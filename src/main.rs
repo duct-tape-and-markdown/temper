@@ -39,8 +39,7 @@ use temper::tap;
 /// A `LazyLock` rather than a `const`: it is derived from [`temper::WORKSPACE_DIR`],
 /// and `concat!` takes only literals — which would re-spell the name this const has
 /// its one home for.
-static DEFAULT_WORKSPACE: LazyLock<String> =
-    LazyLock::new(|| format!("./{}", temper::WORKSPACE_DIR));
+static DEFAULT_WORKSPACE: LazyLock<String> = LazyLock::new(temper::default_workspace);
 
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]

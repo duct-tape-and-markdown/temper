@@ -1599,7 +1599,7 @@ fn coverage_state(required: bool, satisfier_count: usize) -> String {
 ///
 /// Propagates filesystem and corpus-assembly errors.
 pub fn explain_target(target: &str) -> miette::Result<String> {
-    let workspace = PathBuf::from(format!("./{}", crate::WORKSPACE_DIR));
+    let workspace = PathBuf::from(crate::default_workspace());
     let harness_root = Path::new(".");
     // One ignore-honoring walk per flavor, shared across every kind and nested host this
     // read discovers ([`crate::import::Discovery`]).

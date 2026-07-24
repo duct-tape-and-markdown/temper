@@ -22,6 +22,12 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// `pub`, not `pub(crate)`: the CLI binary is a separate crate consuming this lib.
 pub const WORKSPACE_DIR: &str = ".temper";
 
+/// Default workspace path with `./` prefix — the emit `--into` default and the
+/// path `schema` / `explain` / `bundle` read the committed lock from.
+pub fn default_workspace() -> String {
+    format!("./{}", WORKSPACE_DIR)
+}
+
 /// Filename of the generated roll-up index — the contents' state-of-record —
 /// written at the workspace root.
 pub const LOCK_FILENAME: &str = "lock.toml";
