@@ -56,6 +56,16 @@ moment of failure; on a kind or field it counsels at the moment of authoring
 check, and advice hardened into a numeric rule is the linter temper sits
 downstream of (invariant 5).
 
+Nor is guidance the unit's: the channel decouples from locus as it decoupled
+from the clause (decision 0045). An embedded kind — its members living inside
+a host's document, owning no file — carries kind- and field-attached counsel
+like any kind, and that counsel is **the kind's fact, stated once**: one
+counsel in every body that admits the kind (`representation.md`, "nesting"),
+never restated per admitting host. Delivery follows the author: `schema` and
+`explain` surface it where the kind's members are authored — for an embedded
+kind, at its place in the host's document. A kind absent a unit is not a kind
+absent counsel.
+
 The predicate vocabulary is **closed**: the enum in code is the authority, an
 unknown predicate is rejected at load, never skipped, and adding one is a
 deliberate language change. The corpus does not enumerate it (equal
@@ -151,7 +161,8 @@ it is a clause, not well-formedness.
 
 ## Read verbs
 
-`explain` is the one read verb: it narrates a member, requirement, or leaf;
+`explain` is the one read verb: it narrates a member, requirement, kind, or
+leaf;
 its impact strand reports the deterministic set of members that break if
 one is removed, and its field strand narrates the local telemetry record —
 counts and denominators joined to members through the same lock

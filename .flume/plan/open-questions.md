@@ -41,24 +41,6 @@ tax.
   waits. Latent driver: a base-harness-style implemented-by mapping. The
   needle's design taste rides this record for that day. No dependents.
 
-- `(embedded-kind-guidance-channel)` — OPEN, no dependents. 0045 decoupled
-  guidance from the clause onto any kind, no locus carve-out named in
-  `contract.md`'s guidance-channel prose. The SDK re-coupled delivery to the
-  locus-bearing kind-fact row (`sdk/src/declarations.ts` `kindFactRow`
-  throws for `locus.kind === "embedded"` yet carries `guidance` on that same
-  row), so an embedded kind's guidance never reaches the lock — `schema`
-  skips embedded kinds, `explain` has no bare-kind form. Ruled surface-it
-  (interactive, 2026-07-23, inbox #12): real gap, not an intended exclusion.
-  Undecided: the lock-delivery *shape* for locus-less guidance — a guidance
-  row keyed by kind name any kind carries, vs. riding the host's `templates`
-  row embedded kinds already reach the lock through. Settle with a short
-  `contract.md` note (the 0045 guidance-channel passage) stating delivery is
-  decoupled from locus as it is from clause — cf. #10's `pipeline.md`
-  precedent, a spec clause landing before the entry routes build-ready.
-  Filing the SDK+engine fix now would invent the row shape the note is
-  meant to settle. *observed at v0.0.12 (bf4b5cd9); centercode pr-571 @
-  efcc1fd175. Decision 0045.*
-
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
