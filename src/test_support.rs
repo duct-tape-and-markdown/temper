@@ -19,7 +19,6 @@ pub(crate) fn tmpdir(label: &str) -> PathBuf {
 /// declaration order. Unknown keys are preserved sorted, so tests driving the
 /// frontmatter adapter verify the projection without depending on the real
 /// `builtin_kind::definition`.
-#[allow(dead_code)]
 pub(crate) fn skill_kind() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -48,7 +47,6 @@ pub(crate) fn skill_kind() -> CustomKind {
 /// A synthetic file-shaped `yaml-frontmatter` kind with a declared `paths` field,
 /// matching the real rule kind's schema. Tests driving the frontmatter adapter
 /// verify the projection without depending on the real `builtin_kind::definition`.
-#[allow(dead_code)]
 pub(crate) fn rule_kind() -> CustomKind {
     CustomKind {
         format: Some(Format::YamlFrontmatter),
@@ -69,7 +67,6 @@ pub(crate) fn rule_kind() -> CustomKind {
 /// Lift an imported [`Member`](crate::frontmatter::Member) straight into the raw [`Unit`]
 /// the composed extractor reads — the same fields a built-in kind's member carries
 /// into `check`, with no disk round trip.
-#[allow(dead_code)]
 pub(crate) fn surface_unit(member: &crate::frontmatter::Member) -> Unit {
     Unit {
         id: member.id.clone(),
