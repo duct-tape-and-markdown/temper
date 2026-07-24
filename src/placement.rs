@@ -61,4 +61,15 @@ mod tests {
         // A bare frontmatterless body carries no placement.
         assert!(placement_lines("# Project\n\nMemory body.\n").is_empty());
     }
+
+    #[test]
+    fn placement_lines_extracts_managed_comments_from_crlf_frontmatter() {
+        let modeline = "# yaml-language-server: $schema=.temper/harness.json";
+        let note = "# temper: managed projection";
+        let source = format!("---\r\n{note}\r\n{modeline}\r\nauthor: test\r\n---\r\n# Body\r\n");
+        let lines = placement_lines(&source);
+        assert_eq!(lines.len(), 2);
+        assert!(lines.iter().any(|l| l.contains(NOTE_MARKER)));
+        assert!(lines.iter().any(|l| l.contains("yaml-language-server")));
+    }
 }

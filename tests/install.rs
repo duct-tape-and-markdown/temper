@@ -1709,6 +1709,166 @@ fn session_start_hook_fails_loud_when_temper_not_on_path() {
     );
 }
 
+/// Convert a file's content to CRLF line endings.
+fn convert_to_crlf(path: &Path) {
+    let content = fs::read_to_string(path).unwrap();
+    let crlf = content.replace("\r\n", "\n").replace('\n', "\r\n");
+    fs::write(path, crlf).unwrap();
+}
+
+/// Recursively convert all markdown and TypeScript files to CRLF line endings,
+/// but skip the `.temper` directory (which may be scaffolded after conversion).
+fn convert_tree_to_crlf(root: &Path) {
+    for entry in walkdir::WalkDir::new(root)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        let path = entry.path();
+        // Skip .temper directory — it's scaffolded after conversion.
+        if path.components().any(|c| {
+            if let std::path::Component::Normal(os_str) = c {
+                os_str == ".temper"
+            } else {
+                false
+            }
+        }) {
+            continue;
+        }
+        if entry.file_type().is_file()
+            && path
+                .extension()
+                .is_some_and(|ext| ext == "md" || ext == "json")
+        {
+            convert_to_crlf(path);
+        }
+    }
+}
+
+#[test]
+fn crlf_checkouts_preserve_managed_projections_through_install_emit_cycle() {
+    // A represented harness with CRLF line endings must have its managed-by
+    // notes preserved across install and emit, with no drift reported.
+    let root = write_harness("crlf-preserve", false);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // Convert all projections to CRLF.
+    convert_tree_to_crlf(&root);
+
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // gate_installed must be quiet (no stale config drift).
+    assert!(
+        temper::drift::config_stale(&temper_dir).is_empty(),
+        "gate_installed must be quiet on CRLF projections after install"
+    );
+
+    // Verify each frontmatter projection still carries its managed-by note.
+    let skill_md = fs::read_to_string(
+        root.join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+    assert!(
+        skill_md.contains("# temper: managed projection"),
+        "skill projection must retain managed-by note on CRLF"
+    );
+
+    let rule_md = fs::read_to_string(root.join(".claude").join("rules").join("rust.md")).unwrap();
+    assert!(
+        rule_md.contains("# temper: managed projection"),
+        "rule projection must retain managed-by note on CRLF"
+    );
+
+    // The frontmatterless rule should have the banner instead.
+    let collab_md =
+        fs::read_to_string(root.join(".claude").join("rules").join("collaboration.md")).unwrap();
+    assert!(
+        collab_md.contains("<!-- temper: managed projection"),
+        "frontmatterless rule must have banner on CRLF"
+    );
+
+    // Re-install must converge (no changes).
+    let second_install = install::run(&root, &discovery, Represent::Yes, false).unwrap();
+    assert_eq!(
+        second_install.scaffolded, 0,
+        "CRLF re-install must not re-scaffold"
+    );
+    assert_eq!(
+        outcome_of(&second_install, temper::install::Placement::GuardHook),
+        ApplyOutcome::Unchanged
+    );
+}
+
+#[test]
+fn crlf_lf_twins_both_converge_on_install() {
+    // Both LF and CRLF checkouts of the same harness must converge identically:
+    // the same managed notes inserted, gate clean, and re-install idempotent.
+    // This pins that the delimiter handling is format-agnostic.
+
+    // Create and install an LF harness.
+    let lf_root = write_harness("crlf-lf-twin-lf", false);
+    let lf_temper_dir = lf_root.join(".temper");
+    fs::create_dir_all(&lf_temper_dir).unwrap();
+    common::vendor_sdk(&lf_temper_dir.join("node_modules").join("@dtmd"));
+
+    let lf_discovery = install::discover(&lf_root).unwrap();
+    install::run(&lf_root, &lf_discovery, Represent::Yes, false).unwrap();
+
+    // Read the LF result.
+    let lf_skill = fs::read_to_string(
+        lf_root
+            .join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+
+    // Create and install a CRLF harness (same structure, converted to CRLF).
+    let crlf_root = write_harness("crlf-lf-twin-crlf", false);
+    convert_tree_to_crlf(&crlf_root);
+
+    let crlf_temper_dir = crlf_root.join(".temper");
+    fs::create_dir_all(&crlf_temper_dir).unwrap();
+    common::vendor_sdk(&crlf_temper_dir.join("node_modules").join("@dtmd"));
+
+    let crlf_discovery = install::discover(&crlf_root).unwrap();
+    install::run(&crlf_root, &crlf_discovery, Represent::Yes, false).unwrap();
+
+    // Read the CRLF result.
+    let crlf_skill = fs::read_to_string(
+        crlf_root
+            .join(".claude")
+            .join("skills")
+            .join("coordinate")
+            .join("SKILL.md"),
+    )
+    .unwrap();
+
+    // Normalize line endings for comparison (the projection content must be identical).
+    let lf_normalized = lf_skill.replace("\r\n", "\n");
+    let crlf_normalized = crlf_skill.replace("\r\n", "\n");
+    assert_eq!(
+        lf_normalized, crlf_normalized,
+        "LF and CRLF harnesses must project identically"
+    );
+
+    // Both must report gate clean.
+    assert!(
+        temper::drift::config_stale(&lf_temper_dir).is_empty(),
+        "LF harness gate must be clean"
+    );
+    assert!(
+        temper::drift::config_stale(&crlf_temper_dir).is_empty(),
+        "CRLF harness gate must be clean"
+    );
+}
+
 #[test]
 fn guard_hook_fails_loud_when_temper_not_on_path() {
     // Run the GUARD_COMMAND with temper not on PATH to verify it fails

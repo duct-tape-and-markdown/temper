@@ -1644,9 +1644,10 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// `Unchanged`. Presence-only keying let a stale note pass `gate_installed` forever.
 ///
 /// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note line is
-/// the only rewritten bytes. The note rides `install`, never `emit` — a YAML comment
-/// is not authored surface content, so the content-faithful projector
-/// never re-emits it.
+/// the only rewritten bytes. The note rides `install`, never `emit` — the author does
+/// not write this YAML comment, so the content-faithful projector preserves it across
+/// re-emits via [`placement::placement_lines`], which anchors `emit` to preserve
+/// managed comments verbatim in the re-rendered frontmatter.
 fn project_note(source: &str) -> Option<String> {
     let (rest, matter) = frontmatter::frontmatter_matter(source)?;
     if let Some(existing) = matter
@@ -1676,8 +1677,9 @@ fn project_note(source: &str) -> Option<String> {
 /// (and its separating newline) are the only inserted bytes.
 fn project_banner(source: &str) -> Option<String> {
     // A frontmatter source is the note's, not the banner's — never shove a comment
-    // ahead of a leading `---`, which would break the frontmatter block.
-    if source.starts_with("---\n") {
+    // ahead of a leading `---`, which would break the frontmatter block. Tolerate both
+    // LF and CRLF line endings.
+    if source.starts_with("---\n") || source.starts_with("---\r\n") {
         return None;
     }
     let first = source.lines().next().unwrap_or_default();

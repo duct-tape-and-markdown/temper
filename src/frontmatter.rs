@@ -355,12 +355,16 @@ fn closing_delimiter(rest: &str) -> Option<(&str, &str)> {
     None
 }
 
-/// Strip a `---\n` opening frontmatter delimiter and scan for the closing `---`,
-/// returning everything after the opening delimiter and the frontmatter matter.
-/// Wraps [`closing_delimiter`] to consolidate the split-frontmatter pattern used
-/// by `src/install.rs`'s projectors and `src/placement.rs`'s placement line scanner.
+/// Strip an opening frontmatter delimiter (either `---\n` or `---\r\n`) and scan
+/// for the closing `---`, returning everything after the opening delimiter and
+/// the frontmatter matter. Wraps [`closing_delimiter`] to consolidate the
+/// split-frontmatter pattern used by `src/install.rs`'s projectors and
+/// `src/placement.rs`'s placement line scanner. Tolerates both LF and CRLF line
+/// endings on the opening delimiter.
 pub(crate) fn frontmatter_matter(source: &str) -> Option<(&str, &str)> {
-    let rest = source.strip_prefix("---\n")?;
+    let rest = source
+        .strip_prefix("---\r\n")
+        .or_else(|| source.strip_prefix("---\n"))?;
     closing_delimiter(rest).map(|(matter, _)| (rest, matter))
 }
 
@@ -559,5 +563,27 @@ Last line, no newline.";
     fn frontmatter_matter_returns_none_for_unterminated_frontmatter() {
         let source = "---\nname: test\n";
         assert_eq!(frontmatter_matter(source), None);
+    }
+
+    #[test]
+    fn frontmatter_matter_accepts_crlf_opening_delimiter() {
+        let source = "---\r\nname: test\r\n---\r\n# Body\r\n";
+        let (rest, matter) = frontmatter_matter(source).unwrap();
+        assert_eq!(rest, "name: test\r\n---\r\n# Body\r\n");
+        assert_eq!(matter, "name: test\r\n");
+    }
+
+    #[test]
+    fn frontmatter_matter_returns_same_matter_for_crlf_and_lf_twins() {
+        let lf = "---\nname: test\nbody: content\n---\n# Body\n";
+        let crlf = "---\r\nname: test\r\nbody: content\r\n---\r\n# Body\r\n";
+
+        let (_, lf_matter) = frontmatter_matter(lf).unwrap();
+        let (_, crlf_matter) = frontmatter_matter(crlf).unwrap();
+
+        // The matter content is the same (normalized to LF for comparison)
+        let lf_normalized = lf_matter.replace("\r\n", "\n");
+        let crlf_normalized = crlf_matter.replace("\r\n", "\n");
+        assert_eq!(lf_normalized, crlf_normalized);
     }
 }
