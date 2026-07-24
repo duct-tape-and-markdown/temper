@@ -422,8 +422,9 @@ test("needs derive the permission union, deduped and sorted, never authored twic
 });
 
 // ---------------------------------------------------------------------------
-// Kinds in play — an embedded kind carries no locus-bearing kind fact and no
-// standalone projection.
+// Kinds in play — an embedded kind takes a locus-optional kind-fact row only when it
+// declares its own `guidance`/`cite` (decision 0045); either way it takes no standalone
+// projection, since its members reach the corpus through their host alone.
 // ---------------------------------------------------------------------------
 
 /** An embedded-locus kind, built via `kind()` directly — host-free, as every embedded kind is. */
@@ -444,7 +445,7 @@ function embeddedKind<T extends object>(name: string) {
 const memoryDecision = embeddedKind<Record<never, never>>("decision");
 const admitDecision = { host: memory, admits: [memoryDecision] };
 
-test("an embedded member neither projects nor takes a kind-fact row", () => {
+test("an embedded member absent guidance/cite neither projects nor takes a kind-fact row", () => {
   const decisionBlock = embeddedKind<Record<never, never>>("decision-block");
   const mixed = harness({
  members: [
@@ -457,6 +458,34 @@ test("an embedded member neither projects nor takes a kind-fact row", () => {
   assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
   // The declaration kinds carry the rule, never the embedded kind (residue inherits through the host).
   assert.deepEqual(result.declarations.kinds.map((k) => k.name), ["rule"]);
+});
+
+test("an embedded kind declaring guidance/cite takes a locus-absent kind-fact row, but still no standalone projection", () => {
+  const decisionWithGuidance = kind<Record<never, never>>({
+    name: "decision-with-guidance",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [{ via: "always" }],
+    guidance: "State the decision's rationale, not just its verdict.",
+    cite: "https://example.com/decisions (retrieved 2026-07-24)",
+  });
+  const mixed = harness({
+    members: [
+      rule({ name: "rust", prose: text`# Rust` }),
+      decisionWithGuidance({ name: "surface-authority" }),
+    ],
+  });
+  const result = emit(mixed);
+  // Its guidance/cite ride a lock row now, but the kind still owns no unit of its own —
+  // no standalone projection joins the rule's.
+  assert.deepEqual(result.members.map((m) => m.name), ["rust"]);
+  const row = result.declarations.kinds.find((k) => k.name === "decision-with-guidance");
+  assert.ok(row, "an embedded kind carrying guidance/cite takes a kind-fact row");
+  assert.equal(row?.governs_root, undefined);
+  assert.equal(row?.governs_glob, undefined);
+  assert.equal(row?.commitment, undefined);
+  assert.equal(row?.guidance, "State the decision's rationale, not just its verdict.");
+  assert.equal(row?.cite, "https://example.com/decisions (retrieved 2026-07-24)");
 });
 
 test("a host kind's fact row carries the embedded kinds the corpus admits over it as templates", () => {

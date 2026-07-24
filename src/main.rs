@@ -185,19 +185,21 @@ enum Command {
         out: PathBuf,
     },
     /// The one read verb: resolve
-    /// `<target>` across the member / requirement / leaf-address
+    /// `<target>` across the member / requirement / kind / leaf-address
     /// namespaces and narrate whichever the graph `check` already computes answers it —
     /// a member's forward walk, blast radius, and neighborhood; a requirement's
-    /// satisfier set, coverage, and blast radius; or a leaf's citations (distinct from
-    /// its fallout) and neighborhood. Exactly one hit resolves; a bare name matching
-    /// both a member and a requirement is ambiguous and errors with each match's
-    /// qualified spelling (`member:<name>`, `requirement:<name>`) for the retry — a
-    /// qualified prefix (`member:`/`requirement:`/`address:`) is always accepted
-    /// outright. A read, never a gate: exits zero on every input.
+    /// satisfier set, coverage, and blast radius; a kind's declared authoring
+    /// guidance/cite, narrated before any member of it exists; or a leaf's citations
+    /// (distinct from its fallout) and neighborhood. A bare name resolves a member or
+    /// requirement first (ambiguous, and erroring with each match's qualified spelling,
+    /// when it names both); absent either, it falls back to a kind name — a qualified
+    /// prefix (`member:`/`requirement:`/`kind:`/`address:`) always wins outright. A
+    /// read, never a gate: exits zero on every input.
     Explain {
-        /// A member id, a requirement name, a leaf address
+        /// A member id, a requirement name, a kind name, a leaf address
         /// (`<member>/<kind>/<key>/<child-path>`), or one qualified as
-        /// `member:<name>` / `requirement:<name>` / `address:<leaf-address>`.
+        /// `member:<name>` / `requirement:<name>` / `kind:<name>` /
+        /// `address:<leaf-address>`.
         target: String,
     },
 }

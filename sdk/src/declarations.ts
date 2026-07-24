@@ -283,20 +283,19 @@ function collectionAddressRow(facts: KindFacts): CollectionAddressRow | undefine
 }
 
 /**
- * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and a
- * nested-file kind neither (its path composes from its host's unit and the host
- * template's pattern, so it governs no glob). A file locus's `commitment` class rides
- * the same spelling, absent for the committed default. `templates` names the embedded kinds the
- * corpus admits over it, and `content` lowers a declared layout (absent for a
- * `file`-content kind). A registration kind extends the row with its `shape` marker and
- * `collection_address`. Advisory `guidance`/`cite` pair rides alongside (decision 0045).
+ * One kind's fact row — an `at` locus supplies `governs_root`/`governs_glob` and any
+ * other locus neither (a nested-file kind's path composes from its host's unit and the
+ * host template's pattern; an embedded kind owns no unit at all — both govern no glob).
+ * A file locus's `commitment` class rides the same spelling, absent for the committed
+ * default. `templates` names the embedded kinds the corpus admits over it, and `content`
+ * lowers a declared layout (absent for a `file`-content kind). A registration kind
+ * extends the row with its `shape` marker and `collection_address`. Advisory
+ * `guidance`/`cite` pair rides alongside, locus-optional so an embedded kind's own
+ * counsel reaches the lock the same way a nested-file kind's already does (decision
+ * 0045) — callable for any locus; [`kindFactKindsInPlay`] decides which embedded kinds
+ * actually take a row.
  */
 function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRow {
-  if (facts.locus.kind === "embedded") {
-    // An embedded kind inherits its world residue through its host; it owns no unit at
- // all, so it takes no kind-fact row. Callers filter these out before this point.
-    throw new Error(`kind \`${facts.name}\` is embedded — it carries no locus-bearing kind fact.`);
- }
   const governs = facts.locus.kind === "at" ? facts.locus : undefined;
   return {
     name: facts.name,
@@ -355,12 +354,17 @@ function atLocusKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
 }
 
 /**
- * The distinct unit-owning kinds in play — every locus but `embedded`. The kinds that
- * take a fact row: a nested-file kind owns a file the engine must place, and places it
- * off its row, though it governs no glob to be discovered at.
+ * The distinct kinds in play that take a kind-fact row: every non-embedded locus
+ * unconditionally (a nested-file kind owns a file the engine must place, and places it
+ * off its row, though it governs no glob to be discovered at), plus an embedded kind
+ * only when it declares `guidance` or `cite` of its own (decision 0045) — an embedded
+ * kind with neither has nothing for the row to carry, and its members already reach the
+ * corpus through their host's `templates` column alone (`kindsInPlay`), never the row.
  */
-function unitKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
-  return allKinds.filter((facts) => facts.locus.kind !== "embedded");
+function kindFactKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
+  return allKinds.filter(
+    (facts) => facts.locus.kind !== "embedded" || facts.guidance !== undefined || facts.cite !== undefined,
+  );
 }
 
 /** The requirement rows — assembly `require` and every member's `requires`, one namespace. */
@@ -876,7 +880,7 @@ export function compileDeclarations(
  }
  }
   return {
-    kinds: unitKindsInPlay(allKinds).map((facts) => kindFactRow(facts, admissions)),
+    kinds: kindFactKindsInPlay(allKinds).map((facts) => kindFactRow(facts, admissions)),
     clauses,
     requirements: requirementRows(harness),
     assembly: assemblyFactRows(harness, allKinds),

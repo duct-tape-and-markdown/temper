@@ -90,6 +90,7 @@ fn explain_over_log(
         custom,
         roster,
         &BTreeMap::new(),
+        &BTreeMap::new(),
         by_kind,
         &[],
         &[],
@@ -321,7 +322,7 @@ fn an_unrecognized_target_is_a_clean_read_naming_no_namespace() {
 
     let out = explain(&[], &by_kind, &roster, "ghost");
     assert!(
-        out.contains("No member, requirement, or leaf address named `ghost`"),
+        out.contains("No member, requirement, kind, or leaf address named `ghost`"),
         "{out}"
     );
 }
@@ -636,6 +637,7 @@ fn explain_narrates_kind_guidance_in_governing_contract() {
         &custom,
         &roster,
         &contracts,
+        &BTreeMap::new(),
         &by_kind,
         &[],
         &[],
@@ -693,6 +695,7 @@ fn explain_omits_governing_contract_guidance_when_absent() {
         &custom,
         &roster,
         &contracts,
+        &BTreeMap::new(),
         &by_kind,
         &[],
         &[],
@@ -712,5 +715,168 @@ fn explain_omits_governing_contract_guidance_when_absent() {
     assert!(
         out.contains("spec.required"),
         "clauses still narrate normally: {out}"
+    );
+}
+
+#[test]
+fn explain_narrates_a_bare_kinds_guidance_with_no_member_of_it_in_the_corpus() {
+    // The pre-member surface (0045's embedded-delivery ruling): a bare kind name
+    // resolves and narrates its declared guidance/cite even though no member of that
+    // kind exists anywhere in the corpus — the whole point of teaching at authoring
+    // time rather than at a member's own moment of failure.
+    use temper::contract::Contract;
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    contracts.insert(
+        "decision".to_string(),
+        Contract {
+            name: "decision".to_string(),
+            guidance: Some("State the decision's rationale, not just its verdict.".to_string()),
+            clauses: Vec::new(),
+        },
+    );
+    let mut kind_cites: BTreeMap<String, String> = BTreeMap::new();
+    kind_cites.insert(
+        "decision".to_string(),
+        "https://example.com/decisions (retrieved 2026-07-24)".to_string(),
+    );
+
+    let registrations = BTreeMap::new();
+    let out = temper::read::explain(
+        &[],
+        &roster,
+        &contracts,
+        &kind_cites,
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &[],
+        0,
+        "decision",
+    );
+    assert!(
+        out.contains("State the decision's rationale, not just its verdict."),
+        "a bare kind name narrates its declared guidance with no member of it present: {out}"
+    );
+    assert!(
+        out.contains("https://example.com/decisions"),
+        "a bare kind name narrates its declared cite alongside its guidance: {out}"
+    );
+}
+
+#[test]
+fn explain_narrates_a_kind_absent_guidance_cleanly() {
+    // A kind resolved by bare name that declares neither guidance nor cite narrates a
+    // clean "nothing declared" line — never silence (which would read as an
+    // unresolved target) and never a stray guidance bullet with nothing behind it.
+    use temper::contract::Contract;
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+    let mut contracts: BTreeMap<String, Contract> = BTreeMap::new();
+    contracts.insert(
+        "decision".to_string(),
+        Contract {
+            name: "decision".to_string(),
+            guidance: None,
+            clauses: Vec::new(),
+        },
+    );
+
+    let registrations = BTreeMap::new();
+    let out = temper::read::explain(
+        &[],
+        &roster,
+        &contracts,
+        &BTreeMap::new(),
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &[],
+        0,
+        "decision",
+    );
+    assert!(
+        out.contains("No authoring guidance is declared"),
+        "an absent-guidance kind still narrates cleanly rather than silently: {out}"
+    );
+    assert!(
+        !out.contains('‣'),
+        "no guidance marker appears when there is no guidance to mark: {out}"
+    );
+}
+
+/// Run `temper explain <target>` from `root`, capturing combined stdout+stderr — the
+/// CLI seam this file's other tests bypass by calling the read library directly, needed
+/// here to prove the SDK's row change survives a real emit/lock round trip.
+fn explain_via_cli(root: &std::path::Path, target: &str) -> String {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
+        .current_dir(root)
+        .arg("explain")
+        .arg(target)
+        .output()
+        .unwrap();
+    let mut combined = String::from_utf8_lossy(&out.stdout).into_owned();
+    combined.push_str(&String::from_utf8_lossy(&out.stderr));
+    combined
+}
+
+/// A custom embedded kind declaring `guidance`/`cite`, admitted over `memory` with no
+/// member of it ever instantiated — the exact shape 0045's ruling exists for: a kind
+/// absent a unit is not a kind absent counsel.
+const EMBEDDED_KIND_GUIDANCE_PROGRAM: &str = r#"
+import { emit, harness, kind, text } from "@dtmd/temper";
+import { memory } from "@dtmd/temper/claude-code";
+
+const decision = kind<Record<never, never>>({
+  name: "decision",
+  locus: { kind: "embedded" },
+  unitShape: "file",
+  registration: [{ via: "always" }],
+  guidance: "State the decision's rationale, not just its verdict.",
+  cite: "https://example.com/decisions (retrieved 2026-07-24)",
+});
+
+process.stdout.write(
+  emit(
+    harness({
+      members: [memory({ name: "CLAUDE", prose: text`# Notes` })],
+      admit: [{ host: memory, admits: [decision] }],
+    }),
+  ).seam,
+);
+"#;
+
+#[test]
+fn explain_narrates_a_custom_embedded_kinds_guidance_after_a_full_sdk_round_trip() {
+    // 0045's embedded-delivery ruling, proven end to end rather than by hand-built
+    // `Contract`s: a custom embedded kind's declared guidance/cite ride a
+    // locus-optional kind-fact row through the real SDK `emit`, reconstruct as a
+    // `CustomKind` off the lock, and `explain kind:<name>` narrates them with no
+    // member of the kind ever authored.
+    common::ensure_sdk_built();
+    let (harness, into) = common::wire_sdk_harness(
+        "embedded-kind-guidance-round-trip",
+        EMBEDDED_KIND_GUIDANCE_PROGRAM,
+    );
+    temper::drift::emit_program(&into, temper::drift::EmitOptions::default())
+        .expect("the SDK program emits a lock carrying the embedded kind's row");
+
+    let out = explain_via_cli(&harness, "kind:decision");
+    assert!(
+        out.contains("State the decision's rationale, not just its verdict."),
+        "the embedded kind's declared guidance narrates through the real lock: {out}"
+    );
+    assert!(
+        out.contains("https://example.com/decisions"),
+        "the embedded kind's declared cite narrates through the real lock: {out}"
     );
 }

@@ -150,10 +150,14 @@ fn build_member_index<'a>(
 
 /// The target species `explain <target>` resolves a positional string into
 /// (`(explain-target-disambiguation)`, ruled 2026-07-04): an explicit `member:`/
-/// `requirement:`/`address:` qualifier always wins outright (an explicit spelling is
-/// never re-checked for ambiguity); absent one, a `/`-bearing target is always a leaf
-/// address (a member or requirement name never carries a slash), and a bare name is
-/// checked against both the member corpus and the requirement roster.
+/// `requirement:`/`kind:`/`address:` qualifier always wins outright (an explicit
+/// spelling is never re-checked for ambiguity); absent one, a `/`-bearing target is
+/// always a leaf address (a member, requirement, or kind name never carries a slash).
+/// A bare name checks the member corpus and the requirement roster first — matching
+/// both is `Ambiguous`, matching one resolves it — and only when it names **neither**
+/// does it fall back to the kind set: a kind's bare name never contends with an
+/// existing member or requirement of the same name, so widening the namespace here
+/// cannot retarget a bare name any existing corpus already resolves.
 enum Species<'a> {
     /// A member id — dispatches to [`why`] (what holds it in place) and [`impact`] and
     /// [`context`] at member grain (its blast radius and its neighborhood).
@@ -161,6 +165,10 @@ enum Species<'a> {
     /// A requirement name — dispatches to [`requirements`] alone, whose reverse walk
     /// already carries coverage and blast radius.
     Requirement(&'a str),
+    /// A kind name — dispatches to the bare-kind narration: its declared
+    /// guidance/cite, the pre-member counterpart to a member's own governing-contract
+    /// narration (`why`'s `narrate_governing_contract`, unchanged).
+    Kind(&'a str),
     /// A leaf address (`<member>/<kind>/<key>/<child-path>`) — dispatches to
     /// [`impact`] and [`context`] at leaf grain (citations vs. fallout, and the leaf's
     /// neighborhood).
@@ -168,19 +176,26 @@ enum Species<'a> {
     /// The bare name matches both a member and a requirement — `explain` never
     /// guesses, so the caller must retry with one of the listed qualified spellings.
     Ambiguous(Vec<String>),
-    /// The bare name matches no member, no requirement, and carries no leaf-address
-    /// slash — a clean "nothing by this name" read, not a namespace preference.
+    /// The bare name matches no member, no requirement, no kind, and carries no
+    /// leaf-address slash — a clean "nothing by this name" read, not a namespace
+    /// preference.
     NotFound(&'a str),
 }
 
 /// Resolve `target` into its [`Species`] over the same corpus [`explain`]'s caller
 /// already assembled for `check` — `by_kind` (every opt-in kind's [`Features`]) for
 /// member existence, `roster` (the composed requirement namespace) for requirement
-/// existence. A bare name in both is `Ambiguous`; a bare name in neither, absent a `/`,
-/// is `NotFound` — `explain` never silently prefers one namespace over the other.
+/// existence, `contracts` (every kind's resolved default contract, built-in and
+/// custom/embedded alike) for kind existence. A bare name in both member and
+/// requirement is `Ambiguous`; a bare name in exactly one of the three resolves to it;
+/// a bare name in none, absent a `/`, is `NotFound`. The kind check runs only once
+/// member and requirement both miss — a bare name already meaning something in this
+/// corpus keeps meaning that, so adding the kind namespace can only claim a name that
+/// was `NotFound` before.
 fn resolve<'a>(
     by_kind: &BTreeMap<&str, &[Features]>,
     roster: &BTreeMap<String, Requirement>,
+    contracts: &BTreeMap<String, Contract>,
     target: &'a str,
 ) -> Species<'a> {
     if let Some(name) = target.strip_prefix("member:") {
@@ -188,6 +203,9 @@ fn resolve<'a>(
     }
     if let Some(name) = target.strip_prefix("requirement:") {
         return Species::Requirement(name);
+    }
+    if let Some(name) = target.strip_prefix("kind:") {
+        return Species::Kind(name);
     }
     if let Some(address) = target.strip_prefix("address:") {
         return Species::Leaf(address);
@@ -209,6 +227,7 @@ fn resolve<'a>(
         ]),
         (true, false) => Species::Member(target),
         (false, true) => Species::Requirement(target),
+        (false, false) if contracts.contains_key(target) => Species::Kind(target),
         (false, false) => Species::NotFound(target),
     }
 }
@@ -221,7 +240,10 @@ fn resolve<'a>(
 ///
 /// `roster` is the requirement namespace `check` gates; `contracts` are the resolved
 /// contracts the gate judges with, keyed by kind, so [`why`] can name a member's
-/// clauses by the addresses their findings print; `edges` is the
+/// clauses by the addresses their findings print and a bare kind name resolves against
+/// its keys; `kind_cites` is each kind's declared authoring `cite`, keyed the same way
+/// (`Contract` carries `guidance` alone, so a kind's `cite` travels alongside rather
+/// than widening `Contract` for this one caller); `edges` is the
 /// declared relationship set [`why`]'s edge walk resolves; `mention_edges` is the
 /// already-resolved mention edge set the same walk folds in, so a member's only
 /// outgoing reference being a mention still narrates rather than reading "it points at
@@ -242,6 +264,7 @@ pub fn explain(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     contracts: &BTreeMap<String, Contract>,
+    kind_cites: &BTreeMap<String, String>,
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
@@ -253,7 +276,7 @@ pub fn explain(
     tap_older_version: usize,
     target: &str,
 ) -> String {
-    match resolve(by_kind, roster, target) {
+    match resolve(by_kind, roster, contracts, target) {
         Species::Member(name) => {
             let member_index = build_member_index(by_kind);
             let mut out = why_impl(
@@ -290,6 +313,7 @@ pub fn explain(
             out
         }
         Species::Requirement(name) => requirements(custom, roster, by_kind, Some(name)),
+        Species::Kind(name) => narrate_kind(name, contracts, kind_cites),
         Species::Leaf(address) => {
             let mut out = impact(
                 roster,
@@ -314,10 +338,10 @@ pub fn explain(
                 .join("\n")
         ),
         Species::NotFound(name) => format!(
-            "No member, requirement, or leaf address named `{name}` is in the surface. \
-             `explain` reads the authored surface's members, its requirement roster, and \
-             leaf-grain addresses (`<member>/<kind>/<key>/<child-path>`); check the \
-             name.\n"
+            "No member, requirement, kind, or leaf address named `{name}` is in the \
+             surface. `explain` reads the authored surface's members, its requirement \
+             roster, its kind set, and leaf-grain addresses \
+             (`<member>/<kind>/<key>/<child-path>`); check the name.\n"
         ),
     }
 }
@@ -405,6 +429,42 @@ fn narrate_governing_contract(
         let _ = writeln!(out, "  • `{}`", clause.label);
     }
     out.push('\n');
+}
+
+/// `explain`'s **bare-kind** narration: `name`'s declared authoring guidance/cite, the
+/// pre-member counterpart to [`narrate_governing_contract`] — teaching at authoring
+/// time (`(clause)`, decision 0045) rather than at a member's own moment of failure, and
+/// readable with no member of `name` in the corpus yet. `contracts` carries the
+/// guidance (the same map [`why`]'s governing-contract narration reads); `kind_cites`
+/// carries the cite `Contract` has no column for. A kind declaring neither narrates a
+/// clean "nothing declared" line rather than silence, so an empty result still confirms
+/// the kind resolved and was read, not skipped.
+fn narrate_kind(
+    name: &str,
+    contracts: &BTreeMap<String, Contract>,
+    kind_cites: &BTreeMap<String, String>,
+) -> String {
+    let mut out = format!("Kind `{name}`:\n\n");
+    let guidance = contracts
+        .get(name)
+        .and_then(|contract| contract.guidance.as_deref());
+    let cite = kind_cites.get(name).map(String::as_str);
+    if guidance.is_none() && cite.is_none() {
+        let _ = writeln!(
+            out,
+            "No authoring guidance is declared for `{name}` — nothing to teach before a \
+             member of it exists.\n"
+        );
+        return out;
+    }
+    if let Some(guidance) = guidance {
+        let _ = writeln!(out, "  ‣ {guidance}");
+    }
+    if let Some(cite) = cite {
+        let _ = writeln!(out, "  [source: {cite}]");
+    }
+    out.push('\n');
+    out
 }
 
 /// Implementation of [`why`] using a pre-built member index.
@@ -1636,6 +1696,14 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let embedded_features = compose::embedded_features_by_kind(&declarations);
     let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
+    // Every kind-fact row's declared `cite`, keyed by kind name — `Contract` carries
+    // `guidance` alone, so a bare-kind narration's cite travels this separate map.
+    let kind_cites: BTreeMap<String, String> = declarations
+        .kinds
+        .iter()
+        .filter_map(|row| Some((row.name.clone(), row.cite.clone()?)))
+        .collect();
+
     // The one requirement namespace: the assembly's declared `[requirement.*]`
     // roster — a custom-kind member has no channel of its own to publish one (the
     // pre-0016 own-path surface that once carried it is retired).
@@ -1681,6 +1749,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &custom_members,
         &roster,
         &contracts,
+        &kind_cites,
         &by_kind,
         &assembly_edges,
         &mention_edges,

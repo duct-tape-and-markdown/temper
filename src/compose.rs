@@ -1086,8 +1086,10 @@ pub fn partition_kind_rows<'a>(
 /// members' [`Features`](extract::Features), so [`assemble_by_kind`] can fold it into the
 /// one `by_kind` map every graph predicate ranges over. An embedded kind is named where a
 /// host declares it — a `templates` column entry, or a layout member collection's
-/// `member_kind` — and carries no kind-fact row, so this is the sole seam it enters the
-/// corpus through. Its members are the run's assembled `nested_member` rows of that kind
+/// `member_kind` — and this admission/discovery seam, never a kind-fact row, is how its
+/// members enter the corpus: an embedded kind may carry a locus-optional row of its own
+/// now (its declared `guidance`/`cite`, decision 0045), but that row is silent on
+/// membership. Its members are the run's assembled `nested_member` rows of that kind
 /// — a committed host's off the lock, a local host's derived at [`assemble_lock_family`],
 /// so a clause over it selects a local host's members and a committed host's alike — each
 /// lifted to a member whose id is the row's key and whose fields are its leaves, so an
