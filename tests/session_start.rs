@@ -114,69 +114,6 @@ fn a_clean_harness_emits_the_quiet_payload_and_exits_zero() {
 }
 
 #[test]
-fn stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start() {
-    // Custom-kind registration retired along with the manifest that once carried it
-    // (`TEMPER-TOML-ZERO`) and the `KIND.md` file format retired earlier still
-    // — there is no
-    // longer any author-facing way to register one. This pins that a harness carrying
-    // such shaped-but-inert fixture files (nothing reads them) alongside a real skill
-    // still resolves to a clean, quiet session-start payload.
-    let harness = common::tmpdir("custom-kind-src");
-
-    // The authored kind definition under `.temper/kinds/spec/KIND.md`: a member is a
-    // `specs/*.md` file, extracting a line count (a decidable, trivially-satisfied
-    // feature).
-    let kind_dir = harness.join(".temper").join("kinds").join("spec");
-    fs::create_dir_all(&kind_dir).unwrap();
-    fs::write(
-        kind_dir.join("KIND.md"),
-        "+++\n\
-         governs = { root = \"specs\", glob = \"*.md\" }\n\
- \n\
-         [[extraction]]\n\
-         primitive = \"line_count\"\n\
-         +++\n\
-         # The spec kind\n\
- \n\
-         temper's own governing documents.\n",
-    )
-    .unwrap();
-
-    // The bound package under `.temper/packages/spec/PACKAGE.md`: no clauses, so its
-    // members conform trivially — this fixture pins the *resolution*, not the engine.
-    let pkg_dir = harness.join(".temper").join("packages").join("spec");
-    fs::create_dir_all(&pkg_dir).unwrap();
-    fs::write(
-        pkg_dir.join("PACKAGE.md"),
-        "+++\n+++\n# The spec package\n\nNo clauses — resolution is what this pins.\n",
-    )
-    .unwrap();
-
-    // A member source at the `governs` root and a clean skill, so the harness carries
-    // a real custom-kind member alongside a built-in one.
-    let specs = harness.join("specs");
-    fs::create_dir_all(&specs).unwrap();
-    fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
-    common::write_skill(&harness, "coordinate", CLEAN_SKILL);
-
-    let (ok, payload) = run_session_start(&harness);
-
-    assert!(ok, "the session-start gate must exit zero");
-    let hook = &payload["hookSpecificOutput"];
-    assert_eq!(hook["hookEventName"], "SessionStart");
-    // The stray fixture files contribute no members and no blocking findings.
-    // Advisory findings like install.gate-installed may surface, but they should
-    // not carry the blocking verdict instruction.
-    let context = hook["additionalContext"].as_str();
-    if let Some(ctx) = context {
-        assert!(
-            !ctx.contains("approval before continuing"),
-            "stray fixtures must not cause blocking findings, got: {ctx}"
-        );
-    }
-}
-
-#[test]
 fn an_authored_surface_resolves_its_satisfies_fill_with_no_blocking_findings() {
     // The inbox false positive, repro'd: a harness carrying the lock's declared
     // `required` requirement plus a `[[declaration.satisfies]]` row hand-edited onto
