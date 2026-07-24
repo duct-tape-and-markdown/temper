@@ -7,6 +7,7 @@
 
 #![deny(rustdoc::broken_intra_doc_links)]
 
+use std::collections::BTreeMap;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -21,7 +22,7 @@ use temper::compose;
 use temper::drift;
 use temper::gate;
 use temper::install;
-use temper::kind::CustomKind;
+use temper::kind::{CustomKind, Format};
 use temper::read;
 use temper::reporter;
 use temper::schema;
@@ -40,10 +41,6 @@ use temper::tap;
 /// its one home for.
 static DEFAULT_WORKSPACE: LazyLock<String> =
     LazyLock::new(|| format!("./{}", temper::WORKSPACE_DIR));
-
-/// The kinds `schema` emits a default contract for, by bare row label; widening it
-/// to `memory` is a separate question.
-const BUILTIN_DEFAULT_CONTRACT_KINDS: &[&str] = &["skill", "rule"];
 
 /// A typed maintenance surface for the Claude Code harness.
 #[derive(Parser)]
@@ -270,36 +267,33 @@ fn main() -> miette::Result<ExitCode> {
         Command::Schema { kind } => {
             // The keystroke placement of the gate:
             // emit the *active* contract per kind — the same rows-or-default contract
-            // `check` gates against — as an editor JSON Schema.
+            // `check` gates against — as an editor JSON Schema, over the widened
+            // domain (every YAML-frontmatter kind in play, builtin or lock-declared —
+            // not the skill/rule fossil).
             let declarations = drift::read_declarations(Path::new(DEFAULT_WORKSPACE.as_str()))?;
+            let builtin_defs = builtin_kind::definitions();
+            let domain = yaml_frontmatter_kind_domain(&declarations, &builtin_defs)?;
 
             let json = match kind.as_deref() {
                 // An unknown kind is a hard error, never a silent empty schema.
                 Some(requested) => {
-                    let name = BUILTIN_DEFAULT_CONTRACT_KINDS
+                    let name = domain
                         .iter()
-                        .find(|name| **name == requested)
+                        .find(|name| name.as_str() == requested)
                         .ok_or_else(|| {
                             miette::miette!(
-                                "unknown kind `{requested}` (temper models: skill, rule)"
+                                "unknown kind `{requested}` (temper models: {})",
+                                domain.join(", ")
                             )
                         })?;
-                    let contract = compose::builtin_contract(
-                        &declarations.clauses,
-                        &declarations.kinds,
-                        name,
-                    )?;
+                    let contract = kind_contract(&declarations, &builtin_defs, name)?;
                     schema::emit(&contract)
                 }
                 None => {
                     let mut map = serde_json::Map::new();
-                    for name in BUILTIN_DEFAULT_CONTRACT_KINDS {
-                        let contract = compose::builtin_contract(
-                            &declarations.clauses,
-                            &declarations.kinds,
-                            name,
-                        )?;
-                        map.insert((*name).to_string(), schema::emit(&contract));
+                    for name in &domain {
+                        let contract = kind_contract(&declarations, &builtin_defs, name)?;
+                        map.insert(name.clone(), schema::emit(&contract));
                     }
                     serde_json::Value::Object(map)
                 }
@@ -469,6 +463,60 @@ fn main() -> miette::Result<ExitCode> {
             print!("{}", read::explain_target(&target)?);
             Ok(ExitCode::SUCCESS)
         }
+    }
+}
+
+/// `schema`'s domain: every kind — embedded built-in or lock-declared — whose
+/// projection format is [`Format::YamlFrontmatter`], the represented keystroke
+/// placement (`specs/distribution.md`, "The placements and their enforcement
+/// modes"). Sorted, so `--kind` errors and the no-`--kind` map are deterministic.
+///
+/// # Errors
+///
+/// Propagates the lock-row lift errors a malformed declared kind row raises.
+fn yaml_frontmatter_kind_domain(
+    declarations: &drift::Declarations,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+) -> miette::Result<Vec<String>> {
+    let mut domain: Vec<String> = builtin_defs
+        .values()
+        .filter(|def| def.format == Some(Format::YamlFrontmatter))
+        .map(|def| def.name.clone())
+        .collect();
+
+    let (custom_rows, _collisions) = compose::partition_kind_rows(declarations, builtin_defs)?;
+    for row in custom_rows {
+        let custom_kind = CustomKind::from_kind_fact_row(row)?;
+        if custom_kind.format == Some(Format::YamlFrontmatter) {
+            domain.push(row.name.clone());
+        }
+    }
+
+    domain.sort();
+    Ok(domain)
+}
+
+/// A domain kind's active contract — lock clauses, else the embedded default for a
+/// built-in, else the bare default for a declared custom kind — the same split
+/// [`guarded_manifests`] and `read.rs::explain_target` run, so `schema` never
+/// disagrees with `check`/`explain`/`guard` about a kind's contract.
+///
+/// # Errors
+///
+/// Propagates the clause-lift errors contract resolution raises.
+fn kind_contract(
+    declarations: &drift::Declarations,
+    builtin_defs: &BTreeMap<String, CustomKind>,
+    name: &str,
+) -> miette::Result<temper::contract::Contract> {
+    if builtin_defs.contains_key(name) {
+        compose::builtin_contract(&declarations.clauses, &declarations.kinds, name)
+    } else {
+        Ok(compose::default_contract_from_rows(
+            &declarations.clauses,
+            &declarations.kinds,
+            name,
+        )?)
     }
 }
 

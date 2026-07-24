@@ -375,8 +375,49 @@ fn schema_without_kind_maps_every_modeled_kind() {
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     // A by-kind map keyed by each kind's bare row label: each resolves to its own schema.
+    // The widened domain — every YAML-frontmatter builtin, not the skill/rule fossil.
     assert_eq!(json["skill"]["type"], "object");
     assert_eq!(json["rule"]["type"], "object");
+    assert_eq!(json["command"]["type"], "object");
+    assert_eq!(json["agent"]["type"], "object");
+}
+
+#[test]
+fn schema_kind_command_emits_an_object_schema() {
+    let cwd = common::tmpdir("schema-command");
+    let output = Command::new(BIN)
+        .current_dir(&cwd)
+        .arg("schema")
+        .arg("--kind")
+        .arg("command")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "temper schema --kind command must exit zero"
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(json["type"], "object");
+}
+
+#[test]
+fn schema_kind_agent_emits_an_object_schema() {
+    let cwd = common::tmpdir("schema-agent");
+    let output = Command::new(BIN)
+        .current_dir(&cwd)
+        .arg("schema")
+        .arg("--kind")
+        .arg("agent")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "temper schema --kind agent must exit zero"
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(json["type"], "object");
 }
 
 #[test]
