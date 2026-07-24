@@ -393,6 +393,10 @@ export interface Hook {
  */
 export const SETTINGS_MANIFEST = "settings.json";
 
+/** The `hooks.<Event>` collection address's key-path — the `hook` kind's own address, and
+ * the tap hook registration's, since a tap hook is an ordinary `hook` entry. */
+const HOOK_KEY_PATH = "hooks.<Event>";
+
 /**
  * `hook` — a `settings.json` `hooks.<Event>` registration member: a fields-only kind (no
  * body slot), its members discovered off the `.claude/settings.json` manifest at the
@@ -406,10 +410,30 @@ export const hook: KindDefinition<Hook> = kind<Hook>({
   unitShape: "file",
   registration: [{ via: "event", field: "event" }],
   shape: "fields",
-  collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: "hooks.<Event>", entryShape: "group-array(hooks;matcher)" },
+  collectionAddress: { manifest: SETTINGS_MANIFEST, keyPath: HOOK_KEY_PATH, entryShape: "group-array(hooks;matcher)" },
   guidance:
     "keep a handler's `type` among `command`/`http`/`mcp_tool`/`prompt`/`agent`; a `command` handler needs a `command`, an `http` handler a `url`; the `matcher` filters tool-scoped events and is inert on events that carry no tool (`UserPromptSubmit`, `Stop`, and their siblings).",
 });
+
+/**
+ * The tap hook registration's `hooks.<Event>` key-path and `Hook` field triple — the
+ * provider fact {@link tapHookRows} (`declarations.ts`) fills rather than authors inline.
+ * A tap hook always fires a `command` handler (`type` fixed), so only the tap's own
+ * `command` string and the per-event `matcher` {@link TELEMETRY_EVENT_HOOKS} names vary.
+ */
+export function tapHookRegistration(
+  command: string,
+  matcher: string,
+): { readonly keyPath: string; readonly fields: Array<[string, unknown]> } {
+  return {
+    keyPath: HOOK_KEY_PATH,
+    fields: [
+      ["type", "command"],
+      ["command", command],
+      ["matcher", matcher],
+    ],
+  };
+}
 
 /**
  * A Claude Code MCP server — a fields-only registration member surfacing inside

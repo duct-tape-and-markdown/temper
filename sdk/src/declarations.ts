@@ -16,7 +16,7 @@ import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kin
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
-import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS } from "./builtins.js";
+import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS, tapHookRegistration } from "./builtins.js";
 
 import type {
   AssemblyFactRow,
@@ -764,8 +764,10 @@ export function buildTapHookDedupeKey(event: string, matcher: string): string {
  * records every fire and read time joins raw events to members, so however many
  * verifiers name an event it takes exactly one hook — the derived-aggregate precedent
  * the permission union sets ({@link permissionUnion}). Each row runs {@link TAP_COMMAND}
- * under the event's documented matcher ({@link TELEMETRY_EVENT_HOOKS}); an event-name
- * outside that table is the roster's inadmissibility finding, never a row.
+ * under the event's documented matcher ({@link TELEMETRY_EVENT_HOOKS}), its key-path and
+ * field triple sourced from the provider face ({@link tapHookRegistration},
+ * `builtins.ts`); an event-name outside that table is the roster's inadmissibility
+ * finding, never a row.
  */
 export function tapHookRows(harness: Harness): RegistrationRow[] {
   const deduped = new Map<string, { readonly event: string; readonly matcher: string }>();
@@ -782,17 +784,16 @@ export function tapHookRows(harness: Harness): RegistrationRow[] {
   }
   return [...deduped.values()]
     .sort((a, b) => compareStrings(a.event, b.event) || compareStrings(a.matcher, b.matcher))
-    .map(({ event, matcher }): RegistrationRow => ({
-      kind: "hook",
-      key: event,
-      manifest: SETTINGS_MANIFEST,
-      key_path: "hooks.<Event>",
-      fields: [
-        ["type", "command"],
-        ["command", TAP_COMMAND],
-        ["matcher", matcher],
-      ],
-    }));
+    .map(({ event, matcher }): RegistrationRow => {
+      const { keyPath, fields } = tapHookRegistration(TAP_COMMAND, matcher);
+      return {
+        kind: "hook",
+        key: event,
+        manifest: SETTINGS_MANIFEST,
+        key_path: keyPath,
+        fields,
+      };
+    });
 }
 
 /**
