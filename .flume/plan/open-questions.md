@@ -82,36 +82,6 @@ condition arrives, it is the next break. If work touches one, surface it.
   writer rather than inheriting a fall-through. The next format answers that
   match by construction, which is what keeps "deliberate" mechanical here.
 
-- **`kinds/` + `packages/` curated trees — RETIRED.** The engine retirement
-  drained and the physical trees were deleted (`chore(harness)` 68f187d).
-  **One debt survives**, accepted: `tests/session_start.rs:122/141` still
-  writes `+++`-format `.temper/kinds/spec/KIND.md` +
-  `.temper/packages/spec/PACKAGE.md` fixtures. **Reclassified 07-16 — this
-  record had it wrong, and the misfiling is why it never discharged.** It was
-  filed as narration staleness riding a reconcile; it is not. Read on disk at
-  8913b59: the fixtures sit inside
-  `stray_custom_kind_shaped_fixtures_never_disturb_a_clean_session_start`
-  (113), whose *subject* is that files in the retired format are inert — the
-  vocabulary is the assertion, not a comment beside it. So no hygiene pass can
-  "reconcile" it: the live question is whether temper still wants a test
-  pinning retired-format inertness at all, and that is a value call
-  (subtraction before addition, CLAUDE.md) no build tick may invent. **The
-  reclassification is now proven, not predicted:** CHECK-RUNNER-REMAINDER
-  shipped (a9a21a9), edited this very file at 49, and left the fixtures
-  standing — the third entry to open it and correctly not touch it (after
-  664a522 and CHECK-ARG-HALF-GATE 4256274). CHECK-ANNOUNCES (dab85aa) is now
-  the **fourth**, touching only lines 17 and 394 to thread `Announcement`
-  through `session_start` — the fixtures untouched, and unshifted with them.
-  The numbers above are re-read on disk at b85df4a (fn 113, cites 122/141),
-  not carried forward. Not a rider awaiting a carrier; a
-  question awaiting a human.
-  **The `sdk/src/builtins.ts` half is discharged.** SKILL-NESTED-REFERENCE-DOCS
-  (a7a8cc1) carried it named and cut both doc-comment cites to the deleted
-  `packages/{rule,memory}.anthropic/PACKAGE.md` files; `rg` over the file finds
-  neither. Nine entries had opened builtins.ts and left them — the same lesson
-  the record below spent two entries learning, proven a third time: the rider
-  discharges when an entry names it, and not when a file is merely opened.
-
 - **One stale cite, ride-only, never an entry.**
   Comment and citation staleness never files a standalone entry; it rides
   whichever entry next opens the file, and discharges only when that entry
