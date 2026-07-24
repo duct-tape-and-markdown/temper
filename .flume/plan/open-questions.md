@@ -117,7 +117,7 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Thirteen live orphans** (six re-verified at HEAD df57610, the seventh at
+  **Fourteen live orphans** (six re-verified at HEAD df57610, the seventh at
   8415088, the eighth at 721cab6, the ninth at 11ab0ab, the tenth new this
   tick, one — extract.rs's own, a different one — discharged at 2a6e488). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
@@ -277,6 +277,14 @@ condition arrives, it is the next break. If work touches one, surface it.
   sentence now sits at 403-405, not 397-399 (`rg -n "outside the corpus"
   src/builtin_kind.rs` confirms). No pending entry currently opens
   bundle.rs, so it rides whichever one first does.
+  **A fourteenth, surfaced this tick's posture sweep of src/hash.rs.**
+  `src/hash.rs`'s module `//!` header (1-8) describes the file as home to
+  SHA-256 hashing and the shared read+UTF-8-decode primitive but says
+  nothing of `canonicalize_eol` (28-48), added by e0de7be (build:
+  canonicalize EOL before hashing in drift comparisons) without updating
+  the header — a reader skimming the overview would miss a third of the
+  file's job. No pending entry currently opens hash.rs, so it rides
+  whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
