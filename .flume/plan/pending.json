@@ -48,7 +48,13 @@
       }
     ],
     "acceptance": "On a CRLF checkout of a represented harness, `check` is quiet on `install.gate-installed`, `emit` preserves every projection's managed-by note and schema modeline, and re-running `install` converges — distribution.md's \"re-running converges … every managed line is content-keyed, and `check` verifies its own gate is installed and undrifted\".",
-    "notes": "Two field reports (centercode-platform, Windows 11, temper 0.0.13) name this defect: one as install.rs's missing `canonicalize_eol`, one as `emit` owning the note wrongly. Both diagnoses are wrong; both symptoms are this delimiter. Verified at 43743407: on an LF tree a real re-emit preserves the note, gate clean; on a CRLF copy emit drops it from the 9 frontmatter targets while banner-form files survive. scoped at 43743407."
+    "notes": "Two field reports (centercode-platform, Windows 11, temper 0.0.13) name this defect: one as install.rs's missing `canonicalize_eol`, one as `emit` owning the note wrongly. Both diagnoses are wrong; both symptoms are this delimiter. Verified at 43743407: on an LF tree a real re-emit preserves the note, gate clean; on a CRLF copy emit drops it from the 9 frontmatter targets while banner-form files survive. scoped at 43743407.",
+    "observedFiles": [
+      "src/frontmatter.rs",
+      "src/install.rs",
+      "src/placement.rs",
+      "tests/install.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
