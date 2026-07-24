@@ -6,31 +6,7 @@
 //! the embedded by-kind floor) so an editor validates a harness artifact's
 //! frontmatter at keystroke — the one gate, shifted as far left as the work allows.
 //!
-//! ## Two channels, kept disjoint
-//!
-//! The spec's schema carries two channels, and the split is the guarantee:
-//!
-//! - **validation** (the squiggle) — the *decidable clauses only*, each a true
-//!   positive by construction, so the squiggle never cries wolf. These are the
-//!   JSON-Schema *validation* keywords ([`emit`] below).
-//! - **docs** (hover) — the per-field [`guidance`](crate::contract::Clause::guidance)
-//!   prose kept *out of checks*, projected onto each field's property
-//!   `description` keyword, **strictly alongside** the validation keywords and
-//!   never mixed into them. A field's guided clauses join into that one keyword,
-//!   just as its shapes compose into `allOf`. Advisory; it never gates.
-//!
-//! Taste cannot become a squiggle — the closed algebra has no syntax for it, and
-//! neither does the schema — so it can only ride the docs channel. The medium
-//! enforces the keystroke: the editor delivers the decidable contract as validation and
-//! the guidance as documentation, and cannot confuse the two.
-//!
 //! See [`emit`]'s match for the per-predicate mapping; tests below pin the complete coverage.
-//!
-//! A clause whose `field` addresses past the top level (`owner.name`,
-//! `plugins[*].source`) names no property of this object, so it rides neither channel:
-//! a nested key spelled as a top-level one would have the editor demand a key the
-//! format never documents. The gate decides those clauses; the schema says only what an
-//! editor can check against the flat object in front of it.
 
 use std::collections::BTreeSet;
 
