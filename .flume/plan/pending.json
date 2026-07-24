@@ -1,36 +1,5 @@
 [
   {
-    "tag": "INSTALL-CLAUDE-ROOT-PROVIDER-FACE-REUSE",
-    "summary": "install.rs hardcodes \".claude\" as two literals instead of importing builtin_kind::CLAUDE_ROOT, the existing provider-face constant coverage_note.rs already reuses.",
-    "per": {
-      "path": "specs/process/architecture.md",
-      "section": "The provider face is data"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "settings_path (593) joins root.join(\".claude\").join(\"settings.json\") and is_claude_path (778) tests file_path.contains(\".claude/\") — both re-literal the .claude locus builtin_kind::CLAUDE_ROOT already names (today imported only by coverage_note.rs). Import CLAUDE_ROOT and rebuild both sites off it — settings_path: root.join(CLAUDE_ROOT).join(\"settings.json\"); is_claude_path: file_path.contains(&format!(\"{CLAUDE_ROOT}/\")) or equivalent — no behavior change, same literal value."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "Existing settings-path and guard-fallback coverage (declining_wires_the_session_start_reporter_alone_and_never_creates_temper_dir, the_session_start_merge_* tests, gate_installed_* tests) continues to pass unchanged — the fix is a pure literal-to-constant swap with no behavioral delta."
-      }
-    ],
-    "acceptance": "src/install.rs's two \".claude\" literals (settings_path, is_claude_path) are gone, both reading crate::builtin_kind::CLAUDE_ROOT; cargo test still green.",
-    "notes": "Found this tick's posture sweep of src/install.rs (c9d11d5 rotation frontier): the only two non-test, non-comment \".claude\" literals left in the tree outside builtin_kind.rs itself (verified via rg over src/*.rs — every other hit sits in a #[cfg(test)] fixture). CLAUDE_ROOT already has one real consumer (coverage_note.rs:18/166); install.rs re-derives the same fact instead of importing it — embedded provider knowledge, invisible to the import graph. scoped at 4721d57."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
