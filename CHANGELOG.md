@@ -11,6 +11,20 @@ breaking changes. Releases are small and frequent.
 
 _Nothing yet._
 
+## [0.0.14] — 2026-07-24
+
+### Fixed
+
+- CRLF checkouts no longer lose managed-by notes or report drift on correct
+  projections. The frontmatter reader accepted only an `---\n` opening
+  delimiter, so on a working tree git rewrote to CRLF (the `core.autocrlf`
+  default) every frontmatter-carrying projection read as frontmatterless:
+  `emit` dropped the managed-by note it should have preserved, the schema
+  modeline was never placed, `install` did not converge, and `check` reported
+  `install.gate-installed` drift on files that were correct. The reader now
+  accepts `---\r\n` as well. A repository that committed stripped notes
+  restores them with one `temper install`.
+
 ## [0.0.13] — 2026-07-24
 
 ### Added
