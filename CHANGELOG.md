@@ -11,6 +11,28 @@ breaking changes. Releases are small and frequent.
 
 _Nothing yet._
 
+## [0.0.13] — 2026-07-24
+
+### Added
+
+- `explain` now narrates a bare kind: `temper explain <kind>` (or
+  `kind:<name>`) reports a kind's authoring guidance before any member of
+  it exists.
+- An embedded kind's guidance now reaches every delivery surface. It takes
+  a kind-fact row in the lock (locus columns absent), so `schema` and
+  `explain` carry its counsel like any other kind's.
+- `schema --kind` serves every YAML-frontmatter kind, built-in or declared,
+  not just `skill` and `rule`. Kind and field guidance ride the schema as
+  editor hover text.
+
+### Fixed
+
+- `install`'s lift scaffolds each kind into its own directory. A command
+  and an agent sharing a name no longer overwrite each other's scaffolded
+  module.
+- `schema --kind`'s help and unknown-kind error report the live kind
+  domain instead of a hardcoded list.
+
 ## [0.0.12] — 2026-07-23
 
 ### Fixed
