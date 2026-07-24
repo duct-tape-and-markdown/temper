@@ -165,12 +165,12 @@ condition arrives, it is the next break. If work touches one, surface it.
   GATE-INSTALLED-NAMES-FILES-SUPPRESS-UNADOPTED (9641ff2, gate_installed's
   early-return + per-path tally at 519-560) and
   HOOK-COMMAND-FAILS-LOUD-ON-MISSING-TEMPER (904d204, the PATH-guard
-  rewrite of SESSION_START_COMMAND/GUARD_COMMAND at 89-145) — have all
-  shipped touching install.rs, none reaching this range. This tick's
-  posture sweep read the file whole and filed
-  INSTALL-CLAUDE-ROOT-PROVIDER-FACE-REUSE (open, unbuilt), scoped to
-  `settings_path`/`is_claude_path` at 593/778 — also not this range, so
-  it still rides whichever entry next reaches it.
+  rewrite of SESSION_START_COMMAND/GUARD_COMMAND at 89-145), and, new since
+  the last read, INSTALL-CLAUDE-ROOT-PROVIDER-FACE-REUSE (d760857, the
+  `settings_path`/`is_claude_path` literal-to-constant swap at 593/778,
+  re-verified on disk this tick — same line count, no shift) — have all
+  shipped touching install.rs, none reaching this range, so it still rides
+  whichever entry next reaches it.
   `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 352,
   re-read at f88e96d) still names `[extract::manifest_members]`, though
   the function it points at moved into this same file when
