@@ -117,9 +117,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Fourteen live orphans** (six re-verified at HEAD df57610, the seventh at
-  8415088, the eighth at 721cab6, the ninth at 11ab0ab, the tenth new this
-  tick, one — extract.rs's own, a different one — discharged at 2a6e488). `src/json_splice.rs`'s
+  **Fifteen live orphans** (six re-verified at HEAD df57610, the seventh at
+  8415088, the eighth at 721cab6, the ninth at 11ab0ab, the tenth, the
+  fifteenth new this tick, one — extract.rs's own, a different one —
+  discharged at 2a6e488). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
   "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -285,6 +286,21 @@ condition arrives, it is the next break. If work touches one, surface it.
   the header — a reader skimming the overview would miss a third of the
   file's job. No pending entry currently opens hash.rs, so it rides
   whichever one first does.
+  **A fifteenth, surfaced this tick's posture sweep of src/import.rs.**
+  `src/import.rs`'s module `//!` header (11-12) still claims a "Keystone
+  invariant (`.claude/rules/rust.md`): idempotence. It holds because every
+  write is content-derived, name-sorted, and overwrites in place." — true
+  when this file carried the `lock.toml` roll-up writer, but ab2e822
+  (build: move rollup writer from import.rs to drift.rs, 2026-07-18)
+  relocated `RollupEntry`, `write_rollup`, `rollup_tables`, and the write
+  helpers to drift.rs wholesale; the sibling header line naming the writer
+  was cut in the same commit ("harness discovery and the lock.toml roll-up
+  writer" → "harness discovery"), but this trailing invariant paragraph
+  survived untouched. `src/import.rs` performs no writes at all today — it
+  is pure discovery (confirmed: no `fs::write`, `toml_edit`, or
+  `DocumentMut` use outside `#[cfg(test)]`) — so the paragraph now asserts
+  a property of a module it describes but no longer governs. No pending
+  entry currently opens import.rs, so it rides whichever one first does.
   The prior orphan, `src/roster.rs`'s `membership_roster` doc comment citing
   the 0001-deleted `10-contracts.md`, discharged at 2fc2291 — VERIFIER-TYPED
   opened roster.rs for its verifier dispatch and cut the cite in scope,
