@@ -7,9 +7,9 @@
   the commit body).
 - Residue swept through: a627178 — same window; one harness gap routed to
   friction, no pending entry (full DATUM in the commit body).
-- Posture swept through: mid-rotation, at src/lib.rs — clean; src/main.rs
+- Posture swept through: mid-rotation, at src/main.rs — clean; src/path.rs
   next in the c9d11d5 rotation's frontier.
-- This tick: POSTURE SWEEP src/lib.rs — clean, no findings (evidence in
+- This tick: POSTURE SWEEP src/main.rs — clean, no findings (evidence in
   the commit body).
 - Queue: 2 pending — 1 parked, 1 deferred, 0 open. Open forks: 2,
   unchanged. Friction: 2, unchanged. Amendments: 0. Inbox: 0.
