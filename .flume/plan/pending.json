@@ -1,34 +1,5 @@
 [
   {
-    "tag": "INSTALL-BANNER-GUARD-DUPLICATES-DELIMITER-DETECTION",
-    "summary": "project_banner hand-rolls a second `---`/`---\\r\\n` opening-delimiter check instead of reusing frontmatter::frontmatter_matter, diverging on an unterminated block.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "project_banner's guard (line 1682, `source.starts_with(\"---\\n\") || source.starts_with(\"---\\r\\n\")`) re-implements the opening-delimiter check frontmatter::frontmatter_matter already owns, introduced by 49c931ba's 'align project_banner's guard to check both formats' rather than a call-site reuse. Replace with `frontmatter::frontmatter_matter(source).is_some()` and trim the now-redundant guard comment (lines 1679-1681). The two guards also diverge in behavior: frontmatter_matter requires a closing `---` to classify a source as frontmatter (returns None on an unterminated block), so a markdown source opening with `---` but never closing it currently falls through both project_note and project_banner in evaluate_placements (line 657) and gets no managed-by note at all — the fix also closes that silent gap."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/install.rs",
-        "asserts": "project_banner declines a CRLF-opened frontmatter source (`---\\r\\n...---\\r\\n`), matching the existing LF-only decline test; and project_banner now takes (rather than silently drops) an unterminated `---`-opening markdown source with no closing delimiter."
-      }
-    ],
-    "acceptance": "project_banner's frontmatter/frontmatterless classification runs through frontmatter::frontmatter_matter alone; cargo test passes; an unterminated-`---` markdown source gets the banner instead of neither note nor banner.",
-    "notes": "Posture sweep, window cbdde828..e0cde225 (install.rs neighborhood: frontmatter.rs, install.rs, placement.rs). Verified on disk: frontmatter.rs's own doc comment (line ~362) already claims frontmatter_matter is shared by 'src/install.rs's projectors' (plural) but project_banner never calls it. scoped at e0cde225."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
