@@ -615,14 +615,15 @@ const makeAgent = (model: string) =>
 /**
  * Model routing: per-phase, keyed on the runtime's `<harness>` preamble
  * line `Phase: <name>` in the rendered prompt — the mechanism the 07-10
- * note reserved. Plan crawls and plans on Sonnet; build runs Sonnet too
- * while the queue carries cross-seam feature entries (SDK + engine in one
- * entry sits above the cheap tier's reliable ceiling). Drop build to
- * Haiku when the diet returns to mechanical single-tree atoms. An
- * unrecognized phase runs the plan model.
+ * note reserved. Plan crawls and plans on Sonnet; build chugs entries on
+ * Haiku with the cargo gates as the safety net (judgment where wrongness
+ * compounds, cheap where the gates catch it). Route build to Sonnet when
+ * the queue carries cross-seam feature entries — SDK + engine in one
+ * entry sits above the cheap tier's reliable ceiling. An unrecognized
+ * phase runs the plan model.
  */
 const planAgent = makeAgent("claude-sonnet-5");
-const buildAgent = makeAgent("claude-sonnet-5");
+const buildAgent = makeAgent("claude-haiku-4-5-20251001");
 const routed: Agent = {
   name: "phase-router",
   invoke: (opts) =>
