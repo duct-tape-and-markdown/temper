@@ -1,36 +1,5 @@
 [
   {
-    "tag": "INSTALL-EMIT-COMPOSITION-REGRESSION-TEST",
-    "summary": "FRONTMATTER-CRLF-OPEN-DELIMITER's shipped commit (49c931ba) added 2 of its 3 promised tests; the verb-composition regression is missing at both EOLs.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A fix ships the test that would have caught it"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/install.rs",
-          "description": "Add the verb-composition case the shipped fix's own `tests[]` named but didn't land: `install::run` once, then an authored module edit, then a standalone `emit_from_harness` (1407) call with no second `install::run`, then assert `temper::drift::config_stale` (the gate) is empty and the managed-by note + modeline survive in the projected files — at both LF and CRLF (reuse `convert_tree_to_crlf`, 1721). `re_representing_never_re_scaffolds_and_settles_on_the_first_run` (580) is the install→install precedent this complements; it does not cover install→edit→standalone-emit."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "After `install::run`, an authored module edit, and a standalone `emit_from_harness` with no intervening `install::run`: the projection carries the authored change and its managed-by note/modeline, and `temper::drift::config_stale` reports no drift — at both LF and CRLF."
-      }
-    ],
-    "acceptance": "The verb-composition path (install, authored edit, standalone emit, gate — no second install) is pinned by a passing regression test at both EOLs, closing the gap FRONTMATTER-CRLF-OPEN-DELIMITER's acceptance named but didn't ship.",
-    "notes": "Audit finding, post-ship reconciliation window d37b7f39..HEAD: the shipped commit's `tests[]` promised 3 tests (frontmatter unit test, CRLF install/emit cycle, verb-composition at both EOLs); only the first two landed (verified via `grep -n \"fn \" tests/install.rs` + the commit diff). The underlying fix covers this path structurally (`drift::emit` already routes through the fixed `placement::placement_lines`), so this is coverage debt, not a known-broken path. scoped at 39429e47."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
