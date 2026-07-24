@@ -1,21 +1,17 @@
 # Plan state
 
 - Spec derived through: aee005d — unchanged this tick.
-- Audited through: 137e1df — unchanged: `git log 137e1df..HEAD -- src/
-  tests/ sdk/` is empty, no window to reconcile.
-- Residue swept through: 137e1df — unchanged, same reason.
+- Audited through: 137e1df — unchanged this tick.
+- Residue swept through: 137e1df — unchanged this tick.
 - Posture swept through: mid-rotation, at src/schema.rs (neighborhood:
   its imports — contract, extract, address — already covered, nothing
   folds in). Frontier: test_support.rs, toml_document.rs remain
   (tap.rs/telemetry.rs already folded into read.rs's neighborhood).
-- This tick: POSTURE SWEEP src/schema.rs — filed
-  SCHEMA-HEADER-RESTATES-INLINE-CHANNEL-DOCS (module header duplicates
-  channel-split and field-address mechanics already carried adjacent to
-  the code); everything else clean this neighborhood — DATUM in commit
-  body.
-- Queue: 3 pending — 1 open, 1 parked, 1 deferred. Open forks: 2,
-  unchanged. Friction: 2, unchanged. Amendments: 0. Inbox: 0.
+- This tick: INBOX — drained #12 (embedded-kind guidance gap) to
+  open-questions.md as `(embedded-kind-guidance-channel)`; no clean cite
+  yet, DATUM in commit body.
+- Queue: 3 pending — 1 open, 1 parked, 1 deferred. Open forks: 3 (+1).
+  Friction: 2, unchanged. Amendments: 0. Inbox: 0 (drained).
 
-Plan continues: after-build — SCHEMA-HEADER-RESTATES-INLINE-CHANNEL-DOCS
-ships first; the posture sweep resumes (frontier: test_support.rs,
-toml_document.rs) when the wave hands back.
+Plan continues: yes — post-ship reconciliation window 137e1df..5a80006
+(src/schema.rs trim) is unreconciled next tick.
