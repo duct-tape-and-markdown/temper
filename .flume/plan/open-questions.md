@@ -87,10 +87,10 @@ condition arrives, it is the next break. If work touches one, surface it.
   whichever entry next opens the file, and discharges only when that entry
   NAMES the cite — never when a file is merely opened. The rule's condition
   has never once failed across every payout git records.
-  **Fifteen live orphans** (six re-verified at HEAD df57610, the seventh at
+  **Fourteen live orphans** (six re-verified at HEAD df57610, the seventh at
   8415088, the eighth at 721cab6, the ninth at 11ab0ab, the tenth, the
-  fifteenth new this tick, one — extract.rs's own, a different one —
-  discharged at 2a6e488). `src/json_splice.rs`'s
+  fifteenth new this tick, two now discharged — extract.rs's own at
+  2a6e488, json_manifest.rs's own at 14f3ea7). `src/json_splice.rs`'s
   module header (surfaced 5af93d9, sweeping foundation) claims install.rs as
   "the sole consumer," but json_manifest.rs now also calls apply_edits/
   object_shape/insert_member/pretty_at — no pending entry currently opens
@@ -106,11 +106,13 @@ condition arrives, it is the next break. If work touches one, surface it.
   DRIFT-WRITE-ROLLUP-CUSTOM-PARAM-PRUNE (c52a1db),
   WRITE-CREATING-PARENTS-CONSOLIDATE (700b588),
   SEAM-VERSION-PEEK-BEFORE-PAYLOAD-PARSE (819647c, the 25-line
-  `peek_and_validate_seam_version` insertion at 1015-1040), and
+  `peek_and_validate_seam_version` insertion at 1015-1040),
   DRIFT-COMPARE-EOL-CANONICALIZE (e0de7be, the 4 canonicalize_eol call-site
-  edits at 2226/2542/2623/2827 plus the import line at 31) have all since
-  shipped touching drift.rs, none reaching the region — so it still rides
-  whichever entry first does.
+  edits at 2226/2542/2623/2827 plus the import line at 31), and 14f3ea7
+  (chore(docs): resolve 16 broken intra-doc links, the `read_file_unit`
+  unbracket at 2341-2344 and `Verifier` crate-path fix at 3406-3409) have
+  all since shipped touching drift.rs, none reaching the region — so it
+  still rides whichever entry first does.
   `src/document.rs`'s
   `item_to_json` doc comment (surfaced the formats posture sweep) cites
   "the built-in adapters' `json_to_toml_value`" as the function's
@@ -138,25 +140,16 @@ condition arrives, it is the next break. If work touches one, surface it.
   rewrite of SESSION_START_COMMAND/GUARD_COMMAND at 89-145), and, new since
   the last read, INSTALL-CLAUDE-ROOT-PROVIDER-FACE-REUSE (d760857, the
   `settings_path`/`is_claude_path` literal-to-constant swap at 593/778,
-  re-verified on disk this tick — same line count, no shift) — have all
-  shipped touching install.rs, none reaching this range, so it still rides
-  whichever entry next reaches it.
-  `src/json_manifest.rs`'s `Manifest::read` doc comment (now line 352,
-  re-read at f88e96d) still names `[extract::manifest_members]`, though
-  the function it points at moved into this same file when
-  `manifest_members` was extracted from extract.rs to json_manifest.rs
-  (404b73a, EXTRACT-FOUNDATION-BOUNDARY-RESTORE) — the module prefix is
-  self-referential and wrong. JSON-MANIFEST-DISCOVERY-BOUNDARY-RESTORE
-  (89cfc64), GATE-MANIFEST-SHARED-READ-HOIST (83fbdd5), and
-  MANIFEST-CACHE-READ-COUNT-PIN (c27b411) have all since shipped
-  touching json_manifest.rs, none reaching line 352 — the last edited
-  only the `manifest_read_count` doc comment at 40-43; no entry
-  currently open chains onto it, so it rides whichever next does.
+  re-verified on disk this tick — same line count, no shift), and 14f3ea7
+  (chore(docs): resolve 16 broken intra-doc links, the `main` unbracket at
+  155-158) — have all shipped touching install.rs, none reaching this
+  range, so it still rides whichever entry next reaches it.
   **A seventh, surfaced by an earlier posture sweep and re-read at this
   tick's sweep of contract.rs.** `src/contract.rs`'s `SHAPE_PATTERNS` doc
-  comment (883-885, re-read at f8a3031 — contract.rs itself unchanged
-  since 8415088, confirmed by `git log 8415088..f8a3031 -- src/contract.rs`
-  returning empty) claims compilation "cannot fail" is "covered by
+  comment (883-885, re-read at f8a3031, unshifted since — 14f3ea7
+  (chore(docs): resolve 16 broken intra-doc links) touched contract.rs's
+  `Extent` predicate doc comment at 252-257, an unrelated rustdoc-link fix,
+  never 883-885) claims compilation "cannot fail" is "covered by
   [`crate::contract::tests`]" — a module this file no longer carries (a
   `mod tests` block was present through e1de1f0 and is gone by HEAD; the
   three shape patterns' only exercise today is the standalone
@@ -191,8 +184,9 @@ condition arrives, it is the next break. If work touches one, surface it.
   number above moving from 2794-2868 to 2797-2871 — but touched only the
   match arm, never the doc comment 11 lines above it, so the glued
   mis-attribution survives untouched. None of the six reach the doc-comment
-  region. No entry is currently open on drift.rs at all, so it rides
-  whichever one next does.
+  region, nor does 14f3ea7 (chore(docs): resolve 16 broken intra-doc links,
+  touching only 2341-2344/3406-3409). No entry is currently open on
+  drift.rs at all, so it rides whichever one next does.
   **A ninth, surfaced this tick's posture sweep of src/layout.rs's immediate
   import.** `src/extract.rs`'s `body_heading_tree` (538) and `body_preamble`
   (588) doc comments each justify their `pub(crate)` visibility as "so the
@@ -200,8 +194,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   but the layout reader moved out of kind.rs into its own module at cfa545e
   (build: extract layout-document reader to new layout module); `rg` confirms
   both functions' only present caller is `src/layout.rs` (124, 143, 157), not
-  kind.rs. No pending entry currently opens extract.rs, so per the ride-only
-  rule it rides whichever one first does.
+  kind.rs. 14f3ea7 (chore(docs): resolve 16 broken intra-doc links) has
+  since touched extract.rs, but only the `nested_members` doc comment at
+  355-358 (an unrelated rustdoc-link fix), never 538/588. No pending entry
+  currently opens extract.rs, so per the ride-only rule it rides whichever
+  one first does.
   **A tenth, surfaced this tick's posture sweep of src/roster.rs.**
   `tests/contract_template.rs`'s doc comment (255-258, authored 94ac5f1,
   2026-07-07) and `tests/read_verbs.rs`'s inline comment (215-216, authored
@@ -239,8 +236,11 @@ condition arrives, it is the next break. If work touches one, surface it.
   that read, FRONTMATTER-LOAD-FAULT-AS-DIAGNOSTIC (a8a674a, `resolve_kind_units`'s
   doc comment and signature at 601-625) and COMPOSE-FRONTMATTER-FAULT-MATCH-DEDUP
   (b5c5a5d, the new `frontmatter_fault_diagnostic` helper inserted at 592-624)
-  have both shipped touching compose.rs — neither reaching 558, re-read at
-  021c01d — so the cite still rides whichever entry next reaches it.
+  have both shipped touching compose.rs, and 14f3ea7 (chore(docs): resolve
+  16 broken intra-doc links, the `LockFamily`/`directive_members_from_resolved`
+  doc-comment crate-path fixes at 394-399/1195-1198) has too — none reaching
+  558, re-read at 021c01d — so the cite still rides whichever entry next
+  reaches it.
   **A thirteenth, surfaced this tick's posture sweep of src/bundle.rs.**
   `src/bundle.rs`'s `PLUGIN_NAME` doc comment (51) cites "builtin_kind.rs
   line 397–399" for the claim that a plugin's contributed surfaces (its
@@ -283,7 +283,18 @@ condition arrives, it is the next break. If work touches one, surface it.
   companion cite above), discharged at 2a6e488 — EXTRACT-BODY-HEADINGS-COLLECT-HEADS-DEDUP
   opened extract.rs for its `body_headings`/`collect_heads` consolidation
   and excised the dead prose in scope, the same predicted resolution a
-  second time.
+  second time. A third orphan, `src/json_manifest.rs`'s `Manifest::read`
+  doc comment's self-referential `[extract::manifest_members]` cite (line
+  352, the companion this record tracked), discharged at 14f3ea7 —
+  chore(docs): resolve 16 broken intra-doc links rewrote it to a bare
+  `[manifest_members]` local reference while fixing the same line's broken
+  rustdoc link, incidentally correcting the stale module prefix too;
+  verified on disk this tick (`rg -n manifest_members src/json_manifest.rs`
+  shows line 352 now reads `[manifest_members]`, resolving to the
+  same-file `fn manifest_members` at 540). Not the ride-only rule's
+  predicted path — the fix arrived via a docs chore, not a pending entry
+  opening the file — but the discharge condition (the cite corrected) holds
+  regardless of which channel reached it.
   Fixture body text inside tests stays a separate class, excluded — it is
   `.to_string()` test data, not cites: `src/kind.rs`'s `15-kinds.md` /
   `10-contracts.md` strings, `src/read.rs`'s `20-surface` member ids,
