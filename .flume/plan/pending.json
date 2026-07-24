@@ -64,5 +64,33 @@
     "tests": [],
     "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
+  },
+  {
+    "tag": "ROSTER-READ-OPT-IN-JOIN-DEDUP",
+    "summary": "Consolidate the opt-in `satisfies` join — reimplemented independently in roster::is_satisfier and twice in read.rs — onto one pub(crate) predicate.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/roster.rs",
+          "description": "Promote `is_satisfier` (line 26, private `fn(&str, &Features) -> bool`) to `pub(crate)` so read.rs's two independent reimplementations of the same opt-in join can call it instead of reinventing the filter."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`count_satisfiers` (line 1197) and `satisfiers_of` (line 1478) each hand-roll `features.satisfies.iter().any(|req| req == name)` — the identical predicate roster::is_satisfier already names; their own doc comments (1194-1196, 1470-1472) call it 'the same opt-in join' as roster's selection without consolidating. Replace both inline closures with calls to roster::is_satisfier."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "read.rs's count_satisfiers and satisfiers_of call roster::is_satisfier instead of reimplementing the `.satisfies.iter().any(...)` predicate; cargo test green, no behavior change.",
+    "notes": "Posture sweep, frontier src/roster.rs. roster::is_satisfier (roster.rs:26), read::count_satisfiers (read.rs:1197), read::satisfiers_of (read.rs:1478) each implement the identical Features::satisfies opt-in-name membership test; read.rs's own doc comments at 1194-1196/1470-1472 already name it the same opt-in join as roster's selection algebra without consolidating. coverage.rs's unfilled-check builds a different aggregate (set of filled names) — not part of this duplication. scoped at 421cf79."
   }
 ]
