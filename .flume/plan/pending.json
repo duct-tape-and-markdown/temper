@@ -23,7 +23,10 @@
     "schemaDelta": "none",
     "tests": [],
     "acceptance": "src/reporter.rs's module header no longer restates specs/distribution.md's session-start bullet or session_start()'s/context()'s own doc; cargo doc and clippy stay clean.",
-    "notes": "Posture sweep src/reporter.rs, c9d11d5 rotation. Comment-only trim, no behavior change — 'Cut: restated spec narrative' (rust.md) plus the narration-ladder residue class (behavioral paraphrase of adjacent code), not a stale cite (the open-questions.md ride-only asymmetry doesn't apply). scoped at 9dd5304."
+    "notes": "Posture sweep src/reporter.rs, c9d11d5 rotation. Comment-only trim, no behavior change — 'Cut: restated spec narrative' (rust.md) plus the narration-ladder residue class (behavioral paraphrase of adjacent code), not a stale cite (the open-questions.md ride-only asymmetry doesn't apply). scoped at 9dd5304.",
+    "observedFiles": [
+      "src/reporter.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
