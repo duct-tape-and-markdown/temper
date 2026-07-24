@@ -1,5 +1,40 @@
 [
   {
+    "tag": "SCHEMA-HELP-KIND-DOMAIN-FOSSIL",
+    "summary": "`schema --kind`'s flag help still names the retired two-kind `(`skill`, `rule`)` fossil after SCHEMA-KIND-DOMAIN-WIDEN widened the real domain to every YAML-frontmatter kind.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "The `Schema` command's `kind` field doc (line 91: \"Emit only this artifact kind's schema (`skill`, `rule`); omitted ⇒ a JSON object mapping each modeled kind to its schema.\") still names the pre-widen two-kind fossil, while the actual domain (`yaml_frontmatter_kind_domain`, ~275) is builtin+declared and the unknown-kind error (~285) already interpolates the live domain. Rewrite the doc line to speak generically (e.g. \"this artifact kind's schema (see the unknown-kind error for the live domain)\") rather than hardcoding a kind list that will refossilize on the next kind addition."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "Extend `help_text_speaks_the_current_enforcement_vocabulary_and_layout` (~631) — which already aggregates every subcommand's `--help` text into `all_help` — with an assertion that the schema command's help does not contain the literal stale pair `` `skill`, `rule` `` naming just those two kinds as the closed set."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/cli.rs",
+        "asserts": "`temper schema --help` no longer hardcodes the closed `(`skill`, `rule`)` pair in the `--kind` flag's doc text."
+      }
+    ],
+    "acceptance": "`schema --kind`'s flag help no longer states a fixed two-kind list; it speaks generically about the domain, matching the live-generated unknown-kind error SCHEMA-KIND-DOMAIN-WIDEN already shipped.",
+    "notes": "Inbox #15 (observed at f0ef148a), ruled interactive 2026-07-24: build-ready one-liner. Re-verified live at 8205300a — src/main.rs line 91 still reads the stale `(`skill`, `rule`)` doc verbatim; no main.rs commits between f0ef148a and HEAD. Two-word residue of #13/SCHEMA-KIND-DOMAIN-WIDEN (141448f3), missed by that entry and by post-ship reconciliation f0ef148a. scoped at 8205300a."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
