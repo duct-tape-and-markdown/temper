@@ -228,6 +228,14 @@ const testGate = shellGate({
   failHint: "Tests failed — entry reverted, returns to pending.",
 });
 
+const docGate = shellGate({
+  name: "cargo doc",
+  when: "afterMerge",
+  cmd: "cargo",
+  args: ["doc", "--no-deps", "--quiet"],
+  failHint: "cargo doc denies broken intra-doc links via the crate-level deny; fix the stale link or unbracket it.",
+});
+
 // No self-hosting gate in the chain: the recursive dogfood is live at the
 // session layer (.claude/settings.json wires temper's SessionStart reporter
 // and guard; the harness is authored in .temper/), and its gate — `temper
@@ -489,7 +497,7 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
-  gates: [fmtGate, clippyGate, testGate, sdkGate],
+  gates: [fmtGate, clippyGate, testGate, sdkGate, docGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");

@@ -12,6 +12,8 @@
 //! frozen release line). This crate is built tick-by-tick by the flume harness
 //! in `.flume/`; modules below are filled in per pending entry.
 
+#![deny(rustdoc::broken_intra_doc_links)]
+
 /// Crate version, surfaced by the CLI's `--version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

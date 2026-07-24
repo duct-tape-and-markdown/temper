@@ -5,6 +5,8 @@
 //! mirrors the pipeline verbs; all logic lives in the
 //! library so `tests/` can drive it.
 
+#![deny(rustdoc::broken_intra_doc_links)]
+
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
