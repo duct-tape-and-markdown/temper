@@ -54,6 +54,7 @@ use crate::drift;
 use crate::extract::{self, Features, MemberAddress};
 use crate::graph::{self, DIRECTIVE_FIELD, ResolvedEdge};
 use crate::kind::{self, CustomKind, Registration};
+use crate::roster;
 use crate::tap;
 use crate::tap::TapRecord;
 use crate::telemetry;
@@ -1198,7 +1199,7 @@ fn count_satisfiers(by_kind: &BTreeMap<&str, &[Features]>, name: &str) -> usize 
     by_kind
         .values()
         .flat_map(|members| members.iter())
-        .filter(|features| features.satisfies.iter().any(|req| req == name))
+        .filter(|features| roster::is_satisfier(name, features))
         .count()
 }
 
@@ -1493,7 +1494,7 @@ fn satisfiers_of(
 
     for (&kind, features_slice) in by_kind {
         for features in *features_slice {
-            if features.satisfies.iter().any(|req| req == name)
+            if roster::is_satisfier(name, features)
                 && !satisfiers
                     .iter()
                     .any(|(member, _)| member.kind == kind && member.id == features.id)

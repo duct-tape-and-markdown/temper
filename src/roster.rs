@@ -23,7 +23,7 @@ const REQUIREMENT_ADMISSIBILITY_RULE: &str = "requirement.admissibility";
 /// Whether an artifact opts into the requirement named `requirement` — its
 /// `satisfies` list carries that name. The decidable join at the heart of the opt-in
 /// selection.
-fn is_satisfier(requirement: &str, features: &Features) -> bool {
+pub(crate) fn is_satisfier(requirement: &str, features: &Features) -> bool {
     features.satisfies.iter().any(|name| name == requirement)
 }
 
