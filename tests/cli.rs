@@ -675,4 +675,15 @@ fn help_text_speaks_the_current_enforcement_vocabulary_and_layout() {
             "`temper guard --help` must name the `{mode}` enforcement mode, got:\n{guard_stdout}"
         );
     }
+
+    let schema_help = Command::new(BIN)
+        .arg("schema")
+        .arg("--help")
+        .output()
+        .unwrap();
+    let schema_stdout = String::from_utf8(schema_help.stdout).unwrap();
+    assert!(
+        !schema_stdout.contains("`skill`, `rule`"),
+        "`temper schema --help` must not hardcode the retired closed `skill`/`rule` kind pair, got:\n{schema_stdout}"
+    );
 }

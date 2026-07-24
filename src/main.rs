@@ -88,8 +88,9 @@ enum Command {
     /// Emit the active per-kind contract as an editor JSON Schema (the keystroke
     /// gate).
     Schema {
-        /// Emit only this artifact kind's schema (`skill`, `rule`); omitted ⇒ a
-        /// JSON object mapping each modeled kind to its schema.
+        /// Emit only this artifact kind's schema (see the unknown-kind error for
+        /// the live domain); omitted ⇒ a JSON object mapping each modeled kind to
+        /// its schema.
         #[arg(long)]
         kind: Option<String>,
     },
