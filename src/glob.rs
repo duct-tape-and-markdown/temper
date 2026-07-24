@@ -63,3 +63,49 @@ thread_local! {
 pub fn glob_compile_count() -> usize {
     GLOB_COMPILES.with(std::cell::Cell::get)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Whether `glob` matches `candidate` through the shared `crate::glob::compile_glob` surface —
+    /// `None` (an uncompilable glob) reported as no match, the polarity every
+    /// segment-level caller (`owns_source`, `import`, `coverage_note`) wants.
+    fn matches(glob: &str, candidate: &str) -> bool {
+        compile_glob(glob).is_some_and(|matcher| matcher.is_match(candidate))
+    }
+
+    #[test]
+    fn compile_glob_matches_common_path_globs_within_and_across_segments() {
+        // `**/` matches any number of leading segments including none, a flat `*`
+        // stays within one segment — the semantics every caller through
+        // `compile_glob` leans on, whether matching a bare filename or a full
+        // repo-relative path.
+        assert!(matches("**/*.rs", "foo.rs"));
+        assert!(matches("**/*.rs", "src/a/foo.rs"));
+        assert!(!matches("**/*.rs", "foo.md"));
+
+        assert!(matches("src/**", "src/graph.rs"));
+        assert!(matches("src/**", "src/a/b.rs"));
+        assert!(!matches("src/**", "tests/graph.rs"));
+
+        // A single `*` does not cross a `/`.
+        assert!(matches("*.md", "README.md"));
+        assert!(!matches("*.md", "docs/README.md"));
+
+        // A `?` matches exactly one character, never a `/`.
+        assert!(matches("SKILL.md", "SKILL.md"));
+        assert!(matches("SKILL.m?", "SKILL.md"));
+        assert!(!matches("SKILL.m?", "SKILL.mkd"));
+        assert!(!matches("*/SKILL.md", "SKILL.md"));
+        assert!(matches("[0-9][0-9]-*.md", "07-kinds.md"));
+        assert!(!matches("[0-9][0-9]-*.md", "ab-kinds.md"));
+    }
+
+    #[test]
+    fn compile_glob_is_none_for_an_uncompilable_pattern() {
+        // An unterminated character class is a `globset` compile error — `None`,
+        // never a panic.
+        assert!(compile_glob("[abc").is_none());
+    }
+}
