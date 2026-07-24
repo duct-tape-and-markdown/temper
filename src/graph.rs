@@ -1022,7 +1022,7 @@ fn resolved_arcs(resolved: &[ResolvedEdge]) -> BTreeMap<Node, BTreeSet<Node>> {
 /// One authored **mention**, ready to enter the resolved-edge graph — the citing
 /// member's own address and the address its `n` names, both already resolved at
 /// emit (`crate::main`'s conversion off the lock's `mention` declaration rows, the
-/// mirror of [`compose::Edge`]'s own lift off the assembly fact rows).
+/// mirror of [`compose::Edge`](crate::compose::Edge)'s own lift off the assembly fact rows).
 pub struct MentionDeclaration {
     /// The citing member's own `kind:name` address.
     pub member: String,

@@ -232,7 +232,7 @@ fn resolve<'a>(
 /// with a green `check`.
 ///
 /// `tap_records` and `tap_older_version` are the per-machine tap log's readout — the
-/// evidence [`field`] narrates for a member target. They join to members through the
+/// evidence `field` narrates for a member target. They join to members through the
 /// same `by_kind` corpus above, never a private read, so a green `check` and a field
 /// strand cannot disagree.
 #[must_use]

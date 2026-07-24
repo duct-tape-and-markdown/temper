@@ -349,7 +349,7 @@ impl Manifest {
     /// declared collection to infer that collection's registration members, and keeping
     /// every top-level key no address consumed as an opaque field. A real JSON parser
     /// (`serde_json`) owns the grammar; the per-entry field projection rides the shared
-    /// surface extractor ([`extract::manifest_members`]), so the manifest read shares the
+    /// surface extractor ([`manifest_members`]), so the manifest read shares the
     /// one soundness boundary the frontmatter path rides.
     ///
     /// `addresses` are the collection addresses that target *this* manifest — from the

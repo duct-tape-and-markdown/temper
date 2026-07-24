@@ -2341,7 +2341,7 @@ fn emit_one(
 }
 
 /// Re-emit the desired projection deterministically through the canonical write face
-/// `format` names — **the one write dispatch**, the read side's [`read_file_unit`] match
+/// `format` names — **the one write dispatch**, the read side's `read_file_unit` match
 /// mirrored: a `json-document` kind renders its fields as the whole JSON artifact, every
 /// other file kind renders a `---`-delimited frontmatter block over its body. Both
 /// determinism passes route through here, so a per-call-site format match cannot exist to
@@ -3406,7 +3406,7 @@ pub struct RequirementRow {
     #[serde(default)]
     pub clauses: Vec<ClauseRow>,
     /// The typed verifier for the behavioral remainder, when declared — a
-    /// species-tagged [`Verifier`], resolved at admissibility, never run.
+    /// species-tagged [`Verifier`](crate::compose::Verifier), resolved at admissibility, never run.
     #[serde(default)]
     pub verifier: Option<crate::compose::Verifier>,
     /// The authored intent the requirement exists to carry, when declared —

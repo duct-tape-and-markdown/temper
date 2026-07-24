@@ -155,7 +155,7 @@ const GUARD_MARKER: &str = "temper guard";
 
 /// The message `temper guard` prints on a projection hit — stating the limit verbatim:
 /// the guard binds only this provider's writes, so other tools writing a shared file are
-/// not bound by it. Public so the `guard` subcommand ([`main`]) prints it whether it
+/// not bound by it. Public so the `guard` subcommand (`main`) prints it whether it
 /// warns or blocks, under the `warn` or `block` enforcement mode.
 pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
 

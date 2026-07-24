@@ -252,7 +252,7 @@ pub enum Predicate {
     /// [`crate::engine::judge`].
     ///
     /// Measurement is render-side — the bytes the item contributes to its projection, off
-    /// [`Features::rendered_extent`](crate::extract::Features::rendered_extent), never the
+    /// [`Features::rendered_lines`](crate::extract::Features::rendered_lines), never the
     /// `LineCount` primitive's source-side `body_lines`.
     Extent {
         /// The unit the bound is measured in — lines or characters.

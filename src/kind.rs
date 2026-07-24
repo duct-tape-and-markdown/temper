@@ -1193,7 +1193,7 @@ pub struct Unit {
     /// when the member authors none.
     pub satisfies: Vec<String>,
     /// The same `[satisfies.<requirement>]` opt-ins **with their authored rationale**
-    /// — the whole [`Satisfies`] clause,
+    /// — the whole [`Satisfies`](crate::document::Satisfies) clause,
     /// not just the name coverage reads. The read family (`why`/`requirements`) narrates
     /// the *why* a custom member fills a requirement (READ-CUSTOM-SATISFIERS), so it
     /// needs the rationale the decidable [`satisfies`](Unit::satisfies) name-vec drops.

@@ -394,8 +394,8 @@ pub struct LockFamily {
     pub dial: dial::Dial,
     /// Every embedded built-in kind with any lock-declared overlay applied, keyed by bare
     /// kind name. Computed once per invocation and shared with every consumer —
-    /// [`kind_units_and_features`], [`admissibility::local_locus_admissibility`],
-    /// [`admissibility::governs_collision_diagnostics`] — to hoist the computation cost
+    /// [`kind_units_and_features`], [`admissibility::local_locus_admissibility`](crate::admissibility::local_locus_admissibility),
+    /// [`admissibility::governs_collision_diagnostics`](crate::admissibility::governs_collision_diagnostics) — to hoist the computation cost
     /// per the cost doctrine (engineering.md, "Cost scale is hoisted").
     pub overlaid_builtin_kinds: BTreeMap<String, CustomKind>,
 }
@@ -1195,7 +1195,7 @@ fn embedded_member_features(
 }
 
 /// Construct directive members from pre-computed resolved units and features, avoiding
-/// a second `resolve_kind_units` pass. Called by [`gate`] and [`explain`] to avoid
+/// a second `resolve_kind_units` pass. Called by [`gate`](crate::gate::gate) and [`explain`](crate::read::explain) to avoid
 /// re-reading every member off disk after the units and features have already been
 /// resolved for validation.
 pub fn directive_members_from_resolved(

@@ -20,7 +20,7 @@ use crate::kind::CustomKind;
 /// file child, which owns its own unit — or a layout member collection's `member_kind`. The set a
 /// `nested_member` row's kind must belong to — a row of any other kind is an orphan no
 /// host templates ([`nested_member_admissibility`]) — and the keys
-/// [`embedded_features_by_kind`] seeds its corpus with.
+/// [`embedded_features_by_kind`](crate::compose::embedded_features_by_kind) seeds its corpus with.
 pub fn declared_embedded_kinds(declarations: &drift::Declarations) -> BTreeSet<String> {
     let mut kinds = BTreeSet::new();
     for row in &declarations.kinds {
@@ -120,7 +120,7 @@ pub fn satisfies_label_admissibility(
 /// The diagnostic `rule` id a lock-declared kind row reports under when its bare name
 /// matches an embedded built-in's but its declared shape does not: it can be admitted
 /// neither as that built-in's relocated `governs` (the one legitimate reason a row
-/// reuses a built-in's name — [`row_relocates_builtin`]) nor as a distinct custom kind
+/// reuses a built-in's name — `row_relocates_builtin`) nor as a distinct custom kind
 /// (the name is already claimed). Shares the roster's admissibility tag — a colliding
 /// bare name is inadmissible, decided before anything judges the kind.
 const KIND_COLLISION_RULE: &str = "kind.admissibility";
@@ -162,7 +162,7 @@ const CLAUSE_COLLISION_RULE: &str = "clause.label-collision";
 /// `joined` faces the same rule: a layer's rows share the address space they are judged
 /// in, so two of them under one label leave both unaddressable exactly as the host's own
 /// twins would. A joined row can never collide with a *host* row — its address carries the
-/// layer that produced it ([`LAYER_QUALIFIER`]) — so what fires here is a malformed layer
+/// layer that produced it (`LAYER_QUALIFIER`) — so what fires here is a malformed layer
 /// or a malformed corpus, never the join itself.
 pub fn clause_collision_diagnostics(
     declarations: &drift::Declarations,
@@ -282,7 +282,7 @@ pub fn registration_locus_admissibility(
 const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
 
 /// Governs-glob-collision findings over the **effective** kind set: the built-in
-/// definitions, each overlaid with any [`row_relocates_builtin`] row that moves its
+/// definitions, each overlaid with any `row_relocates_builtin` row that moves its
 /// locus, plus the genuinely-custom rows. Two distinct kinds resolving to the same
 /// `governs` (root+glob) would silently double-route every matching document into both
 /// member sets — a document's kind is its position alone (`representation.md`) — so each
