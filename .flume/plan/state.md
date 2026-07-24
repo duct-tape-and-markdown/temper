@@ -1,20 +1,18 @@
 # Plan state
 
-- Spec derived through: aee005d — unchanged this tick.
+- Spec derived through: 20a6f54 — routed this tick.
 - Audited through: c8b2c8a — unchanged, not this tick's job.
 - Residue swept through: c8b2c8a — unchanged, not this tick's job.
 - Posture swept through: 97d0241 — rotation closes (c9d11d5 phrase-delta
-  rotation). src/toml_document.rs (the sole remaining frontier module) plus
-  its immediate imports read; quiet-on-clean, see commit body.
-- This tick: POSTURE SWEEP, src/toml_document.rs neighborhood — quiet-on-
-  clean, rotation closes (see cursor line for what was checked).
-- Queue: 2 pending — 0 open, 1 parked, 1 deferred. Open forks: 3.
+  rotation), unchanged this tick.
+- This tick: SPEC DELTA — routed 20a6f54 (0045's embedded-delivery ruling:
+  guidance is the kind's fact, stated once) into one entry,
+  EMBEDDED-KIND-GUIDANCE-DELIVERY (open), following the commit's own
+  routing-bound checklist; see commit body.
+- Queue: 3 pending — 1 open, 1 parked, 1 deferred. Open forks: 3.
   Friction: 2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: no — every job is quiet this tick (inbox empty, spec delta
-empty, audit/residue cursors current at c8b2c8a, posture rotation closed
-with an empty frontier at 97d0241). The queue's two entries are both
-parked/deferred, not pickable, so there is no build wave to hand off to;
-the loop hibernates until a fresh inbox note, a routed spec delta, a
-reconciliation window, or a commit past 97d0241 touching src/, sdk/src/,
-tests/, or the posture pages re-arms it.
+Plan continues: no — the spec delta is now fully routed (cursor at HEAD),
+inbox is empty, audit/residue cursors are current (no src/sdk/tests commits
+past c8b2c8a), and the posture rotation is closed. The queue now carries one
+pickable entry; build takes it next.
