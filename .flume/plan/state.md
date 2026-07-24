@@ -1,17 +1,22 @@
 # Plan state
 
 - Spec derived through: aee005d — unchanged this tick.
-- Audited through: 52dd506 — window 5eb7177..52dd506 reconciled (bc6f944:
-  cargo-doc broken-intra-doc-links gate); verified clean, no pending-entry
-  drops (full DATUM in the commit body).
-- Residue swept through: 52dd506 — same window; clean, no findings.
-- Posture swept through: mid-rotation, at src/layout.rs — clean (full
-  DATUM in the commit body); src/lib.rs next in the c9d11d5 rotation's
-  frontier.
-- This tick: POSTURE SWEEP src/layout.rs — clean, no pending-entry
-  changes (full DATUM in the commit body).
+- Audited through: a627178 — window 52dd506..a627178 reconciled (8376b6b,
+  8b76053: direct chore(docs) prose-cite fixes; a627178: chore(flume)
+  ledger collapse); verified clean, no pending-entry drops (full DATUM in
+  the commit body).
+- Residue swept through: a627178 — same window; one harness gap routed to
+  friction, no pending entry (full DATUM in the commit body).
+- Posture swept through: mid-rotation, at src/layout.rs — clean; src/lib.rs
+  next in the c9d11d5 rotation's frontier — unchanged this tick (job 3
+  outranked job 4 again).
+- This tick: POST-SHIP RECONCILIATION 52dd506..a627178 — audit clean, no
+  pending-entry drops; sweep routed one harness gap (the private-item
+  doc-link gate) to friction rather than a pending entry (full DATUM in
+  the commit body).
 - Queue: 2 pending — 1 parked, 1 deferred, 0 open. Open forks: 2,
-  unchanged. Friction: 0. Amendments: 0. Inbox: 0.
+  unchanged. Friction: 2 (1 pre-existing, 1 new this tick). Amendments: 0.
+  Inbox: 0.
 
 Plan continues: yes — the posture rotation is still open (frontier
 non-empty: src/lib.rs onward) with no pickable entry in the queue
