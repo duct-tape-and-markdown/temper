@@ -1,44 +1,5 @@
 [
   {
-    "tag": "GLOB-SEMANTICS-TESTS-RELOCATE-TO-GLOB-RS",
-    "summary": "compile_glob's own pattern-grammar tests live in kind.rs's test module, not glob.rs (which ships none) — relocate to the mechanism's own home.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Remove the local `matches` test helper (1273-1275, plus its `use crate::glob::compile_glob;` import at 1268) and the two tests that exercise only `compile_glob`'s own grammar — `compile_glob_matches_common_path_globs_within_and_across_segments` (1301-1326) and `compile_glob_is_none_for_an_uncompilable_pattern` (1328-1333). Neither test touches `CustomKind`/`Governs`/anything kind-specific; both assert `**`/`*`/`?`/character-class behavior generically."
-        },
-        {
-          "path": "src/glob.rs",
-          "description": "Add a `#[cfg(test)] mod tests` carrying the two relocated tests verbatim, calling `compile_glob` directly (already `pub(crate)`, no wrapper needed — the module is the surface under test). glob.rs currently ships zero tests despite its own header calling it 'the one glob-matching surface every caller shares' (kind.rs, engine.rs, graph.rs, coverage_note.rs, import.rs all call it, none own its semantics coverage)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "src/glob.rs",
-        "asserts": "compile_glob's documented three-position glob grammar (a leading `**/` crosses zero-or-more segments, a bare `*`/`?` stays within one, an unterminated character class returns `None` rather than panicking) holds, verified at compile_glob's own module instead of a consumer's."
-      }
-    ],
-    "acceptance": "cargo test green; src/glob.rs carries compile_glob's own semantics tests, src/kind.rs's test module keeps only kind-specific coverage (owns_source, from_kind_fact_row, Extraction).",
-    "notes": "Posture sweep of src/kind.rs (c9d11d5 rotation). Purely mechanical relocation, no behavior change — 'Test scaffolding is a surface too... one home, never copy-pasted per file' (engineering.md, 'One job, one home'). No other consumer of compile_glob (engine.rs, graph.rs, coverage_note.rs, import.rs) carries its own semantics tests either, so this is the sole misplaced copy, not a dedup across several. scoped at 5823fc8.",
-    "observedFiles": [
-      "src/glob.rs",
-      "src/kind.rs"
-    ]
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
