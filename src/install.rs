@@ -590,7 +590,7 @@ pub fn gate_installed(root: &Path) -> Vec<Diagnostic> {
 
 /// Resolves the settings document every `install` placement writes under a project root.
 fn settings_path(root: &Path) -> PathBuf {
-    root.join(".claude").join("settings.json")
+    root.join(builtin_kind::CLAUDE_ROOT).join("settings.json")
 }
 
 /// Project only the `SessionStart` hook into `.claude/settings.json` — the no-path's
@@ -775,7 +775,7 @@ fn extract_file_path(payload: &str) -> Option<String> {
 /// Whether `file_path` names a `.claude/`-rooted artifact — the fallback binding
 /// when no lock-declared targets exist to consult.
 fn is_claude_path(file_path: &str) -> bool {
-    file_path.contains(".claude/")
+    file_path.contains(&format!("{}/", builtin_kind::CLAUDE_ROOT))
 }
 
 /// Normalize backslashes and check whether `file_path` matches any candidate by
