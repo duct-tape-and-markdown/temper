@@ -35,6 +35,45 @@
     "notes": "Inbox #15 (observed at f0ef148a), ruled interactive 2026-07-24: build-ready one-liner. Re-verified live at 8205300a — src/main.rs line 91 still reads the stale `(`skill`, `rule`)` doc verbatim; no main.rs commits between f0ef148a and HEAD. Two-word residue of #13/SCHEMA-KIND-DOMAIN-WIDEN (141448f3), missed by that entry and by post-ship reconciliation f0ef148a. scoped at 8205300a."
   },
   {
+    "tag": "TAP-HOOK-FIELD-SCHEMA-PROVIDER-FACE",
+    "summary": "`tapHookRows` in `declarations.ts` hardcodes the hook payload's `type`/`command`/`matcher` fields and `hooks.<Event>` key-path as literals instead of the provider face (`builtins.ts`).",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "The provider face is data"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add an exported provider-face helper beside `hook`/`SETTINGS_MANIFEST`/`TELEMETRY_EVENT_HOOKS` (~394-412) carrying the tap hook registration's field triple (`type`=`command`, caller-supplied `command`/`matcher`) and the `hooks.<Event>` key-path — the documented Claude Code hook-handler schema (code.claude.com/docs/en/hooks, retrieved 2026-07-17) `TELEMETRY_EVENT_HOOKS`'s own doc comment already names but never exports."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`tapHookRows` (~758-796) currently authors the `[[\"type\",\"command\"],[\"command\",TAP_COMMAND],[\"matcher\",matcher]]` field literal and a `key_path: \"hooks.<Event>\"` literal inline — the latter a duplicate of the identical string already declared at `builtins.ts:409`'s `hook` kind `collectionAddress`. Replace both with a call into the new `builtins.ts` export."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Existing tap-hook-row coverage (the `buildTapHookDedupeKey` tests ~1690-1710, and any `compileDeclarations` assertion over `registrations`) must keep passing byte-identical — the change relocates the fact's home, not its shape."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "`compileDeclarations`'s synthesized tap-hook `registration` rows are byte-identical before and after the move — same `kind`/`key`/`manifest`/`key_path`/`fields` — proving the refactor relocates the literal without changing emit output."
+      }
+    ],
+    "acceptance": "`tapHookRows` sources the hook registration's field schema and `hooks.<Event>` key-path from `builtins.ts` (the provider face) rather than authoring the literals inline in `declarations.ts`; `pnpm --dir sdk test` green, emit output unchanged.",
+    "notes": "Posture sweep (declarations.ts frontier), verified live at 5063d4b1: `hooks.<Event>` is a literal at both builtins.ts:409 (hook kind's collectionAddress) and declarations.ts:789 (tapHookRows); the type/command/matcher field triple at declarations.ts:791-793 duplicates the Hook interface schema builtins.ts documents (1508-1572) but never exports. architecture.md \"The provider face is data\": a documented provider fact lives in the provider face, never as a literal elsewhere. scoped at 5063d4b1."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
