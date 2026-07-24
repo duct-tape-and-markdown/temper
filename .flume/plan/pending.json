@@ -1,29 +1,5 @@
 [
   {
-    "tag": "TEST-SUPPORT-ALLOW-DEAD-CODE-STALE",
-    "summary": "src/test_support.rs: three `#[allow(dead_code)]` annotations (skill_kind, rule_kind, surface_unit) are stale — each already has a real consumer.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Narration is the ladder's bottom rung"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/test_support.rs",
-          "description": "Delete the three `#[allow(dead_code)]` lines at 22, 51, 72 (directly above `skill_kind`, `rule_kind`, `surface_unit`). Verified this tick: `cargo test --no-run` and `cargo clippy --all-targets` both stay warning-free with all three removed — `rg -a test_support::` confirms real consumers for each (`skill_kind`/`rule_kind` via src/frontmatter.rs:424, `surface_unit` via src/builtin_kind.rs:753)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [],
-    "acceptance": "cargo build, cargo test --no-run, and cargo clippy --all-targets -- -D warnings stay green with the three `#[allow(dead_code)]` attributes removed from src/test_support.rs.",
-    "notes": "Posture sweep of src/test_support.rs's neighborhood (kind.rs, frontmatter::Member — both already covered by prior rotations). Re-ran cargo test --no-run and cargo clippy --all-targets with the attributes stripped: zero dead_code warnings either way, so the suppressions promoted-scaffolding-shrank into staleness once real consumers landed. scoped at df4d220."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
