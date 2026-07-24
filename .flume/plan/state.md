@@ -1,25 +1,30 @@
 # Plan state
 
 - Spec derived through: 20a6f54 — unchanged, no spec/ commits past it.
-- Audited through: f194b260 — unchanged, no src/tests/sdk commits past it.
-- Residue swept through: f194b260 — unchanged, same.
-- Posture swept through: 97d0241 — mid-rotation, window head unchanged:
-  sdk/src/declarations.ts covered this tick. Frontier remaining:
-  src/compose.rs, src/main.rs, src/read.rs, src/install.rs.
-- This tick: POSTURE SWEEP — neighborhood sdk/src/declarations.ts (+
-  immediate imports assembly.ts/kind.ts/contract.ts/prose.ts/builtins.ts)
-  read against engineering.md + architecture.md. Found one embedded-
-  provider-knowledge violation ("The provider face is data"): `tapHookRows`
-  (declarations.ts:758-796) hardcodes the Claude Code hook payload's
-  `type`/`command`/`matcher` field schema and the `hooks.<Event>` key-path
-  (already a literal at builtins.ts:409) as bare literals in the engine-
-  generic erasure module, instead of sourcing them from the provider face.
-  Filed → TAP-HOOK-FIELD-SCHEMA-PROVIDER-FACE (open, disjoint files from
-  every other pending entry).
-- Queue: 5 pending — 2 open, 1 parked, 2 deferred. Open forks: 2, unchanged.
+- Audited through: 729b0cad — advanced; window f194b260..729b0cad reconciled.
+- Residue swept through: 729b0cad — advanced; same window, clean.
+- Posture swept through: 97d0241 — still armed: forward window now also
+  carries 29894c04 (src/) and ffa93dfb (sdk/src/) on top of the prior
+  reconciled window.
+- This tick: POST-SHIP RECONCILIATION — audited+swept f194b260..729b0cad.
+  29894c04 (SCHEMA-HELP-KIND-DOMAIN-FOSSIL build) matches: `schema --kind`'s
+  doc string now points at the unknown-kind error's live domain instead of
+  the retired `skill`/`rule` pair (main.rs:88-93); tests/cli.rs asserts the
+  help text no longer contains the hardcoded pair. ffa93dfb
+  (TAP-HOOK-FIELD-SCHEMA-PROVIDER-FACE build) matches: `tapHookRegistration`
+  (builtins.ts:398-441) now owns the `hooks.<Event>` key-path
+  (`HOOK_KEY_PATH`) and the `type`/`command`/`matcher` field triple;
+  `tapHookRows` (declarations.ts:788) calls it instead of authoring the
+  literals inline. Both entries were already drained from pending.json by
+  their own 729b0cad ship commit — nothing left to drop. rg repo-wide:
+  the surviving `"hooks.<Event>"` literals (kind.ts:140 union member,
+  builtin_lock.toml:83, kind.rs:973) are the kind's own declared address on
+  the Rust/lock side, not the fixed erasure-module duplicate — no residue.
+  Verified live: cargo test (all crates green), clippy -D warnings clean,
+  fmt clean, pnpm sdk test (141/141). No findings.
+- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 2, unchanged.
   Friction: 2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: after-build — two pickable open entries
-(SCHEMA-HELP-KIND-DOMAIN-FOSSIL, TAP-HOOK-FIELD-SCHEMA-PROVIDER-FACE) ship
-first; posture rotation resumes (4 frontier modules left) once the wave
-hands back.
+Plan continues: yes — the posture sweep is armed with a widened forward
+window and the queue has no pickable entries, so plan (not build) takes
+the next tick.
