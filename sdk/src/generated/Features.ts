@@ -94,7 +94,7 @@ fenced_blocks: Array<FencedBlock>,
 /**
  * The host member's own **nested members** — its declared [`EmbeddedMember`]s,
  * read off the lock's own `Declarations::nested_members` rows by this member's
- * `kind:name` address ([`nested_members_from_rows`]), never mined from
+ * `kind:name` address ([`nested_members_from_rows`](crate::drift::nested_members_from_rows)), never mined from
  * [`fenced_blocks`](Features::fenced_blocks) (0018, "the projection is not the
  * database"). Empty when the lock carries no row for this member.
  */

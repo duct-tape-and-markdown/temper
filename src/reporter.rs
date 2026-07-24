@@ -17,18 +17,7 @@
 //! precise workflow-command escaping (`github`), so the output is well-formed by
 //! construction — the binary owns the output contract, no hand-escaping.
 //!
-//! The gate is **advisory, never blocking**. `SessionStart` cannot block, and a
-//! hostile gate gets disabled, so the reporter
-//! routes a failing contract through the human rather than denying the session:
-//!
-//! - a **failing contract** (any `error`-severity diagnostic — a `required`
-//!   conformance violation or an inadmissible contract) emits the verdict as
-//!   `additionalContext`, prefixed with an instruction to **notify the user and
-//!   get approval before continuing**;
-//! - a **clean harness** emits a *quiet* payload — the hook envelope with no
-//!   `additionalContext`, so nothing is injected into the session — unless the
-//!   run has something to announce, which is worth a session's attention whatever
-//!   the verdict.
+//! The gate's advisory, quiet-or-notify behavior is documented at [`session_start`] and [`context`].
 //!
 //! Each member also carries the run's [`Announcement`] — the inputs beyond the
 //! committed harness that judged it — in its own format's shape: a `::notice`

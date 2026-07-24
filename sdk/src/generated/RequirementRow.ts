@@ -33,7 +33,7 @@ required: boolean,
 clauses: Array<ClauseRow>, 
 /**
  * The typed verifier for the behavioral remainder, when declared — a
- * species-tagged [`Verifier`], resolved at admissibility, never run.
+ * species-tagged [`Verifier`](crate::compose::Verifier), resolved at admissibility, never run.
  */
 verifier?: Verifier, 
 /**
