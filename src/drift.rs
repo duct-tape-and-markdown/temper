@@ -2794,16 +2794,6 @@ pub fn includes_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutImportRow>, Drif
     source_deps_from_doc(doc, INCLUDE_FAMILY)
 }
 
-/// The drift findings for a workspace's source dependencies under `family`: a
-/// fingerprinted target whose bytes no longer match the lock's `import_hash` — the target
-/// moved and `emit` has not re-run — or one no longer readable, the dependency gone. One
-/// `warn` finding per drifted dependency (under `rule`, its target described as a
-/// `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
-/// the drift is surfaced, never a hard gate the author did not declare.
-///
-/// # Errors
-///
-/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
 /// The drift findings for source dependencies under `family` from an already-parsed
 /// document: a fingerprinted target whose bytes no longer match the lock's `import_hash` —
 /// the target moved and `emit` has not re-run — or one no longer readable, the dependency
@@ -2846,6 +2836,16 @@ pub fn source_dep_stale_from_doc(
     Ok(findings)
 }
 
+/// The drift findings for a workspace's source dependencies under `family`: a
+/// fingerprinted target whose bytes no longer match the lock's `import_hash` — the target
+/// moved and `emit` has not re-run — or one no longer readable, the dependency gone. One
+/// `warn` finding per drifted dependency (under `rule`, its target described as a
+/// `noun`), the same advisory posture [`config_stale`] takes over a committed projection:
+/// the drift is surfaced, never a hard gate the author did not declare.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock cannot be read/parsed or a present row is malformed.
 fn source_dep_stale(
     workspace_dir: &Path,
     family: &str,

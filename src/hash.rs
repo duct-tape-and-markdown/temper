@@ -1,7 +1,8 @@
 //! Shared content hashing — the single home for the SHA-256 hex that anchors
 //! provenance and drift. Also home to the shared read+UTF-8-decode primitive all
 //! formats use to load source files, with each format mapping the error to its own
-//! vocabulary.
+//! vocabulary, and to `canonicalize_eol`, which the drift engine applies before
+//! re-hashing so a CRLF-filtered checkout reads clean against an LF baseline.
 //! `source_hash` is the SHA-256 of an artifact's authored
 //! source bytes; the drift engine re-hashes on-disk bytes and compares against
 //! that anchor. Both compute the same lowercase hex here, over raw `&[u8]`, so

@@ -555,7 +555,7 @@ fn declared_kinds_with_overlaid(
 
 /// A manifest `kind`'s registration members as raw [`Unit`]s — every `hooks.<Event>` (or
 /// `mcpServers.*`) entry the host manifest carries at the kind's declared collection
-/// `address`, read through the JSON manifest adapter ([`json_manifest::Manifest::read_kind`]).
+/// `address`, read from the pre-populated [`ManifestCache`] built once per manifest path.
 /// A member's id is its collection key, and that key surfaces under the address's key
 /// field when it names one (`hooks.<Event>` → `event`), so a clause can range over the
 /// lifecycle event a hook keys at. `satisfies` is left empty here — the caller folds it in

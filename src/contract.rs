@@ -881,8 +881,8 @@ const NO_XML_TAGS_PATTERN: &str = r#"</?[A-Za-z_:][-A-Za-z0-9._:]*(\s+[A-Za-z_:]
 const LEADING_DOT_SLASH_PATTERN: &str = r"^\.\/.*";
 
 /// Every shape's compiled expression, built once. Compilation cannot fail — the patterns
-/// are crate constants, covered by [`crate::contract::tests`] — so the shape's own judge
-/// never reaches for a fallible path at check time.
+/// are crate constants, exercised by the standalone `tests/shape_predicate.rs` — so the
+/// shape's own judge never reaches for a fallible path at check time.
 static SHAPE_PATTERNS: std::sync::LazyLock<[(Shape, regex::Regex); 3]> =
     std::sync::LazyLock::new(|| {
         [

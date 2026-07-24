@@ -48,8 +48,8 @@ use serde_json::{Value as JsonValue, json};
 /// passes `temper`'s own skill contract — the dogfood holds.
 /// Plugin skill locations (`skills/<name>/SKILL.md`) are plugin-root-relative, distinct
 /// from the installed-harness skill locus (`.claude/skills/*/SKILL.md` per the `skill`
-/// kind's governs; see builtin_kind.rs line 397–399 on plugin-contributed surfaces
-/// lying outside the corpus). Both are documented plugin layouts
+/// kind's governs; a plugin's contributed surfaces lie outside the corpus, unmodeled).
+/// Both are documented plugin layouts
 /// (code.claude.com/docs/en/plugins-reference, retrieved 2026-07-20).
 const PLUGIN_NAME: &str = "temper";
 

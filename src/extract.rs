@@ -535,7 +535,7 @@ fn collect_heads(lines: &[&str]) -> Vec<(usize, usize, String)> {
 /// body. A body with no heading yields no nodes (its whole text is preamble, the
 /// reader's to place).
 ///
-/// `pub(crate)` so the [`crate::kind`] layout reader stands on this exact heading
+/// `pub(crate)` so the [`crate::layout`] reader stands on this exact heading
 /// substrate rather than a second parser that could drift from the section/fence logic.
 pub(crate) fn body_heading_tree(body: &str) -> Vec<HeadingNode> {
     let lines: Vec<&str> = body.lines().collect();
@@ -585,7 +585,7 @@ fn build_heading_nodes(
 /// with `\n`. The whole body when it carries no heading. The span a layout's leading
 /// prose region lands.
 ///
-/// `pub(crate)` so the [`crate::kind`] layout reader places a verbatim prose region off
+/// `pub(crate)` so the [`crate::layout`] reader places a verbatim prose region off
 /// the same heading boundaries [`body_heading_tree`] partitions.
 pub(crate) fn body_preamble(body: &str) -> String {
     let lines: Vec<&str> = body.lines().collect();

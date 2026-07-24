@@ -1693,13 +1693,6 @@ fn is_markdown_path(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
 }
 
-/// The install-placed managed-metadata lines present in `source`, in on-disk order —
-/// the schema modeline and the managed-by note (as a frontmatter `#` comment), or the
-/// block-level HTML-comment banner heading a frontmatterless markdown body. `emit`
-/// round-trips these through its whole-file re-emit so its content-faithful projection
-/// carries install's metadata instead of dropping it: install owns *placing and
-/// auditing* them, emit only *preserves* what is already there. Empty when `source`
-/// carries none.
 /// Render an install outcome for the terminal: the represent decision and any
 /// scaffold/emit summary, then one `<outcome>  <placement>  <path>` line per
 /// placement entry, then a one-line tally — mirroring [`drift::render_emit`].

@@ -3,9 +3,9 @@
 //! Locates the byte spans of object members and array elements within a JSON
 //! document's *original* text, so a caller can replace or insert just the
 //! bytes it owns — leaving every other byte (a human's key order, spacing,
-//! indentation) untouched. `install`'s `.claude/settings.json` merge is the
-//! sole consumer: it grafts the temper hook groups without re-serializing a
-//! document it does not fully own.
+//! indentation) untouched. `install`'s `.claude/settings.json` merge and the
+//! JSON manifest renderer both consume it: they graft bytes into a document
+//! they do not fully own, without re-serializing it.
 //!
 //! Every function here is only ever called over text `serde_json` has
 //! already parsed successfully, so the byte scanning below assumes

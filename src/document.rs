@@ -30,8 +30,7 @@ impl Satisfies {
     }
 }
 
-/// Convert a header [`Item`] to a [`serde_json::Value`] — the inverse of the
-/// built-in adapters' `json_to_toml_value`, so a `[clause.<field>]` `value` lands
+/// Convert a header [`Item`] to a [`serde_json::Value`], so a `[clause.<field>]` `value` lands
 /// in a member's frontmatter the same shape a built-in's hand-written parser
 /// produces. A JSON-null-unrepresentable item (`Item::None`; a bare TOML `Datetime`
 /// is kept as its string form) yields `None`, dropped rather than invented. Recurses

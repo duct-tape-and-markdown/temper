@@ -7,9 +7,6 @@
 //! codec (`CODEC-RETIRE`) — `install` is the
 //! on-ramp going forward; a trunk gap between the two is an
 //! accepted clean-slate cost (John, 2026-07-06).
-//!
-//! Keystone invariant (`.claude/rules/rust.md`): idempotence. It holds because
-//! every write is content-derived, name-sorted, and overwrites in place.
 
 use std::cell::{Cell, OnceCell};
 use std::collections::{BTreeMap, BTreeSet};
