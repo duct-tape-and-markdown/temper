@@ -1,55 +1,5 @@
 [
   {
-    "tag": "EMBEDDED-KIND-GUIDANCE-DELIVERY",
-    "summary": "0045's embedded-delivery ruling: an embedded kind now takes a locus-optional kind-fact row (guidance/cite reach the lock), and explain gains the bare-kind form to narrate it pre-member.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`kindFactRow` (~294-299) drops the `facts.locus.kind === \"embedded\"` throw-guard — it builds the row exactly as it already does for a nested-file kind (`governs` undefined), so `guidance`/`cite` (already columns on the row, 314-315) reach the lock for a custom embedded kind. `unitKindsInPlay` (~357-364), whose filter was 'every locus but embedded', becomes an identity now that embedded also takes a row — retire it and feed `kindsInPlay(harness)` straight to the `kinds:` row family at its one call site (~879)."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "The 'Kinds in play' section header (~423-425) and the test `an embedded member neither projects nor takes a kind-fact row` (~441-449) assert `declarations.kinds` excludes the embedded kind by name — the exact assumption this ruling reverses. Rewrite: the embedded kind's row now appears in `declarations.kinds` (name present, `governs_root`/`governs_glob`/`commitment` absent) while the kind still emits no standalone file projection."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "`embedded_features_by_kind`'s doc comment (~1085-1099) states an embedded kind 'carries no kind-fact row' as the reason it needs its own admission-driven seam into the corpus. That premise is now false for a custom embedded kind's guidance/cite (its row exists), though discovery/admission is unchanged — still driven by `templates`/`admit`, never the row. Correct the comment; no behavior change here."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Add the bare-kind surface: a `Species::Kind(&str)` variant: `resolve` (~181-214) matches a bare name against the kind set `explain_target` (~1541) already assembles (built-in `contracts` keys plus `custom_rows`-derived custom/embedded kind names) once a member/requirement match doesn't win — extend the existing member-vs-requirement `Ambiguous` triad by construction, no new precedence question. `explain` (~241) dispatches `Species::Kind` to a new narration reading the resolved `CustomKind`'s (or built-in's) `guidance`/`cite` — the pre-member counterpart to the per-member governing-contract narration `why_impl` already runs for an embedded *member* (that path is unchanged; a member's guidance already surfaces once its kind's row exists, no fix needed there). Update `explain`'s doc comment (~216-218) to name the kind namespace, matching contract.md's amended 'Read verbs' line."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "The `Explain` command's doc comment and `target` field doc (~187-201) enumerate member/requirement/leaf-address namespaces and their qualified spellings (`member:`/`requirement:`/`address:`); add the kind namespace (and a `kind:` qualified spelling, for symmetry with the other three) to both."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "New tests alongside `explain_narrates_kind_guidance_in_governing_contract` (~604) and `explain_omits_governing_contract_guidance_when_absent` (~661): `explain <kind-name>` on a kind carrying `guidance` narrates it with no member of that kind in the corpus (the pre-member surface); a kind absent guidance narrates cleanly with no spurious text; a custom *embedded* kind's row-carried guidance reaches this surface end to end (proves the sdk/src/declarations.ts row change lands, not just the Rust dispatch)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "sdk/test/emit.test.ts", "asserts": "an embedded kind's declared guidance/cite ride a locus-absent kind-fact row in `declarations.kinds`, the kind still emitting no standalone projection" },
-      { "path": "tests/read_verbs.rs", "asserts": "`explain <kind>` narrates a kind's declared guidance/cite with no member instance present, cleanly omitting narration when guidance is absent" },
-      { "path": "tests/read_verbs.rs", "asserts": "a custom embedded kind's guidance, declared in the SDK, is narrated by `explain <kind>` after a full emit/lock/read round trip" }
-    ],
-    "acceptance": "A custom embedded kind's declared guidance/cite survives SDK → lock → `CustomKind` reconstruction as a locus-optional row (inheriting the existing bare-name collision gate), and `explain <kind-name>` narrates it before any member of that kind exists; `pnpm --dir sdk test` and `cargo test` both green.",
-    "notes": "20a6f54 supplies its own 'Routing bound for the deriving entry' checklist, followed here. admissibility.rs (effective_kinds/local_locus/registration_locus/governs_collision) and compose.rs's `resolve_kind_units` `(_, _, None)` branch already tolerate `governs: None` generically (the nested-file path) — no functional Rust fix expected beyond the stale comment; confirm with a green `cargo test` first. Templates-rider and a new row family are foreclosed by the ruling itself. scoped at 20a6f54."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
