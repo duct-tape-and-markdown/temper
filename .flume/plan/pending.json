@@ -1,5 +1,31 @@
 [
   {
+    "tag": "SCHEMA-HEADER-RESTATES-INLINE-CHANNEL-DOCS",
+    "summary": "schema.rs's module `//!` header (9-33) restates the two-channel split and field-address rule already carried adjacent to the code — trim to a pointer.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Narration is the ladder's bottom rung"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/schema.rs",
+          "description": "Shrink the module `//!` header's 'Two channels, kept disjoint' section and its trailing 'A clause whose field addresses past the top level...' paragraph (lines 9-25 and 29-33) to a short pointer: the validation-vs-docs split and 'taste cannot become a squiggle' claim are already carried, adjacent to the code, at the Shape match arm's comment (98-103) and the docs-loop comment (156-163); the field-address rule is already carried at the loop's inline comment (58-64) and addresses_a_property's own doc comment (216-222). Keep the header's opening paragraph naming what `emit` does and the CLI entry point (`temper schema [--kind]`, lines 1-7) and the 'See emit's match...' pointer (line 27); cut the restated mechanics."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "src/schema.rs's module header no longer restates the two-channel split or the field-address rule already carried at emit()'s match arms and addresses_a_property's doc comment; cargo doc and clippy stay clean.",
+    "notes": "Posture sweep src/schema.rs, 421cf79 rotation continuation past roster.rs. Comment-only trim, no behavior change — rust.md 'Cut: restated spec narrative' plus the narration-ladder residue class (behavioral paraphrase of code an agent reads directly), same class as REPORTER-HEADER-RESTATES-SPEC-AND-FN-DOC (d0517bf). scoped at f43fda0."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
