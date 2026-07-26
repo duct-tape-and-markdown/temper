@@ -76,6 +76,37 @@ that evidence, not preference, is the bite condition.
   renders what impact computes. *Bite condition:* decide the emission form
   (verb flag vs. reporter) so it joins the one-reporter-family model.
 
+  *Second strand — the observed graph (2026-07-26, session-argued):*
+  `(impact-verb)`'s precondition is met, and the entry above renders only the
+  **declared** graph. The strand: shade it by the **observed** one — the tap's
+  per-machine log (`src/tap.rs`) read the way `explain`'s field strand already
+  reads it (`src/telemetry.rs`). A declared member with no `InstructionsLoaded`
+  record across N sessions is precisely `specs/intent.md`'s stated problem —
+  "a skill that never triggers, a rule that fails to load" — and precisely what
+  invariant 2 keeps out of `check` forever. The render shows the evidence and
+  issues no verdict, which is invariant 8's split rendered rather than argued;
+  `Verifier::Telemetry` (`src/compose.rs`) already types the same edge and is
+  resolved-but-never-run, so the overlay is that verifier's readout, not a new
+  authority. *Rents additionally:* the tap, the field strand, the telemetry
+  verifier. *Tensions:* (a) the tap is local-locus and uncommitted, so an
+  overlay render is **one machine's** evidence — publishing one as the demo
+  hero asserts a single developer's session history as the project's, and the
+  static entry above wants exactly that hero; (b) a **live localhost UI**, the
+  form this arrived in, collides with the kernel's "still offline, still no
+  runtime" (0032) and inherits the delivery-posture note's version-and-secure
+  half, though not its duplicate-transport half — that objection was about an
+  *agent* transport, and a human-facing view duplicates none; (c) the
+  longitudinal value ("never loads") needs weeks of history, so the live crawl
+  is the better demo and the accumulated view the better product — they are not
+  the same feature and should not be costed as one. *Leaning:* static-first —
+  regenerate on a `Stop` hook and let the page refresh itself, which is
+  live-enough with no server, no port, and no auth question; the live form
+  reopens only on evidence the static one is insufficient, per this file's own
+  standing reopen condition. *Bite condition:* the emission-form decision above,
+  plus a corpus carrying enough tap history for "never loaded" to mean
+  something — which needs the tap wired first, and `install` places no tap hook
+  today (filed to `.flume/inbox.md`).
+
 - `(lsp)` — **The gate as a language server.** The schema modeline is the
   keystroke placement today; `specs/distribution.md` already says "served over LSP
   later." An LSP deepens it beyond frontmatter: hover = package guidance,

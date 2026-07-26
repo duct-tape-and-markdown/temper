@@ -36,3 +36,22 @@ routing.
   reopens, the condition is a consumer who pins `autoMemoryDirectory` into the
   tree, which is what makes discovery possible at all.
   (code.claude.com/docs/en/memory, retrieved 2026-07-26.) observed at 543c9f1
+- `install` places no tap hook, so the telemetry the product ships never gets
+  written. `src/install.rs` declares `SESSION_START_COMMAND` and
+  `GUARD_COMMAND` and places those two; there is no tap counterpart, and no
+  canonical command constant for one. The consequence is not cosmetic: an
+  adopter who declares a `Verifier::Telemetry` gets a clean resolve at
+  admissibility (`src/roster.rs` validates the event names) and then reads an
+  empty log forever, because nothing in the product ever turned the recorder
+  on. A real adopter hits this identically, so it is product signal, not the
+  dogfood's to absorb. The three events that feed it are settled by
+  `classify_claude_code_hook_payload`: `InstructionsLoaded`,
+  `UserPromptExpansion`, and an unmatched `PostToolUse`. Open question for
+  whoever takes it: whether the tap belongs in `install`'s default placement
+  set at all, or stays opt-in — it is the one placement that records rather
+  than gates, and its command must soft-fail (an advisory recorder that exits
+  127 off PATH breaks every tool call, which the two existing fail-loud
+  constants are right to do and this one is not). This harness wired its own
+  in the meantime (`.temper/hooks.ts`, hand-formed since there is nothing to
+  mirror yet); it adapts to whatever canonical form the product settles.
+  observed at 9978a14
