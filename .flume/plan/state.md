@@ -12,14 +12,17 @@
 - Residue swept through: 56eff8a4 — same window; a single doc-comment
   addition, no demolition or retirement named in either commit body; no
   residue class to check.
-- Posture swept through: 39107255 — mid-rotation, window 39107255..HEAD.
-  Frontier: src/telemetry.rs, src/tap.rs closed (both findings shipped and
-  reconciled); src/read.rs still open, unread in full.
-- This tick: POST-SHIP RECONCILIATION — window 5b7158c4..56eff8a4 audited
-  and swept, clean, no findings.
-- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 3. Friction:
+- Posture swept through: 173cdf54 — rotation closed: last frontier module
+  src/read.rs (+ imports compose.rs/graph.rs/telemetry.rs/tap.rs) read,
+  filed READ-NOTFOUND-SKILLS-RULES-LITERAL.
+- This tick: POSTURE SWEEP — src/read.rs neighborhood; why_impl/
+  impact_impl/context_member_impl's not-found narration hardcodes the
+  built-in "skills, rules" kind names where explain's own NotFound arm
+  is already kind-agnostic (architecture.md, "The provider face is
+  data"); filed the fix, rotation closes.
+- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — no pickable entries remain (all 3 parked/deferred),
-so the open posture rotation (39107255..HEAD, src/read.rs still in the
-frontier) is next tick's job.
+Plan continues: no — inbox empty, spec cursor current, reconciliation
+window empty, posture rotation closed; READ-NOTFOUND-SKILLS-RULES-LITERAL
+is pickable, build takes over next.

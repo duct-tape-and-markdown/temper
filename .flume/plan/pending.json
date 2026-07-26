@@ -1,5 +1,34 @@
 [
   {
+    "tag": "READ-NOTFOUND-SKILLS-RULES-LITERAL",
+    "summary": "why/impact/context's member-not-found narration hardcodes 'skills, rules' — a Claude Code kind-name literal in read.rs, unlike explain's own kind-agnostic NotFound wording.",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "The provider face is data"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "why_impl's (L519-525), impact_impl's (L746-752), and context_member_impl's (L1107-1113) member-not-found messages each spell \"skills, rules, and every custom kind's members\" — Claude Code's two built-in kind names as literals inside read.rs, whose own module header (L31-34) declares the read family generic over every opt-in kind, built-in and custom alike. Reword all three to the kind-agnostic phrasing `explain`'s own `Species::NotFound` arm already uses (L350-355, \"the authored surface's members\" — no kind named)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "src/read.rs",
+        "asserts": "why/impact/context's not-found narration for an unknown member name names no built-in kind literal (`skill`/`rule`) — extend `impact_tests::an_unknown_member_is_a_clean_read`'s pattern to `why` and `context`'s own not-found paths so the wording can't silently re-embed a kind name."
+      }
+    ],
+    "acceptance": "src/read.rs's three not-found messages read kind-agnostically, matching explain's own NotFound wording, and a test pins that none of the three names a built-in kind literally.",
+    "notes": "Posture sweep, src/read.rs neighborhood — closes the 39107255..HEAD rotation (telemetry.rs and tap.rs closed prior ticks). Mechanical text fix, no design call. scoped at 173cdf54."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
