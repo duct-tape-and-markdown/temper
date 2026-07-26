@@ -1,36 +1,5 @@
 [
   {
-    "tag": "TAP-WORKTREE-GIT-AWARE",
-    "summary": "Tap's log_path follows a linked-worktree .git file to the primary checkout so worktree-phase records survive worktree deletion instead of cwd-relative loss.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Telemetry"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/tap.rs",
-          "description": "log_path (163-165), the one choke point both append (200) and read_log (247) call: resolve workspace_dir's parent for a `.git` **file** (linked-worktree marker); parse its `gitdir: <path>` line, read that admin dir's `commondir` file, and home the log at the primary checkout root's `.temper/tap.jsonl` instead. A `.git` directory (primary checkout) or an unparseable/missing file falls back to the existing `workspace_dir.join(LOG_FILENAME)` — advisory, never errors. No subprocess: parse the files directly, never shell to `git rev-parse --git-common-dir`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/tap.rs",
-        "asserts": "append/read_log invoked with a workspace_dir inside a simulated linked worktree (a `.git` file + admin-dir `commondir` fixture) write to and read from the primary checkout's `.temper/tap.jsonl`, not the worktree's; a primary checkout (`.git` directory) and a non-git directory resolve unchanged."
-      }
-    ],
-    "acceptance": "temper tap invoked with cwd inside a linked git worktree appends its record to the primary checkout's .temper/tap.jsonl (survives the worktree's deletion); a primary checkout or non-git workspace resolves exactly as today.",
-    "notes": "Field report (centercode-platform, observed at 82f9c9b9), re-verified at HEAD: no upward walk/git awareness in src/; log_path is the one choke point append/read_log share, so no main.rs/read.rs edit needed. .git-file/gitdir/commondir layout verified locally (git worktree add), matches gitrepository-layout(5) — cite in the doc comment, no subprocess. Meta-question (exit-zero, no discard-report channel) filed as fork (advisory-report-channel), not folded in. scoped at 82f9c9b9."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
