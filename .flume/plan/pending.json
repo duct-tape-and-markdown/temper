@@ -1,5 +1,44 @@
 [
   {
+    "tag": "TELEMETRY-FIELD-STATES-DECLARED-ABSENCE",
+    "summary": "explain's field strand narrates the log's absence against the lock's declared telemetry wiring (0046) instead of returning silence when a roster requirement declares a telemetry verifier.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/telemetry.rs",
+          "description": "`field()`'s absent/empty-log branch (27-30) unconditionally returns `String::new()`. Thread in a declared-wiring signal (a new parameter) so an absent/empty log narrates the absence — the declared wiring against the empty log, evidence never verdict, per 0046 — only when the lock actually declares tap registrations; a roster with no telemetry verifier stays silent exactly as today."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`explain`'s `Species::Member` branch (308, `telemetry::field(...)` call) computes whether `roster` (built at 1709-1713 from `declarations.requirements`) holds any `Requirement` whose `verifier` is `Some(compose::Verifier::Telemetry { .. })`, and threads that into the `telemetry::field` call — the same roster corpus `roster::admissibility` already reads for a telemetry verifier's event names (READ-EDGE-UNIFY)."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "`an_absent_log_narrates_no_field_strand_and_explain_still_reads` (505-518, empty roster) must stay green unchanged. Add a case: a roster requirement declaring `Verifier::Telemetry` over an absent/empty tap log narrates the declared-vs-empty absence rather than staying silent."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "a member target with a roster requirement declaring a telemetry verifier, over an absent/empty tap log, narrates the absence against the declared wiring instead of staying silent"
+      }
+    ],
+    "acceptance": "`temper explain <member>` states the tap's absence-against-declaration when a roster requirement's telemetry verifier names an event and the tap log carries no matching records — evidence, not a verdict, never a gate — while a harness with no telemetry verifier declared still narrates nothing over an absent log.",
+    "notes": "0046 Consequences: pipeline.md's Telemetry already carries the absence clause and the (advisory-report-channel) fork is already gone from open-questions.md, both shipped in 53e6f615 itself — verified on disk, nothing to re-route for those two. Only the engine narration is undone: telemetry::field's absent-log branch (src/telemetry.rs:27-30) still returns String::new() unconditionally regardless of what the roster (src/read.rs:1709-1713) declares. scoped at 53e6f615."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
