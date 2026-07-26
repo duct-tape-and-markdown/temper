@@ -10,14 +10,14 @@
   revert.
 - Residue swept through: bb27d6ab — same window; no retirement named, no
   stray vocabulary, nothing to file.
-- Posture swept through: cbdde828 mid-rotation — unchanged; tests/install.rs
-  remains the open frontier.
-- This tick: RECONCILE — audited+swept 9c2db5f4..bb27d6ab. Verified
-  SETTINGS-LOCAL-AUTO-MEMORY-KEYS shipped clean against its acceptance;
-  nothing else in the window; nothing further to file.
-- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 3 (+1
+- Posture swept through: cbdde828 mid-rotation — install.rs/frontmatter.rs/
+  placement.rs/tests/install.rs now all covered; sdk/src/builtins.ts
+  (re-touched by 7258ad7a since this rotation's cbdde828 baseline) remains
+  the open frontier.
+- This tick: POSTURE SWEEP tests/install.rs neighborhood — filed
+  GUARD-DRIVER-TRIPLICATE-CONSOLIDATE (details in commit body).
+- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3 (+1
   committed-settings-kind). Friction: 2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — the posture rotation is still open (tests/install.rs
-frontier) and the queue holds no pickable (open) entries, so plan drives the
-sweep itself next tick.
+Plan continues: after-build — the new open entry ships first; the sweep
+resumes over sdk/src/builtins.ts once the wave hands back.
