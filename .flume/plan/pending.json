@@ -40,7 +40,12 @@
       }
     ],
     "acceptance": "tests/common/mod.rs owns the one `run_guard` driver; install.rs and cli.rs both call it; `rg '\\.arg\\(\"guard\"\\)' tests/` shows only common::run_guard's definition plus the unrelated `--help` case in cli.rs.",
-    "notes": "Found sweeping tests/install.rs's frontier neighborhood (posture sweep, cbdde828..HEAD rotation, per posture-sweep.md's One job, one home lens) — same residue class check_in/check_harness_in already resolved for `check`, never done for `guard`. scoped at d20eefa8"
+    "notes": "Found sweeping tests/install.rs's frontier neighborhood (posture sweep, cbdde828..HEAD rotation, per posture-sweep.md's One job, one home lens) — same residue class check_in/check_harness_in already resolved for `check`, never done for `guard`. scoped at d20eefa8",
+    "observedFiles": [
+      "tests/cli.rs",
+      "tests/common/mod.rs",
+      "tests/install.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
