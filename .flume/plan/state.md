@@ -6,13 +6,13 @@
 - Residue swept through: 4861fd3b — same window; guard-driver residue
   class fully closed (only common::run_guard's definition and the
   unrelated `guard --help` case remain), no new residue found.
-- Posture swept through: cbdde828 mid-rotation — unchanged this tick;
-  sdk/src/builtins.ts remains the open frontier.
-- This tick: RECONCILIATION — audited+swept bb27d6ab..4861fd3b: both
-  TAP-WORKTREE-GIT-AWARE and GUARD-DRIVER-TRIPLICATE-CONSOLIDATE shipped
-  correctly (entries already dropped by their ship commits); no findings.
+- Posture swept through: 39107255 — rotation closed: last frontier module
+  sdk/src/builtins.ts (+ imports kind.ts/contract.ts/prose.ts) read, clean.
+- This tick: POSTURE SWEEP — closed cbdde828's rotation on sdk/src/builtins.ts;
+  no violations found (the keyPath closed-union lead traced to decision 0042's
+  ratified CollectionKeyPath design, not embedded provider knowledge).
 - Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 4. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — the posture sweep is mid-rotation with no pickable
-entries in queue; it resumes over sdk/src/builtins.ts next tick.
+Plan continues: no — inbox empty, spec cursor current, reconciliation window
+empty, posture rotation now closed with no pickable entries in queue.
