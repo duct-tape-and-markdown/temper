@@ -13,13 +13,12 @@
   `declared` sites (admissibility.rs, engine.rs) are pre-existing, distinct
   jobs, not a copy of this one. clippy clean.
 - Posture swept through: 39107255 — mid-rotation, window 39107255..HEAD.
-  Frontier: src/telemetry.rs closed (its finding shipped and reconciled
-  this tick); src/read.rs, src/tap.rs still open, unread in full.
-- This tick: POST-SHIP RECONCILIATION — window 8d15b725..5b7158c4 audited
-  and swept, clean, no findings.
-- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 3. Friction:
+  Frontier: src/telemetry.rs closed (reconciled prior tick); src/tap.rs
+  closed this tick; src/read.rs still open, unread in full.
+- This tick: POSTURE SWEEP — src/tap.rs neighborhood, filed TAP-WORKTREE-LAYOUT-FACT-UNCITED (see commit body for the finding).
+- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — no pickable entries remain (all 3 parked/deferred),
-so the open posture rotation (39107255..HEAD, src/read.rs and src/tap.rs
-in the frontier) is next tick's job.
+Plan continues: after-build — TAP-WORKTREE-LAYOUT-FACT-UNCITED is pickable
+and ships first; the posture rotation (src/read.rs still in the frontier)
+resumes once the wave hands back.

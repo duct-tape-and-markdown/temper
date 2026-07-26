@@ -1,5 +1,31 @@
 [
   {
+    "tag": "TAP-WORKTREE-LAYOUT-FACT-UNCITED",
+    "summary": "src/tap.rs::log_path claims git's gitdir/commondir relative-path layout with no in-file citation, unlike builtin_kind.rs's cited hook-contract facts it calls three lines away.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Narration is the ladder's bottom rung"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/tap.rs",
+          "description": "log_path (161-213) resolves a linked worktree's `.git` file -> `gitdir` -> `commondir` chain and treats both paths as relative to their containing directory — a real-world git-layout fact, uncited at point of use. Add a doc-comment citation (source name + retrieved date, verified against the real doc, not just the b9ea1a2f commit body that currently states it) on log_path, matching the pattern classify_claude_code_hook_payload/hook_payload_session_id (src/builtin_kind.rs:690-746) already set for Claude Code's hook-contract facts three call sites away."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "log_path's doc comment cites its external-fact source (name + retrieved date) at point of use, verified against the real doc before encoding — the collaboration rule's cite-at-the-claim bar, matching builtin_kind.rs's existing hook-contract citations.",
+    "notes": "Posture sweep, src/tap.rs neighborhood (frontier: 39107255..HEAD, code delta from b9ea1a2f). builtin_kind.rs:692-696,735-736 cite Claude Code's hook contract (code.claude.com/docs/en/hooks, retrieved 2026-07-17) at point of use; tap.rs's log_path states git's worktree-layout fact only in the b9ea1a2f commit body, not one of collaboration.md's three sanctioned homes (spec section, pending entry, comment). Comment-only fix, no behavior change — no test. scoped at 1287cd39."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
