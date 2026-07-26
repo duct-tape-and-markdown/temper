@@ -17,15 +17,33 @@ use crate::tap::{TapEvent, TapRecord};
 /// caller joins nothing: absent evidence is silence, not a section reading "zero". A
 /// present log naming no member still narrates the strand, stating plainly that nothing
 /// named it. A record an older tap wrote surfaces as a counted line, never a silent skip.
+///
+/// When the log is absent/empty and the lock declares tap registrations (via `has_declared_telemetry`),
+/// the absence is narrated against the declared wiring, evidence of what was declared but not recorded.
 #[must_use]
 pub fn field(
     records: &[TapRecord],
     older_version: usize,
     by_kind: &BTreeMap<&str, &[Features]>,
     member: &str,
+    has_declared_telemetry: bool,
 ) -> String {
-    // Absent/empty log: no evidence to narrate.
+    // Absent/empty log with no declared telemetry: no evidence to narrate.
     if records.is_empty() && older_version == 0 {
+        // If the lock declares tap registrations but the log is empty, narrate the absence
+        // against the declared wiring.
+        if has_declared_telemetry {
+            let mut out = String::new();
+            let _ = writeln!(
+                out,
+                "Member `{member}` — its local telemetry (evidence narrated, never judged):\n"
+            );
+            let _ = writeln!(
+                out,
+                "The lock declares tap registrations, but the tap log carries no records."
+            );
+            return out;
+        }
         return String::new();
     }
 

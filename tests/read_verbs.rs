@@ -517,6 +517,41 @@ fn an_absent_log_narrates_no_field_strand_and_explain_still_reads() {
     );
 }
 
+#[test]
+fn an_absent_log_with_declared_telemetry_narrates_the_absence_against_the_declared_wiring() {
+    let skills = [feature("deploy", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "tap-required".to_string(),
+        Requirement {
+            verifier: Some(temper::compose::Verifier::Telemetry {
+                events: vec!["skill_invoked".to_string()],
+            }),
+            ..req("tap-required", true)
+        },
+    )]);
+
+    // The bare `explain` helper threads an absent log (an empty readout).
+    let out = explain(&[], &by_kind, &roster, "deploy");
+    assert!(
+        out.contains("its local telemetry"),
+        "an absent log with declared telemetry narrates the field strand: {out}"
+    );
+    assert!(
+        out.contains("The lock declares tap registrations"),
+        "the absence is narrated against the declared wiring: {out}"
+    );
+    assert!(
+        out.contains("but the tap log carries no records"),
+        "the narration names the empty log: {out}"
+    );
+    // The member still narrates whole — the field strand is only added.
+    assert!(
+        out.contains("everything that holds it in place"),
+        "the other strands still narrate: {out}"
+    );
+}
+
 /// `why`'s edge narration route-resolves mentions against the same corpus the gate's
 /// `route_mentions` does (READ-EDGE-UNIFY): a mention to a discovered member narrates as a
 /// resolved edge, a mention to an absent target as a dangling mention — never folded into

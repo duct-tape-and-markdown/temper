@@ -302,10 +302,20 @@ pub fn explain(
             ));
             out.push('\n');
             out.push_str(&context_impl(by_kind, citations, &member_index, name));
+            // Compute whether the roster declares a telemetry verifier (has tap registrations).
+            let has_declared_telemetry = roster
+                .values()
+                .any(|req| matches!(req.verifier, Some(compose::Verifier::Telemetry { .. })));
             // The field strand is evidence, not a gate: an absent/empty log narrates
             // nothing (an empty string), so it is only joined when the tap log carried
-            // records to narrate.
-            let field_strand = telemetry::field(tap_records, tap_older_version, by_kind, name);
+            // records to narrate, or when the lock declares tap registrations.
+            let field_strand = telemetry::field(
+                tap_records,
+                tap_older_version,
+                by_kind,
+                name,
+                has_declared_telemetry,
+            );
             if !field_strand.is_empty() {
                 out.push('\n');
                 out.push_str(&field_strand);
