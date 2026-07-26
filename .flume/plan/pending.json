@@ -66,41 +66,6 @@
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
   },
   {
-    "tag": "TELEMETRY-FIELD-REDERIVES-MEMBER-INDEX",
-    "summary": "telemetry::field rebuilds its own declared-member-id set from by_kind instead of reusing the member_index its one caller already built.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/telemetry.rs",
-          "description": "`field` (line 24) takes `by_kind: &BTreeMap<&str, &[Features]>` and rebuilds a `declared: HashSet<&str>` (lines 54-58) by flat-mapping `by_kind` for `features.id` — the same declared-member-id join `read.rs::build_member_index` already computes. Change the parameter to the already-built member index (`&BTreeMap<&str, Vec<(&str, &Features)>>`, `build_member_index`'s return type) and replace the `declared` HashSet construction with `member_index.contains_key(record.identity.as_str())`; `by_kind` becomes unused by `field` and drops from its signature."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`explain`'s `Species::Member` arm (line 280) already builds `member_index` at line 281 via `build_member_index(by_kind)`, one call before invoking `telemetry::field` at line 312 with `by_kind` again. Pass `&member_index` instead of `by_kind` at that call site."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "the declared-telemetry narration tests 753526a5 added (member target over an absent log with declared telemetry, and the populated-log tallying cases) stay green through `read::explain` unchanged — the consolidation is behavior-preserving, only the derivation path changes."
-      }
-    ],
-    "acceptance": "telemetry::field no longer takes by_kind or independently derives a declared-ids set; it consumes the caller's member_index, the same join structure seven other read.rs narration paths (why_impl, impact_impl, context_impl, narrate_satisfied_impl, etc.) already share. cargo test green, no behavior change.",
-    "notes": "Found sweeping the posture rotation reopened at 39107255 (telemetry.rs/read.rs neighborhood, shipped 753526a5). member_index is the established one-type join for 'declared member ids from by_kind' across read.rs (7+ consumers); telemetry::field is the sole holdout rebuilding a partial copy from raw by_kind, at the exact call site where member_index already sits in scope. scoped at e77ed8c5."
-  },
-  {
     "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
     "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
     "per": {
