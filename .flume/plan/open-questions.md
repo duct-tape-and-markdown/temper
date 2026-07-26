@@ -73,6 +73,18 @@ tax.
   is the human ruling on the mechanism, session-argued as 0036 was — not a
   waiting-for-demand fork, the demand already shipped. No dependents.
 
+- `(advisory-report-channel)` — OPEN, no live driver. `temper tap` is
+  advisory and always exits zero (`src/main.rs:388-402`), including when its
+  append fails — hook stderr is effectively invisible, and no channel exists
+  for an always-zero-exit subsystem to report that its own output was
+  discarded. Raised as a separable meta-question in the field report that
+  drove TAP-WORKTREE-GIT-AWARE (centercode-platform, 2026-07-25), which framed
+  it as the same under-report-while-presenting-healthy shape as other
+  best-effort paths in the engine — that broader claim is the reporter's
+  framing, not independently verified here. Wants its own decision on
+  whether/how an always-zero-exit subsystem surfaces a discarded write
+  without gating. No dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its
