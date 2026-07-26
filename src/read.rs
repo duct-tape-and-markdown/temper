@@ -519,8 +519,7 @@ fn why_impl(
     if matches.is_empty() {
         return format!(
             "No member named `{member}` is in the surface. `why` reads the authored \
-             surface's members — skills, rules, and every custom kind's members; check \
-             the name.\n"
+             surface's members; check the name.\n"
         );
     }
 
@@ -746,8 +745,7 @@ fn impact_impl(
     if matches.is_empty() {
         return format!(
             "No member named `{target}` is in the surface. `impact` reads the authored \
-             surface's members — skills, rules, and every custom kind's members; check \
-             the name.\n"
+             surface's members; check the name.\n"
         );
     }
 
@@ -1107,8 +1105,7 @@ fn context_member_impl(
     if matches.is_empty() {
         return format!(
             "No member named `{member}` is in the surface. `context` reads the authored \
-             surface's members — skills, rules, and every custom kind's members; check the \
-             name.\n"
+             surface's members; check the name.\n"
         );
     }
 
@@ -1937,6 +1934,41 @@ mod impact_tests {
             out.contains("No member named `ghost` is in the surface"),
             "{out}"
         );
+        // The not-found message names no built-in kind literally.
+        assert!(!out.contains("skill"), "{out}");
+        assert!(!out.contains("rule"), "{out}");
+    }
+
+    #[test]
+    fn why_unknown_member_names_no_built_in_kind() {
+        // `why`'s not-found message for an unknown member names the authored surface
+        // generically, without hardcoding `skill` or `rule`.
+        let custom = Vec::new();
+        let roster = BTreeMap::new();
+        let contracts = BTreeMap::new();
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+        let out = why(&custom, &roster, &contracts, &by_kind, &[], &[], "ghost");
+        assert!(
+            out.contains("No member named `ghost` is in the surface"),
+            "{out}"
+        );
+        assert!(!out.contains("skill"), "{out}");
+        assert!(!out.contains("rule"), "{out}");
+    }
+
+    #[test]
+    fn context_unknown_member_names_no_built_in_kind() {
+        // `context`'s not-found message for an unknown member names the authored surface
+        // generically, without hardcoding `skill` or `rule`.
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+        let citations: Vec<Citation> = Vec::new();
+        let out = context(&by_kind, &citations, "ghost");
+        assert!(
+            out.contains("No member named `ghost` is in the surface"),
+            "{out}"
+        );
+        assert!(!out.contains("skill"), "{out}");
+        assert!(!out.contains("rule"), "{out}");
     }
 
     /// A nested-member-bearing member for the leaf-grain proofs — one `decision`
