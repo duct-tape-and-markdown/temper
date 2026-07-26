@@ -1,7 +1,7 @@
 //! Telemetry field strand — narrate the local telemetry the tap recorded, per-event
 //! counts joined to members through the corpus the gate reads (READ-EDGE-UNIFY).
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use crate::extract::Features;
@@ -9,7 +9,7 @@ use crate::tap::{TapEvent, TapRecord};
 
 /// `explain`'s **field** strand — narrate the local telemetry the tap recorded for
 /// `member`: its per-event counts and the denominators they range against, both joined
-/// to members through the same `by_kind` corpus the gate reads (READ-EDGE-UNIFY), so the
+/// to members through the same member index the gate reads (READ-EDGE-UNIFY), so the
 /// strand cannot disagree with a green `check`. Evidence narrated, never judged: it
 /// reports what fired and scores nothing, and no verdict enters an exit code.
 ///
@@ -24,7 +24,7 @@ use crate::tap::{TapEvent, TapRecord};
 pub fn field(
     records: &[TapRecord],
     older_version: usize,
-    by_kind: &BTreeMap<&str, &[Features]>,
+    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     member: &str,
     has_declared_telemetry: bool,
 ) -> String {
@@ -47,21 +47,14 @@ pub fn field(
         return String::new();
     }
 
-    // The lock's declared member ids — the join key. A record enters a denominator only
-    // when its identity names a member the lock declares (the `by_kind` corpus the gate
-    // reads), so an event naming a tool or path no kind declares never counts against the
-    // members: the join is through the lock, never a raw string tally.
-    let declared: HashSet<&str> = by_kind
-        .values()
-        .flat_map(|members| members.iter())
-        .map(|features| features.id.as_str())
-        .collect();
-
     // Per event: this member's count (numerator) against every lock-joined record's count
     // (denominator). A `BTreeMap` keyed by the record's event label for stable output.
+    // A record enters a denominator only when its identity names a member the lock declares
+    // (through the member_index), so an event naming a tool or path no kind declares never
+    // counts against the members: the join is through the lock, never a raw string tally.
     let mut tallies: BTreeMap<&'static str, (usize, usize)> = BTreeMap::new();
     for record in records {
-        if !declared.contains(record.identity.as_str()) {
+        if !member_index.contains_key(record.identity.as_str()) {
             continue;
         }
         let entry = tallies.entry(event_label(record.event)).or_default();

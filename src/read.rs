@@ -312,7 +312,7 @@ pub fn explain(
             let field_strand = telemetry::field(
                 tap_records,
                 tap_older_version,
-                by_kind,
+                &member_index,
                 name,
                 has_declared_telemetry,
             );
