@@ -1,26 +1,23 @@
 # Plan state
 
 - Spec derived through: 20a6f54 — unchanged, no spec/ commits past it.
-- Audited through: 9c2db5f4 — unchanged; window 9c2db5f4..82f9c9b9 (current
-  HEAD) touches no src/tests/sdk/src (harness/docs/flume-only commits) —
-  nothing to reconcile.
-- Residue swept through: 9c2db5f4 — unchanged, same empty window.
+- Audited through: bb27d6ab — advanced from 9c2db5f4; window
+  9c2db5f4..bb27d6ab touched sdk/src exactly once (7258ad7a). Verified on
+  disk: SettingsLocal now types autoMemoryEnabled/autoMemoryDirectory,
+  fields-only with a doc-comment cite, matching the entry precisely; `pnpm
+  --dir sdk test` green (141/141). Ship commit (bb27d6ab) already removed
+  the entry from pending.json; metrics.jsonl logs a clean shipped tick, no
+  revert.
+- Residue swept through: bb27d6ab — same window; no retirement named, no
+  stray vocabulary, nothing to file.
 - Posture swept through: cbdde828 mid-rotation — unchanged; tests/install.rs
   remains the open frontier.
-- This tick: INBOX — routed all 3 lines (observed at 543c9f1/0f44dbb). Filed
-  SETTINGS-LOCAL-AUTO-MEMORY-KEYS (open, per specs/builtins.md "The shipped
-  kinds"): type autoMemoryEnabled/autoMemoryDirectory on the SettingsLocal
-  interface. Registered open fork (committed-settings-kind): the same note's
-  claim about the committed .claude/settings.json half has no governing kind
-  to type against — a human ruling, not a build entry. Verified-moot: the
-  note's agent-kind `memory`-field claim was already false at filing (typed
-  by e76934e3, which shipped before observed-sha 543c9f1) — no entry. Drained
-  the MEMORY.md-documents note (accepted debt, no action — identity and
-  projection both already ruled out) and the WITHDRAWN tap stub per its own
-  instruction.
-- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3 (+1
+- This tick: RECONCILE — audited+swept 9c2db5f4..bb27d6ab. Verified
+  SETTINGS-LOCAL-AUTO-MEMORY-KEYS shipped clean against its acceptance;
+  nothing else in the window; nothing further to file.
+- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 3 (+1
   committed-settings-kind). Friction: 2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: after-build — the posture rotation is still open
-(tests/install.rs left in the frontier), but SETTINGS-LOCAL-AUTO-MEMORY-KEYS
-is now pickable, so build ships it first and the sweep resumes after.
+Plan continues: yes — the posture rotation is still open (tests/install.rs
+frontier) and the queue holds no pickable (open) entries, so plan drives the
+sweep itself next tick.
