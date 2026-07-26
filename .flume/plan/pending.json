@@ -1,53 +1,5 @@
 [
   {
-    "tag": "GUARD-DRIVER-TRIPLICATE-CONSOLIDATE",
-    "summary": "Three independent drivers spawn guard over stdin and read exit code+stderr (install.rs, two cli.rs closures) — one job duplicated, the shape check_in already consolidated for check.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/common/mod.rs",
-          "description": "Add `pub fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String)` — promoted verbatim from tests/install.rs's private helper (spawns `temper guard <root>` with piped stdio, writes `payload` to stdin, returns the exit code and captured stderr), beside the existing `check_in`/`check_harness_in` family this mirrors."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Delete the private `run_guard` (~lines 1108-1131); its ~5 call sites (guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest and neighbors) call `common::run_guard` instead."
-        },
-        {
-          "path": "tests/cli.rs",
-          "description": "Replace the two local closures duplicating the same driver — `run_in`/`run` inside `guard_reads_a_pretooluse_payload_and_acts_on_the_posture` (~484-519) and the `run_guard` closure inside `guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one` (~562-585) — with calls to `common::run_guard`, adapting each call site to the shared `(Option<i32>, String)` return; drop the now-unused `use std::io::Write` in each fn if nothing else in it needs it."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "existing guard-mode tests (block/warn/note, corrupt lock, declared-locus targets) stay green calling the promoted common::run_guard"
-      },
-      {
-        "path": "tests/cli.rs",
-        "asserts": "guard_reads_a_pretooluse_payload_and_acts_on_the_posture and guard_rejects_a_corrupt_lock_loud_and_defaults_only_on_a_missing_one stay green calling common::run_guard"
-      }
-    ],
-    "acceptance": "tests/common/mod.rs owns the one `run_guard` driver; install.rs and cli.rs both call it; `rg '\\.arg\\(\"guard\"\\)' tests/` shows only common::run_guard's definition plus the unrelated `--help` case in cli.rs.",
-    "notes": "Found sweeping tests/install.rs's frontier neighborhood (posture sweep, cbdde828..HEAD rotation, per posture-sweep.md's One job, one home lens) — same residue class check_in/check_harness_in already resolved for `check`, never done for `guard`. scoped at d20eefa8",
-    "observedFiles": [
-      "tests/cli.rs",
-      "tests/common/mod.rs",
-      "tests/install.rs"
-    ]
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
