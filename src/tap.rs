@@ -176,12 +176,25 @@ pub(crate) fn log_path(workspace_dir: &Path) -> PathBuf {
             // Parse the gitdir line to find the admin directory.
             for line in git_content.lines() {
                 if let Some(gitdir_str) = line.strip_prefix("gitdir: ") {
-                    let admin_dir = PathBuf::from(gitdir_str);
+                    let gitdir_str = gitdir_str.trim();
+                    // gitdir can be relative to the directory containing the .git file (harness_root)
+                    let admin_dir = if Path::new(gitdir_str).is_absolute() {
+                        PathBuf::from(gitdir_str)
+                    } else {
+                        harness_root.join(gitdir_str)
+                    };
+                    let admin_dir = crate::path::normalize_path(&admin_dir);
 
                     // Read commondir from the admin directory to find the real git dir.
                     if let Ok(commondir_content) = fs::read_to_string(admin_dir.join("commondir")) {
-                        let common_git_dir = commondir_content.trim();
-                        let common_git_path = PathBuf::from(common_git_dir);
+                        let commondir_str = commondir_content.trim();
+                        // commondir can be relative to the directory containing it (admin_dir)
+                        let common_git_path = if Path::new(commondir_str).is_absolute() {
+                            PathBuf::from(commondir_str)
+                        } else {
+                            admin_dir.join(commondir_str)
+                        };
+                        let common_git_path = crate::path::normalize_path(&common_git_path);
 
                         // The primary checkout root is the parent of the git directory.
                         if let Some(primary_root) = common_git_path.parent()

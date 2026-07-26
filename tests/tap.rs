@@ -220,26 +220,33 @@ fn an_older_version_record_reads_tolerated_and_counted() {
 #[test]
 fn log_path_resolves_linked_worktree_to_primary_checkout() {
     // A workspace inside a linked worktree (where .git is a file pointing to the
-    // admin directory) resolves to the primary checkout's .temper/tap.jsonl instead
-    // of the worktree's. This ensures telemetry persists across worktree deletion.
-    let primary = common::tmpdir("tap-worktree-primary");
-    let primary_git = primary.join(".git");
-    std::fs::create_dir_all(&primary_git).unwrap();
+    // admin directory with relative paths) resolves to the primary checkout's
+    // .temper/tap.jsonl instead of the worktree's. This ensures telemetry persists
+    // across worktree deletion. Uses a real `git worktree add` to ensure the fixture
+    // matches git's actual layout with relative commondir and gitdir paths.
+    let tmpdir = common::tmpdir("tap-worktree");
+    let primary = tmpdir.join("primary");
+    std::fs::create_dir_all(&primary).unwrap();
 
-    let worktree = common::tmpdir("tap-worktree-linked");
-    let worktree_git_dir = primary_git.join("worktrees").join("linked");
-    std::fs::create_dir_all(&worktree_git_dir).unwrap();
+    // Initialize primary as a git repo
+    Command::new("git")
+        .arg("init")
+        .arg("--initial-branch=main")
+        .current_dir(&primary)
+        .output()
+        .expect("git init failed");
 
-    // Create the .git file in the worktree pointing to the admin directory.
-    let git_file_content = format!("gitdir: {}\n", worktree_git_dir.display());
-    std::fs::write(worktree.join(".git"), &git_file_content).unwrap();
+    let worktree = tmpdir.join("worktree");
 
-    // Create the commondir file pointing back to the primary .git directory.
-    std::fs::write(
-        worktree_git_dir.join("commondir"),
-        primary_git.to_string_lossy().as_ref(),
-    )
-    .unwrap();
+    // Create a linked worktree using git worktree add, which will write relative
+    // paths in the .git file and commondir file (the real git layout).
+    Command::new("git")
+        .arg("worktree")
+        .arg("add")
+        .arg(&worktree)
+        .current_dir(&primary)
+        .output()
+        .expect("git worktree add failed");
 
     // Now append a record using the worktree's workspace and verify it lands in the
     // primary checkout's .temper/tap.jsonl.
