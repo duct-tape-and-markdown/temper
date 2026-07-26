@@ -1226,6 +1226,10 @@ export interface SettingsLocal {
   readonly includeCoAuthoredBy?: boolean;
   /** The output rendering style. */
   readonly outputStyle?: string;
+  /** Whether to enable auto-memory for this project (code.claude.com/docs/en/memory, retrieved 2026-07-26). */
+  readonly autoMemoryEnabled?: boolean;
+  /** Absolute or `~/`-prefixed path for auto-memory storage, honored at any settings scope (code.claude.com/docs/en/memory, retrieved 2026-07-26). */
+  readonly autoMemoryDirectory?: string;
 }
 
 /**
