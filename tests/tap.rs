@@ -216,3 +216,112 @@ fn an_older_version_record_reads_tolerated_and_counted() {
     assert_eq!(readout.records[0].identity, "Grep");
     assert_eq!(readout.records[1], current);
 }
+
+#[test]
+fn log_path_resolves_linked_worktree_to_primary_checkout() {
+    // A workspace inside a linked worktree (where .git is a file pointing to the
+    // admin directory) resolves to the primary checkout's .temper/tap.jsonl instead
+    // of the worktree's. This ensures telemetry persists across worktree deletion.
+    let primary = common::tmpdir("tap-worktree-primary");
+    let primary_git = primary.join(".git");
+    std::fs::create_dir_all(&primary_git).unwrap();
+
+    let worktree = common::tmpdir("tap-worktree-linked");
+    let worktree_git_dir = primary_git.join("worktrees").join("linked");
+    std::fs::create_dir_all(&worktree_git_dir).unwrap();
+
+    // Create the .git file in the worktree pointing to the admin directory.
+    let git_file_content = format!("gitdir: {}\n", worktree_git_dir.display());
+    std::fs::write(worktree.join(".git"), &git_file_content).unwrap();
+
+    // Create the commondir file pointing back to the primary .git directory.
+    std::fs::write(
+        worktree_git_dir.join("commondir"),
+        primary_git.to_string_lossy().as_ref(),
+    )
+    .unwrap();
+
+    // Now append a record using the worktree's workspace and verify it lands in the
+    // primary checkout's .temper/tap.jsonl.
+    let worktree_workspace = worktree.join(".temper");
+    let record = TapRecord {
+        version: TAP_RECORD_VERSION,
+        session: "test-session".to_string(),
+        event: TapEvent::ToolUse,
+        identity: "TestTool".to_string(),
+        reason: None,
+    };
+    tap::append(&worktree_workspace, &record).unwrap();
+
+    // The record should be in the primary checkout's log, not the worktree's.
+    let primary_log = primary.join(".temper").join("tap.jsonl");
+    assert!(
+        primary_log.exists(),
+        "log should be in primary checkout at {:?}",
+        primary_log
+    );
+
+    let worktree_log = worktree.join(".temper").join("tap.jsonl");
+    assert!(
+        !worktree_log.exists(),
+        "log should not be in worktree at {:?}",
+        worktree_log
+    );
+
+    // Reading the log from the worktree workspace should read from the primary.
+    let readout = tap::read_log(&worktree_workspace).unwrap();
+    assert_eq!(
+        readout.records.len(),
+        1,
+        "the record was appended to the primary checkout's log"
+    );
+    assert_eq!(readout.records[0].identity, "TestTool");
+}
+
+#[test]
+fn log_path_unchanged_for_primary_checkout_with_git_directory() {
+    // A primary checkout (where .git is a directory, not a file) resolves to its
+    // own workspace unchanged — no linked-worktree chain to follow.
+    let primary = common::tmpdir("tap-primary-git-dir");
+    let primary_git = primary.join(".git");
+    std::fs::create_dir_all(&primary_git).unwrap();
+
+    let workspace = primary.join(".temper");
+    let record = TapRecord {
+        version: TAP_RECORD_VERSION,
+        session: "test-session".to_string(),
+        event: TapEvent::ToolUse,
+        identity: "Tool".to_string(),
+        reason: None,
+    };
+    tap::append(&workspace, &record).unwrap();
+
+    let log = workspace.join("tap.jsonl");
+    assert!(log.exists(), "log should be at the workspace path");
+    let readout = tap::read_log(&workspace).unwrap();
+    assert_eq!(readout.records.len(), 1);
+    assert_eq!(readout.records[0].identity, "Tool");
+}
+
+#[test]
+fn log_path_unchanged_for_non_git_directory() {
+    // A non-git workspace (no .git file or directory) resolves to its own
+    // workspace unchanged — no resolution needed.
+    let root = common::tmpdir("tap-non-git");
+    let workspace = root.join(".temper");
+
+    let record = TapRecord {
+        version: TAP_RECORD_VERSION,
+        session: "test-session".to_string(),
+        event: TapEvent::ToolUse,
+        identity: "Tool".to_string(),
+        reason: None,
+    };
+    tap::append(&workspace, &record).unwrap();
+
+    let log = workspace.join("tap.jsonl");
+    assert!(log.exists(), "log should be at the workspace path");
+    let readout = tap::read_log(&workspace).unwrap();
+    assert_eq!(readout.records.len(), 1);
+    assert_eq!(readout.records[0].identity, "Tool");
+}
