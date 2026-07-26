@@ -8,11 +8,13 @@
   unrelated `guard --help` case remain), no new residue found.
 - Posture swept through: 39107255 — rotation closed: last frontier module
   sdk/src/builtins.ts (+ imports kind.ts/contract.ts/prose.ts) read, clean.
-- This tick: POSTURE SWEEP — closed cbdde828's rotation on sdk/src/builtins.ts;
-  no violations found (the keyPath closed-union lead traced to decision 0042's
-  ratified CollectionKeyPath design, not embedded provider knowledge).
-- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 4. Friction:
+- This tick: INBOX — routed the relative-commondir defect report (observed
+  b787061b) into TAP-WORKTREE-RELATIVE-COMMONDIR-JOIN (open); re-verified
+  the claimed gap on disk and independently reproduced git's real relative
+  commondir layout via a local `git worktree add` probe before scoping.
+- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 4. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: no — inbox empty, spec cursor current, reconciliation window
-empty, posture rotation now closed with no pickable entries in queue.
+Plan continues: no — inbox drained, spec cursor current, reconciliation
+window empty, posture rotation still closed; build picks up the one open
+entry next.

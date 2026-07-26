@@ -1,5 +1,40 @@
 [
   {
+    "tag": "TAP-WORKTREE-RELATIVE-COMMONDIR-JOIN",
+    "summary": "log_path's worktree-chain resolution treats commondir/gitdir as absolute; real git writes them relative, so resolution silently walks the process cwd instead.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/tap.rs",
+          "description": "log_path (169-200): `PathBuf::from(commondir_content.trim())` (184) and `PathBuf::from(gitdir_str)` (179) treat both as absolute, but gitrepository-layout(5) writes commondir relative to the admin dir (`../..`, confirmed by a real `git worktree add` probe) and a `.git` file's `gitdir:` pointer can also legally be relative (to the directory containing the `.git` file). Join the relative commondir onto `admin_dir` and the relative gitdir onto `harness_root` before using either, then collapse the `..` segments with `crate::path::normalize_path` (src/path.rs:9, already the lexical-normalize-without-touching-disk helper) — without normalizing, `common_git_path.parent()` walks the wrong lexical chain against the joined-but-uncollapsed path."
+        },
+        {
+          "path": "tests/tap.rs",
+          "description": "log_path_resolves_linked_worktree_to_primary_checkout (220-286ish) writes an absolute commondir (238-241) and an absolute gitdir (234) into its synthetic layout — a layout real git never produces, which is why the shipped fix passed despite the bug. Re-cut the fixture to write a relative commondir (`../..`) and a relative gitdir the way `git worktree add` actually does, or build the fixture with a real `git worktree add` invocation instead of hand-rolled files, so the test can't drift from git's real layout again."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/tap.rs",
+        "asserts": "log_path resolves a linked worktree whose commondir/gitdir are relative (git's real layout, per gitrepository-layout(5)) to the primary checkout's .temper/tap.jsonl — not a process-cwd-relative miss"
+      }
+    ],
+    "acceptance": "temper tap running inside a git-created linked worktree with a relative commondir (and a relative gitdir) resolves and appends to the primary checkout's .temper/tap.jsonl, proven against a real-shaped fixture rather than the prior absolute-path synthetic layout.",
+    "notes": "Routed from the b787061b-observed inbox report; re-verified at HEAD (0a1ef9e4, git log b787061b..HEAD touches no src/tests/sdk) — confirmed src/tap.rs:179,184 join nothing, confirmed tests/tap.rs's fixture writes absolute commondir/gitdir, and independently reproduced git's real relative commondir (`../..`) via a local `git init` + `git worktree add` probe. scoped at 0a1ef9e4."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
