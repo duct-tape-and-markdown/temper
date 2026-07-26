@@ -13,14 +13,15 @@
   `Verifier::Telemetry` across src/ and tests/ — roster.rs's per-event
   admissibility check and read.rs's new declared-wiring check are distinct
   jobs over the same corpus (per 753526a5's own body), no duplicate surface.
-- Posture swept through: 39107255 — rotation reopened: 39107255..HEAD
-  touched src/telemetry.rs and src/read.rs (this window) plus src/tap.rs
-  (prior window); no pickable entry in queue to defer to, sweep resumes
-  next tick.
-- This tick: POST-SHIP RECONCILIATION — window f25ce1ad..8d15b725, audit
-  and sweep both clean.
-- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 3. Friction:
+- Posture swept through: 39107255 — mid-rotation, window 39107255..HEAD.
+  Frontier: src/telemetry.rs (covered this tick), src/read.rs, src/tap.rs
+  (both still open, unread in full).
+- This tick: POSTURE SWEEP — telemetry.rs neighborhood; filed
+  TELEMETRY-FIELD-REDERIVES-MEMBER-INDEX.
+- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — no pickable entries exist to defer to build, so plan
-drives the reopened posture rotation (39107255..HEAD) itself next tick.
+Plan continues: after-build — TELEMETRY-FIELD-REDERIVES-MEMBER-INDEX is
+now pickable, so build takes it; the posture rotation (39107255..HEAD,
+src/read.rs and src/tap.rs still in the frontier) resumes when the wave
+hands back.
