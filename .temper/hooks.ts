@@ -36,3 +36,40 @@ export const hook_fmtOnWrite = hook({
   type: "command",
   command: "cargo fmt --quiet >/dev/null 2>&1 || true",
 });
+
+// The three lifecycle events `temper tap` classifies (src/builtin_kind.rs,
+// `classify_claude_code_hook_payload`): InstructionsLoaded, UserPromptExpansion,
+// and PostToolUse — the last unmatched, so it sees every tool, since Skill calls
+// are what become SkillInvoked records.
+//
+// Soft-fail, deliberately NOT the `failLoud` preamble the gate hooks carry: the
+// tap is an advisory recorder that always exits zero, so temper being off PATH
+// must cost a missing record, never a broken tool call.
+//
+// `install` places no tap hook and the product declares no canonical tap command
+// constant, so unlike the two above this form is the dogfood's own — a hand-mirror
+// with nothing yet to mirror. When the product settles the canonical form, this
+// adapts to it (the dogfood consumes the product; the product is never reshaped
+// to spare the dogfood the copy).
+const tapSoft = "command -v temper >/dev/null 2>&1 && temper tap . || true";
+
+/** Record which memory and rule files actually entered context, and why. */
+export const hook_tapInstructions = hook({
+  name: "InstructionsLoaded",
+  type: "command",
+  command: tapSoft,
+});
+
+/** Record which commands expanded into prompts. */
+export const hook_tapPromptExpansion = hook({
+  name: "UserPromptExpansion",
+  type: "command",
+  command: tapSoft,
+});
+
+/** Record every completed tool call — Skill calls land as SkillInvoked. */
+export const hook_tapToolUse = hook({
+  name: "PostToolUse",
+  type: "command",
+  command: tapSoft,
+});

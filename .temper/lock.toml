@@ -156,6 +156,18 @@ requirement = "friction-capture-procedure"
 
 [[declaration.registration]]
 kind = "hook"
+key = "InstructionsLoaded"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "PostToolUse"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
 key = "PostToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
@@ -169,5 +181,11 @@ key_path = "hooks.<Event>"
 [[declaration.registration]]
 kind = "hook"
 key = "SessionStart"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "UserPromptExpansion"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
