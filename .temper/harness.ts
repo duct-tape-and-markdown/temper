@@ -1,4 +1,4 @@
-import { emit, harness } from "@dtmd/temper";
+import { emit, harness, requirement, telemetry } from "@dtmd/temper";
 import { rule } from "@dtmd/temper/claude-code";
 import { memory_CLAUDE } from "./memory/CLAUDE.ts";
 import { rule_collaboration } from "./rules/collaboration.ts";
@@ -11,14 +11,7 @@ import { rule_release } from "./rules/release.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
-import {
-  hook_fmtOnWrite,
-  hook_guard,
-  hook_sessionStart,
-  hook_tapInstructions,
-  hook_tapPromptExpansion,
-  hook_tapToolUse,
-} from "./hooks.ts";
+import { hook_fmtOnWrite, hook_guard, hook_sessionStart } from "./hooks.ts";
 
 // The requirements below are load-bearing, not documentation: emit
 // refuses if any loses its satisfier (sdk/test/refusals.test.ts, "an
@@ -62,6 +55,19 @@ const program = harness({
       kind: rule,
       required: true,
     },
+    // The behavioral remainder the gate cannot decide (intent.md invariant 2):
+    // whether a declared member ever reaches the model. Its verifier is the
+    // tap — declaring it here is what synthesizes the tap hook registrations
+    // into settings.json (pipeline.md, "Telemetry"), so this requirement is
+    // also the harness's only tap wiring. Two events, not four: this harness
+    // has no command members for UserPromptExpansion to see, and ToolUse
+    // records every call for a question about members that only
+    // InstructionsLoaded and SkillInvoked answer.
+    "context-arrives": requirement({
+      prose:
+        "every always-on member this harness declares should actually reach the model, and every skill should be reachable by its description — the failure intent.md names (a rule that fails to load, a skill that never triggers), judged by reading the field record, never by check",
+      verifier: telemetry(["InstructionsLoaded", "SkillInvoked"]),
+    }),
     "posture-sweep-discipline": {
       prose: "the posture sweep needs its administering discipline (pages-as-authority, verified-on-disk, routing, rotation) as a rule scoped to the posture pages it reads",
       kind: rule,
@@ -83,9 +89,6 @@ const program = harness({
     hook_sessionStart,
     hook_guard,
     hook_fmtOnWrite,
-    hook_tapInstructions,
-    hook_tapPromptExpansion,
-    hook_tapToolUse,
   ],
   // Residual settings with no member home yet. The permission allowlist is
   // authored residue until members declare capability needs and the derived

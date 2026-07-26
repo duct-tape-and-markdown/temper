@@ -4,10 +4,11 @@
       {
         "hooks": [
           {
-            "command": "command -v temper >/dev/null 2>&1 && temper tap . || true",
+            "command": "temper tap",
             "type": "command"
           }
-        ]
+        ],
+        "matcher": "path_glob_match"
       }
     ],
     "PostToolUse": [
@@ -23,10 +24,11 @@
       {
         "hooks": [
           {
-            "command": "command -v temper >/dev/null 2>&1 && temper tap . || true",
+            "command": "temper tap",
             "type": "command"
           }
-        ]
+        ],
+        "matcher": "Skill"
       }
     ],
     "PreToolUse": [
@@ -45,16 +47,6 @@
         "hooks": [
           {
             "command": "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start",
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "UserPromptExpansion": [
-      {
-        "hooks": [
-          {
-            "command": "command -v temper >/dev/null 2>&1 && temper tap . || true",
             "type": "command"
           }
         ]

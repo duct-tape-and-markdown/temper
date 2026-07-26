@@ -102,6 +102,12 @@ templates = [{ kind = "supporting-doc", path = "*.md" }]
 guidance = "prefer gerund or noun-phrase names (`processing-pdfs`, `pdf-processing`) over vague ones (`helper`, `utils`); `disable-model-invocation: true` for side-effectful workflows you want to time yourself; `user-invocable: false` for background knowledge that is not a command; `metadata` is the sanctioned home for versioning — there is no top-level `version` field."
 
 [[declaration.requirement]]
+name = "context-arrives"
+required = false
+verifier = { species = "telemetry", events = ["InstructionsLoaded", "SkillInvoked"] }
+prose = "every always-on member this harness declares should actually reach the model, and every skill should be reachable by its description — the failure intent.md names (a rule that fails to load, a skill that never triggers), judged by reading the field record, never by check"
+
+[[declaration.requirement]]
 name = "fork-lifecycle-discipline"
 kind = "rule"
 required = true
@@ -156,18 +162,6 @@ requirement = "friction-capture-procedure"
 
 [[declaration.registration]]
 kind = "hook"
-key = "InstructionsLoaded"
-manifest = "settings.json"
-key_path = "hooks.<Event>"
-
-[[declaration.registration]]
-kind = "hook"
-key = "PostToolUse"
-manifest = "settings.json"
-key_path = "hooks.<Event>"
-
-[[declaration.registration]]
-kind = "hook"
 key = "PostToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"
@@ -186,6 +180,12 @@ key_path = "hooks.<Event>"
 
 [[declaration.registration]]
 kind = "hook"
-key = "UserPromptExpansion"
+key = "InstructionsLoaded"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
+key = "PostToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"

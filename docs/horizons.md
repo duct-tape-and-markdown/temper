@@ -104,8 +104,14 @@ that evidence, not preference, is the bite condition.
   reopens only on evidence the static one is insufficient, per this file's own
   standing reopen condition. *Bite condition:* the emission-form decision above,
   plus a corpus carrying enough tap history for "never loaded" to mean
-  something — which needs the tap wired first, and `install` places no tap hook
-  today (filed to `.flume/inbox.md`).
+  something. Wiring is not the obstacle it first appeared: a telemetry verifier
+  synthesizes its own tap hooks at emit, so any consumer that declares one is
+  already recording. The obstacle is that the consumers which exercise temper
+  hardest exercise the *structural* half — the standing ledger note of 07-20
+  puts verifiers and the local commitment class in the un-field-tested half —
+  so the history this strand reads has to be deliberately started, per consumer,
+  before it accrues. This repo's own harness declares `context-arrives` as of
+  2026-07-26 and is the first.
 
 - `(lsp)` — **The gate as a language server.** The schema modeline is the
   keystroke placement today; `specs/distribution.md` already says "served over LSP

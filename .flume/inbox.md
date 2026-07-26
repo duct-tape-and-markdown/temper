@@ -36,22 +36,16 @@ routing.
   reopens, the condition is a consumer who pins `autoMemoryDirectory` into the
   tree, which is what makes discovery possible at all.
   (code.claude.com/docs/en/memory, retrieved 2026-07-26.) observed at 543c9f1
-- `install` places no tap hook, so the telemetry the product ships never gets
-  written. `src/install.rs` declares `SESSION_START_COMMAND` and
-  `GUARD_COMMAND` and places those two; there is no tap counterpart, and no
-  canonical command constant for one. The consequence is not cosmetic: an
-  adopter who declares a `Verifier::Telemetry` gets a clean resolve at
-  admissibility (`src/roster.rs` validates the event names) and then reads an
-  empty log forever, because nothing in the product ever turned the recorder
-  on. A real adopter hits this identically, so it is product signal, not the
-  dogfood's to absorb. The three events that feed it are settled by
-  `classify_claude_code_hook_payload`: `InstructionsLoaded`,
-  `UserPromptExpansion`, and an unmatched `PostToolUse`. Open question for
-  whoever takes it: whether the tap belongs in `install`'s default placement
-  set at all, or stays opt-in — it is the one placement that records rather
-  than gates, and its command must soft-fail (an advisory recorder that exits
-  127 off PATH breaks every tool call, which the two existing fail-loud
-  constants are right to do and this one is not). This harness wired its own
-  in the meantime (`.temper/hooks.ts`, hand-formed since there is nothing to
-  mirror yet); it adapts to whatever canonical form the product settles.
-  observed at 9978a14
+- WITHDRAWN — this note previously claimed `install` places no tap hook and
+  the product declares no canonical tap command, and asked whether the tap
+  belongs in `install`'s default placement set. All of it was wrong, from
+  searching `src/install.rs` alone. `install` is not the tap's placement
+  mechanism and was never meant to be: a telemetry verifier on a requirement
+  *synthesizes* the tap hook registrations at emit (`pipeline.md`,
+  "Telemetry"; `sdk/src/declarations.ts`, `tapHookRows`), with the command
+  (`TAP_COMMAND`) and the per-event matchers (`TELEMETRY_EVENT_HOOKS`) both
+  SDK constants. There is no gap and nothing to route. The human's "opt-in"
+  ruling is what the shipped design already does — you opt in by declaring
+  the verifier — so it needs no encoding either. Left as a stub rather than
+  deleted so a reader of this file's history sees the retraction, not a
+  vanished line; drain it. observed at 0f44dbb
