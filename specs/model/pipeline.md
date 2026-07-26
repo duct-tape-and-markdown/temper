@@ -83,7 +83,10 @@ never an emit input or target — the local class's guarantees by
 placement, not by membership — and an append is a single record:
 parallel sessions interleave lines, never rewrite the file. A reader
 meeting records an older tap wrote tolerates them out loud — a count in
-the narration, never a silent skip. A record is an event's
+the narration, never a silent skip — and a reader meeting no records at
+all where the lock declares tap registrations states that absence the
+same way: the declared wiring against the empty log, evidence never
+verdict. A record is an event's
 identity and its minimal discriminant — the member or path the event
 names, the load reason, the session id — and never captured prose: no
 tool output, no prompt text, no message bodies. The bound is the tap's
