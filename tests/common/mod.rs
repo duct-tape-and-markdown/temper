@@ -256,6 +256,29 @@ pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
     (run.findings(), run.ok)
 }
 
+/// Run `temper guard <root>` with `payload` on stdin, returning the exit code and
+/// stderr output. Mirrors the existing `check_*` family: the one home for guard
+/// driver scaffolding, consolidating what install.rs and cli.rs were re-implementing
+/// independently.
+pub fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
+    use std::io::Write;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_temper"))
+        .arg("guard")
+        .arg(root)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    // Tolerate a closed pipe if the child has already exited (e.g., on corrupt locks).
+    let _ = child.stdin.take().unwrap().write_all(payload.as_bytes());
+    let out = child.wait_with_output().unwrap();
+    (
+        out.status.code(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
 /// Read `root`'s current lock declarations (empty if none), apply `patch`, and
 /// re-emit the whole lock — the additive primitive every `write_*`/`author_*` setup
 /// helper composes through below, so a test's setup calls compose regardless of

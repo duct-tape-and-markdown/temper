@@ -1105,31 +1105,6 @@ fn gate_installed_names_drifted_un_noted_files() {
 const CLAUDE_WRITE_PAYLOAD: &str =
     "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}";
 
-/// Drive `temper guard <root>` across the process boundary with `payload` on stdin.
-/// Returns the exit code and the stderr the guard prints on a projection hit.
-fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
-    use std::io::Write;
-    let mut child = Command::new(BIN)
-        .arg("guard")
-        .arg(root)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(payload.as_bytes())
-        .unwrap();
-    let out = child.wait_with_output().unwrap();
-    (
-        out.status.code(),
-        String::from_utf8_lossy(&out.stderr).into_owned(),
-    )
-}
-
 /// A minimal lock row declaring `.claude/skills/x/SKILL.md` (the [`CLAUDE_WRITE_PAYLOAD`]
 /// target) an emit-owned projection — real enforcement-mode tests bind against a declared
 /// member, never a lock with no member rows at all.
@@ -1153,7 +1128,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
     )
     .unwrap();
 
-    let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(code, Some(2), "the lock's `block` mode must block");
     assert!(stderr.contains("other tools writes are not bound by it"));
 }
@@ -1165,7 +1140,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
 #[test]
 fn guard_defaults_to_warn_when_the_lock_is_absent() {
     let root = common::tmpdir("lock-mode-absent");
-    let (code, stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(
         code,
         Some(0),
@@ -1173,7 +1148,7 @@ fn guard_defaults_to_warn_when_the_lock_is_absent() {
     );
     assert!(stderr.contains("temper-managed projection"));
 
-    let (allow_code, allow_stderr) = run_guard(
+    let (allow_code, allow_stderr) = common::run_guard(
         &root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
     );
@@ -1200,7 +1175,7 @@ fn guard_binds_declared_locus_targets_outside_claude() {
 
     // A write targeting the declared `.rules/safety.md` path should be bound by the
     // guard, not silently allowed (the bug the entry fixes).
-    let (code, stderr) = run_guard(
+    let (code, stderr) = common::run_guard(
         &root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".rules/safety.md\"}}",
     );
@@ -1213,7 +1188,7 @@ fn guard_binds_declared_locus_targets_outside_claude() {
 
     // A write to a `.claude/` path with no corresponding declared target should
     // still be allowed (the fallback check only applies when no targets exist).
-    let (allow_code, allow_stderr) = run_guard(
+    let (allow_code, allow_stderr) = common::run_guard(
         &root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}",
     );
@@ -1225,7 +1200,7 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     assert!(allow_stderr.is_empty());
 
     // A write to an entirely different path should be allowed.
-    let (other_code, other_stderr) = run_guard(
+    let (other_code, other_stderr) = common::run_guard(
         &root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"src/main.rs\"}}",
     );
@@ -1269,7 +1244,7 @@ fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
 
     // An `.mcp.json` write whose `gmail` server declares an undocumented transport violates
     // the `mcp-server` contract's `type` enum — flagged, and under `block` the write is denied.
-    let (code, stderr) = run_guard(
+    let (code, stderr) = common::run_guard(
         &root,
         &write_payload(
             ".mcp.json",
@@ -1292,7 +1267,7 @@ fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
 
     // The same file with a documented transport conforms — the guard passes it silently,
     // never blanket-blocking a manifest the way it does a `.claude/` projection.
-    let (ok_code, ok_stderr) = run_guard(
+    let (ok_code, ok_stderr) = common::run_guard(
         &root,
         &write_payload(
             ".mcp.json",
@@ -1307,7 +1282,7 @@ fn guard_flags_a_represented_manifest_whose_member_violates_its_contract() {
 
     // The existing `.claude/` projection-drift binding is unaffected: a direct edit to a
     // projected path still blocks under the same lock, at the same enforcement mode.
-    let (proj_code, proj_stderr) = run_guard(&root, CLAUDE_WRITE_PAYLOAD);
+    let (proj_code, proj_stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(
         proj_code,
         Some(2),
@@ -1331,7 +1306,7 @@ fn guard_follows_the_declared_mode_for_a_manifest_violation() {
         )
         .unwrap();
 
-        let (code, stderr) = run_guard(
+        let (code, stderr) = common::run_guard(
             &root,
             &write_payload(
                 ".mcp.json",
