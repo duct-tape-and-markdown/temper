@@ -48,6 +48,31 @@ tax.
   waits. Latent driver: a base-harness-style implemented-by mapping. The
   needle's design taste rides this record for that day. No dependents.
 
+- `(committed-settings-kind)` — OPEN, live driver. The harness-authored
+  `settings` residue (`sdk/src/assembly.ts`'s `settings: Record<string,
+  unknown>`) folds untyped into the committed `.claude/settings.json` at
+  emit (`declarations.ts`'s `settingsRows`), and the read side
+  (`json_manifest.rs`'s `Manifest::opaque_fields`) catches the same keys
+  whenever no collection address (`hook`/`installed-plugin`/
+  `known-marketplace`) claims them — no kind governs the committed file as a
+  whole, so no clause can type any of its residue. Two now-documented keys
+  sit there unschematized: `autoMemoryEnabled` (bool) and
+  `autoMemoryDirectory` (absolute or `~/`-prefixed path; honored at any
+  settings scope; project-scope gated by the workspace trust dialog)
+  (code.claude.com/docs/en/memory, retrieved 2026-07-26) — and this repo's
+  own `.temper/harness.ts` already authors `autoMemoryEnabled: false` this
+  way: a live consumer today, not a hypothetical one. 0036 shipped exactly
+  this fix for `.claude/settings.local.json` (a fields-only kind, documented
+  keys typed, residue opaque and named) but ruled only on the **local**,
+  read-only file; whether the same posture extends to the **committed** file
+  is silent, not decided. The committed file is materially harder: it is
+  already an emit target sharing its top level with the three
+  registration-member collection addresses, so a new kind here must not
+  duplicate what those already model (0036's own "Rejected: a local
+  registration manifest" concern, at committed-file stakes). What's missing
+  is the human ruling on the mechanism, session-argued as 0036 was — not a
+  waiting-for-demand fork, the demand already shipped. No dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

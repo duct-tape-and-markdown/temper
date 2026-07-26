@@ -1,5 +1,29 @@
 [
   {
+    "tag": "SETTINGS-LOCAL-AUTO-MEMORY-KEYS",
+    "summary": "Type the two documented auto-memory keys (autoMemoryEnabled, autoMemoryDirectory) on the SettingsLocal interface, currently undocumented there.",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "The shipped kinds"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Add `autoMemoryEnabled?: boolean` and `autoMemoryDirectory?: string` to the `SettingsLocal` interface (~1208-1229), each with a doc-comment cite to code.claude.com/docs/en/memory (retrieved 2026-07-26): autoMemoryEnabled toggles the feature; autoMemoryDirectory is an absolute or `~/`-prefixed path, honored at any settings scope, project-scope gated by the workspace trust dialog. Fields only, matching the `model`/`outputStyle`/`includeCoAuthoredBy` scalar precedent already on this interface — no new clause; `settingsLocalDefaultContract` (~1263-1282) types only the three structural container keys (`permissions`/`env`/`hooks`), and these two are scalars."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "SettingsLocal's documented-key list includes the two auto-memory keys, matching the shipped kind's own \"documented keys typed\" claim (specs/builtins.md).",
+    "notes": "Scopes only the settings-local half of an inbox note (observed at 543c9f1); the same note's agent-kind `memory`-field claim was already false at filing (typed by e76934e3, which shipped before 543c9f1) — moot. The committed .claude/settings.json half (`.temper/harness.ts` already authors autoMemoryEnabled: false as residue there) has no governing kind to type against; routed to open-questions as (committed-settings-kind). scoped at 82f9c9b9"
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
