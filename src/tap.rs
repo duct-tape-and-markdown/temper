@@ -162,7 +162,9 @@ pub enum TapError {
 /// for locating the log, shared by the writer and the reader.
 ///
 /// If workspace_dir's parent is a git linked worktree (indicated by a `.git` file),
-/// resolves the worktree chain (.git file → gitdir → commondir) to find the primary
+/// resolves the worktree chain (.git file → gitdir → commondir), where gitdir and
+/// commondir paths can each be relative to their containing directory (an external fact:
+/// git-scm.com/docs/git-worktree, retrieved 2026-07-26), to find the primary
 /// checkout's root and homes the log there instead. This ensures telemetry records
 /// persist across worktree deletion. Falls back to workspace_dir if not a linked
 /// worktree, if resolution fails, or if the parent is a regular `.git` directory.
