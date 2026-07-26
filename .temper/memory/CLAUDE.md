@@ -100,10 +100,9 @@ Gates (`cargo fmt`, `cargo clippy -D warnings`, `cargo test`) validate every tic
 ## Non-negotiables
 
 - NEVER force-push, amend pushed commits, or `--no-verify`.
-- NEVER modify files when asked to investigate — investigate and report.
-- Search the codebase before implementing — don't assume not implemented.
-- **Never silently fill a spec/product gap — challenge it** (see the
-  auto-loaded `collaboration` rule).
+- **Never silently fill a spec/product gap — challenge it.** The auto-loaded
+  `collaboration` rule carries this, and the investigation and search-first
+  discipline with it — it is already in context, so it is not restated here.
 
 ## Session ledger
 
