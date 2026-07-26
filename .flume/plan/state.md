@@ -1,20 +1,24 @@
 # Plan state
 
 - Spec derived through: 20a6f54 — unchanged, no spec/ commits past it.
-- Audited through: 4861fd3b — window bb27d6ab..4861fd3b (12ff1aaf, 6e94a6c9)
-  audited; both entries' work verified on disk, matches acceptance.
-- Residue swept through: 4861fd3b — same window; guard-driver residue
-  class fully closed (only common::run_guard's definition and the
-  unrelated `guard --help` case remain), no new residue found.
+- Audited through: f25ce1ad — window 4861fd3b..f25ce1ad (b9ea1a2f) audited;
+  TAP-WORKTREE-RELATIVE-COMMONDIR-JOIN's work verified on disk (src/tap.rs's
+  gitdir/commondir joins go through the shared `crate::path::normalize_path`,
+  no hand-rolled duplicate), test re-run green
+  (log_path_resolves_linked_worktree_to_primary_checkout, now driven by a
+  real `git worktree add` fixture), entry already absent from pending.json
+  (dropped on ship). metrics.jsonl: clean ship, no revert.
+- Residue swept through: f25ce1ad — same window; grepped `gitdir|commondir`
+  across src/ and tests/ outside tap.rs/tests/tap.rs — no other site carries
+  the old absolute-path assumption, no residue found.
 - Posture swept through: 39107255 — rotation closed: last frontier module
   sdk/src/builtins.ts (+ imports kind.ts/contract.ts/prose.ts) read, clean.
-- This tick: INBOX — routed the relative-commondir defect report (observed
-  b787061b) into TAP-WORKTREE-RELATIVE-COMMONDIR-JOIN (open); re-verified
-  the claimed gap on disk and independently reproduced git's real relative
-  commondir layout via a local `git worktree add` probe before scoping.
-- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 4. Friction:
+- This tick: POST-SHIP RECONCILIATION — window 4861fd3b..f25ce1ad, opened by
+  b9ea1a2f (build commit past the prior Audited/Residue cursor). Audit and
+  sweep both clean; no pending-entry changes, no open-questions changes.
+- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 4. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
 Plan continues: no — inbox drained, spec cursor current, reconciliation
-window empty, posture rotation still closed; build picks up the one open
-entry next.
+window now empty, posture rotation still closed; build has no open entry
+to pick up next.
