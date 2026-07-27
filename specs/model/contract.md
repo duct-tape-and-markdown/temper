@@ -33,7 +33,7 @@ never mined from prose. Path-resolved edges resolve against the filesystem
 the harness actually reads — raw disk, never the ignore-filtered discovery
 view: an extra file in the resolution set can only suppress a finding, while
 pruning one can forge a finding. (Member discovery is the opposite case and
-honors ignore rules — `pipeline.md`.) An edge carries no obligation of its own: whether an
+honors ignore rules — `adoption.md`.) An edge carries no obligation of its own: whether an
 edge is counted is decided by the clauses that range over it. A mention is
 obligation-free by default — no shipped clause demands one exist; the
 shipped `mention-reachable` advisory judges only the mentions a member
@@ -79,7 +79,7 @@ TOML document (`.temper/dial.toml`) whose entries name a clause by label
 and declare the severity this machine reads it at. The dial's schema is
 the envelope — severity is its only verb, deletion is unspellable, and a
 dialed clause still reports; dial semantics and the block-mode bound live
-in `pipeline.md`, "Layers".
+in `authoring.md`, "Layers".
 
 A clause binds to a **selection** and evaluates at one of two grains:
 

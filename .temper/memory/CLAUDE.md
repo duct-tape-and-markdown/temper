@@ -57,7 +57,7 @@ written to be read by you, and originating context is git's to keep.
 - **Rust**, edition 2024, toolchain 1.96+. `cargo` is the build/test/lint driver.
 - Key crates (sanctioned set; see Cargo.toml): `clap`, `miette` + `thiserror`, `serde`,
   `toml_edit` (format-preserving round-trip keystone), `gray_matter`, `walkdir`,
-  `ignore` (gitignore-honoring discovery walks — `specs/model/pipeline.md`),
+  `ignore` (gitignore-honoring discovery walks — `specs/model/adoption.md`),
   `globset` (the one glob engine — already inside `ignore`; never hand-roll
   matching), `sha2`, `regex` (the charset mechanics behind
   `allowed_chars` — no author-facing `pattern` clause), `insta` (snapshot tests),

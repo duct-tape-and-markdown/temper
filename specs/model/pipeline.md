@@ -1,85 +1,9 @@
-# Pipeline — SDK · emit · lock · drift · install
+# Pipeline — emit · lock · drift
 
-How the model becomes files and stays true: the harness is authored as one
-typed value, compiled deterministically into the committed artifacts plus the
-lock, and every later question — is the gate green, has anything moved — is
-answered from that committed pair, offline.
-
-## The SDK
-
-The typed authoring surface: an npm module in which members are typed values,
-composition is an import, and `harness()` constructs the root member
-(`representation.md`) — nested members, contract bindings, and its own
-fields, settings keys among them, the unschematized ones opaque and named as
-such. Composing is ordinary code, typed at the keystroke: a default contract
-is an exported clause array — adoption is the import, overriding is composing
-the array. The SDK implements no semantics — types, constructors, one pipe to
-the engine; Turing-completeness is quarantined at authoring time, running the
-program is the author's act, and checking never needs Node.
-
-A member's prose keeps its authored medium — a document in its own file, a
-three-line rule inline — and either way lands byte-identical in the
-projection. A composed body may interleave verbatim prose spans with embedded
-member values in authored order — the write-side mirror of a layout's ordered
-regions (`representation.md`, "kind"); a narrative span is prose, never a
-wrapper member minted to carry it. Prose may declare references, two intents
-apart: a mention names a member and moves no content; an include pulls the
-target's content into the host's emitted bytes, a dependency the lock
-fingerprints. Both are declared edges (`contract.md`), a path reference
-resolves relative to the module that states it, never the workspace, and
-every other word is just a word.
-
-## Layers
-
-The harness value composes from an ordered stack of layers under the same
-merge the SDK already speaks — later layers win by array surgery, one algebra
-for every layer. Which slots exist and their order is the provider's
-documented fact, carried as cited data on the provider face; the claude-code
-face emulates the product's own precedence, with the user slot named and
-reserved, ungoverned. Temper adopts the provider's ordering, not its override
-semantics: the bounds here are this gate's own rules.
-
-A layer is a locus fact, never a mechanism: a member of a kind whose locus is
-local, or a lock the invocation joins. Two rules attach to anything
-uncommitted — content review never saw — never to a layer's name. Check-side,
-structurally: a local member (the read-side-only class, `representation.md`,
-locus §) contributes no emit output, so the lock captures the committed
-harness alone and committed bytes are layer-invariant by construction; its
-rows derive at read time under the kind the committed lock declares — review
-fixes what a local file may say, the gate reads what it says. And review is
-the price of softening: the committed harness may soften anything, a reviewed
-diff, while uncommitted content hardens without bound in every mode and
-softens only through the shipped dial kind (`contract.md`, "clause"), whose
-softening is inert in block mode — so a block-mode pass on any machine
-implies the shared gate's pass.
-
-A policy layer arrives with the invocation, as a lock: `check` joins the
-declaration rows of locks its invocation names over this corpus — kinds
-travel by name, the joined clauses range over the host's selections, and the
-lock stays the one interchange. Whoever owns the invocation owns the top of
-the stack; org authority is the org's pipeline definition. A joined lock that
-fails admissibility fails the check, fail-closed. `check` announces every
-active local member, every dialed clause, and every joined lock.
-
-## Telemetry
-
-A telemetry declaration projects as tap hook registrations in the emitted
-manifest — the same rows any hook rides. The tap appends event records to its
-own log — the lock's category, never a member's: machine-written,
-bespoke-parsed, versioned in lockstep with the one binary that both writes
-and reads it. The log is per-machine, uncommitted, never an emit input or
-target, and an append is a single record: parallel sessions interleave lines,
-never rewrite the file. A reader meeting records an older tap wrote tolerates
-them out loud — a count in the narration, never a silent skip — and a reader
-meeting no records where the lock declares tap registrations states that
-absence the same way: the declared wiring against the empty log, evidence
-never verdict. A record is an event's identity and its minimal discriminant —
-the member or path the event names, the load reason, the session id — never
-captured prose: no tool output, no prompt text, no message bodies; the bound
-is the tap's contract, not its configuration. Interpretation happens at read
-time alone: the reader joins raw events to members through the lock's own
-declarations, so the tap stays dumb and the record stays honest — a fact
-about what fired, read for narration, never mined for model structure.
+How the model becomes files and stays true: the harness value (`authoring.md`)
+is compiled deterministically into the committed artifacts plus the lock, and
+every later question — is the gate green, has anything moved — is answered
+from that committed pair, offline.
 
 ## Emit
 
@@ -168,40 +92,25 @@ loudly a hand-edit is treated is the author's declared severity, never the
 tool's own determination; the enforcement artifacts bind only paths the lock
 names as projections, so with no lock nothing is a projection.
 
-## Install
+## Telemetry
 
-The single adoption verb. It opens with the discovery report — findings
-first, ceremony after: what the walk finds, members by kind, and what the
-built-in default contract says about them. Discovery honors the repository's
-ignore rules — an ignored file is by declaration not authored here, with one
-scoped override: a committed local-locus kind's `governs` declaration is
-itself the authorship claim over its per-machine documents, so discovery sees
-them there and only there — and stops at a nested governed root: a directory
-carrying its own `.temper/lock.toml` is its own corpus, reached only by a
-verb aimed at it on purpose, never the ambient walk. Then one question:
-represent this harness as a typed program? A harness is represented or it is
-not — one genuine fork, so exactly one question.
-
-- **No** — install wires the session-start reporter, with consent for the one
-  settings write — format-preserving: existing keys, order, and formatting
-  survive, install never re-serializes a file it does not own — and stops: a
-  footprint of one entry, Node-free forever.
-- **Yes** — this path requires Node and the workspace, checked up front and
-  refused with instructions when absent; no half-scaffolded state. Install
-  installs the tool whole: it ensures the SDK dependency, converts each
-  discovered artifact into a member module — every schema-declared field a
-  typed property, prose module-side and byte-faithful — then runs the first
-  emit (adoption is the first emit: the lock plus each artifact regenerated
-  as a canonical projection, the one reviewable adoption diff), and places
-  what that lock justifies.
-
-The conversion writes no lock and compiles nothing, and there is no
-intermediate depth: unrepresented, every artifact is a source; represented,
-every composed kind's artifact is a projection, and a layout kind's document
-is a source at either depth — its authored home never moves, so the lift
-never converts it. Re-running install converges, placements following the
-lock's current contents. The verbs target one project's harness at an
-explicit path.
+A telemetry declaration projects as tap hook registrations in the emitted
+manifest — the same rows any hook rides. The tap appends event records to its
+own log — the lock's category, never a member's: machine-written,
+bespoke-parsed, versioned in lockstep with the one binary that both writes
+and reads it. The log is per-machine, uncommitted, never an emit input or
+target, and an append is a single record: parallel sessions interleave lines,
+never rewrite the file. A reader meeting records an older tap wrote tolerates
+them out loud — a count in the narration, never a silent skip — and a reader
+meeting no records where the lock declares tap registrations states that
+absence the same way: the declared wiring against the empty log, evidence
+never verdict. A record is an event's identity and its minimal discriminant —
+the member or path the event names, the load reason, the session id — never
+captured prose: no tool output, no prompt text, no message bodies; the bound
+is the tap's contract, not its configuration. Interpretation happens at read
+time alone: the reader joins raw events to members through the lock's own
+declarations, so the tap stays dumb and the record stays honest — a fact
+about what fired, read for narration, never mined for model structure.
 
 ## Read verbs
 

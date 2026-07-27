@@ -138,7 +138,7 @@ members all the way down.
   are peer forests of one shape, merged at runtime by the surface per
   documented, cited per-kind precedence. temper governs the project forest,
   including the local-locus members its committed kinds declare (decision
-  0034, and `pipeline.md` for the discovery override); another level is
+  0034, and `adoption.md` for the discovery override); another level is
   another target path, never a model change.
 - The engine is corpus-generic — any corpus of authored artifacts can be
   modeled as members and gated — but exactly one governed corpus ships: the

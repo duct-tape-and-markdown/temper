@@ -19,7 +19,7 @@
  * a layer's *effect* is held structurally — by the shape of a kind, which an author
  * cannot spell their way past. The other half of the bound is the engine's:
  * dialed softening is inert in block mode, so a block-mode pass on any machine implies
- * the shared gate's pass (`pipeline.md`, "Layers").
+ * the shared gate's pass.
  */
 
 import { clause, closedKeys, enumOf, required, type } from "./contract.js";

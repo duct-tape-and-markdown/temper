@@ -2,12 +2,11 @@
 //! edge.
 //!
 //! A member's `text` body declares an include: at emit the engine pulls the target file's
-//! bytes into the host's projection at the include slot (`pipeline.md`, "The SDK"), a
-//! content dependency the lock fingerprints so a moved target is drift (`pipeline.md`, "The
-//! lock"). A dangling include refuses before a byte is written (`pipeline.md`, "Emit":
-//! "Refusing"). When the target is a member's own file, the include resolves to a declared
-//! edge that joins the one enumeration the gate and read verbs share (`contract.md`,
-//! "edge"), path-resolved once at emit — the same surface a layout import rides.
+//! bytes into the host's projection at the include slot, a content dependency the lock
+//! fingerprints so a moved target is drift. A dangling include refuses before a byte is
+//! written. When the target is a member's own file, the include resolves to a declared
+//! edge that joins the one enumeration the gate and read verbs share, path-resolved once
+//! at emit — the same surface a layout import rides.
 
 use std::collections::BTreeMap;
 use std::fs;
