@@ -15,7 +15,7 @@
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Agent, Chain, Phase, TickContext, Gate } from "@dtmd/flume";
@@ -40,7 +40,7 @@ process.env.FLUME_WORKTREES_DIR ??= resolve(
   process.env.HOME ?? "/tmp",
   ".cache",
   "flume-worktrees",
-  resolve(CHAIN_DIR, "..").split("/").pop() ?? "repo",
+  basename(resolve(CHAIN_DIR, "..")) || "repo",
 );
 
 // ---------- project-specific gates ----------
