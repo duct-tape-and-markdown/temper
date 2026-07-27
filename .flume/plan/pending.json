@@ -1,5 +1,40 @@
 [
   {
+    "tag": "REQUIREMENT-GRAIN-TELEMETRY-FIELD-STRAND",
+    "summary": "The requirements walk narrates no field strand: a requirement's telemetry(events) verifier gets no tap counts/denominators or zero-hit satisfier narration, unlike why's member-grain strand.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "Read verbs"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "requirements/roster_overview/requirement_detail (1397-1530ish) receive no tap_records/tap_older_version/member_index — only why_impl's Species::Member arm (280-324) threads them into telemetry::field. Thread the same params through the Species::Requirement call site (325) and requirement_detail; for a requirement whose roster[name].verifier is Some(Verifier::Telemetry{events}) (src/compose.rs:123-126), append a field-strand section under the same 'evidence narrated, never judged' banner (contract.md, Read verbs)."
+        },
+        {
+          "path": "src/telemetry.rs",
+          "description": "field() (24-...) is member-grain: one member's hits per tap-observed event label against a denominator. A requirement-grain aggregate is a different shape — per event name the verifier declares (not the tap's own labels), the log's counts with denominators (records, distinct members among the requirement's satisfiers, distinct sessions via TapRecord::session, src/tap.rs:106), plus the satisfiers with zero records. New fn or an extension of field() — build's call once the aggregation shape is written."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "a requirement target whose verifier is Verifier::Telemetry narrates the field strand (counts/denominators per declared event, zero-hit satisfiers named); a requirement with a script verifier or none gets no field strand — mirroring the existing member-grain present/absent cases at read_verbs.rs:440-538."
+      }
+    ],
+    "acceptance": "explain <requirement-name> for a requirement with a telemetry(events) verifier prints per-event tap counts/denominators and names zero-record satisfiers, under the same evidence-narrated-never-judged banner why's member field strand already uses; a requirement with a script verifier or none is unchanged (no field strand).",
+    "notes": "Routed from inbox (observed at c3f2a8a9): 0037 ruled verifier judgment is 'reading the field record' (contract.md, requirement §) but only member-grain narrates it (why_impl, read.rs:305-321) — confirmed on disk: telemetry:: appears exactly once in read.rs (line 312), inside the Member arm only. The inbox note's second, softer ask (impact strand naming stale-verifier requirements) has no current spec cite — not filed, see commit body. scoped at bb531253."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
