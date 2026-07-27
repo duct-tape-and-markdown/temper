@@ -1,7 +1,9 @@
 # Plan state
 
-- Spec derived through: 53e6f615 — 0046 routed: two Consequences already
-  shipped in-commit (verified on disk), the third filed as an entry.
+- Spec derived through: bb531253 — 0047 routed: all six named cites
+  verified shipped in-commit; SDK-ERROR-CITE-PIPELINE-TO-AUTHORING filed
+  for 3 missed diagnostic cites; contract.md's over-budget note is
+  spec-authoring debt, not plan's/build's to file.
 - Audited through: 56eff8a4 — window 5b7158c4..56eff8a4 audited;
   TAP-WORKTREE-LAYOUT-FACT-UNCITED's work verified on disk
   (src/tap.rs::log_path's doc comment now cites git-scm.com/docs/git-worktree,
@@ -15,9 +17,9 @@
 - Posture swept through: 173cdf54 — rotation closed: last frontier module
   src/read.rs (+ imports compose.rs/graph.rs/telemetry.rs/tap.rs) read,
   filed READ-NOTFOUND-SKILLS-RULES-LITERAL.
-- This tick: INBOX — routed the 0037 requirement-grain note into REQUIREMENT-GRAIN-TELEMETRY-FIELD-STRAND (open); drained.
-- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3. Friction:
+- This tick: SPEC DELTA — routed 0047 (bb531253), filed SDK-ERROR-CITE-PIPELINE-TO-AUTHORING.
+- Queue: 5 pending — 2 open, 1 parked, 2 deferred. Open forks: 3. Friction:
   2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: yes — spec delta unrouted past 53e6f615 (e81baa47,
-bb531253); job 2 next tick.
+Plan continues: yes — post-ship reconciliation window 56eff8a4..HEAD
+unreconciled (8f338155, bb531253 touched src/sdk/tests); job 3 next tick.

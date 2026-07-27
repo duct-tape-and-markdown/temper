@@ -35,6 +35,36 @@
     "notes": "Routed from inbox (observed at c3f2a8a9): 0037 ruled verifier judgment is 'reading the field record' (contract.md, requirement §) but only member-grain narrates it (why_impl, read.rs:305-321) — confirmed on disk: telemetry:: appears exactly once in read.rs (line 312), inside the Member arm only. The inbox note's second, softer ask (impact strand naming stale-verifier requirements) has no current spec cite — not filed, see commit body. scoped at bb531253."
   },
   {
+    "tag": "SDK-ERROR-CITE-PIPELINE-TO-AUTHORING",
+    "summary": "Three SDK diagnostic-message cites still read `pipeline.md, \"The SDK\"` after 0047 moved that section to authoring.md; the decision's own six-site re-address missed them.",
+    "per": {
+      "path": "specs/model/authoring.md",
+      "section": "The SDK"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "Two throw-message citations (lines 253, 310) read `specs/model/pipeline.md, \"The SDK\"` — the section moved file in 0047 (bb531253). Re-address both to `specs/model/authoring.md, \"The SDK\"`; the cited section text itself is unchanged, only its file."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "One throw-message citation (line 728) reads `specs/model/pipeline.md, \"The SDK\"` — re-address to `specs/model/authoring.md, \"The SDK\"`, same fix as prose.ts."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`rg 'pipeline.md, \"The SDK\"' sdk/src` returns no matches; the three diagnostics instead cite `specs/model/authoring.md, \"The SDK\"`. Text-only change — `pnpm --dir sdk test` and `cargo test` stay green with no new coverage needed.",
+    "notes": "0047 (bb531253) re-addressed six cites in-commit (contract.md x2, representation.md x1, memory doc x1, dial.ts+prose_include.rs cut) — verified shipped on disk. These three throw-message cites are residue it missed: not comments (rust.md cut-on-touch doesn't bind) but runtime diagnostics, a live pattern across emit.ts/kind.ts/prose.ts/declarations.ts — re-point, don't remove. rg: no other stale \"pipeline.md\" cite in sdk/src (rest cite Emit/The lock, unmoved). scoped at bb531253."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
