@@ -1,10 +1,10 @@
 # Plan state
 
 - Spec derived through: edb6ddc4 — contract.md re-cut (7fb49108/c9fbbca8/edb6ddc4, 171→150 lines per 0047's Consequences) routed: pure editorial trim, no ratified-intent change, no entries filed.
-- Audited through: 3889f42d — window 15f50601..3889f42d (9b2fb784 the only src/tests/sdk-touching commit) clean: read.rs diff matches READ-VERBS-MEMBER-INDEX-HOIST's filed scope exactly (dead build in requirements() deleted, leaf-path builds in impact()/context() hoisted to one, narrate_satisfied wrapper deleted), entry already dropped from pending.json by the ship commit (3889f42d), metrics.jsonl logs the ship.
-- Residue swept through: 3889f42d — same window, no findings beyond the audited entry: diff is confined to read.rs's own scope, cargo clippy --all-targets -D warnings clean, read_verbs.rs+prose_include.rs (30 tests, incl. the leaf-grain narration snapshot) pass unchanged.
-- Posture swept through: 6fa874bd — rotation reopened past the 5d930da0 stamp by 9b2fb784 (src/read.rs, the sole frontier module in window 5d930da0..6fa874bd) and closed same-tick: read.rs read whole (2136 lines) + immediate imports skimmed; filed READ-NARRATION-STALE-SYMBOL-REFS (3 stale doc-comment symbol refs, 2 broken rustdoc links + 1 stale prose, all left by prior renames/deletions incl. 9b2fb784's own). No other lens tripped (cost-scale already hoisted by the audited entry; cohesion, dead plumbing, embedded-provider-knowledge, shared-concept all held).
-- This tick: posture sweep, src/read.rs (see above) — filed 1 entry; also corrected open-questions.md's "Stale cites" bullet, which claimed private-item rustdoc links are gated — verified on disk (.flume/chain.ts's docGate: `--no-deps --quiet`, no `--document-private-items`) that they are not; matches the still-live friction/plan-private-item-doc-link-gate.md capture.
-- Queue: 4 pending — 1 open, 1 parked, 2 deferred. Open forks: 3. Friction: 2, unchanged. Amendments: 0. Inbox: 0.
+- Audited through: c29be0b9 — window 3889f42d..c29be0b9 (b3a4b17b the only src/tests/sdk-touching commit) clean: read.rs diff matches READ-NARRATION-STALE-SYMBOL-REFS's filed scope exactly (line 913 prose `context_member_one`→`context_member_one_impl`, line 998 rustdoc link `[context_member]`→`[context_member_impl]`, line 1238 dangling `narrate_satisfied` doc line removed), entry already dropped from pending.json by the ship commit (c29be0b9), metrics.jsonl logs the ship.
+- Residue swept through: c29be0b9 — same window, no findings beyond the audited entry: `rg` for `context_member_one\b|context_member\b|narrate_satisfied\b` (excluding `_impl`/`_leaf`) across src/+tests/ returns nothing, cargo clippy --all-targets -D warnings clean.
+- Posture swept through: 6fa874bd — unchanged this tick; b3a4b17b (src/read.rs) lands past this cursor, reopening the rotation for next tick.
+- This tick: post-ship reconciliation, window 3889f42d..c29be0b9 (see above) — clean, no findings.
+- Queue: 3 pending — 0 open, 1 parked, 2 deferred. Open forks: 3. Friction: 2, unchanged. Amendments: 0. Inbox: 0.
 
-Plan continues: no — posture rotation closed (frontier empty), jobs 1-3 not live; READ-NARRATION-STALE-SYMBOL-REFS is pickable, build takes over.
+Plan continues: yes — posture rotation reopened past 6fa874bd by b3a4b17b (src/read.rs), no pickable entries in queue to defer it to after-build.
