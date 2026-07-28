@@ -11,6 +11,31 @@ breaking changes. Releases are small and frequent.
 
 _Nothing yet._
 
+## [0.0.15] — 2026-07-27
+
+### Fixed
+
+- `temper tap` no longer loses records inside a linked git worktree. The tap
+  resolved its log path against the working directory, so a hook firing in a
+  worktree wrote to that checkout's own `.temper/tap.jsonl`, an untracked
+  file deleted with the worktree. The tap now follows the worktree's `.git`
+  file to the primary checkout (relative `gitdir` and `commondir` paths
+  included, per gitrepository-layout) and appends there, so telemetry
+  survives worktree cleanup. Hooks stay `temper tap` with no argument.
+- `explain` on an unfilled requirement with a telemetry verifier narrated no
+  evidence at all. It now reports counts against the declared member corpus
+  when the requirement has no satisfiers.
+
+### Added
+
+- `explain <member>` states telemetry absence instead of staying silent:
+  when the lock declares tap registrations and the log holds no records, the
+  field strand says so. A quiet log with wired hooks is now a visible fact,
+  which is how a stale pre-tap binary on PATH was caught in the field.
+- `explain <requirement>` narrates a telemetry verifier's field record: per
+  declared event, the record count and the distinct members and sessions,
+  plus the declared members with zero records (the dead-weight list).
+
 ## [0.0.14] — 2026-07-24
 
 ### Fixed
