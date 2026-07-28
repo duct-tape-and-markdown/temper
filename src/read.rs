@@ -42,6 +42,7 @@
 //! Edge narration already ranges over every kind (it reads the gate's resolved edge
 //! set, READ-EDGE-UNIFY), so only the `satisfies` walk widens here.
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -58,6 +59,19 @@ use crate::roster;
 use crate::tap;
 use crate::tap::TapRecord;
 use crate::telemetry;
+
+thread_local! {
+    /// Per-thread count of `build_member_index` calls. Used to verify that the index is
+    /// built only on paths that need it (Telemetry-verified requirements), not unconditionally.
+    static MEMBER_INDEX_BUILDS: Cell<usize> = const { Cell::new(0) };
+}
+
+/// This thread's `build_member_index` call count. Read before and after a requirement
+/// narration and compare the delta to verify that the index is built only when needed.
+#[must_use]
+pub fn build_member_index_count() -> usize {
+    MEMBER_INDEX_BUILDS.with(Cell::get)
+}
 
 /// A member as the read family sees it: its kind, its id, and the requirements it opts
 /// into filling (each with its authored rationale) — the caller-threaded
@@ -136,6 +150,7 @@ fn members(custom: &[CustomMember]) -> Vec<Member> {
 fn build_member_index<'a>(
     by_kind: &BTreeMap<&'a str, &'a [Features]>,
 ) -> BTreeMap<&'a str, Vec<(&'a str, &'a Features)>> {
+    MEMBER_INDEX_BUILDS.with(|c| c.set(c.get() + 1));
     let mut index = BTreeMap::new();
     for (&kind, features_slice) in by_kind {
         for features in *features_slice {
@@ -1474,7 +1489,6 @@ fn requirement_detail(
     name: &str,
 ) -> String {
     let satisfiers = satisfiers_of(members, by_kind, name);
-    let member_index = build_member_index(by_kind);
 
     let Some(requirement) = roster.get(name) else {
         // An undeclared name is not an error here — it is a read. Narrate that it is
@@ -1508,6 +1522,7 @@ fn requirement_detail(
     // Append field strand if the requirement has a telemetry verifier (before early return)
     let mut telemetry_strand = String::new();
     if let Some(compose::Verifier::Telemetry { events }) = &requirement.verifier {
+        let member_index = build_member_index(by_kind);
         let satisfier_ids: Vec<String> = satisfiers
             .iter()
             .map(|(member, _)| member.id.clone())
@@ -2144,5 +2159,123 @@ mod impact_tests {
             malformed.contains("is not a well-formed leaf address"),
             "{malformed}"
         );
+    }
+
+    #[test]
+    fn build_member_index_only_runs_for_telemetry_verified_requirements() {
+        let roster = BTreeMap::from([
+            (
+                "r_telemetry".to_string(),
+                requirement_with_verifier(
+                    "r_telemetry",
+                    true,
+                    Some(compose::Verifier::Telemetry { events: vec![] }),
+                ),
+            ),
+            ("r_no_verifier".to_string(), req("r_no_verifier", true)),
+            (
+                "r_other_verifier".to_string(),
+                requirement_with_verifier(
+                    "r_other_verifier",
+                    false,
+                    Some(compose::Verifier::Script {
+                        path: "test.sh".to_string(),
+                    }),
+                ),
+            ),
+        ]);
+        let skills = [feature("s1", &["r_telemetry"], None)];
+        let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+        let _registrations: BTreeMap<String, Vec<Registration>> = BTreeMap::new();
+
+        let before = super::build_member_index_count();
+
+        let _ = requirement_detail(
+            &build_members(&by_kind),
+            &by_kind,
+            &roster,
+            &[],
+            0,
+            "r_undeclared",
+        );
+        let after_undeclared = super::build_member_index_count();
+        assert_eq!(
+            after_undeclared, before,
+            "build_member_index ran for undeclared requirement"
+        );
+
+        let _ = requirement_detail(
+            &build_members(&by_kind),
+            &by_kind,
+            &roster,
+            &[],
+            0,
+            "r_no_verifier",
+        );
+        let after_no_verifier = super::build_member_index_count();
+        assert_eq!(
+            after_no_verifier, after_undeclared,
+            "build_member_index ran for non-Telemetry requirement"
+        );
+
+        let _ = requirement_detail(
+            &build_members(&by_kind),
+            &by_kind,
+            &roster,
+            &[],
+            0,
+            "r_other_verifier",
+        );
+        let after_other_verifier = super::build_member_index_count();
+        assert_eq!(
+            after_other_verifier, after_no_verifier,
+            "build_member_index ran for non-Telemetry verifier"
+        );
+
+        let _ = requirement_detail(
+            &build_members(&by_kind),
+            &by_kind,
+            &roster,
+            &[],
+            0,
+            "r_telemetry",
+        );
+        let after_telemetry = super::build_member_index_count();
+        assert_eq!(
+            after_telemetry,
+            after_other_verifier + 1,
+            "build_member_index should run exactly once for Telemetry-verified requirement"
+        );
+    }
+
+    /// A requirement with a specific verifier.
+    fn requirement_with_verifier(
+        name: &str,
+        required: bool,
+        verifier: Option<compose::Verifier>,
+    ) -> Requirement {
+        Requirement {
+            name: name.to_string(),
+            prose: None,
+            kind: None,
+            required,
+            clauses: Vec::new(),
+            verifier,
+        }
+    }
+
+    /// Build members from a by_kind map using the feature extractor.
+    fn build_members(by_kind: &BTreeMap<&str, &[Features]>) -> Vec<Member> {
+        let mut members = Vec::new();
+        for (kind, features_list) in by_kind {
+            for features in *features_list {
+                members.push(Member {
+                    kind: kind.to_string(),
+                    id: features.id.clone(),
+                    satisfies: Vec::new(),
+                });
+            }
+        }
+        members
     }
 }
