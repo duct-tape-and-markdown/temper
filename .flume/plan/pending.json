@@ -1,5 +1,31 @@
 [
   {
+    "tag": "READ-NARRATION-STALE-SYMBOL-REFS",
+    "summary": "Fix three stale symbol references in src/read.rs doc comments left by prior renames/deletions: two broken rustdoc intra-doc links plus one stale prose mention.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Narration is the ladder's bottom rung"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Line 998: `[`context_member`]` → `[`context_member_impl`]` (renamed; `context_member` no longer exists). Line 1238: drop the trailing `Implementation of [`narrate_satisfied`] using a pre-built member index.` doc line on `narrate_satisfied_impl` — 9b2fb784 deleted the `narrate_satisfied` wrapper it referenced, leaving a dangling link merged onto the surviving fn's doc block; the three lines above already describe `narrate_satisfied_impl` completely on their own. Line 913: `context_member_one` → `context_member_one_impl` in `select_citers`'s doc comment (plain prose, not a `[link]`, same stale-rename class)."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "`cargo doc --no-deps --document-private-items --quiet` reports no unresolved-link errors for `narrate_satisfied` or `context_member` in src/read.rs, and no doc comment in the file names a symbol that no longer exists.",
+    "notes": "Posture sweep, src/read.rs (reopened past 5d930da0 by 9b2fb784, which deleted narrate_satisfied). 2 of 3 are broken rustdoc links on private items, uncaught by the real gate (.flume/chain.ts's docGate: `cargo doc --no-deps --quiet`, no `--document-private-items`) — matches the live .flume/friction/plan-private-item-doc-link-gate.md capture (gate-widening + 7 other sites, out of scope here). No test pins this fix. scoped at 6fa874bd."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
