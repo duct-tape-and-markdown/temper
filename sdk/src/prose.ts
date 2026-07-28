@@ -250,7 +250,7 @@ export function blocks(...values: (Text | EmbeddedMemberValue)[]): Blocks {
         `blocks(): block ${index} is a \`file()\` value — a composed body admits a ` +
           `\`text\` span or an embedded member value. A document is a member's whole ` +
           `\`prose\` body (\`prose: file(…)\`); to pull its bytes into a composed body, ` +
-          `interpolate \`include()\` into a \`text\` span (specs/model/pipeline.md, "The SDK").`,
+          `interpolate \`include()\` into a \`text\` span (specs/model/authoring.md, "The SDK").`,
       );
     }
   });
@@ -307,7 +307,7 @@ export function resolveLeaf(value: string | Text, scope: MentionScope, context: 
   if (value.includes.length > 0) {
     throw new Error(
       `${context}: an embedded-member leaf cannot carry an include — a content pull is a ` +
-        `member-body intent, not a fenced-value one (specs/model/pipeline.md, "The SDK").`,
+        `member-body intent, not a fenced-value one (specs/model/authoring.md, "The SDK").`,
     );
   }
   checkMentions(value.mentions, scope, context);

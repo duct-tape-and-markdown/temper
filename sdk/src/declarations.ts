@@ -725,7 +725,7 @@ export function registrationRows(harness: Harness): RegistrationRow[] {
       if (address === undefined) {
         throw new Error(
           `member \`${member.name}\`: a fields-only registration kind declares no ` +
-            `collection address — it surfaces in no host manifest (specs/model/pipeline.md, "The SDK").`,
+            `collection address — it surfaces in no host manifest (specs/model/authoring.md, "The SDK").`,
         );
       }
       return {
