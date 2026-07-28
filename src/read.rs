@@ -910,7 +910,7 @@ fn impact_leaf(
 }
 
 /// Select citations matching a predicate — the shared filter both `narrate_citers` and
-/// `context_member_one` use to identify relevant citations. Extracted so the two call sites
+/// `context_member_one_impl` use to identify relevant citations. Extracted so the two call sites
 /// cannot disagree on what cites a leaf or member, exactly as the edge walk shares the
 /// gate's resolved set (READ-EDGE-UNIFY).
 fn select_citers<F>(citations: &[Citation], predicate: F) -> Vec<&Citation>
@@ -995,7 +995,7 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 /// offline, tier-1, no runtime.
 ///
 /// A `/`-bearing `address` is a leaf (`<member>/<kind>/<key>/<child-path>`) reported at leaf grain
-/// ([`context_leaf`]); a bare name is a member reported whole ([`context_member`]). Both are
+/// ([`context_leaf`]); a bare name is a member reported whole ([`context_member_impl`]). Both are
 /// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-posture corpus
 /// is the standing state, and an answer hiding what it cannot see erodes the verb.
 ///
@@ -1235,7 +1235,6 @@ fn sibling_leaves<'a>(
 /// Narrate the requirements the member `member` opts into filling — read off each matching
 /// member's serialized `satisfies` (`Features::satisfies`), the lock-only view the leaf-grain
 /// read stands on. A member fills only the demands it names, so an empty set is stated plainly.
-/// Implementation of [`narrate_satisfied`] using a pre-built member index.
 fn narrate_satisfied_impl(
     out: &mut String,
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
