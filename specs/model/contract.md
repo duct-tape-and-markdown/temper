@@ -19,12 +19,12 @@ of three loci:
   (a memory file's `@path` import), resolved by path,
 - a **satisfies entry** — an edge whose target is a requirement member.
 
-A field-declared edge may additionally claim a **rendered position** in its
-member's prose — the **mention**: a rendering claim, never a fourth locus;
-its target may be a member or a leaf. One resolution path and one degree
-semantics hold whatever an edge claims about rendering. A member's
-reference set is a **derived view** — the union of the edges its fields and
-embedded members declare — never a second authored list.
+A field-declared edge may also claim a **rendered position** in its member's
+prose — the **mention**: a rendering claim, never a fourth locus; its target
+may be a member or a leaf. One resolution path and one degree semantics hold
+whatever an edge claims about rendering. A member's reference set is a
+**derived view** — the union of the edges its fields and embedded members
+declare — never a second authored list.
 
 Every edge resolves into one enumeration that the gate and every read verb
 share, so narration can never disagree with the verdict. Edges are declared,
@@ -34,9 +34,9 @@ view: an extra file in the resolution set can only suppress a finding, while
 pruning one can forge a finding. (Member discovery is the opposite case and
 honors ignore rules — `adoption.md`.) An edge carries no obligation of its
 own: whether an edge is counted is decided by the clauses that range over
-it. A mention is obligation-free by default — no shipped clause demands one
-exist; the shipped `mention-reachable` advisory judges only the mentions a
-member authored, and a contract may count them further.
+it. A mention is obligation-free by default: the shipped `mention-reachable`
+advisory judges only the mentions a member authored, and a contract may
+count them further.
 
 ## clause
 
@@ -49,29 +49,27 @@ how the gate teaches at the moment of failure.
 optionally cited — attaches directly to a **kind** or a **field**, carrying
 no predicate: authoring counsel delivered at authoring time (`schema` hover,
 `explain`), teaching before there is anything to fail (intent.md, invariant
-8). It never gates: a field's guidance is not a length check, and advice
-hardened into a numeric rule is the linter temper sits downstream of
-(invariant 5). Nor is guidance the unit's: an embedded kind — its members
-living inside a host's document, owning no file — carries kind- and
-field-attached counsel like any kind, and that counsel is **the kind's
-fact, stated once**: one counsel in every body that admits the kind
-(`representation.md`, "nesting"), never restated per admitting host,
-surfaced where the kind's members are authored. A kind absent a unit is not
-a kind absent counsel.
+8). It never gates: advice hardened into a numeric rule is the linter
+temper sits downstream of (invariant 5). Nor is guidance the unit's: an
+embedded kind — its members living inside a host's document, owning no
+file — carries kind- and field-attached counsel like any kind, that counsel
+**the kind's fact, stated once**: one counsel in every body that admits the
+kind (`representation.md`, "nesting"), surfaced where its members are
+authored, never restated per admitting host. A kind absent a unit is not a
+kind absent counsel.
 
 The predicate vocabulary is **closed**: the enum in code is the authority,
 an unknown predicate is rejected at load, never skipped, and adding one is
-a deliberate language change; the corpus does not enumerate it (equal
-representation, `../process/spec-system.md`).
+a deliberate language change; the corpus does not enumerate it.
 
 A clause's compiled label (`pipeline.md`, "The lock") is its **address**:
 deterministic, human-legible, printed by every finding and by `explain` —
 never opaque to the author. The shipped **dial** kind consumes it: a
-temper-owned, local-locus TOML document (`.temper/dial.toml`) whose entries
-name a clause by label and declare this machine's read severity. The dial's
+temper-owned, local-locus TOML document (`.temper/dial.toml`) naming a
+clause by label and declaring this machine's read severity. The dial's
 schema is the envelope — severity is its only verb, deletion is unspellable,
-and a dialed clause still reports; dial semantics and the block-mode bound
-live in `authoring.md`, "Layers".
+a dialed clause still reports; dial semantics and the block-mode bound live
+in `authoring.md`, "Layers".
 
 A clause binds to a **selection** and evaluates at one of two grains:
 
@@ -80,18 +78,17 @@ A clause binds to a **selection** and evaluates at one of two grains:
   uniqueness, membership).
 
 A clause may carry a **guard**: one predicate from the scalar-decidable set
-over an addressable field, conditioning a body of ordinary clauses. Where
-the guard holds, the body binds; where it does not — the guarded field's
-absence included — the body is silent (absence is `required`'s to indict).
-Guard and body share one address binding: each element the guard's path
-locates is judged independently, and a finding names the concrete address
-it fired at. Guards do not nest.
+over an addressable field, conditioning a body of ordinary clauses. The body
+binds where the guard holds and is silent where it does not, the guarded
+field's absence included (absence is `required`'s to indict). Guard and body
+share one address binding: each element the guard's path locates is judged
+independently, and a finding names the concrete address it fired at. Guards
+do not nest.
 
-Some predicates need whole-graph context to evaluate — a degree bound, a
-reachability test. That is evaluation cost, not a category: **reachability
-is a clause** in the root member's default contract, on by default — it
-carries a dialable severity, and the spine rule sends every dialable check
-to a contract.
+Some predicates need whole-graph context — a degree bound, a reachability
+test. That is evaluation cost, not a category: **reachability is a clause**
+in the root member's default contract, on by default — a dialable severity,
+and the spine rule sends every dialable check to a contract.
 
 ## selection
 
@@ -105,9 +102,9 @@ The set a contract binds to. Selectors are declared, decidable expressions:
 A selection picks members or edges, and the set predicates are one algebra
 over selections. There is no separate universal/existential machinery: the
 quantifier is the clause's grain. Selectors are atomic and do not compose:
-narrowing a selection — a requirement whose satisfiers must all be skills —
-is an each-grain clause over it, never a second selector. A member outside
-the narrowing is a finding, never a silent exclusion.
+narrowing a selection is an each-grain clause over it, never a second
+selector. A member outside the narrowing is a finding, never a silent
+exclusion.
 
 ## requirement — a shipped kind, not a primitive
 
@@ -150,7 +147,7 @@ it is a clause, not well-formedness.
 
 `explain` is the one read verb: it narrates a member, requirement, kind, or
 leaf; its impact strand reports the deterministic set of members that break
-if one is removed, and its field strand narrates the local telemetry record
-— counts and denominators joined to members through the same lock
-declarations the gate reads: evidence narrated, never judged. Every reading
-is a projection over the same resolved edges the gate uses; it never gates.
+if one is removed, and its field strand narrates the local telemetry record —
+counts and denominators joined to members through the same lock declarations
+the gate reads: evidence narrated, never judged. Every reading is a
+projection over the same resolved edges the gate uses; it never gates.
