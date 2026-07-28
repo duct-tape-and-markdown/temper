@@ -915,3 +915,200 @@ fn explain_narrates_a_custom_embedded_kinds_guidance_after_a_full_sdk_round_trip
         "the embedded kind's declared cite narrates through the real lock: {out}"
     );
 }
+
+#[test]
+fn a_requirement_with_a_telemetry_verifier_narrates_the_field_strand() {
+    let skills = [
+        feature("skill-a", &["telemetry-req"]),
+        feature("skill-b", &["telemetry-req"]),
+    ];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "telemetry-req".to_string(),
+        Requirement {
+            name: "telemetry-req".to_string(),
+            prose: None,
+            kind: None,
+            required: false,
+            clauses: Vec::new(),
+            verifier: Some(temper::compose::Verifier::Telemetry {
+                events: vec!["SkillInvoked".to_string()],
+            }),
+        },
+    )]);
+
+    let readout = tap_readout(&[
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+    ]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "requirement:telemetry-req",
+    );
+    assert!(
+        out.contains("its local telemetry"),
+        "a requirement target carries a field strand when the verifier is Telemetry: {out}"
+    );
+    assert!(
+        out.contains("Requirement `telemetry-req`"),
+        "the requirement name is narrated: {out}"
+    );
+    assert!(
+        out.contains("`SkillInvoked`"),
+        "the declared event name is narrated: {out}"
+    );
+}
+
+#[test]
+fn a_requirement_with_no_telemetry_verifier_gets_no_field_strand() {
+    let skills = [feature("skill-a", &["script-req"])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "script-req".to_string(),
+        Requirement {
+            name: "script-req".to_string(),
+            prose: None,
+            kind: None,
+            required: false,
+            clauses: Vec::new(),
+            verifier: Some(temper::compose::Verifier::Script {
+                path: "tests/verify.sh".to_string(),
+            }),
+        },
+    )]);
+
+    let readout = tap_readout(&[tap_record(
+        TAP_RECORD_VERSION,
+        TapEvent::SkillInvoked,
+        "skill-a",
+    )]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "requirement:script-req",
+    );
+    assert!(
+        !out.contains("its local telemetry"),
+        "a requirement with a script verifier carries no field strand: {out}"
+    );
+    assert!(
+        out.contains("Requirement `script-req`"),
+        "the requirement is still narrated: {out}"
+    );
+}
+
+#[test]
+fn a_requirement_telemetry_field_strand_shows_event_counts_per_satisfier() {
+    let skills = [
+        feature("skill-a", &["telemetry-req"]),
+        feature("skill-b", &["telemetry-req"]),
+    ];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "telemetry-req".to_string(),
+        Requirement {
+            name: "telemetry-req".to_string(),
+            prose: None,
+            kind: None,
+            required: false,
+            clauses: Vec::new(),
+            verifier: Some(temper::compose::Verifier::Telemetry {
+                events: vec!["SkillInvoked".to_string(), "ToolUse".to_string()],
+            }),
+        },
+    )]);
+
+    let readout = tap_readout(&[
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-b"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::ToolUse, "skill-b"),
+    ]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "requirement:telemetry-req",
+    );
+    assert!(
+        out.contains("`SkillInvoked` — 3 record"),
+        "all declared events' counts are narrated: {out}"
+    );
+    assert!(
+        out.contains("`ToolUse` — 3 record"),
+        "the second declared event is also narrated: {out}"
+    );
+    assert!(
+        out.contains("2 distinct member"),
+        "distinct members among satisfiers are counted: {out}"
+    );
+}
+
+#[test]
+fn a_requirement_telemetry_field_strand_names_zero_hit_satisfiers() {
+    let skills = [
+        feature("skill-a", &["telemetry-req"]),
+        feature("skill-b", &["telemetry-req"]),
+        feature("skill-c", &["telemetry-req"]),
+    ];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "telemetry-req".to_string(),
+        Requirement {
+            name: "telemetry-req".to_string(),
+            prose: None,
+            kind: None,
+            required: false,
+            clauses: Vec::new(),
+            verifier: Some(temper::compose::Verifier::Telemetry {
+                events: vec!["SkillInvoked".to_string()],
+            }),
+        },
+    )]);
+
+    let readout = tap_readout(&[
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+    ]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "requirement:telemetry-req",
+    );
+    assert!(
+        out.contains("Satisfiers with zero records"),
+        "zero-hit satisfiers are named: {out}"
+    );
+    assert!(
+        out.contains("`skill-c`"),
+        "the specific zero-hit satisfier is listed: {out}"
+    );
+    assert!(
+        !out.contains("`skill-a`")
+            || out
+                .split("Satisfiers with zero records")
+                .last()
+                .unwrap()
+                .contains("`skill-c`"),
+        "only zero-hit satisfiers are listed, not skill-a which has records: {out}"
+    );
+}

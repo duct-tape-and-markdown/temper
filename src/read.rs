@@ -322,7 +322,14 @@ pub fn explain(
             }
             out
         }
-        Species::Requirement(name) => requirements(custom, roster, by_kind, Some(name)),
+        Species::Requirement(name) => requirements(
+            custom,
+            roster,
+            by_kind,
+            tap_records,
+            tap_older_version,
+            Some(name),
+        ),
         Species::Kind(name) => narrate_kind(name, contracts, kind_cites),
         Species::Leaf(address) => {
             let mut out = impact(
@@ -1398,11 +1405,22 @@ fn requirements(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     by_kind: &BTreeMap<&str, &[Features]>,
+    tap_records: &[TapRecord],
+    tap_older_version: usize,
     name: Option<&str>,
 ) -> String {
     let members = members(custom);
+    let member_index = build_member_index(by_kind);
     match name {
-        Some(name) => requirement_detail(&members, by_kind, roster, name),
+        Some(name) => requirement_detail(
+            &members,
+            by_kind,
+            roster,
+            tap_records,
+            tap_older_version,
+            &member_index,
+            name,
+        ),
         None => roster_overview(&members, by_kind, roster),
     }
 }
@@ -1454,6 +1472,9 @@ fn requirement_detail(
     members: &[Member],
     by_kind: &BTreeMap<&str, &[Features]>,
     roster: &BTreeMap<String, Requirement>,
+    tap_records: &[TapRecord],
+    tap_older_version: usize,
+    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     name: &str,
 ) -> String {
     let satisfiers = satisfiers_of(members, by_kind, name);
@@ -1529,6 +1550,25 @@ fn requirement_detail(
              `{}` ({}) would leave it unfilled, failing the gate.",
             member.id, member.kind
         );
+    }
+
+    // Append field strand if the requirement has a telemetry verifier
+    if let Some(compose::Verifier::Telemetry { events }) = &requirement.verifier {
+        let satisfier_ids: Vec<String> = satisfiers
+            .iter()
+            .map(|(member, _)| member.id.clone())
+            .collect();
+        let field_strand = telemetry::requirement_field(
+            tap_records,
+            tap_older_version,
+            member_index,
+            &satisfier_ids,
+            events,
+        );
+        if !field_strand.is_empty() {
+            out.push('\n');
+            out.push_str(&field_strand);
+        }
     }
 
     out
