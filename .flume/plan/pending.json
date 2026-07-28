@@ -1,39 +1,5 @@
 [
   {
-    "tag": "READ-VERBS-MEMBER-INDEX-HOIST",
-    "summary": "read.rs builds build_member_index dead (requirements()) or twice (leaf-target impact()/context()) instead of once — hoist per engineering.md's cost-scale bar.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Cost scale is hoisted, and pinned by count"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "requirements() (1403-1426) builds member_index unconditionally though neither branch reads it (requirement_detail's param, 1477, is prefixed `_` and unused in its body) — delete the build and the param. impact()'s crate-private wrapper (706-728) builds member_index before impact_impl's own leaf check (743) discards it for any leaf target (impact_leaf never touches a member index) — build it only on the bare-name path. context()'s wrapper (1000-1004) and context_impl (1006-1018) do the same for the leaf branch, and context_leaf (1026-1097) then rebuilds a second full index via its narrate_satisfied call (1090) instead of narrate_satisfied_impl — thread the one already built through instead."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (238) stays green — leaf-grain narration, including context's Satisfied-requirements section, is byte-identical once its member index is threaded through rather than rebuilt"
-      },
-      {
-        "path": "src/read.rs",
-        "asserts": "impact_tests' existing leaf and requirement-detail proofs stay green; a new proof pins the count engineering.md's cost-scale bar names — build_member_index runs once, never twice, for a leaf-address dispatch, and not at all for requirements()"
-      }
-    ],
-    "acceptance": "requirements()/impact()/context() build a member index at most once per invocation, only when a bare-name or leaf-satisfied-requirements path actually reads it; requirement_detail's dead `_member_index` parameter is gone; every existing read-family test (src/read.rs's impact_tests, tests/read_verbs.rs) passes unchanged.",
-    "notes": "Verified on disk at HEAD (5d930da0): requirements() (read.rs:1403-1426) builds member_index unconditionally then never reads it in either branch; impact()'s leaf path (706-728, checked at impact_impl:743) discards its build into impact_leaf, which needs none; context()'s leaf path (1000-1018) does the same, then context_leaf (1026-1097) rebuilds a second one via narrate_satisfied (1090) instead of narrate_satisfied_impl. scoped at 5d930da0."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
