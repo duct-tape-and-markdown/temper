@@ -714,6 +714,10 @@ fn impact(
     citations: &[Citation],
     target: &str,
 ) -> String {
+    if target.contains('/') {
+        return impact_leaf(by_kind, citations, target);
+    }
+
     let member_index = build_member_index(by_kind);
     impact_impl(
         roster,
@@ -1011,7 +1015,7 @@ fn context_impl(
     address: &str,
 ) -> String {
     if address.contains('/') {
-        context_leaf(by_kind, citations, address)
+        context_leaf(by_kind, citations, member_index, address)
     } else {
         context_member_impl(by_kind, citations, member_index, address)
     }
@@ -1026,6 +1030,7 @@ fn context_impl(
 fn context_leaf(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],
+    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     address: &str,
 ) -> String {
     let Some(parsed) = parse_leaf_address(address) else {
@@ -1087,7 +1092,7 @@ fn context_leaf(
     out.push('\n');
 
     // Satisfied requirements — the demands the member the leaf lives in opts into filling.
-    narrate_satisfied(&mut out, by_kind, member);
+    narrate_satisfied_impl(&mut out, member_index, member);
     out.push('\n');
 
     // Coverage — the leaf-grain answer names what it cannot see, shipping WITH the verb.
@@ -1230,11 +1235,6 @@ fn sibling_leaves<'a>(
 /// Narrate the requirements the member `member` opts into filling — read off each matching
 /// member's serialized `satisfies` (`Features::satisfies`), the lock-only view the leaf-grain
 /// read stands on. A member fills only the demands it names, so an empty set is stated plainly.
-fn narrate_satisfied(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>, member: &str) {
-    let member_index = build_member_index(by_kind);
-    narrate_satisfied_impl(out, &member_index, member);
-}
-
 /// Implementation of [`narrate_satisfied`] using a pre-built member index.
 fn narrate_satisfied_impl(
     out: &mut String,
@@ -1410,7 +1410,6 @@ fn requirements(
     name: Option<&str>,
 ) -> String {
     let members = members(custom);
-    let member_index = build_member_index(by_kind);
     match name {
         Some(name) => requirement_detail(
             &members,
@@ -1418,7 +1417,6 @@ fn requirements(
             roster,
             tap_records,
             tap_older_version,
-            &member_index,
             name,
         ),
         None => roster_overview(&members, by_kind, roster),
@@ -1474,7 +1472,6 @@ fn requirement_detail(
     roster: &BTreeMap<String, Requirement>,
     tap_records: &[TapRecord],
     tap_older_version: usize,
-    _member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     name: &str,
 ) -> String {
     let satisfiers = satisfiers_of(members, by_kind, name);
