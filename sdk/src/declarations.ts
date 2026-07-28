@@ -16,7 +16,7 @@ import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kin
 import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
-import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS, tapHookRegistration } from "./builtins.js";
+import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS, hook, tapHookRegistration } from "./builtins.js";
 
 import type {
   AssemblyFactRow,
@@ -787,7 +787,7 @@ export function tapHookRows(harness: Harness): RegistrationRow[] {
     .map(({ event, matcher }): RegistrationRow => {
       const { keyPath, fields } = tapHookRegistration(TAP_COMMAND, matcher);
       return {
-        kind: "hook",
+        kind: hook.key,
         key: event,
         manifest: SETTINGS_MANIFEST,
         key_path: keyPath,
