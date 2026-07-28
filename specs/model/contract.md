@@ -9,12 +9,11 @@ A typed, directed relationship between two members. One noun, declared at any
 of three loci:
 
 - a **field** — a reference carried as a typed property of the member that
-  speaks it, at any grain (a frontmatter field, an embedded member's edge
-  field). The kind declares the field's target as a non-empty **set of
-  kinds**; resolution is by identity within the target kind. A one-element
-  set resolves a bare name within its one kind; a multi-element set requires
-  the kind-qualified address always — resolution depends on the written
-  text, never the member population,
+  speaks it, at any grain. The kind declares the field's target as a
+  non-empty **set of kinds**; resolution is by identity within the target
+  kind. A one-element set resolves a bare name within its one kind; a
+  multi-element set requires the kind-qualified address always — resolution
+  depends on the written text, never the member population,
 - an **import directive** — a reference the target format itself executes
   (a memory file's `@path` import), resolved by path,
 - a **satisfies entry** — an edge whose target is a requirement member.
@@ -108,8 +107,7 @@ exclusion.
 
 ## requirement — a shipped kind, not a primitive
 
-A requirement is a member of a built-in kind (embedded locus — it lives in
-the assembly and the lock). Its template:
+A requirement is a member of a built-in kind (embedded locus). Its template:
 
 - **identity** — the name satisfies edges target,
 - **prose** — the authored intent the requirement exists to carry; never
@@ -118,10 +116,9 @@ the assembly and the lock). Its template:
   two shipped species: a **script** (a path-resolved reference to the test
   or CI job that executes the judgment) or a **telemetry** declaration
   (named, documented harness events the emitted tap records, judged by
-  reading the field record). The gate checks the declaration resolves — a
-  script's path, a telemetry event's documented name — and never runs,
-  records into, or aggregates over it: no verifier's verdict enters
-  `check`'s exit code,
+  reading the field record). The gate checks the declaration resolves and
+  never runs, records into, or aggregates over it: no verifier's verdict
+  enters `check`'s exit code,
 - **attached clauses** over its opt-in selection. "This must be filled" is
   the shipped default: a whole-grain cardinality clause (at least one
   satisfier) at error severity — overridable, so an advisory requirement
