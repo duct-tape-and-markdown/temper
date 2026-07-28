@@ -1,44 +1,5 @@
 [
   {
-    "tag": "TELEMETRY-EVENT-LABEL-CONSOLIDATE",
-    "summary": "Consolidate requirement_field's duplicate TapEvent→PascalCase label match with tap::documented_name; drop its unused member_index param.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/tap.rs",
-          "description": "Widen `documented_name` (line 51) from a module-private `const fn` to `pub(crate) const fn` so `telemetry::requirement_field` can call the canonical TapEvent→documented-name match instead of reimplementing it."
-        },
-        {
-          "path": "src/telemetry.rs",
-          "description": "`requirement_field`'s inline `match record.event { ... }.to_string()` (156-162) reimplements `tap::documented_name`'s PascalCase mapping byte-for-byte — replace it with `tap::documented_name(record.event).to_string()`. Drop the unused `_member_index` parameter (129): the function never reads it, and the satisfier-membership gate `satisfier_set.contains(&record.identity)` (153) already restricts to real declared members via `satisfier_ids`, so the join it exists for in sibling fn `field` (60) has no analog here."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Drop the now-removed `member_index` argument from the `telemetry::requirement_field` call site (~1561-1567)."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "a_requirement_with_a_telemetry_verifier_narrates_the_field_strand already asserts the `SkillInvoked` label appears in the narrated output — pre-existing coverage that pins the consolidated matcher's output unchanged."
-      }
-    ],
-    "acceptance": "src/telemetry.rs no longer hand-rolls a second TapEvent→documented-name match; requirement_field calls tap::documented_name and drops _member_index from its signature and call site; cargo test and cargo clippy --all-targets -- -D warnings stay green with unchanged narration output.",
-    "notes": "Posture sweep neighborhood: src/telemetry.rs (frontier, touched by 6246cb22) + its immediate import src/tap.rs. tap::documented_name (tap.rs:51, currently private) is explicitly \"the exhaustive match that forces any new TapEvent variant to declare its documented name\" — requirement_field's own inline match (telemetry.rs:156-162) reimplements it byte-for-byte, the shared-concept-as-one-type violation engineering.md's \"One job, one home\" names. scoped at 279a4de2."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
