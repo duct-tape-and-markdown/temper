@@ -1,5 +1,36 @@
 [
   {
+    "tag": "TAP-HOOK-KIND-NAME-BY-IMPORT",
+    "summary": "tapHookRows hand-spells kind: \"hook\" (declarations.ts:790) instead of importing builtins.ts's hook and reading hook.key, the file's own idiom elsewhere.",
+    "per": {
+      "path": "specs/process/architecture.md",
+      "section": "The provider face is data"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "tapHookRows (~L772-797): import `hook` from `./builtins.js` and replace the literal `kind: \"hook\"` (L790) with `hook.key` — matches the file's own established idiom for reading a KindDefinition's bare name (templatesFor's `template.kind.key`, admissionsByHost's `host.key`/`child.key`, compileDeclarations's `binding.kind.key`); no other row in this file hand-spells a kind name it could import instead."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "compileDeclarations' synthesized tap-hook registration rows still carry `kind: \"hook\"` (existing assertions ~L1535/1632/1642) — behavior unchanged, only the value's source moves from a literal to the import."
+      }
+    ],
+    "acceptance": "declarations.ts's tapHookRows sources its RegistrationRow's `kind` field from the imported `hook` KindDefinition (`hook.key`) rather than a hand-typed `\"hook\"` literal; pnpm --dir sdk test green, output byte-identical.",
+    "notes": "Posture sweep (declarations.ts+prose.ts neighborhood; prose.ts held no finding). kind.ts:261: a KindDefinition's identity travels by import, never by string. declarations.ts already reads .key off a KindDefinition everywhere else it needs a bare name (templatesFor, admissionsByHost, compileDeclarations) — tapHookRows alone hand-spells the literal instead of importing builtins.ts's hook (name: \"hook\", builtins.ts:407-408). scoped at e8f0d8af."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
