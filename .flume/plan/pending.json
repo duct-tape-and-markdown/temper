@@ -28,6 +28,33 @@
     "notes": "Drained from plan-read-roster-overview-dead-branch.md (observed 477895ab). Re-verified: requirements()'s sole caller always passes Some(name); Species::Requirement only comes from resolve() matching a target string, and Command::Explain's positional is mandatory (main.rs:195-201) -- None is unreachable. Neither read-verb spec section names a bare roster-listing mode: unmandated residue, not a missing wire-up. 6 more orphaned read_verbs snapshots found, captured separately. scoped at db94a7f6."
   },
   {
+    "tag": "READ-VERBS-ORPHANED-SNAPSHOTS-RETIRE",
+    "summary": "Delete 6 orphaned read_verbs__*.snap fixtures with zero referencing test — dead residue from the pre-EXPLAIN-UNIFY CLI e2e tests, superseded by library-level plain-assert checks.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [],
+      "retire": [
+        "tests/snapshots/read_verbs__impact_dev_standards.snap",
+        "tests/snapshots/read_verbs__impact_lint_runner.snap",
+        "tests/snapshots/read_verbs__impact_sole_publisher.snap",
+        "tests/snapshots/read_verbs__requirements_custom_satisfier.snap",
+        "tests/snapshots/read_verbs__requirements_engineering_standards.snap",
+        "tests/snapshots/read_verbs__requirements_member_published_detail.snap"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "cargo test green; `rg` for each of the six stems against tests/ returns zero hits; the six files are gone from tests/snapshots/.",
+    "notes": "Drained from plan-read-verbs-orphaned-snapshots.md (observed db94a7f6, re-verified clean). Capture left dead-residue-vs-regressed-coverage to a human/design pass; resolved via da84b69's commit body -- collapsing read verbs' CLI dispatch pre-EXPLAIN-UNIFY dropped e2e snapshotting to library-level floor-binding proofs. No explain-specific snapshot test exists anywhere (rg confirmed): plain assert! is the intended floor, these six .snap are its uncleaned predecessor. scoped at 683d6154."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
