@@ -1474,6 +1474,7 @@ fn requirement_detail(
     name: &str,
 ) -> String {
     let satisfiers = satisfiers_of(members, by_kind, name);
+    let member_index = build_member_index(by_kind);
 
     let Some(requirement) = roster.get(name) else {
         // An undeclared name is not an error here — it is a read. Narrate that it is
@@ -1504,8 +1505,28 @@ fn requirement_detail(
         coverage_state(requirement.required, satisfiers.len())
     );
 
+    // Append field strand if the requirement has a telemetry verifier (before early return)
+    let mut telemetry_strand = String::new();
+    if let Some(compose::Verifier::Telemetry { events }) = &requirement.verifier {
+        let satisfier_ids: Vec<String> = satisfiers
+            .iter()
+            .map(|(member, _)| member.id.clone())
+            .collect();
+        telemetry_strand = telemetry::requirement_field(
+            tap_records,
+            tap_older_version,
+            &satisfier_ids,
+            events,
+            &member_index,
+        );
+    }
+
     if satisfiers.is_empty() {
         let _ = writeln!(&mut out, "  No member satisfies it.");
+        if !telemetry_strand.is_empty() {
+            out.push('\n');
+            out.push_str(&telemetry_strand);
+        }
         return out;
     }
 
@@ -1549,17 +1570,9 @@ fn requirement_detail(
     }
 
     // Append field strand if the requirement has a telemetry verifier
-    if let Some(compose::Verifier::Telemetry { events }) = &requirement.verifier {
-        let satisfier_ids: Vec<String> = satisfiers
-            .iter()
-            .map(|(member, _)| member.id.clone())
-            .collect();
-        let field_strand =
-            telemetry::requirement_field(tap_records, tap_older_version, &satisfier_ids, events);
-        if !field_strand.is_empty() {
-            out.push('\n');
-            out.push_str(&field_strand);
-        }
+    if !telemetry_strand.is_empty() {
+        out.push('\n');
+        out.push_str(&telemetry_strand);
     }
 
     out

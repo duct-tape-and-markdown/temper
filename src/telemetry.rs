@@ -122,22 +122,34 @@ fn event_label(event: TapEvent) -> &'static str {
 ///
 /// If the log is empty and no declared events are provided, returns an empty string.
 /// If no records match any satisfier, reports zero-hit satisfiers and the absence.
+///
+/// For a satisfier-less (unfilled) requirement, joins records and reports zero-hit
+/// entries over the declared member corpus (via `member_index`) instead of the empty
+/// satisfier set, matching the "declared wiring against the empty log" discipline.
 #[must_use]
 pub fn requirement_field(
     records: &[TapRecord],
     older_version: usize,
     satisfier_ids: &[String],
     declared_events: &[String],
+    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
 ) -> String {
     if records.is_empty() && older_version == 0 && declared_events.is_empty() {
         return String::new();
     }
 
-    // Build a set of satisfier ids for fast lookup
-    let satisfier_set: BTreeSet<String> = satisfier_ids.iter().cloned().collect();
+    // For an unfilled requirement, report against declared members; otherwise against satisfiers.
+    let use_member_index = satisfier_ids.is_empty();
+
+    // Build a set of satisfier ids (or member ids if unfilled) for fast lookup
+    let check_set: BTreeSet<String> = if use_member_index {
+        member_index.keys().map(|k| k.to_string()).collect()
+    } else {
+        satisfier_ids.iter().cloned().collect()
+    };
 
     // Per declared event: counts of records, distinct members, distinct sessions,
-    // and satisfiers with records
+    // and (satisfiers/members) with records
     let mut event_stats: BTreeMap<String, EventStats> = BTreeMap::new();
 
     for declared_event in declared_events {
@@ -147,19 +159,19 @@ pub fn requirement_field(
         );
     }
 
-    // Aggregate records: only count those naming a satisfier
+    // Aggregate records: only count those naming a member in the check set
     for record in records {
-        if !satisfier_set.contains(&record.identity) {
+        if !check_set.contains(&record.identity) {
             continue;
         }
         let event_name = crate::tap::documented_name(record.event).to_string();
-        if let Some((count, members, sessions, satisfiers_with_records)) =
+        if let Some((count, members, sessions, entities_with_records)) =
             event_stats.get_mut(&event_name)
         {
             *count += 1;
             members.insert(record.identity.clone());
             sessions.insert(record.session.clone());
-            satisfiers_with_records.insert(record.identity.clone());
+            entities_with_records.insert(record.identity.clone());
         }
     }
 
@@ -169,24 +181,51 @@ pub fn requirement_field(
         "Requirement — its local telemetry (evidence narrated, never judged):\n"
     );
 
-    // Collect which satisfiers have no records
-    let satisfiers_with_no_records: Vec<&String> = satisfier_ids
-        .iter()
-        .filter(|id| {
-            event_stats
-                .values()
-                .all(|(_, _, _, satisfiers_with_records)| {
-                    !satisfiers_with_records.contains(id.as_str())
-                })
-        })
-        .collect();
+    // For unfilled requirements, narrate the absence of satisfiers
+    if use_member_index {
+        let _ = writeln!(
+            out,
+            "The requirement has no satisfiers (unfilled). Telemetry counts are reported \
+             against the declared member corpus:"
+        );
+    }
+
+    // Collect which entities (satisfiers or members) have no records
+    let entities_with_no_records: Vec<String> = if use_member_index {
+        member_index
+            .keys()
+            .filter(|id| {
+                event_stats
+                    .values()
+                    .all(|(_, _, _, entities_with_records)| {
+                        !entities_with_records.contains(&id.to_string())
+                    })
+            })
+            .map(|k| k.to_string())
+            .collect()
+    } else {
+        satisfier_ids
+            .iter()
+            .filter(|id| {
+                event_stats
+                    .values()
+                    .all(|(_, _, _, entities_with_records)| !entities_with_records.contains(*id))
+            })
+            .cloned()
+            .collect()
+    };
 
     let has_any_records = event_stats.values().any(|(count, _, _, _)| *count > 0);
 
     if has_any_records {
         let _ = writeln!(
             out,
-            "Per declared event, tap counts and the distinct members/sessions among the requirement's satisfiers:"
+            "Per declared event, tap counts and the distinct members/sessions among the requirement's {entity_label}:",
+            entity_label = if use_member_index {
+                "declared members"
+            } else {
+                "satisfiers"
+            }
         );
         for (event_name, (count, members, sessions, _)) in &event_stats {
             if *count > 0 {
@@ -201,6 +240,11 @@ pub fn requirement_field(
                 );
             }
         }
+    } else if use_member_index {
+        let _ = writeln!(
+            out,
+            "No tap events in the log name any of the declared members."
+        );
     } else {
         let _ = writeln!(
             out,
@@ -208,18 +252,23 @@ pub fn requirement_field(
         );
     }
 
-    if !satisfiers_with_no_records.is_empty() {
+    if !entities_with_no_records.is_empty() {
         if has_any_records {
             let _ = writeln!(out);
         }
         let _ = writeln!(
             out,
-            "Satisfiers with zero records: {}",
-            satisfiers_with_no_records
+            "{label} with zero records: {}",
+            entities_with_no_records
                 .iter()
                 .map(|id| format!("`{}`", id))
                 .collect::<Vec<_>>()
-                .join(", ")
+                .join(", "),
+            label = if use_member_index {
+                "Declared members"
+            } else {
+                "Satisfiers"
+            }
         );
     }
 

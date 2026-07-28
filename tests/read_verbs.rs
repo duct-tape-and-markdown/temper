@@ -1112,3 +1112,102 @@ fn a_requirement_telemetry_field_strand_names_zero_hit_satisfiers() {
         "only zero-hit satisfiers are listed, not skill-a which has records: {out}"
     );
 }
+
+#[test]
+fn an_unfilled_telemetry_requirement_with_an_empty_log_narrates_the_field_strand() {
+    let skills = [feature("skill-a", &[]), feature("skill-b", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "unfilled-telemetry-req".to_string(),
+        Requirement {
+            name: "unfilled-telemetry-req".to_string(),
+            prose: None,
+            kind: None,
+            required: false,
+            clauses: Vec::new(),
+            verifier: Some(temper::compose::Verifier::Telemetry {
+                events: vec!["SkillInvoked".to_string()],
+            }),
+        },
+    )]);
+
+    let readout = tap_readout(&[]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "requirement:unfilled-telemetry-req",
+    );
+    assert!(
+        out.contains("No member satisfies it."),
+        "the requirement is narrated as unfilled: {out}"
+    );
+    assert!(
+        out.contains("its local telemetry"),
+        "an unfilled requirement with declared telemetry still narrates a field strand: {out}"
+    );
+    assert!(
+        out.contains("no satisfiers"),
+        "the field strand notes that the requirement has no satisfiers: {out}"
+    );
+}
+
+#[test]
+fn an_unfilled_telemetry_requirement_narrates_records_against_the_declared_member_corpus() {
+    let skills = [feature("skill-a", &[]), feature("skill-b", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("skill", &skills[..])]);
+    let roster = BTreeMap::from([(
+        "unfilled-telemetry-req".to_string(),
+        Requirement {
+            name: "unfilled-telemetry-req".to_string(),
+            prose: None,
+            kind: None,
+            required: false,
+            clauses: Vec::new(),
+            verifier: Some(temper::compose::Verifier::Telemetry {
+                events: vec!["SkillInvoked".to_string()],
+            }),
+        },
+    )]);
+
+    let readout = tap_readout(&[
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-a"),
+        tap_record(TAP_RECORD_VERSION, TapEvent::SkillInvoked, "skill-b"),
+    ]);
+
+    let out = explain_over_log(
+        &[],
+        &by_kind,
+        &roster,
+        &readout.records,
+        readout.older_version,
+        "requirement:unfilled-telemetry-req",
+    );
+    assert!(
+        out.contains("No member satisfies it."),
+        "the requirement is narrated as unfilled: {out}"
+    );
+    assert!(
+        out.contains("its local telemetry"),
+        "the field strand is present: {out}"
+    );
+    assert!(
+        out.contains("no satisfiers"),
+        "the field strand notes the absence of satisfiers: {out}"
+    );
+    assert!(
+        out.contains("declared member corpus"),
+        "the field strand notes it reports against the declared member corpus: {out}"
+    );
+    assert!(
+        out.contains("`SkillInvoked` — 2 record"),
+        "events from declared members are counted, even with no satisfiers: {out}"
+    );
+    assert!(
+        out.contains("2 distinct member"),
+        "distinct members among declared members are counted: {out}"
+    );
+}
