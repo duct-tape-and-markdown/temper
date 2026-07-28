@@ -1,40 +1,5 @@
 [
   {
-    "tag": "REQUIREMENT-FIELD-STRAND-UNFILLED-JOIN",
-    "summary": "Requirement-grain telemetry field strand narrates nothing for an unfilled (satisfier-less) requirement — dead for context-arrives, its one live consumer.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Telemetry"
-    },
-    "gate": { "kind": "open" },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "requirement_detail (~1468-1566): the `satisfiers.is_empty()` early return at 1507-1510 exits before the telemetry field-strand append at 1551-1563, so a Telemetry-verified requirement with zero satisfiers (context-arrives, live) prints only \"No member satisfies it.\" and never reaches the strand. Move the verifier check + telemetry::requirement_field append above that early return so an unfilled requirement still narrates its telemetry evidence (or absence). Build a `member_index` via the existing `build_member_index(by_kind)` helper (already called this way at 281/396/721/1006) and thread it into the widened requirement_field call below."
-        },
-        {
-          "path": "src/telemetry.rs",
-          "description": "requirement_field (126-236): line 152 (`if !satisfier_set.contains(&record.identity) { continue; }`) counts only records whose identity is in `satisfier_ids` — for a satisfier-less requirement that set is empty, so every record is discarded and every event tallies zero regardless of what the log actually holds. Add a `member_index: &BTreeMap<&str, Vec<(&str, &Features)>>` parameter (the same corpus `field` (27-104) joins denominators against); when `satisfier_ids` is empty, join records and report zero-hit entries over `member_index`'s declared members instead of the empty satisfier set — matching `field`'s \"declared wiring against the empty log, evidence never verdict\" discipline (pipeline.md, Telemetry) rather than silently reporting nothing. Update the doc comment (118-125) to state the satisfier-less fallback."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Every existing telemetry-requirement test (920-1100+) gives the requirement satisfiers via `feature(..., &[\"telemetry-req\"])` — the satisfier-less cell is untested and is exactly the one that's broken live. Add: (1) a Telemetry-verified requirement with zero satisfiers and an empty tap log — asserts the field strand still appears (not silence) and states the requirement is unfilled/absence-narrated; (2) the same shape with real tap records naming declared (non-satisfying) members — asserts per-event counts narrate against the declared member corpus rather than reporting zero-of-zero. Mirror the existing `an_absent_log_with_declared_telemetry_narrates_the_absence_against_the_declared_wiring` (521-538) pattern used for member-grain `field`."
-        }
-      ],
-      "retire": []
-    },
-    "schemaDelta": "none",
-    "tests": [
-      { "path": "tests/read_verbs.rs", "asserts": "a Telemetry-verified requirement with zero satisfiers still narrates a field strand (evidence or stated absence), never silence" },
-      { "path": "tests/read_verbs.rs", "asserts": "a satisfier-less requirement's field strand joins counts/zero-hits against the lock-declared member corpus, not the empty satisfier set" }
-    ],
-    "acceptance": "`temper explain context-arrives` (or any satisfier-less Telemetry-verified requirement) prints a field strand narrating either the declared corpus's zero records or real per-event counts — never just \"No member satisfies it.\" with no telemetry line, matching the absence-narration discipline member-grain `field` already implements.",
-    "notes": "Routed from inbox (observed 18cf4d96; re-verified live at HEAD 3e282a1f, no src/tests/sdk commits landed between so the gap is unchanged): confirmed on disk the early return (read.rs:1507-1510) precedes the strand append (:1551), confirmed telemetry.rs:152's satisfier-only join, reproduced live via `temper explain context-arrives` printing only \"No member satisfies it.\" 6246cb22 shipped the wiring but every fixture gave satisfiers, so this cell shipped untested. scoped at 3e282a1f."
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
