@@ -48,7 +48,7 @@ pub enum TapEvent {
 
 /// Map a TapEvent to its documented wire-name string — the exhaustive match that
 /// forces any new TapEvent variant to declare its documented name.
-const fn documented_name(event: TapEvent) -> &'static str {
+pub(crate) const fn documented_name(event: TapEvent) -> &'static str {
     match event {
         TapEvent::InstructionsLoaded => "InstructionsLoaded",
         TapEvent::SkillInvoked => "SkillInvoked",

@@ -126,7 +126,6 @@ fn event_label(event: TapEvent) -> &'static str {
 pub fn requirement_field(
     records: &[TapRecord],
     older_version: usize,
-    _member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     satisfier_ids: &[String],
     declared_events: &[String],
 ) -> String {
@@ -153,13 +152,7 @@ pub fn requirement_field(
         if !satisfier_set.contains(&record.identity) {
             continue;
         }
-        // Map the TapEvent to its declared name
-        let event_name = match record.event {
-            TapEvent::InstructionsLoaded => "InstructionsLoaded".to_string(),
-            TapEvent::SkillInvoked => "SkillInvoked".to_string(),
-            TapEvent::UserPromptExpansion => "UserPromptExpansion".to_string(),
-            TapEvent::ToolUse => "ToolUse".to_string(),
-        };
+        let event_name = crate::tap::documented_name(record.event).to_string();
         if let Some((count, members, sessions, satisfiers_with_records)) =
             event_stats.get_mut(&event_name)
         {

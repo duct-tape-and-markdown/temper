@@ -1474,7 +1474,7 @@ fn requirement_detail(
     roster: &BTreeMap<String, Requirement>,
     tap_records: &[TapRecord],
     tap_older_version: usize,
-    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
+    _member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     name: &str,
 ) -> String {
     let satisfiers = satisfiers_of(members, by_kind, name);
@@ -1558,13 +1558,8 @@ fn requirement_detail(
             .iter()
             .map(|(member, _)| member.id.clone())
             .collect();
-        let field_strand = telemetry::requirement_field(
-            tap_records,
-            tap_older_version,
-            member_index,
-            &satisfier_ids,
-            events,
-        );
+        let field_strand =
+            telemetry::requirement_field(tap_records, tap_older_version, &satisfier_ids, events);
         if !field_strand.is_empty() {
             out.push('\n');
             out.push_str(&field_strand);
