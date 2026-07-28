@@ -1,5 +1,40 @@
 [
   {
+    "tag": "REQUIREMENT-DETAIL-MEMBER-INDEX-REHOIST",
+    "summary": "requirement_detail() re-hoists a full-corpus build_member_index unconditionally, undoing READ-VERBS-MEMBER-INDEX-HOIST's fix to the same function 40 minutes earlier the same session.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Cost scale is hoisted, and pinned by count"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "requirement_detail (1468-1579) calls `let member_index = build_member_index(by_kind);` unconditionally at 1477 — before the `roster.get(name)` early return (1479-1496) and before checking whether `requirement.verifier` is `Telemetry` at all (1510). The index (an O(corpus) scan over every kind's every member, 136-149) is read only inside that one `if let Some(compose::Verifier::Telemetry { events })` branch (1515-1521, passed to `telemetry::requirement_field`). Move the `build_member_index` call inside that branch, immediately before its use — the undeclared-name early return and every non-Telemetry-verified requirement (the common case) currently pay the full-corpus build for nothing."
+        }
+      ],
+      "retire": []
+    },
+    "schemaDelta": "none",
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "an_unfilled_telemetry_requirement_with_an_empty_log_narrates_the_field_strand and an_unfilled_telemetry_requirement_narrates_records_against_the_declared_member_corpus (added by 03083596) stay green — narration is byte-identical once the build moves inside the branch"
+      },
+      {
+        "path": "src/read.rs",
+        "asserts": "a new proof in impact_tests pins the count: build_member_index does not run for an undeclared requirement name and does not run for a declared, non-Telemetry-verified requirement — only a Telemetry-verified requirement triggers the build"
+      }
+    ],
+    "acceptance": "requirement_detail builds a member index only on the path that reads it (a Telemetry-verified requirement's field strand); an undeclared name or a non-Telemetry requirement narrates without paying the full-corpus scan; every existing read-family test (src/read.rs's impact_tests, tests/read_verbs.rs) passes unchanged.",
+    "notes": "Verified on disk at HEAD (7d534e28): 9b2fb784 ('Hoist build_member_index calls...', 17:48:44) deleted this exact unconditional build from requirement_detail — neither branch read it; 03083596 (18:28:49, same session) re-added it unconditionally at 1477 to thread member_index into the new Telemetry-unfilled join, without re-narrowing to the branch that needs it. Purely mechanical (a call-site move), no design decision. scoped at 7d534e28."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
