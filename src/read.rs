@@ -6,9 +6,8 @@
 //! 2026-07-04) — and dispatches to whichever of the four traversals below answer that
 //! species: [`why`] walks the edge **forward** (this member → the requirements it
 //! fills, with their authored rationale → the default contract its kind binds → its resolved
-//! edges in and out); [`requirements`] walks it in **reverse** (the roster → each
-//! requirement's satisfier set + coverage state, and with a name the blast radius a
-//! removal would strand); [`impact`] narrates the **blast radius of a removal** — what
+//! edges in and out); [`requirements`] walks a named requirement in **reverse** (its satisfier set
+//! and coverage state, and the blast radius a removal would strand); [`impact`] narrates the **blast radius of a removal** — what
 //! strands if a member is removed or renamed: the requirements it is the sole satisfier
 //! of (left unfilled), the `@import` directive edges that point at it (left unbacked),
 //! and the members whose reachability was carried only through it (gone dead) — or, at
@@ -343,7 +342,7 @@ pub fn explain(
             by_kind,
             tap_records,
             tap_older_version,
-            Some(name),
+            name,
         ),
         Species::Kind(name) => narrate_kind(name, contracts, kind_cites),
         Species::Leaf(address) => {
@@ -1421,61 +1420,20 @@ fn requirements(
     by_kind: &BTreeMap<&str, &[Features]>,
     tap_records: &[TapRecord],
     tap_older_version: usize,
-    name: Option<&str>,
+    name: &str,
 ) -> String {
     let members = members(custom);
-    match name {
-        Some(name) => requirement_detail(
-            &members,
-            by_kind,
-            roster,
-            tap_records,
-            tap_older_version,
-            name,
-        ),
-        None => roster_overview(&members, by_kind, roster),
-    }
+    requirement_detail(
+        &members,
+        by_kind,
+        roster,
+        tap_records,
+        tap_older_version,
+        name,
+    )
 }
 
-/// The forward roster view — every requirement, its satisfier set, and its coverage
-/// state, in name order.
-fn roster_overview(
-    members: &[Member],
-    by_kind: &BTreeMap<&str, &[Features]>,
-    roster: &BTreeMap<String, Requirement>,
-) -> String {
-    if roster.is_empty() {
-        return "No requirements are published — the roster is empty. Declare one in \
-                the SDK program's `harness()` assembly to name an obligation.\n"
-            .to_string();
-    }
-
-    let mut out = String::new();
-    let _ = writeln!(
-        out,
-        "The requirement roster ({} requirement{}):\n",
-        roster.len(),
-        crate::display::plural(roster.len())
-    );
-    for requirement in roster.values() {
-        let satisfiers = satisfiers_of(members, by_kind, &requirement.name);
-        let _ = writeln!(
-            out,
-            "  • `{}` — {}",
-            requirement.name,
-            coverage_state(requirement.required, satisfiers.len())
-        );
-        if let Some(prose) = &requirement.prose {
-            let _ = writeln!(out, " It means: \"{prose}\".");
-        }
-        for (member, _) in &satisfiers {
-            let _ = writeln!(out, "      ← `{}` ({})", member.id, member.kind);
-        }
-    }
-    out
-}
-
-/// The reverse walk over one named requirement: its satisfiers (with the rationale
+/// The reverse walk over a named requirement: its satisfiers (with the rationale
 /// each authored) and the blast radius a removal would strand — the members whose
 /// `satisfies` link would dangle, and, for a `required` requirement resting on a
 /// single satisfier, that removing that one member leaves it unfilled and fails the
