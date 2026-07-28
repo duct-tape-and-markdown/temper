@@ -28,12 +28,17 @@ the file below. The rest of the spec is context for intent, not scope.
 Execute the assigned entry — entry `{{TAG}}`. Implement it completely: no
 placeholders, no `todo!()`, no stubbed function bodies.
 
-- `entry.files` is the *planned* scope, not a cage. The real boundary is the
-  writable paths in the `<harness>` block — staying inside those never reverts.
-  **If reaching green needs a file `entry.files` didn't list — almost always an
-  existing test your change breaks — edit it.** An under-scoped `entry.files` is a
-  planning miss; shipping red, or bailing with no commit, is worse. Only writes
-  *outside the harness writable paths* revert.
+- Your commit may touch exactly `entry.files` plus the capture dirs
+  (`.flume/friction/`, `.flume/refactor/`, `.flume/amendments/`). The
+  `<harness>` block's writable paths are the phase's outer ceiling, not your
+  allowance — the guard narrows per entry, and ONE path outside the set
+  reverts the ENTIRE commit, your explanation with it.
+  **If reaching green needs a file `entry.files` didn't list — almost always
+  an existing test your change breaks — do NOT ship doomed work.** File the
+  exact path(s) and why as a `build-<slug>.md` capture in `.flume/refactor/`
+  (plan drains it and re-scopes the entry), commit the capture alone, and end
+  the tick. An under-scoped `entry.files` is a planning miss plan can fix
+  cheaply next tick; a fence-crossing commit costs the whole wave slot.
 - The acceptance criterion (`entry.acceptance`) must hold.
 - Search before assuming "not implemented" (`rg`, `grep`) — the surface may
   already exist under a different module.

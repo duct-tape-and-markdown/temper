@@ -497,6 +497,15 @@ const build: Phase = {
   concurrency: "fanout",
   // One declaration, shared with the entry-fence preflight gate (above).
   writablePaths: BUILD_WRITABLE_PATHS,
+  // The per-entry fence is entry.files ∪ these channels (flume ≥0.6 narrows
+  // the guard per entry; writablePaths is only the ceiling). The capture dirs
+  // must be granted here or a scoped tick that files a capture reverts whole,
+  // capture included.
+  entryChannelPaths: [
+    ".flume/friction/**",
+    ".flume/refactor/**",
+    ".flume/amendments/**",
+  ],
   gates: [fmtGate, clippyGate, testGate, sdkGate, docGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {
