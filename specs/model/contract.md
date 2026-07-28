@@ -11,11 +11,10 @@ of three loci:
 - a **field** — a reference carried as a typed property of the member that
   speaks it, at any grain (a frontmatter field, an embedded member's edge
   field). The kind declares the field's target as a non-empty **set of
-  kinds**; resolution is by identity within the target kind, with the
-  authored address naming which member of the declared set. A one-element
-  set resolves a bare name within its one kind; a multi-element set
-  requires the kind-qualified address always — resolution depends on the
-  written text, never the member population,
+  kinds**; resolution is by identity within the target kind. A one-element
+  set resolves a bare name within its one kind; a multi-element set requires
+  the kind-qualified address always — resolution depends on the written
+  text, never the member population,
 - an **import directive** — a reference the target format itself executes
   (a memory file's `@path` import), resolved by path,
 - a **satisfies entry** — an edge whose target is a requirement member.
@@ -33,11 +32,11 @@ never mined from prose. Path-resolved edges resolve against the filesystem
 the harness actually reads — raw disk, never the ignore-filtered discovery
 view: an extra file in the resolution set can only suppress a finding, while
 pruning one can forge a finding. (Member discovery is the opposite case and
-honors ignore rules — `adoption.md`.) An edge carries no obligation of its own: whether an
-edge is counted is decided by the clauses that range over it. A mention is
-obligation-free by default — no shipped clause demands one exist; the
-shipped `mention-reachable` advisory judges only the mentions a member
-authored, and a contract may count them further.
+honors ignore rules — `adoption.md`.) An edge carries no obligation of its
+own: whether an edge is counted is decided by the clauses that range over
+it. A mention is obligation-free by default — no shipped clause demands one
+exist; the shipped `mention-reachable` advisory judges only the mentions a
+member authored, and a contract may count them further.
 
 ## clause
 
@@ -46,40 +45,33 @@ One **predicate** plus the **severity** its author declared, with optional
 decides error-versus-warning; the clause does, and the guidance channel is
 how the gate teaches at the moment of failure.
 
-**Guidance is not the clause's alone** (decision 0045). The same channel —
-advisory intent, optionally cited — attaches directly to a **kind** or a
-**field**, carrying no predicate: authoring counsel the author reads at
-authoring time (`schema` hover, `explain`), teaching before there is anything
-to fail. One channel, two attachment points — on a clause it teaches at the
-moment of failure; on a kind or field it counsels at the moment of authoring
-(intent.md, invariant 8). It never gates: a field's guidance is not a length
-check, and advice hardened into a numeric rule is the linter temper sits
-downstream of (invariant 5).
+**Guidance is not the clause's alone.** The same channel — advisory intent,
+optionally cited — attaches directly to a **kind** or a **field**, carrying
+no predicate: authoring counsel delivered at authoring time (`schema` hover,
+`explain`), teaching before there is anything to fail (intent.md, invariant
+8). It never gates: a field's guidance is not a length check, and advice
+hardened into a numeric rule is the linter temper sits downstream of
+(invariant 5). Nor is guidance the unit's: an embedded kind — its members
+living inside a host's document, owning no file — carries kind- and
+field-attached counsel like any kind, and that counsel is **the kind's
+fact, stated once**: one counsel in every body that admits the kind
+(`representation.md`, "nesting"), never restated per admitting host,
+surfaced where the kind's members are authored. A kind absent a unit is not
+a kind absent counsel.
 
-Nor is guidance the unit's: the channel decouples from locus as it decoupled
-from the clause (decision 0045). An embedded kind — its members living inside
-a host's document, owning no file — carries kind- and field-attached counsel
-like any kind, and that counsel is **the kind's fact, stated once**: one
-counsel in every body that admits the kind (`representation.md`, "nesting"),
-never restated per admitting host. Delivery follows the author: `schema` and
-`explain` surface it where the kind's members are authored — for an embedded
-kind, at its place in the host's document. A kind absent a unit is not a kind
-absent counsel.
-
-The predicate vocabulary is **closed**: the enum in code is the authority, an
-unknown predicate is rejected at load, never skipped, and adding one is a
-deliberate language change. The corpus does not enumerate it (equal
+The predicate vocabulary is **closed**: the enum in code is the authority,
+an unknown predicate is rejected at load, never skipped, and adding one is
+a deliberate language change; the corpus does not enumerate it (equal
 representation, `../process/spec-system.md`).
 
 A clause's compiled label (`pipeline.md`, "The lock") is its **address**:
 deterministic, human-legible, printed by every finding and by `explain` —
-never opaque to the author (decision 0032; a collision stays a malformed
-lock). The shipped **dial** kind consumes it: a temper-owned, local-locus
-TOML document (`.temper/dial.toml`) whose entries name a clause by label
-and declare the severity this machine reads it at. The dial's schema is
-the envelope — severity is its only verb, deletion is unspellable, and a
-dialed clause still reports; dial semantics and the block-mode bound live
-in `authoring.md`, "Layers".
+never opaque to the author. The shipped **dial** kind consumes it: a
+temper-owned, local-locus TOML document (`.temper/dial.toml`) whose entries
+name a clause by label and declare this machine's read severity. The dial's
+schema is the envelope — severity is its only verb, deletion is unspellable,
+and a dialed clause still reports; dial semantics and the block-mode bound
+live in `authoring.md`, "Layers".
 
 A clause binds to a **selection** and evaluates at one of two grains:
 
@@ -87,20 +79,19 @@ A clause binds to a **selection** and evaluates at one of two grains:
 - **whole** — the predicate holds of the selection as a set (cardinality,
   uniqueness, membership).
 
-A clause may carry a **guard** (decision 0041): one predicate from the
-scalar-decidable set over an addressable field, conditioning a body of
-ordinary clauses. Where the guard holds, the body binds; where it does
-not — the guarded field's absence included — the body is silent
-(absence is `required`'s to indict). Guard and body share one address
-binding: each element the guard's path locates is judged
-independently, the body evaluating at that element, and a finding
-names the concrete address it fired at. Guards do not nest.
+A clause may carry a **guard**: one predicate from the scalar-decidable set
+over an addressable field, conditioning a body of ordinary clauses. Where
+the guard holds, the body binds; where it does not — the guarded field's
+absence included — the body is silent (absence is `required`'s to indict).
+Guard and body share one address binding: each element the guard's path
+locates is judged independently, and a finding names the concrete address
+it fired at. Guards do not nest.
 
 Some predicates need whole-graph context to evaluate — a degree bound, a
-reachability test. That is evaluation cost, not a category: **reachability is
-a clause** in the root member's default contract, on by default and
-overridable like any shipped clause, because it carries a dialable severity
-and the spine rule sends every dialable check to a contract.
+reachability test. That is evaluation cost, not a category: **reachability
+is a clause** in the root member's default contract, on by default — it
+carries a dialable severity, and the spine rule sends every dialable check
+to a contract.
 
 ## selection
 
@@ -127,21 +118,17 @@ the assembly and the lock). Its template:
 - **prose** — the authored intent the requirement exists to carry; never
   interpreted,
 - a **verifier** — the typed delegate that judges the behavioral remainder,
-  one of two shipped species: a **script** (a path-resolved reference
-  to the test or CI job that executes the judgment) or a **telemetry**
-  declaration (named, documented harness events the emitted tap records
-  to a local-locus log, judged by reading the field record). A third, the
-  **probe** (a fixture harness plus a headless session, judged over the
-  run's own record), stays a documented pattern — deferred until a
-  consumer types it (decision 0037), named here but not yet spellable.
-  The gate checks the declaration resolves — a script's path, a telemetry
-  event's documented name — and never runs, records into, or aggregates
-  over it: sessions execute
-  elsewhere, and no verifier's verdict enters `check`'s exit code,
+  two shipped species: a **script** (a path-resolved reference to the test
+  or CI job that executes the judgment) or a **telemetry** declaration
+  (named, documented harness events the emitted tap records, judged by
+  reading the field record). The gate checks the declaration resolves — a
+  script's path, a telemetry event's documented name — and never runs,
+  records into, or aggregates over it: no verifier's verdict enters
+  `check`'s exit code,
 - **attached clauses** over its opt-in selection. "This must be filled" is
   the shipped default: a whole-grain cardinality clause (at least one
   satisfier) at error severity — overridable, so an advisory requirement
-  ("warn until something fills this") is expressible.
+  is expressible.
 
 The requirement's prose and verifier are the model's declared boundary
 with the undecidable: the two slots that stay human.
@@ -162,10 +149,8 @@ it is a clause, not well-formedness.
 ## Read verbs
 
 `explain` is the one read verb: it narrates a member, requirement, kind, or
-leaf;
-its impact strand reports the deterministic set of members that break if
-one is removed, and its field strand narrates the local telemetry record —
-counts and denominators joined to members through the same lock
-declarations the gate reads: evidence narrated, never judged. Every
-reading is a projection over the same resolved edges the gate uses; it
-never gates.
+leaf; its impact strand reports the deterministic set of members that break
+if one is removed, and its field strand narrates the local telemetry record
+— counts and denominators joined to members through the same lock
+declarations the gate reads: evidence narrated, never judged. Every reading
+is a projection over the same resolved edges the gate uses; it never gates.
