@@ -1,5 +1,33 @@
 [
   {
+    "tag": "READ-ROSTER-OVERVIEW-RETIRE",
+    "summary": "Delete read.rs's unreachable roster_overview branch (Explain's positional never yields None) + its 2 orphaned snapshots; narrow requirements() to name: &str; fix stale module-header narration.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "Delete roster_overview (1442-1476) and narrow requirements() (1418-1438) from name: Option<&str> to name: &str, dropping the match and its None arm. Its one caller, explain()'s `Species::Requirement(name) => requirements(..., Some(name))` (340-347), already always supplies a name — pass it directly. Cut the stale 'the roster → each requirement's satisfier set + coverage state' clause from the module header (//! lines 9-10) to match: [requirements] narrates only the named reverse walk now."
+        }
+      ],
+      "retire": [
+        "tests/snapshots/read_verbs__requirements_roster.snap",
+        "tests/snapshots/read_verbs__requirements_member_published.snap"
+      ]
+    },
+    "schemaDelta": "none",
+    "tests": [],
+    "acceptance": "cargo build/clippy/test green; `rg roster_overview src/ tests/` returns zero hits; requirements() takes name: &str; the two orphaned snapshot files are gone; the module header no longer narrates a bare roster-listing capability.",
+    "notes": "Drained from plan-read-roster-overview-dead-branch.md (observed 477895ab). Re-verified: requirements()'s sole caller always passes Some(name); Species::Requirement only comes from resolve() matching a target string, and Command::Explain's positional is mandatory (main.rs:195-201) -- None is unreachable. Neither read-verb spec section names a bare roster-listing mode: unmandated residue, not a missing wire-up. 6 more orphaned read_verbs snapshots found, captured separately. scoped at db94a7f6."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
