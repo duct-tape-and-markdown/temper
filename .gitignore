@@ -2,8 +2,9 @@
 /target
 **/*.rs.bk
 
-# Node (flume harness control plane only)
-/node_modules
+# Node (flume harness control plane only; its manifest lives in .flume/ so
+# the flume ≥0.8 engine↔pin handshake resolves the install at <flumeDir>)
+/.flume/node_modules/
 
 # Flume harness-managed state (not authored, not committed)
 /.flume/worktrees/

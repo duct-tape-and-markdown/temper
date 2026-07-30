@@ -18,7 +18,16 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Agent, Chain, Phase, TickContext, Gate } from "@dtmd/flume";
+import { z } from "zod";
+
+import type {
+  Agent,
+  Chain,
+  EntryExtension,
+  Gate,
+  Phase,
+  TickContext,
+} from "@dtmd/flume";
 import {
   claudeCode,
   withSessionCapture,
@@ -43,6 +52,67 @@ process.env.FLUME_WORKTREES_DIR ??= resolve(
   basename(resolve(CHAIN_DIR, "..")) || "repo",
 );
 
+// ---------- entry extension (flume ≥0.8) ----------
+
+/**
+ * Tag grammar, carried over verbatim from the 0.6 engine schema: the v0.8
+ * core keeps only a mechanical-safety floor (charset, no whitespace, length),
+ * so the ALL-CAPS convention this queue was authored under is now the
+ * chain's to declare. Composes as an intersection with the core floor
+ * (CHAIN-AUTHORING §11) — a narrowing, not a replacement.
+ */
+const TAG_PATTERN = /^[A-Z][A-Z0-9]*(?:[-.][A-Za-z0-9]+)*(?:\([a-z0-9]+\))?$/;
+
+/**
+ * The project-specific pending-entry fields (CHAIN-AUTHORING §10). Field
+ * shapes and bounds carried over verbatim from the 0.6 engine schema the
+ * queue was authored under; the ≤200/≤500 caps are the ones the
+ * `pending-entry` rule warns about. `schemaDelta` (0.6 core, no consumer)
+ * is retired with v0.8, not re-declared. One declaration drives both the
+ * parse gates below (`parsePending`) and the plan prompt's
+ * `{{PENDING_SCHEMA}}` (`renderSchemaForPrompt`), so the two cannot drift.
+ */
+const entryExtension = {
+  tag: {
+    schema: z.string().regex(TAG_PATTERN, "tag must match TAG_PATTERN"),
+    hint: `"ALL-CAPS-WITH-DASHES" | "TAG-NAME(slice)"`,
+  },
+  summary: {
+    schema: z.string().min(1).max(200),
+    hint: `"one-line what, in human terms (≤200 chars — mechanics live in files[].description/acceptance/notes)"`,
+  },
+  per: {
+    schema: z.strictObject({
+      path: z.string().min(1),
+      section: z.string().min(1),
+    }),
+    hint: `{ "path": "specs/….md — the spec section that owns the intent", "section": "Section heading text, without the leading ##" }`,
+  },
+  tests: {
+    schema: z
+      .array(
+        z.strictObject({
+          path: z.string().min(1),
+          asserts: z.string().min(1),
+        }),
+      )
+      .default([]),
+    hint: `[{ "path": "tests/foo.rs", "asserts": "what must turn green for acceptance" }]`,
+  },
+  acceptance: {
+    schema: z.string().min(1),
+    hint: `"what validation turns green to signal this entry shipped"`,
+  },
+  notes: {
+    schema: z.string().max(500).optional(),
+    hint: `"optional context not in the spec (≤500 chars; ends with 'scoped at <short-sha>')"`,
+  },
+} satisfies EntryExtension;
+
+/** Typed read of an entry's `per` cite — extension fields are `unknown` on the wire. */
+const perOf = (entry: Record<string, unknown>) =>
+  entryExtension.per.schema.parse(entry.per);
+
 // ---------- project-specific gates ----------
 
 /** pending.json conforms to the schema. Reverts plan's commit on violation. */
@@ -58,7 +128,7 @@ const pendingParseGate: Gate = {
     } catch {
       return { ok: false, message: "pending.json missing after plan commit" };
     }
-    const result = parsePending(raw);
+    const result = parsePending(raw, entryExtension);
     if (result.ok) {
       return {
         ok: true,
@@ -194,10 +264,11 @@ const planHonestyGate: Gate = {
  * serially on the trunk, where they get the cores they need and a failure
  * reverts only the offending entry.
  *
- * No `setupWorktree` hook (unlike flume's pnpm chain): cargo resolves deps from
- * the global registry cache under `~/.cargo`, shared across worktrees for free;
- * only `target/` is per-worktree, and that is the cold compile we keep off the
- * parallel afterCommit path on purpose.
+ * No `setupWorktree` hook (unlike flume's pnpm chain), so the v0.8
+ * lockfile-aware `setupWorktree` helper has nothing here to replace: cargo
+ * resolves deps from the global registry cache under `~/.cargo`, shared
+ * across worktrees for free; only `target/` is per-worktree, and that is
+ * the cold compile we keep off the parallel afterCommit path on purpose.
  */
 const fmtGate = shellGate({
   name: "cargo fmt",
@@ -330,6 +401,12 @@ const BUILD_WRITABLE_PATHS = [
  * decide it here rather than let build discover it mid-tick.
  * Fails plan's commit with the offending paths; the human either widens the
  * fence (chain.ts is human territory) or plan re-scopes the entry.
+ *
+ * Deliberately NOT the v0.8 `pendingGate` builtin: that gate fences every
+ * entry unconditionally, while this one exempts parked/deferred entries —
+ * plan must be able to park work whose paths sit outside today's fence
+ * while the human decides whether to widen it. Filed upstream as a
+ * boundary finding (a pickability predicate would let us adopt).
  */
 const globToRegex = (glob: string): RegExp => {
   const escaped = glob
@@ -350,24 +427,21 @@ const entryFenceGate: Gate = {
     } catch {
       return { ok: true, message: "no pending.json to fence-check" };
     }
-    const result = parsePending(raw);
+    const result = parsePending(raw, entryExtension);
     if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
     const fence = BUILD_WRITABLE_PATHS.map(globToRegex);
     const offending: string[] = [];
     for (const entry of result.entries) {
-      const gate = (entry as { gate?: { kind?: string } }).gate?.kind;
-      if (gate !== "open" && gate !== "blockedBy") continue; // parked/deferred entries may be re-scoped before they open
-      const files = (entry as {
-        files?: { new?: { path: string }[]; edit?: { path: string }[]; retire?: string[] };
-      }).files;
+      if (entry.gate.kind !== "open" && entry.gate.kind !== "blockedBy")
+        continue; // parked/deferred entries may be re-scoped before they open
       // `retire` entries are bare path strings; a deletion is a write too.
       const paths = [
-        ...[...(files?.new ?? []), ...(files?.edit ?? [])].map((f) => f.path),
-        ...(files?.retire ?? []),
+        ...[...entry.files.new, ...entry.files.edit].map((f) => f.path),
+        ...entry.files.retire,
       ];
       for (const path of paths) {
         if (!fence.some((re) => re.test(path))) {
-          offending.push(`  [${(entry as { tag: string }).tag}] ${path}`);
+          offending.push(`  [${entry.tag}] ${path}`);
         }
       }
     }
@@ -399,36 +473,31 @@ const entryRefsGate: Gate = {
     } catch {
       return { ok: true, message: "no pending.json to check" };
     }
-    const result = parsePending(raw);
+    const result = parsePending(raw, entryExtension);
     if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
     const repoRoot = resolve(ctx.flumeDir, "..");
     const offending: string[] = [];
     for (const entry of result.entries) {
-      const gate = (entry as { gate?: { kind?: string } }).gate?.kind;
-      if (gate !== "open" && gate !== "blockedBy") continue;
-      const tag = (entry as { tag: string }).tag;
-      const files = (entry as {
-        files?: { new?: { path: string }[]; edit?: { path: string }[]; retire?: string[] };
-      }).files;
-      for (const f of files?.edit ?? []) {
+      if (entry.gate.kind !== "open" && entry.gate.kind !== "blockedBy")
+        continue;
+      const tag = entry.tag;
+      for (const f of entry.files.edit) {
         if (!existsSync(join(repoRoot, f.path))) offending.push(`  [${tag}] edit path missing on disk: ${f.path}`);
       }
-      for (const p of files?.retire ?? []) {
+      for (const p of entry.files.retire) {
         if (!existsSync(join(repoRoot, p))) offending.push(`  [${tag}] retire path missing on disk: ${p}`);
       }
-      for (const f of files?.new ?? []) {
+      for (const f of entry.files.new) {
         if (existsSync(join(repoRoot, f.path))) offending.push(`  [${tag}] new path already exists: ${f.path}`);
       }
-      const per = (entry as { per?: { path?: string; section?: string } }).per;
-      if (per?.path) {
-        const specPath = join(repoRoot, per.path);
-        if (!existsSync(specPath)) {
-          offending.push(`  [${tag}] per cite path missing: ${per.path}`);
-        } else if (per.section) {
-          const content = readFileSync(specPath, "utf8");
-          if (!content.toLowerCase().includes(per.section.toLowerCase())) {
-            offending.push(`  [${tag}] per section not found in ${per.path}: "${per.section}"`);
-          }
+      const per = perOf(entry);
+      const specPath = join(repoRoot, per.path);
+      if (!existsSync(specPath)) {
+        offending.push(`  [${tag}] per cite path missing: ${per.path}`);
+      } else {
+        const content = readFileSync(specPath, "utf8");
+        if (!content.toLowerCase().includes(per.section.toLowerCase())) {
+          offending.push(`  [${tag}] per section not found in ${per.path}: "${per.section}"`);
         }
       }
     }
@@ -461,9 +530,18 @@ const plan: Phase = {
   ],
   gates: [pendingParseGate, entryFenceGate, entryRefsGate, planHonestyGate],
   promptArgs() {
-    return { PENDING_SCHEMA: renderSchemaForPrompt() };
+    return { PENDING_SCHEMA: renderSchemaForPrompt(entryExtension) };
   },
   handoff(result) {
+    // Wake-on-bail (v0.8, `TickResult.noCommit`): a plan tick that produced
+    // no commit left state.md untouched, so the continuation marker below is
+    // a *previous* tick's — a stale `yes` would re-wake a bailing plan
+    // forever. Skip the marker, hand to build iff anything is pickable.
+    if (result.noCommit) {
+      return result.pendingAfter.some((e) => e.gate.kind === "open")
+        ? ["build"]
+        : [];
+    }
     // Plan re-wakes itself when state.md ends with `Plan continues: yes`.
     // `after-build` yields the loop to a ready build wave first and resumes
     // planning when the wave hands back — legal only when the sole remaining
@@ -511,11 +589,14 @@ const build: Phase = {
     if (!ctx.assignedEntry) {
       throw new Error("build phase requires an assignedEntry");
     }
+    // Extension fields ride `assignedEntry` as `unknown` (v0.8) — narrow
+    // through the declared schema, never a cast.
+    const per = perOf(ctx.assignedEntry);
     return {
       ENTRY_JSON: JSON.stringify(ctx.assignedEntry, null, 2),
       TAG: ctx.assignedEntry.tag,
-      PER_PATH: ctx.assignedEntry.per.path,
-      PER_SECTION: ctx.assignedEntry.per.section,
+      PER_PATH: per.path,
+      PER_SECTION: per.section,
     };
   },
   handoff(result) {
@@ -523,21 +604,29 @@ const build: Phase = {
     // so a re-picked entry's metrics rows are attributable at a glance
     // (merge thrash vs in-session retry) instead of forensically.
     try {
-      const reverted = (result as { revertedTags?: readonly string[] })
-        .revertedTags;
-      if (result.shippedTags.length > 0 || (reverted?.length ?? 0) > 0) {
+      if (result.shippedTags.length > 0 || result.revertedTags.length > 0) {
         appendFileSync(
           METRICS_PATH,
           `${JSON.stringify({
             at: new Date().toISOString(),
             phase: "merge",
             shipped: result.shippedTags,
-            reverted: reverted ?? [],
+            reverted: result.revertedTags,
           })}\n`,
         );
       }
     } catch {
       // Advisory telemetry only — never fails a handoff.
+    }
+    // Wake-on-bail (v0.8, `TickResult.noCommit`): a wave that ran and
+    // produced no usable commit — voluntary bail, whole-wave gate revert,
+    // platform preempt — wakes plan to reconcile (re-scope, park, or route
+    // an open question). Re-fanning out instead would thrash against the
+    // same premise (prior-attempts blocks the re-pick, the wave no-ops, and
+    // the pre-0.8 arms below would read that as a clean hibernate — exactly
+    // the stranded-bail blind spot §3 of the migration guide names).
+    if (result.noCommit) {
+      return ["plan"];
     }
     // Waves chain: ship bookkeeping auto-opens blockedBy gates its own wave
     // satisfied (runtime, 07-18), so when pickable entries remain the next
@@ -557,6 +646,10 @@ const build: Phase = {
 const temperChain: Chain = {
   phases: [plan, build],
   humanOnly: [], // no spec phase; the specs/ corpus is authored in-session, never by a phase
+  entryExtension,
+  // No `supervisorPolicy`: the v0.7 defaults (quarantineScope "run",
+  // abortThreshold 3) match the behavior this bay ran under pre-0.8, and
+  // the metrics record gives no reason to move either knob.
 };
 
 export default temperChain;

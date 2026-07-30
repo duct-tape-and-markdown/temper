@@ -10,5 +10,5 @@
     "esModuleInterop": true,
     "verbatimModuleSyntax": true
   },
-  "include": [".flume/chain.ts"]
+  "include": ["chain.ts"]
 }
