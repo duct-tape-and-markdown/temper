@@ -34,6 +34,7 @@ import {
   withTerminalRenderer,
   shellGate,
   parsePending,
+  pendingGate,
   renderSchemaForPrompt,
 } from "@dtmd/flume";
 
@@ -79,14 +80,14 @@ const entryExtension = {
   },
   summary: {
     schema: z.string().min(1).max(200),
-    hint: `"one-line what, in human terms (≤200 chars — mechanics live in files[].description/acceptance/notes)"`,
+    hint: `"one-line what, in human terms" // ≤200 chars — mechanics live in files[].description/acceptance/notes`,
   },
   per: {
     schema: z.strictObject({
       path: z.string().min(1),
       section: z.string().min(1),
     }),
-    hint: `{ "path": "specs/….md — the spec section that owns the intent", "section": "Section heading text, without the leading ##" }`,
+    hint: `{ "path": "specs/….md", "section": "heading text, without the leading ##" } // the spec section that owns the intent — the entry's "why"`,
   },
   tests: {
     schema: z
@@ -97,7 +98,7 @@ const entryExtension = {
         }),
       )
       .default([]),
-    hint: `[{ "path": "tests/foo.rs", "asserts": "what must turn green for acceptance" }]`,
+    hint: `[ { "path": "tests/foo.rs", "asserts": "..." } ] // what must turn green for acceptance`,
   },
   acceptance: {
     schema: z.string().min(1),
@@ -105,7 +106,7 @@ const entryExtension = {
   },
   notes: {
     schema: z.string().max(500).optional(),
-    hint: `"optional context not in the spec (≤500 chars; ends with 'scoped at <short-sha>')"`,
+    hint: `"optional context not in the spec" // ≤500 chars; ends with 'scoped at <short-sha>'`,
   },
 } satisfies EntryExtension;
 
@@ -115,43 +116,13 @@ const perOf = (entry: Record<string, unknown>) =>
 
 // ---------- project-specific gates ----------
 
-/** pending.json conforms to the schema. Reverts plan's commit on violation. */
-const pendingParseGate: Gate = {
-  name: "pending.json parses",
-  when: "afterCommit",
-  async run(ctx) {
-    let raw: string;
-    try {
-      // Read from the resolved state root the dispatcher hands in, not a
-      // hardcoded `.flume/`, so the gate is correct under a relocated flumeDir.
-      raw = await readFile(join(ctx.flumeDir, "plan", "pending.json"), "utf8");
-    } catch {
-      return { ok: false, message: "pending.json missing after plan commit" };
-    }
-    const result = parsePending(raw, entryExtension);
-    if (result.ok) {
-      return {
-        ok: true,
-        message: `pending.json parsed (${result.entries.length} entries)`,
-      };
-    }
-    return {
-      ok: false,
-      message: `pending.json has ${result.errors.length} schema violations`,
-      details: result.errors
-        .map((e) => `  [${e.index}] ${e.path}: ${e.message}`)
-        .join("\n"),
-    };
-  },
-};
-
 /**
  * Marker honesty (the dispatch model's one decidable lie). Plan self-schedules:
  * one job per tick off its inputs, with `Plan continues: yes|no` driving the
  * re-wake. A tick that declares `no` while an input is plainly live — an
  * undrained inbox, a spec cursor trailing specs/ HEAD — would silently strand
  * work, and both conditions are statically checkable, so check them here
- * (same pattern as the entry-fence preflight). The cursor claims ROUTED-ness
+ * (same pattern as the pending-gate fence preflight). The cursor claims ROUTED-ness
  * (every slice derived into entries or registered as a keyed open fork), so
  * fork-parked spec content never pins the marker. Fail OPEN on bookkeeping
  * errors (missing files, unparseable cursor): a degradation is a missed
@@ -396,65 +367,36 @@ const BUILD_WRITABLE_PATHS = [
 ];
 
 /**
- * Entry-fence preflight. An entry declares its paths; the fence is declared
- * globs — whether the work fits its fence is decidable at plan time, so
- * decide it here rather than let build discover it mid-tick.
- * Fails plan's commit with the offending paths; the human either widens the
- * fence (chain.ts is human territory) or plan re-scopes the entry.
- *
- * Deliberately NOT the v0.8 `pendingGate` builtin: that gate fences every
- * entry unconditionally, while this one exempts parked/deferred entries —
- * plan must be able to park work whose paths sit outside today's fence
- * while the human decides whether to widen it. Filed upstream as a
- * boundary finding (a pickability predicate would let us adopt).
+ * The capture channels a scoped build tick may always write, hoisted so the
+ * build phase and the pending-gate fence below share one declaration.
  */
-const globToRegex = (glob: string): RegExp => {
-  const escaped = glob
-    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*\*/g, "<<GLOBSTAR>>")
-    .replace(/\*/g, "[^/]*")
-    .replace(/<<GLOBSTAR>>/g, ".*");
-  return new RegExp(`^${escaped}$`);
-};
+const BUILD_CHANNEL_PATHS = [
+  ".flume/friction/**",
+  ".flume/refactor/**",
+  ".flume/amendments/**",
+];
 
-const entryFenceGate: Gate = {
-  name: "entry paths fit build's fence",
-  when: "afterCommit",
-  async run(ctx) {
-    let raw: string;
-    try {
-      raw = await readFile(join(ctx.flumeDir, "plan", "pending.json"), "utf8");
-    } catch {
-      return { ok: true, message: "no pending.json to fence-check" };
-    }
-    const result = parsePending(raw, entryExtension);
-    if (!result.ok) return { ok: true, message: "parse gate owns malformed pending" };
-    const fence = BUILD_WRITABLE_PATHS.map(globToRegex);
-    const offending: string[] = [];
-    for (const entry of result.entries) {
-      if (entry.gate.kind !== "open" && entry.gate.kind !== "blockedBy")
-        continue; // parked/deferred entries may be re-scoped before they open
-      // `retire` entries are bare path strings; a deletion is a write too.
-      const paths = [
-        ...[...entry.files.new, ...entry.files.edit].map((f) => f.path),
-        ...entry.files.retire,
-      ];
-      for (const path of paths) {
-        if (!fence.some((re) => re.test(path))) {
-          offending.push(`  [${entry.tag}] ${path}`);
-        }
-      }
-    }
-    if (offending.length === 0) {
-      return { ok: true, message: "every pickable entry's paths fit build's fence" };
-    }
-    return {
-      ok: false,
-      message: `${offending.length} declared path(s) fall outside build's writablePaths — widen the fence (human, chain.ts) or re-scope the entry`,
-      details: offending.join("\n"),
-    };
+/**
+ * Pending-list validation + entry-fence preflight, the `pendingGate`
+ * builtin (flume ≥0.9): validates against the composed core+extension
+ * schema, then pre-checks each fenced entry's declared `files` against
+ * build's fence — decidable at plan time, so decided here rather than
+ * discovered by build mid-tick. On a fence violation the human either
+ * widens the fence (chain.ts is human territory) or plan re-scopes the
+ * entry. `fenceWhen` exempts parked/deferred entries: plan must be able to
+ * park work whose paths sit outside today's fence while the human decides
+ * whether to widen it (the 0.8-era hand-rolled fork existed for exactly
+ * this predicate).
+ */
+const buildPendingGate = pendingGate({
+  extension: entryExtension,
+  targetFence: {
+    writablePaths: BUILD_WRITABLE_PATHS,
+    entryChannelPaths: BUILD_CHANNEL_PATHS,
   },
-};
+  fenceWhen: (entry) =>
+    entry.gate.kind === "open" || entry.gate.kind === "blockedBy",
+});
 
 /**
  * Reference resolution — an entry's declared surfaces must resolve at filing
@@ -528,7 +470,7 @@ const plan: Phase = {
     ".flume/amendments/**",
     // Plan does NOT touch specs/ (human-authored) or src/ (build's territory).
   ],
-  gates: [pendingParseGate, entryFenceGate, entryRefsGate, planHonestyGate],
+  gates: [buildPendingGate, entryRefsGate, planHonestyGate],
   promptArgs() {
     return { PENDING_SCHEMA: renderSchemaForPrompt(entryExtension) };
   },
@@ -579,11 +521,7 @@ const build: Phase = {
   // the guard per entry; writablePaths is only the ceiling). The capture dirs
   // must be granted here or a scoped tick that files a capture reverts whole,
   // capture included.
-  entryChannelPaths: [
-    ".flume/friction/**",
-    ".flume/refactor/**",
-    ".flume/amendments/**",
-  ],
+  entryChannelPaths: BUILD_CHANNEL_PATHS,
   gates: [fmtGate, clippyGate, testGate, sdkGate, docGate],
   promptArgs(ctx: TickContext) {
     if (!ctx.assignedEntry) {

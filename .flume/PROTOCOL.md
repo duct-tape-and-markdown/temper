@@ -61,17 +61,15 @@ is per-worktree (the cold compile kept off the parallel path on purpose).
 
 ## Commands
 
-The harness manifest lives at `.flume/package.json` (fresh clone:
-`pnpm -C .flume install`) — the flume ≥0.8 engine↔pin handshake resolves the
-provisioned install at `<flumeDir>/node_modules` and hard-refuses a pin in
-the repo-root `package.json`.
+Invocation is exec-local (flume ≥0.9): the repo-root `package.json` pins
+`@dtmd/flume`, and `pnpm exec flume` runs that pinned copy — never a global
+engine (fresh clone: `pnpm install`).
 
-- `pnpm -C .flume exec flume status` — baton state.
-- `pnpm -C .flume exec flume render plan` — preview the next plan prompt (no
-  agent call).
-- `pnpm -C .flume exec flume tick` / `loop` — run the pipeline. Loops are
-  autonomous — no slash command invokes them; wake-then-loop runs as its own
-  background task.
+- `pnpm exec flume status` — baton state.
+- `pnpm exec flume render plan` — preview the next plan prompt (no agent call).
+- `pnpm exec flume tick` / `loop` — run the pipeline. Loops are autonomous —
+  no slash command invokes them; wake-then-loop runs as its own background
+  task.
 
 ## Prior attempts are write-only to plan
 

@@ -2,9 +2,8 @@
 /target
 **/*.rs.bk
 
-# Node (flume harness control plane only; its manifest lives in .flume/ so
-# the flume ≥0.8 engine↔pin handshake resolves the install at <flumeDir>)
-/.flume/node_modules/
+# Node (flume harness control plane only)
+/node_modules
 
 # Flume harness-managed state (not authored, not committed)
 /.flume/worktrees/
@@ -12,6 +11,8 @@
 /.flume/awake/
 /.flume/metrics.jsonl
 /.flume/prior-attempts/
+/.flume/tick-verdict.json
+/.flume/tick-verdicts.jsonl
 
 # The dogfood authoring workspace (`.temper/`) IS committed — member modules,
 # harness.ts, lock.toml — its node dependencies are not. Same split for the

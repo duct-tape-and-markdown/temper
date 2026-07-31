@@ -1,0 +1,19 @@
+{
+  "name": "temper-flume-harness",
+  "version": "0.0.0",
+  "private": true,
+  "description": "flume control plane for building temper. The product is Rust (see Cargo.toml); this manifest exists only to run the build harness. Invocation is exec-local (flume ≥0.9): `pnpm exec flume` runs this bay's pinned copy — never a global.",
+  "type": "module",
+  "scripts": {
+    "flume": "flume",
+    "typecheck:chain": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@dtmd/flume": "^0.9.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
