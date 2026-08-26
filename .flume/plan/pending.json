@@ -1,58 +1,5 @@
 [
   {
-    "tag": "TAP-RECORD-SCHEMA-V2",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/tap.rs",
-          "description": "TAP_RECORD_VERSION (21) bumps to 2; TapRecord (102) relativizes `identity` against the same primary-checkout anchor log_path already resolves (demoting the raw absolute path Claude Code sends to a secondary debug field, never dropped) and gains an ISO-8601 UTC `ts`. `append` is the natural site — it already resolves the anchor via log_path before every write."
-        },
-        {
-          "path": "src/telemetry.rs",
-          "description": "field()'s join (~55-67) and the requirement-grain tally (~164-174) compare record.identity against member_index's bare member ids by exact string; a repo-relative path never equals a member id. Normalize repo-relative identity to a member id before the join, reusing the lock's own per-member source paths (drift::emit_owned_targets already builds exactly this projection-path-to-member map for the guard) rather than inventing a second one."
-        },
-        {
-          "path": "tests/tap.rs",
-          "description": "Writer unit tests for the version bump, repo-relative identity, the debug raw-path field, and the new ts; an older v1 record must still read and tolerate out loud."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "tap_record() helper (~407) and the field-strand suite construct v1-shaped records by absolute-path identity; update to the v2 shape and add the regression this ships to fix — an InstructionsLoaded record naming a real rule now joins (today `temper explain rust` reports zero joins against 31 real records in this repo's own log)."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "encode the ruled tap record v2: repo-relative identity (raw path demoted to a debug field) plus an ISO-8601 UTC ts, fixing an InstructionsLoaded reader join that has never once succeeded",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Telemetry"
-    },
-    "tests": [
-      {
-        "path": "tests/tap.rs",
-        "asserts": "a v2 record round-trips repo-relative identity, raw debug path, and ts; a v1 record still reads, tolerated and counted"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "an InstructionsLoaded record naming a real rule joins to that member in the field strand"
-      }
-    ],
-    "acceptance": "temper explain rust's field strand reports a nonzero join against this repo's own recorded InstructionsLoaded events (today: zero of 31); an older v1 record in the log still reads, tolerated and counted out loud.",
-    "notes": "Encodes John's 2026-08-26 session recommendation (commit f240dc35, inbox): holds pipeline.md's bespoke-parsed/versioned-in-lockstep category rather than opening the log as a consumable API; scope and canonical-for-external-parsers stay declined per that ruling. scoped at f240dc35",
-    "observedFiles": [
-      "src/main.rs",
-      "src/tap.rs",
-      "src/telemetry.rs",
-      "tests/read_verbs.rs",
-      "tests/tap.rs"
-    ]
-  },
-  {
     "tag": "COVERAGE-EMBEDDED-COUNT-MARKER",
     "gate": {
       "kind": "open"
@@ -88,7 +35,13 @@
       }
     ],
     "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
-    "notes": "Field report (dtmd-temper.md #4, engine 0.0.15): the engine evaluates embedded members correctly (extent/max_len/required decide per rendered member) — this is report legibility only. 269 declaration.nested_member rows across 9 embedded kinds in this repo's own lock, every one printing (0) today. Was blockedBy COLLECTION-ADDRESS-DUPLICATE-REJECT for the shared src/gate.rs region; that entry shipped (21f61463, diagnostics wired at gate.rs:213) — reopened, line cite refreshed. scoped at 21f61463"
+    "notes": "Field report (dtmd-temper.md #4, engine 0.0.15): the engine evaluates embedded members correctly (extent/max_len/required decide per rendered member) — this is report legibility only. 269 declaration.nested_member rows across 9 embedded kinds in this repo's own lock, every one printing (0) today. Was blockedBy COLLECTION-ADDRESS-DUPLICATE-REJECT for the shared src/gate.rs region; that entry shipped (21f61463, diagnostics wired at gate.rs:213) — reopened, line cite refreshed. scoped at 21f61463",
+    "observedFiles": [
+      "src/coverage_note.rs",
+      "src/gate.rs",
+      "tests/check_cost.rs",
+      "tests/coverage_note.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
