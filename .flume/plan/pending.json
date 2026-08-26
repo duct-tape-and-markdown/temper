@@ -1,5 +1,43 @@
 [
   {
+    "tag": "TELEMETRY-INSTRUCTIONS-LOADED-NESTED-JOIN",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/telemetry.rs",
+          "description": "normalize_instructions_loaded_identity (14-27) strips only the bare filename stem off an InstructionsLoaded record's repo-relative path; replace with a lookup against the lock's own placement-folded path-to-id mapping (drift::emit_owned_targets's EmitOwnedEntry{kind,name,path} rows, src/drift.rs:2950-2982) instead of guessing. Both call sites (field ~78-82, requirement_field ~188-194) take the map as a new parameter in place of the inline heuristic call."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "explain_target (~1625-1660) already resolves `workspace`; build the path-to-id map there via drift::emit_owned_targets(&workspace) once and thread it through explain (~277-337, the Species::Member arm's telemetry::field call) and requirements/requirement_detail (~1417-1495, the telemetry::requirement_field call), alongside the existing tap_records/tap_older_version params."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Regression: an InstructionsLoaded record naming a nested CLAUDE.md's repo-relative path (whose fold_file_id-derived id folds directory placement, e.g. a subdir CLAUDE.md becomes `subdir-CLAUDE`, not bare `CLAUDE`) joins to that member in the field strand; a flat top-level case keeps joining as today."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "InstructionsLoaded read-side identity normalization strips only the bare filename stem, so a nested CLAUDE.md member (fold_file_id folds its placement into the id) never joins its tap records",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "an InstructionsLoaded record naming a nested memory member's repo-relative path joins to that member's placement-folded id in the field strand, not only a flat top-level one"
+      }
+    ],
+    "acceptance": "temper explain's field strand for a nested CLAUDE.md member reports a nonzero join against its own recorded InstructionsLoaded events, on the same footing as a flat member; the join derives from the lock's own declared path-to-id rows, never a filename-stem guess.",
+    "notes": "Sweep finding, 21f61463..HEAD: 4bd13394 added normalize_instructions_loaded_identity (src/telemetry.rs:17-27), a bare filename-stem strip -- wrong for a nested CLAUDE.md, whose fold_file_id (src/frontmatter.rs:389) folds directory placement into the id. The entry text named reusing drift::emit_owned_targets path-to-name rows (src/drift.rs:2968) instead; unused, and no test exercises the join (tests/read_verbs.rs: zero InstructionsLoaded field-strand assertions). scoped at 2fa5efd7"
+  },
+  {
     "tag": "COVERAGE-EMBEDDED-COUNT-MARKER",
     "gate": {
       "kind": "open"
