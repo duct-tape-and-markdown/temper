@@ -11,10 +11,20 @@ use crate::tap::{TapEvent, TapRecord};
 /// Event statistics for requirement-grain telemetry: (count, distinct_members, distinct_sessions, satisfiers_with_records)
 type EventStats = (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
 
-/// Extract a member ID from an InstructionsLoaded record's repo-relative file path.
-/// For paths like `.claude/rules/rust.md`, extracts `rust` (the filename without extension).
-/// Returns the extracted ID if it's a direct file member, otherwise returns the original identity.
-fn normalize_instructions_loaded_identity(identity: &str) -> String {
+/// Extract a member ID from an InstructionsLoaded record's repo-relative file path,
+/// using the lock's path-to-id mapping for placement-folded identities.
+/// For nested files (e.g., `.claude/subdir/CLAUDE.md`), looks up the placement-folded id
+/// (e.g., `subdir-CLAUDE`); for flat files, returns the bare stem (e.g., `.claude/rules/rust.md` → `rust`).
+/// Falls back to the original identity if not found in the map.
+fn normalize_instructions_loaded_identity(
+    identity: &str,
+    path_to_id: &std::collections::BTreeMap<String, String>,
+) -> String {
+    // First, try to find an exact match in the lock's path-to-id map.
+    if let Some(id) = path_to_id.get(identity) {
+        return id.clone();
+    }
+    // Fall back to bare filename stem for members not in the map.
     let path = Path::new(identity);
     if let Some(filename) = path.file_name()
         && let Some(name_str) = filename.to_str()
@@ -46,6 +56,7 @@ pub fn field(
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     member: &str,
     has_declared_telemetry: bool,
+    path_to_id: &BTreeMap<String, String>,
 ) -> String {
     // Absent/empty log with no declared telemetry: no evidence to narrate.
     if records.is_empty() && older_version == 0 {
@@ -76,7 +87,7 @@ pub fn field(
         // Normalize InstructionsLoaded identities from repo-relative paths to member IDs
         // before comparing against the member_index (which is keyed by member ID).
         let normalized_identity = if record.event == crate::tap::TapEvent::InstructionsLoaded {
-            normalize_instructions_loaded_identity(&record.identity)
+            normalize_instructions_loaded_identity(&record.identity, path_to_id)
         } else {
             record.identity.clone()
         };
@@ -157,6 +168,7 @@ pub fn requirement_field(
     satisfier_ids: &[String],
     declared_events: &[String],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
+    path_to_id: &BTreeMap<String, String>,
 ) -> String {
     if records.is_empty() && older_version == 0 && declared_events.is_empty() {
         return String::new();
@@ -188,7 +200,7 @@ pub fn requirement_field(
         // Normalize InstructionsLoaded identities from repo-relative paths to member IDs
         // before comparing against the check set.
         let normalized_identity = if record.event == crate::tap::TapEvent::InstructionsLoaded {
-            normalize_instructions_loaded_identity(&record.identity)
+            normalize_instructions_loaded_identity(&record.identity, path_to_id)
         } else {
             record.identity.clone()
         };

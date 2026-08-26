@@ -101,6 +101,7 @@ fn explain_over_log(
         tap_records,
         tap_older_version,
         target,
+        &BTreeMap::new(),
     )
 }
 
@@ -685,6 +686,7 @@ fn explain_narrates_kind_guidance_in_governing_contract() {
         &[],
         0,
         "myspec",
+        &BTreeMap::new(),
     );
     assert!(
         out.contains("A spec documents the harness's shape."),
@@ -743,6 +745,7 @@ fn explain_omits_governing_contract_guidance_when_absent() {
         &[],
         0,
         "myspec",
+        &BTreeMap::new(),
     );
     // Guidance narration marker (‣) should not appear.
     assert!(
@@ -795,6 +798,7 @@ fn explain_narrates_a_bare_kinds_guidance_with_no_member_of_it_in_the_corpus() {
         &[],
         0,
         "decision",
+        &BTreeMap::new(),
     );
     assert!(
         out.contains("State the decision's rationale, not just its verdict."),
@@ -840,6 +844,7 @@ fn explain_narrates_a_kind_absent_guidance_cleanly() {
         &[],
         0,
         "decision",
+        &BTreeMap::new(),
     );
     assert!(
         out.contains("No authoring guidance is declared"),
@@ -1211,5 +1216,56 @@ fn an_unfilled_telemetry_requirement_narrates_records_against_the_declared_membe
     assert!(
         out.contains("2 distinct member"),
         "distinct members among declared members are counted: {out}"
+    );
+}
+
+#[test]
+fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id() {
+    // A nested CLAUDE.md with id `subdir-CLAUDE` (placement-folded by fold_file_id).
+    // An InstructionsLoaded record naming the repo-relative path should normalize
+    // to the placement-folded id via the lock's path-to-id map, joining to the member.
+    let memories = [feature("subdir-CLAUDE", &[])];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::from([("memory", &memories[..])]);
+    let roster: BTreeMap<String, Requirement> = BTreeMap::new();
+
+    // TapRecord with the repo-relative path as identity.
+    let readout = tap_readout(&[tap_record(
+        TAP_RECORD_VERSION,
+        TapEvent::InstructionsLoaded,
+        ".claude/subdir/CLAUDE.md",
+    )]);
+
+    // Build path_to_id map: maps the repo-relative path to the placement-folded id.
+    let mut path_to_id: BTreeMap<String, String> = BTreeMap::new();
+    path_to_id.insert(
+        ".claude/subdir/CLAUDE.md".to_string(),
+        "subdir-CLAUDE".to_string(),
+    );
+
+    let registrations = BTreeMap::new();
+    let out = read::explain(
+        &[],
+        &roster,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &readout.records,
+        readout.older_version,
+        "subdir-CLAUDE",
+        &path_to_id,
+    );
+    assert!(
+        out.contains("its local telemetry"),
+        "the nested member's field strand narrates telemetry: {out}"
+    );
+    assert!(
+        out.contains("`instructions_loaded` — 1 of 1"),
+        "the InstructionsLoaded record names the nested member's placement-folded id and joins: {out}"
     );
 }

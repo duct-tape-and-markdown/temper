@@ -289,6 +289,7 @@ pub fn explain(
     tap_records: &[TapRecord],
     tap_older_version: usize,
     target: &str,
+    path_to_id: &BTreeMap<String, String>,
 ) -> String {
     match resolve(by_kind, roster, contracts, target) {
         Species::Member(name) => {
@@ -329,6 +330,7 @@ pub fn explain(
                 &member_index,
                 name,
                 has_declared_telemetry,
+                path_to_id,
             );
             if !field_strand.is_empty() {
                 out.push('\n');
@@ -343,6 +345,7 @@ pub fn explain(
             tap_records,
             tap_older_version,
             name,
+            path_to_id,
         ),
         Species::Kind(name) => narrate_kind(name, contracts, kind_cites),
         Species::Leaf(address) => {
@@ -1421,6 +1424,7 @@ fn requirements(
     tap_records: &[TapRecord],
     tap_older_version: usize,
     name: &str,
+    path_to_id: &BTreeMap<String, String>,
 ) -> String {
     let members = members(custom);
     requirement_detail(
@@ -1430,6 +1434,7 @@ fn requirements(
         tap_records,
         tap_older_version,
         name,
+        path_to_id,
     )
 }
 
@@ -1445,6 +1450,7 @@ fn requirement_detail(
     tap_records: &[TapRecord],
     tap_older_version: usize,
     name: &str,
+    path_to_id: &BTreeMap<String, String>,
 ) -> String {
     let satisfiers = satisfiers_of(members, by_kind, name);
 
@@ -1491,6 +1497,7 @@ fn requirement_detail(
             &satisfier_ids,
             events,
             &member_index,
+            path_to_id,
         );
     }
 
@@ -1768,6 +1775,13 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     // narrates none.
     let readout = tap::read_log(&workspace)?;
 
+    // Build the path-to-id map from the lock's emit-owned entries, used to normalize
+    // InstructionsLoaded record identities from repo-relative paths to member IDs.
+    let path_to_id: BTreeMap<String, String> = drift::emit_owned_targets(&workspace)
+        .into_iter()
+        .map(|entry| (entry.path.to_string_lossy().to_string(), entry.name))
+        .collect();
+
     Ok(explain(
         &custom_members,
         &roster,
@@ -1783,6 +1797,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &readout.records,
         readout.older_version,
         target,
+        &path_to_id,
     ))
 }
 
@@ -2155,6 +2170,7 @@ mod impact_tests {
             &[],
             0,
             "r_undeclared",
+            &BTreeMap::new(),
         );
         let after_undeclared = super::build_member_index_count();
         assert_eq!(
@@ -2169,6 +2185,7 @@ mod impact_tests {
             &[],
             0,
             "r_no_verifier",
+            &BTreeMap::new(),
         );
         let after_no_verifier = super::build_member_index_count();
         assert_eq!(
@@ -2183,6 +2200,7 @@ mod impact_tests {
             &[],
             0,
             "r_other_verifier",
+            &BTreeMap::new(),
         );
         let after_other_verifier = super::build_member_index_count();
         assert_eq!(
@@ -2197,6 +2215,7 @@ mod impact_tests {
             &[],
             0,
             "r_telemetry",
+            &BTreeMap::new(),
         );
         let after_telemetry = super::build_member_index_count();
         assert_eq!(
