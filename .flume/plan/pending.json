@@ -1,5 +1,234 @@
 [
   {
+    "tag": "GUARD-SUFFIX-PATH-BOUNDARY",
+    "summary": "temper guard's suffix-only path match blocks unrelated files sharing a filename suffix (e.g. .temper/memory/CLAUDE.md), not just true projections",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Drift"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "path_matches (~782) does a raw string-suffix compare (`file_path.ends_with(candidate_str)`) against each declared projection's `source_path`; a root-level single-segment target (`CLAUDE.md`) suffix-matches ANY path ending in that filename, e.g. the memory kind's authored source `.temper/memory/CLAUDE.md`. Require the match land on a path-segment boundary — the byte before the matched suffix, if any, must be `/` — so a bare string suffix never binds. Both call sites (`matches_projection`, `manifest_write_findings`) share the one helper, so one fix covers both."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Add a regression case: guard fed a payload targeting `.temper/memory/CLAUDE.md` (a path that merely ends in a projected file's name, not the projection itself) resolves Allow, not Block/Warn/Note."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "tests/install.rs", "asserts": "a file_path ending in a projected file's bare name but naming an unrelated path (no path-segment boundary) resolves GuardVerdict::Allow" }
+    ],
+    "acceptance": "This repo's own reproduction (`echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\".../.temper/memory/CLAUDE.md\"}}' | temper guard .`) exits 0, not 2; the new tests/install.rs case pins it.",
+    "notes": "Field report (cascade adoption, engine 0.0.15, observed 2026-08-10, inbox): the memory kind's projection source_path is the single-segment root file \"CLAUDE.md\"; path_matches' naive ends_with binds any path sharing that filename suffix, not just a real projection. scoped at f240dc35"
+  },
+  {
+    "tag": "CHECK-EMBEDDED-MENTION-TARGET",
+    "summary": "check cannot resolve a mention target addressing a host-scoped embedded leaf, so it dangles at check though emit already validates the same address",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "node_from_address (~1044) parses every mention target as `kind:name` (split on the first `:`); a target shaped `<host-member>/<kind>/<key>/<child-path>` (the embedded-leaf grammar `embeddedLeafMentionRows` in sdk/src/declarations.ts already authors for a mention's member/source side) has no `:`, so it falls into the bare-requirement branch and edge_resolves (~1075) reports it dangling against the roster instead of resolving it against the embedded corpus. Give route_mentions/edge_resolves a path that recognizes the `/`-shaped embedded grammar and resolves it the way read.rs's parse_leaf_address/resolve_leaf already do for leaf-grain narration — share that parser rather than re-deriving it."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "parse_leaf_address/resolve_leaf/ParsedLeaf (~801-851) are private to this module; widen visibility (or extract to a shared home) so graph.rs's mention-target resolution reuses the same embedded-leaf address grammar and lookup instead of re-parsing it."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Regression: a lock declaring a nested_member row (embedded leaf) plus a mention whose target addresses that leaf's `<host>/<kind>/<key>/<child-path>` — check must resolve it clean, not report graph.route."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "tests/graph.rs", "asserts": "a mention targeting a real embedded leaf's host-scoped address resolves clean at check; a bogus key still dangles" }
+    ],
+    "acceptance": "check on a harness whose mention targets a real embedded leaf (the exact `<host>/<kind>/<key>/<child-path>` address emit already accepts) resolves clean, matching emit's own validation.",
+    "notes": "Field report (cascade composed-spec adoption, engine 0.0.15, observed 2026-08-10, inbox): reproduced with the embedded kind's render hook removed so the projection carries real member.domain fences; emit resolves the address (and refuses a bogus key) but check's graph.route reports it dangling. scoped at f240dc35"
+  },
+  {
+    "tag": "TAP-CWD-PROJECT-DIR-ANCHOR",
+    "summary": "SDK-synthesized tap hooks run bare `temper tap` (cwd default \".\"), so a hook firing from a subdirectory strands its record outside the anchored primary-checkout log",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "TAP_COMMAND (~747) is the literal string \"temper tap\" with no path argument, so every synthesized tap hook runs with `temper tap`'s cwd default (`.`, src/main.rs `Tap { path }`). Claude Code documents hook cwd as following Claude itself (worktree root after entering one, the new directory after a `cd`), but `${CLAUDE_PROJECT_DIR}` as staying at the main checkout regardless [code.claude.com/docs/en/hooks, retrieved 2026-08-26]. Anchor TAP_COMMAND at `${CLAUDE_PROJECT_DIR}` (e.g. `temper tap \"$CLAUDE_PROJECT_DIR\"`) so a subdir-cwd hook fire still resolves the primary checkout's log — closing what the 0.0.15 worktree hoist (src/tap.rs::log_path) only half-closed (it only sees a `.git` file at cwd itself)."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Hook-registration assertions (~1620-1690) pin the literal `command` field for a synthesized tap hook — update to the anchored command string."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "The acceptance test (~607-650) asserting the emitted `command` is literally \"temper tap\" — update to the anchored form."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "sdk/test/emit.test.ts", "asserts": "a synthesized tap hook's command field carries the ${CLAUDE_PROJECT_DIR} anchor" },
+      { "path": "tests/emit.rs", "asserts": "the projected hook registration's command literal is the anchored form" }
+    ],
+    "acceptance": "temper install's emitted .claude/settings.json tap hook command fields carry the ${CLAUDE_PROJECT_DIR} anchor; sdk/test/emit.test.ts and tests/emit.rs assert the new literal.",
+    "notes": "Field report (dtmd-temper.md #1, adversarial pass 2026-08-26, inbox): the binary-side root-walk-up (tap.rs resolving upward from an arbitrary cwd) is deliberately declined here as unneeded defense-in-depth — the SDK anchor alone closes both the cwd and worktree-loss halves at the wiring level. scoped at f240dc35"
+  },
+  {
+    "tag": "TAP-RECORD-SCHEMA-V2",
+    "summary": "encode the ruled tap record v2: repo-relative identity (raw path demoted to a debug field) plus an ISO-8601 UTC ts, fixing an InstructionsLoaded reader join that has never once succeeded",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/tap.rs",
+          "description": "TAP_RECORD_VERSION (21) bumps to 2; TapRecord (102) relativizes `identity` against the same primary-checkout anchor log_path already resolves (demoting the raw absolute path Claude Code sends to a secondary debug field, never dropped) and gains an ISO-8601 UTC `ts`. `append` is the natural site — it already resolves the anchor via log_path before every write."
+        },
+        {
+          "path": "src/telemetry.rs",
+          "description": "field()'s join (~55-67) and the requirement-grain tally (~164-174) compare record.identity against member_index's bare member ids by exact string; a repo-relative path never equals a member id. Normalize repo-relative identity to a member id before the join, reusing the lock's own per-member source paths (drift::emit_owned_targets already builds exactly this projection-path-to-member map for the guard) rather than inventing a second one."
+        },
+        {
+          "path": "tests/tap.rs",
+          "description": "Writer unit tests for the version bump, repo-relative identity, the debug raw-path field, and the new ts; an older v1 record must still read and tolerate out loud."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "tap_record() helper (~407) and the field-strand suite construct v1-shaped records by absolute-path identity; update to the v2 shape and add the regression this ships to fix — an InstructionsLoaded record naming a real rule now joins (today `temper explain rust` reports zero joins against 31 real records in this repo's own log)."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "tests/tap.rs", "asserts": "a v2 record round-trips repo-relative identity, raw debug path, and ts; a v1 record still reads, tolerated and counted" },
+      { "path": "tests/read_verbs.rs", "asserts": "an InstructionsLoaded record naming a real rule joins to that member in the field strand" }
+    ],
+    "acceptance": "temper explain rust's field strand reports a nonzero join against this repo's own recorded InstructionsLoaded events (today: zero of 31); an older v1 record in the log still reads, tolerated and counted out loud.",
+    "notes": "Encodes John's 2026-08-26 session recommendation (commit f240dc35, inbox): holds pipeline.md's bespoke-parsed/versioned-in-lockstep category rather than opening the log as a consumable API; scope and canonical-for-external-parsers stay declined per that ruling. scoped at f240dc35"
+  },
+  {
+    "tag": "TAP-INSTRUCTIONS-LOADED-MATCHER-WIDEN",
+    "summary": "InstructionsLoaded's tap hook registers only under path_glob_match, so an always-on member never gets recorded — contradicting this repo's own context-arrives requirement",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Telemetry"
+    },
+    "gate": { "kind": "blockedBy", "tag": "TAP-CWD-PROJECT-DIR-ANCHOR" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "TELEMETRY_EVENT_HOOKS['InstructionsLoaded'] (~1620) hard-codes matcher: 'path_glob_match', so the synthesized settings.json hook fires for only one of Claude Code's five documented load_reason values (session_start, nested_traversal, path_glob_match, include, compact — code.claude.com/docs/en/hooks, retrieved 2026-08-26). Widen to register the remaining reasons — additional per-reason rows or a wildcard matcher — so an always-on member (which loads under session_start) can be recorded at all."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "The synthesized InstructionsLoaded hook's matcher assertions (~1620-1690) pin the single path_glob_match value; extend/update for the widened registration."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "sdk/test/emit.test.ts", "asserts": "the synthesized InstructionsLoaded hook registers for session_start (and the other documented load_reason values), not path_glob_match alone" }
+    ],
+    "acceptance": "This repo's own context-arrives requirement (.temper/harness.ts, verifier: telemetry([\"InstructionsLoaded\", \"SkillInvoked\"])) becomes verifiable in principle — an always-on member's session_start load now registers a tap hook that can fire, where today the wiring structurally excludes it.",
+    "notes": "Field report (dtmd-temper.md #3, adversarially strengthened 2026-08-26, inbox): this harness's own always-on members load under session_start, which path_glob_match-only matching can never record — an on-contract self-contradiction. Blocked on CWD-ANCHOR only for its shared sdk/test/emit.test.ts edit; recommend shipping alongside/after TAP-RECORD-SCHEMA-V2 so new records actually join (non-blocking). scoped at f240dc35"
+  },
+  {
+    "tag": "COLLECTION-ADDRESS-DUPLICATE-REJECT",
+    "summary": "two fields-only kinds declaring the same collectionAddress are accepted silently; check unions their selections and cross-applies contracts instead of refusing the collision",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/admissibility.rs",
+          "description": "governs_collision_diagnostics (~303-341) explicitly excludes any kind carrying a collection_address, its own doc comment naming the gap: 'two manifest kinds contending for one collection address is a distinct, out-of-scope question.' Add a sibling collection_address_collision_diagnostics keyed on (manifest, key_path) from CollectionAddressRow, mirroring the governs-glob collision shape and rule-id convention (kind.collection-address-collision)."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Wire the new diagnostic beside the existing governs_collision_diagnostics call (~205)."
+        },
+        {
+          "path": "tests/hook_kind.rs",
+          "description": "Regression mirroring the report's original 0.0.14 repro: declare a second fields-only kind at settings.json/hooks.<Event> (the built-in hook's own address) and assert check refuses the collision loud, rather than unioning both kinds' selections and cross-applying contracts."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "tests/hook_kind.rs", "asserts": "two kinds declared at the same collectionAddress trip a named admissibility error, naming both kinds, instead of unioned/cross-applied selections" }
+    ],
+    "acceptance": "A corpus declaring two kinds at the same collectionAddress fails admissibility with a kind.collection-address-collision finding naming both kinds; a clean corpus is unaffected.",
+    "notes": "Field report (dtmd-temper.md #5, adversarial pass 2026-08-26, inbox): the original 0.0.14 repro no longer reproduces on current temper (currency caveat the report itself raises) — confirm-and-regress, not a live crash; paired with #4 as evidence the address/kind model wants tests at this level. scoped at f240dc35"
+  },
+  {
+    "tag": "COVERAGE-EMBEDDED-COUNT-MARKER",
+    "summary": "coverage.checked's per-kind member count is file-discovery only, so every embedded-locus kind prints (0) even when it governs hundreds of nested members, reading as dead",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A green verdict is proven non-vacuous"
+    },
+    "gate": { "kind": "blockedBy", "tag": "COLLECTION-ADDRESS-DUPLICATE-REJECT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/coverage_note.rs",
+          "description": "The summary line (~62-75) renders member_counts verbatim as `kind (count)`; member_counts (src/gate.rs:179,254) only tallies discovered files, never nested/embedded members. Thread the lock's nested_member rows (Declarations::nested_members, already read into `committed` at src/gate.rs:66) grouped by child kind, and render an embedded kind's line as `directive (36 embedded)` beside a file kind's `skill (16)` — the filer's stated preference; omitting embedded kinds from the line is the named fallback."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "The coverage_note::check call (~477-484) gains the nested-member counts to pass through."
+        },
+        {
+          "path": "tests/coverage_note.rs",
+          "description": "Regression: a lock with nested_member rows against an embedded kind renders that kind's count as nonzero (embedded-marked), not (0)."
+        }
+      ],
+      "retire": []
+    },
+    "tests": [
+      { "path": "tests/coverage_note.rs", "asserts": "an embedded-locus kind carrying nested_member rows renders a nonzero, embedded-marked count in the coverage.checked summary" }
+    ],
+    "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
+    "notes": "Field report (dtmd-temper.md #4, engine 0.0.15, inbox): the engine evaluates embedded members correctly (extent/max_len/required decide per rendered member) — this is report legibility only. 269 declaration.nested_member rows across 9 embedded kinds in this repo's own lock, every one printing (0) today. Blocked on the prior entry only for the shared src/gate.rs region. scoped at f240dc35"
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
