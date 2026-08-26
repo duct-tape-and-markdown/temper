@@ -240,3 +240,63 @@ fn the_embedded_builtin_lock_carries_the_hook_kind_and_its_event_clause() {
         "the documented-event allowlist carries the events, got: {values:?}"
     );
 }
+
+#[test]
+fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
+    // Regression: two fields-only kinds declaring the same collectionAddress are
+    // accepted silently, the corpus unions their selections and cross-applies contracts.
+    // The check gate must refuse the collision loud with a named admissibility finding.
+    let harness = common::tmpdir("collection-address-collision");
+
+    // Write a lock that declares two kinds at the same collection address. The first is
+    // the built-in `hook` kind at `settings.json#hooks.<Event>`; the second is a custom
+    // kind also at that same address.
+    let lock = r#"[declaration]
+
+[[declaration.kind]]
+name = "hook"
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>", entry_shape = "group-array(hooks;matcher)" }
+
+[[declaration.kind]]
+name = "custom_hook"
+shape = "fields"
+collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
+"#;
+    let lock_path = harness.join("lock.toml");
+    fs::write(&lock_path, lock).expect("write lock");
+
+    let (findings, ok) = check_harness(&harness);
+
+    // The collision finding fires exactly once, naming both kinds and the address.
+    let collisions = common::findings_for(&findings, "kind.collection-address-collision");
+    assert_eq!(
+        collisions.len(),
+        1,
+        "exactly one collection-address-collision finding, got: {findings:#?}"
+    );
+    let collision = &collisions[0];
+    assert!(
+        collision.contains("hook"),
+        "the collision names the built-in hook kind, got: {collision}"
+    );
+    assert!(
+        collision.contains("custom_hook"),
+        "the collision names the custom kind, got: {collision}"
+    );
+    assert!(
+        collision.contains("settings.json"),
+        "the collision names the manifest, got: {collision}"
+    );
+    assert!(
+        collision.contains("hooks"),
+        "the collision references the hooks key path, got: {collision}"
+    );
+    assert!(
+        !ok,
+        "a collection-address collision is a required-severity finding — the run fails, got: {findings:#?}"
+    );
+}
+
+// Re-export std::fs for the test above.
+use std::fs;

@@ -281,6 +281,12 @@ pub fn registration_locus_admissibility(
 /// alone, so two kinds selecting the same locus is a routing ambiguity, not two homes.
 const GOVERNS_COLLISION_RULE: &str = "kind.governs-collision";
 
+/// The diagnostic `rule` id for two distinct kinds declaring the same `collection_address`
+/// (manifest + key_path). Sibling of [`GOVERNS_COLLISION_RULE`], which guards file-locus
+/// collisions; this one guards manifest-registration collisions — two kinds at the same
+/// address register members ambiguously, each silently union-selecting the other's members.
+const COLLECTION_ADDRESS_COLLISION_RULE: &str = "kind.collection-address-collision";
+
 /// Governs-glob-collision findings over the **effective** kind set: the built-in
 /// definitions, each overlaid with any `row_relocates_builtin` row that moves its
 /// locus, plus the genuinely-custom rows. Two distinct kinds resolving to the same
@@ -355,6 +361,83 @@ fn governs_collision_diagnostic(root: &str, glob: &str, names: &[String]) -> che
             "kinds {named} share the `governs` glob `{root}/{glob}` — a document's kind is \
              its position alone, so two kinds selecting the same locus would route every \
              matching document into both member sets; give each kind a distinct `governs`",
+        ),
+    )
+}
+
+/// Collection-address-collision findings: two distinct kinds declaring the same
+/// manifest and key_path would silently union their selections and cross-apply each
+/// other's contracts. Each shared address surfaces one error naming the kinds, the
+/// manifest, and the key path. Like [`governs_collision_diagnostics`], this check runs
+/// over the effective kind set: the overlaid built-in kinds plus the custom rows.
+pub fn collection_address_collision_diagnostics(
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+    _declarations: &drift::Declarations,
+) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
+    let mut by_address: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+    for kind in overlaid_builtin_kinds.values() {
+        let Some(collection_address) = &kind.collection_address else {
+            continue;
+        };
+        let key_path_str = collection_key_path_to_string(&collection_address.key_path);
+        by_address
+            .entry((collection_address.manifest.clone(), key_path_str))
+            .or_default()
+            .push(kind.name.clone());
+    }
+    for row in custom_rows {
+        let Some(collection_address) = &row.collection_address else {
+            continue;
+        };
+        by_address
+            .entry((
+                collection_address.manifest.clone(),
+                collection_address.key_path.clone(),
+            ))
+            .or_default()
+            .push(row.name.clone());
+    }
+    Ok(by_address
+        .into_iter()
+        .filter(|(_, names)| names.len() > 1)
+        .map(|((manifest, key_path), mut names)| {
+            names.sort();
+            collection_address_collision_diagnostic(&manifest, &key_path, &names)
+        })
+        .collect())
+}
+
+/// Convert a [`crate::kind::CollectionKeyPath`] enum to its wire string representation.
+fn collection_key_path_to_string(key_path: &crate::kind::CollectionKeyPath) -> String {
+    use crate::kind::CollectionKeyPath;
+    match key_path {
+        CollectionKeyPath::HooksEvent => "hooks.<Event>".to_string(),
+        CollectionKeyPath::McpServers => "mcpServers.*".to_string(),
+        CollectionKeyPath::EnabledPlugins => "enabledPlugins.*".to_string(),
+        CollectionKeyPath::ExtraKnownMarketplaces => "extraKnownMarketplaces.*".to_string(),
+    }
+}
+
+/// A [`COLLECTION_ADDRESS_COLLISION_RULE`] finding naming every kind that shares the
+/// given manifest and key_path address.
+fn collection_address_collision_diagnostic(
+    manifest: &str,
+    key_path: &str,
+    names: &[String],
+) -> check::Diagnostic {
+    let named = names
+        .iter()
+        .map(|name| format!("`{name}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    check::Diagnostic::error(
+        COLLECTION_ADDRESS_COLLISION_RULE,
+        format!("{manifest}#{key_path}"),
+        format!(
+            "kinds {named} declare the same `collectionAddress` (`{manifest}#{key_path}`) — \
+             two manifest kinds contending for one address would register members ambiguously, \
+             each silently union-selecting the other's members; give each kind a distinct address",
         ),
     )
 }

@@ -207,6 +207,14 @@ pub fn gate(
         &custom_rows,
         &declarations,
     )?);
+    // Two distinct kinds declaring the same collection address would silently union their
+    // selections and cross-apply each other's contracts — a manifest registration at one
+    // address can own only one kind, so a shared address refuses loud here.
+    diagnostics.extend(admissibility::collection_address_collision_diagnostics(
+        &overlaid_builtin_kinds,
+        &custom_rows,
+        &declarations,
+    )?);
     // A declared commitment class the locus cannot carry is decided here, beside the
     // locus's other coherence check, before any member is read under a kind whose own
     // declaration does not hold together.
