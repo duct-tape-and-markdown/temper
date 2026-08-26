@@ -57,6 +57,10 @@
         {
           "path": "tests/coverage_note.rs",
           "description": "Regression: a lock with nested_member rows against an embedded kind renders that kind's count as nonzero (embedded-marked), not (0)."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "The pre-parsed-kind-rows regression at ~370-395 calls coverage_note::check(&harness, &definitions(), &member_counts, &committed.kinds) directly (COVERAGE-NOTE-LOCK-PARSE-HOIST's own call site); update it to pass the new nested_member_counts argument (e.g. &BTreeMap::new(), since this test's widget kind is file-shape, not embedded) at the position the coverage_note.rs signature change lands it."
         }
       ],
       "retire": []
@@ -73,13 +77,7 @@
       }
     ],
     "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
-    "notes": "Field report (dtmd-temper.md #4, engine 0.0.15): the engine evaluates embedded members correctly (extent/max_len/required decide per rendered member) — this is report legibility only. 269 declaration.nested_member rows across 9 embedded kinds in this repo's own lock, every one printing (0) today. Was blockedBy COLLECTION-ADDRESS-DUPLICATE-REJECT for the shared src/gate.rs region; that entry shipped (21f61463, diagnostics wired at gate.rs:213) — reopened, line cite refreshed. scoped at 21f61463",
-    "observedFiles": [
-      "src/coverage_note.rs",
-      "src/gate.rs",
-      "tests/check_cost.rs",
-      "tests/coverage_note.rs"
-    ]
+    "notes": "Field report (dtmd-temper.md #4): report legibility only, engine evaluates embedded members correctly. 269 nested_member rows across 9 embedded kinds in this lock, all print (0) today. Reopened after COLLECTION-ADDRESS-DUPLICATE-REJECT shipped (21f61463). Rewritten: a reverted build attempt's observedFiles showed tests/check_cost.rs is a third coverage_note::check call site (rg-confirmed) the declared files under-stated; folded in, capture check_cost_call_site.md drained here. scoped at 3237033f"
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
