@@ -183,11 +183,35 @@ const planHonestyGate: Gate = {
         // unreadable subject — fall through to the checks, failing open
       }
     }
+    // Every read below is anchored to the commit under judgment, never the
+    // disk this evaluation happens to run on: flume ≥0.12 evaluates a
+    // singleton's gates both in the agent worktree and at the merge site,
+    // and the primary checkout's tree (which the engine no longer touches)
+    // holds the PREVIOUS tick's files — a disk read there judged the commit
+    // by a stale state.md and an inbox it had in fact drained (first
+    // observed reverting the 2026-08-26 inbox-drain tick). Disk is the
+    // fallback only when there is no commit to read (fail-open posture).
+    const fromCommit = (path: string): string | null => {
+      if (!ctx.commitSha) return null;
+      try {
+        return execFileSync("git", ["show", `${ctx.commitSha}:${path}`], {
+          cwd: ctx.repoRoot,
+          encoding: "utf8",
+        });
+      } catch {
+        return null;
+      }
+    };
     let stateText: string;
-    try {
-      stateText = await readFile(join(ctx.flumeDir, "plan", "state.md"), "utf8");
-    } catch {
-      return { ok: true, message: "no state.md to check" };
+    const committedState = fromCommit(".flume/plan/state.md");
+    if (committedState !== null) {
+      stateText = committedState;
+    } else {
+      try {
+        stateText = await readFile(join(ctx.flumeDir, "plan", "state.md"), "utf8");
+      } catch {
+        return { ok: true, message: "no state.md to check" };
+      }
     }
     // The ledger cap (plan-state rule): state.md is ~10 lines by schema, 30
     // is the generous bound. An essay here is re-derived every tick — the
@@ -203,31 +227,54 @@ const planHonestyGate: Gate = {
       return { ok: true, message: "marker is yes/absent — re-wake handles it" };
     }
     // Marker says quiet. Live input 1: an undrained inbox.
-    try {
-      const inbox = await readFile(join(ctx.flumeDir, "inbox.md"), "utf8");
-      const stripped = inbox.replace(/<!--[\s\S]*?-->/g, "").trim();
+    {
+      let inbox = fromCommit(".flume/inbox.md");
+      if (inbox === null) {
+        try {
+          inbox = await readFile(join(ctx.flumeDir, "inbox.md"), "utf8");
+        } catch {
+          inbox = null; // no inbox file — nothing undrained
+        }
+      }
+      const stripped = inbox?.replace(/<!--[\s\S]*?-->/g, "").trim() ?? "";
       if (stripped.length > 0) {
         return {
           ok: false,
           message: "state.md says `Plan continues: no` but .flume/inbox.md is undrained",
         };
       }
-    } catch {
-      // no inbox file — nothing undrained
     }
     // Live input 2: undrained refactor captures (plan-drained, unlike friction).
-    try {
-      const captures = (await readdir(join(ctx.flumeDir, "refactor"))).filter(
-        (f) => f.endsWith(".md") && f !== "README.md",
-      );
+    {
+      let captures: string[] = [];
+      if (ctx.commitSha) {
+        try {
+          captures = execFileSync(
+            "git",
+            ["ls-tree", "--name-only", ctx.commitSha, "--", ".flume/refactor/"],
+            { cwd: ctx.repoRoot, encoding: "utf8" },
+          )
+            .split("\n")
+            .map((l) => l.trim())
+            .filter((f) => f.endsWith(".md") && !f.endsWith("README.md"));
+        } catch {
+          captures = []; // unreadable tree — fail open
+        }
+      } else {
+        try {
+          captures = (await readdir(join(ctx.flumeDir, "refactor"))).filter(
+            (f) => f.endsWith(".md") && f !== "README.md",
+          );
+        } catch {
+          captures = []; // no refactor directory — nothing undrained
+        }
+      }
       if (captures.length > 0) {
         return {
           ok: false,
           message: `state.md says \`Plan continues: no\` but ${captures.length} refactor capture(s) sit undrained in .flume/refactor/`,
         };
       }
-    } catch {
-      // no refactor directory — nothing undrained
     }
     // Live input 3: specs/ commits past the recorded spec cursor.
     const cursor = /^- Spec derived through:\s*([0-9a-f]{6,40})\b/im.exec(stateText)?.[1];
@@ -235,7 +282,7 @@ const planHonestyGate: Gate = {
       try {
         const out = execFileSync(
           "git",
-          ["log", "--format=%h", `${cursor}..HEAD`, "--", "specs/"],
+          ["log", "--format=%h", `${cursor}..${ctx.commitSha ?? "HEAD"}`, "--", "specs/"],
           { cwd: ctx.repoRoot, encoding: "utf8" },
         ).trim();
         if (out.length > 0) {
