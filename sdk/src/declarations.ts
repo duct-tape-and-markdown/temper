@@ -744,7 +744,7 @@ export function registrationRows(harness: Harness): RegistrationRow[] {
 /** The tap invocation the synthesized telemetry hooks run — the sibling verb of the
  * session-start reporter, appending one event record to the per-machine log
  * (`src/tap.rs`). Every synthesized hook's `command` field carries it verbatim. */
-const TAP_COMMAND = "temper tap";
+const TAP_COMMAND = "temper tap \"$CLAUDE_PROJECT_DIR\"";
 
 /**
  * Builds a collision-safe dedup key for a tap hook (event, matcher) pair.

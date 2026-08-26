@@ -1634,7 +1634,7 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
         ["type", "command"],
-        ["command", "temper tap"],
+        ["command", "temper tap \"$CLAUDE_PROJECT_DIR\""],
         ["matcher", "path_glob_match"],
       ],
     },
@@ -1644,7 +1644,7 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       collectionAddress: { manifest: "settings.json", keyPath: "hooks.<Event>" },
       fields: [
         ["type", "command"],
-        ["command", "temper tap"],
+        ["command", "temper tap \"$CLAUDE_PROJECT_DIR\""],
         ["matcher", "Skill"],
       ],
     },

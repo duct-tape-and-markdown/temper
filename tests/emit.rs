@@ -623,7 +623,10 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
                 key_path: "hooks.<Event>".to_string(),
                 fields: vec![
                     ("type".to_string(), serde_json::json!("command")),
-                    ("command".to_string(), serde_json::json!("temper tap")),
+                    (
+                        "command".to_string(),
+                        serde_json::json!("temper tap \"$CLAUDE_PROJECT_DIR\""),
+                    ),
                     ("matcher".to_string(), serde_json::json!("Skill")),
                 ],
             }],
@@ -641,7 +644,7 @@ fn a_synthesized_tap_hook_projects_its_matcher_group_through_the_registration_lo
     entries.insert(
         "PostToolUse".to_string(),
         serde_json::json!([
-            { "matcher": "Skill", "hooks": [ { "type": "command", "command": "temper tap" } ] }
+            { "matcher": "Skill", "hooks": [ { "type": "command", "command": "temper tap \"$CLAUDE_PROJECT_DIR\"" } ] }
         ]),
     );
     let segment = json_manifest::CollectionSegment {
