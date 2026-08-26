@@ -100,7 +100,11 @@ own log — the lock's category, never a member's: machine-written,
 bespoke-parsed, versioned in lockstep with the one binary that both writes
 and reads it. The log is per-machine, uncommitted, never an emit input or
 target, and an append is a single record: parallel sessions interleave lines,
-never rewrite the file. A reader meeting records an older tap wrote tolerates
+never rewrite the file. The log homes under the harness's workspace, and in a
+git linked worktree the workspace of record is the primary checkout's — one
+machine, one repo, one evidence stream, so records outlive an ephemeral
+worktree's teardown; where the primary cannot be resolved, the log homes where
+the tap runs. A reader meeting records an older tap wrote tolerates
 them out loud — a count in the narration, never a silent skip — and a reader
 meeting no records where the lock declares tap registrations states that
 absence the same way: the declared wiring against the empty log, evidence
