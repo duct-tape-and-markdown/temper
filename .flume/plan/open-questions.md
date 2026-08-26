@@ -114,24 +114,23 @@ condition arrives, it is the next break. If work touches one, surface it.
   writer rather than inheriting a fall-through. The next format answers that
   match by construction, which is what keeps "deliberate" mechanical here.
 
-- **Stale cites: public-item links are gated, private-item links and prose both
-  ride.** A doc-comment cross-reference that drifts is temper's own no-drift
-  thesis turned inward. Broken intra-doc links are **gated only for public
-  items**: crate-level `#![deny(rustdoc::broken_intra_doc_links)]` plus
-  `cargo doc --no-deps --quiet` at afterMerge (`.flume/chain.ts`'s `docGate` —
-  re-verified on disk 2026-07-27, this tick: the args carry no
-  `--document-private-items`, correcting this bullet's prior claim). Most of
-  this crate's items are private, so a link inside one rides exactly like
-  prose — live, tracked in `.flume/friction/plan-private-item-doc-link-gate.md`
-  (unresolved), which also carries the widening's suggested fix (`--document-
-  private-items` on the gate + the then-known broken sites). Prose
-  staleness no linter can check — a "sole consumer" claim, a line-number
-  pointer, a stale invariant paragraph — **rides** the next entry that opens the
-  file and discharges when that entry names it (never a standalone entry), and
-  is tracked **nowhere**: the per-instance ledger was itself the per-tick context
-  tax this rule exists to avoid. The 2026-07-23 sweep cleared the standing
-  backlog (23 links, 13 prose cites) and set the public-item gate; git history
-  holds the rest.
+- **Stale cites: intra-doc links are gated, prose rides.** A doc-comment
+  cross-reference that drifts is temper's own no-drift thesis turned inward.
+  Broken intra-doc links are **gated for public and private items alike**:
+  crate-level `#![deny(rustdoc::broken_intra_doc_links)]` plus
+  `cargo doc --no-deps --document-private-items --quiet` at afterMerge
+  (`.flume/chain.ts`'s `docGate` — re-verified on disk 2026-08-26, this tick:
+  24b22045 added the flag and fixed the 8 sites it surfaced, draining
+  `.flume/friction/plan-private-item-doc-link-gate.md`). The
+  `rustdoc::private_intra_doc_links` lint (a public doc linking to a private
+  item) stays advisory, unchanged. Prose staleness no linter can check — a
+  "sole consumer" claim, a line-number pointer, a stale invariant paragraph —
+  **rides** the next entry that opens the file and discharges when that entry
+  names it (never a standalone entry), and is tracked **nowhere**: the
+  per-instance ledger was itself the per-tick context tax this rule exists to
+  avoid. The 2026-07-23 sweep cleared the standing backlog (23 links, 13 prose
+  cites) and set the public-item gate; 24b22045 closed the private-item gap;
+  git history holds the rest.
 
 - **`.flume/` is ungoverned by temper** — the machine that builds temper is not
   yet under its gate; a candidate governed corpus once the custom-kind story

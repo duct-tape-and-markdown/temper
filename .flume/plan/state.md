@@ -1,10 +1,10 @@
 # Plan state
 
 - Spec derived through: 13455d4a — pipeline.md Telemetry gains the tap-log-homes-in-primary-checkout doctrine (6 lines): "the workspace of record is the primary checkout's ... where the primary cannot be resolved, the log homes where the tap runs." Routed as verified-already-moot, not a gap: src/tap.rs::log_path (171-213) already resolves the git-linked-worktree chain (.git file → gitdir → commondir) to the primary checkout's `.temper/` and falls back to `workspace_dir.join(LOG_FILENAME)` — literally "where the tap runs" — precisely when resolution fails, matching the new text clause for clause. The commit's own body says as much: "Encodes the doctrine behind the 0.0.15 worktree-safe tap (d021b5b6)." Editorial re-cut, no ratified-intent change, no entries filed.
-- Audited through: adc3b60e — unchanged; not this tick's job.
-- Residue swept through: adc3b60e — unchanged; not this tick's job.
+- Audited through: 965fcf69 — window adc3b60e..965fcf69 reconciled: only 24b22045 touched src/ (8 broken intra-doc links fixed + `--document-private-items` on the doc gate); no pending entry's work overlaps, none dropped.
+- Residue swept through: 965fcf69 — same window; no new residue (doc-comment-only diff, no symbols/vocabulary retired). One stale gate found instead: open-questions' "Stale cites" bullet still described private-item links as ungated and pointed at the now-deleted friction file — updated to match 24b22045.
 - Posture swept through: 22f8064c — unchanged; not this tick's job.
-- This tick: spec delta — routed 13455d4a (see cursor line); no pending entries filed or touched, no open-questions change.
-- Queue: 10 pending — 7 open, 1 parked, 2 deferred. Open forks: 3, unchanged. Friction: 2, unchanged. Amendments: 0. Inbox: 0. Refactor: 0.
+- This tick: post-ship reconciliation — audited+swept adc3b60e..965fcf69, both cursors advanced; open-questions.md's "Stale cites" bullet corrected (private-item doc links are gated too, friction capture drained); no pending entries touched.
+- Queue: 10 pending — 7 open, 1 parked, 2 deferred, unchanged. Open forks: 3, unchanged. Friction: 0 (was stale at "2"; both prior captures drained by adc3b60e, the third by 24b22045). Amendments: 0. Inbox: 0. Refactor: 0.
 
-Plan continues: yes — post-ship reconciliation window adc3b60e..HEAD is live: 24b22045 (chore(harness): broken-link gate + doc-comment fixes) touched src/ past both the Audited-through and Residue-swept-through cursors; next tick reconciles it.
+Plan continues: after-build — inbox/spec-delta/reconciliation are all clear, but 24b22045 (in the just-reconciled window) touched src/ past Posture-swept-through (22f8064c), so the posture rotation is live next; 5 pickable open entries (GUARD-SUFFIX-PATH-BOUNDARY, CHECK-EMBEDDED-MENTION-TARGET, TAP-CWD-PROJECT-DIR-ANCHOR, TAP-RECORD-SCHEMA-V2, COLLECTION-ADDRESS-DUPLICATE-REJECT) ship first; the sweep resumes when the wave hands back.
