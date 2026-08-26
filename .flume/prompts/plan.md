@@ -17,7 +17,7 @@
 </inbox>
 
 <refactor-captures>
-!`found=0; for f in .flume/refactor/*.md; do [ -e "$f" ] || continue; [ "${f##*/}" = "README.md" ] && continue; echo "===== $f ====="; cat "$f"; echo; found=1; done; [ "$found" -eq 0 ] && echo "(none)"`
+!`found=0; for f in .flume/refactor/*.md; do [ -e "$f" ] || continue; [ "${f##*/}" = "README.md" ] && continue; echo "===== $f ====="; cat "$f"; echo; found=1; done; [ "$found" -eq 0 ] && echo "(none)"; true`
 </refactor-captures>
 
 <spec-map>

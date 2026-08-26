@@ -65,11 +65,13 @@ Invocation is exec-local (flume ≥0.9): the repo-root `package.json` pins
 `@dtmd/flume`, and `pnpm exec flume` runs that pinned copy — never a global
 engine (fresh clone: `pnpm install`).
 
-- `pnpm exec flume status` — baton state.
-- `pnpm exec flume render plan` — preview the next plan prompt (no agent call).
+- `pnpm exec flume status` — baton state, tip claim, supervisor liveness.
 - `pnpm exec flume tick` / `loop` — run the pipeline. Loops are autonomous —
   no slash command invokes them; wake-then-loop runs as its own background
-  task.
+  task. `loop` claims the current tip (one flume writer per ref), and every
+  tick commits only onto the tip it started on — an operator commit landing
+  on the trunk mid-tick refuses that tick's commit (`tipMoved`) instead of
+  corrupting it, so commit freely; the tick pays, not the tree.
 
 ## Prior attempts are write-only to plan
 

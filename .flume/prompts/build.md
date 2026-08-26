@@ -23,85 +23,41 @@ the file below. The rest of the spec is context for intent, not scope.
 !`git log -n 5 --oneline`
 </recent-commits>
 
+<premise-delta>
+{{SCOPED_DELTA}}
+</premise-delta>
+
 # TASK
 
-Execute the assigned entry — entry `{{TAG}}`. Implement it completely: no
-placeholders, no `todo!()`, no stubbed function bodies.
+Execute entry `{{TAG}}` completely: `entry.acceptance` must hold, with tests
+alongside the code (`entry.tests[]` names what must turn green).
 
-- Your commit may touch exactly `entry.files` plus the capture dirs
-  (`.flume/friction/`, `.flume/refactor/`, `.flume/amendments/`). The
-  `<harness>` block's writable paths are the phase's outer ceiling, not your
-  allowance — the guard narrows per entry, and ONE path outside the set
-  reverts the ENTIRE commit, your explanation with it.
-  **If reaching green needs a file `entry.files` didn't list — almost always
+- The writable paths in the `<harness>` block are exact — `entry.files` plus
+  the capture dirs. One path outside them reverts the entire commit.
+- **If reaching green needs a file `entry.files` didn't list — almost always
   an existing test your change breaks — do NOT ship doomed work.** File the
   exact path(s) and why as a `build-<slug>.md` capture in `.flume/refactor/`
-  (plan drains it and re-scopes the entry), commit the capture alone, and end
-  the tick. An under-scoped `entry.files` is a planning miss plan can fix
-  cheaply next tick; a fence-crossing commit costs the whole wave slot.
-- The acceptance criterion (`entry.acceptance`) must hold.
-- Search before assuming "not implemented" (`rg`, `grep`) — the surface may
-  already exist under a different module.
-- The entry's premise describes the tree it was scoped against, and the
-  queue keeps moving: when `notes` carries `scoped at <sha>`, run
-  `git log <sha>..HEAD -- <the entry's files>` before anything else — an
-  already-landed fix narrows the entry to its remainder, or empties it
-  (leave it uncommitted and say so in the report).
-- Follow the project's Rust conventions in `.claude/rules/rust.md`: errors via
-  `miette`/`thiserror` (no `unwrap`/`expect`/`panic!` on real paths), clippy is
-  clean under `-D warnings`, prefer a `clone` over a lifetime fight (this tool is
-  I/O-bound — correctness and clarity beat zero-copy).
-- Add tests alongside the code. Prefer `insta` snapshots for parse/lint output.
-- If the entry needs a dependency not in `Cargo.toml`, add it (Cargo.toml is
-  writable) — prefer the crates sanctioned in `CLAUDE.md`, "Tech stack".
-- If the entry's `per` cite is ambiguous or rests on an unsettled decision, do
-  NOT guess: leave it and surface the question (the harness will route it).
-
-# FRICTION / REFACTOR (optional — most ticks file nothing)
-
-Hit real friction this tick, or touched structural debt you can't fix now?
-Use the `capture-friction` skill — filenames `build-<slug>.md`, committed
-with your work; target directory per capture type (its own trigger condition
-covers when to reach for it).
+  (plan drains it and re-scopes the entry), commit the capture alone, and
+  end the tick.
+- `<premise-delta>` shows what already landed on the entry's files since it
+  was scoped: an already-landed fix narrows the entry to its remainder, or
+  empties it (leave it uncommitted and say so in the report).
+- If the entry's `per` cite is ambiguous or rests on an unsettled decision,
+  do NOT guess — leave it and surface the question.
 
 # OUTPUT
 
-**Your checkout is an isolated worktree, and `pwd` is its root.** Every
-repo-relative path in the entry resolves against it. Absolute paths are
-constructed from `pwd` output only — never from a path seen in a file,
-an error message, or `git worktree list`; the main checkout's path is
-not yours, and one write there corrupts trunk state outside your gates.
+One commit on this worktree's branch, prefixed `build:`. Imperative subject;
+the body explains *why*. Never commit anywhere else — merging onto the trunk
+is the dispatcher's job, and a commit made off this branch is lost to ship
+bookkeeping.
 
-One commit on this worktree's branch, prefixed `build:`. Imperative subject; the
-body explains *why*, not a restatement of the spec. **Your branch is the only
-place you commit.** Never rebase onto or merge from `main`, never push a trunk
-ref, never `cd` to the root checkout to commit — if `main` has moved since your
-worktree was created, ignore it; reconciling is the dispatcher's job, and a
-commit made anywhere but this branch bypasses the gates and is lost to ship
-bookkeeping. **Verify the target before every commit**: `git rev-parse
---abbrev-ref HEAD` must name this worktree's `flume/<tag>` branch — on a
-mismatch, stop and report it as a blocker instead of committing; a
-wrong-branch commit is silently lost, and retrying it burns the tick.
-The same discipline binds **every file write**: absolute paths must live
-under this worktree's root, never the root checkout — a root-checkout
-edit is invisible to your branch and lands as stray drift for someone
-else to clean up.
+Gates run automatically against your commit and are the definition of done —
+run their commands and reach green before committing:
 
-Gates run automatically after your commit: `cargo fmt --check` (afterCommit),
-then `cargo clippy -D warnings`, `cargo test`, and `pnpm --dir sdk test`
-(afterMerge). A gate failure reverts your commit and the entry returns to
-pending.
+{{GATES}}
 
-**Iterate to green before you commit — this is the job, not an afterthought.**
-Loop: make the change → run the gate commands (`CLAUDE.md`, "Common commands":
-the cargo fmt/clippy/test trio, plus `pnpm --dir sdk test` when the entry
-touches `sdk/**` — cargo says nothing about TypeScript) → if anything is red
-(including an *existing* test your change broke), fix it and run again.
-Repeat until fully green, then commit. **Never commit red. Never end the tick
-with no commit just because the change rippled into other tests — repair
-them; that ripple is part of the entry.** If you genuinely cannot reach green
-(a real blocker, not just more work), do NOT bail silently: state in your final
-message exactly what blocked you and what you tried, so plan can re-scope or a
-human can step in. A silent no-commit is the one outcome to avoid.
-
-Do NOT touch `.flume/plan/pending.json` — the harness updates it post-merge.
+A gate failure reverts the commit and the entry returns to pending. If you
+genuinely cannot reach green, do not bail silently: state in your final
+message exactly what blocked you and what you tried — it is recorded and
+programs this entry's next attempt.
