@@ -1208,6 +1208,65 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     assert!(other_stderr.is_empty());
 }
 
+/// Regression test for the suffix-path-boundary bug: a file_path ending in
+/// a projected file's bare name but living at an unrelated, deeper path
+/// should resolve Allow, not Block. Example: `.temper/memory/CLAUDE.md`
+/// should not match a projection at root `CLAUDE.md`.
+#[test]
+fn guard_suffix_path_boundary_rejects_unrelated_deeper_paths() {
+    let root = common::tmpdir("guard-suffix-boundary");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+
+    // A lock with `block` mode and the root `CLAUDE.md` as a projected member
+    // (the memory kind's single-segment projection).
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[memory]]\nname = \"root\"\nsource_path = \"CLAUDE.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+    )
+    .unwrap();
+
+    // A write to the actual root CLAUDE.md projection should be blocked
+    let (code, stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"CLAUDE.md\"}}",
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "the actual CLAUDE.md projection should be blocked"
+    );
+    assert!(stderr.contains("temper-managed projection"));
+
+    // A write to `.temper/memory/CLAUDE.md` (an unrelated file with the same
+    // filename living deeper in the tree) should be allowed. This was the bug:
+    // naive suffix matching would block it because `.temper/memory/CLAUDE.md`
+    // ends with `CLAUDE.md`, even though it's not the declared projection.
+    let (code, stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".temper/memory/CLAUDE.md\"}}",
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "an unrelated path ending in the projection's filename but deeper in the tree should be allowed"
+    );
+    assert!(stderr.is_empty());
+
+    // A write to `.claude/CLAUDE.md` (if the projection lived here) should also be blocked,
+    // showing that one-level nesting is still bound by the guard.
+    let (code, stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/CLAUDE.md\"}}",
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "a nested version of the single-segment projection path should still be blocked"
+    );
+    assert!(stderr.contains("temper-managed projection"));
+}
+
 // ---------------------------------------------------------------------------
 // guard — represented-manifest member contract (entry 4/5), beside the
 // `.claude/`-projection-drift binding it extends

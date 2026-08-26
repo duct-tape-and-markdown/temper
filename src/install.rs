@@ -781,12 +781,35 @@ fn is_claude_path(file_path: &str) -> bool {
 /// Normalize backslashes and check whether `file_path` matches any candidate by
 /// suffix compare — a straight suffix check against `/`-normalized paths
 /// (`PATH-SEP-NORMALIZE`), tolerant of `file_path` arriving absolute against
-/// workspace-relative candidates.
+/// workspace-relative candidates. The match must land on a path-segment boundary:
+/// the byte before the matched suffix, if any, must be `/`. For single-segment
+/// candidates (no `/`), the prefix up to the match must also be single-segment
+/// to ensure unrelated deeper paths don't falsely match.
 fn path_matches<'a>(file_path: &str, mut candidates: impl Iterator<Item = &'a Path>) -> bool {
     let file_path = file_path.replace('\\', "/");
     candidates.any(|candidate| {
         let candidate_str = candidate.to_string_lossy().replace('\\', "/");
-        file_path.ends_with(candidate_str.as_str())
+        if file_path.ends_with(candidate_str.as_str()) {
+            let match_start = file_path.len() - candidate_str.len();
+            if match_start == 0 {
+                return true;
+            }
+            // Match must be preceded by a path separator.
+            if file_path.as_bytes().get(match_start - 1) != Some(&b'/') {
+                return false;
+            }
+            // For single-segment candidates (no `/` in them), ensure the prefix
+            // has no `/` — so `.claude/CLAUDE.md` matches `CLAUDE.md`,
+            // but `.temper/memory/CLAUDE.md` does not.
+            if !candidate_str.contains('/') {
+                let prefix = &file_path[..match_start - 1];
+                !prefix.contains('/')
+            } else {
+                true
+            }
+        } else {
+            false
+        }
     })
 }
 
