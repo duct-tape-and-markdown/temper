@@ -64,61 +64,89 @@ routing.
   claim and an adversarial verifier read the Dispatcher source.
 - observed at 1408cc3d — five field reports from `dtmd-temper.md`, routed
   direct by John 2026-08-26; the operator pasted the full file the same day,
-  so the detail below is complete — nothing further to pull.
-  (1) tap sink resolves from cwd: **half shipped.** The worktree-loss half
+  so the detail below is complete — nothing further to pull. An adversarial
+  pass (John's direction: the reporting environment may carry its own
+  misconfiguration temper should not correct for) re-verified each against
+  platform docs, the spec, and this repo's own log; verdicts are inline —
+  (1) and (3) strengthened into temper's own defects, (2) split into a live
+  defect plus a spec collision, (4) unchanged, (5) already self-caveated.
+  (1) tap sink resolves from cwd: **half shipped; adversarially verified —
+  the defect is temper's, not the reporter's.** The worktree-loss half
   landed in 0.0.15 (`src/tap.rs::log_path` commondir hoist — file-based,
-  works once GIVEN the root; the missing piece is resolving the root from
-  cwd). The cwd half is real at HEAD: `temper tap [PATH]` defaults to `"."`
-  (src/main.rs:146) and the SDK synthesizes the hook command bare
-  (`TAP_COMMAND`, sdk/src/declarations.ts:747; this repo's projection
-  .claude/settings.json:7,27), where the sibling hooks pass `.` explicitly.
-  Field repro on 0.0.15: one session split 15 events at root / 1 stranded
-  under a `.claude/worktrees/...` subpath; another 32/7 with the stray
-  outside every tree in play — cwd at hook-fire time, not root ambiguity.
-  Cost: a fanout worktree’s sink dies with the worktree (every build-tick’s
-  telemetry vanishes; only the plan singleton taps land), plus stray
-  `.temper/` dirs scattered in consumer source trees. Ask, in precedence:
-  explicit `PATH` verbatim → git-common-dir anchor (parent →
-  `.temper/tap.jsonl`) → cwd only outside a git tree; secondary, SDK emits
-  `temper tap "$CLAUDE_PROJECT_DIR"` (or `.`) to match its siblings.
-  Caveats: anchoring collapses N per-worktree sinks into one contended
-  append — O_APPEND line-atomicity holds on POSIX, verify win32, add an
-  explicit parallel-wave test; consumers reading a worktree-local tap
-  silently switch to the primary — release note, not just a patch.
-  Nice-to-have: a startup check surfacing stray `tap.jsonl` below the
-  anchor.
-  (2) tap record schema v2 — one version bump, three additions. Identities
-  are raw: rules carry the machine-local absolute path (one rule split
-  across 40+ identity strings over checkout/worktree/per-fanout-job roots;
-  reproduced in this repo’s own tap.jsonl), and skills carry the caller’s
-  raw spelling — `runner` (231 events) and `runner:runner` (88) coexist
-  interleaved with no session holding both, refuting a rename-migration
-  read — with no project|personal|plugin scope marker, so “unused in this
-  repo” is inexpressible from the log. And no record shape carries any time
-  field: append order is the only ordering proxy and dies on
-  rotation/concat/second-writer. Ask: (a) canonical identity ALONGSIDE the
-  raw one, never replacing it — rules: repo-relative id resolved against
-  the git common dir; skills: the resolved `plugin:skill` id plus a `scope`
-  field; (b) ISO-8601 UTC `ts` on every record; (c) `version: 2` signalling
-  both. Caveats: consumers (the telemetry verifier included) key on
-  identity — additive only; win32 backslash/drive-letter paths normalize
-  carefully; whether worktree copies SHOULD collapse is a judgment — emit
-  both ids and let the reader choose.
+  works once GIVEN the root). The cwd half is real at HEAD: `temper tap
+  [PATH]` defaults to `"."` (src/main.rs:146) and the SDK synthesizes the
+  hook command bare (`TAP_COMMAND`, sdk/src/declarations.ts:747). The
+  adversarial check settles blame: Claude Code documents that hook cwd
+  follows Claude — the worktree root after entering a worktree, the new
+  directory after a `cd` [source: code.claude.com/docs/en/hooks (retrieved
+  2026-08-26)] — so subdir-cwd hook fires are the platform's contract and
+  the cwd default is wrong against it; the reporting environment is NOT
+  misconfigured. The same doc reshapes the fix: `${CLAUDE_PROJECT_DIR}` is
+  documented to stay at the main checkout "regardless of the working
+  directory when the hook runs", worktrees included — so the SDK emitting
+  `temper tap "$CLAUDE_PROJECT_DIR"` alone closes BOTH halves
+  (subdir-proof, primary-homed) at the wiring level; the binary-side
+  root-walk-up is defense-in-depth for foreign wirings, and the report's
+  explicit-PATH-verbatim precedence stays declined per the earlier triage
+  (writer and reader must converge on one sink). The field repro on 0.0.15
+  (one session split 15 events at root / 1 stranded under
+  `.claude/worktrees/...`; another 32/7 with the stray outside every tree
+  in play) is consistent: the hoist only sees a `.git` file at cwd itself,
+  so any subdir cwd strays. Caveats kept: anchoring collapses N sinks into
+  one contended append (O_APPEND line-atomic on POSIX, verify win32, test
+  under a parallel wave); consumers reading a worktree-local tap silently
+  switch to the primary — release note. Nice-to-have: startup sweep for
+  stray `tap.jsonl` below the anchor.
+  (2) tap record schema v2 — **adversarial split: one live engine defect
+  (stronger than the report's claim) and one design question; do not build
+  the design half as filed.** The defect, verified in this repo: the
+  reader's join is exact-string through the member index
+  (src/telemetry.rs:60 against `features.id` keys, src/read.rs:149) while
+  InstructionsLoaded identity is the hook payload's absolute path — so NO
+  rule-load record has EVER joined, any machine, worktree or not: `temper
+  explain rust` narrates "No tap event in the log names it" against 31
+  instructions_loaded records naming this repo's own rules, while the
+  skill join (identity = member id) works (`capture-friction`: 3 of 3).
+  Fix must reconcile writer identity with member id — write a
+  repo-relative/member id (schema bump) or normalize at read; the
+  worktree-fork problem the report documents (one rule split across 40+
+  identity strings over checkout/worktree/fanout roots) folds into the
+  same reconciliation. The design half: the report's remaining asks (an
+  ISO-8601 UTC `ts` on every record, a skill `scope` field, canonical
+  alongside raw for external parsers) presume the log is a consumable API
+  — but `specs/model/pipeline.md` classes it "machine-written,
+  bespoke-parsed, versioned in lockstep with the one binary that both
+  writes and reads it", and the report's own evidence of need is hand-jq
+  analysis, i.e. off-contract reads. That is a spec collision to rule on
+  (open the log as an API, or hold the category and decline the fields),
+  not an entry to build — a fork for plan to surface. The skill
+  dual-spelling observation (`runner` vs `runner:runner`) is Claude Code's
+  caller input faithfully recorded; canonicalizing at write time embeds a
+  resolution policy in a deliberately dumb recorder — read-time resolution
+  is the temper-ish shape if the ruling opens the log.
   (3) InstructionsLoaded taps only under `path_glob_match`: **confirmed at
-  HEAD** (`TELEMETRY_EVENT_HOOKS`, sdk/src/builtins.ts:1620 — a deliberate
-  scoping per its doc comment, now a correctness hazard). The report’s
-  gating external fact is settled: Claude Code fires InstructionsLoaded for
-  ALL CLAUDE.md/rules loads; documented `load_reason` matcher values are
-  `session_start`, `nested_traversal`, `path_glob_match`, `include`,
-  `compact` [source: code.claude.com/docs/en/hooks (retrieved 2026-08-26)].
-  An always-on rule therefore loads under `session_start`, and the
-  preferred fix (a) is possible: register the remaining reasons (rows or a
-  wildcard matcher) — the tap already writes `load_reason` verbatim
-  (src/builtin_kind.rs:710), so each load banks its own reason code.
-  Stakes: a coverage audit reading the log scores always-on rules 0% and
-  nominates the harness’s most load-bearing rules for deletion. Caveat:
-  `session_start` fires every session for every always-on member — volume
-  grows, informative only because the reason rides each record.
+  HEAD, and adversarially STRENGTHENED — temper's own dogfood contradicts
+  its wiring.** `TELEMETRY_EVENT_HOOKS` hard-codes the matcher
+  (sdk/src/builtins.ts:1620; its doc comment says the scoping was
+  deliberate). But this harness's own `context-arrives` requirement
+  (.temper/harness.ts) claims "every always-on member this harness
+  declares should actually reach the model" with
+  `verifier: telemetry(["InstructionsLoaded", "SkillInvoked"])` — evidence
+  the synthesized wiring can never record, since always-on members load
+  under `session_start` and the matcher filters them. The requirement is
+  structurally unverifiable by its own wiring — an on-contract
+  self-contradiction, not merely protection for off-contract log readers.
+  The gating external fact is settled: Claude Code fires
+  InstructionsLoaded for ALL CLAUDE.md/rules loads; documented
+  `load_reason` values are `session_start`, `nested_traversal`,
+  `path_glob_match`, `include`, `compact` [source:
+  code.claude.com/docs/en/hooks (retrieved 2026-08-26)]. Fix (a) is
+  possible and now obligatory for the dogfood's own claim: register the
+  remaining reasons (rows or a wildcard) — the tap already writes
+  `load_reason` verbatim (src/builtin_kind.rs:710). Volume caveat stands
+  (session_start fires per session per always-on member), and the new
+  records join nothing until (2)'s identity-join defect is fixed — (2)
+  precedes or ships with (3).
   (4) `coverage.checked` prints `(0)` for embedded-locus kinds. The engine
   evaluates correctly — the report verified a deliberately-false `count`
   clause on an embedded kind enumerates all members, and
