@@ -65,13 +65,27 @@ Invocation is exec-local (flume ≥0.9): the repo-root `package.json` pins
 `@dtmd/flume`, and `pnpm exec flume` runs that pinned copy — never a global
 engine (fresh clone: `pnpm install`).
 
-- `pnpm exec flume status` — baton state, tip claim, supervisor liveness.
+- `pnpm exec flume status` — baton state, tip claim, stop flag.
 - `pnpm exec flume tick` / `loop` — run the pipeline. Loops are autonomous —
   no slash command invokes them; wake-then-loop runs as its own background
-  task. `loop` claims the current tip (one flume writer per ref), and every
-  tick commits only onto the tip it started on — an operator commit landing
-  on the trunk mid-tick refuses that tick's commit (`tipMoved`) instead of
-  corrupting it, so commit freely; the tick pays, not the tree.
+  task. The tip claim is one *engine* per ref (flume ≥0.12); an operator
+  commit landing on the trunk mid-run is ordinary history — merge sites
+  absorb it, git arbitrates (a conflict parks that entry; the foreign
+  commit is never touched), and the merged tree's correctness is the
+  `afterMerge` gates' job. Commit freely. Every phase's agent — singleton
+  included — runs in a private worktree; the operator's checkout is never
+  touched mid-tick.
+- `pnpm exec flume stop` — end a run at the next tick boundary, in-flight
+  tick completed and merged. The next loop refuses until the stop flag is
+  removed; that refusal is the operator's ack, not an error. Pausing by
+  killing the process is retired. Upgrading flume (or shipping
+  engine-contract changes) under a running loop: stop, then relaunch — a
+  supervisor stays on its launch contract while children re-read HEAD.
+- `pnpm exec flume log` / `check` — read verbs: recent tick verdicts; the
+  working tree's `pending.json` validated without spending an agent. (No
+  `flume friction` here: the engine's friction channel is gitignored and
+  hand-routed; this chain's committed `.flume/friction/**` captures are a
+  different, deliberate design.)
 
 ## Prior attempts are write-only to plan
 

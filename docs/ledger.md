@@ -140,7 +140,9 @@ hard.
 ## Standing discipline (mechanical, paid for)
 
 - Wake-then-loop as its own background task; `git status` before any
-  restore; never edit tracked files while a tick runs (plan stages -A).
+  restore. flume ≥0.12: agents run in private worktrees and merge sites
+  absorb operator commits — edit and commit freely while a tick runs;
+  pause via `flume stop`, never a kill.
 - At session open: sweep `.flume/friction/`, `.flume/refactor/`, and
   `.flume/amendments/` (ratify or decline, then delete — 0044);
   delete `.flume/prior-attempts/` records whose entry re-scoped or
