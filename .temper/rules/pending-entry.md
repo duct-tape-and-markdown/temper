@@ -54,9 +54,12 @@ rewriting an entry, and any interactive session hand-editing the queue.
   else reads this set?" is derivation's question, never the consumer's
   bug report.
 - **Disjoint, or serialized — never both `open` over a shared file.** Build
-  fans out pickable entries in parallel worktrees; two `open` entries editing
-  the same file conflict at merge and revert the wave. If any path appears in
-  two entries, serialize with `gate: { kind: "blockedBy", tag: "FIRST-TAG" }`.
+  fans out pickable entries in parallel worktrees; when two `open` entries
+  edit the same file, the later cherry-pick conflicts at the merge, that
+  entry parks as a recorded merge failure (the wave lands without it), and
+  its retry re-buys a full agent invocation until the repeated-failure
+  backstop quarantines it. If any path appears in two entries, serialize
+  with `gate: { kind: "blockedBy", tag: "FIRST-TAG" }`.
   File-disjointness is the floor, not the test: entries reshaping the same
   seam — one vocabulary, one API surface, one decision's chain — collide
   semantically even with disjoint `files` (a worktree goes green against a
