@@ -4,7 +4,7 @@
       {
         "hooks": [
           {
-            "command": "temper tap",
+            "command": "temper tap \"$CLAUDE_PROJECT_DIR\"",
             "type": "command"
           }
         ],
@@ -24,7 +24,7 @@
       {
         "hooks": [
           {
-            "command": "temper tap",
+            "command": "temper tap \"$CLAUDE_PROJECT_DIR\"",
             "type": "command"
           }
         ],
