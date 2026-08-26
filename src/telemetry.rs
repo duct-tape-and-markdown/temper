@@ -36,6 +36,16 @@ fn normalize_instructions_loaded_identity(
     }
 }
 
+/// Normalize a record's identity for member-index lookup: InstructionsLoaded records
+/// use path-to-id normalization, all others use the identity as-is.
+fn normalized_record_identity(record: &TapRecord, path_to_id: &BTreeMap<String, String>) -> String {
+    if record.event == crate::tap::TapEvent::InstructionsLoaded {
+        normalize_instructions_loaded_identity(&record.identity, path_to_id)
+    } else {
+        record.identity.clone()
+    }
+}
+
 /// `explain`'s **field** strand — narrate the local telemetry the tap recorded for
 /// `member`: its per-event counts and the denominators they range against, both joined
 /// to members through the same member index the gate reads (READ-EDGE-UNIFY), so the
@@ -86,11 +96,7 @@ pub fn field(
     for record in records {
         // Normalize InstructionsLoaded identities from repo-relative paths to member IDs
         // before comparing against the member_index (which is keyed by member ID).
-        let normalized_identity = if record.event == crate::tap::TapEvent::InstructionsLoaded {
-            normalize_instructions_loaded_identity(&record.identity, path_to_id)
-        } else {
-            record.identity.clone()
-        };
+        let normalized_identity = normalized_record_identity(record, path_to_id);
 
         if !member_index.contains_key(normalized_identity.as_str()) {
             continue;
@@ -199,11 +205,7 @@ pub fn requirement_field(
     for record in records {
         // Normalize InstructionsLoaded identities from repo-relative paths to member IDs
         // before comparing against the check set.
-        let normalized_identity = if record.event == crate::tap::TapEvent::InstructionsLoaded {
-            normalize_instructions_loaded_identity(&record.identity, path_to_id)
-        } else {
-            record.identity.clone()
-        };
+        let normalized_identity = normalized_record_identity(record, path_to_id);
 
         if !check_set.contains(&normalized_identity) {
             continue;
