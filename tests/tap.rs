@@ -159,6 +159,41 @@ fn a_record_round_trips_through_append_and_read() {
 }
 
 #[test]
+fn an_instructions_loaded_identity_relativizes_against_the_checkout_root() {
+    // The v2 contract: `append` rewrites an absolute InstructionsLoaded path
+    // under the checkout root to the repo-relative id, keeping the absolute
+    // original in `raw_path` — the worktree-collapse half of the schema bump.
+    let root = common::tmpdir("tap-relativize");
+    let workspace = root.join(".temper");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let absolute = root.join(".claude").join("rules").join("rust.md");
+    let record = TapRecord {
+        version: TAP_RECORD_VERSION,
+        session: "sess".to_string(),
+        event: TapEvent::InstructionsLoaded,
+        identity: absolute.to_string_lossy().into_owned(),
+        ts: String::new(),
+        reason: Some("session_start".to_string()),
+        raw_path: Some(absolute.to_string_lossy().into_owned()),
+    };
+    tap::append(&workspace, &record).unwrap();
+
+    let readout = tap::read_log(&workspace).unwrap();
+    let read_record = &readout.records[0];
+    assert_eq!(
+        std::path::Path::new(&read_record.identity),
+        std::path::Path::new(".claude/rules/rust.md"),
+        "identity is the repo-relative id, not the absolute path"
+    );
+    assert_eq!(
+        read_record.raw_path.as_deref(),
+        Some(absolute.to_string_lossy().as_ref()),
+        "the raw absolute path survives in raw_path"
+    );
+}
+
+#[test]
 fn two_appends_interleave_as_two_lines_without_rewriting() {
     // An append is a single record: the second append never rewrites the file, so
     // both records survive as two lines — the parallel-safe interleave.

@@ -282,9 +282,11 @@ pub fn append(workspace_dir: &Path, record: &TapRecord) -> Result<(), TapError> 
     let mut finalized = record.clone();
     finalized.ts = iso8601_utc_timestamp();
 
-    // For InstructionsLoaded, relativize the identity against the primary checkout.
+    // For InstructionsLoaded, relativize the identity against the primary
+    // checkout root — the parent of the `.temper/` workspace the log homes in
+    // (log_path's parent is the workspace, not the root).
     if record.event == TapEvent::InstructionsLoaded
-        && let Some(primary_root) = log_path(workspace_dir).parent()
+        && let Some(primary_root) = log_path(workspace_dir).parent().and_then(Path::parent)
         && let Ok(rel) = PathBuf::from(&record.identity).strip_prefix(primary_root)
         && let Some(rel_str) = rel.to_str()
     {
