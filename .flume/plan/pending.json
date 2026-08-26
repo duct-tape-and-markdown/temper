@@ -1,53 +1,5 @@
 [
   {
-    "tag": "COVERAGE-EMBEDDED-COUNT-MARKER",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/coverage_note.rs",
-          "description": "The summary line (~62-75) renders member_counts verbatim as `kind (count)`; member_counts (src/gate.rs:179,254) only tallies discovered files, never nested/embedded members. Thread the lock's nested_member rows (Declarations::nested_members, already read into `committed` at src/gate.rs:66) grouped by child kind, and render an embedded kind's line as `directive (36 embedded)` beside a file kind's `skill (16)` — the filer's stated preference; omitting embedded kinds from the line is the named fallback."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "The coverage_note::check call (~487) gains the nested-member counts to pass through."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "Regression: a lock with nested_member rows against an embedded kind renders that kind's count as nonzero (embedded-marked), not (0)."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "The pre-parsed-kind-rows regression at ~370-395 calls coverage_note::check(&harness, &definitions(), &member_counts, &committed.kinds) directly (COVERAGE-NOTE-LOCK-PARSE-HOIST's own call site); update it to pass the new nested_member_counts argument (e.g. &BTreeMap::new(), since this test's widget kind is file-shape, not embedded) at the position the coverage_note.rs signature change lands it."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      ".flume/refactor/build-coverage-embedded-count-marker.md",
-      "src/coverage_note.rs",
-      "src/gate.rs",
-      "tests/coverage_note.rs"
-    ],
-    "summary": "coverage.checked's per-kind member count is file-discovery only, so every embedded-locus kind prints (0) even when it governs hundreds of nested members, reading as dead",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A green verdict is proven non-vacuous"
-    },
-    "tests": [
-      {
-        "path": "tests/coverage_note.rs",
-        "asserts": "an embedded-locus kind carrying nested_member rows renders a nonzero, embedded-marked count in the coverage.checked summary"
-      }
-    ],
-    "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
-    "notes": "Field report (dtmd-temper.md #4): report legibility only, engine evaluates embedded members correctly. 269 nested_member rows across 9 embedded kinds in this lock, all print (0) today. Reopened after COLLECTION-ADDRESS-DUPLICATE-REJECT shipped (21f61463). Rewritten: a reverted build attempt's observedFiles showed tests/check_cost.rs is a third coverage_note::check call site (rg-confirmed) the declared files under-stated; folded in, capture check_cost_call_site.md drained here. scoped at 3237033f"
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
