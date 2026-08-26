@@ -27,6 +27,12 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      ".flume/refactor/build-coverage-embedded-count-marker.md",
+      "src/coverage_note.rs",
+      "src/gate.rs",
+      "tests/coverage_note.rs"
+    ],
     "summary": "coverage.checked's per-kind member count is file-discovery only, so every embedded-locus kind prints (0) even when it governs hundreds of nested members, reading as dead",
     "per": {
       "path": "specs/process/engineering.md",
@@ -39,77 +45,7 @@
       }
     ],
     "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
-    "notes": "Field report (dtmd-temper.md #4): report legibility only, engine evaluates embedded members correctly. 269 nested_member rows across 9 embedded kinds in this lock, all print (0) today. Reopened after COLLECTION-ADDRESS-DUPLICATE-REJECT shipped (21f61463). Rewritten: a reverted build attempt's observedFiles showed tests/check_cost.rs is a third coverage_note::check call site (rg-confirmed) the declared files under-stated; folded in, capture check_cost_call_site.md drained here. scoped at 3237033f",
-    "observedFiles": [
-      ".flume/refactor/build-coverage-embedded-count-marker.md",
-      "src/coverage_note.rs",
-      "src/gate.rs",
-      "tests/coverage_note.rs"
-    ]
-  },
-  {
-    "tag": "COLLECTION-KEY-PATH-LABEL-CONSOLIDATE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/kind.rs",
-          "description": "Add a `pub fn wire_label(self) -> &'static str` inherent method on `CollectionKeyPath` (beside `collection_key()` at ~232), returning the four wire labels `hooks.<Event>` / `mcpServers.*` / `enabledPlugins.*` / `extraKnownMarketplaces.*` — the exact strings `collection_key_path_from_label` (971) already parses in the reverse direction, now the closed vocabulary's one encode+decode home."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "Delete the private `collection_key_path_to_string` (412-419), added by 21f61463 as a hand-copied second table of the same four wire-label literals `kind.rs` already owns. `collection_address_collision_diagnostics`'s overlaid-kind branch (383) calls `collection_address.key_path.wire_label()` instead."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "admissibility.rs's collection-address-collision check (21f61463) hand-copies CollectionKeyPath's 4 wire-label strings that kind.rs already owns as the closed vocabulary's one home",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "tests": [
-      {
-        "path": "src/kind.rs",
-        "asserts": "every CollectionKeyPath variant's wire_label() round-trips through collection_key_path_from_label back to the same variant"
-      }
-    ],
-    "acceptance": "One CollectionKeyPath<->wire-label encoding lives in kind.rs; admissibility.rs's collision diagnostic calls it rather than carrying its own literal table. cargo test/clippy green, collision diagnostic output unchanged (hook_kind.rs's 21f61463 regression still passes).",
-    "notes": "Posture sweep finding (job 4), neighborhood src/gate.rs+src/admissibility.rs, window 22f8064c..HEAD, commit 21f61463. Purely mechanical — one method extraction, no design call. scoped at 8691981a"
-  },
-  {
-    "tag": "TELEMETRY-IDENTITY-DISPATCH-DEDUP",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/telemetry.rs",
-          "description": "Add a private `fn normalized_record_identity(record: &TapRecord, path_to_id: &BTreeMap<String, String>) -> String` beside `normalize_instructions_loaded_identity` (19-37), holding the `if record.event == TapEvent::InstructionsLoaded { normalize_instructions_loaded_identity(...) } else { record.identity.clone() }` dispatch. Replace the identical inline block in `field()` (89-93) and `requirement_field()` (202-206) with a call to it."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "telemetry.rs's field() and requirement_field() each hand-copy the same InstructionsLoaded-vs-other identity-normalization if/else dispatch — one normalizer, not two",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "a_member_target_narrates_its_tap_event_counts_and_denominators, a_requirement_telemetry_field_strand_shows_event_counts_per_satisfier, and a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id all still pass unchanged — the consolidation is behavior-preserving"
-      }
-    ],
-    "acceptance": "field() and requirement_field() both dispatch through one normalized_record_identity helper; no duplicated if/else branch remains in telemetry.rs. cargo test/clippy green, telemetry strand output unchanged.",
-    "notes": "Posture sweep finding (job 4), neighborhood src/read.rs+src/telemetry.rs+tests/read_verbs.rs, window 22f8064c..HEAD, commit 9b967326 (normalize_instructions_loaded_identity's dispatch got copy-pasted into requirement_field alongside field). Purely mechanical extraction, no design call. scoped at 7d695577"
+    "notes": "Field report (dtmd-temper.md #4): report legibility only, engine evaluates embedded members correctly. 269 nested_member rows across 9 embedded kinds in this lock, all print (0) today. Reopened after COLLECTION-ADDRESS-DUPLICATE-REJECT shipped (21f61463). Rewritten: a reverted build attempt's observedFiles showed tests/check_cost.rs is a third coverage_note::check call site (rg-confirmed) the declared files under-stated; folded in, capture check_cost_call_site.md drained here. scoped at 3237033f"
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
