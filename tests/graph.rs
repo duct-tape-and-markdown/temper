@@ -12,6 +12,7 @@
 //!   finding and fails the run;
 //! - no declared edge at all, no graph runs (the floor-only outcome is unchanged).
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
@@ -1731,5 +1732,107 @@ mod target_set {
             "the finding names the element, never the whole set — the modeled sibling is not at fault, got:\n{}",
             run.output
         );
+    }
+
+    mod embedded_mention {
+        use super::*;
+
+        /// The `note` layout host: a custom kind under `specs/`, hosting the embedded
+        /// `requirement` members its `templates` column admits.
+        fn note_kind() -> KindFactRow {
+            KindFactRow {
+                templates: vec![TemplateRow {
+                    kind: "requirement".to_string(),
+                    path: None,
+                }],
+                ..common::kind_facts("note", "specs", "note.md")
+            }
+        }
+
+        /// One embedded `requirement` nested under the `note` host.
+        fn requirement_row(key: &str, leaf: &str) -> NestedMemberRow {
+            NestedMemberRow {
+                host: "note:note".to_string(),
+                kind: "requirement".to_string(),
+                key: key.to_string(),
+                leaves: BTreeMap::from([("chosen".to_string(), leaf.to_string())]),
+                collections: Vec::new(),
+                placed_edges: None,
+                rendered_lines: None,
+                rendered_chars: None,
+            }
+        }
+
+        #[test]
+        fn a_mention_targeting_a_real_embedded_leaf_resolves_clean() {
+            let root = common::tmpdir("mention-embedded-leaf-resolves");
+            fs::create_dir_all(root.join("specs")).unwrap();
+            fs::write(root.join("specs/note.md"), "# Note\n\nBody.\n").unwrap();
+            common::write_rule_skill_harness(
+                &root,
+                "style",
+                &routing_rule("standards"),
+                "standards",
+                &common::clean_skill("standards"),
+            );
+
+            common::write_lock(
+                &root,
+                Declarations {
+                    mentions: vec![common::mention(
+                        "rule:style",
+                        "note/requirement/my-req/chosen",
+                    )],
+                    kinds: vec![note_kind()],
+                    nested_members: vec![requirement_row("my-req", "some value")],
+                    ..Declarations::default()
+                },
+            );
+
+            let run = common::check_in(&root, &[], None);
+            assert!(
+                run.ok,
+                "a mention targeting a real embedded leaf resolves ⇒ zero, got:\n{}",
+                run.output
+            );
+        }
+
+        #[test]
+        fn a_mention_targeting_a_bogus_embedded_leaf_key_fires_a_route_finding() {
+            let root = common::tmpdir("mention-embedded-leaf-bogus-key");
+            fs::create_dir_all(root.join("specs")).unwrap();
+            fs::write(root.join("specs/note.md"), "# Note\n\nBody.\n").unwrap();
+            common::write_rule_skill_harness(
+                &root,
+                "style",
+                &routing_rule("standards"),
+                "standards",
+                &common::clean_skill("standards"),
+            );
+
+            common::write_lock(
+                &root,
+                Declarations {
+                    mentions: vec![common::mention(
+                        "rule:style",
+                        "note/requirement/my-req/rejected",
+                    )],
+                    kinds: vec![note_kind()],
+                    nested_members: vec![requirement_row("my-req", "some value")],
+                    ..Declarations::default()
+                },
+            );
+
+            let run = common::check_in(&root, &[], None);
+            assert!(
+                !run.ok,
+                "a mention targeting a bogus embedded leaf key dangles ⇒ non-zero"
+            );
+            assert!(
+                run.output.contains("graph.route"),
+                "the finding is a route one, got:\n{}",
+                run.output
+            );
+        }
     }
 }

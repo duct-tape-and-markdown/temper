@@ -22,6 +22,7 @@ use crate::contract::{EdgeBound, Predicate};
 use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
+use crate::read::{parse_leaf_address, resolve_leaf};
 
 thread_local! {
     /// Per-thread count of resolved-edge computations. Incremented each time the
@@ -1038,13 +1039,24 @@ pub struct MentionDeclaration {
 /// address no author wrote (READ-EDGE-UNIFY).
 pub const REQUIREMENT_KIND: &str = "requirement";
 
+/// The reserved kind an embedded-leaf address resolves under — distinct from [`world`],
+/// [`REQUIREMENT_KIND`], and every artifact kind, so an embedded-leaf mention binds a node
+/// route resolution ([`route_mentions`]) resolves against the embedded leaves. Used with
+/// the full leaf address (e.g., `member/kind/key/child-path`) as the node's id.
+const EMBEDDED_LEAF_KIND: &str = "embedded";
+
 /// Parse an address a mention may name into its graph [`Node`]: `kind:name` parses
-/// into that member's node; a bare name (no `:`) addresses a requirement under the
+/// into that member's node; a `/`-shaped address resolves an embedded leaf under the
+/// reserved [`EMBEDDED_LEAF_KIND`]; a bare name (no `:`) addresses a requirement under the
 /// reserved [`REQUIREMENT_KIND`].
 fn node_from_address(address: &str) -> Node {
-    match address.split_once(':') {
-        Some((kind, name)) => (kind.to_string(), name.to_string()),
-        None => (REQUIREMENT_KIND.to_string(), address.to_string()),
+    if address.contains('/') {
+        (EMBEDDED_LEAF_KIND.to_string(), address.to_string())
+    } else {
+        match address.split_once(':') {
+            Some((kind, name)) => (kind.to_string(), name.to_string()),
+            None => (REQUIREMENT_KIND.to_string(), address.to_string()),
+        }
     }
 }
 
@@ -1069,7 +1081,8 @@ pub fn resolved_mention_edges(mentions: &[MentionDeclaration]) -> Vec<ResolvedEd
 
 /// Whether a lifted reference edge resolves against the **discovered corpus**. Only a
 /// mention route-resolves at `check`: a member `kind:name` target resolves when the
-/// corpus carries a member of that kind and name; a bare requirement name resolves when
+/// corpus carries a member of that kind and name; an embedded-leaf target resolves when
+/// the leaf exists in the corpus's embedded leaves; a bare requirement name resolves when
 /// the roster declares it. An import ([`IMPORT_FIELD`]) or any other lifted edge already
 /// resolved at emit and never dangles here, so it always resolves.
 fn edge_resolves(
@@ -1081,7 +1094,9 @@ fn edge_resolves(
         return true;
     }
     let (kind, name) = &edge.to;
-    if kind == REQUIREMENT_KIND {
+    if kind == EMBEDDED_LEAF_KIND {
+        parse_leaf_address(name).is_some_and(|parsed| resolve_leaf(by_kind, &parsed).is_some())
+    } else if kind == REQUIREMENT_KIND {
         requirements.contains_key(name)
     } else {
         by_kind
@@ -1108,12 +1123,13 @@ pub fn partition_mentions(
 }
 
 /// Check **route resolution** over the authored mention edges: a mention whose target —
-/// a member `kind:name` or a bare requirement name — is absent from the discovered corpus
-/// returns an error-severity [`Diagnostic`] naming the citing member and the dangling
-/// target. `emit` defers such a mention (a declared kind with no composed member rides the
-/// lock), so `check` owns the verdict here, at the same corpus `implemented-by` resolution
-/// reads; a mention naming no declared kind refused earlier, at emit. Edges iterate in the
-/// lock's order, so the finding set is stable.
+/// a member `kind:name`, an embedded leaf `<member>/<kind>/<key>/<child-path>`, or a bare
+/// requirement name — is absent from the discovered corpus returns an error-severity
+/// [`Diagnostic`] naming the citing member and the dangling target. `emit` defers such a
+/// mention (a declared kind with no composed member rides the lock), so `check` owns the
+/// verdict here, at the same corpus `implemented-by` resolution reads; a mention naming no
+/// declared kind refused earlier, at emit. Edges iterate in the lock's order, so the
+/// finding set is stable.
 #[must_use]
 pub fn route_mentions(
     mentions: &[ResolvedEdge],

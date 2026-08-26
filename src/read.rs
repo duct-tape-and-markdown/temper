@@ -798,17 +798,17 @@ fn impact_impl(
 /// path keeps its own dots (`rejected.baked-projection.because`), so it is the whole
 /// remainder after the third slash — `splitn(4, '/')`, never a plain split that would
 /// mangle a dotted collection path.
-struct ParsedLeaf<'a> {
-    member: &'a str,
-    kind: &'a str,
-    key: &'a str,
-    child_path: &'a str,
+pub struct ParsedLeaf<'a> {
+    pub member: &'a str,
+    pub kind: &'a str,
+    pub key: &'a str,
+    pub child_path: &'a str,
 }
 
 /// Parse a `/`-bearing `target` into its four leaf-address segments, or `None` when a
 /// segment is empty (a malformed address the caller reports as such). Keyed and structural
 /// — the address rides the shape the author already wrote, stable under content edits.
-fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
+pub fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
     let mut parts = target.splitn(4, '/');
     let member = parts.next()?;
     let kind = parts.next()?;
@@ -830,7 +830,7 @@ fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
 /// on. Returns the matched leaf's outer kind and authored value, or `None` when no
 /// member's nested member carries that `(kind, key, child-path)`. Ranges over every
 /// outer kind's members, since a leaf may live in any nested-member-bearing kind.
-fn resolve_leaf<'a>(
+pub fn resolve_leaf<'a>(
     by_kind: &BTreeMap<&str, &'a [Features]>,
     parsed: &ParsedLeaf<'_>,
 ) -> Option<(String, &'a str)> {
