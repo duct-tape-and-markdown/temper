@@ -380,9 +380,11 @@ pub fn collection_address_collision_diagnostics(
         let Some(collection_address) = &kind.collection_address else {
             continue;
         };
-        let key_path_str = collection_key_path_to_string(&collection_address.key_path);
         by_address
-            .entry((collection_address.manifest.clone(), key_path_str))
+            .entry((
+                collection_address.manifest.clone(),
+                collection_address.key_path.wire_label().to_string(),
+            ))
             .or_default()
             .push(kind.name.clone());
     }
@@ -406,17 +408,6 @@ pub fn collection_address_collision_diagnostics(
             collection_address_collision_diagnostic(&manifest, &key_path, &names)
         })
         .collect())
-}
-
-/// Convert a [`crate::kind::CollectionKeyPath`] enum to its wire string representation.
-fn collection_key_path_to_string(key_path: &crate::kind::CollectionKeyPath) -> String {
-    use crate::kind::CollectionKeyPath;
-    match key_path {
-        CollectionKeyPath::HooksEvent => "hooks.<Event>".to_string(),
-        CollectionKeyPath::McpServers => "mcpServers.*".to_string(),
-        CollectionKeyPath::EnabledPlugins => "enabledPlugins.*".to_string(),
-        CollectionKeyPath::ExtraKnownMarketplaces => "extraKnownMarketplaces.*".to_string(),
-    }
 }
 
 /// A [`COLLECTION_ADDRESS_COLLISION_RULE`] finding naming every kind that shares the

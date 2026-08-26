@@ -238,6 +238,20 @@ impl CollectionKeyPath {
         }
     }
 
+    /// The **wire label** for this key path — the exact strings the closed vocabulary
+    /// parses in [`collection_key_path_from_label`], now encoded here for serialization
+    /// and diagnostics. The four labels are `hooks.<Event>`, `mcpServers.*`,
+    /// `enabledPlugins.*`, and `extraKnownMarketplaces.*`.
+    #[must_use]
+    pub fn wire_label(self) -> &'static str {
+        match self {
+            CollectionKeyPath::HooksEvent => "hooks.<Event>",
+            CollectionKeyPath::McpServers => "mcpServers.*",
+            CollectionKeyPath::EnabledPlugins => "enabledPlugins.*",
+            CollectionKeyPath::ExtraKnownMarketplaces => "extraKnownMarketplaces.*",
+        }
+    }
+
     /// The field a member's own **collection key** surfaces under, when the key path names
     /// one — the `<Event>` in `hooks.<Event>` is the member's lifecycle-event *field*
     /// (`event`), so a member read at that address carries its event as a checkable field a
@@ -1288,6 +1302,25 @@ mod tests {
             None
         );
         assert_eq!(CollectionKeyPath::HooksEvent.identity_edge("a@b"), None);
+    }
+
+    #[test]
+    fn wire_label_round_trips_through_collection_key_path_from_label() {
+        let variants = vec![
+            CollectionKeyPath::HooksEvent,
+            CollectionKeyPath::McpServers,
+            CollectionKeyPath::EnabledPlugins,
+            CollectionKeyPath::ExtraKnownMarketplaces,
+        ];
+        for variant in variants {
+            let label = variant.wire_label();
+            let decoded = collection_key_path_from_label(label);
+            assert_eq!(
+                decoded,
+                Some(variant),
+                "wire_label round-trip failed for {variant:?}"
+            );
+        }
     }
 
     /// The composed `spec`-shaped extractor the worked example needs:
