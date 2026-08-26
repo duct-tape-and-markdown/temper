@@ -285,7 +285,10 @@ const BUILD_WRITABLE_PATHS = [
   ".gitattributes",
   ".editorconfig",
 
-  // CI
+  // CI — temper.yml is build's (precedent: 6df1b760 rewrote it in a build
+  // tick). release.yml is human-only by convention despite matching this
+  // glob: the `release` rule scopes to that exact path, and every commit
+  // touching it is chore(release)/fix(release), never build:.
   ".github/**",
 
   // Vendored distribution surface — the plugin temper publishes (skill, hooks,
