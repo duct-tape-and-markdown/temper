@@ -62,3 +62,42 @@ routing.
   `cherry-pick-conflict`, entry stays pending; only the offending commit is
   excluded — the wave lands). Caught when cascade's rule draft imported the
   claim and an adversarial verifier read the Dispatcher source.
+- observed at 1408cc3d — five field reports from `dtmd-temper.md` (consumer
+  feedback intake on the operator's other machine; routed direct by John,
+  2026-08-26). The source file is NOT on this machine — entries below that
+  need its detail say so; pull it before building those.
+  (1) tap sink resolves from cwd: **half shipped.** The worktree-loss half
+  landed in 0.0.15 (`src/tap.rs::log_path` commondir hoist). The cwd half is
+  real at HEAD: `temper tap [PATH]` defaults `path` to `"."`
+  (src/main.rs:146) and the SDK-synthesized hook command is bare `temper
+  tap` (`TAP_COMMAND`, sdk/src/declarations.ts:747), so a hook inheriting a
+  subdirectory cwd sprouts a stray `<subdir>/.temper/tap.jsonl` — field
+  incident 2026-08-19, stray dir matching the session shell's cwd to the
+  minute. Fix shape to judge: resolve the harness root by walking up from
+  cwd (the discovery walk's precedent), and/or anchor `TAP_COMMAND` with
+  `"$CLAUDE_PROJECT_DIR"`; this repo's own projection carries the vulnerable
+  bare shape (.claude/settings.json:7,27).
+  (2) tap record schema v2 — canonical identities + timestamp. Locally
+  grounded motivation: v1 records carry no timestamp, and identity is the
+  absolute path the hook payload hands over — this repo's own tap.jsonl
+  holds the same rule as `/home/john-work/repos/temper/...` and as
+  `~/.cache/flume-worktrees/temper/<entry>/...`, defeating cross-worktree
+  aggregation. The report's full requested contract lives in dtmd-temper.md
+  — pull before building.
+  (3) InstructionsLoaded only registers under `path_glob_match`:
+  **confirmed at HEAD.** `TELEMETRY_EVENT_HOOKS` hard-codes the matcher
+  (sdk/src/builtins.ts:1620), so unconditional rule loads (collaboration.md)
+  and memory loads never reach the tap; the tap classifier itself is
+  reason-agnostic (src/builtin_kind.rs:708 records any `load_reason`). Fix
+  site is the SDK table row, then re-emit.
+  (4) coverage.checked prints 0 for embedded-locus kinds. Mechanism sketch,
+  UNVERIFIED: `member_counts` is filled from the dispatch loops'
+  file-discovered features (src/gate.rs:179, :254) while embedded-locus
+  members ride the separate embedded extraction
+  (src/compose.rs::embedded_features_by_kind) — plan verifies which join is
+  missing against an embedded-kind fixture (the consumer testbed exercises
+  9 embedded kinds — the ledger's centercode note — so the symptom is
+  cheaply reproducible there or in a local fixture).
+  (5) duplicate collectionAddress silently unions selections — filed with
+  the report's own currency caveat: possibly stale against current HEAD, not
+  locally verified. Detail lives in dtmd-temper.md; verify before building.
