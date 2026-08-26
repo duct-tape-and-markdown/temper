@@ -48,6 +48,40 @@
     ]
   },
   {
+    "tag": "COLLECTION-KEY-PATH-LABEL-CONSOLIDATE",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/kind.rs",
+          "description": "Add a `pub fn wire_label(self) -> &'static str` inherent method on `CollectionKeyPath` (beside `collection_key()` at ~232), returning the four wire labels `hooks.<Event>` / `mcpServers.*` / `enabledPlugins.*` / `extraKnownMarketplaces.*` — the exact strings `collection_key_path_from_label` (971) already parses in the reverse direction, now the closed vocabulary's one encode+decode home."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "Delete the private `collection_key_path_to_string` (412-419), added by 21f61463 as a hand-copied second table of the same four wire-label literals `kind.rs` already owns. `collection_address_collision_diagnostics`'s overlaid-kind branch (383) calls `collection_address.key_path.wire_label()` instead."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "admissibility.rs's collection-address-collision check (21f61463) hand-copies CollectionKeyPath's 4 wire-label strings that kind.rs already owns as the closed vocabulary's one home",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "every CollectionKeyPath variant's wire_label() round-trips through collection_key_path_from_label back to the same variant"
+      }
+    ],
+    "acceptance": "One CollectionKeyPath<->wire-label encoding lives in kind.rs; admissibility.rs's collision diagnostic calls it rather than carrying its own literal table. cargo test/clippy green, collision diagnostic output unchanged (hook_kind.rs's 21f61463 regression still passes).",
+    "notes": "Posture sweep finding (job 4), neighborhood src/gate.rs+src/admissibility.rs, window 22f8064c..HEAD, commit 21f61463. Purely mechanical — one method extraction, no design call. scoped at 8691981a"
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
