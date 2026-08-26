@@ -1605,10 +1605,11 @@ export const hookDefaultContract: readonly Clause[] = [
  * verifier names (`contract.ts`'s `telemetry`, the `roster.rs` admissibility set); the
  * `event` is the `hooks.<Event>` key the tap registers under, and the `matcher` scopes
  * the fire to the telemetry-relevant subset — each an external fact
- * (code.claude.com/docs/en/hooks, retrieved 2026-07-17):
+ * (code.claude.com/docs/en/hooks, retrieved 2026-08-26):
  *
  * - `InstructionsLoaded` fires on a rule/memory load; its matcher filters the load
- *   reason, and `path_glob_match` is the lazy per-path load the coverage tap reads.
+ *   reason across all documented reasons (session_start, nested_traversal, path_glob_match,
+ *   include, compact), so always-on members that load at session start are recorded.
  * - `SkillInvoked` is a skill invocation, surfaced under `PostToolUse` with the tool-name
  *   matcher `Skill` — the tap's own read of a skill call.
  * - `UserPromptExpansion` fires on a command expansion; its matcher filters the command
@@ -1617,7 +1618,7 @@ export const hookDefaultContract: readonly Clause[] = [
  *   capturing every one.
  */
 export const TELEMETRY_EVENT_HOOKS: Readonly<Record<string, { readonly event: string; readonly matcher: string }>> = {
-  InstructionsLoaded: { event: "InstructionsLoaded", matcher: "path_glob_match" },
+  InstructionsLoaded: { event: "InstructionsLoaded", matcher: ".*" },
   SkillInvoked: { event: "PostToolUse", matcher: "Skill" },
   UserPromptExpansion: { event: "UserPromptExpansion", matcher: ".*" },
   ToolUse: { event: "PostToolUse", matcher: ".*" },

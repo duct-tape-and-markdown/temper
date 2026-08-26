@@ -1635,7 +1635,7 @@ test("a telemetry verifier projects one tap hook per lifecycle event, deduped ac
       fields: [
         ["type", "command"],
         ["command", "temper tap \"$CLAUDE_PROJECT_DIR\""],
-        ["matcher", "path_glob_match"],
+        ["matcher", ".*"],
       ],
     },
     {
@@ -1676,7 +1676,7 @@ test("a telemetry verifier naming every documented event synthesizes each event'
   assert.deepEqual(
     emit(h).registrations.map((r) => [r.key, r.fields.find(([f]) => f === "matcher")?.[1]]),
     [
-      ["InstructionsLoaded", "path_glob_match"],
+      ["InstructionsLoaded", ".*"],
       ["PostToolUse", ".*"],
       ["PostToolUse", "Skill"],
       ["UserPromptExpansion", ".*"],
