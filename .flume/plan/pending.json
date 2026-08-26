@@ -53,82 +53,9 @@
     ]
   },
   {
-    "tag": "TAP-INSTRUCTIONS-LOADED-MATCHER-WIDEN",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "TELEMETRY_EVENT_HOOKS['InstructionsLoaded'] (~1620) hard-codes matcher: 'path_glob_match', so the synthesized settings.json hook fires for only one of Claude Code's five documented load_reason values (session_start, nested_traversal, path_glob_match, include, compact — code.claude.com/docs/en/hooks, retrieved 2026-08-26). Widen to register the remaining reasons — additional per-reason rows or a wildcard matcher — so an always-on member (which loads under session_start) can be recorded at all."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "The synthesized InstructionsLoaded hook's matcher assertions (~1620-1690) pin the single path_glob_match value; extend/update for the widened registration."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "InstructionsLoaded's tap hook registers only under path_glob_match, so an always-on member never gets recorded — contradicting this repo's own context-arrives requirement",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Telemetry"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "the synthesized InstructionsLoaded hook registers for session_start (and the other documented load_reason values), not path_glob_match alone"
-      }
-    ],
-    "acceptance": "This repo's own context-arrives requirement (.temper/harness.ts, verifier: telemetry([\"InstructionsLoaded\", \"SkillInvoked\"])) becomes verifiable in principle — an always-on member's session_start load now registers a tap hook that can fire, where today the wiring structurally excludes it.",
-    "notes": "Field report (dtmd-temper.md #3, adversarially strengthened 2026-08-26, inbox): this harness's own always-on members load under session_start, which path_glob_match-only matching can never record — an on-contract self-contradiction. Blocked on CWD-ANCHOR only for its shared sdk/test/emit.test.ts edit; recommend shipping alongside/after TAP-RECORD-SCHEMA-V2 so new records actually join (non-blocking). scoped at f240dc35"
-  },
-  {
-    "tag": "COLLECTION-ADDRESS-DUPLICATE-REJECT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "governs_collision_diagnostics (~303-341) explicitly excludes any kind carrying a collection_address, its own doc comment naming the gap: 'two manifest kinds contending for one collection address is a distinct, out-of-scope question.' Add a sibling collection_address_collision_diagnostics keyed on (manifest, key_path) from CollectionAddressRow, mirroring the governs-glob collision shape and rule-id convention (kind.collection-address-collision)."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Wire the new diagnostic beside the existing governs_collision_diagnostics call (~205)."
-        },
-        {
-          "path": "tests/hook_kind.rs",
-          "description": "Regression mirroring the report's original 0.0.14 repro: declare a second fields-only kind at settings.json/hooks.<Event> (the built-in hook's own address) and assert check refuses the collision loud, rather than unioning both kinds' selections and cross-applying contracts."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "two fields-only kinds declaring the same collectionAddress are accepted silently; check unions their selections and cross-applies contracts instead of refusing the collision",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "tests": [
-      {
-        "path": "tests/hook_kind.rs",
-        "asserts": "two kinds declared at the same collectionAddress trip a named admissibility error, naming both kinds, instead of unioned/cross-applied selections"
-      }
-    ],
-    "acceptance": "A corpus declaring two kinds at the same collectionAddress fails admissibility with a kind.collection-address-collision finding naming both kinds; a clean corpus is unaffected.",
-    "notes": "Field report (dtmd-temper.md #5, adversarial pass 2026-08-26, inbox): the original 0.0.14 repro no longer reproduces on current temper (currency caveat the report itself raises) — confirm-and-regress, not a live crash; paired with #4 as evidence the address/kind model wants tests at this level. scoped at f240dc35"
-  },
-  {
     "tag": "COVERAGE-EMBEDDED-COUNT-MARKER",
     "gate": {
-      "kind": "blockedBy",
-      "tag": "COLLECTION-ADDRESS-DUPLICATE-REJECT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -140,7 +67,7 @@
         },
         {
           "path": "src/gate.rs",
-          "description": "The coverage_note::check call (~477-484) gains the nested-member counts to pass through."
+          "description": "The coverage_note::check call (~487) gains the nested-member counts to pass through."
         },
         {
           "path": "tests/coverage_note.rs",
@@ -161,7 +88,7 @@
       }
     ],
     "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
-    "notes": "Field report (dtmd-temper.md #4, engine 0.0.15, inbox): the engine evaluates embedded members correctly (extent/max_len/required decide per rendered member) — this is report legibility only. 269 declaration.nested_member rows across 9 embedded kinds in this repo's own lock, every one printing (0) today. Blocked on the prior entry only for the shared src/gate.rs region. scoped at f240dc35"
+    "notes": "Field report (dtmd-temper.md #4, engine 0.0.15): the engine evaluates embedded members correctly (extent/max_len/required decide per rendered member) — this is report legibility only. 269 declaration.nested_member rows across 9 embedded kinds in this repo's own lock, every one printing (0) today. Was blockedBy COLLECTION-ADDRESS-DUPLICATE-REJECT for the shared src/gate.rs region; that entry shipped (21f61463, diagnostics wired at gate.rs:213) — reopened, line cite refreshed. scoped at 21f61463"
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
