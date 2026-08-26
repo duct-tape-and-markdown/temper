@@ -107,23 +107,33 @@ routing.
   explain rust` narrates "No tap event in the log names it" against 31
   instructions_loaded records naming this repo's own rules, while the
   skill join (identity = member id) works (`capture-friction`: 3 of 3).
-  Fix must reconcile writer identity with member id — write a
-  repo-relative/member id (schema bump) or normalize at read; the
-  worktree-fork problem the report documents (one rule split across 40+
-  identity strings over checkout/worktree/fanout roots) folds into the
-  same reconciliation. The design half: the report's remaining asks (an
-  ISO-8601 UTC `ts` on every record, a skill `scope` field, canonical
-  alongside raw for external parsers) presume the log is a consumable API
-  — but `specs/model/pipeline.md` classes it "machine-written,
-  bespoke-parsed, versioned in lockstep with the one binary that both
-  writes and reads it", and the report's own evidence of need is hand-jq
-  analysis, i.e. off-contract reads. That is a spec collision to rule on
-  (open the log as an API, or hold the category and decline the fields),
-  not an entry to build — a fork for plan to surface. The skill
-  dual-spelling observation (`runner` vs `runner:runner`) is Claude Code's
-  caller input faithfully recorded; canonicalizing at write time embeds a
-  resolution policy in a deliberately dumb recorder — read-time resolution
-  is the temper-ish shape if the ruling opens the log.
+  Fix must reconcile writer identity with member id; the worktree-fork
+  problem the report documents (one rule split across 40+ identity strings
+  over checkout/worktree/fanout roots) folds into the same reconciliation.
+  **Session recommendation (2026-08-26, John delegated the lean; encode as
+  the ruling unless plan finds a collision): the file is not the API — the
+  binary is.** Hold pipeline.md's category; the spec already carries the
+  evolution machinery (versioned-in-lockstep, older records tolerated out
+  loud) that makes a bump cheap, and flume 0.11's `log --json` is the
+  family precedent for serving external demand through a read verb over a
+  private file. Concretely, v2 = two changes serving temper's OWN reader:
+  (a) identity becomes the repo-relative path, relativized against the
+  same anchor the sink resolves to (collapsing the worktree fork as a side
+  effect), raw absolute path demoted to a secondary debug field; the
+  READER normalizes repo-relative → member id — it has the lock, the
+  writer doesn't, keeping the tap a dumb recorder. (b) an ISO-8601 UTC
+  `ts`, defended on-contract: context-arrives' failure intent ("a rule
+  that fails to load") is undecidable against an undated log — "loaded 100
+  times, never since the refactor" and "loads today" are identical without
+  it; the field strand can narrate recency. The `scope` field is DECLINED:
+  the member-index join already drops non-member records from every tally,
+  so it serves only off-contract reads and freezes a drift-prone external
+  taxonomy into the record. No stability promise on the JSONL; if field
+  demand for tap data persists, the growth path is a `--json` read-verb
+  face, never the file. The skill dual-spelling observation (`runner` vs
+  `runner:runner`) is Claude Code's caller input faithfully recorded;
+  write-time canonicalization stays declined for the same
+  dumb-recorder reason — resolution is read-side or nowhere.
   (3) InstructionsLoaded taps only under `path_glob_match`: **confirmed at
   HEAD, and adversarially STRENGTHENED — temper's own dogfood contradicts
   its wiring.** `TELEMETRY_EVENT_HOOKS` hard-codes the matcher
