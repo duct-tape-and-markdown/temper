@@ -4,7 +4,7 @@
 
 /// Compile `glob` into a `globset` matcher — the one glob-matching surface every
 /// caller shares, in this module or across the crate (a kind's own
-/// [`CustomKind::owns_source`] membership test, `import`'s per-segment discovery
+/// [`CustomKind::owns_source`](crate::kind::CustomKind::owns_source) membership test, `import`'s per-segment discovery
 /// walk, `coverage_note`'s `governs` leaf test, `graph`'s `paths-match` liveness
 /// test). `literal_separator` is on: `*`/`?` stay within one `/`-separated segment,
 /// `**` crosses segments (a leading `**/` matching zero or more, per `globset`'s

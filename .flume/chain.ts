@@ -498,7 +498,7 @@ const factory: ChainFactory = (flume) => {
     name: "cargo doc",
     when: "afterMerge",
     cmd: "cargo",
-    args: ["doc", "--no-deps", "--quiet"],
+    args: ["doc", "--no-deps", "--document-private-items", "--quiet"],
     failHint: "cargo doc denies broken intra-doc links via the crate-level deny; fix the stale link or unbracket it.",
   });
 

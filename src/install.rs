@@ -1646,7 +1646,7 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 /// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note line is
 /// the only rewritten bytes. The note rides `install`, never `emit` — the author does
 /// not write this YAML comment, so the content-faithful projector preserves it across
-/// re-emits via [`placement::placement_lines`], which anchors `emit` to preserve
+/// re-emits via [`placement::placement_lines`](crate::placement::placement_lines), which anchors `emit` to preserve
 /// managed comments verbatim in the re-rendered frontmatter.
 fn project_note(source: &str) -> Option<String> {
     let (rest, matter) = frontmatter::frontmatter_matter(source)?;

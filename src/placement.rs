@@ -5,7 +5,7 @@ use crate::frontmatter;
 
 /// The managed-by note's stable marker — the comment prefix that *locates* an already
 /// placed note (so a second `install` never duplicates it); whether that note is then
-/// left verbatim or re-placed keys on the line's bytes vs [`NOTE_COMMENT`], not this
+/// left verbatim or re-placed keys on the line's bytes vs `NOTE_COMMENT`, not this
 /// prefix (`project_note`, content-drift-aware).
 pub const NOTE_MARKER: &str = "# temper: managed projection";
 

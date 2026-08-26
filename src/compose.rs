@@ -1128,7 +1128,7 @@ pub fn embedded_features_by_kind(
 /// declared set a `format-places-edges` clause measures a value's own
 /// [`placed_edges`](drift::NestedMemberRow::placed_edges) against
 /// ([`embedded_member_features`]). A malformed edge fact is
-/// [`edges_from_declarations`]'s own load error, raised before any check runs, so this
+/// [`edges_from_declarations`](crate::drift::edges_from_declarations)'s own load error, raised before any check runs, so this
 /// fold reads the well-formed rows rather than raise the identical fault twice.
 fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, BTreeSet<String>> {
     let mut by_kind: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();

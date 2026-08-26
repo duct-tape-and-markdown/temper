@@ -2097,7 +2097,7 @@ fn member_path_index(
 }
 
 /// One raw row from the lock's declaration table — all fields as Options, since
-/// [`read_prior_provenance`], [`config_stale`], and [`emit_owned_targets`] each
+/// [`read_prior_provenance_from_doc`], [`config_stale`], and [`emit_owned_targets`] each
 /// require different subsets of the columns (name+source_path+emit_hash,
 /// name+source_path+emit_hash, and name+source_path respectively). A single
 /// `walk_lock_rows` does the file read and lock parse once; each consumer
@@ -4109,7 +4109,7 @@ fn templates_from_table(table: &dyn TableLike) -> Result<Vec<TemplateRow>, RowEr
 /// patched; the next emit rewrites it whole in the canonical array form.
 ///
 /// Absent is `Ok(None)` — the column stays optional on the row, and an `edge` fact that
-/// omits it is [`crate::main`]'s required-column refusal, not this reader's. A present
+/// omits it is `crate::main`'s required-column refusal, not this reader's. A present
 /// `to` that is neither a string nor an array of strings is a [`RowError`], so the gate
 /// stays tight against a genuinely corrupt lock rather than tolerant of any shape.
 fn edge_to_from_table(table: &dyn TableLike) -> Result<Option<Vec<String>>, RowError> {

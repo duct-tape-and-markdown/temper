@@ -477,7 +477,7 @@ fn quoted(globs: &[String]) -> String {
         .join(", ")
 }
 
-/// A degree direction — which side of a node's edges a [`DegreeBound`] constrains.
+/// A degree direction — which side of a node's edges a degree bound constrains.
 #[derive(Clone, Copy)]
 enum Direction {
     /// Edges *pointing at* the node — how many nodes reference it.
@@ -944,7 +944,7 @@ fn resolve_directive_target(importing: &Path, target: &str) -> PathBuf {
 /// The finding for an **unbacked pointer** — a directive occurrence resolving to
 /// neither a member nor a repo file: the
 /// importing member imports a path that loads nothing, the silent-context-loss failure
-/// class caught at author-time. Mirrors [`dangling`]/[`unreachable`]: an error naming
+/// class caught at author-time. Mirrors [`dangling`]/[`unreachable()`]: an error naming
 /// the importing member and the dead target.
 fn unbacked_pointer(importing: &str, target: &str) -> Diagnostic {
     Diagnostic::error(
