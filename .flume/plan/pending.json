@@ -82,6 +82,36 @@
     "notes": "Posture sweep finding (job 4), neighborhood src/gate.rs+src/admissibility.rs, window 22f8064c..HEAD, commit 21f61463. Purely mechanical — one method extraction, no design call. scoped at 8691981a"
   },
   {
+    "tag": "TELEMETRY-IDENTITY-DISPATCH-DEDUP",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/telemetry.rs",
+          "description": "Add a private `fn normalized_record_identity(record: &TapRecord, path_to_id: &BTreeMap<String, String>) -> String` beside `normalize_instructions_loaded_identity` (19-37), holding the `if record.event == TapEvent::InstructionsLoaded { normalize_instructions_loaded_identity(...) } else { record.identity.clone() }` dispatch. Replace the identical inline block in `field()` (89-93) and `requirement_field()` (202-206) with a call to it."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "telemetry.rs's field() and requirement_field() each hand-copy the same InstructionsLoaded-vs-other identity-normalization if/else dispatch — one normalizer, not two",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "a_member_target_narrates_its_tap_event_counts_and_denominators, a_requirement_telemetry_field_strand_shows_event_counts_per_satisfier, and a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id all still pass unchanged — the consolidation is behavior-preserving"
+      }
+    ],
+    "acceptance": "field() and requirement_field() both dispatch through one normalized_record_identity helper; no duplicated if/else branch remains in telemetry.rs. cargo test/clippy green, telemetry strand output unchanged.",
+    "notes": "Posture sweep finding (job 4), neighborhood src/read.rs+src/telemetry.rs+tests/read_verbs.rs, window 22f8064c..HEAD, commit 9b967326 (normalize_instructions_loaded_identity's dispatch got copy-pasted into requirement_field alongside field). Purely mechanical extraction, no design call. scoped at 7d695577"
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
