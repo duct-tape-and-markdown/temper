@@ -39,7 +39,13 @@
       }
     ],
     "acceptance": "coverage.checked's summary line for an embedded-locus kind carrying nested members states a nonzero count (or the named fallback of omitting it), never a bare misleading (0).",
-    "notes": "Field report (dtmd-temper.md #4): report legibility only, engine evaluates embedded members correctly. 269 nested_member rows across 9 embedded kinds in this lock, all print (0) today. Reopened after COLLECTION-ADDRESS-DUPLICATE-REJECT shipped (21f61463). Rewritten: a reverted build attempt's observedFiles showed tests/check_cost.rs is a third coverage_note::check call site (rg-confirmed) the declared files under-stated; folded in, capture check_cost_call_site.md drained here. scoped at 3237033f"
+    "notes": "Field report (dtmd-temper.md #4): report legibility only, engine evaluates embedded members correctly. 269 nested_member rows across 9 embedded kinds in this lock, all print (0) today. Reopened after COLLECTION-ADDRESS-DUPLICATE-REJECT shipped (21f61463). Rewritten: a reverted build attempt's observedFiles showed tests/check_cost.rs is a third coverage_note::check call site (rg-confirmed) the declared files under-stated; folded in, capture check_cost_call_site.md drained here. scoped at 3237033f",
+    "observedFiles": [
+      ".flume/refactor/build-coverage-embedded-count-marker.md",
+      "src/coverage_note.rs",
+      "src/gate.rs",
+      "tests/coverage_note.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
