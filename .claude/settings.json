@@ -8,7 +8,7 @@
             "type": "command"
           }
         ],
-        "matcher": "path_glob_match"
+        "matcher": ".*"
       }
     ],
     "PostToolUse": [
