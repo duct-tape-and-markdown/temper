@@ -127,8 +127,8 @@ fn an_unrecognized_payload_records_nothing_and_exits_zero() {
 
 #[test]
 fn a_record_round_trips_through_append_and_read() {
-    // The record the writer serializes reads back byte-for-byte identical at the
-    // current version — the writer and the version-tolerant reader agree.
+    // The record the writer serializes reads back with its fields populated by
+    // `append` (ts is set by append, identity may be relativized).
     let root = common::tmpdir("tap-roundtrip");
     let workspace = root.join(".temper");
     std::fs::create_dir_all(&workspace).unwrap();
@@ -138,13 +138,24 @@ fn a_record_round_trips_through_append_and_read() {
         session: "sess".to_string(),
         event: TapEvent::SkillInvoked,
         identity: "verify".to_string(),
+        ts: String::new(),
         reason: None,
+        raw_path: None,
     };
     tap::append(&workspace, &record).unwrap();
 
     let readout = tap::read_log(&workspace).unwrap();
-    assert_eq!(readout.records, vec![record]);
-    assert_eq!(readout.older_version, 0);
+    assert_eq!(readout.records.len(), 1, "one append produces one record");
+    assert_eq!(readout.older_version, 0, "the current tap wrote it");
+
+    let read_record = &readout.records[0];
+    assert_eq!(read_record.version, TAP_RECORD_VERSION);
+    assert_eq!(read_record.session, "sess");
+    assert_eq!(read_record.event, TapEvent::SkillInvoked);
+    assert_eq!(read_record.identity, "verify");
+    assert!(!read_record.ts.is_empty(), "ts is populated by append");
+    assert_eq!(read_record.reason, None);
+    assert_eq!(read_record.raw_path, None);
 }
 
 #[test]
@@ -160,7 +171,9 @@ fn two_appends_interleave_as_two_lines_without_rewriting() {
         session: "a".to_string(),
         event: TapEvent::ToolUse,
         identity: "Read".to_string(),
+        ts: String::new(),
         reason: None,
+        raw_path: None,
     };
     let second = TapRecord {
         session: "b".to_string(),
@@ -174,7 +187,13 @@ fn two_appends_interleave_as_two_lines_without_rewriting() {
     assert_eq!(raw.lines().count(), 2, "two appends produce two lines");
 
     let readout = tap::read_log(&workspace).unwrap();
-    assert_eq!(readout.records, vec![first, second]);
+    assert_eq!(readout.records.len(), 2);
+    assert_eq!(readout.records[0].session, "a");
+    assert_eq!(readout.records[0].identity, "Read");
+    assert!(!readout.records[0].ts.is_empty());
+    assert_eq!(readout.records[1].session, "b");
+    assert_eq!(readout.records[1].identity, "Write");
+    assert!(!readout.records[1].ts.is_empty());
 }
 
 #[test]
@@ -191,7 +210,9 @@ fn an_older_version_record_reads_tolerated_and_counted() {
         session: "now".to_string(),
         event: TapEvent::ToolUse,
         identity: "Read".to_string(),
+        ts: String::new(),
         reason: None,
+        raw_path: None,
     };
     // A line an older tap wrote: version 0, otherwise the current schema.
     let older = "{\"version\":0,\"session\":\"then\",\"event\":\"tool_use\",\"identity\":\"Grep\"}";
@@ -256,7 +277,9 @@ fn log_path_resolves_linked_worktree_to_primary_checkout() {
         session: "test-session".to_string(),
         event: TapEvent::ToolUse,
         identity: "TestTool".to_string(),
+        ts: String::new(),
         reason: None,
+        raw_path: None,
     };
     tap::append(&worktree_workspace, &record).unwrap();
 
@@ -299,7 +322,9 @@ fn log_path_unchanged_for_primary_checkout_with_git_directory() {
         session: "test-session".to_string(),
         event: TapEvent::ToolUse,
         identity: "Tool".to_string(),
+        ts: String::new(),
         reason: None,
+        raw_path: None,
     };
     tap::append(&workspace, &record).unwrap();
 
@@ -322,7 +347,9 @@ fn log_path_unchanged_for_non_git_directory() {
         session: "test-session".to_string(),
         event: TapEvent::ToolUse,
         identity: "Tool".to_string(),
+        ts: String::new(),
         reason: None,
+        raw_path: None,
     };
     tap::append(&workspace, &record).unwrap();
 

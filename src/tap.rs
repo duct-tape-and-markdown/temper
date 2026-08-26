@@ -12,6 +12,7 @@
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -21,7 +22,7 @@ use crate::builtin_kind;
 /// The tap record's on-disk version, bumped in lockstep with the binary that
 /// both writes and reads it. A reader meeting a record an older tap wrote
 /// tolerates it and counts it against this.
-pub const TAP_RECORD_VERSION: u32 = 1;
+pub const TAP_RECORD_VERSION: u32 = 2;
 
 /// Filename of the per-machine event log under the workspace — uncommitted,
 /// machine-written, never an emit input or target.
@@ -106,13 +107,21 @@ pub struct TapRecord {
     pub session: String,
     /// Which lifecycle event fired.
     pub event: TapEvent,
-    /// The member or path the event names — a file path, a skill name, a command
-    /// name, or a tool name, per the event.
+    /// The member or path the event names — repo-relative for file paths,
+    /// skill/command/tool name otherwise.
     pub identity: String,
+    /// ISO-8601 UTC timestamp when the record was written.
+    /// Defaults to empty string for older records.
+    #[serde(default)]
+    pub ts: String,
     /// The load reason an `InstructionsLoaded` event carries (`session_start`,
     /// `nested_traversal`, …); absent for every other event.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// The raw absolute path Claude Code sent (debug field, never dropped).
+    /// Present only for `InstructionsLoaded` events.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_path: Option<String>,
 }
 
 /// Errors raised writing or reading the tap log.
@@ -217,7 +226,8 @@ pub(crate) fn log_path(workspace_dir: &Path) -> PathBuf {
 /// Build a record from a raw Claude Code hook payload, when the payload names a
 /// recognized lifecycle event. Extracts identity + minimal discriminant only —
 /// the payload's prose fields (`content`, `tool_response`, `expanded_prompt`)
-/// are never read into the record.
+/// are never read into the record. Returns the raw identity in a field for later
+/// relativization by `append`.
 ///
 /// Returns [`None`] for a payload that does not parse, names no recognized
 /// event, or lacks the identity field its event needs: a tap is advisory, so an
@@ -229,19 +239,31 @@ pub fn record_from_payload(payload: &str) -> Option<TapRecord> {
 
     let (event, identity, reason) = builtin_kind::classify_claude_code_hook_payload(&value)?;
 
+    // For InstructionsLoaded events, store the raw absolute path; it will be
+    // relativized by append. For other events (skill, command, tool names),
+    // raw_path stays None.
+    let raw_path = match event {
+        TapEvent::InstructionsLoaded => Some(identity.clone()),
+        _ => None,
+    };
+
     Some(TapRecord {
         version: TAP_RECORD_VERSION,
         session,
         event,
         identity,
+        ts: String::new(),
         reason,
+        raw_path,
     })
 }
 
 /// Append one record as a single JSONL line to the per-machine log under
-/// `workspace_dir`, creating the log (and its parent) if absent. An append never
-/// rewrites the file — it opens in append mode and writes one line — so parallel
-/// sessions interleave lines safely rather than clobbering each other.
+/// `workspace_dir`, creating the log (and its parent) if absent. Relativizes
+/// `InstructionsLoaded` identity against the primary checkout root and adds
+/// an ISO-8601 UTC timestamp. An append never rewrites the file — it opens in
+/// append mode and writes one line — so parallel sessions interleave lines
+/// safely rather than clobbering each other.
 ///
 /// # Errors
 ///
@@ -255,7 +277,22 @@ pub fn append(workspace_dir: &Path, record: &TapRecord) -> Result<(), TapError> 
             source,
         })?;
     }
-    let mut line = serde_json::to_string(record).map_err(|source| TapError::Encode { source })?;
+
+    // Finalize the record: add timestamp and relativize identity if needed.
+    let mut finalized = record.clone();
+    finalized.ts = iso8601_utc_timestamp();
+
+    // For InstructionsLoaded, relativize the identity against the primary checkout.
+    if record.event == TapEvent::InstructionsLoaded
+        && let Some(primary_root) = log_path(workspace_dir).parent()
+        && let Ok(rel) = PathBuf::from(&record.identity).strip_prefix(primary_root)
+        && let Some(rel_str) = rel.to_str()
+    {
+        finalized.identity = rel_str.to_string();
+    }
+
+    let mut line =
+        serde_json::to_string(&finalized).map_err(|source| TapError::Encode { source })?;
     line.push('\n');
     let mut file = fs::OpenOptions::new()
         .create(true)
@@ -268,6 +305,68 @@ pub fn append(workspace_dir: &Path, record: &TapRecord) -> Result<(), TapError> 
     file.write_all(line.as_bytes())
         .map_err(|source| TapError::LogAppend { path, source })?;
     Ok(())
+}
+
+/// Generate an ISO-8601 UTC timestamp for the current system time.
+fn iso8601_utc_timestamp() -> String {
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(duration) => {
+            let secs = duration.as_secs();
+            let nanos = duration.subsec_nanos();
+            let secs_per_day = 86400;
+            let days_since_epoch = secs / secs_per_day;
+            let seconds_today = secs % secs_per_day;
+
+            let hours = seconds_today / 3600;
+            let minutes = (seconds_today % 3600) / 60;
+            let secs_in_minute = seconds_today % 60;
+
+            let days_since_1970 = days_since_epoch;
+            let mut y = 1970;
+            let mut remaining_days = days_since_1970;
+
+            loop {
+                let days_in_year = if is_leap_year(y) { 366 } else { 365 };
+                if remaining_days < days_in_year {
+                    break;
+                }
+                remaining_days -= days_in_year;
+                y += 1;
+            }
+
+            let days_in_months = if is_leap_year(y) {
+                [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            } else {
+                [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            };
+
+            let mut m = 1;
+            let mut day = remaining_days + 1;
+            for days_in_month in days_in_months {
+                if day <= days_in_month {
+                    break;
+                }
+                day -= days_in_month;
+                m += 1;
+            }
+
+            format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
+                y,
+                m,
+                day,
+                hours,
+                minutes,
+                secs_in_minute,
+                nanos / 1000
+            )
+        }
+        Err(_) => String::from("1970-01-01T00:00:00.000000Z"),
+    }
+}
+
+fn is_leap_year(year: u32) -> bool {
+    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
 }
 
 /// The result of reading the whole log: every record the current and tolerated

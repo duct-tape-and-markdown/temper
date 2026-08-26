@@ -3,12 +3,28 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
+use std::path::Path;
 
 use crate::extract::Features;
 use crate::tap::{TapEvent, TapRecord};
 
 /// Event statistics for requirement-grain telemetry: (count, distinct_members, distinct_sessions, satisfiers_with_records)
 type EventStats = (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
+
+/// Extract a member ID from an InstructionsLoaded record's repo-relative file path.
+/// For paths like `.claude/rules/rust.md`, extracts `rust` (the filename without extension).
+/// Returns the extracted ID if it's a direct file member, otherwise returns the original identity.
+fn normalize_instructions_loaded_identity(identity: &str) -> String {
+    let path = Path::new(identity);
+    if let Some(filename) = path.file_name()
+        && let Some(name_str) = filename.to_str()
+        && let Some(member_id) = name_str.strip_suffix(".md")
+    {
+        member_id.to_string()
+    } else {
+        identity.to_string()
+    }
+}
 
 /// `explain`'s **field** strand — narrate the local telemetry the tap recorded for
 /// `member`: its per-event counts and the denominators they range against, both joined
@@ -57,12 +73,20 @@ pub fn field(
     // counts against the members: the join is through the lock, never a raw string tally.
     let mut tallies: BTreeMap<&'static str, (usize, usize)> = BTreeMap::new();
     for record in records {
-        if !member_index.contains_key(record.identity.as_str()) {
+        // Normalize InstructionsLoaded identities from repo-relative paths to member IDs
+        // before comparing against the member_index (which is keyed by member ID).
+        let normalized_identity = if record.event == crate::tap::TapEvent::InstructionsLoaded {
+            normalize_instructions_loaded_identity(&record.identity)
+        } else {
+            record.identity.clone()
+        };
+
+        if !member_index.contains_key(normalized_identity.as_str()) {
             continue;
         }
         let entry = tallies.entry(event_label(record.event)).or_default();
         entry.1 += 1;
-        if record.identity == member {
+        if normalized_identity == member {
             entry.0 += 1;
         }
     }
@@ -161,7 +185,15 @@ pub fn requirement_field(
 
     // Aggregate records: only count those naming a member in the check set
     for record in records {
-        if !check_set.contains(&record.identity) {
+        // Normalize InstructionsLoaded identities from repo-relative paths to member IDs
+        // before comparing against the check set.
+        let normalized_identity = if record.event == crate::tap::TapEvent::InstructionsLoaded {
+            normalize_instructions_loaded_identity(&record.identity)
+        } else {
+            record.identity.clone()
+        };
+
+        if !check_set.contains(&normalized_identity) {
             continue;
         }
         let event_name = crate::tap::documented_name(record.event).to_string();
@@ -169,9 +201,9 @@ pub fn requirement_field(
             event_stats.get_mut(&event_name)
         {
             *count += 1;
-            members.insert(record.identity.clone());
+            members.insert(normalized_identity.clone());
             sessions.insert(record.session.clone());
-            entities_with_records.insert(record.identity.clone());
+            entities_with_records.insert(normalized_identity.clone());
         }
     }
 

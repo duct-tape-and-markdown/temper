@@ -410,7 +410,9 @@ fn tap_record(version: u32, event: TapEvent, identity: &str) -> TapRecord {
         session: "sess".to_string(),
         event,
         identity: identity.to_string(),
+        ts: "2026-08-26T00:00:00.000000Z".to_string(),
         reason: None,
+        raw_path: None,
     }
 }
 
