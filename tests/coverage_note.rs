@@ -256,8 +256,14 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
     // with just the built-in kinds and still flags an ungoverned present surface.
     let missing = common::tmpdir("coverage-note-missing-lock");
     common::write_mcp_json(&missing, "{}");
-    let diagnostics = coverage_note::check(&missing, &empty_kinds, &BTreeMap::new(), &[])
-        .expect("a missing lock degrades to the built-in kinds, never an error");
+    let diagnostics = coverage_note::check(
+        &missing,
+        &empty_kinds,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[],
+    )
+    .expect("a missing lock degrades to the built-in kinds, never an error");
     assert!(
         diagnostics
             .iter()
@@ -277,7 +283,14 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     let ungoverned = common::tmpdir("mcp-wholly-ungoverned");
     common::write_mcp_json(&ungoverned, "{}");
     let empty_kinds: BTreeMap<String, CustomKind> = BTreeMap::new();
-    let bare = coverage_note::check(&ungoverned, &empty_kinds, &BTreeMap::new(), &[]).unwrap();
+    let bare = coverage_note::check(
+        &ungoverned,
+        &empty_kinds,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[],
+    )
+    .unwrap();
     let mcp = bare
         .iter()
         .find(|d| d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")
@@ -294,7 +307,14 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     let governed = common::tmpdir("mcp-wholly-governed");
     common::write_mcp_json(&governed, "{}");
     let builtins = temper::builtin_kind::definitions();
-    let full = coverage_note::check(&governed, &builtins, &BTreeMap::new(), &[]).unwrap();
+    let full = coverage_note::check(
+        &governed,
+        &builtins,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &[],
+    )
+    .unwrap();
     assert!(
         full.iter()
             .all(|d| !(d.rule == "coverage.unmodeled-surface" && d.artifact == ".mcp.json")),
@@ -342,5 +362,50 @@ fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
     assert!(
         success,
         "the advisory coverage note must not fail the run, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn an_embedded_kind_with_nested_members_renders_a_nonzero_embedded_marked_count() {
+    // Regression: a lock with nested_member rows against an embedded kind (one with no
+    // discoverable locus) should render a nonzero, embedded-marked count in the coverage
+    // note's summary line — never a bare (0) that reads as dead. Create a minimal lock
+    // with nested_member rows for an embedded kind.
+    let harness = common::tmpdir("embedded-nested-members");
+    write_skill(&harness, "test-skill");
+
+    let lock_dir = harness.join(".temper");
+    std::fs::create_dir_all(&lock_dir).unwrap();
+    std::fs::write(
+        lock_dir.join("lock.toml"),
+        r#"[declaration]
+
+[[declaration.nested_member]]
+host = "skill:test-skill"
+kind = "supporting-doc"
+key = "overview"
+"#,
+    )
+    .unwrap();
+
+    let (findings, _success) = check_harness(&harness);
+
+    // The checked-summary must include the embedded `supporting-doc` kind with a nonzero,
+    // embedded-marked count — never (0).
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    let summary = checked[0];
+    assert!(
+        summary.contains("supporting-doc (1 embedded)"),
+        "an embedded kind with nested members must show a nonzero embedded-marked count, got: {summary}"
+    );
+    // The file-based skill kind should also appear with its discovered count.
+    assert!(
+        summary.contains("skill (1)"),
+        "the summary should also include the discovered skill kind, got: {summary}"
     );
 }

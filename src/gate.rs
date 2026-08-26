@@ -484,10 +484,15 @@ pub fn gate(
     // reads as "checked". Warn-only — it leaves the run's exit code and the session-start
     // verdict unchanged. Threads the already-parsed `committed.kinds` to avoid a redundant
     // lock re-parse (COVERAGE-NOTE-LOCK-PARSE-HOIST).
+    let mut nested_member_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for row in &committed.nested_members {
+        *nested_member_counts.entry(row.kind.clone()).or_default() += 1;
+    }
     diagnostics.extend(coverage_note::check(
         harness_root,
         &builtin_kind::definitions(),
         &member_counts,
+        &nested_member_counts,
         &committed.kinds,
     )?);
 

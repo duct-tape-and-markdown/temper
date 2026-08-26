@@ -35,14 +35,15 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 /// Compute the wedge's advisory coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind checked-member count the gate already loaded,
-/// keyed by each kind's bare row label; `kinds` is the built-in kind set.
-/// `locked_kinds` are the kind-fact rows from the committed lock (an empty slice for
-/// an unadopted harness), so a locked custom kind's `governs` suppresses a known
-/// surface exactly as a built-in's does. Returns `warn`-severity diagnostics only
-/// (never `error`, never a session-start verdict): a summary of what was checked,
-/// then one finding per known Claude Code surface present on disk that no in-scope
-/// kind governs — so the gate's silence about an unmodeled surface never reads as
-/// "checked".
+/// keyed by each kind's bare row label; `nested_member_counts` is the per-kind
+/// embedded-member count grouped from the lock's nested_member rows; `kinds` is the
+/// built-in kind set. `locked_kinds` are the kind-fact rows from the committed lock
+/// (an empty slice for an unadopted harness), so a locked custom kind's `governs`
+/// suppresses a known surface exactly as a built-in's does. Returns `warn`-severity
+/// diagnostics only (never `error`, never a session-start verdict): a summary of what
+/// was checked, then one finding per known Claude Code surface present on disk that no
+/// in-scope kind governs — so the gate's silence about an unmodeled surface never reads
+/// as "checked".
 ///
 /// # Errors
 ///
@@ -52,6 +53,7 @@ pub fn check(
     root: &Path,
     kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
+    nested_member_counts: &BTreeMap<String, usize>,
     locked_kinds: &[crate::drift::KindFactRow],
 ) -> miette::Result<Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
@@ -61,19 +63,31 @@ pub fn check(
     // `BTreeMap`, so the summary is stable. `member_counts` already folds in every
     // locked custom kind's members alongside the built-ins, so the message names no
     // "built-in" qualifier that would misdescribe a custom-kind count.
+    // Embedded kinds are those appearing only in nested_member_counts, rendered with
+    // "embedded" marker; the fallback is to omit them if they carry no discovered members.
     let total: usize = member_counts.values().sum();
-    let per_kind: Vec<String> = member_counts
+    let mut all_kinds: BTreeSet<&String> = member_counts.keys().collect();
+    all_kinds.extend(nested_member_counts.keys());
+    let per_kind: Vec<String> = all_kinds
         .iter()
-        .map(|(kind, count)| format!("{kind} ({count})"))
+        .map(|kind| {
+            let discovered_count = member_counts.get(*kind).copied().unwrap_or(0);
+            let embedded_count = nested_member_counts.get(*kind).copied();
+            match (discovered_count, embedded_count) {
+                (0, Some(n)) => format!("{} ({} embedded)", kind, n),
+                (n, _) => format!("{} ({})", kind, n),
+            }
+        })
         .collect();
+    let kind_count = all_kinds.len();
     diagnostics.push(Diagnostic::warn(
         CHECKED_RULE,
         "harness",
         format!(
             "checked {total} member{} across {} kind{}: {}",
             crate::display::plural(total),
-            member_counts.len(),
-            crate::display::plural(member_counts.len()),
+            kind_count,
+            crate::display::plural(kind_count),
             per_kind.join(", "),
         ),
     ));
@@ -449,6 +463,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &BTreeMap::new(),
             &[],
         )
         .unwrap();
@@ -472,6 +487,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &BTreeMap::new(),
             &[],
         )
         .unwrap();
@@ -491,6 +507,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &BTreeMap::new(),
             &[],
         )
         .unwrap();
@@ -602,7 +619,14 @@ mod tests {
 
         let counts = BTreeMap::from([("widget".to_string(), 0usize)]);
         let locked = crate::drift::read_declarations(&root.join(crate::WORKSPACE_DIR)).unwrap();
-        let diagnostics = check(&root, &builtin_set(), &counts, &locked.kinds).unwrap();
+        let diagnostics = check(
+            &root,
+            &builtin_set(),
+            &counts,
+            &BTreeMap::new(),
+            &locked.kinds,
+        )
+        .unwrap();
 
         assert!(
             diagnostics
@@ -619,7 +643,7 @@ mod tests {
 
         let counts = BTreeMap::new();
         // No lock exists, so pass an empty slice for locked_kinds
-        let diagnostics = check(&root, &builtin_set(), &counts, &[]).unwrap();
+        let diagnostics = check(&root, &builtin_set(), &counts, &BTreeMap::new(), &[]).unwrap();
 
         assert!(
             diagnostics
@@ -644,7 +668,7 @@ mod tests {
         .unwrap();
 
         let kinds = BTreeMap::from([("hook".to_string(), hook_kind())]);
-        let diagnostics = check(&root, &kinds, &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(&root, &kinds, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
 
         let finding = diagnostics
             .iter()
@@ -788,7 +812,14 @@ mod tests {
         std::fs::create_dir_all(root.join(".claude")).unwrap();
         std::fs::write(root.join(".claude/.clauignore"), "").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(
+            &root,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         let matches: Vec<_> = diagnostics
             .iter()
@@ -804,7 +835,14 @@ mod tests {
         let root = tmpdir("governed-locus");
         std::fs::create_dir_all(root.join(".claude/skills")).unwrap();
 
-        let diagnostics = check(&root, &builtin_set(), &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(
+            &root,
+            &builtin_set(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -825,7 +863,14 @@ mod tests {
         .unwrap();
         std::fs::write(root.join(".mcp.json"), "{}").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(
+            &root,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         assert!(
             diagnostics.iter().all(|d| d.rule != UNCLAIMED_RULE),
@@ -849,7 +894,14 @@ mod tests {
         std::fs::write(root.join(".claude/.gitignore"), "ignored-stray.md\n").unwrap();
         std::fs::write(root.join(".claude/ignored-stray.md"), "").unwrap();
 
-        let diagnostics = check(&root, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(
+            &root,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         assert!(
             diagnostics

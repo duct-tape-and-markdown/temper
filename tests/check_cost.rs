@@ -389,6 +389,7 @@ unit_shape = "file"
         &harness,
         &temper::builtin_kind::definitions(),
         &member_counts,
+        &BTreeMap::new(),
         &committed.kinds,
     )
     .expect("coverage_note::check should succeed");
