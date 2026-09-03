@@ -3,7 +3,7 @@
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
-      "reason": "Human re-ruling 09-03 (interactive): the first ruling — refuse a duplicate member address within a kind — was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
+      "reason": "Human re-ruling 09-03 (interactive): the first ruling \u2014 refuse a duplicate member address within a kind \u2014 was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
     },
     "dependsOnForks": [
       "hook-member-identity"
@@ -13,7 +13,7 @@
       "edit": [
         {
           "path": "src/admissibility.rs",
-          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map — silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
+          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map \u2014 silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
         },
         {
           "path": "src/gate.rs",
@@ -21,7 +21,7 @@
         },
         {
           "path": "tests/hook_kind.rs",
-          "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape."
+          "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members \u2014 mirroring 21f61463's kind-collision test shape."
         }
       ],
       "retire": []
@@ -38,7 +38,7 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
+    "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test \u2014 temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
     "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
@@ -112,7 +112,7 @@
       }
     ],
     "acceptance": "After a Bash-mediated edit to an emit-owned target, the next PostToolUse Bash call surfaces the resulting drift finding in-band.",
-    "notes": "GH #38 half 2b, human-ruled 09-03. External fact verified 2026-09-03 (code.claude.com/docs/en/hooks, fetched this tick): PostToolUse supports a Bash matcher and receives tool_input.command but no file_path — the design re-checks emit-owned targets rather than parsing shell text, so the hook contract poses no blocker; not parked. blockedBy the prior entry only for the shared install.rs guard region. scoped at 1466a1db."
+    "notes": "GH #38 half 2b, human-ruled 09-03. External fact verified 2026-09-03 (code.claude.com/docs/en/hooks, fetched this tick): PostToolUse supports a Bash matcher and receives tool_input.command but no file_path \u2014 the design re-checks emit-owned targets rather than parsing shell text, so the hook contract poses no blocker; not parked. blockedBy the prior entry only for the shared install.rs guard region. scoped at 1466a1db."
   },
   {
     "tag": "EMIT-BANNER-OWNERSHIP-MOVE",
@@ -126,7 +126,7 @@
       "edit": [
         {
           "path": "src/drift.rs",
-          "description": "`project_bytes` (~2372) and the `emit()` projection loop (~1054+) currently read banner `placements` only off the *already-committed* file on disk (~2298-2299: \"Those metadata lines ride install, never emit\") — a member that only ever ran `emit` ships bannerless. Move banner origination here: emit places the managed-projection banner on every target it owns, since it already owns the projected bytes and the banner is part of the projection contract. Verify the double-emit determinism pass and the byte-vs-lock-hash drift comparison both treat the banner as ordinary projection bytes, so an unchanged emit still reports unchanged."
+          "description": "`project_bytes` (~2372) and the `emit()` projection loop (~1054+) currently read banner `placements` only off the *already-committed* file on disk (~2298-2299: \"Those metadata lines ride install, never emit\") \u2014 a member that only ever ran `emit` ships bannerless. Move banner origination here: emit places the managed-projection banner on every target it owns, since it already owns the projected bytes and the banner is part of the projection contract. Verify the double-emit determinism pass and the byte-vs-lock-hash drift comparison both treat the banner as ordinary projection bytes, so an unchanged emit still reports unchanged."
         },
         {
           "path": "src/install.rs",
@@ -143,7 +143,7 @@
       ],
       "retire": []
     },
-    "summary": "Move the managed-projection banner's placement from install to emit — emit owns the projected bytes, so a member that only ever ran emit should not ship bannerless.",
+    "summary": "Move the managed-projection banner's placement from install to emit \u2014 emit owns the projected bytes, so a member that only ever ran emit should not ship bannerless.",
     "per": {
       "path": "specs/model/pipeline.md",
       "section": "Emit"
@@ -155,7 +155,7 @@
       }
     ],
     "acceptance": "Every emit-owned projection carries the managed-projection banner immediately after emit, with no dependency on install having run first; drift reports no spurious churn from the banner's own placement.",
-    "notes": "GH #37, human-ruled 09-03. src/drift.rs:2298's own comment currently states the opposite design (\"ride install, never emit\") — this entry is a deliberate reversal per the ruling, not a bug in that comment's accuracy today. blockedBy the guard entries above only for the shared install.rs file, not a design dependency. scoped at 1466a1db."
+    "notes": "GH #37, human-ruled 09-03. src/drift.rs:2298's own comment currently states the opposite design (\"ride install, never emit\") \u2014 this entry is a deliberate reversal per the ruling, not a bug in that comment's accuracy today. blockedBy the guard entries above only for the shared install.rs file, not a design dependency. scoped at 1466a1db."
   },
   {
     "tag": "REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT",
@@ -168,11 +168,11 @@
       "edit": [
         {
           "path": "src/roster.rs",
-          "description": "Satisfier admission (~123) already refuses an unmodeled kind naming a requirement's `kind`, but is otherwise kind-blind: any modeled kind's satisfier fills a requirement regardless of its declared `kind`. Enforce the constraint — a satisfier of a kind other than the requirement's declared `kind` is a required-severity finding on the satisfier."
+          "description": "Satisfier admission (~123) already refuses an unmodeled kind naming a requirement's `kind`, but is otherwise kind-blind: any modeled kind's satisfier fills a requirement regardless of its declared `kind`. Enforce the constraint \u2014 a satisfier of a kind other than the requirement's declared `kind` is a required-severity finding on the satisfier."
         },
         {
           "path": "src/admissibility.rs",
-          "description": "Requirement admissibility (~104-125) checks `kind` narrows to a *modeled* kind (dead-selector case); this is the sibling live case — a filled requirement whose filler's kind mismatches."
+          "description": "Requirement admissibility (~104-125) checks `kind` narrows to a *modeled* kind (dead-selector case); this is the sibling live case \u2014 a filled requirement whose filler's kind mismatches."
         },
         {
           "path": "src/read.rs",
@@ -188,7 +188,7 @@
     "summary": "Enforce a requirement's declared `kind`: a satisfier of another kind is a required-severity finding, and explain excludes it from filling the requirement.",
     "per": {
       "path": "specs/model/contract.md",
-      "section": "requirement — a shipped kind, not a primitive"
+      "section": "requirement \u2014 a shipped kind, not a primitive"
     },
     "tests": [
       {
@@ -197,7 +197,7 @@
       }
     ],
     "acceptance": "A requirement declared `kind: skill` filled only by an `installed-plugin` satisfier now surfaces a required-severity finding naming the mismatch, and `explain` does not credit the fill.",
-    "notes": "GH #28, human-ruled 09-03. sdk/src/contract.ts:344 already documents `kind` as constraining what may fill a requirement; src/roster.rs already refuses an unmodeled kind, so the seam exists — what's missing is the live mismatch finding. blockedBy AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL only for the shared src/admissibility.rs region. scoped at 1466a1db.",
+    "notes": "GH #28, human-ruled 09-03. sdk/src/contract.ts:344 already documents `kind` as constraining what may fill a requirement; src/roster.rs already refuses an unmodeled kind, so the seam exists \u2014 what's missing is the live mismatch finding. blockedBy AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL only for the shared src/admissibility.rs region. scoped at 1466a1db.",
     "observedFiles": [
       "src/read.rs",
       "tests/common/mod.rs",
@@ -208,7 +208,7 @@
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
     },
     "dependsOnForks": [],
     "files": {
@@ -224,17 +224,243 @@
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships — three channels"
+      "section": "What ships \u2014 three channels"
     },
     "tests": [],
-    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) — distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
-    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0→0.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11→da77c60 fired release.yml with a green smoke gate per its own commit body — channel 2 is proven live, not just wired. scoped 01ba369."
+    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) \u2014 distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
+    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0\u21920.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11\u2192da77c60 fired release.yml with a green smoke gate per its own commit body \u2014 channel 2 is proven live, not just wired. scoped 01ba369."
+  },
+  {
+    "tag": "EMIT-DISCOVERY-MEMBER-SET-ROUND-TRIP",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "Add a round-trip test beside `the_gauntlet_corpus_emits_and_checks_to_stable_snapshots`: after `drift::emit_program` compiles the kitchen-sink corpus (GAUNTLET_PROGRAM's five compositions already span file, nested-file, embedded, and local/`at`-locus loci), independently discover each declared kind's members via `import::Discovery`/`discover_kind_files` off the same harness root and assert the discovered path set equals exactly the emitted lock's per-kind provenance source paths \u2014 no more, no fewer."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Parameterized round-trip test: emit's declared member set and independent discovery agree exactly over every locus shape the gauntlet corpus already composes.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "tests": [
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "for every kind the gauntlet's lock declares, an independent discovery walk re-finds exactly the emitted member's source path"
+      }
+    ],
+    "acceptance": "A new gauntlet test proves emit's declared member set and independent discovery agree exactly over the kitchen-sink corpus's existing locus-shape composition; a real disagreement fails the test where today nothing catches it.",
+    "notes": "GH #30 (workspace-rooted locus, already refused at e77766c5), #27, PR #23's relative-root loss, #38's untracked-file half \u2014 human-directed defect-class review 09-03 (.flume/inbox.md, drained), highest-priority note of the batch: emit and discovery have quietly disagreed on the member set four times with no gate proving they can't. Scopes to the gauntlet's existing locus breadth, not a new fixture. scoped at 89d96cca."
+  },
+  {
+    "tag": "GRAPH-SCOPE-WITNESS-GLOB-VOCABULARY",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`representative_paths_for_glob` (~508) hand-rewrites a scope glob's segments into concrete witness paths but never expands brace alternation and mis-concretizes negated character classes: `**/*.{sql,md}` yields the literal witness `file.{sql,md}` (never matches a compiled `**/*.sql` gate \u2014 a false 'uncontained'), and `[!a]*.sql` concretizes to `!a*.sql` (unsound witness, brackets merely stripped). Widen the segment rewrite to the glob vocabulary `globset` (`compile_glob`) actually accepts: expand `{a,b,...}` into one witness per alternative, and concretize a `[...]`/`[!...]` class to a literal character honoring (or deliberately violating) it rather than stripping the syntax."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Table-driven regression: a brace-alternation scope (`**/*.{sql,md}`) under a covering gate reports contained; a negated-class scope reports contained/uncontained correctly against a matching/non-matching gate."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Widen is_scope_contained_in_gate's witness generator to the brace-alternation and negated-character-class glob syntax globset already accepts.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "brace-alternation and negated-character-class scope globs no longer mis-report containment against a genuinely covering gate"
+      }
+    ],
+    "acceptance": "is_scope_contained_in_gate's witness generator concretizes every glob construct globset accepts (braces, negated classes) instead of only *, ?, and bracket-stripping; the review's false-positive and unsound-witness cases now resolve correctly.",
+    "notes": "observed at d3848196 (interactive review of 4d7e8127, GH #33's MENTION-REACHABLE-SUBSET-CONTAINMENT fix) \u2014 low severity, not a release blocker, but the check already ships at advisory severity precisely because full glob-containment is undecidable (graph.rs's own doc comment); this is the decidable vocabulary gap, not a claim of solving the general case. Re-verified: src/graph.rs untouched since d3848196. scoped at 89d96cca."
+  },
+  {
+    "tag": "BUILTIN-CONTRACT-MATRIX-SNAPSHOT",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/builtin_contract_matrix.rs",
+          "description": "New insta-snapshotted test rendering the built-in kind x clause matrix \u2014 every kind row (`temper::builtin_lock::declarations()`'s embedded `KindFactRow`s) against every clause key its default contract carries (`ClauseRow`s), cell = severity (error/warn) or blank \u2014 so an asymmetry like #36 (rule had mentionReachable, skill lacked it until 017e59e0) or #37/#38 (a capability shipped for install but not emit, for Write|Edit but not Bash) shows as a reviewed snapshot diff at ship time instead of a silent gap."
+        }
+      ],
+      "edit": [],
+      "retire": []
+    },
+    "summary": "Insta snapshot rendering the built-in kind x clause matrix off the embedded lock, so a future capability asymmetry between paired kinds is a reviewed diff.",
+    "per": {
+      "path": "specs/builtins.md",
+      "section": "Default contracts"
+    },
+    "tests": [
+      {
+        "path": "tests/builtin_contract_matrix.rs",
+        "asserts": "the embedded built-in lock's kind x clause matrix renders to a stable snapshot"
+      }
+    ],
+    "acceptance": "A kind x clause-key matrix, one row per shipped kind and one column per clause predicate, snapshot-tested off the embedded src/builtin_lock.toml; a future asymmetry between two kinds meant to carry the same clause is a reviewed snapshot diff, not a silent gap.",
+    "notes": "observed at e77766c5 (defect-class review, human-directed 09-03), CLASS 4 \u2014 GH #36/#37/#38 each a capability added to one of a documented pair, never its twin; sdk/src/builtins.ts declares 14 *DefaultContract arrays with no shared view. Pure test, no engine change \u2014 builtin_lock::declarations() (src/builtin_lock.rs:32) already gives read access. Re-verified: builtin_lock.toml/builtins.ts untouched since e77766c5. scoped at 89d96cca."
+  },
+  {
+    "tag": "PATH-ROOT-NEWTYPE-LOCK-SOURCE-PATH",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/path.rs",
+          "description": "New `HarnessRelativePath` newtype wrapping the `/`-separated, no-leading-`./` String the lock already normalizes to via `to_lock_path`/`normalize_lock_path` \u2014 this file is the sanctioned home for path mechanics, never a bare String/PathBuf whose root lives only in a doc comment."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Retype the harness-relative-root family that already shares this exact root by doc-comment convention: `Projection.source_path` (~776, 'relative to the harness root'), `RollupEntry.source_path` (~470), `RawLockRow.source_path`/`ProvenanceRow.source_path` (~2145/~2198, the lock's own read-back rows), and `EmitOwnedEntry`'s source_path (~2990s) \u2014 plus the `to_lock_path`/`normalize_lock_path`/`harness_relative` functions (~792-812, ~2062) that produce and consume this root. Deliberately excludes `IncludeRow.source_path` (SDK-resolved absolute, a different root), `EmitEntry.source_path` (on-disk/host-joined), and `LayoutImportRow.source_path` \u2014 each a follow-on link in the same chain, not this entry."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Regression: the harness-relative round trip (Projection -> RollupEntry -> RawLockRow/ProvenanceRow) still holds through the typed wrapper."
+        },
+        {
+          "path": "tests/emit.rs",
+          "description": "Regression: existing source_path assertions over emitted lock rows still pass through the typed wrapper's Display/AsRef surface."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "First cut of a per-root path newtype: HarnessRelativePath for the lock's harness-relative source_path family, so a path fact's root is its type, not its doc comment.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "A shared concept is one type"
+    },
+    "tests": [
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "round-tripping a lock's provenance rows through emit and back preserves the harness-relative root, typed rather than convention-checked"
+      }
+    ],
+    "acceptance": "A path fact in the harness-relative family (Projection/RollupEntry/RawLockRow/ProvenanceRow/EmitOwnedEntry's source_path) is a HarnessRelativePath, not a bare String/PathBuf; misrooting one at a call site is a compile error, not a silent mismatch.",
+    "notes": "observed at e77766c5, CLASS 3(a) \u2014 GH #33/guard suffix bug f1401cc4/PR #23 CurDir mismatch/2fa5efd7 tap identity/#31 host-relative-from-repo-root are the field-harvested defect trail. First link of the note's own 'entry chain': EdgeTargetFacts (SDK/TS seam) and tap identity stay out of scope, filed once this lands and its pattern is proven. CLASS 3(b) (a posture-sweep rule) is explicitly not plan's to file. scoped at 89d96cca."
+  },
+  {
+    "tag": "IDENTITY-MAP-REFUSING-CONSTRUCTOR",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "New small generic collision-checked collector beside `ClauseRowError` (~246) \u2014 builds a `BTreeMap<K, V>` from a `(K, V)` iterator, refusing with a named error identifying the colliding key rather than silently keeping the last insert."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "`assembly_requirements` (~94-97) currently `.collect()`s the lock's `[[requirement]]` rows straight into a `BTreeMap<String, Requirement>` \u2014 a duplicate `name` (a hand-edited or malformed lock) silently collapses to whichever row parsed last, cross-applying its clauses. Route through the new collector."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "`memberTable` (~684, the `kind:name` composed-member index an embedded value's edge field resolves against) builds `new Map(harness.members.map(...))` with no uniqueness check \u2014 a duplicate `kind:name` silently keeps the last member. `edgePlacements`/`renderedExtents` (~442/~482) build the same way, keyed by `placementKey`. Add a small shared `uniqueMap`-style helper (mirroring the ad hoc `publish` guard `requirementRows` already hand-rolls) and route all three through it."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`requirementRows`'s `publish` closure (~372-384) is the existing hand-rolled instance of this exact guard (throws on a same-name, different-value collision) \u2014 refactor it onto the new shared helper instead of keeping its own bespoke duplicate check beside the new one."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Regression: two composed members sharing one `kind:name` address refuse loud through `memberTable` rather than the later one silently winning."
+        },
+        {
+          "path": "tests/gate_fail_loud.rs",
+          "description": "Regression: a lock carrying two `[[requirement]]` rows with the same `name` refuses loud naming the collision, rather than one silently shadowing the other."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "One refusing BTreeMap/Map identity-index constructor per side, replacing the ad hoc SDK collision guard and the unguarded engine/SDK member-table builders it stands beside.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "a duplicate kind:name across composed members refuses loud"
+      },
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "a lock carrying two [[requirement]] rows with the same name refuses loud rather than one silently shadowing the other"
+      }
+    ],
+    "acceptance": "One refusing constructor per side (engine BTreeMap, SDK Map) replaces the ad hoc collision guard requirementRows already hand-rolled and the unguarded memberTable/edgePlacements/renderedExtents/assembly_requirements builders; a duplicate identity key anywhere in that set is a named refusal, never a silent last-write-wins.",
+    "notes": "observed at e77766c5, CLASS 1 \u2014 GH #26 (fixed 21f61463, a different map: kind-level collectionAddress collision), #32 (parked on (hook-member-identity)), PR #23's one-row round-trip. assembly_requirements's bare .collect() (gate.rs:94) and memberTable's bare new Map() (emit.ts:684) are the live, untested gaps found; requirementRows's publish closure (declarations.ts:372) is the precedent this consolidates. Waits for (hook-member-identity) only for the hook map. scoped at 89d96cca."
+  },
+  {
+    "tag": "GAUNTLET-EXTERNAL-HARNESS-FIXTURES",
+    "gate": {
+      "kind": "parked",
+      "reason": "Fixture choice is human territory (licensing): docs/ledger.md's 07-22 external-yield probe ran check over 9 real external harnesses and found the temper bugs the self-mirror can't (roots of GH #26/#30/#33/#38). Pick 2-3 of those 9 to vendor, license-check, and trim to their .claude/ trees before this unparks."
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [
+        {
+          "path": "tests/fixtures/gauntlet_external/",
+          "description": "Anticipated: the human-chosen 2-3 external harnesses' trimmed .claude/ trees, each vendored with its license noted (path/name unset until the human picks)."
+        }
+      ],
+      "edit": [
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "Anticipated: one check+emit snapshot test per vendored external fixture, alongside the existing in-repo kitchen-sink corpus \u2014 the standing gate the 07-22 probe wasn't."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Extend the gauntlet with 2-3 real external harness fixtures so the July external-yield probe (9 foreign repos, 4 temper bugs found) becomes a standing gate, not a one-off.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "The gauntlet corpus"
+    },
+    "tests": [
+      {
+        "path": "tests/gauntlet.rs",
+        "asserts": "check/emit run over each vendored external fixture and snapshot-pin its findings"
+      }
+    ],
+    "acceptance": "temper check/emit run clean (or with real, human-verified findings) over 2-3 vendored external harness .claude/ trees, snapshot-tested in tests/gauntlet.rs, so the July external-yield probe is a standing gate rather than a one-time manual run.",
+    "notes": "observed at e77766c5, cross-cutting note \u2014 every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
   },
   {
     "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
     "gate": {
       "kind": "deferred",
-      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
+      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) \u2014 no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
     },
     "dependsOnForks": [],
     "files": {
@@ -242,7 +468,7 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
+          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields \u2014 shape unset; no field in any built-in kind wants one yet."
         },
         {
           "path": "src/drift.rs",
@@ -259,20 +485,20 @@
       ],
       "retire": []
     },
-    "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
+    "summary": "0045 also frees guidance onto a field declaration, no predicate \u2014 deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
     "per": {
       "path": "specs/model/contract.md",
       "section": "clause"
     },
     "tests": [],
-    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
+    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating \u2014 provable once a real kind needs one.",
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
   },
   {
     "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
     "gate": {
       "kind": "deferred",
-      "reason": "project_modeline (src/install.rs:1615) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+      "reason": "project_modeline (src/install.rs:1615) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent \u2014 surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
     },
     "dependsOnForks": [],
     "files": {
@@ -280,12 +506,12 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists \u2014 a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
         }
       ],
       "retire": []
     },
-    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
+    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism \u2014 deferred out of the YAML-frontmatter widening.",
     "per": {
       "path": "specs/distribution.md",
       "section": "The placements and their enforcement modes"
