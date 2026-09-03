@@ -1,5 +1,51 @@
 [
   {
+    "tag": "READ-BODY-EXCLUDES-PLACEMENT-BANNER",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/placement.rs",
+          "description": "New helper (sibling to `placement_lines`, e.g. `strip_leading_banner(body: &str) -> &str`) that, given an already frontmatter-split body, drops a leading line matching `BANNER_MARKER` plus the following blank line — the frontmatterless counterpart to how a with-frontmatter body already excludes `NOTE_MARKER`/`MODELINE_MARKER` (they live in the matter block `split_frontmatter` already strips)."
+        },
+        {
+          "path": "src/frontmatter.rs",
+          "description": "`Member::from_source_rooted` (line ~232, `body: split_frontmatter(&raw).1.to_string()`) applies the new strip helper so `Member.body` never carries the engine-placed banner — the field this member's callers (`compose.rs`'s `read_file_unit`, `install.rs`'s lift scaffold) treat as authored prose."
+        },
+        {
+          "path": "tests/memory_contract.rs",
+          "description": "Update the closing assertion (currently `member.body == expected` where `expected` includes the banner, lines ~104-115) to assert `member.body` equals the bare authored `CLAUDE_MD` constant instead, and drop the now-resolved 'open question' comment above it — the read face strips the banner, symmetric with the frontmatter case."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "New regression near the existing scaffold tests (~493-770): lift (`temper::install::run` with an already-banner-carrying frontmatterless `CLAUDE.md` fixture, or a direct `scaffold`-path test if exposed) produces a `.temper/` module/companion `.md` whose body excludes the banner — proving the concrete failure this closes: previously the lift baked the banner into authored source, so the next `emit` would place a second banner over the first."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Strip the emit-placed banner from the read face's Member.body so extent/headings/sections contracts and the lift scaffold see authored prose only, not engine chrome.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
+    "tests": [
+      {
+        "path": "tests/memory_contract.rs",
+        "asserts": "the read face's Member.body for a frontmatterless CLAUDE.md carrying the emitted banner equals the bare authored body, banner excluded"
+      },
+      {
+        "path": "tests/install.rs",
+        "asserts": "lifting an existing banner-carrying frontmatterless markdown member scaffolds a module/companion body with no embedded banner"
+      }
+    ],
+    "acceptance": "A frontmatterless markdown member's on-disk banner is excluded from Member.body at every from_source_rooted call site: extract::body_line_count/rendered_chars (which drive an `extent` clause) and headings/sections measure authored prose only, and the lift scaffold never bakes the banner into a `.temper/` module source.",
+    "notes": "Inbox item observed at 0d5de600 (GH #37). Verified concretely: source_hash (frontmatter.rs:181) hashes raw bytes independent of body, so stripping doesn't weaken drift detection; kind.rs:1250-1251 wires rendered_lines/rendered_chars off unit.body, so `extent` is inflated by banner lines today; install.rs:1530/1545-1548's lift already re-embeds the banner into scaffolded source verbatim — a real double-banner-on-next-emit bug, not hypothetical. scoped at 5c9526ae."
+  },
+  {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
