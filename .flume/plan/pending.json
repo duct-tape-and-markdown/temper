@@ -197,7 +197,12 @@
       }
     ],
     "acceptance": "A requirement declared `kind: skill` filled only by an `installed-plugin` satisfier now surfaces a required-severity finding naming the mismatch, and `explain` does not credit the fill.",
-    "notes": "GH #28, human-ruled 09-03. sdk/src/contract.ts:344 already documents `kind` as constraining what may fill a requirement; src/roster.rs already refuses an unmodeled kind, so the seam exists — what's missing is the live mismatch finding. blockedBy AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL only for the shared src/admissibility.rs region. scoped at 1466a1db."
+    "notes": "GH #28, human-ruled 09-03. sdk/src/contract.ts:344 already documents `kind` as constraining what may fill a requirement; src/roster.rs already refuses an unmodeled kind, so the seam exists — what's missing is the live mismatch finding. blockedBy AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL only for the shared src/admissibility.rs region. scoped at 1466a1db.",
+    "observedFiles": [
+      "src/read.rs",
+      "tests/common/mod.rs",
+      "tests/requirement_roster.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
