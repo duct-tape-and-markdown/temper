@@ -41,48 +41,9 @@
     "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
-    "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "`guard()` (~732) and `matches_projection` (~819) bind `file_path` against `drift::EmitOwnedEntry` targets; `.claude/settings.json` is the spliced projection of every `hook`/`installed-plugin`/`known-marketplace` member but is not itself an `EmitOwnedEntry` row (it's composed, not projected whole), so every spelling of it is currently silent to the guard. Extend the bound target set to cover `settings.json` as an emit-owned target whenever any of those kinds compose. Also state plainly, in `GUARD_MESSAGE` (~160) and the guard's doc comments, that the guard binds only `Write`/`Edit`/`MultiEdit`-mediated writes (`GUARD_MATCHER`, ~136) and is not a boundary against Bash/PowerShell-mediated writes."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`emit_owned_targets` (~2968) is the constituency the guard binds to; verify the settings.json coverage against 0034's emit codomain so the covered-target set has one home rather than a second definition in install.rs."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Regression: a pending write to .claude/settings.json is bound by the guard; a Bash-tool payload is documented as unbound, not silently treated as covered."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Extend temper guard's target set to .claude/settings.json (spliced from hook/installed-plugin/known-marketplace members) and document its Bash-write boundary plainly.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a PreToolUse payload naming .claude/settings.json is bound by the guard when any registration-member kind composes"
-      }
-    ],
-    "acceptance": "A pending Write/Edit/MultiEdit to .claude/settings.json is bound by temper guard whenever a hook/installed-plugin/known-marketplace member projects into it; the guard's own docs state plainly it binds tool-mediated writes only.",
-    "notes": "GH #38 half 1 + half 2a, human-ruled 09-03. Half 2b (a PostToolUse Bash arm) is filed as its own entry, blockedBy this one for the shared install.rs guard region. This entry is itself blockedBy REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT for the shared src/drift.rs region (transitively serialized behind the admissibility.rs/gate.rs cluster). scoped at 1466a1db."
-  },
-  {
     "tag": "GUARD-POSTTOOLUSE-BASH-DRIFT-CHECK",
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
