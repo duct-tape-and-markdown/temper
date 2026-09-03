@@ -511,6 +511,17 @@ fn is_scope_contained_in_gate(scope_glob: &str, gate_globs: &[String]) -> bool {
 /// we generate multiple test paths covering zero and multiple directory levels. Brace
 /// alternations are expanded into one witness per alternative, and character classes
 /// are concretized to a representative character.
+///
+/// # Implementation note
+///
+/// This function and its helpers (`process_glob_segment`, `expand_braces`,
+/// `concretize_segment`, `concretize_char_class`, `is_in_char_class`) form a
+/// hand-rolled brace-and-charset glob parser. This is a deliberate pinned-semantics
+/// exception per specs/process/engineering.md's "Libraries before hand-rolls" section:
+/// subset-containment witness synthesis is corpus-fixed behavior that `globset`'s
+/// public API cannot drive — the crate exposes only the original glob string and
+/// compiled regex string, not the parsed brace-alternative or character-class AST
+/// required to consolidate witnesses against the gate set.
 fn representative_paths_for_glob(glob: &str) -> Vec<String> {
     // Split the glob into segments to understand its structure.
     let segments: Vec<&str> = glob.split('/').collect();
