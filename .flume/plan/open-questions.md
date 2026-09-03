@@ -90,6 +90,29 @@ tax.
   unresolved sibling case, session-argued, not inferred here. No
   dependents.
 
+- `(hook-member-identity)` — OPEN, live driver (GH #32). The `hook` kind is
+  fields-shape at `hooks.<Event>` with entry shape
+  `group-array(hooks;matcher)` and registers on `event`, so a member's
+  address is `hook:<Event>`. Claude Code allows N matcher groups per event
+  (code.claude.com/docs/en/hooks, retrieved 2026-07-15) and this repo's own
+  harness carries two on `PostToolUse`, so the 09-03 ruling "refuse a
+  duplicate address at declaration" was built (e4ff7bc6) and failed the
+  self-host test at afterMerge — it would reject every real harness. The
+  defect stands: an edge to `hook:SessionStart` resolves through the
+  `kind:name` map to whichever member composed last, silently. The fork is
+  what discriminates hook members. Candidates: (a) identity = `event` +
+  `matcher` — the group-array's own key, so two members on one (event,
+  matcher) ARE one Claude Code group and collide honestly; a matcher-less
+  hook keeps the bare event; the address grammar gains the discriminator
+  segment. (b) an author-supplied name — but a fields-shape member has no
+  side channel in `settings.json`, so the name could only be derived,
+  never stored (rejected on that ground unless the lock carries it). (c)
+  keep event-only identity and refuse only an *edge* whose target address
+  is ambiguous (more than one member), leaving unaddressed duplicates
+  legal. Session recommendation: (a), with (c)'s edge refusal as the
+  interim if (a)'s grammar change is too wide for 0.0.16. Dependents:
+  HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

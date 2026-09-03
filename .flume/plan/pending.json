@@ -48,9 +48,12 @@
   {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
-      "kind": "open"
+      "kind": "parked",
+      "reason": "Human re-ruling 09-03 (interactive): the first ruling — refuse a duplicate member address within a kind — was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
     },
-    "dependsOnForks": [],
+    "dependsOnForks": [
+      "hook-member-identity"
+    ],
     "files": {
       "new": [],
       "edit": [
@@ -81,13 +84,12 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32, human-ruled 09-03. Same disease 21f61463 refused for two kinds sharing one collectionAddress; this is the narrower case of one kind's own members colliding on the same key. Whether hook also grows an address discriminator is a follow-on fork to surface, not to invent here. Rewritten this tick: a prior pick merge-failed and recorded observedFiles matching the declared set exactly — nothing to fold, footprint confirmed. scoped at 8feb4617."
+    "notes": "GH #32. First pick (e4ff7bc6) implemented the duplicate-key refusal and was gate-reverted by tests/cli.rs's self_host_check_is_clean_over_tempers_own_surface: temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; when the fork resolves, this entry is rewritten around the ruled discriminator (files[] will change — admissibility.rs may not be the seam at all). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
     "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL",
     "gate": {
-      "kind": "blockedBy",
-      "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -124,7 +126,7 @@
       }
     ],
     "acceptance": "An `at` locus whose root resolves under the workspace directory is refused at emit and flagged at check on an already-committed lock row; discovery's own WORKSPACE_DIR fence is unchanged.",
-    "notes": "GH #30, human-ruled 09-03. src/import.rs:439's discoverable_paths already fences WORKSPACE_DIR by design for every non-local walk (verified on disk); the gap is that emit/check never refuse the declaration that produces an undiscoverable target — discovery does not change, the workspace stays authoring source, never a projection target. blockedBy HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL only for the shared src/admissibility.rs + src/gate.rs region. scoped at 1466a1db."
+    "notes": "GH #30, human-ruled 09-03. src/import.rs:439's discoverable_paths already fences WORKSPACE_DIR by design for every non-local walk (verified on disk); the gap is that emit/check never refuse the declaration that produces an undiscoverable target — discovery does not change, the workspace stays authoring source, never a projection target. Was blockedBy HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL for the shared src/admissibility.rs + src/gate.rs region; that entry parked 09-03 on `(hook-member-identity)`, so this opens — disjoint from the other open entry (SKILL-CONTRACT-MENTION-REACHABLE-PATHS: sdk + builtin_lock.toml + contract_template.rs). scoped at d3848196."
   },
   {
     "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
