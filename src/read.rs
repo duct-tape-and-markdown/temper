@@ -1452,7 +1452,22 @@ fn requirement_detail(
     name: &str,
     path_to_id: &BTreeMap<String, String>,
 ) -> String {
-    let satisfiers = satisfiers_of(members, by_kind, name);
+    let satisfiers = if let Some(requirement) = roster.get(name) {
+        satisfiers_of(members, by_kind, requirement)
+    } else {
+        satisfiers_of(
+            members,
+            by_kind,
+            &Requirement {
+                name: name.to_string(),
+                prose: None,
+                kind: None,
+                required: false,
+                clauses: Vec::new(),
+                verifier: None,
+            },
+        )
+    };
 
     let Some(requirement) = roster.get(name) else {
         // An undeclared name is not an error here — it is a read. Narrate that it is
@@ -1558,19 +1573,22 @@ fn requirement_detail(
     out
 }
 
-/// The satisfier set of the requirement named `name` — every member whose `satisfies`
-/// opts into it, paired with its authored rationale when one is available. The
-/// rationale-carrying custom listing (`members`) is unioned with `by_kind` —
-/// the same opt-in join the roster's own selection is built on — so a
-/// satisfier `check` counts toward coverage is never missing here just because the
-/// custom listing lags `by_kind` (a `required` requirement with a satisfier
-/// locked on disk narrating as unfilled was exactly that drift, REQUIREMENT-GATE). A
-/// `(kind, id)` the custom listing already carries (with its rationale) is
-/// not duplicated from `by_kind`, whose decidable `Features::satisfies` carries none.
+/// The satisfier set of the requirement — every member whose `satisfies` opts into it,
+/// paired with its authored rationale when one is available. The rationale-carrying
+/// custom listing (`members`) is unioned with `by_kind` — the same opt-in join the
+/// roster's own selection is built on — so a satisfier `check` counts toward coverage
+/// is never missing here just because the custom listing lags `by_kind` (a `required`
+/// requirement with a satisfier locked on disk narrating as unfilled was exactly that
+/// drift, REQUIREMENT-GATE). A `(kind, id)` the custom listing already carries (with
+/// its rationale) is not duplicated from `by_kind`, whose decidable `Features::satisfies`
+/// carries none.
+///
+/// If the requirement has a declared `kind`, only members of that kind are included
+/// — a member of a different kind is a finding, never a silent member of the satisfier set.
 fn satisfiers_of(
     members: &[Member],
     by_kind: &BTreeMap<&str, &[Features]>,
-    name: &str,
+    requirement: &Requirement,
 ) -> Vec<(Member, Option<String>)> {
     let mut satisfiers: Vec<(Member, Option<String>)> = members
         .iter()
@@ -1578,18 +1596,30 @@ fn satisfiers_of(
             member
                 .satisfies
                 .iter()
-                .find(|satisfies| satisfies.requirement == name)
-                .map(|satisfies| (member.clone(), satisfies.rationale.clone()))
+                .find(|satisfies| satisfies.requirement == requirement.name)
+                .and_then(|satisfies| {
+                    if let Some(required_kind) = &requirement.kind
+                        && member.kind != *required_kind
+                    {
+                        return None;
+                    }
+                    Some((member.clone(), satisfies.rationale.clone()))
+                })
         })
         .collect();
 
     for (&kind, features_slice) in by_kind {
         for features in *features_slice {
-            if roster::is_satisfier(name, features)
+            if roster::is_satisfier(&requirement.name, features)
                 && !satisfiers
                     .iter()
                     .any(|(member, _)| member.kind == kind && member.id == features.id)
             {
+                if let Some(required_kind) = &requirement.kind
+                    && kind != required_kind
+                {
+                    continue;
+                }
                 satisfiers.push((
                     Member {
                         kind: kind.to_string(),

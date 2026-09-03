@@ -919,3 +919,51 @@ fn a_memory_narrowed_degree_bound_fires_over_a_memory_satisfier() {
         run.output
     );
 }
+
+#[test]
+fn a_skill_kind_requirement_filled_by_installed_plugin_is_a_kind_mismatch() {
+    let root = common::tmpdir("skill-kind-installed-plugin-mismatch");
+    // Create a skill to exist (so the kind is modeled)
+    common::write_skill(
+        &root,
+        "example",
+        "---\nname: example\ndescription: Test skill.\n---\n# Example\n\nBody.\n",
+    );
+    // Write settings with an installed plugin that opts into a skill-narrowed requirement
+    common::write_settings(
+        &root,
+        "{\n  \"enabledPlugins\": {\n    \"example-plugin\": \"1.0.0\"\n  }\n}",
+    );
+    common::write_lock(
+        &root,
+        Declarations {
+            requirements: vec![RequirementRow {
+                required: true,
+                ..common::requirement("planner", false, Some("skill"))
+            }],
+            satisfies: vec![SatisfiesRow {
+                member: "example-plugin".to_string(),
+                requirement: "planner".to_string(),
+            }],
+            ..Declarations::default()
+        },
+    );
+
+    // The gate must fail because the installed-plugin does not match the skill kind
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a skill-narrowed requirement filled only by an installed-plugin must fail the gate ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("planner") && run.output.contains("kind"),
+        "the finding must name the requirement and mention the kind mismatch, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("example-plugin") && run.output.contains("skill"),
+        "the finding must name the plugin and the required kind, got:\n{}",
+        run.output
+    );
+}
