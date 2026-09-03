@@ -99,6 +99,36 @@
     "notes": "GH #37. Second pick (664688e4) reverted at afterMerge: it bannered every projection with empty `fields`, so a file-shaped kind whose body is JSON at a .json path (coverage_note.rs fixture) got an HTML banner and the hook kind's JSON parse aborted the gate. Diagnosed interactively 09-03. The condition is 'markdown projection' (the .md target install already limited itself to), never 'no frontmatter'. Mirror install's own predicate; do not widen. scoped at 67390b09."
   },
   {
+    "tag": "GRAPH-GLOB-WITNESS-HAND-ROLL-DOC-NOTE",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "Add a doc comment (above `representative_paths_for_glob`, graph.rs:514, or as a short module-level note near `uncontained`/`is_scope_contained_in_gate`, graph.rs:469-503) stating that the hand-rolled brace/char-class glob parser feeding witness synthesis (`representative_paths_for_glob`, `process_glob_segment`, `expand_braces`, `concretize_segment`, `concretize_char_class`, `is_in_char_class` — graph.rs:514-745) is the deliberate pinned-semantics exception (engineering.md, 'Libraries before hand-rolls'), not undocumented duplication of `globset`: subset-containment witness synthesis is corpus-fixed behavior (MENTION-REACHABLE-SUBSET-CONTAINMENT, GRAPH-SCOPE-WITNESS-GLOB-VOCABULARY) that `globset`'s public `Glob` API cannot drive — it exposes only the original glob string (`glob()`) and a compiled regex string (`regex()`), no parsed brace-alternative or character-class AST to consolidate against. No behavior change."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Document graph.rs's hand-rolled glob witness parser as engineering.md's pinned-semantics exception, not undocumented duplication of globset.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Libraries before hand-rolls"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "subset-containment semantics (mention-reachable containment via representative-path witnesses) unchanged by the doc-only edit — existing coverage at tests/graph.rs:804-850 stays green"
+      }
+    ],
+    "acceptance": "graph.rs carries a doc comment citing engineering.md's pinned-semantics exception for the hand-rolled brace/char-class parser feeding witness synthesis; cargo test/clippy/fmt gates stay green with no behavior change.",
+    "notes": "Refactor capture plan-graph-glob-witness-hand-roll.md drained (deleted) this tick. Re-verified at HEAD: no src/graph.rs or src/glob.rs commits since e8c160c3 (capture's observed-at) — duplication unchanged. Checked globset 0.4.18/0.4.20's public Glob API: only glob() (original string) and regex() (compiled regex string) are exposed, no parsed brace/char-class AST to consolidate against. Doc-only fix, no behavior change. scoped at b03efa2c."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
