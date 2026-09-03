@@ -80,7 +80,13 @@
       }
     ],
     "acceptance": "Every emit-owned projection carries the managed-projection banner immediately after emit, with no dependency on install having run first; drift reports no spurious churn from the banner's own placement.",
-    "notes": "GH #37, human-ruled 09-03. src/drift.rs:2298's own comment currently states the opposite design (\"ride install, never emit\") — this entry is a deliberate reversal per the ruling, not a bug in that comment's accuracy today. blockedBy the guard entries above only for the shared install.rs file, not a design dependency. scoped at 1466a1db."
+    "notes": "GH #37, human-ruled 09-03. src/drift.rs:2298's own comment currently states the opposite design (\"ride install, never emit\") — this entry is a deliberate reversal per the ruling, not a bug in that comment's accuracy today. blockedBy the guard entries above only for the shared install.rs file, not a design dependency. scoped at 1466a1db.",
+    "observedFiles": [
+      "src/drift.rs",
+      "src/install.rs",
+      "src/placement.rs",
+      "tests/emit.rs"
+    ]
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
