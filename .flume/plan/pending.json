@@ -41,64 +41,6 @@
     "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
-    "tag": "EMIT-BANNER-OWNERSHIP-MOVE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`project_bytes` (~2372) and the `emit()` projection loop (~1054+) currently read banner `placements` only off the *already-committed* file on disk (~2298-2299: \"Those metadata lines ride install, never emit\") — a member that only ever ran `emit` ships bannerless. Move banner origination here: emit places the managed-projection banner on every target it owns, since it already owns the projected bytes and the banner is part of the projection contract. Verify the double-emit determinism pass and the byte-vs-lock-hash drift comparison both treat the banner as ordinary projection bytes, so an unchanged emit still reports unchanged."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "`NOTE_COMMENT`/`NOTE_BANNER`/`project_banner` (~181-1714) currently originate the banner; narrow install's role to converging an existing file's banner wording (a stale wording re-places) rather than being the sole placer for a fresh projection."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Regression: a freshly emitted member (never installed) carries the managed-projection banner."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Regression: install still converges a stale banner wording to current; no double-banner on re-run."
-        },
-        {
-          "path": "src/placement.rs",
-          "description": "Home of NOTE_MARKER / BANNER_MARKER and the banner text; emit-side placement reads (or moves) the banner constant from here — the first pick touched it and was fence-reverted for it."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "Regression surface, not to edit: a_locked_custom_kind_suppresses_the_surface_it_governs projects a JSON body through a file-shaped custom kind onto .claude/settings.json; the banner must never land there. Run it."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "src/drift.rs",
-      "src/install.rs",
-      "src/placement.rs",
-      "tests/emit.rs",
-      "tests/install.rs",
-      "src/lib.rs"
-    ],
-    "summary": "Move the managed-projection banner's placement from install to emit — emit owns the projected bytes, so a member that only ever ran emit should not ship bannerless.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a member emitted without ever having been installed carries the banner"
-      }
-    ],
-    "acceptance": "Every emit-owned projection carries the managed-projection banner immediately after emit, with no dependency on install having run first; drift reports no spurious churn from the banner's own placement.",
-    "notes": "GH #37. Second pick (664688e4) reverted at afterMerge: it bannered every projection with empty `fields`, so a file-shaped kind whose body is JSON at a .json path (coverage_note.rs fixture) got an HTML banner and the hook kind's JSON parse aborted the gate. Diagnosed interactively 09-03. The condition is 'markdown projection' (the .md target install already limited itself to), never 'no frontmatter'. Mirror install's own predicate; do not widen. scoped at 67390b09."
-  },
-  {
     "tag": "GRAPH-GLOB-WITNESS-HAND-ROLL-DOC-NOTE",
     "gate": {
       "kind": "open"

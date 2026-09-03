@@ -52,9 +52,17 @@ fn an_include_lands_byte_identical_and_is_fingerprinted() {
     };
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
 
-    // The target's bytes landed verbatim inside the host's emitted artifact, at the slot.
+    // The target's bytes landed verbatim inside the host's emitted artifact, at the slot,
+    // under the managed-projection banner emit heads every frontmatterless markdown
+    // projection with.
     let projected = fs::read_to_string(harness.join(".claude/rules/host.md")).unwrap();
-    assert_eq!(projected, "Intro.\nshared prose.\nOutro.\n");
+    assert_eq!(
+        projected,
+        format!(
+            "{}\n\nIntro.\nshared prose.\nOutro.\n",
+            temper::placement::BANNER
+        )
+    );
 
     // The dependency reached the lock as a fingerprinted content dependency: the host, the
     // resolved target path, a non-empty hash, and — a plain file, not a member — no edge.

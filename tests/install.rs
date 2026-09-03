@@ -401,9 +401,10 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     // The first emit regenerates every composed kind's artifact as a canonical
     // projection — never an own-path passthrough. `collaboration` carries no
     // frontmatter fields at all, so its canonical projection is its
-    // byte-faithful body alone, already matching its hand-authored source;
-    // `rust`/`coordinate` declare fields, so their frontmatter is rewritten
-    // into canonical form and the projection changes.
+    // byte-faithful body headed by the managed-projection banner emit places
+    // on every frontmatterless markdown projection — the banner is what makes
+    // the hand-authored source change; `rust`/`coordinate` declare fields, so
+    // their frontmatter is rewritten into canonical form.
     let emit = outcome.emit.as_ref().expect("the yes-path ran a real emit");
     let outcome_for = |name: &str| {
         emit.entries
@@ -414,7 +415,7 @@ fn representing_hoists_every_field_and_regenerates_every_member_as_a_guard_claim
     };
     assert_eq!(
         outcome_for("collaboration"),
-        temper::drift::EmitOutcome::Unchanged
+        temper::drift::EmitOutcome::Emitted
     );
     assert_eq!(outcome_for("rust"), temper::drift::EmitOutcome::Emitted);
     assert_eq!(
@@ -1060,8 +1061,11 @@ fn gate_installed_names_drifted_un_noted_files() {
         "gate_installed must be clean after successful install"
     );
 
-    // Simulate drift: remove the entire managed-by note from one file by replacing
-    // the first line (which should be the note comment or heading).
+    // Simulate drift: strip the managed-by note itself (line 2, inside the
+    // frontmatter block) and keep the frontmatter intact. Removing the opener
+    // instead would make the file frontmatterless, whose banner is emit's
+    // (EMIT-BANNER-OWNERSHIP-MOVE) and whose drift is check's hash to catch —
+    // not this gate's.
     let skill_file = root
         .join(".claude")
         .join("skills")
@@ -1070,12 +1074,13 @@ fn gate_installed_names_drifted_un_noted_files() {
     let content = fs::read_to_string(&skill_file).unwrap();
     let lines: Vec<&str> = content.lines().collect();
 
-    // Remove first line (which should be the managed-by comment or heading).
-    let modified = if lines.len() > 1 {
-        lines[1..].join("\n") + "\n"
-    } else {
-        String::new()
-    };
+    assert!(
+        lines
+            .get(1)
+            .is_some_and(|l| l.starts_with("# temper: managed projection")),
+        "line 2 must be the placed note, got: {content}"
+    );
+    let modified = [&lines[..1], &lines[2..]].concat().join("\n") + "\n";
     fs::write(&skill_file, modified).unwrap();
 
     // gate_installed should now report the drifted file.

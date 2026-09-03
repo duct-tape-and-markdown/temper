@@ -76,13 +76,14 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
     };
 
     // Emit face: a frontmatterless member (no `fields`) projects as the byte-faithful
-    // body alone — no fabricated `---\n---\n` header.
+    // body headed by the managed-projection banner — no fabricated `---\n---\n` header.
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     let claude_md = harness.join("CLAUDE.md");
+    let expected = format!("{}\n\n{CLAUDE_MD}", temper::placement::BANNER);
     assert_eq!(
         fs::read_to_string(&claude_md).unwrap(),
-        CLAUDE_MD,
-        "a frontmatterless memory member projects as its byte-faithful body alone"
+        expected,
+        "a frontmatterless memory member projects as the banner over its byte-faithful body"
     );
 
     // Idempotence: a second emit over the unchanged payload changes not one byte — the
@@ -90,14 +91,16 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
     drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(
         fs::read_to_string(&claude_md).unwrap(),
-        CLAUDE_MD,
+        expected,
         "a re-emit of the unchanged payload must change not one byte"
     );
 
     // Body faithfulness, at the adapter read face directly over the real embedded kind: a
     // frontmatterless file lifts no field, and the whole file is the byte-faithful body
     // (trailing-whitespace line and missing final newline included) — no fabricated
-    // frontmatter, no re-render.
+    // frontmatter, no re-render. The read face does not strip the banner emit placed
+    // (it never stripped install's either); whether `body` should exclude placed
+    // metadata is an open question, not this test's claim.
     let kind = builtin_kind::definitions()
         .remove("memory")
         .expect("the embedded memory kind is present");
@@ -107,7 +110,7 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
         "a frontmatterless source declares no field, so the read face lifts no clause"
     );
     assert_eq!(
-        member.body, CLAUDE_MD,
+        member.body, expected,
         "the whole frontmatterless file is the byte-faithful body"
     );
 }

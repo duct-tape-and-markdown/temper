@@ -438,7 +438,8 @@ fn an_include_into_a_json_document_refuses_rather_than_fingerprinting_dropped_by
 #[test]
 fn the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were() {
     // The dispatch's other branches, pinned: `yaml-frontmatter` and a kind declaring no
-    // format keep today's bytes — a frontmatter block over a body, and a body alone. The
+    // format keep today's bytes — a frontmatter block over a body, and a body headed by
+    // the managed-projection banner emit places on frontmatterless markdown. The
     // format decides the face; it does not perturb the faces it did not select.
     let (harness, into) = workspace("json-document-emit-peers");
     let payload = Payload {
@@ -471,7 +472,7 @@ fn the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_a
     );
     assert_eq!(
         fs::read_to_string(harness.join("CLAUDE.md")).unwrap(),
-        MEMORY_BODY
+        format!("{}\n\n{MEMORY_BODY}", temper::placement::BANNER)
     );
 }
 
