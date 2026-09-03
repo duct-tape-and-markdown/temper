@@ -508,76 +508,236 @@ fn is_scope_contained_in_gate(scope_glob: &str, gate_globs: &[String]) -> bool {
 
 /// Generate representative paths that a glob pattern would match. These are used to
 /// test whether a scope glob is a subset of a gate glob set. For each `**` segment,
-/// we generate multiple test paths covering zero and multiple directory levels.
+/// we generate multiple test paths covering zero and multiple directory levels. Brace
+/// alternations are expanded into one witness per alternative, and character classes
+/// are concretized to a representative character.
 fn representative_paths_for_glob(glob: &str) -> Vec<String> {
-    // Handle the pattern by replacing wildcards with concrete examples.
-    // We generate multiple representatives to cover different segment depths.
-    let mut paths = Vec::new();
-
     // Split the glob into segments to understand its structure.
     let segments: Vec<&str> = glob.split('/').collect();
-    let mut path_parts = Vec::new();
+
+    // Track path variants as we build them; start with one empty variant
+    let mut path_variants: Vec<Vec<String>> = vec![vec![]];
 
     for (i, segment) in segments.iter().enumerate() {
         if *segment == "**" {
-            // For `**`, generate multiple depth examples: zero segments, one, two, three
-            // To cover different depths, we'll generate complete paths and continue
-            // from here with different depths.
+            // For `**`, generate multiple depth examples for each existing variant
+            let mut new_variants = Vec::new();
 
-            // First, collect the prefix (parts before **)
-            let prefix = if path_parts.is_empty() {
-                String::new()
-            } else {
-                path_parts.join("/") + "/"
-            };
+            for variant in path_variants {
+                // Collect the prefix (parts before **)
+                let prefix = if variant.is_empty() {
+                    String::new()
+                } else {
+                    variant.join("/") + "/"
+                };
 
-            // Collect the suffix (parts after **)
-            let suffix_parts: Vec<&str> = segments[i + 1..].to_vec();
-            let has_suffix = !suffix_parts.is_empty();
+                // Collect the suffix (parts after **)
+                let suffix_parts: Vec<&str> = segments[i + 1..].to_vec();
+                let has_suffix = !suffix_parts.is_empty();
 
-            if has_suffix {
-                // ** followed by more segments: generate examples with different depths
-                // Pattern: prefix/**/suffix → test with 0, 1, 2 directory levels in **
-                let suffix = suffix_parts.join("/");
+                if has_suffix {
+                    // ** followed by more segments: generate examples with different depths
+                    let suffix_paths = representative_paths_for_glob(&suffix_parts.join("/"));
+                    for suffix in suffix_paths {
+                        // Zero directories (** matches nothing)
+                        new_variants.push(vec![format!("{}{}", prefix, suffix)]);
 
-                // Zero directories (** matches nothing)
-                paths.push(format!("{}{}", prefix, suffix));
+                        // One directory level
+                        new_variants.push(vec![format!("{}dir/{}", prefix, suffix)]);
 
-                // One directory level
-                paths.push(format!("{}dir/{}", prefix, suffix));
-
-                // Two directory levels
-                paths.push(format!("{}dir1/dir2/{}", prefix, suffix));
-            } else {
-                // ** at the end: generate paths of various depths
-                paths.push(format!("{}file", prefix));
-                paths.push(format!("{}dir/file", prefix));
-                paths.push(format!("{}dir1/dir2/file", prefix));
+                        // Two directory levels
+                        new_variants.push(vec![format!("{}dir1/dir2/{}", prefix, suffix)]);
+                    }
+                } else {
+                    // ** at the end: generate paths of various depths
+                    new_variants.push(vec![format!("{}file", prefix)]);
+                    new_variants.push(vec![format!("{}dir/file", prefix)]);
+                    new_variants.push(vec![format!("{}dir1/dir2/file", prefix)]);
+                }
             }
-            return paths; // We've generated complete paths; no need to continue
-        } else if segment.contains('*') || segment.contains('?') || segment.contains('[') {
-            // Wildcard in this segment: generate examples
-            let concrete = segment
-                .replace("*", "file")
-                .replace("?", "x")
-                .replace("[0-9]", "0")
-                .replace("[a-z]", "a")
-                // Clean up leftover bracket patterns by removing them
-                .replace("[", "")
-                .replace("]", "");
-            path_parts.push(concrete);
+
+            // Convert single-element variant vecs to their string values
+            return new_variants.into_iter().map(|v| v.join("")).collect();
         } else {
-            // Literal segment
-            path_parts.push(segment.to_string());
+            // Process the segment to handle braces, character classes, and wildcards
+            let segment_variants = process_glob_segment(segment);
+
+            // Combine existing path variants with new segment variants
+            let mut new_variants = Vec::new();
+            for existing_variant in &path_variants {
+                for segment_variant in &segment_variants {
+                    let mut new_variant = existing_variant.clone();
+                    new_variant.push(segment_variant.clone());
+                    new_variants.push(new_variant);
+                }
+            }
+            path_variants = new_variants;
         }
     }
 
-    // If we get here, there was no **, just regular wildcards
-    if path_parts.is_empty() {
+    // Convert path variants to strings by joining segments with '/'
+    if path_variants.is_empty() {
         vec![glob.to_string()]
     } else {
-        vec![path_parts.join("/")]
+        path_variants.into_iter().map(|v| v.join("/")).collect()
     }
+}
+
+/// Process a single glob segment to expand braces and concretize character classes.
+/// Returns a list of processed variants; normally one, but multiple for brace groups.
+fn process_glob_segment(segment: &str) -> Vec<String> {
+    // Expand brace groups like {a,b,c} into separate alternatives
+    if let Some(expanded) = expand_braces(segment) {
+        return expanded
+            .into_iter()
+            .flat_map(|alt| process_glob_segment(&alt))
+            .collect();
+    }
+
+    // No braces; handle wildcards and character classes
+    let concrete = concretize_segment(segment);
+    vec![concrete]
+}
+
+/// Expand a brace group {a,b,...} into its alternatives, or return None if no braces.
+fn expand_braces(segment: &str) -> Option<Vec<String>> {
+    let start = segment.find('{')?;
+    let end = segment.find('}')?;
+    if start >= end {
+        return None;
+    }
+
+    let prefix = &segment[..start];
+    let suffix = &segment[end + 1..];
+    let content = &segment[start + 1..end];
+
+    let alternatives: Vec<&str> = content.split(',').collect();
+    if alternatives.is_empty() {
+        return None;
+    }
+
+    let expanded: Vec<String> = alternatives
+        .into_iter()
+        .map(|alt| format!("{}{}{}", prefix, alt, suffix))
+        .collect();
+
+    Some(expanded)
+}
+
+/// Concretize a glob segment by replacing wildcards and character classes with
+/// representative characters.
+fn concretize_segment(segment: &str) -> String {
+    let mut result = String::new();
+    let chars: Vec<char> = segment.chars().collect();
+    let mut i = 0;
+
+    while i < chars.len() {
+        match chars[i] {
+            '*' => {
+                result.push_str("file");
+                i += 1;
+            }
+            '?' => {
+                result.push('x');
+                i += 1;
+            }
+            '[' => {
+                // Find the closing bracket
+                if let Some(close_idx) = chars[i..].iter().position(|&c| c == ']') {
+                    let close_idx = i + close_idx;
+                    let class_str: String = chars[i..=close_idx].iter().collect();
+
+                    // Concretize the character class
+                    let representative = concretize_char_class(&class_str);
+                    result.push_str(&representative);
+                    i = close_idx + 1;
+                } else {
+                    // Unclosed bracket; just pass it through
+                    result.push(chars[i]);
+                    i += 1;
+                }
+            }
+            c => {
+                result.push(c);
+                i += 1;
+            }
+        }
+    }
+
+    result
+}
+
+/// Concretize a character class like `[abc]`, `[a-z]`, or `[!abc]` to a representative.
+fn concretize_char_class(class: &str) -> String {
+    if !class.starts_with('[') || !class.ends_with(']') {
+        return class.to_string();
+    }
+
+    let content = &class[1..class.len() - 1];
+
+    if content.is_empty() {
+        return class.to_string();
+    }
+
+    // Check if it's a negated class [!...]
+    if let Some(negated) = content.strip_prefix('!') {
+        // Find a character NOT in the negated set
+        for test_char in ['0', '1', 'a', 'b', 'x', 'y', 'z', '_', '-'] {
+            if !negated.contains(test_char) && !is_in_char_class(test_char, negated) {
+                return test_char.to_string();
+            }
+        }
+        // Fallback: just pick '0'
+        "0".to_string()
+    } else {
+        // Positive character class [abc] or [a-z]
+        // Try common character classes first
+        if content == "0-9" {
+            "0".to_string()
+        } else if content == "a-z" {
+            "a".to_string()
+        } else if content == "A-Z" {
+            "A".to_string()
+        } else if let Some(dash_idx) = content.find('-') {
+            if dash_idx > 0 {
+                content.chars().next().unwrap().to_string()
+            } else {
+                // Otherwise, pick the first character in the class
+                content
+                    .chars()
+                    .next()
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "a".to_string())
+            }
+        } else {
+            // Otherwise, pick the first character in the class
+            content
+                .chars()
+                .next()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "a".to_string())
+        }
+    }
+}
+
+/// Check if a character is in a character class specification (like "a-z" or "abc").
+fn is_in_char_class(ch: char, class: &str) -> bool {
+    let mut chars = class.chars().peekable();
+    while let Some(c) = chars.next() {
+        if chars.peek() == Some(&'-') {
+            let start = c;
+            chars.next(); // consume '-'
+            if let Some(end) = chars.next()
+                && ch >= start
+                && ch <= end
+            {
+                return true;
+            }
+        } else if c == ch {
+            return true;
+        }
+    }
+    false
 }
 
 /// A glob set rendered for a finding — backticked and comma-joined, in declaration

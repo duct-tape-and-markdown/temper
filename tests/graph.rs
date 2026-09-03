@@ -816,6 +816,37 @@ fn a_strict_subset_scope_glob_under_a_broader_gate_glob_is_no_finding() {
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
 }
 
+/// A scope glob with brace alternation like `**/*.{sql,md}` expands into multiple
+/// witnesses and is contained when a gate glob covers all alternatives.
+#[test]
+fn a_brace_alternation_scope_glob_is_contained_in_a_matching_gate() {
+    let run = mention_reachable_run(
+        "mr-brace-alternation",
+        Some("**/*.{sql,md}"),
+        Some("**/*"),
+        true,
+    );
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "a scope glob with brace alternation should be contained in a broader gate, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
+/// A scope glob with negated character class like `[!a]*.sql` concretizes to a
+/// representative character that doesn't match the negated set, e.g., `b*.sql`.
+#[test]
+fn a_negated_char_class_scope_glob_is_contained_when_matching_gate() {
+    let run = mention_reachable_run("mr-negated-class", Some("[!a]*.sql"), Some("*.sql"), true);
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "a scope glob with negated character class should be contained in a matching gate, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
 #[test]
 fn a_mention_to_a_declared_requirement_stays_clean() {
     let root = common::tmpdir("mention-requirement-resolves");
