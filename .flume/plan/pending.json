@@ -80,7 +80,11 @@
       }
     ],
     "acceptance": "After a Bash-mediated edit to an emit-owned target, the next PostToolUse Bash call surfaces the resulting drift finding in-band.",
-    "notes": "GH #38 half 2b, human-ruled 09-03. External fact verified 2026-09-03 (code.claude.com/docs/en/hooks, fetched this tick): PostToolUse supports a Bash matcher and receives tool_input.command but no file_path — the design re-checks emit-owned targets rather than parsing shell text, so the hook contract poses no blocker; not parked. blockedBy the prior entry only for the shared install.rs guard region. Re-scoped 09-03 (interactive) after an afterMerge cargo-test revert: the gauntlet check_diagnostic"
+    "notes": "GH #38 half 2b, human-ruled 09-03. External fact verified 2026-09-03 (code.claude.com/docs/en/hooks, fetched this tick): PostToolUse supports a Bash matcher and receives tool_input.command but no file_path — the design re-checks emit-owned targets rather than parsing shell text, so the hook contract poses no blocker; not parked. blockedBy the prior entry only for the shared install.rs guard region. Re-scoped 09-03 (interactive) after an afterMerge cargo-test revert: the gauntlet check_diagnostic",
+    "observedFiles": [
+      "src/install.rs",
+      "tests/install.rs"
+    ]
   },
   {
     "tag": "EMIT-BANNER-OWNERSHIP-MOVE",
@@ -184,52 +188,6 @@
     ],
     "acceptance": "A kind x clause-key matrix, one row per shipped kind and one column per clause predicate, snapshot-tested off the embedded src/builtin_lock.toml; a future asymmetry between two kinds meant to carry the same clause is a reviewed snapshot diff, not a silent gap.",
     "notes": "observed at e77766c5 (defect-class review, human-directed 09-03), CLASS 4 — GH #36/#37/#38 each a capability added to one of a documented pair, never its twin; sdk/src/builtins.ts declares 14 *DefaultContract arrays with no shared view. Pure test, no engine change — builtin_lock::declarations() (src/builtin_lock.rs:32) already gives read access. Re-verified: builtin_lock.toml/builtins.ts untouched since e77766c5. Re-scoped 09-03 (interactive) after three voluntary bails on the same gap: the inst"
-  },
-  {
-    "tag": "PATH-ROOT-NEWTYPE-LOCK-SOURCE-PATH",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/path.rs",
-          "description": "New `HarnessRelativePath` newtype wrapping the `/`-separated, no-leading-`./` String the lock already normalizes to via `to_lock_path`/`normalize_lock_path` — this file is the sanctioned home for path mechanics, never a bare String/PathBuf whose root lives only in a doc comment."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "Retype the harness-relative-root family that already shares this exact root by doc-comment convention: `Projection.source_path` (~776, 'relative to the harness root'), `RollupEntry.source_path` (~470), `RawLockRow.source_path`/`ProvenanceRow.source_path` (~2145/~2198, the lock's own read-back rows), and `EmitOwnedEntry`'s source_path (~2990s) — plus the `to_lock_path`/`normalize_lock_path`/`harness_relative` functions (~792-812, ~2062) that produce and consume this root. Deliberately excludes `IncludeRow.source_path` (SDK-resolved absolute, a different root), `EmitEntry.source_path` (on-disk/host-joined), and `LayoutImportRow.source_path` — each a follow-on link in the same chain, not this entry."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "Regression: the harness-relative round trip (Projection -> RollupEntry -> RawLockRow/ProvenanceRow) still holds through the typed wrapper."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Regression: existing source_path assertions over emitted lock rows still pass through the typed wrapper's Display/AsRef surface."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "Sole external caller of `drift::to_lock_path` (~199): collects the typed path into the coverage tuple — update the call site to the newtype, no dual-signature shim (the shim would be the duplicate surface the newtype removes)."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "First cut of a per-root path newtype: HarnessRelativePath for the lock's harness-relative source_path family, so a path fact's root is its type, not its doc comment.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "A shared concept is one type"
-    },
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "round-tripping a lock's provenance rows through emit and back preserves the harness-relative root, typed rather than convention-checked"
-      }
-    ],
-    "acceptance": "A path fact in the harness-relative family (Projection/RollupEntry/RawLockRow/ProvenanceRow/EmitOwnedEntry's source_path) is a HarnessRelativePath, not a bare String/PathBuf; misrooting one at a call site is a compile error, not a silent mismatch.",
-    "notes": "observed at e77766c5, CLASS 3(a) — GH #33/guard suffix bug f1401cc4/PR #23 CurDir mismatch/2fa5efd7 tap identity/#31 host-relative-from-repo-root are the field-harvested defect trail. First link of the note's own 'entry chain': EdgeTargetFacts (SDK/TS seam) and tap identity stay out of scope, filed once this lands and its pattern is proven. CLASS 3(b) (a posture-sweep rule) is explicitly not plan's to file. Ruled 09-03 (interactive) on capture build-PATH-ROOT-NEWTYPE-LOCK-SOURCE-PATH.md: widen t"
   },
   {
     "tag": "GAUNTLET-EXTERNAL-HARNESS-FIXTURES",
