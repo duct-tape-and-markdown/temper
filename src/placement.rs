@@ -15,6 +15,13 @@ pub const NOTE_MARKER: &str = "# temper: managed projection";
 /// (`project_banner`, content-drift-aware).
 pub const BANNER_MARKER: &str = "<!-- temper: managed projection";
 
+/// The managed-by note's block-level HTML-comment form, for a frontmatterless
+/// markdown projection (a memory `CLAUDE.md`, any frontmatterless kind) with no
+/// frontmatter to carry the `#` note. Claude Code strips a block-level HTML comment
+/// before injection, so the banner is human-visible and model-invisible — a courtesy
+/// marker, the drift hash still catching a hand-edit either way.
+pub const BANNER: &str = "<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->";
+
 /// The schema modeline's stable marker — the frontmatter comment prefix `install` keys
 /// its idempotence on and `emit` keys its preservation on, so both projectors agree on
 /// which line is the modeline. The prefix encodes the yaml-language-server modeline syntax
@@ -30,7 +37,7 @@ pub(crate) fn placement_lines(source: &str) -> Vec<String> {
             .map(str::to_string)
             .collect();
     }
-    // Frontmatterless: install's banner rides the head of the body, not a frontmatter
+    // Frontmatterless: the banner rides the head of the body, not a frontmatter
     // block. Return it so emit re-places it exactly as it re-places the `#` note.
     source
         .lines()
@@ -38,6 +45,14 @@ pub(crate) fn placement_lines(source: &str) -> Vec<String> {
         .filter(|line| line.trim_start().starts_with(BANNER_MARKER))
         .map(|line| vec![line.to_string()])
         .unwrap_or_default()
+}
+
+/// Whether `path` names a markdown file — the one body shape the block-level
+/// HTML-comment banner is safe in (an HTML comment is inert markdown, malformed inside
+/// a JSON manifest). Emit uses this to decide whether to place the banner.
+pub fn is_markdown_path(path: &std::path::Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
 }
 
 /// Whether `line` is one of install's managed metadata comments — the schema modeline

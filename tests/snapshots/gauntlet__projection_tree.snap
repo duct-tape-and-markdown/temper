@@ -75,14 +75,14 @@ The standing bar every module holds.
 [[guide]]
 name = "operate-the-gate"
 source_path = "docs/guides/operate-the-gate/GUIDE.md"
-source_hash = "f06595500ae92b2e960659a7a138f2044ebd8f3a982243db2f59d7dacc090fc0"
-emit_hash = "f06595500ae92b2e960659a7a138f2044ebd8f3a982243db2f59d7dacc090fc0"
+source_hash = "2afc40bd9ab8f3fa78f8675e13dbf9a3a98bdea4f0aa86aa14c679f6be809563"
+emit_hash = "2afc40bd9ab8f3fa78f8675e13dbf9a3a98bdea4f0aa86aa14c679f6be809563"
 
 [[handbook]]
 name = "operate-the-gate"
 source_path = "docs/guides/operate-the-gate/conventions.md"
-source_hash = "33d450cf8ac48bf66bbabd06863a8808505d98c853851b26df7ae3f3378e2baa"
-emit_hash = "33d450cf8ac48bf66bbabd06863a8808505d98c853851b26df7ae3f3378e2baa"
+source_hash = "552edf7357834fb223293bc7f5c3316f1341b3e1e62e7cd617ba62031b988d6c"
+emit_hash = "552edf7357834fb223293bc7f5c3316f1341b3e1e62e7cd617ba62031b988d6c"
 
 [[rule]]
 name = "authoring"
@@ -223,9 +223,13 @@ manifest = "settings.json"
 key_path = "extraKnownMarketplaces.*"
 
 === docs/guides/operate-the-gate/GUIDE.md ===
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
 # Operate the gate
 
 === docs/guides/operate-the-gate/conventions.md ===
+<!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
+
 # Conventions
 
 === docs/guides/operate-the-gate/representation.md ===

@@ -62,7 +62,7 @@ pub(crate) mod json_splice;
 pub mod kind;
 pub mod layout;
 pub mod path;
-pub(crate) mod placement;
+pub mod placement;
 pub mod read;
 pub mod reporter;
 pub mod roster;

@@ -2316,10 +2316,10 @@ fn emit_one(
 
     // Read the committed projection first — never to merge authored content, but to
     // tell `Emitted` from the idempotent no-op *and* to carry install's frontmatter
-    // placements (the schema modeline, the managed-by note) through the whole-file
-    // re-emit. Those metadata lines ride `install`, never `emit`, so a re-emit round-trips the ones
-    // already on disk instead of clobbering them. An absent source carries no
-    // placements and is not a conflict: emit writes it.
+    // placements (the schema modeline, the managed-by note) and the banner emit places
+    // through the whole-file re-emit. The schema modeline and managed-by note ride
+    // `install`; the banner rides `emit` for every markdown projection. An absent source
+    // carries no placements and is not a conflict: emit writes it.
     let current = match fs::read(&disk_path) {
         Ok(bytes) => Some(bytes),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
@@ -2330,10 +2330,22 @@ fn emit_one(
             });
         }
     };
-    let placements = current
+    let mut placements = current
         .as_deref()
         .map(|bytes| crate::placement::placement_lines(&String::from_utf8_lossy(bytes)))
         .unwrap_or_default();
+
+    // Emit places the managed-projection banner on markdown projections that have no
+    // frontmatter, since it owns the projected bytes and the banner is part of the
+    // projection contract. For frontmatterless projections, the banner heads the body.
+    if projection.fields.is_empty()
+        && crate::placement::is_markdown_path(&projection.source_path)
+        && !placements
+            .iter()
+            .any(|p| p.trim_start().starts_with(crate::placement::BANNER_MARKER))
+    {
+        placements.push(crate::placement::BANNER.to_string());
+    }
 
     let render = || {
         project_bytes(

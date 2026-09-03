@@ -28,6 +28,7 @@ use temper::drift::{
     NestedMemberRow, Payload, PayloadMember, RegistrationRow, SettingsRow,
 };
 use temper::json_manifest;
+use temper::placement;
 
 mod common;
 
@@ -118,6 +119,49 @@ fn emit_compiles_every_projection_and_the_whole_lock_from_the_payload() {
         lock.contains("[[declaration.kind]]\n"),
         "declarations: {lock}"
     );
+}
+
+#[test]
+fn a_freshly_emitted_markdown_projection_carries_the_managed_projection_banner() {
+    let (harness, into) = workspace("emit-banner");
+    const MEMORY_BODY: &str = "# Project Memory\n\nShared context for agents.\n";
+
+    // Emit a frontmatterless memory (CLAUDE.md) — it should carry the banner.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![
+                // Memory: markdown at root with CLAUDE.md name
+                common::kind_facts("memory", ".", "CLAUDE.md"),
+            ],
+            ..Default::default()
+        },
+        members: vec![PayloadMember {
+            kind: "memory".to_string(),
+            name: "root".to_string(),
+            host: None,
+            fields: Vec::new(),
+            body: MEMORY_BODY.to_string(),
+            source_path: None,
+        }],
+    };
+
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "root"), EmitOutcome::Emitted);
+
+    let memory_path = harness.join("CLAUDE.md");
+    let content = fs::read_to_string(&memory_path).unwrap();
+
+    // The banner should be prepended to the body with one blank line separating them.
+    assert!(
+        content.starts_with(&format!("{}\n\n", placement::BANNER)),
+        "freshly emitted markdown should carry the banner, got: {content}"
+    );
+    assert!(content.contains(MEMORY_BODY), "body should be intact");
+
+    // A re-emit should be unchanged (idempotent).
+    let report2 = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report2, "root"), EmitOutcome::Unchanged);
 }
 
 #[test]
@@ -2196,8 +2240,9 @@ fn crlf_orphan_classifies_as_reaped_not_drift() {
 
     let rule_path = harness.join(".claude").join("rules").join("demo.md");
 
-    // Rewrite the rule to CRLF (same content).
-    fs::write(&rule_path, BODY.replace('\n', "\r\n")).unwrap();
+    // Rewrite the rule to CRLF (same content, including the banner emit placed).
+    let banner_and_body = format!("{}\n\n{}", placement::BANNER, BODY);
+    fs::write(&rule_path, banner_and_body.replace('\n', "\r\n")).unwrap();
 
     // Re-emit with the member removed (orphan scenario).
     let orphan_payload = basic_payload(vec![]);
