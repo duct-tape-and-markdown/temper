@@ -19,6 +19,14 @@
         {
           "path": "tests/builtin_lock_frozen.rs",
           "description": "Frozen built-in lock snapshot shifts with the new clause; regenerate."
+        },
+        {
+          "path": "src/builtin_lock.toml",
+          "description": "The embedded built-in lock's skill declaration rows must carry the new clause byte-identically to the SDK output — `tests/builtin_lock_frozen.rs` re-derives the lock from the built SDK and compares against this file, so it drifts out of agreement if only builtins.ts changes."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "`expected_skill_clauses()` (~53) pins the skill built-in's decidable clause vector in declaration order; add the new mention-reachable clause or `skill_builtin_carries_the_decidable_clause_vector` (~157) fails the comparison."
         }
       ],
       "retire": []
@@ -35,13 +43,7 @@
       }
     ],
     "acceptance": "A skill mentioning a member whose gate doesn't contain the skill's own scope is flagged, the same as a rule is today.",
-    "notes": "GH #36, human-ruled 09-03. Explicitly blockedBy #33's fix — landing this first, over today's literal-containment leniency, would multiply the false positive onto skill members. scoped at 1466a1db.",
-    "observedFiles": [
-      "sdk/src/builtins.ts",
-      "sdk/test/builtins.test.ts",
-      "src/builtin_lock.toml",
-      "tests/contract_template.rs"
-    ]
+    "notes": "GH #36, human-ruled 09-03. Was explicitly sequenced behind #33's false-positive fix, over today's literal-containment leniency multiplying onto skill members — #33 shipped at 4d7e8127, so the precondition is clear. Rewritten this tick: a prior pick merge-failed and its recorded observedFiles (src/builtin_lock.toml, tests/contract_template.rs) showed the declared files understated the ripple; folded in per the pending-entry rule. scoped at 8feb4617."
   },
   {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
@@ -67,11 +69,6 @@
       ],
       "retire": []
     },
-    "observedFiles": [
-      "src/admissibility.rs",
-      "src/gate.rs",
-      "tests/hook_kind.rs"
-    ],
     "summary": "Refuse a duplicate member registration key within one kind's collection address (three hooks on SessionStart collapse to one) with a named error, not last-writer-wins.",
     "per": {
       "path": "specs/model/representation.md",
@@ -84,7 +81,7 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32, human-ruled 09-03. Same disease 21f61463 refused for two kinds sharing one collectionAddress; this is the narrower case of one kind's own members colliding on the same key. Whether hook also grows an address discriminator is a follow-on fork to surface, not to invent here. scoped at 1466a1db."
+    "notes": "GH #32, human-ruled 09-03. Same disease 21f61463 refused for two kinds sharing one collectionAddress; this is the narrower case of one kind's own members colliding on the same key. Whether hook also grows an address discriminator is a follow-on fork to surface, not to invent here. Rewritten this tick: a prior pick merge-failed and recorded observedFiles matching the declared set exactly — nothing to fold, footprint confirmed. scoped at 8feb4617."
   },
   {
     "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL",
