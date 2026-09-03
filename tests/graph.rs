@@ -797,6 +797,25 @@ fn a_deferred_mention_to_an_absent_member_fires_a_route_finding() {
     );
 }
 
+/// A strict-subset scope glob (e.g., `database/x/**/*.sql`) whose paths all match a
+/// broader gate glob (e.g., `**/*.sql`) no longer fires uncontained. This tests the
+/// subset-aware containment via glob pattern analysis, not just literal string containment.
+#[test]
+fn a_strict_subset_scope_glob_under_a_broader_gate_glob_is_no_finding() {
+    let run = mention_reachable_run(
+        "mr-subset-scope",
+        Some("database/x/**/*.sql"),
+        Some("**/*.sql"),
+        true,
+    );
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "a scope glob that is a subset of the gate glob should not fire, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
 #[test]
 fn a_mention_to_a_declared_requirement_stays_clean() {
     let root = common::tmpdir("mention-requirement-resolves");

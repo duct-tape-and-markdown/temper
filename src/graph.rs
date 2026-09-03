@@ -458,14 +458,126 @@ fn member_at<'f>(node: &Node, by_kind: &BTreeMap<&str, &'f [Features]>) -> Optio
         .find(|features| features.id == *name)
 }
 
-/// The first source glob that appears in no gate glob **verbatim**, or `None` when the
-/// gate literally contains every one. The declared leniency: literal containment, since
-/// true glob-set containment is undecidable.
+/// The first source glob whose resolved path set is not contained in the gate's resolved
+/// path set, or `None` when every scope glob is a subset of the gate globs. Containment
+/// is a structural-subset check over resolved path sets via `globset`: for each scope
+/// glob, representative paths are tested against the gate glob set; if all representatives
+/// match at least one gate glob, the scope glob is contained. True glob-language containment
+/// is undecidable, so this check errs toward firing on a semantically contained narrower
+/// glob rather than staying silent (same leniency `dead_registration` takes with an
+/// uncompilable glob). A clause naming the predicate therefore ships at advisory severity.
 fn uncontained(scope: &[String], gate: &[String]) -> Option<String> {
-    scope
+    for scope_glob in scope {
+        if !is_scope_contained_in_gate(scope_glob, gate) {
+            return Some(scope_glob.clone());
+        }
+    }
+    None
+}
+
+/// Whether a scope glob's resolved path set is contained in the gate glob set's resolved
+/// path sets. Generates representative paths from the scope glob and tests each against
+/// the gate glob set; if all representatives match at least one gate glob, the scope is
+/// contained in the gate.
+fn is_scope_contained_in_gate(scope_glob: &str, gate_globs: &[String]) -> bool {
+    // Compile the gate globs; an uncompilable gate glob is treated as matching (the same
+    // leniency `dead_registration` takes).
+    let compiled_gates: Vec<_> = gate_globs
         .iter()
-        .find(|glob| !gate.contains(glob))
-        .map(ToString::to_string)
+        .filter_map(|g| crate::glob::compile_glob(g))
+        .collect();
+    if compiled_gates.is_empty() {
+        // All gate globs failed to compile; treat as matching.
+        return true;
+    }
+
+    // Generate representative paths from the scope glob. If the scope glob cannot compile,
+    // treat it as contained (the leniency gate takes).
+    let representatives = representative_paths_for_glob(scope_glob);
+    if representatives.is_empty() {
+        return true;
+    }
+
+    // Test each representative path: it must match at least one gate glob.
+    representatives.iter().all(|path| {
+        compiled_gates
+            .iter()
+            .any(|gate_matcher| gate_matcher.is_match(path))
+    })
+}
+
+/// Generate representative paths that a glob pattern would match. These are used to
+/// test whether a scope glob is a subset of a gate glob set. For each `**` segment,
+/// we generate multiple test paths covering zero and multiple directory levels.
+fn representative_paths_for_glob(glob: &str) -> Vec<String> {
+    // Handle the pattern by replacing wildcards with concrete examples.
+    // We generate multiple representatives to cover different segment depths.
+    let mut paths = Vec::new();
+
+    // Split the glob into segments to understand its structure.
+    let segments: Vec<&str> = glob.split('/').collect();
+    let mut path_parts = Vec::new();
+
+    for (i, segment) in segments.iter().enumerate() {
+        if *segment == "**" {
+            // For `**`, generate multiple depth examples: zero segments, one, two, three
+            // To cover different depths, we'll generate complete paths and continue
+            // from here with different depths.
+
+            // First, collect the prefix (parts before **)
+            let prefix = if path_parts.is_empty() {
+                String::new()
+            } else {
+                path_parts.join("/") + "/"
+            };
+
+            // Collect the suffix (parts after **)
+            let suffix_parts: Vec<&str> = segments[i + 1..].to_vec();
+            let has_suffix = !suffix_parts.is_empty();
+
+            if has_suffix {
+                // ** followed by more segments: generate examples with different depths
+                // Pattern: prefix/**/suffix → test with 0, 1, 2 directory levels in **
+                let suffix = suffix_parts.join("/");
+
+                // Zero directories (** matches nothing)
+                paths.push(format!("{}{}", prefix, suffix));
+
+                // One directory level
+                paths.push(format!("{}dir/{}", prefix, suffix));
+
+                // Two directory levels
+                paths.push(format!("{}dir1/dir2/{}", prefix, suffix));
+            } else {
+                // ** at the end: generate paths of various depths
+                paths.push(format!("{}file", prefix));
+                paths.push(format!("{}dir/file", prefix));
+                paths.push(format!("{}dir1/dir2/file", prefix));
+            }
+            return paths; // We've generated complete paths; no need to continue
+        } else if segment.contains('*') || segment.contains('?') || segment.contains('[') {
+            // Wildcard in this segment: generate examples
+            let concrete = segment
+                .replace("*", "file")
+                .replace("?", "x")
+                .replace("[0-9]", "0")
+                .replace("[a-z]", "a")
+                // Clean up leftover bracket patterns by removing them
+                .replace("[", "")
+                .replace("]", "");
+            path_parts.push(concrete);
+        } else {
+            // Literal segment
+            path_parts.push(segment.to_string());
+        }
+    }
+
+    // If we get here, there was no **, just regular wildcards
+    if path_parts.is_empty() {
+        vec![glob.to_string()]
+    } else {
+        vec![path_parts.join("/")]
+    }
 }
 
 /// A glob set rendered for a finding — backticked and comma-joined, in declaration

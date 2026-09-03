@@ -261,6 +261,25 @@ fn the_rule_floor_is_silent_when_the_mention_sits_inside_the_targets_gate() {
     assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
 }
 
+/// A strict-subset scope glob no longer fires uncontained: a rule scoped to
+/// `database/x/**/*.sql` mentioning a skill gated to `**/*.sql` is silent, since
+/// every path matching the rule's scope also matches the skill's gate. This regression
+/// pins the fix for GH #33 — subset-aware containment via glob pattern analysis.
+#[test]
+fn the_rule_floor_is_silent_when_the_scope_is_a_structural_subset_of_the_gate() {
+    let run = bare_harness_run(
+        "rule-floor-mr-subset",
+        Some("database/x/**/*.sql"),
+        Some("**/*.sql"),
+    );
+    assert!(
+        !run.output.contains("mention-reachable"),
+        "a scope glob that is a structural subset of the gate glob is no finding, got:\n{}",
+        run.output
+    );
+    assert!(run.ok, "and the run is clean ⇒ zero, got:\n{}", run.output);
+}
+
 /// The rule built-in is itself admissible — it passes the second green.
 /// It carries
 /// only closed-vocabulary clauses with no vacuous list, so `engine::admissibility`
