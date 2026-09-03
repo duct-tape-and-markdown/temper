@@ -1,0 +1,20 @@
+---
+source: tests/builtin_contract_matrix.rs
+expression: output
+---
+kind | allowed_chars | closed-keys | degree | deny | enum | extent | forbidden_keys | glob-valid | max_len | mention-reachable | min_len | name-matches-dir | optional | required | shape | type | unique-name | when
+--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---
+agent | error |  |  |  |  |  |  |  |  |  |  |  |  | error |  |  | error | 
+command |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+dial |  | error |  |  | error |  |  |  |  |  |  |  |  | error |  | error |  | 
+hook |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | 
+installed-plugin |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+known-marketplace |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 
+marketplace | error |  |  | error |  |  |  |  |  |  | error |  |  | error |  |  |  | error
+mcp-server |  |  |  |  | error |  |  |  |  |  |  |  |  |  |  |  |  | error
+memory |  |  |  |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  | 
+plugin-manifest | error | error |  |  |  |  | error |  |  |  | error |  | error | error |  | error |  | 
+rule |  |  |  |  |  | advisory | error | error |  | advisory |  |  |  |  |  |  |  | 
+settings-local |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | error |  | 
+skill | error |  |  | error |  | advisory | error | error | error | advisory | error | error |  | error | error |  |  | 
+supporting-doc |  |  | advisory |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
