@@ -9,7 +9,44 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- `temper guard` no longer binds unrelated files that merely share a
+  projection's filename. The guard compared a declared projection against the
+  incoming path as a bare string suffix, so a root `CLAUDE.md` projection
+  bound every `CLAUDE.md` anywhere in the tree, the authoring source under
+  `.temper/memory/` included. The match now has to land on a path-segment
+  boundary.
+- A mention addressing an embedded leaf (`<member>/<kind>/<key>/<path>`) no
+  longer dangles at `check`. `emit` accepted the address while `check`
+  parsed it as a bare requirement and looked in the roster; both verbs now
+  resolve it through the same leaf resolver.
+- Two kinds declaring the same `collectionAddress` are refused at
+  declaration with a named finding (`kind.collection-address-collision`).
+  Previously each kind's selection silently became the union of every entry
+  at that address, so counts multiplied by the number of kinds and one
+  kind's clauses indicted another kind's members.
+- `temper tap` records for `InstructionsLoaded` now join to their members.
+  The record carried an absolute path and the reader compared it against a
+  member id, so no instructions-loaded evidence had ever joined on any
+  machine. The tap record is now version 2: identity is repo-relative,
+  each record carries an ISO-8601 timestamp, and the reader maps a path to
+  its member through the lock, so nested `CLAUDE.md` members with folded
+  ids join too. Version 1 records still read.
+- The synthesized tap hook runs `temper tap "$CLAUDE_PROJECT_DIR"`, so a
+  hook firing from a subdirectory or a linked worktree appends to the
+  primary checkout's log instead of a log that dies with the worktree.
+  Re-run `temper install` to pick up the new hook command.
+
+### Changed
+
+- `coverage.checked` marks embedded-locus kinds as `<kind> (N embedded)`
+  instead of `(0)`. The zero was correct for artifact members and read as
+  "this kind's clauses never evaluate," which they do.
+- The `InstructionsLoaded` tap hook registers for every documented
+  `load_reason` (`session_start`, `nested_traversal`, `path_glob_match`,
+  `include`, `compact`), not only `path_glob_match`, so always-on members
+  loaded at session start are recorded.
 
 ## [0.0.15] — 2026-07-27
 
