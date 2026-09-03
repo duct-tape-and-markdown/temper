@@ -35,7 +35,13 @@
       }
     ],
     "acceptance": "A skill mentioning a member whose gate doesn't contain the skill's own scope is flagged, the same as a rule is today.",
-    "notes": "GH #36, human-ruled 09-03. Explicitly blockedBy #33's fix — landing this first, over today's literal-containment leniency, would multiply the false positive onto skill members. scoped at 1466a1db."
+    "notes": "GH #36, human-ruled 09-03. Explicitly blockedBy #33's fix — landing this first, over today's literal-containment leniency, would multiply the false positive onto skill members. scoped at 1466a1db.",
+    "observedFiles": [
+      "sdk/src/builtins.ts",
+      "sdk/test/builtins.test.ts",
+      "src/builtin_lock.toml",
+      "tests/contract_template.rs"
+    ]
   },
   {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
@@ -61,6 +67,11 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      "src/admissibility.rs",
+      "src/gate.rs",
+      "tests/hook_kind.rs"
+    ],
     "summary": "Refuse a duplicate member registration key within one kind's collection address (three hooks on SessionStart collapse to one) with a named error, not last-writer-wins.",
     "per": {
       "path": "specs/model/representation.md",
@@ -73,12 +84,7 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32, human-ruled 09-03. Same disease 21f61463 refused for two kinds sharing one collectionAddress; this is the narrower case of one kind's own members colliding on the same key. Whether hook also grows an address discriminator is a follow-on fork to surface, not to invent here. scoped at 1466a1db.",
-    "observedFiles": [
-      "src/admissibility.rs",
-      "src/gate.rs",
-      "tests/hook_kind.rs"
-    ]
+    "notes": "GH #32, human-ruled 09-03. Same disease 21f61463 refused for two kinds sharing one collectionAddress; this is the narrower case of one kind's own members colliding on the same key. Whether hook also grows an address discriminator is a follow-on fork to surface, not to invent here. scoped at 1466a1db."
   },
   {
     "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL",
