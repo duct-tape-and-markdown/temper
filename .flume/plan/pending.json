@@ -81,7 +81,8 @@
       "src/install.rs",
       "src/placement.rs",
       "tests/emit.rs",
-      "tests/install.rs"
+      "tests/install.rs",
+      "src/lib.rs"
     ],
     "summary": "Move the managed-projection banner's placement from install to emit — emit owns the projected bytes, so a member that only ever ran emit should not ship bannerless.",
     "per": {
