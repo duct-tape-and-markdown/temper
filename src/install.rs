@@ -1870,8 +1870,9 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
 
 /// Project an artifact source with the managed-by note inserted as a frontmatter
 /// comment, or `None` when it has no frontmatter to carry it — a memory `CLAUDE.md`
-/// and every frontmatterless kind, which [`project_banner`] serves with the
-/// block-level HTML-comment form instead. Applied *before* the modeline so the
+/// and every frontmatterless kind, which `emit` serves with the
+/// block-level HTML-comment banner instead ([`converge_banner_wording`] only re-words a
+/// stale one). Applied *before* the modeline so the
 /// modeline stays the leading line.
 ///
 /// **Content-drift-aware**: idempotence keys on the note's *bytes*, not the bare [`NOTE_MARKER`]
@@ -1908,8 +1909,8 @@ fn project_note(source: &str) -> Option<String> {
 /// Never creates a new banner — that is emit's responsibility.
 ///
 /// **Content-drift-aware**, exactly like the old `project_banner`: idempotence keys on
-/// the banner's *bytes*, not the bare [`placement::BANNER_MARKER`] prefix. A leading
-/// banner whose line matches [`placement::BANNER`] is returned verbatim (no churn); one
+/// the banner's *bytes*, not the bare [`crate::placement::BANNER_MARKER`] prefix. A leading
+/// banner whose line matches [`crate::placement::BANNER`] is returned verbatim (no churn); one
 /// carrying a retired wording is *re-placed*; an absent one returns `None`.
 fn converge_banner_wording(source: &str) -> Option<String> {
     // A frontmatter source is the note's, not the banner's — never shove a comment
