@@ -72,7 +72,7 @@ test("every default contract clause carries a non-empty cite", () => {
 });
 
 test("skillDefaultContract carries the skill kind's decidable clauses, name-first", () => {
-  assert.equal(skillDefaultContract.length, 15);
+  assert.equal(skillDefaultContract.length, 16);
   assert.equal(skillDefaultContract[0].predicate.key, "required");
   assert.equal(skillDefaultContract[0].predicate.field, "name");
   assert.deepEqual(
@@ -93,11 +93,12 @@ test("skillDefaultContract carries the skill kind's decidable clauses, name-firs
       "extent",
       "forbidden_keys",
       "glob-valid",
+      "mention-reachable",
     ],
   );
-  // The `glob-valid` clause ranges over the `paths` scope.
-  assert.equal(skillDefaultContract[14].predicate.key, "glob-valid");
-  assert.equal(skillDefaultContract[14].predicate.field, "paths");
+  // The `mention-reachable` clause ranges over the `paths` scope.
+  assert.equal(skillDefaultContract[15].predicate.key, "mention-reachable");
+  assert.equal(skillDefaultContract[15].predicate.field, "paths");
 });
 
 test("commandDefaultContract is empty — command frontmatter is entirely optional", () => {

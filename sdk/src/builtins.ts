@@ -1391,6 +1391,12 @@ export const skillDefaultContract: readonly Clause[] = [
       "The optional `paths` scope gates every invocation channel until Claude reads a file its globs match; each entry is a glob (brace expansion supported). An unparseable pattern — an unclosed `[`, say — is invalid under globset and silently matches nothing, so the gate never opens and the skill never registers, with no error surfaced. Fix the pattern or drop the field.",
     cite: "https://code.claude.com/docs/en/memory#path-specific-rules (retrieved 2026-07-15)",
   }),
+  clause(mentionReachable("paths", "paths"), {
+    severity: "advisory",
+    guidance:
+      "A mention of a gated member is actionable only where that member can be invoked. A `paths` gate removes its member from every invocation channel until Claude reads a matching file, and invoking a gated member from outside its gate hard-errors (`Unknown skill`) — the harness then tells the user it doesn't exist. So a skill that loads where its target cannot be invoked hands Claude an obligation it cannot act on. Two remedies: scope this skill's `paths` to the target's gate, or ungate the target. Advisory because the containment test is literal — every glob here must appear verbatim in the gate — so a semantically narrower glob (`src/**/*.ts` inside `src/**`) false-fires; retune or drop this clause in your own contract when it does.",
+    cite: "https://code.claude.com/docs/en/skills (retrieved 2026-07-16; gating hard-error verified against 2.1.211)",
+  }),
 ];
 
 /**

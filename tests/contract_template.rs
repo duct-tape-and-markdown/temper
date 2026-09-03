@@ -148,6 +148,13 @@ fn expected_skill_clauses() -> Vec<(Severity, Predicate)> {
                 field: "paths".to_string(),
             },
         ),
+        (
+            Severity::Advisory,
+            Predicate::MentionReachable {
+                scope_field: "paths".to_string(),
+                gate_field: "paths".to_string(),
+            },
+        ),
     ]
 }
 
@@ -205,6 +212,7 @@ fn skill_builtin_encodes_only_decidable_clauses() {
             "name-matches-dir",
             "forbidden_keys",
             "glob-valid",
+            "mention-reachable",
         ]),
         "the built-in must carry only its declared decidable predicates",
     );
