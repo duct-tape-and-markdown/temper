@@ -1733,3 +1733,36 @@ test("a module-carried memory member carries no frontmatter fields", () => {
   assert.equal(member.body, claudeBody);
   assert.deepEqual(member.fields, []);
 });
+
+test("a duplicate kind:name across composed members refuses loud", () => {
+  // Two members sharing the same kind and name is a collision — the identity
+  // index must be unique. The emit must throw naming the colliding key.
+  const h = harness({
+    members: [
+      rule({
+        name: "rust",
+        paths: ["src/**/*.rs"],
+        prose: text`
+          # Rust conventions
+
+          Clippy clean.
+        `,
+      }),
+      rule({
+        name: "rust",
+        paths: ["benches/**/*.rs"],
+        prose: text`
+          # Rust (benches)
+
+          Also clippy clean.
+        `,
+      }),
+    ],
+  });
+
+  assert.throws(
+    () => emit(h),
+    /duplicate identity key `rule:rust`/,
+    "emit must refuse loud on duplicate kind:name, naming the key",
+  );
+});

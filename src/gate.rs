@@ -91,11 +91,14 @@ pub fn gate(
     // below: an entry that reached none is the one thing a dial can be wrong about that
     // its own schema cannot catch.
     let mut dialed: BTreeSet<String> = BTreeSet::new();
-    let assembly_requirements: BTreeMap<String, compose::Requirement> = committed
-        .requirements
-        .iter()
-        .map(|row| Ok((row.name.clone(), drift::requirement_from_row(row)?)))
-        .collect::<Result<_, compose::ClauseRowError>>()?;
+    let assembly_requirements: BTreeMap<String, compose::Requirement> = {
+        let rows = committed
+            .requirements
+            .iter()
+            .map(|row| Ok((row.name.clone(), drift::requirement_from_row(row)?)))
+            .collect::<Result<Vec<_>, compose::ClauseRowError>>()?;
+        compose::collect_to_btree_refusing_duplicates(rows)?
+    };
     let assembly_edges = drift::edges_from_declarations(&declarations)?;
     // The lifted reference edges the graph predicates and read verbs fold in alongside the
     // declared-field arcs: authored mentions (route-resolved at check — `route_mentions`

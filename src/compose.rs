@@ -277,6 +277,42 @@ pub enum ClauseRowError {
     },
 }
 
+/// A duplicate identity key in an identity-indexed map — a row or value whose
+/// key is already present. Surfaced as a load error rather than silently keeping
+/// the last insert: the caller forbids duplicate keys, so a collision is corruption
+/// rejected loud.
+#[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
+#[error("duplicate identity key `{key}`")]
+pub struct IdentityMapError {
+    /// The colliding key.
+    pub key: String,
+}
+
+/// Build a `BTreeMap<K, V>` from an iterator of key-value pairs, refusing on
+/// duplicate identity keys. A map the caller builds must have unique keys; a
+/// duplicate is corruption, not a shadowing rule.
+///
+/// # Errors
+///
+/// Returns [`IdentityMapError`] when a key appears more than once in the iterator.
+pub fn collect_to_btree_refusing_duplicates<K, V, I>(
+    iter: I,
+) -> Result<BTreeMap<K, V>, IdentityMapError>
+where
+    K: Ord + std::fmt::Display + Clone,
+    I: IntoIterator<Item = (K, V)>,
+{
+    let mut map = BTreeMap::new();
+    for (key, value) in iter {
+        if map.insert(key.clone(), value).is_some() {
+            return Err(IdentityMapError {
+                key: key.to_string(),
+            });
+        }
+    }
+    Ok(map)
+}
+
 /// Lift one clause row into its typed [`contract::Clause`] — its address, predicate,
 /// severity, guidance, and cite.
 /// `pub` (not `pub(crate)`): the `main` binary is a separate crate from this

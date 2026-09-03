@@ -509,3 +509,29 @@ fn a_genuinely_empty_harness_stays_silent() {
         "a genuinely empty harness's check must exit zero, got: {findings:#?}"
     );
 }
+
+#[test]
+fn a_lock_carrying_two_requirement_rows_with_the_same_name_refuses_loud() {
+    // A duplicate requirement name is an identity collision the lock carries —
+    // either a hand-edited lock or malformed emit output. The gate must refuse
+    // loud naming the colliding key, never silently shadow one requirement with
+    // the other. This produces a fatal error (not a finding), causing the check
+    // to exit non-zero while discovering nothing.
+    let root = common::tmpdir("duplicate-requirement-name");
+    let req1 = common::requirement("docs", true, None);
+    let req2 = common::requirement("docs", false, None);
+    common::write_requirements(&root, vec![req1, req2]);
+
+    let (findings, success) = check_in(&root, &[]);
+
+    // The gate must exit non-zero when a duplicate is found, with no findings
+    // captured (the error is fatal and stops the gate early).
+    assert!(
+        !success,
+        "a lock with duplicate requirement names must exit non-zero, got: {findings:#?}"
+    );
+    assert!(
+        findings.is_empty(),
+        "a fatal duplicate key error produces no findings (the check exits before collecting them), got: {findings:#?}"
+    );
+}

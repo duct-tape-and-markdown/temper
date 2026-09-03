@@ -35,6 +35,7 @@ import {
   registrationRows,
   settingsRows,
   tapHookRows,
+  uniqueMap,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
 
@@ -440,18 +441,18 @@ function placedEdges(
  * values `nestedMemberRows` does, so every edge-bearing row it builds has an observation.
  */
 function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, string[]> {
-  const placements = new Map<string, string[]>();
+  const entries: Array<[string, string[]]> = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       const placed = placedEdges(member, value, options);
       if (placed !== undefined) {
-        placements.set(placementKey(`${member.kind}:${member.name}`, value.kind, value.key), placed);
+        entries.push([placementKey(`${member.kind}:${member.name}`, value.kind, value.key), placed]);
       }
     }
   }
-  return placements;
+  return uniqueMap(entries);
 }
 
 /**
@@ -480,21 +481,24 @@ function renderedLineCount(block: string): number {
  * distinction between an observed empty and an unobserved absence).
  */
 function renderedExtents(harness: Harness, options: ResolveOptions): Map<string, RenderedExtent> {
-  const extents = new Map<string, RenderedExtent>();
+  const entries: Array<[string, RenderedExtent]> = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       const block = renderMemberBlock(member, value, options);
-      extents.set(placementKey(`${member.kind}:${member.name}`, value.kind, value.key), {
-        lines: renderedLineCount(block),
-        // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
-        // yields code points, so a surrogate pair counts once, the way it does file-side.
-        chars: [...block].length,
-      });
+      entries.push([
+        placementKey(`${member.kind}:${member.name}`, value.kind, value.key),
+        {
+          lines: renderedLineCount(block),
+          // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
+          // yields code points, so a surrogate pair counts once, the way it does file-side.
+          chars: [...block].length,
+        },
+      ]);
     }
   }
-  return extents;
+  return uniqueMap(entries);
 }
 
 /**
@@ -686,7 +690,7 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
  * spells a member address, so an edge field and a mention name a member the same way.
  */
 function memberTable(harness: Harness): Map<string, Member> {
-  return new Map(harness.members.map((member) => [`${member.kind}:${member.name}`, member]));
+  return uniqueMap(harness.members.map((member) => [`${member.kind}:${member.name}`, member]));
 }
 
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */

@@ -223,6 +223,25 @@ export function compareStrings(a: string, b: string): number {
 }
 
 /**
+ * Build a `Map<K, V>` from an iterable of key-value pairs, refusing on duplicate
+ * identity keys. A map the caller builds must have unique keys; a duplicate is
+ * corruption, not a shadowing rule.
+ *
+ * @throws Error when a key appears more than once in the iterable, naming the
+ * colliding key.
+ */
+export function uniqueMap<K, V>(entries: Iterable<[K, V]>): Map<K, V> {
+  const map = new Map<K, V>();
+  for (const [key, value] of entries) {
+    if (map.has(key)) {
+      throw new Error(`duplicate identity key \`${key}\``);
+    }
+    map.set(key, value);
+  }
+  return map;
+}
+
+/**
  * A host kind's nesting templates, from its two declaration loci. The kind's own
  * declared templates carry each layer — child kind, plus a file layer's path pattern.
  * An adopting corpus that admits its own embedded kinds over the host overrides the
@@ -369,25 +388,16 @@ function kindFactKindsInPlay(allKinds: readonly KindFacts[]): KindFacts[] {
 
 /** The requirement rows — assembly `require` and every member's `requires`, one namespace. */
 function requirementRows(harness: Harness): RequirementRow[] {
-  const merged = new Map<string, Requirement>();
-  const publish = (name: string, requirement: Requirement, source: string): void => {
-    const existing = merged.get(name);
-    if (existing !== undefined && existing !== requirement) {
-      // One namespace, one fill mechanism; a cross-publisher name collision is an
- // admissibility finding, never a shadowing rule.
-      throw new Error(
-        `requirement \`${name}\` is published twice (${source} collides with an earlier ` +
-          `publisher) — a name collision across publishers is an admissibility finding.`,
- );
- }
-    merged.set(name, requirement);
-  };
-  for (const [name, requirement] of Object.entries(harness.require)) publish(name, requirement, "the assembly");
+  const entries: Array<[string, Requirement]> = [];
+  for (const [name, requirement] of Object.entries(harness.require)) {
+    entries.push([name, requirement]);
+  }
   for (const member of harness.members) {
     for (const [name, requirement] of Object.entries(member.requires)) {
-      publish(name, requirement, `member \`${member.name}\``);
- }
- }
+      entries.push([name, requirement]);
+    }
+  }
+  const merged = uniqueMap(entries);
   return [...merged.entries()]
     .sort(([a], [b]) => compareStrings(a, b))
     .map(([name, requirement]) => ({
