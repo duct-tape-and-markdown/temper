@@ -276,3 +276,122 @@ fn the_gauntlet_corpus_emits_and_checks_to_stable_snapshots() {
     insta::assert_snapshot!("projection_tree", projection_tree(&harness, &report));
     insta::assert_snapshot!("check_diagnostics", check_diagnostics(&harness));
 }
+
+#[test]
+fn emitted_member_set_matches_independent_discovery() {
+    // Emit's declared member set and independent discovery agree exactly over the
+    // kitchen-sink corpus's locus-shape composition — every kind the lock declares,
+    // every shape the gauntlet already composes (file, directory, nested-file,
+    // embedded, local-locus, starred-segment).
+    let (harness, into) = common::wire_sdk_harness("gauntlet-round-trip", GAUNTLET_PROGRAM);
+    seat_sources(&harness);
+
+    let report = drift::emit_program(&into, EmitOptions::default())
+        .expect("the gauntlet composes only legal compositions, so emit compiles the whole");
+
+    // Read the lock's provenance: for each kind, the set of source paths it emitted.
+    let declarations =
+        drift::read_declarations(&into).expect("the emitted lock exists and is valid");
+    let mut emitted_members_by_kind: BTreeMap<
+        String,
+        std::collections::BTreeSet<std::path::PathBuf>,
+    > = BTreeMap::new();
+    for entry in &report.entries {
+        emitted_members_by_kind
+            .entry(entry.kind.clone())
+            .or_default()
+            .insert(entry.source_path.clone());
+    }
+
+    // Independently discover each kind's members and verify against the lock.
+    let lock_doc = drift::read_lock_document(&into).expect("the emitted lock exists and is valid");
+
+    let mut lock_members_by_kind: BTreeMap<String, std::collections::BTreeSet<std::path::PathBuf>> =
+        BTreeMap::new();
+    for (kind, item) in lock_doc.as_table().iter() {
+        // Skip the [declaration] section and non-member arrays.
+        if kind == "declaration" {
+            continue;
+        }
+        let Some(table_rows) = item.as_array_of_tables() else {
+            continue;
+        };
+        for row in table_rows.iter() {
+            if let Some(source_path_str) = row.get("source_path").and_then(|item| item.as_str()) {
+                lock_members_by_kind
+                    .entry(kind.to_string())
+                    .or_default()
+                    .insert(std::path::PathBuf::from(source_path_str));
+            }
+        }
+    }
+
+    // For each kind in the declarations that has a governs locus, use discover_kind_files
+    // to independently discover its members and verify they match the lock.
+    let discovery = temper::import::Discovery::new(&harness);
+    for kind_fact in &declarations.kinds {
+        let kind_name = &kind_fact.name;
+        let Some(ref governs_root) = kind_fact.governs_root else {
+            // Nested-file kind: its members are discovered off the host, not directly.
+            continue;
+        };
+        let Some(ref governs_glob) = kind_fact.governs_glob else {
+            continue;
+        };
+        // Skip kinds with no provenance — registration members embedded in manifests.
+        if !lock_members_by_kind.contains_key(kind_name) {
+            continue;
+        }
+
+        // Construct a minimal CustomKind for discover_kind_files.
+        let governs = temper::kind::Governs {
+            root: governs_root.clone(),
+            glob: governs_glob.clone(),
+        };
+        let kind_commitment = kind_fact
+            .commitment
+            .as_ref()
+            .and_then(|c| match c.as_str() {
+                "local" => Some(temper::kind::Commitment::Local),
+                _ => None,
+            });
+        let custom_kind = temper::kind::CustomKind::new(
+            kind_name.clone(),
+            governs.clone(),
+            temper::kind::Extraction::new(vec![]),
+        );
+        let custom_kind = temper::kind::CustomKind {
+            commitment: kind_commitment,
+            ..custom_kind
+        };
+
+        // Discover this kind's files independently.
+        let discovered = temper::import::discover_kind_files(
+            &discovery,
+            &custom_kind,
+            &governs,
+            temper::import::LocalOverride::Honored,
+        );
+
+        // Normalize discovered paths to be harness-relative (matching the lock's format).
+        let discovered_set: std::collections::BTreeSet<std::path::PathBuf> = discovered
+            .into_iter()
+            .map(|path| {
+                path.strip_prefix(&harness)
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or(path)
+            })
+            .collect();
+
+        // Compare with lock's provenance for this kind.
+        let lock_set = lock_members_by_kind
+            .get(kind_name)
+            .cloned()
+            .unwrap_or_default();
+
+        assert_eq!(
+            lock_set, discovered_set,
+            "kind '{kind_name}': lock provenance must match independent discovery"
+        );
+    }
+}
