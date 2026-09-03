@@ -84,7 +84,7 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32. First pick (e4ff7bc6) implemented the duplicate-key refusal and was gate-reverted by tests/cli.rs's self_host_check_is_clean_over_tempers_own_surface: temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; when the fork resolves, this entry is rewritten around the ruled discriminator (files[] will change — admissibility.rs may not be the seam at all). Prior-attempt record deleted at re-scope. scoped at d3848196."
+    "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
     "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL",
@@ -126,7 +126,7 @@
       }
     ],
     "acceptance": "An `at` locus whose root resolves under the workspace directory is refused at emit and flagged at check on an already-committed lock row; discovery's own WORKSPACE_DIR fence is unchanged.",
-    "notes": "GH #30, human-ruled 09-03. src/import.rs:439's discoverable_paths already fences WORKSPACE_DIR by design for every non-local walk (verified on disk); the gap is that emit/check never refuse the declaration that produces an undiscoverable target — discovery does not change, the workspace stays authoring source, never a projection target. Was blockedBy HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL for the shared src/admissibility.rs + src/gate.rs region; that entry parked 09-03 on `(hook-member-identity)`, so this opens — disjoint from the other open entry (SKILL-CONTRACT-MENTION-REACHABLE-PATHS: sdk + builtin_lock.toml + contract_template.rs). scoped at d3848196."
+    "notes": "GH #30, human-ruled 09-03. src/import.rs:439's discoverable_paths already fences WORKSPACE_DIR by design for every non-local walk (verified on disk); the gap is that emit/check never refuse the declaration that produces an undiscoverable target — discovery does not change, the workspace stays authoring source, never a projection target. Unblocked 09-03: HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL parked; disjoint from the other open entry. scoped at d3848196."
   },
   {
     "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
