@@ -130,8 +130,8 @@ impl std::fmt::Display for Placement {
 const GATE_RULE: &str = "install.gate-installed";
 
 /// The tool-name matcher the guard hook binds — Claude Code's own write boundary.
-/// The guard binds *this provider's* writes only; the stated, unsolved limit
-/// is that other consumers of a shared file are not instrumented by it.
+/// The guard binds *this provider's* writes only (Write, Edit, MultiEdit); other
+/// consumers of a shared file and direct Bash/PowerShell writes are not instrumented by it.
 /// (`code.claude.com/docs/en/hooks`, retrieved 2026-07-24).
 const GUARD_MATCHER: &str = "Write|Edit|MultiEdit";
 
@@ -154,17 +154,18 @@ pub const GUARD_COMMAND: &str = "command -v temper >/dev/null 2>&1 || { echo \"t
 const GUARD_MARKER: &str = "temper guard";
 
 /// The message `temper guard` prints on a projection hit — stating the limit verbatim:
-/// the guard binds only this provider's writes, so other tools writing a shared file are
-/// not bound by it. Public so the `guard` subcommand (`main`) prints it whether it
-/// warns or blocks, under the `warn` or `block` enforcement mode.
-pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code writes; other tools writes are not bound by it.";
+/// the guard binds only this provider's tool-mediated writes (Write/Edit/MultiEdit),
+/// so other tools and direct Bash/PowerShell writes are not bound by it.
+/// Public so the `guard` subcommand (`main`) prints it whether it warns or blocks,
+/// under the `warn` or `block` enforcement mode.
+pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
 /// The header `temper guard` prints when a pending write to a represented manifest carries a
 /// member that violates its contract — the per-member contract findings ([`GuardedManifest`])
 /// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest is
 /// co-owned: a write touching only opaque residue conforms and passes, so the finding names the
-/// contract broken, not the file edited. States the same binding limit verbatim.
-const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code writes; other tools writes are not bound by it.";
+/// contract broken, not the file edited. States the same binding limit: tool-mediated writes only.
+const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: any `file_path`
 /// value, captured so the guard can test it for lock-declared projection-set membership
@@ -722,6 +723,11 @@ pub enum GuardVerdict {
 /// already-installed hook): with no declared set to consult, the guard falls
 /// back to binding any `.claude/` `file_path`, matching the pre-lock behavior —
 /// absent evidence must never silently suppress the guard.
+///
+/// **Binding scope**: This guard binds only Claude Code's tool-mediated writes
+/// (Write, Edit, MultiEdit tools). Direct Bash or PowerShell writes are not
+/// instrumented by this guard and bypass it entirely — CI or manual review
+/// must catch drift from those paths.
 ///
 /// A `file_path` naming no declared projection (with `targets` present) or no
 /// `.claude/` locus (with `targets` absent) is [`GuardVerdict::Allow`]. Otherwise

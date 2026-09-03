@@ -2998,9 +2998,15 @@ pub struct EmitOwnedEntry {
 /// conversion means there is no other kind of row.
 /// A missing or malformed lock yields no targets — the same "no lock, nothing to
 /// bind" absence [`config_stale`] treats identically.
+///
+/// Includes `.claude/settings.json` when any registration-member kind
+/// (hook, installed-plugin, known-marketplace) has members in the lock:
+/// these kinds compose into the spliced settings.json artifact, making it
+/// emit-owned and subject to the guard.
 #[must_use]
 pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
-    walk_lock_rows(workspace_dir)
+    let rows = walk_lock_rows(workspace_dir);
+    let mut targets: Vec<EmitOwnedEntry> = rows
         .into_iter()
         .filter_map(|raw| {
             let (Some(name), Some(source_path)) = (raw.name, raw.source_path) else {
@@ -3012,7 +3018,25 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
                 path: PathBuf::from(source_path),
             })
         })
-        .collect()
+        .collect();
+
+    // Check if any registration-member kind exists (hook, installed-plugin, known-marketplace).
+    // If so, .claude/settings.json becomes an emit-owned target since it's composed from them.
+    let has_registration_members = walk_lock_rows(workspace_dir).iter().any(|row| {
+        matches!(
+            row.kind.as_str(),
+            "hook" | "installed-plugin" | "known-marketplace"
+        )
+    });
+    if has_registration_members {
+        targets.push(EmitOwnedEntry {
+            kind: "settings".to_string(),
+            name: "settings.json".to_string(),
+            path: PathBuf::from(".claude/settings.json"),
+        });
+    }
+
+    targets
 }
 
 // ---------------------------------------------------------------------------

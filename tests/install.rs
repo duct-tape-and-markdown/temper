@@ -1130,7 +1130,7 @@ fn guard_reads_the_block_mode_from_the_lock_not_the_retired_manifest() {
 
     let (code, stderr) = common::run_guard(&root, CLAUDE_WRITE_PAYLOAD);
     assert_eq!(code, Some(2), "the lock's `block` mode must block");
-    assert!(stderr.contains("other tools writes are not bound by it"));
+    assert!(stderr.contains("direct Bash/PowerShell writes are not bound by it"));
 }
 
 /// With no `lock.toml` at all there is no declared projection set to consult — unlike
@@ -1206,6 +1206,63 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     );
     assert_eq!(other_code, Some(0));
     assert!(other_stderr.is_empty());
+}
+
+/// .claude/settings.json is composed from registration-member kinds (hook,
+/// installed-plugin, known-marketplace) and becomes emit-owned when any of
+/// them exist in the lock. The guard must bind writes to it, not silently allow them.
+#[test]
+fn guard_binds_settings_json_when_registration_members_compose() {
+    let root = common::tmpdir("guard-settings-json-emit-owned");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+
+    // A lock with `block` mode and a hook member (which composes into settings.json).
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[hook]]\nname = \"test-hook\"\nsource_path = \".claude/hooks/test.ts\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+    )
+    .unwrap();
+
+    // A pending write to .claude/settings.json should be bound by the guard
+    // (not silently allowed), since the hook member composes into it.
+    let (code, stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "a pending write to .claude/settings.json must be bound when registration members exist (block mode)"
+    );
+    assert!(
+        stderr.contains("temper-managed projection"),
+        "the guard message must indicate it's a managed projection"
+    );
+
+    // Verify that under `warn` mode, the same write is allowed but surfaces the finding.
+    let warn_root = common::tmpdir("guard-settings-json-warn");
+    let warn_temper_dir = warn_root.join(".temper");
+    fs::create_dir_all(&warn_temper_dir).unwrap();
+    fs::write(
+        warn_temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"warn\"\n\n[[hook]]\nname = \"test-hook\"\nsource_path = \".claude/hooks/test.ts\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+    )
+    .unwrap();
+
+    let (warn_code, warn_stderr) = common::run_guard(
+        &warn_root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
+    );
+    assert_eq!(
+        warn_code,
+        Some(0),
+        "warn mode allows the write but surfaces the finding"
+    );
+    assert!(
+        warn_stderr.contains("temper-managed projection"),
+        "the warning must be in-band"
+    );
 }
 
 /// Regression test for the suffix-path-boundary bug: a file_path ending in
