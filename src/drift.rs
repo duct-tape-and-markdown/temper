@@ -34,6 +34,7 @@ use crate::kind::{
     commitment_from_row, content_from_row, format_from_row,
 };
 use crate::layout::{Layout, LayoutRegion};
+use crate::path::HarnessRelativePath;
 use std::cell::Cell;
 
 thread_local! {
@@ -467,7 +468,7 @@ pub(crate) struct RollupEntry {
     /// Artifact name (and its `<kind>/<name>/` surface directory).
     pub(crate) name: String,
     /// Path to the original source file, as given relative to the harness arg.
-    pub(crate) source_path: String,
+    pub(crate) source_path: HarnessRelativePath,
     /// SHA-256 of the authored source bytes — the **source freshness fact**, the
     /// anchor source-drift detection compares against.
     pub(crate) source_hash: String,
@@ -523,7 +524,7 @@ fn rollup_tables(rollup: &[RollupEntry]) -> ArrayOfTables {
     for entry in rollup {
         let mut table = Table::new();
         table["name"] = value(entry.name.clone());
-        table["source_path"] = value(entry.source_path.clone());
+        table["source_path"] = value(String::from(entry.source_path.clone()));
         table["source_hash"] = value(entry.source_hash.clone());
         table["emit_hash"] = value(entry.emit_hash.clone());
         tables.push(table);
@@ -1480,7 +1481,7 @@ pub fn emit(
             .or_default()
             .push(RollupEntry {
                 name: projection.name.clone(),
-                source_path: to_lock_path(&projection.source_path),
+                source_path: HarnessRelativePath::new(to_lock_path(&projection.source_path)),
                 source_hash: hash.clone(),
                 emit_hash: hash,
             });
@@ -1496,7 +1497,7 @@ pub fn emit(
         if let Some((kind, name)) = &build.container {
             rollups.entry(kind.clone()).or_default().push(RollupEntry {
                 name: name.clone(),
-                source_path: to_lock_path(path),
+                source_path: HarnessRelativePath::new(to_lock_path(path)),
                 source_hash: hash.clone(),
                 emit_hash: hash,
             });
@@ -2142,7 +2143,7 @@ struct RawLockRow {
     /// The member's name, absent if the row's `name` column is missing or malformed.
     name: Option<String>,
     /// The projection's on-disk path as the lock recorded it, absent if missing or malformed.
-    source_path: Option<String>,
+    source_path: Option<HarnessRelativePath>,
     /// The projection's last-emitted fingerprint, absent if the row's `emit_hash` column is missing or malformed.
     emit_hash: Option<String>,
 }
@@ -2165,7 +2166,7 @@ fn walk_lock_rows_from_doc(doc: &DocumentMut) -> Vec<RawLockRow> {
                 source_path: row
                     .get("source_path")
                     .and_then(Item::as_str)
-                    .map(|s| s.to_string()),
+                    .map(|s| HarnessRelativePath::new(s.to_string())),
                 emit_hash: row
                     .get("emit_hash")
                     .and_then(Item::as_str)
@@ -2195,7 +2196,7 @@ struct ProvenanceRow {
     /// The member's name.
     name: String,
     /// The projection's on-disk path, as the lock recorded it.
-    source_path: String,
+    source_path: HarnessRelativePath,
     /// The projection's last-emitted fingerprint.
     emit_hash: String,
 }
@@ -2657,7 +2658,7 @@ pub fn config_stale_from_doc(
         if sha256_hex(&canonicalize_eol(&bytes)) != emit_hash {
             findings.push(crate::check::Diagnostic::warn(
                 CONFIG_STALE_RULE,
-                &source_path,
+                &source_path as &str,
                 format!(
                     "committed projection `{source_path}` (member `{name}`) does not match the lock's emit fingerprint — the authored source changed and `emit` has not run, or the projection was hand-edited; re-emit to reconcile"
                 ),
@@ -3015,7 +3016,7 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
             Some(EmitOwnedEntry {
                 kind: raw.kind,
                 name,
-                path: PathBuf::from(source_path),
+                path: PathBuf::from(String::from(source_path)),
             })
         })
         .collect();
