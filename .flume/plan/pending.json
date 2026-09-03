@@ -43,8 +43,7 @@
   {
     "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
     "gate": {
-      "kind": "blockedBy",
-      "tag": "REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -158,53 +157,6 @@
     "notes": "GH #37, human-ruled 09-03. src/drift.rs:2298's own comment currently states the opposite design (\"ride install, never emit\") — this entry is a deliberate reversal per the ruling, not a bug in that comment's accuracy today. blockedBy the guard entries above only for the shared install.rs file, not a design dependency. scoped at 1466a1db."
   },
   {
-    "tag": "REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/roster.rs",
-          "description": "Satisfier admission (~123) already refuses an unmodeled kind naming a requirement's `kind`, but is otherwise kind-blind: any modeled kind's satisfier fills a requirement regardless of its declared `kind`. Enforce the constraint — a satisfier of a kind other than the requirement's declared `kind` is a required-severity finding on the satisfier."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "Requirement admissibility (~104-125) checks `kind` narrows to a *modeled* kind (dead-selector case); this is the sibling live case — a filled requirement whose filler's kind mismatches."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`explain`'s fill listing excludes a wrong-kind satisfier from \"filling\" the requirement, consistent with the new finding."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "Regression: a `kind: skill` requirement filled by an `installed-plugin` satisfier is flagged, and explain does not list it as filling."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Enforce a requirement's declared `kind`: a satisfier of another kind is a required-severity finding, and explain excludes it from filling the requirement.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "requirement — a shipped kind, not a primitive"
-    },
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "a kind-mismatched satisfier is a required-severity finding and is excluded from explain's fill listing"
-      }
-    ],
-    "acceptance": "A requirement declared `kind: skill` filled only by an `installed-plugin` satisfier now surfaces a required-severity finding naming the mismatch, and `explain` does not credit the fill.",
-    "notes": "GH #28, human-ruled 09-03. sdk/src/contract.ts:344 already documents `kind` as constraining what may fill a requirement; src/roster.rs already refuses an unmodeled kind, so the seam exists — what's missing is the live mismatch finding. blockedBy AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL only for the shared src/admissibility.rs region. scoped at 1466a1db.",
-    "observedFiles": [
-      "src/read.rs",
-      "tests/common/mod.rs",
-      "tests/requirement_roster.rs"
-    ]
-  },
-  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
@@ -301,60 +253,6 @@
     ],
     "acceptance": "A path fact in the harness-relative family (Projection/RollupEntry/RawLockRow/ProvenanceRow/EmitOwnedEntry's source_path) is a HarnessRelativePath, not a bare String/PathBuf; misrooting one at a call site is a compile error, not a silent mismatch.",
     "notes": "observed at e77766c5, CLASS 3(a) — GH #33/guard suffix bug f1401cc4/PR #23 CurDir mismatch/2fa5efd7 tap identity/#31 host-relative-from-repo-root are the field-harvested defect trail. First link of the note's own 'entry chain': EdgeTargetFacts (SDK/TS seam) and tap identity stay out of scope, filed once this lands and its pattern is proven. CLASS 3(b) (a posture-sweep rule) is explicitly not plan's to file. scoped at 89d96cca."
-  },
-  {
-    "tag": "IDENTITY-MAP-REFUSING-CONSTRUCTOR",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/compose.rs",
-          "description": "New small generic collision-checked collector beside `ClauseRowError` (~246) — builds a `BTreeMap<K, V>` from a `(K, V)` iterator, refusing with a named error identifying the colliding key rather than silently keeping the last insert."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "`assembly_requirements` (~94-97) currently `.collect()`s the lock's `[[requirement]]` rows straight into a `BTreeMap<String, Requirement>` — a duplicate `name` (a hand-edited or malformed lock) silently collapses to whichever row parsed last, cross-applying its clauses. Route through the new collector."
-        },
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "`memberTable` (~684, the `kind:name` composed-member index an embedded value's edge field resolves against) builds `new Map(harness.members.map(...))` with no uniqueness check — a duplicate `kind:name` silently keeps the last member. `edgePlacements`/`renderedExtents` (~442/~482) build the same way, keyed by `placementKey`. Add a small shared `uniqueMap`-style helper (mirroring the ad hoc `publish` guard `requirementRows` already hand-rolls) and route all three through it."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`requirementRows`'s `publish` closure (~372-384) is the existing hand-rolled instance of this exact guard (throws on a same-name, different-value collision) — refactor it onto the new shared helper instead of keeping its own bespoke duplicate check beside the new one."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Regression: two composed members sharing one `kind:name` address refuse loud through `memberTable` rather than the later one silently winning."
-        },
-        {
-          "path": "tests/gate_fail_loud.rs",
-          "description": "Regression: a lock carrying two `[[requirement]]` rows with the same `name` refuses loud naming the collision, rather than one silently shadowing the other."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "One refusing BTreeMap/Map identity-index constructor per side, replacing the ad hoc SDK collision guard and the unguarded engine/SDK member-table builders it stands beside.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "a duplicate kind:name across composed members refuses loud"
-      },
-      {
-        "path": "tests/gate_fail_loud.rs",
-        "asserts": "a lock carrying two [[requirement]] rows with the same name refuses loud rather than one silently shadowing the other"
-      }
-    ],
-    "acceptance": "One refusing constructor per side (engine BTreeMap, SDK Map) replaces the ad hoc collision guard requirementRows already hand-rolled and the unguarded memberTable/edgePlacements/renderedExtents/assembly_requirements builders; a duplicate identity key anywhere in that set is a named refusal, never a silent last-write-wins.",
-    "notes": "observed at e77766c5, CLASS 1 — GH #26 (fixed 21f61463, a different map: kind-level collectionAddress collision), #32 (parked on (hook-member-identity)), PR #23's one-row round-trip. assembly_requirements's bare .collect() (gate.rs:94) and memberTable's bare new Map() (emit.ts:684) are the live, untested gaps found; requirementRows's publish closure (declarations.ts:372) is the precedent this consolidates. Waits for (hook-member-identity) only for the hook map. scoped at 89d96cca."
   },
   {
     "tag": "GAUNTLET-EXTERNAL-HARNESS-FIXTURES",
