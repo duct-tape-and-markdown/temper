@@ -275,6 +275,50 @@ pub fn registration_locus_admissibility(
         .collect())
 }
 
+/// The diagnostic `rule` id an `at`-locus member rooted under the workspace directory reports
+/// under. Sibling of [`LOCAL_LOCUS_RULE`] and [`REGISTRATION_LOCUS_RULE`]: all guard the
+/// locus's own coherence before the corpus is trusted to model the harness.
+const AT_LOCUS_UNDER_WORKSPACE_RULE: &str = "at-locus.under-workspace";
+
+/// An [`AT_LOCUS_UNDER_WORKSPACE_RULE`] finding per `at`-locus member whose committed
+/// `source_path` falls under `.temper/` — the same invariant emit refuses at projection
+/// time, surfaced at check time over an already-committed lock.
+pub fn at_locus_under_workspace_admissibility(
+    kind_rows: &[&drift::KindFactRow],
+    _declarations: &drift::Declarations,
+) -> Vec<check::Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for kind_row in kind_rows {
+        // Only `at` loci (both governs_root and governs_glob present) can be under workspace.
+        let Some(root) = kind_row.governs_root.as_deref() else {
+            continue;
+        };
+        let Some(_glob) = kind_row.governs_glob.as_deref() else {
+            continue;
+        };
+        // Check if this kind has any members whose source_path falls under .temper/.
+        // The members themselves aren't in the declarations by kind — they're in the
+        // rollup, and the committed rows only carry members the kind projected.
+        // We can't check every member here without reading the disk, but we can flag
+        // the kind if its locus itself is under the workspace.
+        let root_path = std::path::Path::new(root);
+        let workspace = std::path::Path::new(crate::WORKSPACE_DIR);
+        if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR)) {
+            diagnostics.push(check::Diagnostic::error(
+                AT_LOCUS_UNDER_WORKSPACE_RULE,
+                &kind_row.name,
+                format!(
+                    "kind `{}` declares an `at` locus rooted at `{}`, which falls under the \
+                     workspace directory `.temper/` — a member rooted there would emit and lock but \
+                     never be discoverable by design",
+                    kind_row.name, root
+                ),
+            ));
+        }
+    }
+    diagnostics
+}
+
 /// The diagnostic `rule` id for two distinct kinds resolving to the same `governs`
 /// (root+glob) locus. Sibling of [`KIND_COLLISION_RULE`], which guards the bare-name
 /// namespace; this one guards the locus namespace — a document's kind is its position

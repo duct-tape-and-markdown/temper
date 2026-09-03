@@ -592,3 +592,67 @@ fn a_commitment_label_outside_the_closed_vocabulary_refuses_at_load() {
         run.output
     );
 }
+
+#[test]
+fn an_at_locus_under_the_workspace_refuses_at_emit_and_check() {
+    let harness = common::tmpdir("at-locus-under-workspace");
+    let into = harness.join(".temper");
+    fs::create_dir_all(&into).unwrap();
+
+    // A kind governing under .temper/ directly.
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![drift::KindFactRow {
+                governs_root: Some(".temper".to_string()),
+                governs_glob: Some("*.md".to_string()),
+                ..common::kind_facts("test_kind", ".temper", "*.md")
+            }],
+            ..Default::default()
+        },
+        members: vec![PayloadMember {
+            kind: "test_kind".to_string(),
+            name: "test_member".to_string(),
+            host: None,
+            fields: Vec::new(),
+            body: String::new(),
+            source_path: None,
+        }],
+    };
+
+    // Emit refuses at projection time.
+    let emit_result = drift::emit(&payload, &into, drift::EmitOptions::default());
+    assert!(
+        emit_result.is_err(),
+        "emit refuses an at locus rooted under the workspace"
+    );
+    let err_msg = format!("{:?}", emit_result);
+    assert!(
+        err_msg.contains("at_locus_under_workspace") || err_msg.contains(".temper"),
+        "the error names the workspace constraint: {err_msg}"
+    );
+
+    // Check also refuses on an already-committed lock row.
+    common::write_lock(
+        &harness,
+        Declarations {
+            kinds: vec![drift::KindFactRow {
+                governs_root: Some(".temper".to_string()),
+                governs_glob: Some("*.md".to_string()),
+                ..common::kind_facts("test_kind", ".temper", "*.md")
+            }],
+            ..Default::default()
+        },
+    );
+    let run = common::check_harness_in(&harness, None);
+    assert!(
+        !run.ok,
+        "check refuses an at locus under the workspace: {}",
+        run.output
+    );
+    assert!(
+        run.output.contains("at-locus") && run.output.contains(".temper"),
+        "the refusal names the at-locus and workspace constraint: {}",
+        run.output
+    );
+}

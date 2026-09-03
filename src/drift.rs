@@ -429,6 +429,23 @@ pub enum DriftError {
         detail: String,
     },
 
+    /// An `at` locus member's root path falls under the workspace directory. The workspace
+    /// is discovery's own reserved territory and never a projection target; a member rooted
+    /// there would emit and lock but stay undiscoverable, a silent divergence between
+    /// declaration and reachability.
+    #[error(
+        "member `{member}` of kind `{kind}` has an `at` locus rooted at `{root}`, which falls under the workspace directory `.temper/` — a member rooted under the workspace would emit and lock but never be discoverable by design"
+    )]
+    #[diagnostic(code(temper::drift::at_locus_under_workspace))]
+    AtLocusUnderWorkspace {
+        /// The member's `kind:name` address.
+        member: String,
+        /// The kind the member declares.
+        kind: String,
+        /// The `at` locus root the member declares.
+        root: String,
+    },
+
     /// A committed lock carries a present-but-malformed declaration row — a required
     /// column absent, a column the wrong type, a malformed nested element, or a label
     /// outside its closed vocabulary. Surfaced at load rather than silently dropped: a
@@ -1205,6 +1222,23 @@ pub fn emit(
                 })?;
         let source_path =
             member_projection_path(facts, &member.name, member.host.as_deref(), &kind_facts)?;
+        // An `at` locus (both governs_root and governs_glob present) rooted under the workspace
+        // would emit and lock but never be discoverable, since discovery fences .temper/ by design.
+        if let (Some(root), Some(_)) =
+            (facts.governs_root.as_deref(), facts.governs_glob.as_deref())
+        {
+            let root_path = Path::new(root);
+            let workspace = Path::new(crate::WORKSPACE_DIR);
+            if root_path == workspace || root_path.starts_with(format!("{}/", crate::WORKSPACE_DIR))
+            {
+                return Err(DriftError::AtLocusUnderWorkspace {
+                    member: format!("{}:{}", &facts.name, member.name),
+                    kind: member.kind.clone(),
+                    root: root.to_string(),
+                }
+                .into());
+            }
+        }
         // A **local**-locus member: the kind is declared and reviewed, its document is
         // not. Emit writes nothing at its path and
         // derives no row for it — no projection, no provenance/emit-hash rollup, no

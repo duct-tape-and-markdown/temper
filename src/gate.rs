@@ -228,6 +228,12 @@ pub fn gate(
         &custom_rows,
         &declarations,
     )?);
+    // An `at` locus member rooted under the workspace would emit and lock but never be
+    // discoverable — discovery fences .temper/ by design — so the admissible set excludes it.
+    diagnostics.extend(admissibility::at_locus_under_workspace_admissibility(
+        &custom_rows,
+        &declarations,
+    ));
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::with_joined_clauses(
