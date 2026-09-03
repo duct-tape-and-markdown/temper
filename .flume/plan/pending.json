@@ -1,51 +1,5 @@
 [
   {
-    "tag": "SKILL-CONTRACT-MENTION-REACHABLE-PATHS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/builtins.ts",
-          "description": "`skillDefaultContract` (~1306+) carries no `mentionReachable` clause; `ruleDefaultContract` does (line 1508, `clause(mentionReachable(\"paths\", \"paths\"), {...})`). Add the equivalent clause to `skillDefaultContract` so a skill consulting a narrower-gated member is flagged the same way a rule is."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Regression: skillDefaultContract carries the mention-reachable clause."
-        },
-        {
-          "path": "tests/builtin_lock_frozen.rs",
-          "description": "Frozen built-in lock snapshot shifts with the new clause; regenerate."
-        },
-        {
-          "path": "src/builtin_lock.toml",
-          "description": "The embedded built-in lock's skill declaration rows must carry the new clause byte-identically to the SDK output — `tests/builtin_lock_frozen.rs` re-derives the lock from the built SDK and compares against this file, so it drifts out of agreement if only builtins.ts changes."
-        },
-        {
-          "path": "tests/contract_template.rs",
-          "description": "`expected_skill_clauses()` (~53) pins the skill built-in's decidable clause vector in declaration order; add the new mention-reachable clause or `skill_builtin_carries_the_decidable_clause_vector` (~157) fails the comparison."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Add mentionReachable(\"paths\",\"paths\") to skillDefaultContract, matching ruleDefaultContract — a skill's narrower-gated mention currently goes unflagged.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "clause"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "skillDefaultContract includes a mentionReachable(paths, paths) clause"
-      }
-    ],
-    "acceptance": "A skill mentioning a member whose gate doesn't contain the skill's own scope is flagged, the same as a rule is today.",
-    "notes": "GH #36, human-ruled 09-03. Was explicitly sequenced behind #33's false-positive fix, over today's literal-containment leniency multiplying onto skill members — #33 shipped at 4d7e8127, so the precondition is clear. Rewritten this tick: a prior pick merge-failed and its recorded observedFiles (src/builtin_lock.toml, tests/contract_template.rs) showed the declared files understated the ripple; folded in per the pending-entry rule. scoped at 8feb4617."
-  },
-  {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
@@ -85,48 +39,6 @@
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
     "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
-  },
-  {
-    "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "`member_projection_path` (~911) resolves an `at`-locus member (governs_root + governs_glob present together) to a path under the given root with no check that the root avoids the workspace. Refuse at `emit` (in `emit()`'s member loop, ~1206+) when an `at` locus's root falls under `WORKSPACE_DIR`, with a named error — it would emit and lock but never be discoverable."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "Companion check-time refusal reading the committed lock's row for an `at`-locus member whose `source_path` falls under `.temper/` — the same invariant enforced on the already-committed state, not only at the next emit."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Wire the new check-time diagnostic beside the other admissibility calls."
-        },
-        {
-          "path": "tests/local_locus.rs",
-          "description": "Regression: an `at` locus declared under `.temper/` refuses at emit and at check, naming the offending path."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Refuse an `at` locus rooted under the workspace, at emit and at check: it currently emits and locks but discovery fences .temper/ by design, so it's silently unreachable.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "locus"
-    },
-    "tests": [
-      {
-        "path": "tests/local_locus.rs",
-        "asserts": "an at locus under .temper/ refuses at emit and at check with a named error"
-      }
-    ],
-    "acceptance": "An `at` locus whose root resolves under the workspace directory is refused at emit and flagged at check on an already-committed lock row; discovery's own WORKSPACE_DIR fence is unchanged.",
-    "notes": "GH #30, human-ruled 09-03. src/import.rs:439's discoverable_paths already fences WORKSPACE_DIR by design for every non-local walk (verified on disk); the gap is that emit/check never refuse the declaration that produces an undiscoverable target — discovery does not change, the workspace stays authoring source, never a projection target. Unblocked 09-03: HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL parked; disjoint from the other open entry. scoped at d3848196."
   },
   {
     "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
@@ -248,8 +160,7 @@
   {
     "tag": "REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT",
     "gate": {
-      "kind": "blockedBy",
-      "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
