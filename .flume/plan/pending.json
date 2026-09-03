@@ -41,56 +41,9 @@
     "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
-    "tag": "GUARD-POSTTOOLUSE-BASH-DRIFT-CHECK",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "The `PreToolUse` guard (`GUARD_MATCHER`, ~136: `Write|Edit|MultiEdit`) never sees a Bash/PowerShell-mediated write, and a Bash payload carries no `file_path` to bind against. Add a new `PostToolUse` hook group placement, matcher `Bash`, beside the existing `PreToolUse` guard group's install/converge logic (~1075-1200): it runs after the call and re-checks emit-owned targets for drift (check-style), rather than parsing `tool_input.command` shell text before the call."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Regression: install places/converges a PostToolUse Bash hook group; the hook's command runs drift detection over emit-owned targets, not command-text parsing."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "Pins install/check output that names the placed hooks; a new PostToolUse placement changes the `install.gate-installed` advisory text — re-accept with `cargo insta test --accept` and review the diff."
-        },
-        {
-          "path": "tests/snapshots/install__a_fresh_install_settings_document_is_stable.snap",
-          "description": "Pins install/check output that names the placed hooks; a new PostToolUse placement changes the `install.gate-installed` advisory text — re-accept with `cargo insta test --accept` and review the diff."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "src/install.rs",
-      "tests/install.rs"
-    ],
-    "summary": "Add a PostToolUse arm on Bash that runs check-style drift detection over emit-owned targets after the call, since the PreToolUse guard cannot see Bash-mediated writes.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a PostToolUse Bash hook group is placed and re-checks emit-owned targets for drift"
-      }
-    ],
-    "acceptance": "After a Bash-mediated edit to an emit-owned target, the next PostToolUse Bash call surfaces the resulting drift finding in-band.",
-    "notes": "GH #38 half 2b, human-ruled 09-03. External fact verified 2026-09-03 (code.claude.com/docs/en/hooks, fetched this tick): PostToolUse supports a Bash matcher and receives tool_input.command but no file_path — the design re-checks emit-owned targets rather than parsing shell text, so the hook contract poses no blocker; not parked. blockedBy the prior entry only for the shared install.rs guard region. Re-scoped 09-03 (interactive) after an afterMerge cargo-test revert: the gauntlet check_diagnostic"
-  },
-  {
     "tag": "EMIT-BANNER-OWNERSHIP-MOVE",
     "gate": {
-      "kind": "blockedBy",
-      "tag": "GUARD-POSTTOOLUSE-BASH-DRIFT-CHECK"
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
