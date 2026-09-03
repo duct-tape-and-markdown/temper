@@ -286,6 +286,7 @@ function edgeTargetFacts(
       address: lookup,
       kind: target.kind,
       path: relativeProjection(projectionPath(host), projectionPath(target)),
+      repoRootedPath: projectionPath(target),
     };
   }
   return targets;

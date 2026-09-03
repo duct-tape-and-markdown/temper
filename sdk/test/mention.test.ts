@@ -154,3 +154,33 @@ test("a composed-body prose span's mention keys to the host kind:name and mints 
     ["decision:done-is-exact"],
   );
 });
+
+test("a resolved edge target carries both host-relative and repo-rooted path facts", () => {
+  const edgeKind = kind<object>(
+    {
+      name: "link",
+      locus: { kind: "embedded" },
+      unitShape: "file",
+      registration: [],
+      edgeFields: [{ field: "target", to: ["rule"] }],
+    },
+    {
+      render: (value) => {
+        const edge = value.targets.target;
+        return `relative: ${edge.path}, rooted: ${edge.repoRootedPath}`;
+      },
+    },
+  );
+
+  const h = harness({
+    members: [
+      rule({ name: "rust", paths: ["src/**/*.rs"], prose: text`# Rust` }),
+      memory({ name: "CLAUDE", prose: blocks(embeddedMemberValue({ kind: edgeKind, key: "ref", leaves: { target: "rule:rust" } })) }),
+    ],
+    admit: [{ host: memory, admits: [edgeKind] }],
+  });
+
+  const result = emit(h);
+  const body = result.members.find((m) => m.name === "CLAUDE")!.body;
+  assert.equal(body, "relative: .claude/rules/rust.md, rooted: .claude/rules/rust.md\n");
+});

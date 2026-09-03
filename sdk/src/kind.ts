@@ -411,8 +411,7 @@ export interface ResolvedEmbeddedMemberCollectionEntry {
  * The closed set of facts an embedded format may place about one edge field's
  * target — derived at emit off the resolved target member, never authored at the
  * instance and never fabricated, so a rendered reference is true by construction.
- * The set is exactly these four; a fifth fact is a spec question, not a
- * convenience.
+ * The set is exactly these five facts; no convenience additions beyond.
  */
 export interface EdgeTargetFacts {
   /** The target member's identity within its kind. */
@@ -421,8 +420,10 @@ export interface EdgeTargetFacts {
   readonly address: string;
   /** The target member's kind. */
   readonly kind: string;
-  /** The target's projection, relative to the host member's own projection. */
+  /** The target's projection, relative to the host member's own projection — used by a render hook to spell a link from the host body. */
   readonly path: string;
+  /** The target's projection rooted at the repository — used by a render hook consuming edge targets from repo root. */
+  readonly repoRootedPath: string;
 }
 
 /**
