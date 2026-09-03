@@ -73,6 +73,23 @@ tax.
   is the human ruling on the mechanism, session-argued as 0036 was — not a
   waiting-for-demand fork, the demand already shipped. No dependents.
 
+- `(external-commitment)` — OPEN, live driver (GH #29, human-ruled 09-03,
+  PARK). No locus shape expresses "committed, not an emit target, still a
+  roster member": every shape tried fails one of the three — a **file**
+  locus's `local` commitment is read-side only and never enters the lock
+  (drops "roster member" — no lock row to address or drift against); a bare
+  `fields` (registration) locus has no file identity of its own to be
+  "committed"; an **embedded** locus loads only through its host, so it
+  can't stand as an independently-committed artifact. Proposed: a
+  `commitment: "external"` class on the **file** locus (sibling to `local`,
+  which 0032 ruled as a locus property, not a layer) — committed by the
+  author, never written by `emit`, still takes a lock row, still
+  addressable as an edge target, with drift defined as the file's bytes vs
+  the lock's recorded hash (the same shape `local` denies itself by staying
+  read-side-only). Needs a Decision before any entry: this is 0032's
+  unresolved sibling case, session-argued, not inferred here. No
+  dependents.
+
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
 Every asymmetry below is a **choice with a condition**, not a fact. When its

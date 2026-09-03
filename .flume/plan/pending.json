@@ -1,5 +1,272 @@
 [
   {
+    "tag": "MENTION-REACHABLE-SUBSET-CONTAINMENT",
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`uncontained` (~464) is literal glob-string membership (`gate.contains(glob)`), not subset over the path sets the globs denote, so a strict-subset scope (`database/x/**/*.sql` under gate `**/*.sql`) reports unreachable. Replace with subset-aware containment over resolved path sets via the sanctioned `globset` engine (never hand-rolled). The function's own doc comment (~461-463) currently declares literal containment a deliberate leniency citing general glob-containment undecidability — update it to state the narrower, decidable structural-subset scope this fix covers, not a claim of solving the general case. Also re-read the finding text built at graph.rs:408-420 so it states the direction the check actually holds (the citing member's scope sits inside the cited member's gate)."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Regression coverage for subset-scope containment: a strict-subset glob no longer reports uncontained; a genuinely non-contained scope still does."
+        },
+        {
+          "path": "tests/rule_contract.rs",
+          "description": "Rule-level regression pinning the reported case: a rule scoped to `database/x/**/*.sql` mentioning a member gated `**/*.sql` passes `rule.mention-reachable.paths`."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Fix rule.mention-reachable.paths false positives on strict-subset scopes: literal glob-string containment, not subset over resolved path sets.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      { "path": "tests/graph.rs", "asserts": "a subset-scope glob under a broader gate glob is no longer reported uncontained" },
+      { "path": "tests/rule_contract.rs", "asserts": "database/x/**/*.sql scoped under gate **/*.sql passes mention-reachable" }
+    ],
+    "acceptance": "A strict-subset scope glob no longer false-positives rule.mention-reachable.paths; a genuinely non-contained scope still reports, with direction-correct message text.",
+    "notes": "GH #33, human-ruled 09-03 (.flume/inbox.md, drained). Owns decision 0028's leniency clause. Re-verified on disk: the doc comment's own honesty about general undecidability must survive the rewrite — the fix is a decidable structural-subset check, not full glob-language containment. scoped at 1466a1db."
+  },
+  {
+    "tag": "SKILL-CONTRACT-MENTION-REACHABLE-PATHS",
+    "gate": { "kind": "blockedBy", "tag": "MENTION-REACHABLE-SUBSET-CONTAINMENT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "`skillDefaultContract` (~1306+) carries no `mentionReachable` clause; `ruleDefaultContract` does (line 1508, `clause(mentionReachable(\"paths\", \"paths\"), {...})`). Add the equivalent clause to `skillDefaultContract` so a skill consulting a narrower-gated member is flagged the same way a rule is."
+        },
+        { "path": "sdk/test/builtins.test.ts", "description": "Regression: skillDefaultContract carries the mention-reachable clause." },
+        { "path": "tests/builtin_lock_frozen.rs", "description": "Frozen built-in lock snapshot shifts with the new clause; regenerate." }
+      ],
+      "retire": []
+    },
+    "summary": "Add mentionReachable(\"paths\",\"paths\") to skillDefaultContract, matching ruleDefaultContract — a skill's narrower-gated mention currently goes unflagged.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "clause"
+    },
+    "tests": [
+      { "path": "sdk/test/builtins.test.ts", "asserts": "skillDefaultContract includes a mentionReachable(paths, paths) clause" }
+    ],
+    "acceptance": "A skill mentioning a member whose gate doesn't contain the skill's own scope is flagged, the same as a rule is today.",
+    "notes": "GH #36, human-ruled 09-03. Explicitly blockedBy #33's fix — landing this first, over today's literal-containment leniency, would multiply the false positive onto skill members. scoped at 1466a1db."
+  },
+  {
+    "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/admissibility.rs",
+          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map — silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
+        },
+        { "path": "src/gate.rs", "description": "Wire the new diagnostic beside the existing `collection_address_collision_diagnostics` call (~gate.rs:200s)." },
+        { "path": "tests/hook_kind.rs", "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape." }
+      ],
+      "retire": []
+    },
+    "summary": "Refuse a duplicate member registration key within one kind's collection address (three hooks on SessionStart collapse to one) with a named error, not last-writer-wins.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "Reach"
+    },
+    "tests": [
+      { "path": "tests/hook_kind.rs", "asserts": "duplicate hook members on the same event name are refused loud, naming both" }
+    ],
+    "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
+    "notes": "GH #32, human-ruled 09-03. Same disease 21f61463 refused for two kinds sharing one collectionAddress; this is the narrower case of one kind's own members colliding on the same key. Whether hook also grows an address discriminator is a follow-on fork to surface, not to invent here. scoped at 1466a1db."
+  },
+  {
+    "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL",
+    "gate": { "kind": "blockedBy", "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`member_projection_path` (~911) resolves an `at`-locus member (governs_root + governs_glob present together) to a path under the given root with no check that the root avoids the workspace. Refuse at `emit` (in `emit()`'s member loop, ~1206+) when an `at` locus's root falls under `WORKSPACE_DIR`, with a named error — it would emit and lock but never be discoverable."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "Companion check-time refusal reading the committed lock's row for an `at`-locus member whose `source_path` falls under `.temper/` — the same invariant enforced on the already-committed state, not only at the next emit."
+        },
+        { "path": "src/gate.rs", "description": "Wire the new check-time diagnostic beside the other admissibility calls." },
+        { "path": "tests/local_locus.rs", "description": "Regression: an `at` locus declared under `.temper/` refuses at emit and at check, naming the offending path." }
+      ],
+      "retire": []
+    },
+    "summary": "Refuse an `at` locus rooted under the workspace, at emit and at check: it currently emits and locks but discovery fences .temper/ by design, so it's silently unreachable.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
+    "tests": [
+      { "path": "tests/local_locus.rs", "asserts": "an at locus under .temper/ refuses at emit and at check with a named error" }
+    ],
+    "acceptance": "An `at` locus whose root resolves under the workspace directory is refused at emit and flagged at check on an already-committed lock row; discovery's own WORKSPACE_DIR fence is unchanged.",
+    "notes": "GH #30, human-ruled 09-03. src/import.rs:439's discoverable_paths already fences WORKSPACE_DIR by design for every non-local walk (verified on disk); the gap is that emit/check never refuse the declaration that produces an undiscoverable target — discovery does not change, the workspace stays authoring source, never a projection target. blockedBy HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL only for the shared src/admissibility.rs + src/gate.rs region. scoped at 1466a1db."
+  },
+  {
+    "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE",
+    "gate": { "kind": "blockedBy", "tag": "REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "`guard()` (~732) and `matches_projection` (~819) bind `file_path` against `drift::EmitOwnedEntry` targets; `.claude/settings.json` is the spliced projection of every `hook`/`installed-plugin`/`known-marketplace` member but is not itself an `EmitOwnedEntry` row (it's composed, not projected whole), so every spelling of it is currently silent to the guard. Extend the bound target set to cover `settings.json` as an emit-owned target whenever any of those kinds compose. Also state plainly, in `GUARD_MESSAGE` (~160) and the guard's doc comments, that the guard binds only `Write`/`Edit`/`MultiEdit`-mediated writes (`GUARD_MATCHER`, ~136) and is not a boundary against Bash/PowerShell-mediated writes."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "`emit_owned_targets` (~2968) is the constituency the guard binds to; verify the settings.json coverage against 0034's emit codomain so the covered-target set has one home rather than a second definition in install.rs."
+        },
+        { "path": "tests/install.rs", "description": "Regression: a pending write to .claude/settings.json is bound by the guard; a Bash-tool payload is documented as unbound, not silently treated as covered." }
+      ],
+      "retire": []
+    },
+    "summary": "Extend temper guard's target set to .claude/settings.json (spliced from hook/installed-plugin/known-marketplace members) and document its Bash-write boundary plainly.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "tests": [
+      { "path": "tests/install.rs", "asserts": "a PreToolUse payload naming .claude/settings.json is bound by the guard when any registration-member kind composes" }
+    ],
+    "acceptance": "A pending Write/Edit/MultiEdit to .claude/settings.json is bound by temper guard whenever a hook/installed-plugin/known-marketplace member projects into it; the guard's own docs state plainly it binds tool-mediated writes only.",
+    "notes": "GH #38 half 1 + half 2a, human-ruled 09-03. Half 2b (a PostToolUse Bash arm) is filed as its own entry, blockedBy this one for the shared install.rs guard region. This entry is itself blockedBy REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT for the shared src/drift.rs region (transitively serialized behind the admissibility.rs/gate.rs cluster). scoped at 1466a1db."
+  },
+  {
+    "tag": "GUARD-POSTTOOLUSE-BASH-DRIFT-CHECK",
+    "gate": { "kind": "blockedBy", "tag": "GUARD-SETTINGS-JSON-EMIT-OWNED-COVERAGE" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "The `PreToolUse` guard (`GUARD_MATCHER`, ~136: `Write|Edit|MultiEdit`) never sees a Bash/PowerShell-mediated write, and a Bash payload carries no `file_path` to bind against. Add a new `PostToolUse` hook group placement, matcher `Bash`, beside the existing `PreToolUse` guard group's install/converge logic (~1075-1200): it runs after the call and re-checks emit-owned targets for drift (check-style), rather than parsing `tool_input.command` shell text before the call."
+        },
+        { "path": "tests/install.rs", "description": "Regression: install places/converges a PostToolUse Bash hook group; the hook's command runs drift detection over emit-owned targets, not command-text parsing." }
+      ],
+      "retire": []
+    },
+    "summary": "Add a PostToolUse arm on Bash that runs check-style drift detection over emit-owned targets after the call, since the PreToolUse guard cannot see Bash-mediated writes.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "tests": [
+      { "path": "tests/install.rs", "asserts": "a PostToolUse Bash hook group is placed and re-checks emit-owned targets for drift" }
+    ],
+    "acceptance": "After a Bash-mediated edit to an emit-owned target, the next PostToolUse Bash call surfaces the resulting drift finding in-band.",
+    "notes": "GH #38 half 2b, human-ruled 09-03. External fact verified 2026-09-03 (code.claude.com/docs/en/hooks, fetched this tick): PostToolUse supports a Bash matcher and receives tool_input.command but no file_path — the design re-checks emit-owned targets rather than parsing shell text, so the hook contract poses no blocker; not parked. blockedBy the prior entry only for the shared install.rs guard region. scoped at 1466a1db."
+  },
+  {
+    "tag": "EMIT-BANNER-OWNERSHIP-MOVE",
+    "gate": { "kind": "blockedBy", "tag": "GUARD-POSTTOOLUSE-BASH-DRIFT-CHECK" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`project_bytes` (~2372) and the `emit()` projection loop (~1054+) currently read banner `placements` only off the *already-committed* file on disk (~2298-2299: \"Those metadata lines ride install, never emit\") — a member that only ever ran `emit` ships bannerless. Move banner origination here: emit places the managed-projection banner on every target it owns, since it already owns the projected bytes and the banner is part of the projection contract. Verify the double-emit determinism pass and the byte-vs-lock-hash drift comparison both treat the banner as ordinary projection bytes, so an unchanged emit still reports unchanged."
+        },
+        {
+          "path": "src/install.rs",
+          "description": "`NOTE_COMMENT`/`NOTE_BANNER`/`project_banner` (~181-1714) currently originate the banner; narrow install's role to converging an existing file's banner wording (a stale wording re-places) rather than being the sole placer for a fresh projection."
+        },
+        { "path": "tests/emit.rs", "description": "Regression: a freshly emitted member (never installed) carries the managed-projection banner." },
+        { "path": "tests/install.rs", "description": "Regression: install still converges a stale banner wording to current; no double-banner on re-run." }
+      ],
+      "retire": []
+    },
+    "summary": "Move the managed-projection banner's placement from install to emit — emit owns the projected bytes, so a member that only ever ran emit should not ship bannerless.",
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "Emit"
+    },
+    "tests": [
+      { "path": "tests/emit.rs", "asserts": "a member emitted without ever having been installed carries the banner" }
+    ],
+    "acceptance": "Every emit-owned projection carries the managed-projection banner immediately after emit, with no dependency on install having run first; drift reports no spurious churn from the banner's own placement.",
+    "notes": "GH #37, human-ruled 09-03. src/drift.rs:2298's own comment currently states the opposite design (\"ride install, never emit\") — this entry is a deliberate reversal per the ruling, not a bug in that comment's accuracy today. blockedBy the guard entries above only for the shared install.rs file, not a design dependency. scoped at 1466a1db."
+  },
+  {
+    "tag": "REQUIREMENT-KIND-CONSTRAINT-ENFORCEMENT",
+    "gate": { "kind": "blockedBy", "tag": "AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/roster.rs",
+          "description": "Satisfier admission (~123) already refuses an unmodeled kind naming a requirement's `kind`, but is otherwise kind-blind: any modeled kind's satisfier fills a requirement regardless of its declared `kind`. Enforce the constraint — a satisfier of a kind other than the requirement's declared `kind` is a required-severity finding on the satisfier."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "Requirement admissibility (~104-125) checks `kind` narrows to a *modeled* kind (dead-selector case); this is the sibling live case — a filled requirement whose filler's kind mismatches."
+        },
+        { "path": "src/read.rs", "description": "`explain`'s fill listing excludes a wrong-kind satisfier from \"filling\" the requirement, consistent with the new finding." },
+        { "path": "tests/requirement_roster.rs", "description": "Regression: a `kind: skill` requirement filled by an `installed-plugin` satisfier is flagged, and explain does not list it as filling." }
+      ],
+      "retire": []
+    },
+    "summary": "Enforce a requirement's declared `kind`: a satisfier of another kind is a required-severity finding, and explain excludes it from filling the requirement.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "requirement — a shipped kind, not a primitive"
+    },
+    "tests": [
+      { "path": "tests/requirement_roster.rs", "asserts": "a kind-mismatched satisfier is a required-severity finding and is excluded from explain's fill listing" }
+    ],
+    "acceptance": "A requirement declared `kind: skill` filled only by an `installed-plugin` satisfier now surfaces a required-severity finding naming the mismatch, and `explain` does not credit the fill.",
+    "notes": "GH #28, human-ruled 09-03. sdk/src/contract.ts:344 already documents `kind` as constraining what may fill a requirement; src/roster.rs already refuses an unmodeled kind, so the seam exists — what's missing is the live mismatch finding. blockedBy AT-LOCUS-WORKSPACE-DISCOVERY-REFUSAL only for the shared src/admissibility.rs region. scoped at 1466a1db."
+  },
+  {
+    "tag": "EDGE-TARGET-FACTS-REPO-ROOTED-PATH",
+    "gate": { "kind": "open" },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "`EdgeTargetFacts` (~417-425) carries `path`, host-projection-relative — a skill body reads from repo root, so a reference like `../../rules/x.md` dangles at runtime. The interface's own doc comment already names a fifth fact as the open spec question. Add a repo-rooted path fact alongside `path`, and document which reader each fact serves."
+        },
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "The one construction site (~284, inside the edge-target-facts resolver ~255-289): populate the new fact from the target's lock `source_path` (already resolved as `projectionPath(target)`, harness-relative) rather than deriving a second relative path."
+        },
+        { "path": "sdk/test/mention.test.ts", "description": "Regression: an embedded value's resolved edge target carries both the host-relative `path` and the new repo-rooted fact." }
+      ],
+      "retire": []
+    },
+    "summary": "Add a repo-rooted path fact to EdgeTargetFacts alongside the existing host-projection-relative path, so a skill body's edge reference doesn't dangle reading from repo root.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "tests": [
+      { "path": "sdk/test/mention.test.ts", "asserts": "a resolved edge target carries a repo-rooted path fact alongside the existing host-relative path" }
+    ],
+    "acceptance": "A `render` hook consuming an edge target's facts can reach the target's repo-rooted path directly; existing `path` semantics (host-projection-relative) are unchanged.",
+    "notes": "GH #31, human-ruled 09-03. sdk/src/kind.ts's own doc comment already names 'a fifth fact is a spec question, not a convenience' — this closes that question with the lock's own source_path as the value. scoped at 1466a1db."
+  },
+  {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
