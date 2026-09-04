@@ -9,7 +9,15 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+
+- `emit` no longer refuses a harness that authors two `hook` members on one
+  event. 0.0.16's duplicate-identity refusal keyed every member by
+  `kind:name`, and a hook's name is its event, so two `PostToolUse` groups
+  (a shape Claude Code admits) failed with `duplicate identity key
+  hook:PostToolUse`. A projected member's address is its file and still
+  refuses a duplicate; a registration member's address is its group key
+  and admits several. If 0.0.16 broke your `emit`, this is the fix.
 
 ## [0.0.16] — 2026-09-04
 
