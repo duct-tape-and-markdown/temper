@@ -168,6 +168,12 @@ key_path = "hooks.<Event>"
 
 [[declaration.registration]]
 kind = "hook"
+key = "PostToolUse"
+manifest = "settings.json"
+key_path = "hooks.<Event>"
+
+[[declaration.registration]]
+kind = "hook"
 key = "PreToolUse"
 manifest = "settings.json"
 key_path = "hooks.<Event>"

@@ -15,6 +15,15 @@
       {
         "hooks": [
           {
+            "command": "command -v temper >/dev/null 2>&1 || { echo \"temper: command not found\" >&2; exit 127; } && temper check . --reporter session-start",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
             "command": "cargo fmt --quiet >/dev/null 2>&1 || true",
             "type": "command"
           }

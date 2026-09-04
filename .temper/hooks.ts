@@ -1,13 +1,13 @@
 import { hook } from "@dtmd/temper/claude-code";
 
-// The three session-layer hooks, authored where every other member lives.
+// The four session-layer hooks, authored where every other member lives.
 // Fields-only registration members: no prose, no adjacent document — each
 // folds into its `hooks.<Event>` entry in the settings.json projection.
 
 // PATH-resolvability preamble: a temper-invoking hook fails loud (exit 127)
 // when `temper` is off PATH, rather than a silent shell "command not found".
 // This string MUST stay byte-identical to src/install.rs's SESSION_START_COMMAND
-// / GUARD_COMMAND — `gate_installed` compares the emitted hook against that Rust
+// / GUARD_COMMAND / POST_TOOL_USE_COMMAND — `gate_installed` compares the emitted hook against that Rust
 // constant. The dogfood mirrors the product's canonical form by hand on purpose:
 // this harness is a consumer of temper, so it adapts to the product's gate; the
 // product is never reshaped to spare the dogfood the copy.
@@ -27,6 +27,19 @@ export const hook_guard = hook({
   matcher: "Write|Edit|MultiEdit",
   type: "command",
   command: `${failLoud} temper guard .`,
+});
+
+/**
+ * The post-write drift check on shell-mediated writes: the PreToolUse guard
+ * binds Write/Edit only, so a Bash write is checked after the call instead
+ * of never. Mirrors src/install.rs's POST_TOOL_USE_COMMAND byte-for-byte,
+ * the same way the two hooks above mirror their constants.
+ */
+export const hook_postToolUseBash = hook({
+  name: "PostToolUse",
+  matcher: "Bash",
+  type: "command",
+  command: `${failLoud} temper check . --reporter session-start`,
 });
 
 /** Keep Rust formatted as the agent edits; never fails the tool call. */

@@ -11,7 +11,12 @@ import { rule_release } from "./rules/release.ts";
 import { rule_rust } from "./rules/rust.ts";
 import { rule_sdk } from "./rules/sdk.ts";
 import { skill_captureFriction } from "./skills/capture-friction.ts";
-import { hook_fmtOnWrite, hook_guard, hook_sessionStart } from "./hooks.ts";
+import {
+  hook_fmtOnWrite,
+  hook_guard,
+  hook_postToolUseBash,
+  hook_sessionStart,
+} from "./hooks.ts";
 
 // The requirements below are load-bearing, not documentation: emit
 // refuses if any loses its satisfier (sdk/test/refusals.test.ts, "an
@@ -88,6 +93,7 @@ const program = harness({
     skill_captureFriction,
     hook_sessionStart,
     hook_guard,
+    hook_postToolUseBash,
     hook_fmtOnWrite,
   ],
   // Residual settings with no member home yet. The permission allowlist is
