@@ -10,6 +10,29 @@ breaking changes. Releases are small and frequent.
 ## [Unreleased]
 
 ### Fixed
+- `rule.mention-reachable.paths` no longer reports a strict-subset scope as
+  unreachable. Containment compared glob strings for equality, so a rule
+  scoped to `database/x/**/*.sql` mentioning a skill gated on `**/*.sql`
+  was flagged. Containment is now decided over the path sets the globs
+  denote, brace alternation and negated classes included.
+- An `at` locus rooted under `.temper/` is refused at `emit` and at `check`
+  with a named error. Discovery fences the workspace by design, so such a
+  kind emitted and locked its members while `check` never read them back:
+  a silent gate blind spot that surfaced only as a zero in the coverage
+  line.
+- A requirement's declared `kind` is held against its satisfiers. A member
+  of another kind that claims to satisfy a kind-narrowed requirement is a
+  required-severity finding, and `explain` no longer lists it as filling
+  the requirement.
+- `temper guard` binds `.claude/settings.json`. The file is the spliced
+  projection of every `hook`, `installed-plugin`, and `known-marketplace`
+  member, but it was not in the guard's target set, so every spelling of a
+  direct edit to it was silent.
+- Two `hook` members declaring the same event no longer share one address
+  silently on the edge-resolution side of a duplicate-key map; the engine
+  and the SDK now build every identity map through one constructor that
+  refuses a duplicate key by name. (The hook kind's own identity is a
+  separate open question, tracked as GH #32.)
 
 - `temper guard` no longer binds unrelated files that merely share a
   projection's filename. The guard compared a declared projection against the
@@ -38,6 +61,26 @@ breaking changes. Releases are small and frequent.
   primary checkout's log instead of a log that dies with the worktree.
   Re-run `temper install` to pick up the new hook command.
 
+### Added
+
+- The `skill` default contract carries `mention-reachable(paths, paths)`,
+  matching the `rule` contract: a skill that mentions a member gated
+  narrower than its own `paths` is flagged at advisory severity.
+- `EdgeTargetFacts` gains `repoRootedPath` beside `path`. `path` stays
+  relative to the host's projection directory; `repoRootedPath` is what a
+  reader resolving from the repository root needs, such as a skill body
+  citing a rule.
+- `temper install` places a `PostToolUse` hook on the `Bash` tool that runs
+  drift detection over emit-owned targets after the call. The `PreToolUse`
+  guard binds tool-mediated writes only (`Write`, `Edit`, `MultiEdit`), and
+  its messages now say so; a shell-mediated write is caught after the fact
+  instead of never.
+- The built-in kind × clause matrix is a reviewed snapshot in the test
+  suite, so a clause present on one kind and absent on its twin is a
+  visible diff rather than a default.
+- An emit-then-discover round-trip test over every locus shape asserts
+  that `check` reads back exactly the member set `emit` locked.
+
 ### Changed
 
 - `coverage.checked` marks embedded-locus kinds as `<kind> (N embedded)`
@@ -47,6 +90,14 @@ breaking changes. Releases are small and frequent.
   `load_reason` (`session_start`, `nested_traversal`, `path_glob_match`,
   `include`, `compact`), not only `path_glob_match`, so always-on members
   loaded at session start are recorded.
+- `emit` places the managed-projection banner on every frontmatterless
+  markdown projection it owns. The banner was placed by `install`, so a
+  member added by a flow that ran `emit` alone shipped bannerless and only
+  an advisory noticed. The banner is now part of the projected bytes and
+  the lock hash; on first `emit` after upgrading, frontmatterless
+  projections that lacked it are rewritten once. The read face strips it
+  from a member's `body`, so `extent`, headings, and layout contracts see
+  authored prose only.
 
 ## [0.0.15] — 2026-07-27
 
