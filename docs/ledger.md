@@ -74,15 +74,9 @@ hard.
   (`cargo clippy`, `cargo test --no-fail-fast`, `cargo doc`, `sdk test`)
   plus `cargo fmt --check` — never a remembered subset; `cargo doc` was
   the one missed. Disclose the hand-merge in the ship commit body.
-- flume 0.13 adoption (one entry when it tags; flume-c7 messages this
-  session): build handoff filters `quarantinedTags` and stops on
-  `nothingPickable`; delete `withTickMetrics` + `metrics.jsonl` once
-  verdict rows carry per-invocation usage; `blockedBy` BREAKS to
-  `{kind:"blockedBy", tags:[…]}` (single-tag form gone, empty list
-  refused) — migrate live entries in pending.json + `pending-entry` rule
-  + plan prompt prose in the same commit as the pin bump. Three seams
-  sent to flume 09-03 (capture-drain starvation, quarantine surviving a
-  re-scope, killed-supervisor recovery).
+- flume 0.13 adopted 09-04 (d3040d4c). Not yet: `partitionIgnore` for
+  `.temper/lock.toml` — add when a wave serializes on it. Three seams +
+  flume#19 sit in flume's inbox for its next line.
 - Launch loop detached (`setsid nohup … & disown`) with a Monitor on the
   log; a tool-owned background task was killed mid-merge once. `pgrep`
   for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
