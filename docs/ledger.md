@@ -49,8 +49,9 @@ hard.
 ## Next session's one focus (John + session, 09-04)
 
 - **Rule the two forks the 0.0.16 round parked, then the harness sweep.**
-  0.0.16 cut 09-04 (smoke green, npm live, nine issues closed; NPM_TOKEN
-  of 07-19 still worked — rotate at leisure). `(hook-member-identity)`
+  0.0.16 + 0.0.17 cut 09-04 (0.0.17 fixes 0.0.16's two-hooks emit
+  regression; 0.0.16 deprecated on npm; nine issues closed; NPM_TOKEN of
+  07-19 still worked — rotate at leisure). `(hook-member-identity)`
   (GH #32; session recommends event + matcher) and `(external-commitment)`
   (GH #29; Decision to draft) are the open rulings. Then the harness-side
   captures the round left: a chain-side derivation check for insta
