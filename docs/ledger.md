@@ -60,6 +60,19 @@ hard.
 
 ## Parked (pointers only)
 
+- 0.0.16 regression class (09-04, two-hooks emit refusal): a consolidation
+  raised "identity key is unique" over every member map while the hook
+  kind's non-unique address was already the open fork `(hook-member-
+  identity)`; the entry never declared the dependency. Two corrections,
+  both harness-side (human commits): (1) `pending-entry` rule + plan
+  prompt — an entry generalizing an invariant over a member class is
+  `dependsOnForks` on any open question naming that class, derivable from
+  files[] ∩ the fork's named surfaces; (2) `release` rule — before the
+  tag, run `emit` + `check` over at least one external fixture harness
+  (the reporter's had three hooks on one event; ours had one per event
+  until 09-04). Both point at lifting GAUNTLET-EXTERNAL-HARNESS-FIXTURES'
+  park (John's license call) — second publish-escaping defect it would
+  have caught.
 - 09-03 round residue: `(external-commitment)` Decision for GH #29
   (`commitment: "external"` locus — committed, never emitted, roster
   member; session to draft). Gauntlet external-harness fixtures parked
