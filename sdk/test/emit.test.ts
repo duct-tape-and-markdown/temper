@@ -1766,3 +1766,29 @@ test("a duplicate kind:name across composed members refuses loud", () => {
     "emit must refuse loud on duplicate kind:name, naming the key",
   );
 });
+
+test("two hook members on one event share an address and both emit — a registration address is a group key, not a file", () => {
+  // Claude Code admits any number of matcher groups per event, so a harness
+  // authoring two `PostToolUse` hooks is the documented shape, not a collision.
+  // 0.0.16 refused it at the identity table; the table refuses projected
+  // members only (a duplicate file), and a registration address keeps its
+  // last composed member (the `(hook-member-identity)` fork owns the rest).
+  const h = harness({
+    members: [
+      hook({ name: "PostToolUse", matcher: "Edit|Write", type: "command", command: "cargo fmt" }),
+      hook({ name: "PostToolUse", matcher: "Bash", type: "command", command: "temper check ." }),
+    ],
+  });
+
+  const result = emit(h);
+
+  assert.deepEqual(result.members, []);
+  assert.deepEqual(
+    result.registrations.map((row) => [row.kind, row.key, Object.fromEntries(row.fields).matcher]),
+    // Kind-then-key sorted, and rows sharing a key keep their authored order.
+    [
+      ["hook", "PostToolUse", "Edit|Write"],
+      ["hook", "PostToolUse", "Bash"],
+    ],
+  );
+});

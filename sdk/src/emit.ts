@@ -688,9 +688,25 @@ function settingsResidue(harness: Harness): SettingsResidue[] {
  * The harness's composed members by `kind:name` address — the table an embedded value's
  * edge field resolves its target against. Keyed the identical way {@link declaredAddresses}
  * spells a member address, so an edge field and a mention name a member the same way.
+ *
+ * A projected member's address is its file, so two at one address are a collision and
+ * refuse loud. A registration member's address is its *group key* — a `hook` registers on
+ * its event, and Claude Code admits any number of matcher groups per event — so several
+ * legitimately share one address and the table keeps the last composed (the pre-0.0.16
+ * reading; an edge targeting that shared address resolves ambiguously, the open fork
+ * `(hook-member-identity)` in `.flume/plan/open-questions.md`). Refusing them broke
+ * `emit` on every harness with two hooks on one event (0.0.16).
  */
 function memberTable(harness: Harness): Map<string, Member> {
-  return uniqueMap(harness.members.map((member) => [`${member.kind}:${member.name}`, member]));
+  const table = uniqueMap(
+    harness.members
+      .filter((member) => !isRegistration(member))
+      .map((member) => [`${member.kind}:${member.name}`, member] as [string, Member]),
+  );
+  for (const member of harness.members.filter(isRegistration)) {
+    table.set(`${member.kind}:${member.name}`, member);
+  }
+  return table;
 }
 
 /** The harness's projected members as payload members, deterministically kind-then-name ordered. */
