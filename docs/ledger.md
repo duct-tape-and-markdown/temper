@@ -46,17 +46,17 @@ hard.
   cut valuable capability for want of a week-old consumer; lean cuts fat
   (restatement, ceremony, over-claim), not capability-ahead-of-adoption.
 
-## Next session's one focus (John + session, 09-03)
+## Next session's one focus (John + session, 09-04)
 
-- **Cut 0.0.16, then rule `(hook-member-identity)`.** The 09-03 field
-  batch (GH #26–#38) shipped in one round: 14 entries, every ruled issue
-  landed, changelog drafted under Unreleased. Cut waits on NPM_TOKEN
-  rotation (set 07-19; prior token died in ~14 days). After the cut:
-  `temper install` here (the new PostToolUse Bash placement and emit-side
-  banners reach this repo's own `.claude/` as a `chore(harness):`), close
-  #26 #27 #28 #30 #31 #33 #36 #37 #38, comment #29 #32 #34 #35. Then the
-  hook fork: three candidates in open-questions, session recommends
-  identity = event + matcher.
+- **Rule the two forks the 0.0.16 round parked, then the harness sweep.**
+  0.0.16 cut 09-04 (smoke green, npm live, nine issues closed; NPM_TOKEN
+  of 07-19 still worked — rotate at leisure). `(hook-member-identity)`
+  (GH #32; session recommends event + matcher) and `(external-commitment)`
+  (GH #29; Decision to draft) are the open rulings. Then the harness-side
+  captures the round left: a chain-side derivation check for insta
+  `.snap` companions, the path-compare posture rule, and the ledger's own
+  overrun (186 lines vs its 60 target — subtraction pass, human-read).
+  `.flume/stop` is set on purpose; remove it to relaunch the loop.
 
 ## Parked (pointers only)
 
