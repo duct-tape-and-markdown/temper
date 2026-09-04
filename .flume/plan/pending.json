@@ -1,34 +1,5 @@
 [
   {
-    "tag": "GRAPH-GLOB-WITNESS-DOC-CITE-STRIP",
-    "gate": {
-      "kind": "open"
-    },
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "Rewrite `representative_paths_for_glob`'s '# Implementation note' doc comment (added 3edf2866, ~lines 515-524): drop the 'per specs/process/engineering.md's \"Libraries before hand-rolls\" section' spec-path pointer and the 'per X we...' compliance framing, restating the pinned-semantics hand-roll constraint (globset's public API exposes only the glob string and compiled regex, not the brace/charset AST subset-containment witness synthesis needs) directly, per rust.md's 'Spec citations are retired from comments' convention."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Strip the spec-path citation from graph.rs's glob-witness doc comment; state the hand-roll exception directly, per rust.md's comment convention.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "Libraries before hand-rolls"
-    },
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "existing subset-containment witness coverage (~lines 804-850) stays green — comment-only rewrite, no behavior change"
-      }
-    ],
-    "acceptance": "graph.rs's representative_paths_for_glob doc comment states the hand-roll exception without a spec-path pointer or 'per X we...' narration; cargo fmt/clippy/test and the doc gate stay green.",
-    "notes": "Sweep finding, this tick's post-ship reconciliation (window 8f20132a..303090f7): 3edf2866 (GRAPH-GLOB-WITNESS-HAND-ROLL-DOC-NOTE) shipped a doc comment citing 'per specs/process/engineering.md's...' — exactly what rust.md's convention says to cut ('spec-path pointers... compliance narration'). No gate catches comment prose. scoped at 303090f7"
-  },
-  {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
