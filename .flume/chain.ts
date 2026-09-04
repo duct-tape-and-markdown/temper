@@ -16,7 +16,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -383,60 +383,6 @@ const BUILD_CHANNEL_PATHS = [
 /** Prefix forms of the channel globs, for the ship predicate's path test. */
 const CHANNEL_PREFIXES = BUILD_CHANNEL_PATHS.map((g) => g.replace(/\*\*$/, ""));
 
-// ---------- per-tick metrics ----------
-
-/**
- * Per-tick metrics, appended to .flume/metrics.jsonl (gitignored, per-machine
- * — the local class's guarantees by placement). One line per tick: phase,
- * entry tag where build, turns, duration, and the raw token counts off the
- * stream-json result event. Interpretation happens at read time (plan's
- * audit glance, a human's jq) — the hook stays dumb, and metrics failure
- * never fails a tick.
- */
-const METRICS_PATH = resolve(
-  process.env.FLUME_DIR ?? CHAIN_DIR,
-  "metrics.jsonl",
-);
-const withTickMetrics = (inner: Agent): Agent => ({
-  name: inner.name,
-  async invoke(opts) {
-    const result = await inner.invoke(opts);
-    try {
-      const line = result.stdout
-        .split("\n")
-        .reverse()
-        .find((l) => l.startsWith('{"type":"result"'));
-      if (line) {
-        const r = JSON.parse(line);
-        const u = r.usage ?? {};
-        const phase = /^Phase:\s*(\S+)/m.exec(opts.prompt)?.[1] ?? "unknown";
-        appendFileSync(
-          METRICS_PATH,
-          `${JSON.stringify({
-            at: new Date().toISOString(),
-            phase,
-            // Only build ticks own an entry; plan's prompt inlines all of
-            // pending.json, so an unconditional grep tags plan with the
-            // first entry it happens to quote.
-            entry:
-              phase === "build"
-                ? /"tag":\s*"([A-Z0-9-]+)"/.exec(opts.prompt)?.[1]
-                : undefined,
-            turns: r.num_turns,
-            duration_ms: r.duration_ms,
-            input_tokens: u.input_tokens,
-            output_tokens: u.output_tokens,
-            cache_creation_tokens: u.cache_creation_input_tokens,
-            cache_read_tokens: u.cache_read_input_tokens,
-          })}\n`,
-        );
-      }
-    } catch {
-      // Advisory telemetry only — a metrics failure never fails a tick.
-    }
-    return result;
-  },
-});
 
 /**
  * Foundations governor (CHAIN-AUTHORING §6). A pending entry may declare
@@ -725,7 +671,8 @@ const factory: ChainFactory = (flume) => {
     // it, and the wave-width cost that motivated the flip is fenced off here
     // by the pending-entry rule's own bar (a shared path serializes via
     // blockedBy; files declares the honest ripple, never a defensive
-    // superset). Revisit against metrics.jsonl if wave width sags.
+    // superset). Revisit against the verdict rows' `invocations[]` if wave
+    // width sags.
     scopeWritesToEntry: true,
     // The per-entry fence is entry.files ∪ these channels; writablePaths is
     // only the ceiling. The capture dirs must be granted here or a scoped
@@ -762,23 +709,14 @@ const factory: ChainFactory = (flume) => {
       };
     },
     handoff(result) {
-      // Wave outcome row: which tags shipped and which were merge-reverted,
-      // so a re-picked entry's metrics rows are attributable at a glance
-      // (merge thrash vs in-session retry) instead of forensically.
-      try {
-        if (result.shippedTags.length > 0 || result.revertedTags.length > 0) {
-          appendFileSync(
-            METRICS_PATH,
-            `${JSON.stringify({
-              at: new Date().toISOString(),
-              phase: "merge",
-              shipped: result.shippedTags,
-              reverted: result.revertedTags,
-            })}\n`,
-          );
-        }
-      } catch {
-        // Advisory telemetry only — never fails a handoff.
+      // Nothing pickable (flume ≥0.13, `TickResult.nothingPickable`): the
+      // wave never invoked an agent, and `pendingAfter` is the queue as it is
+      // on disk — a quarantined `open` entry still reads `open` there. Handing
+      // back to build here is the live-lock 0.12 burned runs on; hibernate
+      // instead. A quarantine is per-run: the operator's relaunch (or a plan
+      // re-scope) is what clears it, and `flume wake plan` forces the interim.
+      if (result.nothingPickable) {
+        return [];
       }
       // Wake-on-bail (v0.8, `TickResult.noCommit`): a wave that ran and
       // produced no usable commit — voluntary bail, whole-wave gate revert,
@@ -795,7 +733,12 @@ const factory: ChainFactory = (flume) => {
       // wave forms with no plan interim. Plan reconciles at the drain — its
       // audit cursors span multi-wave windows by design. A true no-op wave
       // hibernates; `flume wake plan` forces it.
-      if (result.pendingAfter.some((e) => e.gate.kind === "open")) {
+      const quarantined = new Set(result.quarantinedTags ?? []);
+      if (
+        result.pendingAfter.some(
+          (e) => e.gate.kind === "open" && !quarantined.has(e.tag),
+        )
+      ) {
         return ["build"];
       }
       if (result.shippedTags.length === 0 && result.gateResults.length === 0) {
@@ -863,7 +806,7 @@ const factory: ChainFactory = (flume) => {
 
   return {
     chain: temperChain,
-    agent: withTickMetrics(routed),
+    agent: routed,
     forkResolver,
   };
 };

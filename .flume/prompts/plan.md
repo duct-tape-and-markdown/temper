@@ -96,7 +96,7 @@ rule on a digest line.
    two motions over the same window:
    - **Audit:** verify on disk what shipped (read the files, never the log
      alone), drop pending entries whose work is done, glance the window's
-     ticks in `.flume/metrics.jsonl` (the sizing discipline is the
+     ticks' `invocations[]` in `.flume/tick-verdicts.jsonl` (the sizing discipline is the
      `pending-entry` rule's smart-zone bullet), and re-test every
      stale gate: a `parked` reason, a `blockedBy`, an open-question's
      "rides X" routing each name a condition — verify the condition NOW; if

@@ -9,7 +9,6 @@
 /.flume/worktrees/
 /.flume/sessions/
 /.flume/awake/
-/.flume/metrics.jsonl
 /.flume/prior-attempts/
 /.flume/tick-verdict.json
 /.flume/tick-verdicts.jsonl
