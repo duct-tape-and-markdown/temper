@@ -516,12 +516,11 @@ fn is_scope_contained_in_gate(scope_glob: &str, gate_globs: &[String]) -> bool {
 ///
 /// This function and its helpers (`process_glob_segment`, `expand_braces`,
 /// `concretize_segment`, `concretize_char_class`, `is_in_char_class`) form a
-/// hand-rolled brace-and-charset glob parser. This is a deliberate pinned-semantics
-/// exception per specs/process/engineering.md's "Libraries before hand-rolls" section:
-/// subset-containment witness synthesis is corpus-fixed behavior that `globset`'s
-/// public API cannot drive — the crate exposes only the original glob string and
-/// compiled regex string, not the parsed brace-alternative or character-class AST
-/// required to consolidate witnesses against the gate set.
+/// hand-rolled brace-and-charset glob parser. Subset-containment witness synthesis
+/// requires the parsed brace-alternative and character-class AST that `globset`'s
+/// public API does not expose — the crate provides only the original glob string and
+/// compiled regex string, not the AST structure needed to consolidate witnesses
+/// against the gate set.
 fn representative_paths_for_glob(glob: &str) -> Vec<String> {
     // Split the glob into segments to understand its structure.
     let segments: Vec<&str> = glob.split('/').collect();
