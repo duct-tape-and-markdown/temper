@@ -9,6 +9,10 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.0.17] — 2026-09-04
+
 ### Fixed
 
 - `emit` no longer refuses a harness that authors two `hook` members on one

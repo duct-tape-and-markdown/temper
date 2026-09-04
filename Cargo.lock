@@ -866,7 +866,7 @@ dependencies = [
 
 [[package]]
 name = "temper"
-version = "0.0.16"
+version = "0.0.17"
 dependencies = [
  "clap",
  "globset",
