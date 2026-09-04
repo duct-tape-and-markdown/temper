@@ -671,6 +671,62 @@ fn a_frontmatterless_memory_projection_carries_the_html_banner_and_a_re_run_conv
     assert!(temper::drift::config_stale(&temper_dir).is_empty());
 }
 
+#[test]
+fn lifting_a_banner_carrying_markdown_member_scaffolds_with_no_embedded_banner() {
+    // A regression for the double-banner bug: when lifting an already-banner-carrying
+    // frontmatterless member (e.g., a CLAUDE.md that has been through emit once already),
+    // the scaffolded module body must exclude the banner so the next emit places exactly
+    // one banner, not one baked into the module-adjacent prose plus one newly placed.
+    let root = common::tmpdir("lift-banner-carrying-memory");
+    // Create a CLAUDE.md that already carries the banner (simulating a prior emit).
+    fs::write(
+        root.join("CLAUDE.md"),
+        format!(
+            "{}\n\n# Project\n\nMemory for the agents.\n",
+            temper::placement::BANNER
+        ),
+    )
+    .unwrap();
+    // Also create a skill so the emit has members to place.
+    let skill = root.join(".claude").join("skills").join("coordinate");
+    fs::create_dir_all(&skill).unwrap();
+    fs::write(skill.join("SKILL.md"), SKILL).unwrap();
+
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    common::vendor_sdk(&temper_dir.join("node_modules").join("@dtmd"));
+
+    // Install (lift) the existing CLAUDE.md that already carries the banner.
+    let discovery = install::discover(&root).unwrap();
+    install::run(&root, &discovery, Represent::Yes, false).unwrap();
+
+    // The scaffolded memory module body must not contain the banner.
+    let memory_module = temper_dir.join("memory").join("CLAUDE.ts");
+    assert!(
+        memory_module.is_file(),
+        "the memory/CLAUDE.ts module should be scaffolded"
+    );
+    let module_contents = fs::read_to_string(&memory_module).unwrap();
+    // The module prose must not contain the banner — it's authored prose only.
+    assert!(
+        !module_contents.contains("<!-- temper: managed projection"),
+        "the scaffold module prose must not embed the banner; got:\n{module_contents}"
+    );
+    assert!(
+        module_contents.contains("# Project"),
+        "the scaffold module prose must preserve the authored body"
+    );
+
+    // The next emit (already ran as part of install::run) must place exactly one banner,
+    // not duplicate it. Verify the root CLAUDE.md still has exactly one banner.
+    let claude_md = fs::read_to_string(root.join("CLAUDE.md")).unwrap();
+    assert_eq!(
+        claude_md.matches("<!-- temper: managed projection").count(),
+        1,
+        "emit must place exactly one banner, not duplicate; got:\n{claude_md}"
+    );
+}
+
 /// Serializes the one test below that shadows the process-wide `PATH` — no other
 /// test in this suite spawns a real `npm` (every other yes-path test vendors the
 /// dependency via [`common::vendor_sdk`], so `dependency_resolves` short-circuits before

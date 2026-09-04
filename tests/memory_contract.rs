@@ -98,9 +98,9 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
     // Body faithfulness, at the adapter read face directly over the real embedded kind: a
     // frontmatterless file lifts no field, and the whole file is the byte-faithful body
     // (trailing-whitespace line and missing final newline included) — no fabricated
-    // frontmatter, no re-render. The read face does not strip the banner emit placed
-    // (it never stripped install's either); whether `body` should exclude placed
-    // metadata is an open question, not this test's claim.
+    // frontmatter, no re-render. The read face strips the emit-placed banner (symmetrically
+    // with the frontmatter case, where install's managed-by note stays in the matter block
+    // and never reaches body), so Member.body carries authored prose only, not engine chrome.
     let kind = builtin_kind::definitions()
         .remove("memory")
         .expect("the embedded memory kind is present");
@@ -110,7 +110,7 @@ fn a_frontmatterless_claude_md_emits_and_re_emits_idempotently() {
         "a frontmatterless source declares no field, so the read face lifts no clause"
     );
     assert_eq!(
-        member.body, expected,
-        "the whole frontmatterless file is the byte-faithful body"
+        member.body, CLAUDE_MD,
+        "the read face strips the emit-placed banner, leaving authored prose only"
     );
 }

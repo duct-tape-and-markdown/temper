@@ -229,7 +229,7 @@ impl Member {
         Ok(Self {
             id,
             fields,
-            body: split_frontmatter(&raw).1.to_string(),
+            body: crate::placement::strip_leading_banner(split_frontmatter(&raw).1).to_string(),
             satisfies: Vec::new(),
             provenance: Provenance {
                 source_path: source_file.to_path_buf(),

@@ -55,6 +55,38 @@ pub fn is_markdown_path(path: &std::path::Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("md"))
 }
 
+/// Strip a leading block-level HTML-comment banner from a body string, dropping the
+/// banner line matching [`BANNER_MARKER`] plus the following blank line. Returns the
+/// body unchanged if no leading banner is present or if the banner is not followed
+/// by a blank line.
+pub fn strip_leading_banner(body: &str) -> &str {
+    if !body.trim_start().starts_with(BANNER_MARKER) {
+        return body;
+    }
+
+    let first_line_end = match body.find('\n') {
+        Some(pos) => pos,
+        None => return body,
+    };
+
+    if first_line_end + 1 >= body.len() {
+        return "";
+    }
+
+    let after_banner = &body[first_line_end + 1..];
+    let next_line_end = after_banner.find('\n').unwrap_or(after_banner.len());
+    let next_line = &after_banner[..next_line_end];
+
+    if next_line.trim().is_empty() {
+        if next_line_end + 1 >= after_banner.len() {
+            return "";
+        }
+        return &after_banner[next_line_end + 1..];
+    }
+
+    body
+}
+
 /// Whether `line` is one of install's managed metadata comments — the schema modeline
 /// or the managed-by note. The single predicate install's idempotence and emit's
 /// preservation share, so the two projectors never disagree on which lines are install's.
