@@ -9,6 +9,10 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.0.16] — 2026-09-04
+
 ### Fixed
 - `rule.mention-reachable.paths` no longer reports a strict-subset scope as
   unreachable. Containment compared glob strings for equality, so a rule
