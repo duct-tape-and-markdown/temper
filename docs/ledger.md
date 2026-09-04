@@ -46,20 +46,45 @@ hard.
   cut valuable capability for want of a week-old consumer; lean cuts fat
   (restatement, ceremony, over-claim), not capability-ahead-of-adoption.
 
-## Next session's one focus (John, 07-18)
+## Next session's one focus (John + session, 09-03)
 
-- **Govern `.flume/` with temper's own dogfood.** The authoring surface
-  expanded (amendments channel, protocol slits, sweep frontier spanning
-  prompt + rule + README, fence globs) and every shift now fans out
-  across surfaces by hand narration — the drift class the product
-  gates. Bring the flume operating layer under `.temper/` as governed
-  members: prompts, PROTOCOL, capture READMEs as documents with layout
-  contracts; each cross-surface fact declared once and projected.
-  Open question `(.flume/ is ungoverned)` re-armed — its 07-09
-  "cosmetic" narrowing predates the expansion; the custom-kind
-  precondition it waited on is proven (0036, base-harness example).
+- **Cut 0.0.16, then rule `(hook-member-identity)`.** The 09-03 field
+  batch (GH #26–#38) shipped in one round: 14 entries, every ruled issue
+  landed, changelog drafted under Unreleased. Cut waits on NPM_TOKEN
+  rotation (set 07-19; prior token died in ~14 days). After the cut:
+  `temper install` here (the new PostToolUse Bash placement and emit-side
+  banners reach this repo's own `.claude/` as a `chore(harness):`), close
+  #26 #27 #28 #30 #31 #33 #36 #37 #38, comment #29 #32 #34 #35. Then the
+  hook fork: three candidates in open-questions, session recommends
+  identity = event + matcher.
 
 ## Parked (pointers only)
+
+- 09-03 round residue: `(external-commitment)` Decision for GH #29
+  (`commitment: "external"` locus — committed, never emitted, roster
+  member; session to draft). Gauntlet external-harness fixtures parked
+  on John's license call. Posture rule for string path compares outside
+  `src/path.rs` (class 3 of the defect review) is a harness commit, not
+  filed. Derivation gap seen four times this round: plan omits insta
+  `.snap` companions and constant-home files from `files[]`; a chain-side
+  derivation check (entry editing a file with an insta test lists its
+  snapshots) is chain territory, human commit.
+- Hand-landing rule (learned 09-03): when the interactive session lands a
+  build commit itself, run the chain's afterMerge list from `chain.ts`
+  (`cargo clippy`, `cargo test --no-fail-fast`, `cargo doc`, `sdk test`)
+  plus `cargo fmt --check` — never a remembered subset; `cargo doc` was
+  the one missed. Disclose the hand-merge in the ship commit body.
+- flume 0.13 adoption (one entry when it tags; flume-c7 messages this
+  session): build handoff filters `quarantinedTags` and stops on
+  `nothingPickable`; delete `withTickMetrics` + `metrics.jsonl` once
+  verdict rows carry per-invocation usage; `blockedBy` may widen to a
+  list — update `pending-entry` rule + plan prompt prose. Three seams
+  sent to flume 09-03 (capture-drain starvation, quarantine surviving a
+  re-scope, killed-supervisor recovery).
+- Launch loop detached (`setsid nohup … & disown`) with a Monitor on the
+  log; a tool-owned background task was killed mid-merge once. `pgrep`
+  for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
+  its own command line.
 
 - Sweep-dock blend (John, 07-20/22): settled model — two authored
   surfaces, one product. Harness = standing law (invariants + conduct,
