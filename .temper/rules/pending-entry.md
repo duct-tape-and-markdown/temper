@@ -37,8 +37,9 @@ rewriting an entry, and any interactive session hand-editing the queue.
   in **call sites, not just files**: threading a new parameter or cache
   through N callers is N sites of work however few files hold them
   (`rg` the touched symbol's callers at derivation). The
-  measured truth is `.flume/metrics.jsonl`, which the audit motion
-  glances. The comfortable band's edges are **learned from our own
+  measured truth is each tick verdict's `invocations[]` (turns, tokens with
+  the cache split, model) in `.flume/tick-verdicts.jsonl`, which the audit
+  motion glances. The comfortable band's edges are **learned from our own
   record** — utilization correlating with bails, gate reverts, and
   re-picks — never imported as a constant: model windows and their
   degradation curves move under us. A tick the record names oversized
@@ -59,7 +60,9 @@ rewriting an entry, and any interactive session hand-editing the queue.
   entry parks as a recorded merge failure (the wave lands without it), and
   its retry re-buys a full agent invocation until the repeated-failure
   backstop quarantines it. If any path appears in two entries, serialize
-  with `gate: { kind: "blockedBy", tag: "FIRST-TAG" }`.
+  with `gate: { kind: "blockedBy", tags: ["FIRST-TAG"] }` — every named
+  tag must ship before the gate opens, so a real multi-parent dependency
+  lists them all rather than flattening into a false spine.
   File-disjointness is the floor, not the test: entries reshaping the same
   seam — one vocabulary, one API surface, one decision's chain — collide
   semantically even with disjoint `files` (a worktree goes green against a
