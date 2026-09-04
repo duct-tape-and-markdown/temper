@@ -77,8 +77,10 @@ hard.
 - flume 0.13 adoption (one entry when it tags; flume-c7 messages this
   session): build handoff filters `quarantinedTags` and stops on
   `nothingPickable`; delete `withTickMetrics` + `metrics.jsonl` once
-  verdict rows carry per-invocation usage; `blockedBy` may widen to a
-  list — update `pending-entry` rule + plan prompt prose. Three seams
+  verdict rows carry per-invocation usage; `blockedBy` BREAKS to
+  `{kind:"blockedBy", tags:[…]}` (single-tag form gone, empty list
+  refused) — migrate live entries in pending.json + `pending-entry` rule
+  + plan prompt prose in the same commit as the pin bump. Three seams
   sent to flume 09-03 (capture-drain starvation, quarantine surviving a
   re-scope, killed-supervisor recovery).
 - Launch loop detached (`setsid nohup … & disown`) with a Monitor on the
