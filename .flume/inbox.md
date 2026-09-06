@@ -244,3 +244,18 @@ routing.
   with the closed-set rule as a fifth engine-derived fact read off the
   target kind's declaration. Lower priority than the containment family
   above; not a defect.
+
+- observed at ad10e8cb (cascade F11, GH #43 leaves gap) — a layout
+  collection member's own span is dropped. `layout.rs`
+  `read_collection_member` takes leaves from the member's immediate
+  sub-headings only (H4 under an H3 member), keyed by slug; the paragraph
+  under the member heading itself lands nowhere — not a leaf, not the lock,
+  not `explain`. A spec whose invariants are `### Title` + a paragraph +
+  `**Test.** …` materializes rows with `leaves = {}`, so leaf predicates,
+  leaf addresses, and leaf `explain` cannot reach layout content at all
+  while the composed twin carries full leaves. Nothing tells the author
+  that sub-headings are the leaf syntax. Fix: the member's own span lands
+  as a `prose` leaf (the name the composed half's embedded values already
+  use for the authored body), sub-heading spans stay keyed by slug beside
+  it, and `explain kind:<layout-kind>`'s skeleton (redirect entry 4) shows
+  the H3/H4 shape.
