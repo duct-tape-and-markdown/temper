@@ -259,3 +259,15 @@ routing.
   use for the authored body), sub-heading spans stay keyed by slug beside
   it, and `explain kind:<layout-kind>`'s skeleton (redirect entry 4) shows
   the H3/H4 shape.
+
+- observed at ad10e8cb (cascade F12) — an embedded kind's leaf set is
+  untyped at the value. `kind<T>()`'s parameter types `MemberInit<T>` (the
+  top-level member's fields) only; `embeddedMemberValue({ kind, key,
+  leaves })` takes `kind: string | KindDefinition<any>` and `leaves:
+  Record<string, string | Text>`, so an omitted or misspelled leaf
+  typechecks and is caught only by a factory or a `required()` clause at
+  check. Rides redirect entry 2 (types that refuse): `embeddedMemberValue`
+  generic over the kind's `T` so `leaves` is `Record<keyof T, string |
+  Text>` with required keys required — the SDK's own positioning is that
+  `tsc` is the first gate, and the leaf shape is the one thing a posture
+  kind exists to declare.
