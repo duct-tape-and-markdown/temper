@@ -83,3 +83,25 @@ routing.
   *declaration* order, wherever it sits, and prose spans reach neither the
   lock nor `explain`, so a trailing prose region silently receives the
   document's opening paragraph.
+
+- observed at f8344d20 (session, plan's 0049 spec-delta pass) — plan read
+  0049's "graph resolves a nested target through its host" as moot once
+  NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY ships, on the ground that a
+  corpus-unique `(kind, key)` lets today's bare lookup resolve through the
+  one host. That narrows the ruling to its own rejected alternative. 0049's
+  Decision says every verb accepts the one grammar, and its Rejected
+  bullet turns down corpus-unique keys *as the address* because "a rename
+  across hosts stays a silent re-point" and the host becomes a convention
+  the author maintains by prefixing. Plan itself verified the gap: no
+  host-qualified edge-target spelling exists (`kind.ts` `EdgeField` is a
+  target-kind set; `graph::target_identity` keys on bare `(kind,
+  identity)` and splits on the first `:`), so an edge field cannot spell
+  `spec:alpha/invariant/x` at all — an author with two same-keyed
+  invariants is forced to rename rather than address, which is the
+  prefix convention by another door. Entry owed, `per`
+  `representation.md` "member": an edge target accepts the full nested
+  address (`<host-address>/<kind>/<key>`) alongside the bare short form;
+  `target_identity` parses the address grammar rather than the first
+  colon; the SDK's `EdgeField` leaf accepts it; `explain` and findings
+  print it. The duplicate-key refusal stays — it is the resolver's bar —
+  but it is not the address.
