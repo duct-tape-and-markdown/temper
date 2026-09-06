@@ -9,7 +9,11 @@ everything the contract can reach, this layer must model.
 
 One authored unit: an instance of a kind. A member carries
 
-- an **identity**,
+- an **identity**, spelled as an **address**: `<kind>:<name>` for a
+  top-level member, `<host-address>/<kind>/<key>` for a nested one and
+  `/<leaf>` beneath it — one grammar every row spells and every verb
+  accepts; resolution is total: an address names exactly one thing or
+  the verb refuses, and coincident addresses are a malformed lock,
 - typed **fields**, projected to frontmatter or structured config,
 - **prose** — its authored words, copied verbatim, byte-for-byte,
 - **edges** — its declared references (`contract.md`),
