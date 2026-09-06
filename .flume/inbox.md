@@ -229,3 +229,15 @@ routing.
   standing derivation gap (plan omits an enum change's consumers and a
   test's companions) — a chain-side derivation check is human territory,
   but the entry is plan's to widen now.
+
+- observed at fb89f675 (build gate-revert a8ca26c0, entry
+  KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE) — second writable-paths revert in
+  one batch, same class: narrowing `KindFacts.registration` by locus fails
+  `tsc` over `sdk/test/emit.test.ts` and `sdk/test/mention.test.ts`, which
+  declare a registration on embedded kinds, and the SDK's test script
+  typechecks every test file first; the builder had to touch both. Widen
+  files[] to include them. Class note for plan (two of four in this
+  batch): an entry that changes a type or an enum owes files[] every
+  consumer the toolchain will fail on — derivable before filing by the
+  symbol's reverse references (`rg` the variant or the field), which is
+  cheaper than a reverted build.
