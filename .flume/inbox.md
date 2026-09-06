@@ -277,7 +277,7 @@ routing.
   `tsc` is the first gate, and the leaf shape is the one thing a posture
   kind exists to declare.
 
-- observed at ad10e8cb (cascade F13(b), GH pending) — a built-in kind
+- observed at ad10e8cb (cascade F13(b), GH #54) — a built-in kind
   cannot take an added edge field, and the corpus has no sanctioned spelling
   to try. `KindDefinition<Rule>` is closed (`MemberInit<Rule>` rejects an
   undeclared field, TS2353); an `as any` cast lands the string in the
@@ -295,7 +295,7 @@ routing.
   `governs`; `row_relocates_builtin`'s admission bar (same format, unit
   shape, registration) stays.
 
-- observed at ad10e8cb (cascade F13(c), GH pending) — a corpus kind that
+- observed at ad10e8cb (cascade F13(c), GH #53) — a corpus kind that
   reuses a built-in's NAME at a different root is silently discarded in the
   SDK. `declarations.ts` `kindsInPlay` is first-wins by name (`if
   (byName.has(facts.name)) return`), walking `harness.members` in authored

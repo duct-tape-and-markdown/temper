@@ -48,12 +48,14 @@ hard.
 
 ## Next session's one focus (John + session, 09-05)
 
-- **Effective use.** The cascade adopter probe (09-05, GH #43–#52) showed
+- **Effective use.** The cascade adopter probe (09-05, GH #39–#54) showed
   the failure shape: the model is right in `specs/` and silent at the CLI.
-  Nine engine entries + the four-entry redirect (loud reads, types that
-  refuse, refusals in the author's vocabulary, `explain kind:<x>` as entry
-  point) sit in `.flume/inbox.md`, observed at ad10e8cb; plan routes them
-  ahead of the 09-04 forks. Relaunch the loop (`.flume/stop` is set).
+  Seventeen entries (engine defects, the containment-selection language
+  gap, two SDK typing gaps) + the four-entry redirect (loud reads, types
+  that refuse, refusals in the author's vocabulary, `explain kind:<x>` as
+  entry point) sit in `.flume/inbox.md`, observed at ad10e8cb; plan routes
+  them ahead of the 09-04 forks. Relaunch the loop (`.flume/stop` is set).
+  Probe series closed 09-05; issues cross-referenced both ways.
 - **Parked ruling (John's):** 0019's occupant. Cascade moved its spec kind
   to the composed half on the premise "agents write every byte"; temper's
   own launch demo (this corpus governing itself) is layout-governed human
