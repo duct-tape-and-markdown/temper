@@ -46,7 +46,23 @@ hard.
   cut valuable capability for want of a week-old consumer; lean cuts fat
   (restatement, ceremony, over-claim), not capability-ahead-of-adoption.
 
-## Next session's one focus (John + session, 09-04)
+## Next session's one focus (John + session, 09-05)
+
+- **Effective use.** The cascade adopter probe (09-05, GH #43–#52) showed
+  the failure shape: the model is right in `specs/` and silent at the CLI.
+  Nine engine entries + the four-entry redirect (loud reads, types that
+  refuse, refusals in the author's vocabulary, `explain kind:<x>` as entry
+  point) sit in `.flume/inbox.md`, observed at ad10e8cb; plan routes them
+  ahead of the 09-04 forks. Relaunch the loop (`.flume/stop` is set).
+- **Parked ruling (John's):** 0019's occupant. Cascade moved its spec kind
+  to the composed half on the premise "agents write every byte"; temper's
+  own launch demo (this corpus governing itself) is layout-governed human
+  bytes, and `specs/intent.md` has the H1-title shape the reader mis-binds
+  (GH #45). Rule whether the demo stays layout before any spec kind is
+  declared here. The layout half is not dead on the probe's evidence — F7's
+  "nothing reaches inside" was the title bug.
+
+## Previous focus (John + session, 09-04) — still open
 
 - **Rule the two forks the 0.0.16 round parked, then the harness sweep.**
   0.0.16 + 0.0.17 cut 09-04 (0.0.17 fixes 0.0.16's two-hooks emit
