@@ -54,8 +54,14 @@ hard.
   gap, two SDK typing gaps) + the four-entry redirect (loud reads, types
   that refuse, refusals in the author's vocabulary, `explain kind:<x>` as
   entry point) sit in `.flume/inbox.md`, observed at ad10e8cb; plan routes
-  them ahead of the 09-04 forks. Relaunch the loop (`.flume/stop` is set).
-  Probe series closed 09-05; issues cross-referenced both ways.
+  them ahead of the 09-04 forks. Loop relaunched 09-06 (plan awake; log at
+  `~/.cache/flume-logs/`). Probe series closed 09-05; GH #39–#54
+  cross-referenced both ways. Plan's drain (ab4a3ead) opened three forks
+  for John: `(layout-title-heading-admission)`,
+  `(nested-member-rename-identity)`, `(containment-selection-family)` —
+  the last needs a Decision before any entry. Plan dropped 3 of 18 notes
+  in that drain while reporting 15 routed; the undeclared-document note
+  is re-filed, and the positional-binding half of GH #44 rides it.
 - **Parked ruling (John's):** 0019's occupant. Cascade moved its spec kind
   to the composed half on the premise "agents write every byte"; temper's
   own launch demo (this corpus governing itself) is layout-governed human
