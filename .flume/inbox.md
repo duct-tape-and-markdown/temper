@@ -209,3 +209,38 @@ routing.
   *declaration* order, wherever it sits, and prose spans reach neither the
   lock nor `explain`, so a trailing prose region silently receives the
   document's opening paragraph.
+
+- observed at ad10e8cb (cascade spec use-case, 09-05) — the one contract
+  the adopter wants that the vocabulary cannot spell: "every rule body
+  carries ≥1 directive", a per-host floor over the embedded values a
+  member's body composes. Selections are by kind (an embedded kind's
+  corpus-wide population), by opt-in, and by incidence (`contract.md`,
+  "selection"); containment — host member → its embedded values — is not
+  an edge in the relation graph (`graph.rs` knows hosts only through
+  `embedded_hosts` for scope judgments), so `count` over `directive` is
+  corpus-wide and `degree` sees no containment arc. 0004 makes nested
+  members members and says the contract layer ranges over them "exactly
+  as over top-level ones"; the host's containment of its values is a
+  relationship the program declares (`blocks()`), so it fits "declared,
+  never mined". Session recommends: containment joins the resolved edge
+  set as a derived incidence family (one field per admitted kind, e.g.
+  `contains:directive`), so the existing `degree` algebra spells the floor
+  with no new predicate — "each rule: outgoing ≥ 1 on contains:directive".
+  A requirement-attached clause then spells "the satisfier of X holds only
+  directives" with the same family and a `kind`-narrowing each-grain
+  clause; no admit-by-requirement mechanism is needed (admission is a
+  type statement over a host kind; this is a contract over a selection —
+  keep the layers apart). A deliberate language change per `contract.md`
+  ("adding one is a deliberate language change"): a Decision, then the
+  entry.
+
+- observed at ad10e8cb (cascade, idea) — a kind-declared **citable
+  handle**: the engine-derived target facts a format may select are the
+  closed set name, address, kind, projection path
+  (`representation.md`, kind), so a reference posture's `render` branches
+  on `target.kind` to choose a spelling. A `handle` declared on the target
+  kind ("how a reference to a member of this kind reads") is declared on
+  the kind, never authored at the instance, never fabricated — compatible
+  with the closed-set rule as a fifth engine-derived fact read off the
+  target kind's declaration. Lower priority than the containment family
+  above; not a defect.
