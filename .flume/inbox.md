@@ -132,9 +132,13 @@ routing.
   the model. Fix: the SDK's member table indexes embedded values under
   their `kind:key` address alongside top-level members (the same closed
   identity the admissibility fix above makes unique), with `path` taken
-  from the owning host's projection. Until then the plain edge field
-  gates without rendering, which is a working degradation, not a silent one.
-  (GH #50)
+  from the owning host's projection. Correction (cascade F13): there is no
+  "gates without rendering" fallback — `resolveMemberLeaves` calls
+  `edgeTargetFacts` unconditionally for every embedded value with an edge
+  field, so an embedded kind whose edge field names a nested target refuses
+  emit whatever the render hook reads; a nested→nested edge is unspellable
+  on the composed half today, and `degree` on the target kind fires for
+  every member. The table fix above closes both. (GH #50, widened)
 
 - observed at ad10e8cb (cascade F10 pre-run) — a verbatim `prose` layout
   region that is not the first one is a silent no-op: `Layout::read` lands
@@ -272,3 +276,37 @@ routing.
   Text>` with required keys required — the SDK's own positioning is that
   `tsc` is the first gate, and the leaf shape is the one thing a posture
   kind exists to declare.
+
+- observed at ad10e8cb (cascade F13(b), GH pending) — a built-in kind
+  cannot take an added edge field, and the corpus has no sanctioned spelling
+  to try. `KindDefinition<Rule>` is closed (`MemberInit<Rule>` rejects an
+  undeclared field, TS2353); an `as any` cast lands the string in the
+  projection's frontmatter with no edge fact, no `graph.route`, "Edges out:
+  none" — silent. `representation.md` says built-in and user-declared kinds
+  are the same construct, ownership not privilege, and the engine already
+  overlays a same-named row's `governs`, `templates`, and `content` onto the
+  built-in (`compose.rs` `overlay_builtin_kind`, the relocation path) — but
+  not `edgeFields`, and the SDK exports no relocation constructor. So the
+  consequence for an adopter: a Claude Code rule, which must live at
+  `.claude/rules` to load, cannot gate an edge to a spec or an invariant.
+  Fix: the SDK exports a relocation form (`kind({ ...rule.facts, edgeFields:
+  [...] })` under the built-in's name, or an explicit `relocate(rule, {…})`)
+  whose row the engine overlays edge facts from as it already does
+  `governs`; `row_relocates_builtin`'s admission bar (same format, unit
+  shape, registration) stays.
+
+- observed at ad10e8cb (cascade F13(c), GH pending) — a corpus kind that
+  reuses a built-in's NAME at a different root is silently discarded in the
+  SDK. `declarations.ts` `kindsInPlay` is first-wins by name (`if
+  (byName.has(facts.name)) return`), walking `harness.members` in authored
+  order: with a built-in `rule` member listed before the corpus `rule`
+  kind's member, the corpus kind's facts (root `.claude/governing-rules`,
+  edge fields) never lower, its member projects under `.claude/rules` as a
+  built-in rule, `explain` shows the built-in contract, and no diagnostic
+  fires anywhere — the engine's `kind.admissibility` collision rule never
+  sees a row that was never written. With the order reversed the built-in's
+  members would take the corpus root instead. Contrast: sharing only the
+  glob is a hard `kind.governs-collision`. Fix: `kindsInPlay` refuses two
+  distinct `KindFacts` values under one name (identity travels by import,
+  never by string — `representation.md`), naming both loci; the relocation
+  form above is the one sanctioned same-name spelling.
