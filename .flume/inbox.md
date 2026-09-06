@@ -47,7 +47,8 @@ routing.
   primitives name none, yet the H1-title-over-H2-sections shape is
   markdown's universal one — this repo's own `specs/intent.md` has it. (a)
   is the fix this tick; (b) is an open question, not the fix's to settle.
-  (GH #45; #43 and #44 were confounded by the same title.)
+  (GH #45. #43 and #44 were confounded by the same title and have been
+  retitled to the undeclared-document and positional-fill findings.)
 
 - observed at ad10e8cb (same probe) — a layout collection member with no
   explicit `key` that is retitled silently becomes a new member: emit writes
@@ -64,7 +65,7 @@ routing.
   value's key in the program emits nothing that names the change (probe F9),
   so whatever the model rules for a layout retitle should bind a composed
   rename identically — one identity story for nested rows, not two.
-  (GH #43 retitle half, #51 rename half.)
+  (GH #51 rename half.)
 
 - observed at ad10e8cb (same probe) — `explain kind:<name>` for a name no
   kind declares prints the same "No authoring guidance is declared for
@@ -185,7 +186,7 @@ routing.
   so (GH #47). A one-page adopter doc (two halves, when each applies, the
   address grammar) is fifth and is human-authored, not an entry.
 
-- observed at ad10e8cb (cascade F10, GH #43/#44 re-diagnosed) — a
+- observed at ad10e8cb (cascade F10, GH #43 as retitled) — a
   committed layout document that discovery finds but the program never
   declares yields no declaration rows anywhere, silently. Rows for a layout
   source come from exactly two paths: `emit` over `payload.members` (the
@@ -203,7 +204,7 @@ routing.
   `config.stale` posture) naming the edit: declare it in the program
   (`spec({ name })`) and re-emit, or declare the kind local. Two
   refinements ride it: (1) regions bind headings by *position*, so a
-  missing section shifts every later binding one heading — the loud-reads
+  missing section shifts every later binding one heading (GH #44, #41) — the loud-reads
   clause should name the heading each region bound, not only the empty
   ones; (2) the preamble lands in the first verbatim prose region in
   *declaration* order, wherever it sits, and prose spans reach neither the
