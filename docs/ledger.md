@@ -69,7 +69,15 @@ hard.
   picking until nothing is pickable; (2) that gate checks the inbox is
   empty, not that every note became an entry or fork (3 of 18 dropped
   in ab4a3ead). Loop stopped 09-06 after build batch 1 to force a plan
-  drain first; the audit corrections it drains amend 9 pending entries.
+  drain first; the audit corrections it drains amend 9 pending entries
+  (drained f350248e: 13 rewritten). (3) plan's own friction capture
+  (`.flume/friction/plan-pending-queue-file-contention.md`): a
+  `pending-gate` afterCommit check that two simultaneously-open entries
+  never share a declared path — today a manual audit per tick, and four
+  pre-existing collisions are live. Three build reverts in batch 1 were
+  all writable-paths (files[] omitting an enum/type change's consumers);
+  the shipped install fix left `gate_installed` unaware of its new
+  outcome, now its own entry.
 - **Parked ruling (John's):** 0019's occupant. Cascade moved its spec kind
   to the composed half on the premise "agents write every byte"; temper's
   own launch demo (this corpus governing itself) is layout-governed human
