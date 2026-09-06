@@ -62,6 +62,14 @@ hard.
   the last needs a Decision before any entry. Plan dropped 3 of 18 notes
   in that drain while reporting 15 routed; the undeclared-document note
   is re-filed, and the positional-binding half of GH #44 rides it.
+  **Two chain gaps for a human commit** (chain.ts): (1) the plan honesty
+  gate reads the inbox from the tick's own commit or worktree, so a note
+  committed to main after plan's worktree branched is invisible — plan
+  handed to build 09-06 with 7 undrained notes and `after-build` keeps
+  picking until nothing is pickable; (2) that gate checks the inbox is
+  empty, not that every note became an entry or fork (3 of 18 dropped
+  in ab4a3ead). Loop stopped 09-06 after build batch 1 to force a plan
+  drain first; the audit corrections it drains amend 9 pending entries.
 - **Parked ruling (John's):** 0019's occupant. Cascade moved its spec kind
   to the composed half on the premise "agents write every byte"; temper's
   own launch demo (this corpus governing itself) is layout-governed human
