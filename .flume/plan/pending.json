@@ -1,7 +1,9 @@
 [
   {
     "tag": "INSTALL-HOOK-PLACEMENT-FALSE-APPLIED",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -20,8 +22,11 @@
       ],
       "retire": []
     },
-    "summary": "temper install reports a hook placement Applied even when the same run's re-emit immediately drops it — the applied claim is false.",
-    "per": { "path": "specs/model/adoption.md", "section": "Install" },
+    "summary": "temper install reports a hook placement Applied even when the same run's re-emit immediately drops it \u2014 the applied claim is false.",
+    "per": {
+      "path": "specs/model/adoption.md",
+      "section": "Install"
+    },
     "tests": [
       {
         "path": "tests/install.rs",
@@ -33,13 +38,15 @@
   },
   {
     "tag": "LAYOUT-LOUD-READ-SWALLOWED-REGION",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/layout.rs",
-          "description": "Layout::read reports no binding outcome per region today; LayoutReading (or a sibling struct) gains enough per-region binding data — which heading (if any) a field/prose region bound, and whether that heading carries child headings — for a later region to be judged 'consumed by an earlier region's slot' rather than merely empty."
+          "description": "Layout::read (~137) binds regions to top-level headings purely positionally via next_heading's cursor advance, with no name/slug check against the slot \u2014 so ANY heading-count mismatch (a lone leading title the shallowest-heading read admits, or a missing middle section) shifts every later region's binding by one heading, silently. LayoutReading (or a sibling struct) gains per-region binding data \u2014 which heading (if any) a field/prose/collection region actually bound, in document order \u2014 for a later region to be judged 'consumed by a mismatched earlier binding' rather than merely empty."
         },
         {
           "path": "src/compose.rs",
@@ -47,29 +54,34 @@
         },
         {
           "path": "src/builtin_lock.rs",
-          "description": "A new shipped default-contract clause, advisory severity (invariant 5), firing when a field region binds a heading that carries child headings while a later heading-bound region in the same layout stays unbound — the finding names the heading that consumed the slot the later region expected."
+          "description": "A new shipped default-contract clause, advisory severity (invariant 5), firing whenever a region's actual bound heading (or its absence) does not match the layout's declared position \u2014 covering both the title-swallow shape and a missing-section shift \u2014 naming the heading that landed in the wrong slot or the slot that never got the heading it expected."
         },
         {
           "path": "tests/layout_kind.rs",
-          "description": "Regression: a `prose, field(intent), collection(invariant)` layout over a `# Title` + `##` sections document fires the new advisory clause naming the swallowed heading, rather than reading silently empty."
+          "description": "Two regressions: (1) a `prose, field(intent), collection(invariant)` layout over a `# Title` + `##` sections document fires the advisory naming the swallowed heading (GH #45(a)); (2) the same layout over a document missing its `intent` section fires the advisory naming the section that shifted into the wrong slot (GH #44/#41), not just reading the collection silently empty."
         }
       ],
       "retire": []
     },
-    "summary": "A layout region that binds a heading which swallows a later region reads silently empty instead of firing a loud advisory naming the swallowed heading.",
-    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "summary": "A layout's purely positional heading binding silently misassigns every later region when any heading count mismatches expectation \u2014 a title swallow or a missing section alike.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
     "tests": [
       {
         "path": "tests/layout_kind.rs",
-        "asserts": "a shallowest-heading-level region that swallows a later region's heading fires an advisory finding naming the heading"
+        "asserts": "a heading-count mismatch (extra leading title, or a missing declared section) that shifts a later region's binding fires an advisory finding naming the heading involved, in both directions"
       }
     ],
-    "acceptance": "A layout document whose shallowest heading (e.g. a lone leading H1) is admitted into an earlier region while a later declared region stays unbound surfaces an advisory finding naming the heading, instead of the later region reading silently empty.",
-    "notes": "observed at ad10e8cb (cascade adopter probe, GH #45(a)). Layout::read binds to the shallowest heading level (extract::body_heading_tree), so a title-over-sections document swallows the whole body into the first region and every later region, edge, or required('intent') clause over it reads vacuously satisfied. Whether a layout admits a document title at all is a separate design fork, not this fix's job. scoped at e1b26728"
+    "acceptance": "A layout document whose heading count or order does not match the declared regions' positions \u2014 whether an extra leading heading (a title) or a missing section \u2014 surfaces an advisory finding naming the mismatch, instead of the shifted region(s) reading silently empty or the wrong content landing in a slot.",
+    "notes": "observed at ad10e8cb (cascade adopter probe, GH #45(a)); widened at bf4b4168 (cascade F10 remedy, GH #44/#41) once src/layout.rs confirmed next_heading's cursor is the one shared mechanism behind both symptoms \u2014 same fix, not a second entry. Whether a layout admits a document title at all is a separate design fork (`layout-title-heading-admission`), not this fix's job. scoped at bf4b4168"
   },
   {
     "tag": "KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -84,8 +96,11 @@
       ],
       "retire": []
     },
-    "summary": "The SDK's kind type accepts a non-empty registration on an embedded/nested-file locus that the engine refuses at runtime — tsc should catch it first.",
-    "per": { "path": "specs/model/representation.md", "section": "locus" },
+    "summary": "The SDK's kind type accepts a non-empty registration on an embedded/nested-file locus that the engine refuses at runtime \u2014 tsc should catch it first.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "locus"
+    },
     "tests": [
       {
         "path": "sdk/test/builtins.test.ts",
@@ -93,17 +108,19 @@
       }
     ],
     "acceptance": "sdk/src/kind.ts's KindFacts type rejects a non-empty registration under embedded or nested-file locus at tsc time; the existing registration_locus_admissibility runtime check stays as the backstop for a bypass.",
-    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check, though the SDK's own positioning is that tsc is the first gate. scoped at e1b26728"
+    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' \u2014 today only enforced at src/admissibility.rs:256's runtime check, though the SDK's own positioning is that tsc is the first gate. scoped at e1b26728"
   },
   {
     "tag": "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/admissibility.rs",
-          "description": "New well-formedness check beside the existing vacuous-clause/unfillable-selection admissibility checks: a layout kind declaring more than one verbatim (non-import) LayoutRegion::Prose region is refused at declaration — a second verbatim prose region can never carry a byte (Layout::read lands the preamble in the first one only, src/layout.rs)."
+          "description": "New well-formedness check beside the existing vacuous-clause/unfillable-selection admissibility checks: a layout kind declaring more than one verbatim (non-import) LayoutRegion::Prose region is refused at declaration \u2014 a second verbatim prose region can never carry a byte (Layout::read lands the preamble in the first one only, src/layout.rs)."
         },
         {
           "path": "src/gate.rs",
@@ -117,7 +134,10 @@
       "retire": []
     },
     "summary": "A layout declaring a second verbatim prose region is a permanent no-op today; refuse it loud at admissibility instead.",
-    "per": { "path": "specs/model/contract.md", "section": "well-formedness" },
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "well-formedness"
+    },
     "tests": [
       {
         "path": "tests/layout_kind.rs",
@@ -128,8 +148,283 @@
     "notes": "observed at ad10e8cb (cascade F10). Layout::read takes the document preamble into the first verbatim prose region only and no prose region ever consumes a heading, so a trailing declared prose region can never fill. That a layout's prose is preamble-or-import, never interstitial, is already what 0019 states; only the admissibility refusal is new. scoped at e1b26728"
   },
   {
+    "tag": "GUARD-SETTINGS-EMIT-OWNED-REGISTRATION-WALK",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "emit_owned_targets (~3020) decides settings.json is emit-owned via has_registration_members, which calls walk_lock_rows (~2183) \u2014 walk_lock_rows_from_doc (~2153) iterates only the LOCK DOCUMENT'S OWN top-level `[[<kind>]]` array-of-tables. A real emitted lock writes hook/installed-plugin/known-marketplace rows nested under `[[declaration.registration]]` (RegistrationRow, Declarations::registrations at ~3113, read back by read_declarations at ~3861), never a top-level `[[hook]]` table \u2014 verified on disk against .temper/lock.toml. has_registration_members is therefore always false on a real lock. Derive settings.json's emit-ownership from `read_declarations(workspace_dir)?.registrations` (filtering kind in hook/installed-plugin/known-marketplace) instead of the broken top-level walk."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "guard_binds_settings_json_when_registration_members_compose (~1276) forges a top-level `[[hook]]` row emit never produces (source_path/emit_hash columns and all); recut its lock fixture to the real `[[declaration.registration]]` shape a lock actually carries (mirroring .temper/lock.toml's own rows) so the test fails before the fix and passes after."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "emit_owned_targets scans only top-level array-of-tables, so real hook/registration rows (nested under declaration.registration) never mark settings.json emit-owned \u2014 unguarded everywhere.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a lock carrying real declaration.registration hook rows (the shape emit actually writes) makes .claude/settings.json an emit-owned target the guard binds, for both Edit and Write payloads"
+      }
+    ],
+    "acceptance": "On a harness with a real emitted lock declaring hook/installed-plugin/known-marketplace members, `guard` binds .claude/settings.json at the declared mode; the regression's lock fixture matches the row shape emit_program actually writes, not a forged top-level table.",
+    "notes": "observed at e1b26728 (cascade GH #40, second half \u2014 reproduced on this harness in mode block: `guard .` exits 0 for an Edit or Write to .claude/settings.json). scoped at bf4b4168"
+  },
+  {
+    "tag": "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "path_matches (~835) is a `/`-normalized suffix compare with a single-segment rule: for a candidate with no `/` (e.g. the memory kind's root `source_path = \"CLAUDE.md\"`), the prefix before the match must also contain no `/`, meant to stop `.temper/memory/CLAUDE.md` matching `CLAUDE.md`. But Claude Code always sends an absolute `file_path`, so the prefix before a root match is the repo's own absolute directory, which always contains `/` \u2014 a single-segment candidate can therefore never match a real absolute file_path. Relativize `file_path` against the harness root before comparing (a real path compare, never a suffix heuristic) \u2014 `guard` (~779) and `manifest_write_findings`'s own path_matches call (~913) both need the root threaded in."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "Command::Guard (~327-375) already holds `path` (the harness root); pass it into `install::guard` and `install::manifest_write_findings`/`guarded_manifests` so relativization has a root to compare against."
+        },
+        {
+          "path": "src/path.rs",
+          "description": "The one path module `path_matches` should route its relativize-against-root comparison through, rather than install.rs hand-rolling a second string-suffix heuristic beside `normalize_path`."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "guard_suffix_path_boundary_rejects_unrelated_deeper_paths (~1334) sends bare relative-looking file_path values (`\"CLAUDE.md\"`), never the absolute paths Claude Code actually sends, so it never exercised the real bug; rewrite its payloads to absolute paths under `root` and add the case this masked: an absolute write to the real root CLAUDE.md is blocked under mode:block."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "guard's path_matches rejects every absolute file_path against a single-segment projection candidate, so mode:block on the root CLAUDE.md placement is cosmetic \u2014 it never actually blocks.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a PreToolUse payload naming the root CLAUDE.md by its real absolute path is blocked/warned/noted per the declared mode, and the suffix-boundary regression exercises absolute paths, not relative ones"
+      }
+    ],
+    "acceptance": "A single-segment emit-owned target (the root CLAUDE.md) binds against the absolute file_path Claude Code actually sends, at every enforcement mode; the existing suffix-boundary test is re-cut to absolute paths so it can no longer pass while the real bug is present.",
+    "notes": "observed at e1b26728 (cascade GH #39). This is the ledger's parked string-path-compare posture rule made concrete \u2014 one glob engine / one path module discipline. scoped at bf4b4168"
+  },
+  {
+    "tag": "GUARD-MANIFEST-WRITE-DROPPED-MEMBER-CONFORMS",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "manifest_write_findings (~897) validates only the members the pending `content` carries \u2014 it never compares against the roster the lock declares for the manifest's collection address, so a write that empties every registration member (e.g. drops all of `hooks.<Event>`) conforms vacuously at every mode. GuardedManifest (~875) or the call needs the lock's expected member keys for its (kind, address) to detect an emit-owned member present in the lock but absent from the pending content, and report it as a finding at the declared mode."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "guarded_manifests (~524-570) already holds `&declarations` when building each GuardedManifest; thread the expected-key set (declarations.registrations filtered by kind + manifest + key_path) through from there rather than re-deriving it in install.rs."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "New regression: a Write whose content parses as the manifest but omits a hook member the lock declares trips a finding at the declared mode, where today it conforms with zero findings."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A manifest write dropping every declared registration member (e.g. emptying hooks.<Event>) produces no finding \u2014 the guard judges only the content it's given, never what the lock expects.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a represented manifest write that omits a lock-declared registration member is flagged at the declared enforcement mode, not silently conformant"
+      }
+    ],
+    "acceptance": "manifest_write_findings judges the lock's expected member roster as well as the pending content's members: an emit-owned collection entry the lock declares but the pending write drops is a finding at the declared mode.",
+    "notes": "observed at e1b26728 (cascade GH #40, first half) \u2014 a 0048 conservation instance on the guard: the write represents less than the lock was given. Serialized behind GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT: both rewrite manifest_write_findings's signature and its main.rs call site. scoped at bf4b4168"
+  },
+  {
+    "tag": "CHECK-DENY-ADVISORIES-COVERAGE-NOTE-SEVERITY",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "Severity (~19) is a closed two-value enum (Error, Warn); Diagnostic (~35) carries no way to mark a warn-severity finding as disclosure rather than a dialable advisory violation. Add the distinction \u2014 a third Severity variant, or a `note`/non-violation flag on Diagnostic \u2014 that `--deny-advisories` treats as never-blocking while every reporter still prints it."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "check (~49) pushes the `coverage.checked` per-kind summary unconditionally at warn severity (its own doc comment: \"Returns warn-severity diagnostics only\"). Mark it with the new non-violation distinction \u2014 it is disclosure (what was checked), never a violation a corpus could tune."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "The `--deny-advisories` exit-flip (~250-256) currently promotes ANY warn-severity diagnostic to blocking; it must skip the new non-violation marker so a clean harness's own coverage.checked note never trips it."
+        },
+        {
+          "path": "tests/acceptance.rs",
+          "description": "New case: a clean represented harness (no contract violations) run with `--deny-advisories` exits zero, though `coverage.checked` is present in the output \u2014 the case no existing test asserts."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "check --deny-advisories can never pass: the coverage.checked disclosure note is pushed at warn severity unconditionally, and --deny-advisories treats any warn as a blocking violation.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "tests/acceptance.rs",
+        "asserts": "a clean harness with `check --deny-advisories` exits zero even though the coverage.checked summary is present in the diagnostics"
+      }
+    ],
+    "acceptance": "`--deny-advisories` promotes only real advisory violations to blocking, never the coverage.checked disclosure note; a clean represented harness exits zero under it.",
+    "notes": "observed at e1b26728 (cascade GH #42). Intent invariant 5: a shipped coverage clause enters advisory so it is dialable, not so it blocks CI \u2014 coverage.checked is disclosure, never a violation. scoped at bf4b4168"
+  },
+  {
+    "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/check.rs",
+          "description": "Declaration rows for a layout source come from exactly two paths: emit over the program's declared members (drift.rs derive_layout_rows) and check's read-time derivation for local-locus kinds only (compose.rs local_document_rows). A discovered committed member of a layout kind that the program never declares is read at check for its field slots (compose.rs layout_unit) and for nothing else: coverage prints `invariant (0)`, explain says \"Nested members: none\", every leaf address fails, and no finding names the cause. Add a finding, advisory (config.stale posture), when a discovered committed layout-kind member has no matching provenance row in the lock \u2014 naming the two remedies: declare it in the program and re-emit, or declare the kind local."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "The new finding sits beside config_stale (~2643) \u2014 the freshness-fact family the gate already reads disk-vs-lock through \u2014 rather than a second comparison mechanism."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Regression: a committed layout-kind document discovery finds but the program's member list omits produces the new advisory finding naming the file and remedy, rather than reading as zero coverage with no explanation."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A committed layout document discovery finds but the program never declares yields no declaration rows anywhere \u2014 coverage, explain, and leaf addresses all read silently empty, no finding names why.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "a discovered committed member of a layout kind with no provenance row in the lock surfaces an advisory finding naming the file and the remedy, instead of reading as silent zero coverage"
+      }
+    ],
+    "acceptance": "check reports a discovered layout-kind member absent from the lock's declaration rows as a named advisory finding; the pipeline.md split (the gate reads declarations from the lock family and nowhere else, local locus excepted) stays intact \u2014 the fix is the finding, not new read-time derivation for committed sources.",
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry \u2014 re-filed verbatim, now routed). scoped at bf4b4168"
+  },
+  {
+    "tag": "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "read_layout_document (~1959, the one reader both emit's committed lowering and check's local-locus derivation share) lowers a Layout::read into LayoutDocumentRows carrying only `nested` and `satisfies` \u2014 the verbatim prose region's own span (LayoutReading::prose) and field-section spans are read but never become a row. A layout declaring `prose` after a `collection`/`field` region (a legal, non-first position for the one verbatim prose region) still has the document's leading preamble land there (preamble_taken in layout.rs ~146), with no row or explain surface ever naming which region actually captured it or what it captured."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "explain's per-member narration has nothing to read for a layout's prose region span; wire the new row (or feature) in so a layout member's prose content is addressable/visible the same way its fields and members already are."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Regression: a layout with a prose region declared after a collection region still binds the document's preamble to it (existing behavior, per 0019's preamble-or-import rule), and the captured span is now visible via a leaf/row `explain` and the lock can address, not silently dropped."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A layout's verbatim prose region span is read but never becomes a lock row or reaches explain, so an author can't see which region captured the preamble or what it captured.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "a layout's verbatim prose region span reaches an addressable row/leaf, visible to explain, matching how field and collection regions already surface"
+      }
+    ],
+    "acceptance": "A layout document's verbatim prose region content reaches a row or projection explain can narrate, instead of being read by Layout::read and then dropped on the floor by every downstream consumer.",
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (refuses a second prose region at admissibility) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) \u2014 this is the top-level prose region's own visibility gap. scoped at bf4b4168"
+  },
+  {
+    "tag": "GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS",
+    "gate": {
+      "kind": "open"
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "target_identity (~1593) keys an edge target on a bare `(kind, identity)` pair, splitting `target` on its first `:` \u2014 it has no path to accept representation.md's own nested-member address grammar (`<host-address>/<kind>/<key>`). Parse the full address grammar here (host-qualified and bare short forms both), so `resolved_edges` (~1252) and its dangling-diagnostic path both carry the parsed host-qualified identity through to findings."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "EdgeField (~55)'s `to` is a target-kind set only; an edge field's entries are free-text addresses at the instance, so the SDK itself needs no schema change \u2014 confirm this at scoping and note if a validator narrows what an entry may spell."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "explain's edge/finding narration prints a resolved or dangling target's identity; once target_identity carries the parsed host-qualified form, the printed address should show it rather than the bare short form alone."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "Regression: two same-keyed nested members under different hosts are each addressable from an edge field via the full `<host-address>/<kind>/<key>` form, resolving to the correct one rather than forcing a rename."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "An edge field can't spell a nested target's full host-qualified address \u2014 only the bare (kind, identity) short form \u2014 so two same-keyed nested members force a rename instead of an address.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
+    "tests": [
+      {
+        "path": "tests/graph.rs",
+        "asserts": "an edge field entry spelling `<host-address>/<kind>/<key>` resolves to that exact nested member, alongside the existing bare `kind:identity` short form"
+      }
+    ],
+    "acceptance": "target_identity parses the full nested address grammar per representation.md's member section, resolving both bare and host-qualified spellings; explain and findings print the resolved form; the duplicate-key admissibility refusal (NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY) stays the resolver's bar, not the address itself.",
+    "notes": "observed at f8344d20 (session, plan's 0049 spec-delta pass narrowing its own prior routing). 0049's Decision names every verb accepting one address grammar; its Rejected bullet turns down corpus-unique keys as the address itself. scoped at bf4b4168"
+  },
+  {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
-    "gate": { "kind": "blockedBy", "tags": ["LAYOUT-LOUD-READ-SWALLOWED-REGION"] },
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "LAYOUT-LOUD-READ-SWALLOWED-REGION"
+      ]
+    },
     "files": {
       "new": [],
       "edit": [
@@ -139,7 +434,7 @@
         },
         {
           "path": "src/read.rs",
-          "description": "Audit narrate_kind and sibling narration for the same bar — a region binding a heading is named, not only the empty ones (needs the per-region binding data LAYOUT-LOUD-READ-SWALLOWED-REGION adds)."
+          "description": "Audit narrate_kind and sibling narration for the same bar \u2014 a region binding a heading is named, not only the empty ones (needs the per-region binding data LAYOUT-LOUD-READ-SWALLOWED-REGION adds)."
         },
         {
           "path": "src/gate.rs",
@@ -149,25 +444,30 @@
       "retire": []
     },
     "summary": "Audit admissibility and reader refusal messages so each names the concrete edit an author would make, never only the lock state.",
-    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
     "tests": [
       {
         "path": "tests/gate_fail_loud.rs",
         "asserts": "admissibility and reader refusal messages name the discriminating edit, not just the lock state"
       }
     ],
-    "acceptance": "Every admissibility and reader-narration refusal message names the edit an author would make — the colliding clauses and their discriminator, or the heading each region bound — never the lock state alone.",
+    "acceptance": "Every admissibility and reader-narration refusal message names the edit an author would make \u2014 the colliding clauses and their discriminator, or the heading each region bound \u2014 never the lock state alone.",
     "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 3 of 4). Every adopter failure in the 09-05 batch shared one shape: the model was right, the message wasn't actionable at the CLI. Depends on LAYOUT-LOUD-READ-SWALLOWED-REGION for the heading-binding data the 'which region bound which heading' bar needs. scoped at e1b26728"
   },
   {
     "tag": "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/read.rs",
-          "description": "resolve (209-245) resolves a `kind:` qualifier to Species::Kind(name) with no existence check (244-245), so narrate_kind (476) reports 'no guidance declared' identically for a declared-but-unguided kind and an undeclared one — fold in a contracts.contains_key check so an absent qualified kind name is NotFound (GH #47). Then extend narrate_kind: a layout-content kind prints its regions in declared order plus a skeleton document that fits them; a composed kind prints its admitted embedded kinds and their leaf names."
+          "description": "resolve (209-245) resolves a `kind:` qualifier to Species::Kind(name) with no existence check (244-245), so narrate_kind (476) reports 'no guidance declared' identically for a declared-but-unguided kind and an undeclared one \u2014 fold in a contracts.contains_key check so an absent qualified kind name is NotFound (GH #47). Then extend narrate_kind: a layout-content kind prints its regions in declared order plus a skeleton document that fits them; a composed kind prints its admitted embedded kinds and their leaf names."
         },
         {
           "path": "tests/read_verbs.rs",
@@ -177,7 +477,10 @@
       "retire": []
     },
     "summary": "Make explain kind:<x> the adopter's authoring entry point: NotFound for an undeclared kind, a skeleton for a layout kind, admitted embedded kinds for a composed kind.",
-    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
     "tests": [
       {
         "path": "tests/read_verbs.rs",
@@ -189,13 +492,15 @@
   },
   {
     "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/admissibility.rs",
-          "description": "New well-formedness check: two nested_member rows sharing one (kind, key) across different hosts is refused at admissibility, naming both hosts — mirroring satisfies_label_admissibility's (87) refusal of the same ambiguity for bare fill labels."
+          "description": "New well-formedness check: two nested_member rows sharing one (kind, key) across different hosts is refused at admissibility, naming both hosts \u2014 mirroring satisfies_label_admissibility's (87) refusal of the same ambiguity for bare fill labels."
         },
         {
           "path": "src/graph.rs",
@@ -209,7 +514,10 @@
       "retire": []
     },
     "summary": "Two hosts declaring a nested member of the same (kind, key) silently resolve edges to whichever composed last; refuse the duplicate at admissibility instead.",
-    "per": { "path": "specs/model/representation.md", "section": "member" },
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
     "tests": [
       {
         "path": "tests/nested_member.rs",
@@ -221,7 +529,9 @@
   },
   {
     "tag": "SDK-MEMBER-TABLE-NESTED-EDGE-TARGET",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -237,7 +547,10 @@
       "retire": []
     },
     "summary": "A render hook cannot cite a nested member: edgeTargetFacts throws on an embedded value naming another host's embedded value, though check resolves and gates it fine.",
-    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
     "tests": [
       {
         "path": "sdk/test/emit.test.ts",
@@ -249,13 +562,15 @@
   },
   {
     "tag": "EXPLAIN-KIND-QUALIFIED-ADDRESS-FORM",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/read.rs",
-          "description": "resolve (209-245) knows only member:/requirement:/kind:/address: qualifiers; add <declared-kind>:<name> as a kind-scoped member lookup — the address form nested_member.host rows, graph.route findings, and mention targets already spell — which also disambiguates same-named members across kinds."
+          "description": "resolve (209-245) knows only member:/requirement:/kind:/address: qualifiers; add <declared-kind>:<name> as a kind-scoped member lookup \u2014 the address form nested_member.host rows, graph.route findings, and mention targets already spell \u2014 which also disambiguates same-named members across kinds."
         },
         {
           "path": "tests/read_verbs.rs",
@@ -265,7 +580,10 @@
       "retire": []
     },
     "summary": "explain does not accept the engine's own <kind>:<name> member address form, though every finding and mention target spells it.",
-    "per": { "path": "specs/model/representation.md", "section": "member" },
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
     "tests": [
       {
         "path": "tests/read_verbs.rs",
@@ -277,13 +595,15 @@
   },
   {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "src/contract.rs",
-          "description": "clause_label (84) folds a section_contains clause's heading in as the field segment (277) and drops the marker, so two section_contains clauses on one kind sharing a heading prefix with different markers compile to one label — fold the marker into the label's field segment so both are addressable, then audit require_sections (which has no distinguishing argument in its label either) for the same gap."
+          "description": "clause_label (84) folds a section_contains clause's heading in as the field segment (277) and drops the marker, so two section_contains clauses on one kind sharing a heading prefix with different markers compile to one label \u2014 fold the marker into the label's field segment so both are addressable, then audit require_sections (which has no distinguishing argument in its label either) for the same gap."
         },
         {
           "path": "tests/section_contains.rs",
@@ -293,7 +613,10 @@
       "retire": []
     },
     "summary": "Two section_contains clauses sharing a heading but declaring different markers fold to one compiled label, malforming the lock.",
-    "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+    "per": {
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
+    },
     "tests": [
       {
         "path": "tests/section_contains.rs",
@@ -301,11 +624,13 @@
       }
     ],
     "acceptance": "An author can declare 'every invariant carries a Test' and '... a Standard' as two independent section_contains clauses on one kind without them folding into one malformed-lock label.",
-    "notes": "observed at ad10e8cb (cascade probe, GH #48). pipeline.md: 'two rows wearing one label is a malformed lock' — today produced by the compiler itself, not authored duplication. clause() rightly has no label override (the label is compiled, never authored); the fix is the compiled label carrying enough of the predicate's own arguments to stay unique. scoped at e1b26728"
+    "notes": "observed at ad10e8cb (cascade probe, GH #48). pipeline.md: 'two rows wearing one label is a malformed lock' \u2014 today produced by the compiler itself, not authored duplication. clause() rightly has no label override (the label is compiled, never authored); the fix is the compiled label carrying enough of the predicate's own arguments to stay unique. scoped at e1b26728"
   },
   {
     "tag": "EMBEDDED-MEMBER-VALUE-TYPED-LEAVES",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -321,7 +646,10 @@
       "retire": []
     },
     "summary": "embeddedMemberValue's leaves are untyped against the target kind's own schema, so an omitted or misspelled leaf typechecks silently.",
-    "per": { "path": "specs/model/representation.md", "section": "member" },
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
     "tests": [
       {
         "path": "sdk/test/builtins.test.ts",
@@ -329,11 +657,13 @@
       }
     ],
     "acceptance": "Passing a KindDefinition to embeddedMemberValue types leaves against that kind's own schema at tsc time, required keys required, rather than deferring the check to a factory or a required() clause at check.",
-    "notes": "observed at ad10e8cb (cascade F12). Rides the same 'tsc is the first gate' positioning as KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE — the leaf shape is the one thing a posture kind exists to declare, and only a bare kind: string carries no schema to check against (unavoidable; the KindDefinition path should). scoped at e1b26728"
+    "notes": "observed at ad10e8cb (cascade F12). Rides the same 'tsc is the first gate' positioning as KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE \u2014 the leaf shape is the one thing a posture kind exists to declare, and only a bare kind: string carries no schema to check against (unavoidable; the KindDefinition path should). scoped at e1b26728"
   },
   {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -348,8 +678,11 @@
       ],
       "retire": []
     },
-    "summary": "A layout collection member's own paragraph span lands nowhere — not a leaf, not the lock, not explain — while its sub-headings' spans do.",
-    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "summary": "A layout collection member's own paragraph span lands nowhere \u2014 not a leaf, not the lock, not explain \u2014 while its sub-headings' spans do.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
     "tests": [
       {
         "path": "tests/layout_kind.rs",
@@ -357,11 +690,13 @@
       }
     ],
     "acceptance": "A layout collection member's own paragraph (not just its sub-headings) reaches a leaf, addressable and visible to leaf predicates, leaf addresses, and explain, matching the composed half's full-leaves behavior.",
-    "notes": "observed at ad10e8cb (cascade F11, GH #43 leaves gap). A spec whose invariants are H3 + paragraph + bolded marker materializes rows with leaves={} today, so leaf predicates/addresses/explain cannot reach layout content at all while the composed twin carries full leaves — nothing tells the author sub-headings are the leaf syntax. scoped at e1b26728"
+    "notes": "observed at ad10e8cb (cascade F11, GH #43 leaves gap). A spec whose invariants are H3 + paragraph + bolded marker materializes rows with leaves={} today, so leaf predicates/addresses/explain cannot reach layout content at all while the composed twin carries full leaves \u2014 nothing tells the author sub-headings are the leaf syntax. scoped at e1b26728"
   },
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
-    "gate": { "kind": "open" },
+    "gate": {
+      "kind": "open"
+    },
     "files": {
       "new": [],
       "edit": [
@@ -381,25 +716,33 @@
       "retire": []
     },
     "summary": "A built-in kind cannot take an added edge field; the SDK has no sanctioned relocation constructor and an as any cast drops the edge fact silently.",
-    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
     "tests": [
       {
         "path": "sdk/test/builtins.test.ts",
         "asserts": "a relocated built-in kind's added edge field resolves an edge and is not silently dropped"
       }
     ],
-    "acceptance": "A corpus can add an edge field to a built-in kind (e.g. rule) via the sanctioned relocation form and have it resolve a real graph edge, checked at check and rendered at emit — no as any cast needed.",
-    "notes": "observed at ad10e8cb (cascade F13(b), GH #54). representation.md: built-in and user-declared kinds are 'the same construct — ownership, not privilege'; overlay_builtin_kind already honors this for governs/templates/content, not edgeFields, and the SDK exports no relocation constructor to try in the first place. scoped at e1b26728"
+    "acceptance": "A corpus can add an edge field to a built-in kind (e.g. rule) via the sanctioned relocation form and have it resolve a real graph edge, checked at check and rendered at emit \u2014 no as any cast needed.",
+    "notes": "observed at ad10e8cb (cascade F13(b), GH #54). representation.md: built-in and user-declared kinds are 'the same construct \u2014 ownership, not privilege'; overlay_builtin_kind already honors this for governs/templates/content, not edgeFields, and the SDK exports no relocation constructor to try in the first place. scoped at e1b26728"
   },
   {
     "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
-    "gate": { "kind": "blockedBy", "tags": ["BUILTIN-KIND-RELOCATION-EDGE-FIELDS"] },
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS"
+      ]
+    },
     "files": {
       "new": [],
       "edit": [
         {
           "path": "sdk/src/declarations.ts",
-          "description": "kindsInPlay (351) is first-wins by name (355-356), walking harness.members in authored order — a corpus kind reusing a built-in's name at a different root silently loses to whichever KindFacts value was registered first, with no diagnostic. Refuse two distinct KindFacts values sharing one name, naming both loci — except when the second is a legitimate relocation of the first (BUILTIN-KIND-RELOCATION-EDGE-FIELDS's sanctioned form), which this must recognize and allow."
+          "description": "kindsInPlay (351) is first-wins by name (355-356), walking harness.members in authored order \u2014 a corpus kind reusing a built-in's name at a different root silently loses to whichever KindFacts value was registered first, with no diagnostic. Refuse two distinct KindFacts values sharing one name, naming both loci \u2014 except when the second is a legitimate relocation of the first (BUILTIN-KIND-RELOCATION-EDGE-FIELDS's sanctioned form), which this must recognize and allow."
         },
         {
           "path": "sdk/test/builtins.test.ts",
@@ -409,7 +752,10 @@
       "retire": []
     },
     "summary": "A corpus kind reusing a built-in's name at a different root is silently discarded by kindsInPlay's first-wins-by-name, with no diagnostic anywhere.",
-    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
     "tests": [
       {
         "path": "sdk/test/builtins.test.ts",
@@ -417,13 +763,13 @@
       }
     ],
     "acceptance": "Declaring a corpus kind that reuses a built-in's name at a different root refuses loud, naming both loci, unless authored through the sanctioned relocation form.",
-    "notes": "observed at ad10e8cb (cascade F13(c), GH #53). Kind identity travels by import, never by string (representation.md) — kindsInPlay's first-wins-by-name silently violates that today. Blocked on the relocation form existing, so the legitimate same-name case has a spelling before this refuses the illegitimate one. scoped at e1b26728"
+    "notes": "observed at ad10e8cb (cascade F13(c), GH #53). Kind identity travels by import, never by string (representation.md) \u2014 kindsInPlay's first-wins-by-name silently violates that today. Blocked on the relocation form existing, so the legitimate same-name case has a spelling before this refuses the illegitimate one. scoped at e1b26728"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
-      "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path) can't already express cleanly."
+      "reason": "An idea, not a defect (the raw note's own framing) \u2014 a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path) can't already express cleanly."
     },
     "files": {
       "new": [],
@@ -435,10 +781,13 @@
       ],
       "retire": []
     },
-    "summary": "A kind-declared citable handle ('how a reference to a member of this kind reads') — a lower-priority idea, not a defect, with no consumer yet.",
-    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "summary": "A kind-declared citable handle ('how a reference to a member of this kind reads') \u2014 a lower-priority idea, not a defect, with no consumer yet.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "kind"
+    },
     "tests": [],
-    "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind — provable once a real render hook wants one.",
+    "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind \u2014 provable once a real render hook wants one.",
     "notes": "observed at ad10e8cb (cascade, idea). Compatible with the closed-set rule as a fifth engine-derived fact read off the target kind's declaration; the raw note itself calls this lower priority and not a defect. scoped at e1b26728"
   },
   {
@@ -458,16 +807,19 @@
       "retire": []
     },
     "summary": "src/tap.rs hand-rolls ISO-8601 calendar math for a timestamp; no sanctioned crate does date/time, so adopting one needs a human sanctioned-set call.",
-    "per": { "path": "specs/process/engineering.md", "section": "Libraries before hand-rolls" },
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "Libraries before hand-rolls"
+    },
     "tests": [],
     "acceptance": "src/tap.rs's timestamp formatting runs through a sanctioned date/time crate instead of hand-rolled calendar math, or the site carries a ruled comment stating why it stays a hand-roll.",
-    "notes": "drained from .flume/refactor/plan-tap-iso8601-hand-roll.md (filed at cd35a551); re-verified live at HEAD — no crate in the sanctioned set (CLAUDE.md, Tech stack) does date/time and this remains the sole iso8601 site (rg -n \"iso8601|SystemTime::now\" src/ tests/). scoped at e1b26728"
+    "notes": "drained from .flume/refactor/plan-tap-iso8601-hand-roll.md (filed at cd35a551); re-verified live at HEAD \u2014 no crate in the sanctioned set (CLAUDE.md, Tech stack) does date/time and this remains the sole iso8601 site (rg -n \"iso8601|SystemTime::now\" src/ tests/). scoped at e1b26728"
   },
   {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
-      "reason": "Human re-ruling 09-03 (interactive): the first ruling — refuse a duplicate member address within a kind — was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
+      "reason": "Human re-ruling 09-03 (interactive): the first ruling \u2014 refuse a duplicate member address within a kind \u2014 was built (e4ff7bc6) and failed temper's own self-host test at afterMerge: Claude Code allows N matcher groups per event and this repo's own harness carries two PostToolUse groups, so a duplicate-event refusal rejects every real harness. The defect (silent last-writer-wins on edge resolution to `hook:<Event>`) stands; the remedy is a hook identity discriminator, which is a model fork, not build's to invent."
     },
     "dependsOnForks": [
       "hook-member-identity"
@@ -477,7 +829,7 @@
       "edit": [
         {
           "path": "src/admissibility.rs",
-          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map — silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
+          "description": "New sibling check beside `collection_address_collision_diagnostics` (which 21f61463 added for two *kinds* sharing one collectionAddress): a *single* kind's own members registering on the same key within that address (e.g. three `hook` members on `SessionStart`, which collapse to one entry in the `kind:name` composition map \u2014 silent last-writer-wins) is a declaration-time refusal with a named error, not a silent collapse."
         },
         {
           "path": "src/gate.rs",
@@ -485,7 +837,7 @@
         },
         {
           "path": "tests/hook_kind.rs",
-          "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members — mirroring 21f61463's kind-collision test shape."
+          "description": "Regression: three hook members declared on the same event refuse loud, naming all colliding members \u2014 mirroring 21f61463's kind-collision test shape."
         }
       ],
       "retire": []
@@ -502,13 +854,13 @@
       }
     ],
     "acceptance": "Two `hook` members declared on the same `event` refuse at declaration time with a named error rather than silently composing to whichever was last.",
-    "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test — temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
+    "notes": "GH #32. First pick (e4ff7bc6) built the duplicate-key refusal; gate-reverted by tests/cli.rs self-host test \u2014 temper's own settings.json has two PostToolUse groups. Parked on `(hook-member-identity)`; on resolution, rewrite around the ruled discriminator (files[] will change). Prior-attempt record deleted at re-scope. scoped at d3848196."
   },
   {
     "tag": "PACKAGING-CHANNELS-REMAINDER",
     "gate": {
       "kind": "parked",
-      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) — no signing creds — but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
+      "reason": "Human release actions: John's Apple notarizing for the darwin standalone binary + darwin optionalDependency package. Channel 3 (plugin/bundle + marketplace.json) is a git repo + marketplace.json + free community web form (verified 2026-07-06, code.claude.com/docs) \u2014 no signing creds \u2014 but rides the same release-workflow build-out. release.yml (channel 2, linux-x64+win32-x64) is now proven live, not merely wired: the v0.0.11 tag fired it and its publish smoke gate went green (b6dc0a3's commit body)."
     },
     "dependsOnForks": [],
     "files": {
@@ -524,11 +876,11 @@
     "summary": "Packaging remainder after the linux-x64+win32-x64 first cut: darwin binaries (Apple notarizing) and the plugin/bundle + marketplace.json channel (channel 3).",
     "per": {
       "path": "specs/distribution.md",
-      "section": "What ships — three channels"
+      "section": "What ships \u2014 three channels"
     },
     "tests": [],
-    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) — distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
-    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0→0.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11→da77c60 fired release.yml with a green smoke gate per its own commit body — channel 2 is proven live, not just wired. scoped 01ba369."
+    "acceptance": "A stranger acquires temper on all three OSes without a Rust toolchain (darwin binary notarized + pinned), or via the plugin/bundle (marketplace.json) \u2014 distribution.md's v0.1 launch gate: prebuilt binaries install on all three OSes.",
+    "notes": "Park re-tested on disk at 01ba369: release.yml still states the darwin + channel-3 deferral verbatim (lines 7-9). The lockstep clause carried here since ac40c72/b676656 is resolved, dropped: da77c60 walked Cargo.toml 0.1.0\u21920.0.11 to match npm's cadence directly (no v0.1-tag flip), b6dc0a3 fixed the lockfile mismatch, and tag v0.0.11\u2192da77c60 fired release.yml with a green smoke gate per its own commit body \u2014 channel 2 is proven live, not just wired. scoped 01ba369."
   },
   {
     "tag": "GAUNTLET-EXTERNAL-HARNESS-FIXTURES",
@@ -547,7 +899,7 @@
       "edit": [
         {
           "path": "tests/gauntlet.rs",
-          "description": "Anticipated: one check+emit snapshot test per vendored external fixture, alongside the existing in-repo kitchen-sink corpus — the standing gate the 07-22 probe wasn't."
+          "description": "Anticipated: one check+emit snapshot test per vendored external fixture, alongside the existing in-repo kitchen-sink corpus \u2014 the standing gate the 07-22 probe wasn't."
         }
       ],
       "retire": []
@@ -564,13 +916,13 @@
       }
     ],
     "acceptance": "temper check/emit run clean (or with real, human-verified findings) over 2-3 vendored external harness .claude/ trees, snapshot-tested in tests/gauntlet.rs, so the July external-yield probe is a standing gate rather than a one-time manual run.",
-    "notes": "observed at e77766c5, cross-cutting note — every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
+    "notes": "observed at e77766c5, cross-cutting note \u2014 every defect in the 09-03 batch came from a foreign harness, none from the self-mirror; docs/ledger.md's 07-22 probe (9 real harnesses) is the candidate pool. Human picks 2-3 (licensing); test wiring is build's once chosen. scoped at 89d96cca."
   },
   {
     "tag": "GUIDANCE-FIELD-DECLARATION-CHANNEL",
     "gate": {
       "kind": "deferred",
-      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) — no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
+      "reason": "0045's Consequences name field-declaration guidance beside kind-level, but the SDK's only per-field metadata today is a clause's `field:` target (predicate-bound) or `EdgeField` (edge-typed only) \u2014 no 'field declaration' list a bare advisory could attach to. None of the six promoted notes (GUIDANCE-BUILTIN-NOTES-PROMOTE) target a single field, inventing the mechanism now is speculative scope with no kind to exercise it ('An export earns its consumer', engineering.md). Revive when a field wants counsel no clause carries."
     },
     "dependsOnForks": [],
     "files": {
@@ -578,7 +930,7 @@
       "edit": [
         {
           "path": "sdk/src/kind.ts",
-          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields — shape unset; no field in any built-in kind wants one yet."
+          "description": "Anticipated: a field-name-keyed guidance fact on `KindFacts`, analogous to `EdgeField`'s field-name-keyed list (196) but for arbitrary fields \u2014 shape unset; no field in any built-in kind wants one yet."
         },
         {
           "path": "src/drift.rs",
@@ -595,20 +947,20 @@
       ],
       "retire": []
     },
-    "summary": "0045 also frees guidance onto a field declaration, no predicate — deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
+    "summary": "0045 also frees guidance onto a field declaration, no predicate \u2014 deferred: none of the six promoted built-in notes targets a single field, so there is no consumer yet",
     "per": {
       "path": "specs/model/contract.md",
       "section": "clause"
     },
     "tests": [],
-    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating — provable once a real kind needs one.",
+    "acceptance": "A field declaring `guidance` (no predicate) surfaces it via `schema` hover and `explain`, never gating \u2014 provable once a real kind needs one.",
     "notes": "0045 Consequences name field-declaration guidance beside kind-level; this waits for a driver, the same 'no consumer' bar prior deferred entries in this queue's history have held to. scoped at 946e303."
   },
   {
     "tag": "SCHEMA-KEYSTROKE-JSON-TOML-WIRING",
     "gate": {
       "kind": "deferred",
-      "reason": "project_modeline (src/install.rs:1615) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent — surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
+      "reason": "project_modeline (src/install.rs:1615) reads YAML frontmatter only (frontmatter::frontmatter_matter); a JSON document's native $schema key or a TOML equivalent needs its own design before schema/install extend to those kinds. Ruled (interactive, 2026-07-23) explicitly NOT build's to invent \u2014 surface only, never half-invent it. Revive when a JSON/TOML-kind keystroke gap has a real driver."
     },
     "dependsOnForks": [],
     "files": {
@@ -616,12 +968,12 @@
       "edit": [
         {
           "path": "src/install.rs",
-          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists — a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
+          "description": "Anticipated: `project_modeline`/`schema_ref` (~1594-1623) grow a JSON-document and/or TOML-document variant once a design exists \u2014 a JSON `$schema` top-level key insertion (JSON has no comment channel, so no `MODELINE_MARKER` prefix), a TOML equivalent is unprecedented and needs its own ruling."
         }
       ],
       "retire": []
     },
-    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism — deferred out of the YAML-frontmatter widening.",
+    "summary": "Keystroke JSON Schema wiring for JSON/TOML-document kinds (settings-local, plugin-manifest, marketplace, dial) has no modeline mechanism \u2014 deferred out of the YAML-frontmatter widening.",
     "per": {
       "path": "specs/distribution.md",
       "section": "The placements and their enforcement modes"
