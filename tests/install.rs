@@ -2179,3 +2179,4 @@ fn guard_hook_fails_loud_when_temper_not_on_path() {
         "stderr must contain 'temper: command not found' to name the missing binary, got:\n{stderr}"
     );
 }
+

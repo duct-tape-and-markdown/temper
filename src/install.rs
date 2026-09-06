@@ -500,7 +500,7 @@ fn run_represented(
         )?)
     };
 
-    let entries = if emit.is_some() {
+    let mut entries = if emit.is_some() {
         evaluate_placements(root, &temper_dir, dry_run)?
     } else {
         Vec::new()
@@ -523,6 +523,21 @@ fn run_represented(
                 teardown: false,
             },
         )?;
+
+        // After the second emit, detect if any hook placements were superseded by
+        // authored hook members that claim the same events.
+        let conflicted_events = detect_hook_member_conflicts(&temper_dir)?;
+        for entry in &mut entries {
+            let superseded = match entry.placement {
+                Placement::SessionStart => conflicted_events.contains("SessionStart"),
+                Placement::GuardHook => conflicted_events.contains("PreToolUse"),
+                Placement::PostToolUseHook => conflicted_events.contains("PostToolUse"),
+                _ => false,
+            };
+            if superseded && entry.outcome == ApplyOutcome::Applied {
+                entry.outcome = ApplyOutcome::SupersededByMember;
+            }
+        }
     }
 
     Ok(InstallOutcome {
@@ -736,6 +751,26 @@ fn schema_artifact_exists(root: &Path, kind: &str) -> bool {
         .join("schema")
         .join(format!("{kind}.json"))
         .is_file()
+}
+
+/// Detect hook members that claim the events synthesized placements would register on.
+/// Returns a set of event names where an authored hook member claims the collection address,
+/// so the synthesized placement for that event was superseded and dropped by re-emit.
+fn detect_hook_member_conflicts(
+    temper_dir: &Path,
+) -> miette::Result<std::collections::BTreeSet<String>> {
+    use std::collections::BTreeSet;
+
+    let declarations = drift::read_declarations(temper_dir)?;
+    let mut conflicted_events = BTreeSet::new();
+
+    for registration in &declarations.registrations {
+        if registration.kind == "hook" {
+            conflicted_events.insert(registration.key.clone());
+        }
+    }
+
+    Ok(conflicted_events)
 }
 
 /// The verdict `temper guard` reaches over a `PreToolUse` payload at the root
@@ -1951,12 +1986,13 @@ pub fn render(outcome: &InstallOutcome) -> String {
         out.push_str("not represented — session-start reporter only\n");
     }
 
-    let (mut applied, mut unchanged, mut conflicted) = (0u32, 0u32, 0u32);
+    let (mut applied, mut unchanged, mut conflicted, mut superseded) = (0u32, 0u32, 0u32, 0u32);
     for entry in &outcome.entries {
         match entry.outcome {
             ApplyOutcome::Applied => applied += 1,
             ApplyOutcome::Unchanged => unchanged += 1,
             ApplyOutcome::Conflicted => conflicted += 1,
+            ApplyOutcome::SupersededByMember => superseded += 1,
         }
         out.push_str(&format!(
             "{:<10}  {:<18}  {}\n",
@@ -1966,7 +2002,7 @@ pub fn render(outcome: &InstallOutcome) -> String {
         ));
     }
     out.push_str(&format!(
-        "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted\n"
+        "\n{applied} applied, {unchanged} unchanged, {conflicted} conflicted, {superseded} superseded-by-member\n"
     ));
     out
 }
