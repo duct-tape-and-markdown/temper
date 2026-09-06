@@ -217,3 +217,15 @@ routing.
   runtime backstop. HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL's park
   reason cites e4ff7bc6, unresolvable at HEAD (a gate-reverted worktree
   commit); cite 080311b9 if the reason should dereference.
+
+- observed at fb89f675 (build gate-revert 3c874179, entry
+  CHECK-DENY-ADVISORIES-COVERAGE-NOTE-SEVERITY) — the writable-paths gate
+  reverted a correct-looking build because the entry's files[] omits the
+  consumers a new `Severity` variant forces: `src/reporter.rs` (renders
+  every severity), `tests/coverage_note.rs` (asserts the note's current
+  warn severity), `tests/common/mod.rs` (the shared harness helper). The
+  builder cannot avoid them, so a retry under the same allowance reverts
+  again. Re-scope files[] to include the three; the class is the ledger's
+  standing derivation gap (plan omits an enum change's consumers and a
+  test's companions) — a chain-side derivation check is human territory,
+  but the entry is plan's to widen now.
