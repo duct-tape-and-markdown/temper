@@ -184,3 +184,28 @@ routing.
   admitted embedded kinds and their leaves; for an undeclared kind it says
   so (GH #47). A one-page adopter doc (two halves, when each applies, the
   address grammar) is fifth and is human-authored, not an entry.
+
+- observed at ad10e8cb (cascade F10, GH #43/#44 re-diagnosed) — a
+  committed layout document that discovery finds but the program never
+  declares yields no declaration rows anywhere, silently. Rows for a layout
+  source come from exactly two paths: `emit` over `payload.members` (the
+  program's declared members — `drift.rs` derive_layout_rows) and `check`'s
+  read-time derivation for **local**-locus kinds only (`compose.rs`
+  local_document_rows). A discovered committed member of a layout kind is
+  read at check for its field slots (compose.rs layout_unit) and for nothing
+  else: coverage prints `invariant (0)`, `explain` says "Nested members:
+  none", every leaf address fails, and no finding names the cause. The
+  split is spec-stated (pipeline.md: the gate reads declarations from the
+  lock family and nowhere else; local locus is the 0032/0034 exception), so
+  the fix is not read-time derivation for committed sources — it is the
+  finding. Remedy: `check` reports a discovered member of a layout kind
+  with no provenance row in the lock as a finding (advisory, the
+  `config.stale` posture) naming the edit: declare it in the program
+  (`spec({ name })`) and re-emit, or declare the kind local. Two
+  refinements ride it: (1) regions bind headings by *position*, so a
+  missing section shifts every later binding one heading — the loud-reads
+  clause should name the heading each region bound, not only the empty
+  ones; (2) the preamble lands in the first verbatim prose region in
+  *declaration* order, wherever it sits, and prose spans reach neither the
+  lock nor `explain`, so a trailing prose region silently receives the
+  document's opening paragraph.
