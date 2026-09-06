@@ -1,5 +1,469 @@
 [
   {
+    "tag": "INSTALL-HOOK-PLACEMENT-FALSE-APPLIED",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/install.rs",
+          "description": "install::run's yes-path calls evaluate_placements (reports ApplyOutcome::Applied for a synthesized hook placement) then re-runs drift::emit_program (~493/518), which re-projects hooks.<Event> from the authored `hook` members and drops the just-placed group inside the same run. Detect that a `hook` kind claims the placement's `hooks.<Event>` collection address and report a distinct outcome naming the SDK constant to author instead of Applied."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "ApplyOutcome (or a sibling enum) gains the new outcome variant the conflict detection reports, if Applied/Unchanged/Conflicted can't already express it."
+        },
+        {
+          "path": "tests/install.rs",
+          "description": "Regression: installing a synthesized hook placement whose event a declared `hook` member also registers on reports the new conflicted outcome, not Applied, and the settings.json bytes end where emit_program left them."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "temper install reports a hook placement Applied even when the same run's re-emit immediately drops it — the applied claim is false.",
+    "per": { "path": "specs/model/adoption.md", "section": "Install" },
+    "tests": [
+      {
+        "path": "tests/install.rs",
+        "asserts": "a synthesized hook placement colliding with an authored hook member's collection address is never reported Applied"
+      }
+    ],
+    "acceptance": "temper install never reports a hook placement Applied when a `hook` kind member claims the same hooks.<Event> address and the subsequent emit_program drops it in the same run; the outcome names the conflict and the SDK constant to author instead.",
+    "notes": "observed at 6a9a25ec (0.0.16 dogfood). install::run's placement report and its own settling re-emit disagree within one run: a silent wrong 'applied' claim (invariant 6). Remedy (b), an SDK export of the synthesized commands, is a follow-on consolidation, not this entry's job. scoped at e1b26728"
+  },
+  {
+    "tag": "LAYOUT-LOUD-READ-SWALLOWED-REGION",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/layout.rs",
+          "description": "Layout::read reports no binding outcome per region today; LayoutReading (or a sibling struct) gains enough per-region binding data — which heading (if any) a field/prose region bound, and whether that heading carries child headings — for a later region to be judged 'consumed by an earlier region's slot' rather than merely empty."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "Surface the new per-region binding data as a feature the contract layer can select over (paralleling how derive_layout_rows/layout_unit already surface fields/members), so a coverage-style clause can range over it."
+        },
+        {
+          "path": "src/builtin_lock.rs",
+          "description": "A new shipped default-contract clause, advisory severity (invariant 5), firing when a field region binds a heading that carries child headings while a later heading-bound region in the same layout stays unbound — the finding names the heading that consumed the slot the later region expected."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Regression: a `prose, field(intent), collection(invariant)` layout over a `# Title` + `##` sections document fires the new advisory clause naming the swallowed heading, rather than reading silently empty."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A layout region that binds a heading which swallows a later region reads silently empty instead of firing a loud advisory naming the swallowed heading.",
+    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "a shallowest-heading-level region that swallows a later region's heading fires an advisory finding naming the heading"
+      }
+    ],
+    "acceptance": "A layout document whose shallowest heading (e.g. a lone leading H1) is admitted into an earlier region while a later declared region stays unbound surfaces an advisory finding naming the heading, instead of the later region reading silently empty.",
+    "notes": "observed at ad10e8cb (cascade adopter probe, GH #45(a)). Layout::read binds to the shallowest heading level (extract::body_heading_tree), so a title-over-sections document swallows the whole body into the first region and every later region, edge, or required('intent') clause over it reads vacuously satisfied. Whether a layout admits a document title at all is a separate design fork, not this fix's job. scoped at e1b26728"
+  },
+  {
+    "tag": "KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "KindFacts.registration (183) is typed as readonly Registration[] regardless of locus; narrow it so the embedded and nested-file Locus variants (91-99) type registration as the empty tuple, matching what registration_locus_admissibility (src/admissibility.rs:256) already refuses at runtime."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Regression: a KindDefinition declared with a non-empty registration under an embedded or nested-file locus fails to typecheck."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "The SDK's kind type accepts a non-empty registration on an embedded/nested-file locus that the engine refuses at runtime — tsc should catch it first.",
+    "per": { "path": "specs/model/representation.md", "section": "locus" },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a non-empty registration under an embedded/nested-file locus is a compile error, not a runtime refusal"
+      }
+    ],
+    "acceptance": "sdk/src/kind.ts's KindFacts type rejects a non-empty registration under embedded or nested-file locus at tsc time; the existing registration_locus_admissibility runtime check stays as the backstop for a bypass.",
+    "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check, though the SDK's own positioning is that tsc is the first gate. scoped at e1b26728"
+  },
+  {
+    "tag": "LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/admissibility.rs",
+          "description": "New well-formedness check beside the existing vacuous-clause/unfillable-selection admissibility checks: a layout kind declaring more than one verbatim (non-import) LayoutRegion::Prose region is refused at declaration — a second verbatim prose region can never carry a byte (Layout::read lands the preamble in the first one only, src/layout.rs)."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Wire the new diagnostic beside the other admissibility calls."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Regression: a layout declaring two verbatim prose regions refuses loud at admissibility, naming both."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A layout declaring a second verbatim prose region is a permanent no-op today; refuse it loud at admissibility instead.",
+    "per": { "path": "specs/model/contract.md", "section": "well-formedness" },
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "a layout with two verbatim prose regions is refused at admissibility, not silently accepted with the trailing region a permanent no-op"
+      }
+    ],
+    "acceptance": "Declaring a layout with more than one verbatim prose region refuses loud at admissibility time, the same class as an existing vacuous-clause/unfillable-selection refusal.",
+    "notes": "observed at ad10e8cb (cascade F10). Layout::read takes the document preamble into the first verbatim prose region only and no prose region ever consumes a heading, so a trailing declared prose region can never fill. That a layout's prose is preamble-or-import, never interstitial, is already what 0019 states; only the admissibility refusal is new. scoped at e1b26728"
+  },
+  {
+    "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
+    "gate": { "kind": "blockedBy", "tags": ["LAYOUT-LOUD-READ-SWALLOWED-REGION"] },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/admissibility.rs",
+          "description": "Audit every admissibility diagnostic's message text: each names the concrete edit (which two clauses collided and the argument that discriminates them, e.g. section_contains's marker) rather than restating lock/contract state alone."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "Audit narrate_kind and sibling narration for the same bar — a region binding a heading is named, not only the empty ones (needs the per-region binding data LAYOUT-LOUD-READ-SWALLOWED-REGION adds)."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Audit diagnostic construction call sites for the same bar where messages are assembled rather than authored at the diagnostic definition."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Audit admissibility and reader refusal messages so each names the concrete edit an author would make, never only the lock state.",
+    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "tests": [
+      {
+        "path": "tests/gate_fail_loud.rs",
+        "asserts": "admissibility and reader refusal messages name the discriminating edit, not just the lock state"
+      }
+    ],
+    "acceptance": "Every admissibility and reader-narration refusal message names the edit an author would make — the colliding clauses and their discriminator, or the heading each region bound — never the lock state alone.",
+    "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 3 of 4). Every adopter failure in the 09-05 batch shared one shape: the model was right, the message wasn't actionable at the CLI. Depends on LAYOUT-LOUD-READ-SWALLOWED-REGION for the heading-binding data the 'which region bound which heading' bar needs. scoped at e1b26728"
+  },
+  {
+    "tag": "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "resolve (209-245) resolves a `kind:` qualifier to Species::Kind(name) with no existence check (244-245), so narrate_kind (476) reports 'no guidance declared' identically for a declared-but-unguided kind and an undeclared one — fold in a contracts.contains_key check so an absent qualified kind name is NotFound (GH #47). Then extend narrate_kind: a layout-content kind prints its regions in declared order plus a skeleton document that fits them; a composed kind prints its admitted embedded kinds and their leaf names."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Regression: explain kind:<undeclared-name> reads NotFound; explain kind:<layout-kind> prints its regions and a fitting skeleton; explain kind:<composed-host-kind> prints its admitted embedded kinds and leaves."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Make explain kind:<x> the adopter's authoring entry point: NotFound for an undeclared kind, a skeleton for a layout kind, admitted embedded kinds for a composed kind.",
+    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain kind:<x> is the adopter's authoring entry point for every kind shape, and NotFound for an undeclared name"
+      }
+    ],
+    "acceptance": "explain kind:<x> resolves NotFound for a name no kind declares; for a layout kind it narrates the regions in order plus a skeleton document; for a composed kind it narrates the admitted embedded kinds and their leaves.",
+    "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 4 of 4; GH #47 folded in). Everything an adopter needs to recover from an authoring mistake belongs in explain's own output, never only in specs/. Skeleton richness grows further once LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF lands (not a hard dependency). scoped at e1b26728"
+  },
+  {
+    "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/admissibility.rs",
+          "description": "New well-formedness check: two nested_member rows sharing one (kind, key) across different hosts is refused at admissibility, naming both hosts — mirroring satisfies_label_admissibility's (87) refusal of the same ambiguity for bare fill labels."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "member_at (453) and the by_kind pooling it reads assume a corpus-unique (kind, key); confirm resolves/admissibility (137-174) has no independent path that would still silently pick one once the duplicate is refused upstream."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "Regression: two hosts each declaring an embedded/layout member of the same kind keyed identically refuse loud at admissibility, naming both hosts."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Two hosts declaring a nested member of the same (kind, key) silently resolve edges to whichever composed last; refuse the duplicate at admissibility instead.",
+    "per": { "path": "specs/model/representation.md", "section": "member" },
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "a duplicate (kind, key) across two hosts refuses at admissibility rather than resolving an edge to whichever composed last"
+      }
+    ],
+    "acceptance": "Declaring two nested members of the same kind under the same key across different hosts refuses loud at admissibility, naming both hosts; an edge to that key never silently resolves to whichever composed last.",
+    "notes": "observed at ad10e8cb (cascade probe F9, GH #51 duplicate-key half). compose::embedded_member_features/by_kind pools every host's rows of one kind by bare key with last-write-wins; representation.md: 'coincident addresses are a malformed lock.' The corpus-unique key the leaf address grammar already assumes should be enforced, not merely assumed. scoped at e1b26728"
+  },
+  {
+    "tag": "SDK-MEMBER-TABLE-NESTED-EDGE-TARGET",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/emit.ts",
+          "description": "memberTable (700) indexes top-level composed members only; edgeTargetFacts (255), called unconditionally from resolveMemberLeaves (307) for every embedded value with an edge field, throws when the target is an embedded value elsewhere rather than resolving it. Index embedded values under their kind:key address in the same table (or a joined lookup), with path taken from the owning host's projection."
+        },
+        {
+          "path": "sdk/test/emit.test.ts",
+          "description": "Regression: an embedded value's edge field naming another host's embedded value resolves target facts and renders, rather than throwing 'resolves to no composed member'."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A render hook cannot cite a nested member: edgeTargetFacts throws on an embedded value naming another host's embedded value, though check resolves and gates it fine.",
+    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "tests": [
+      {
+        "path": "sdk/test/emit.test.ts",
+        "asserts": "an edge field on an embedded value naming a nested (non-top-level) target resolves and renders"
+      }
+    ],
+    "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright.",
+    "notes": "observed at ad10e8cb (cascade probe F9/F13, GH #50 widened). There is no 'gates without rendering' fallback: resolveMemberLeaves calls edgeTargetFacts unconditionally, so a nested-to-nested edge is unspellable on the composed half today though the same address resolves and gates fine at check. scoped at e1b26728"
+  },
+  {
+    "tag": "EXPLAIN-KIND-QUALIFIED-ADDRESS-FORM",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "resolve (209-245) knows only member:/requirement:/kind:/address: qualifiers; add <declared-kind>:<name> as a kind-scoped member lookup — the address form nested_member.host rows, graph.route findings, and mention targets already spell — which also disambiguates same-named members across kinds."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Regression: explain memory:CLAUDE resolves the memory member named CLAUDE rather than falling through to the bare-name path and reading NotFound."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "explain does not accept the engine's own <kind>:<name> member address form, though every finding and mention target spells it.",
+    "per": { "path": "specs/model/representation.md", "section": "member" },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "explain accepts <kind>:<name> as a kind-scoped member address, matching the engine's own address grammar"
+      }
+    ],
+    "acceptance": "explain <kind>:<name> resolves the named member of that kind, matching representation.md's 'one grammar every row spells and every verb accepts.'",
+    "notes": "observed at ad10e8cb (cascade probe, GH #49). resolve's qualifier set has no kind-scoped member form though the engine's own findings spell exactly this address everywhere else; a same-named member across two kinds is unaddressable at explain today without it. scoped at e1b26728"
+  },
+  {
+    "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/contract.rs",
+          "description": "clause_label (84) folds a section_contains clause's heading in as the field segment (277) and drops the marker, so two section_contains clauses on one kind sharing a heading prefix with different markers compile to one label — fold the marker into the label's field segment so both are addressable, then audit require_sections (which has no distinguishing argument in its label either) for the same gap."
+        },
+        {
+          "path": "tests/section_contains.rs",
+          "description": "Regression: two section_contains clauses on one kind, same heading, different markers, compile to two distinct labels and both gate independently."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Two section_contains clauses sharing a heading but declaring different markers fold to one compiled label, malforming the lock.",
+    "per": { "path": "specs/model/pipeline.md", "section": "The lock" },
+    "tests": [
+      {
+        "path": "tests/section_contains.rs",
+        "asserts": "two section_contains clauses sharing a heading but declaring different markers produce two distinct compiled labels"
+      }
+    ],
+    "acceptance": "An author can declare 'every invariant carries a Test' and '... a Standard' as two independent section_contains clauses on one kind without them folding into one malformed-lock label.",
+    "notes": "observed at ad10e8cb (cascade probe, GH #48). pipeline.md: 'two rows wearing one label is a malformed lock' — today produced by the compiler itself, not authored duplication. clause() rightly has no label override (the label is compiled, never authored); the fix is the compiled label carrying enough of the predicate's own arguments to stay unique. scoped at e1b26728"
+  },
+  {
+    "tag": "EMBEDDED-MEMBER-VALUE-TYPED-LEAVES",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "embeddedMemberValue (461) takes kind: string | KindDefinition<any> and leaves: Record<string, string | Text> untyped against the target kind's own field schema, so an omitted or misspelled leaf typechecks. Make it generic over the kind's T (as kind<T>() already is for MemberInit<T>) so leaves is Record<keyof T, string | Text> with required keys required, when kind is passed as a KindDefinition<T>."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Regression: embeddedMemberValue({ kind: someKindDefinition, leaves: {...} }) fails to typecheck when leaves omits a required key or misspells one."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "embeddedMemberValue's leaves are untyped against the target kind's own schema, so an omitted or misspelled leaf typechecks silently.",
+    "per": { "path": "specs/model/representation.md", "section": "member" },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "embeddedMemberValue's leaves are typed against the passed KindDefinition's own field schema"
+      }
+    ],
+    "acceptance": "Passing a KindDefinition to embeddedMemberValue types leaves against that kind's own schema at tsc time, required keys required, rather than deferring the check to a factory or a required() clause at check.",
+    "notes": "observed at ad10e8cb (cascade F12). Rides the same 'tsc is the first gate' positioning as KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE — the leaf shape is the one thing a posture kind exists to declare, and only a bare kind: string carries no schema to check against (unavoidable; the KindDefinition path should). scoped at e1b26728"
+  },
+  {
+    "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/layout.rs",
+          "description": "read_collection_member (222) takes a LayoutMember's leaves from its immediate sub-headings only, keyed by slug; the paragraph directly under the member's own heading lands nowhere. Land it as a `prose` leaf on LayoutMember.leaves, alongside the sub-heading-keyed spans, matching the name the composed half's embedded values already use for the authored body."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Regression: a layout collection member whose body is `### Title` + a paragraph + `**Test.** ...` (no sub-headings) materializes a non-empty leaves map carrying the paragraph under the `prose` key."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A layout collection member's own paragraph span lands nowhere — not a leaf, not the lock, not explain — while its sub-headings' spans do.",
+    "per": { "path": "specs/intent.md", "section": "Invariants" },
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "a layout collection member's own span (the text directly under its heading) lands in its leaves, keyed `prose`"
+      }
+    ],
+    "acceptance": "A layout collection member's own paragraph (not just its sub-headings) reaches a leaf, addressable and visible to leaf predicates, leaf addresses, and explain, matching the composed half's full-leaves behavior.",
+    "notes": "observed at ad10e8cb (cascade F11, GH #43 leaves gap). A spec whose invariants are H3 + paragraph + bolded marker materializes rows with leaves={} today, so leaf predicates/addresses/explain cannot reach layout content at all while the composed twin carries full leaves — nothing tells the author sub-headings are the leaf syntax. scoped at e1b26728"
+  },
+  {
+    "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
+    "gate": { "kind": "open" },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/builtins.ts",
+          "description": "Export a relocation form under a built-in's name (e.g. a `relocate(rule, { edgeFields: [...] })` helper, or `kind({ ...rule.facts, edgeFields: [...] })`) so a consumer can add edge fields to a built-in kind (e.g. `rule`, which must stay at .claude/rules to load) without an `as any` cast that silently drops the edge fact."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "overlay_builtin_kind (453) already overlays a same-named row's governs/templates/content onto the built-in (the relocation path) but not edgeFields; extend the overlay to carry edgeFields, keeping row_relocates_builtin's (1091) admission bar (same format, unit shape, registration) unchanged."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Regression: a relocated `rule` kind declaring an added edgeField resolves a graph.route edge and renders it, rather than the field landing in frontmatter with no edge fact."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A built-in kind cannot take an added edge field; the SDK has no sanctioned relocation constructor and an as any cast drops the edge fact silently.",
+    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "a relocated built-in kind's added edge field resolves an edge and is not silently dropped"
+      }
+    ],
+    "acceptance": "A corpus can add an edge field to a built-in kind (e.g. rule) via the sanctioned relocation form and have it resolve a real graph edge, checked at check and rendered at emit — no as any cast needed.",
+    "notes": "observed at ad10e8cb (cascade F13(b), GH #54). representation.md: built-in and user-declared kinds are 'the same construct — ownership, not privilege'; overlay_builtin_kind already honors this for governs/templates/content, not edgeFields, and the SDK exports no relocation constructor to try in the first place. scoped at e1b26728"
+  },
+  {
+    "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
+    "gate": { "kind": "blockedBy", "tags": ["BUILTIN-KIND-RELOCATION-EDGE-FIELDS"] },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "kindsInPlay (351) is first-wins by name (355-356), walking harness.members in authored order — a corpus kind reusing a built-in's name at a different root silently loses to whichever KindFacts value was registered first, with no diagnostic. Refuse two distinct KindFacts values sharing one name, naming both loci — except when the second is a legitimate relocation of the first (BUILTIN-KIND-RELOCATION-EDGE-FIELDS's sanctioned form), which this must recognize and allow."
+        },
+        {
+          "path": "sdk/test/builtins.test.ts",
+          "description": "Regression: a harness declaring a corpus kind under a built-in's exact name at a different root refuses at load, naming both loci; the sanctioned relocation form still passes."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A corpus kind reusing a built-in's name at a different root is silently discarded by kindsInPlay's first-wins-by-name, with no diagnostic anywhere.",
+    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "tests": [
+      {
+        "path": "sdk/test/builtins.test.ts",
+        "asserts": "two distinct KindFacts values sharing one name refuse at load unless one is the sanctioned relocation of the other"
+      }
+    ],
+    "acceptance": "Declaring a corpus kind that reuses a built-in's name at a different root refuses loud, naming both loci, unless authored through the sanctioned relocation form.",
+    "notes": "observed at ad10e8cb (cascade F13(c), GH #53). Kind identity travels by import, never by string (representation.md) — kindsInPlay's first-wins-by-name silently violates that today. Blocked on the relocation form existing, so the legitimate same-name case has a spelling before this refuses the illegitimate one. scoped at e1b26728"
+  },
+  {
+    "tag": "KIND-DECLARED-CITABLE-HANDLE",
+    "gate": {
+      "kind": "deferred",
+      "reason": "An idea, not a defect (the raw note's own framing) — a `handle` fact on a target kind has no named consumer today, and the containment-selection family (open question) is the higher-priority extension to this same render-branching surface. Revive when a render hook wants a spelling the closed target-fact set (name, address, kind, projection path) can't already express cleanly."
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "Anticipated: a `handle` fact on KindFacts, read by a render hook branching on target.kind, alongside the existing closed engine-derived target-fact set."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A kind-declared citable handle ('how a reference to a member of this kind reads') — a lower-priority idea, not a defect, with no consumer yet.",
+    "per": { "path": "specs/model/representation.md", "section": "kind" },
+    "tests": [],
+    "acceptance": "A kind declaring `handle` lets a reference render hook spell a member of that kind without hand-rolling the branch on target.kind — provable once a real render hook wants one.",
+    "notes": "observed at ad10e8cb (cascade, idea). Compatible with the closed-set rule as a fifth engine-derived fact read off the target kind's declaration; the raw note itself calls this lower priority and not a defect. scoped at e1b26728"
+  },
+  {
+    "tag": "TAP-ISO8601-DATETIME-CRATE",
+    "gate": {
+      "kind": "parked",
+      "reason": "Adopting a new dependency is the human sanctioned-set call CLAUDE.md's Tech stack section reserves to itself, not plan- or build-derivable; needs either a `time` crate addition to the sanctioned set or a ruled pinned-semantics exception at the site."
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/tap.rs",
+          "description": "iso8601_utc_timestamp (313-368) and is_leap_year (370-372) hand-roll epoch-day Gregorian calendar arithmetic off SystemTime/UNIX_EPOCH to format an RFC 3339 UTC timestamp; replace with a sanctioned date/time crate (`time`, a narrower fit than `chrono` for one stamp) once added to CLAUDE.md's Tech stack, or mark the site a deliberate pinned-semantics exception (rust.md's comment taxonomy) if the human declines the dependency."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "src/tap.rs hand-rolls ISO-8601 calendar math for a timestamp; no sanctioned crate does date/time, so adopting one needs a human sanctioned-set call.",
+    "per": { "path": "specs/process/engineering.md", "section": "Libraries before hand-rolls" },
+    "tests": [],
+    "acceptance": "src/tap.rs's timestamp formatting runs through a sanctioned date/time crate instead of hand-rolled calendar math, or the site carries a ruled comment stating why it stays a hand-roll.",
+    "notes": "drained from .flume/refactor/plan-tap-iso8601-hand-roll.md (filed at cd35a551); re-verified live at HEAD — no crate in the sanctioned set (CLAUDE.md, Tech stack) does date/time and this remains the sole iso8601 site (rg -n \"iso8601|SystemTime::now\" src/ tests/). scoped at e1b26728"
+  },
+  {
     "tag": "HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL",
     "gate": {
       "kind": "parked",
