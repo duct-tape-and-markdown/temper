@@ -160,7 +160,45 @@ tax.
   `contains:directive`), so the existing `degree` algebra spells the floor
   with no new predicate. `contract.md`'s own bar: "adding one is a
   deliberate language change" — a Decision is needed before any entry, not
-  inferred here. No dependents.
+  inferred here. **Sharpened 09-06** (cascade-integrations, live consumer
+  evidence the Decision must cover or reject explicitly): cascade's actual
+  clause is "every rule body carries ≥1 directive OR consult" — a floor
+  over a *union* of admitted kinds, not one. One field per admitted kind
+  plus `degree` spells a per-kind floor only; needs either a field-set
+  filter on `degree` (a bound over `contains:directive` ∪
+  `contains:consult`) or a union spelling in the incidence family.
+  `Predicate::Degree` carries no field filter today though `contract.md`
+  "selection" defines by-incidence as filtered by field and direction;
+  every `ResolvedEdge` already carries `field`. No dependents.
+
+- `(layout-own-span-leaf)` — OPEN, live driver (cascade-integrations audit
+  of LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF, 09-06). A layout collection
+  member's own paragraph span (the text directly under its heading, before
+  any sub-heading) needs a leaf key to land under, but no reserved own-span
+  leaf name exists anywhere in the corpus today: composed leaves are
+  author-named (`NestedMemberRow.leaves` keyed by field name), and the
+  SDK's `FRAMEWORK_KEYS` (`kind.ts:245`) reserves `prose` only as a
+  member-level value, not a leaf key. Reserving one (`prose`, or another
+  name) is a Decision — it collides with any author who slugs a
+  sub-heading to that same name, and `node.body` includes sub-heading text
+  so the own span must be cut at the first child heading regardless of the
+  name chosen. Dependents: LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF.
+
+- `(embedded-edge-dangling-judgment)` — OPEN, candidate not yet ruled
+  (cascade-integrations, GH #52, 09-06). SDK-MEMBER-TABLE-NESTED-EDGE-TARGET
+  fixes an embedded value's edge field resolving another host's embedded
+  value, but leaves open how a *dangling* embedded edge target should be
+  judged, and by which verb. Candidate split by the citing field's grain: a
+  top-level member's edge field lowers to an assembly `edge` row judged at
+  `check` under `graph.route` (an error, not advisory); an embedded value's
+  edge resolves at `emit` instead. Finer candidate: `edgeTargetFacts`
+  returns a dangling marker rather than throwing; `recordingView` already
+  observes whether a render hook selected `v.targets.<field>` — selected
+  and dangling refuses (pipeline.md "Refusing" already holds this),
+  unselected rides the row and `check` fires `graph.route` instead. Not
+  lazy resolution: 0049 says every address is resolvable, and a lazy path
+  would let a hook that reads `v.targets` render a fabricated reference
+  (0048). No dependents yet — no entry currently needs this ruled.
 
 ## Kept on purpose — deliberate asymmetries (re-read every tick)
 
