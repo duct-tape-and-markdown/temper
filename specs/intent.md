@@ -56,8 +56,10 @@ checks are well-formedness: the preconditions of checking at all
    corpus's declared act, never the default's.
 6. **Loud or nothing.** A failure temper can detect is an error message at
    author-time — no path silently degrades, deletes, reconciles, or emits
-   over an unresolved input. The per-surface refusal clauses are instances
-   of this rule; a surface without one is a gap, not a license.
+   over an unresolved input, and no read or lowering represents less than
+   it was given: every authored span and every declared fact reaches a row,
+   a projection, or a finding. The per-surface refusal clauses are
+   instances of this rule; a surface without one is a gap, not a license.
 7. **Read or written, never both.** Every governed path is exactly one of: a
    source temper reads, or a projection temper writes. No projection is read
    back for meaning; no source is regenerated; no file is part-authored,
