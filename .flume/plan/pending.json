@@ -2,10 +2,7 @@
   {
     "tag": "GUARD-MANIFEST-EDIT-CONTENTLESS-FALLTHROUGH",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -35,68 +32,6 @@
     ],
     "acceptance": "Edit and Write share one rule for a represented manifest: a write (of either shape) touching only opaque residue or conforming members passes; one that drops a lock-declared member or cannot be reconstructed denies with a message naming the governed members and pointing at Write, never the blanket .claude/-projected wording GH #40 now emits for every manifest Edit.",
     "notes": "observed at 97399cc1 (cascade-integrations, live run of the origin build's GH #40 fixes against a real block-mode harness) — the co-owned-manifest regression GH #40's own two fixes created together. Post-ship reconciliation 09-07: GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT shipped (259a6035), which is why the gate now serializes behind EMIT-PROJECTION-NOTE instead (shared src/install.rs + tests/install.rs); line refs re-read at HEAD after that commit moved them. scoped at 1f79d12a"
-  },
-  {
-    "tag": "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/drift.rs",
-          "description": "emit_one's banner branch (~2338-2348, added by bccf42c0's move from install to emit) only places the managed-projection banner, and only for a frontmatterless markdown projection (`projection.fields.is_empty()`). It never places the frontmatter `#` note — only install.rs's project_note (~1925) does, and only when frontmatter already exists. Since emit owns a represented projection's bytes in full (pipeline.md \"Emit\"; no file is part-authored, part-emitted), extend emit to place the note too for any markdown projection that carries frontmatter, so a freshly emitted projection needs no separate `install` run to converge its note."
-        },
-        {
-          "path": "src/install.rs",
-          "description": "Narrow project_note (:1953-1968) to the converge_banner_wording contract the banner already follows: None when no note line is present, converge-only when one is — the same narrowing bccf42c0 did for the banner. Move NOTE_COMMENT (still src/install.rs:205) to src/placement.rs beside BANNER (placement.rs:23), its one home; install and emit then read one constant rather than emit reaching into install's private module."
-        },
-        {
-          "path": "tests/emit.rs",
-          "description": "Regression: deleting a built-in skill's SKILL.md (or any frontmatter-bearing modeled projection) then running `emit` alone produces a projection carrying its note; `check`'s gate_installed (src/install.rs:561) reports no install.gate-installed finding without a separate `install` run."
-        },
-        {
-          "path": "src/placement.rs",
-          "description": "Home for NOTE_COMMENT, relocated from src/install.rs:205 beside BANNER (:23) and BANNER_MARKER (:16) — the frontmatter note and the markdown banner are one placement family with one owner, so emit's writer and install's converger read the same constant (engineering.md, 'One job, one home'). Its unit test block (`mod tests`, :99) gains the note's own placement_lines case."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "Two existing tests assert the OLD ownership split and must invert with this entry, not after it (build's own fence capture at 1e663552). (a) emit_never_stamps_the_managed_by_note (:1818) asserts the exact negation of this entry's acceptance — re-cut to assert emit DOES stamp the note and still never stamps the yaml-language-server modeline, which stays install's. (b) gate_installed_names_drifted_un_noted_files (:1097) hand-deletes the note line from an emit-owned SKILL.md and expects a missing-placement finding; under the narrowed project_note that hand-edit is drift by hash, exactly as this test's own sibling comment already says of the banner — re-cut to a stale-WORDING drift (splice a retired note wording in), which is what project_note still converges."
-        },
-        {
-          "path": "tests/json_document_format.rs",
-          "description": "the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were (:439) pins .claude/rules/rust.md byte-exact as `---\\npaths: [...]\\n---\\n{RULE_BODY}`; the frontmatter member now carries the note line, so this expectation gains it — the same edit tests/emit.rs takes in-fence."
-        },
-        {
-          "path": "tests/gauntlet.rs",
-          "description": "the_gauntlet_corpus_emits_and_checks_to_stable_snapshots drives the projection-tree snapshot below; any inline expectation naming a frontmatter projection's leading bytes moves with the note."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__projection_tree.snap",
-          "description": "The snapshot carries every gauntlet projection's bytes, so each frontmatter-bearing one gains the note line. cargo-insta is NOT installed in this environment (`cargo insta` errors 'no such command') — accept with `INSTA_UPDATE=always cargo test --test gauntlet`, which the insta crate itself honours, then re-run plain `cargo test` to confirm green. Read the accepted diff: it must be the note line and nothing else."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "Line 6 pins the `install.gate-installed` warning verbatim, its parenthetical carrying `managed-by note: <HARNESS>/.claude/rules/authoring.md` and `managed-by note: <HARNESS>/.claude/rules/conventions.md`. Those two clauses are exactly what this entry's acceptance removes: `gate_installed` (src/install.rs:561) tallies a note placement only while its outcome is missing/drifted, and renders the clause at :629-633 — once emit places the note, the placement is `Unchanged` and both clauses vanish. So this snapshot is the acceptance rendered, and moves WITH the entry, not after it. Accept it in the same `INSTA_UPDATE=always cargo test --test gauntlet` run as the projection tree, and read both diffs: each must be the note line and its consequences and nothing else."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "emit places the managed-projection banner but never the frontmatter note, so every freshly emitted projection with frontmatter reports install.gate-installed until install runs separately.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "Emit"
-    },
-    "tests": [
-      {
-        "path": "tests/emit.rs",
-        "asserts": "a freshly emitted frontmatter-bearing projection carries its note without a separate install run, and check reports no missing-note finding for it"
-      }
-    ],
-    "acceptance": "A markdown projection with frontmatter, freshly emitted with no prior install run, carries both its managed-projection banner (where applicable) and its frontmatter note; check's gate_installed reports no finding for it. `cargo test --no-fail-fast` is green, including the four re-cut assertions that pinned the old ownership split.",
-    "notes": "observed at bf4b4168 (GH #57); widened at a13f6bf2 and e6c551cc. bccf42c0 moved banner placement from install to emit and left the note behind — the part-authored/part-emitted gap invariant 7 forbids. Suggested shape: one predicate renders_frontmatter(format, fields) that project_bytes renders by and emit_one picks the marker form by. Post-ship reconciliation 09-07: every install.rs and tests/install.rs line ref re-read after 259a6035 moved them. scoped at 1f79d12a"
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
@@ -151,10 +86,7 @@
   {
     "tag": "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -322,49 +254,6 @@
     "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168 (refusing every cross-host duplicate hard-codes the alternative 0049 rejects). Post-ship reconciliation 09-07, second pass: EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED shipped (ab500f80) — the fields-map smuggling this entry was to fold is GONE, identity IS the address, and the three lookups are one `member_named`. Strictly smaller now: the plumbing is done and only the judgment is left. scoped at 1f79d12a"
   },
   {
-    "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "clauseRow's `field: predicate.field` line (~106) reads `Predicate.field`, which the `sectionContains`/`requireSections` factories (sdk/src/contract.ts ~170-205) never set — both stay `undefined`, so every section_contains clause on a kind compiles to the same stamped label and every require_sections clause likewise collides. Special-case this line for the two predicates: synthesize `field` from the row's own `section`/`sections` data already computed a few lines below (`${heading}.${marker}` for section_contains, the joined section list for require_sections) instead of reading `predicate.field`. Verified this is the sole fix needed: `src/contract.rs`'s `predicate_from_row` reconstructs `Predicate::SectionContains`/`RequireSections` from `row.section`/`row.sections` directly (~472-483), never from `row.field` — so `clause_label`'s five other callers (compose, engine, graph, roster, schema) and `predicate_from_row`'s round-trip are both already field-agnostic for these two predicates and need no change."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "The existing label-collision test (a_lock_carrying_two_rows_under_one_label_fails_admissibility_loud, ~2907) proves the refusal only on a hand-written lock (via common::clause/write_lock), never through the SDK — which is why this collision was never caught. Add a regression that authors two section_contains clauses (and/or two require_sections clauses) with the actual SDK, compiled through it (reuse the wire_sdk_harness pattern from tests/emit.rs:1748), and asserts the resulting lock carries two distinct labels and both gate independently, plus a round-trip check that the reconstructed clause's heading/marker/sections match what was authored."
-        },
-        {
-          "path": "sdk/test/contract.test.ts",
-          "description": "SDK-side regression compiled through declarations.ts directly: two section_contains clauses (and two require_sections clauses) on one kind produce two distinct `field` values in their compiled ClauseRow output — the SDK-compiled regression the gate-revert audit asked for, at the layer where the fix actually lands."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [],
-    "summary": "A section_contains/require_sections clause's compiled label never carries its heading/marker/sections, so every clause of that predicate on one kind folds to one label.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "two section_contains (or require_sections) clauses on one kind, compiled through the real SDK, produce two distinct compiled labels and both gate independently"
-      },
-      {
-        "path": "sdk/test/contract.test.ts",
-        "asserts": "declarations.ts's clauseRow emits a distinct `field` value per section_contains/require_sections clause on one kind, never leaving it undefined"
-      }
-    ],
-    "acceptance": "An author can declare 'every invariant carries a Test' and '... a Standard' as two independent section_contains clauses on one kind without them folding into one malformed-lock label; the same holds for two require_sections clauses. Fixed entirely at the SDK lowering (declarations.ts's clauseRow `field:` line) — src/contract.rs's clause_label, its five other callers (compose, engine, graph, roster, schema), and predicate_from_row's row-to-clause reconstruction are all unchanged and unaffected, keeping the blast radius to the two predicates' own compiled rows.",
-    "notes": "observed at ad10e8cb (GH #48); corrected at bf4b4168: claimed only the marker drops — wrong. Re-cut smaller at 3571eb18 (after gate-revert 8e4e6b63 widened clause_label across 11 files): the label is stamped from `row.field`, only `declarations.ts` need populate. Narrowed further this tick: predicate_from_row reconstructs both predicates from `row.section`/`row.sections`, never `row.field` — the note's contract.rs split-back step is unneeded, dropped; one-file fix. scoped at cadabd8e"
-  },
-  {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
     "gate": {
       "kind": "blockedBy",
@@ -457,8 +346,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
-        "SECTION-CONTAINS-LABEL-MARKER-COLLISION"
+        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS"
       ]
     },
     "dependsOnForks": [],
