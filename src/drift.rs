@@ -3042,12 +3042,17 @@ pub fn emit_owned_targets(workspace_dir: &Path) -> Vec<EmitOwnedEntry> {
 
     // Check if any registration-member kind exists (hook, installed-plugin, known-marketplace).
     // If so, .claude/settings.json becomes an emit-owned target since it's composed from them.
-    let has_registration_members = walk_lock_rows(workspace_dir).iter().any(|row| {
-        matches!(
-            row.kind.as_str(),
-            "hook" | "installed-plugin" | "known-marketplace"
-        )
-    });
+    let has_registration_members = read_declarations(workspace_dir)
+        .ok()
+        .map(|decls| {
+            decls.registrations.iter().any(|reg| {
+                matches!(
+                    reg.kind.as_str(),
+                    "hook" | "installed-plugin" | "known-marketplace"
+                )
+            })
+        })
+        .unwrap_or(false);
     if has_registration_members {
         targets.push(EmitOwnedEntry {
             kind: "settings".to_string(),

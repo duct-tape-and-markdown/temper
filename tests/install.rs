@@ -1281,7 +1281,7 @@ fn guard_binds_settings_json_when_registration_members_compose() {
     // A lock with `block` mode and a hook member (which composes into settings.json).
     fs::write(
         temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[hook]]\nname = \"test-hook\"\nsource_path = \".claude/hooks/test.ts\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n[[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
     )
     .unwrap();
 
@@ -1307,7 +1307,7 @@ fn guard_binds_settings_json_when_registration_members_compose() {
     fs::create_dir_all(&warn_temper_dir).unwrap();
     fs::write(
         warn_temper_dir.join("lock.toml"),
-        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"warn\"\n\n[[hook]]\nname = \"test-hook\"\nsource_path = \".claude/hooks/test.ts\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"warn\"\n\n[[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
     )
     .unwrap();
 
