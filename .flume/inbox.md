@@ -39,3 +39,24 @@ routing.
   registration locus and the address form are computable today. Re-open
   or follow-on with those three lines named in acceptance, each verified
   on a member-less kind.
+
+- observed at ab61fea4 (cascade-integrations, reproduced with
+  `settings.json` = `{ not json`) — premise correction for
+  SESSION-START-LOAD-ERROR-BYPASSES-REPORTER before it is built. The bypass
+  is real (`check --reporter session-start` exits 1 with the raw miette
+  error on stderr and no hookSpecificOutput at all), and the reporter fix
+  is right for every OTHER load error. But for the hooks manifest itself
+  it cannot deliver the loud statement: the SessionStart hook that would
+  run the reporter is declared in the file that no longer parses, so
+  Claude Code never invokes it — nothing temper does at session start can
+  reach a session whose hooks are off. The only point of control for that
+  file is the guard at write time, which `manifest_write_findings`
+  currently waves through as a parse hiccup left to CI. The entry must
+  therefore either pair with a guard refusal — under block mode an
+  unparseable Write/Edit/MultiEdit to a manifest carrying hook
+  registrations is refused, since it is the one write that switches every
+  guard off at once — or state in its body that it does not cover the
+  hooks manifest. Position: pair; the refusal is decidable at the boundary
+  (parse the would-be manifest; a parse failure on a hook-bearing file is
+  the finding), costs nothing on the pass path, and is the one case where
+  "defer to CI" leaves the session with no guard at all.
