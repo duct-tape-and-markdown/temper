@@ -117,7 +117,9 @@ hard.
 - 09-03 round residue: `(external-commitment)` Decision for GH #29
   (`commitment: "external"` locus — committed, never emitted, roster
   member; session to draft). Gauntlet external-harness fixtures parked
-  on John's license call. Posture rule for string path compares outside
+  on John's license call — cascade's harness (John's own, no license
+  question) is offered read-only as the release rule's emit+check
+  fixture; name the sha with the cut. Posture rule for string path compares outside
   `src/path.rs` (class 3 of the defect review) is a harness commit, not
   filed. Derivation gap seen four times this round: plan omits insta
   `.snap` companions and constant-home files from `files[]`; a chain-side
@@ -143,7 +145,14 @@ hard.
   engine fix pending in flume's inbox). 09-06 harness commit: the plan
   honesty gate moved to afterMerge on the trunk, holds `after-build` to
   the same bar as `no`, and requires an `Inbox routed:` body line
-  accounting for every drained note (plan prompt carries the contract). `pgrep`
+  accounting for every drained note (plan prompt carries the contract).
+  **Trunk-commit window (flume 0.13 regression, confirmed by flume-main,
+  fix in flume's inbox):** an afterMerge entry revert rewinds the trunk
+  with `reset --keep` and no tip check, so an operator commit landing
+  between an entry's cherry-pick and its afterMerge verdict is discarded
+  (3da55a88 was; recovered by merge + revert 56bc6727). Until the fix:
+  never commit to main while the loop log shows a cherry-pick awaiting
+  its gates — check the last `[flume]` line first. `pgrep`
   for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
   its own command line.
 
