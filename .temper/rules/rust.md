@@ -109,7 +109,10 @@ are flume gates, so a violation reverts the commit.
   contract reviewable and catch incidental drift. A change that legitimately
   moves a snapshot accepts it with `INSTA_UPDATE=always cargo test --test
   <name>` — the crate reads the variable itself; `cargo insta` is not
-  installed here.
+  installed here. The TS seam bindings under `sdk/src/generated/` are
+  generated the same way: a change to a `#[derive(TS)]` type or its doc
+  comment re-blesses them with `BLESS_SEAM_BINDINGS=1 cargo test --test
+  seam_bindings_current`, never by hand.
 - Fixtures of deliberately-broken artifacts (one per rule) live under
   `tests/fixtures/`; each rule has a test that proves it fires and that clean
   input does not trip it.

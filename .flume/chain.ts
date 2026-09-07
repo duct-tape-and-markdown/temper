@@ -513,6 +513,11 @@ const BUILD_SURFACE_PATHS = [
   // afterMerge test gate and the entry's acceptance still judge what a
   // build accepts; the fence only stops partitioning on them.
   "tests/snapshots/**",
+  // ts-rs seam bindings are the same shape: generated from the Rust seam
+  // types (doc comments included), byte-compared by
+  // tests/seam_bindings_current.rs, re-blessed by a build that changes the
+  // source they derive from. One fence miss on 2026-09-07 was these alone.
+  "sdk/src/generated/**",
 ];
 
 /** Prefix forms of the channel globs, for the ship predicate's path test. */
