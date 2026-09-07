@@ -50,15 +50,15 @@
       "edit": [
         {
           "path": "src/read.rs",
-          "description": "`narrate_kind` (:534, binding the `KindFactRow` at :544 and holding the whole `kind_facts` slice at :537) renders three strands — guidance and cite, layout regions plus skeleton, hosted kinds — and nothing else (:534-582), so a kind whose row declares only guidance prints one line and stops. Three more strands, all renderable off data already in hand, no signature change: (i) the **locus** — and it is NOT either/or: `hook` carries `governs_root = \".claude\"`, `governs_glob = \"settings.json\"` AND `collection_address = { manifest, key_path }`, so render the collection address (in src/drift.rs: the `KindFactRow` column at :3440, its `manifest`/`key_path` fields at :3479/:3482) as where the MEMBER keys and `governs_root`/`governs_glob` (:3390/:3394) as where the host document is discovered, plus the `registration` channel labels (:3417 — the wire spelling is the call form the SDK writes, `event(event)` for `hook`, per sdk/src/declarations.ts:219-234 and .temper/lock.toml:72) and the `commitment` class (:3405), which is part of where a member lands (a local kind's members are uncommitted); a file-locus kind shows the governs line alone. (ii) the **hosting kinds** inverse — which kinds host members of this one — restored, not dropped: it is the prerequisite for (iii), because the row cannot say whether a member is top-level or embedded (`orientation` is embedded yet its row carries `unit_shape = \"file\"` and no `governs`), and the oracle is a scan over the other `kind_facts` rows' path-less `templates` entries and `content.regions[].member_kind` for this kind's name. (iii) the **address form** — `<kind>:<name>` for a top-level kind, `<host-address>/<kind>/<key>` for one only ever hosted, EMBEDDED VALUE OR FILE CHILD ALIKE: a nested-file child is a `[[declaration.nested_member]]` row carrying `host = \"skill:test-skill\"` (tests/coverage_note.rs:391-396), so `supporting-doc` takes the host-qualified form exactly as an embedded value does. Which means strand (ii)'s oracle must scan path-BEARING `templates` entries too, not only path-less ones, or a file-child kind's hosts go unnamed and (iii) has nothing to read — read from the single address-grammar home MEMBER-ADDRESS-GRAMMAR-ONE-HOME establishes (`src/member_address.rs`), never a second hand-spelling. Two mechanics: the early return at :554-567 (\"nothing to teach\") fires when guidance, cite, layout, embedded and file-children are all absent, so it must gain the locus and hosting terms or the new strands never print; and the address form must ride that same guard rather than rendering unconditionally off the kind name, or `explain_narrates_a_kind_absent_guidance_cleanly` (tests/read_verbs.rs:1065, which passes `&[]` rows) goes red. Reword that line from \"nothing to teach before a member of it exists\" to naming the strands. All of this must render with ZERO members of the kind in the corpus — the adopter's actual moment, and the reason this is not `corpus_leaves` (:817), which can only report what existing members carry."
+          "description": "`narrate_kind` (:591, binding the `KindFactRow` at :601 and holding the whole `kind_facts` slice at :594) renders three strands — guidance and cite, layout regions plus skeleton, hosted kinds — and nothing else (:591-637), so a kind whose row declares only guidance prints one line and stops. Three more strands, all renderable off data already in hand, no signature change: (i) the **locus** — and it is NOT either/or: `hook` carries `governs_root = \".claude\"`, `governs_glob = \"settings.json\"` AND `collection_address = { manifest, key_path }`, so render the collection address (in src/drift.rs: the `KindFactRow` column at :3620, its `manifest`/`key_path` fields at :3659/:3662) as where the MEMBER keys and `governs_root`/`governs_glob` (:3570/:3574) as where the host document is discovered, plus the `registration` channel labels (:3597 — the wire spelling is the call form the SDK writes, `event(event)` for `hook`, per sdk/src/declarations.ts:220-236 and .temper/lock.toml:72) and the `commitment` class (:3585), which is part of where a member lands (a local kind's members are uncommitted); a file-locus kind shows the governs line alone. (ii) the **hosting kinds** inverse — which kinds host members of this one — restored, not dropped: it is the prerequisite for (iii), because the row cannot say whether a member is top-level or embedded (`orientation` is embedded yet its row carries `unit_shape = \"file\"` and no `governs`), and the oracle is a scan over the other `kind_facts` rows' path-less `templates` entries and `content.regions[].member_kind` for this kind's name. (iii) the **address form** — `<kind>:<name>` for a top-level kind, `<host-address>/<kind>/<key>` for one only ever hosted, EMBEDDED VALUE OR FILE CHILD ALIKE: a nested-file child is a `[[declaration.nested_member]]` row carrying `host = \"skill:test-skill\"` (tests/coverage_note.rs:415), so `supporting-doc` takes the host-qualified form exactly as an embedded value does. Which means strand (ii)'s oracle must scan path-BEARING `templates` entries too, not only path-less ones, or a file-child kind's hosts go unnamed and (iii) has nothing to read — read from the single address-grammar home MEMBER-ADDRESS-GRAMMAR-ONE-HOME establishes (`src/member_address.rs`), never a second hand-spelling. Two mechanics: the early return at :611-623 (\"nothing to teach\") fires when guidance, cite, layout, embedded and file-children are all absent, so it must gain the locus and hosting terms or the new strands never print; and the address form must ride that same guard rather than rendering unconditionally off the kind name, or `explain_narrates_a_kind_absent_guidance_cleanly` (tests/read_verbs.rs:1082, which passes `&[]` rows) goes red. Reword that line from \"nothing to teach before a member of it exists\" to naming the strands. All of this must render with ZERO members of the kind in the corpus — the adopter's actual moment, and the reason this is not `corpus_leaves` (:817), which can only report what existing members carry."
         },
         {
           "path": "tests/read_verbs.rs",
-          "description": "Regressions on a MEMBER-LESS surface, per tests[] — the non-vacuity bar is that the fixture carries zero members of the explained kind, so the lines cannot be coming from a corpus read. `explain_kind` (:819) is the helper both new tests use; it synthesizes contracts from the rows, so a kind is only resolvable if it has a row. Keep the existing arm at :1065 where a kind with no row at all still prints its clean \"nothing declared\" line rather than falling silent. It is NOT byte-for-byte: it asserts `contains(\"No authoring guidance is declared\")` (:1101) and the absence of a `‣` marker (:1105), so the reword must keep that opening clause and may change only the tail after the em dash — and the address form must ride the same guard, or the arm goes red on the marker-free line growing an address it has no row to source. No snapshot moves: nothing under tests/snapshots/ asserts explain-kind output, and every CLI-driven `common::explain_in` call in the tree targets a MEMBER, never a kind — tests/layout_kind.rs, tests/lock_declaration_rows.rs, tests/layout_edge_slot.rs:259 (`guide`) and tests/requirement_roster.rs:742/:846 (`data-retention`, `memory-doc`) — so `narrate_kind`'s new strands reach none of them (ripple-reconciled at bb246cc2)."
+          "description": "Regressions on a MEMBER-LESS surface, per tests[] — the non-vacuity bar is that the fixture carries zero members of the explained kind, so the lines cannot be coming from a corpus read. `explain_kind` (:836) is the helper both new tests use; it synthesizes contracts from the rows, so a kind is only resolvable if it has a row. Keep the existing arm at :1082 where a kind with no row at all still prints its clean \"nothing declared\" line rather than falling silent. It is NOT byte-for-byte: it asserts `contains(\"No authoring guidance is declared\")` (:1117) and the absence of a `‣` marker (:1121), so the reword must keep that opening clause and may change only the tail after the em dash — and the address form must ride the same guard, or the arm goes red on the marker-free line growing an address it has no row to source. No snapshot moves: nothing under tests/snapshots/ asserts explain-kind output, and every CLI-driven `common::explain_in` call in the tree targets a MEMBER, never a kind — tests/layout_kind.rs, tests/lock_declaration_rows.rs, tests/layout_edge_slot.rs:259 (`guide`) and tests/requirement_roster.rs:742/:846 (`data-retention`, `memory-doc`) — so `narrate_kind`'s new strands reach none of them (ripple-reconciled at bb246cc2)."
         },
         {
           "path": "tests/common/mod.rs",
-          "description": "VERIFY-ONLY — expect no diff. The `kind_facts(name, governs_root, governs_glob)` builder (:614-631) always sets BOTH governs fields, so every existing bare-kind test that builds a row gains a locus line: tests/read_verbs.rs:763, :915, :970, :1015. All four assert with `contains`, so they stay green while their output grows. In the fence so the builder can gain a no-locus variant if a new arm needs one, not because an edit is expected."
+          "description": "VERIFY-ONLY — expect no diff. The `kind_facts(name, governs_root, governs_glob)` builder (:653) always sets BOTH governs fields, so every existing bare-kind test that builds a row gains a locus line: tests/read_verbs.rs:800, :882, :938, :1010, :1048. All five assert with `contains`, so they stay green while their output grows. In the fence so the builder can gain a no-locus variant if a new arm needs one, not because an edit is expected."
         }
       ],
       "retire": []
@@ -79,7 +79,7 @@
       }
     ],
     "acceptance": "On a surface carrying no member of the kind, `explain kind:<name>` prints where a member of it lands and how a reference to one is spelled, alongside the guidance, layout and hosted-kind strands 3dcc73f1 already renders — the read verb narrating a kind, not only a kind that already has members. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
+    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: no kind declares a field set, so it is the fork `(kind-declared-leaf-schema)`. Every upstream this waited on has shipped (76e29dc1, d6b1740f, bb246cc2); its line cites were re-derived against that window this tick. scoped at dd1d4311"
   },
   {
     "tag": "SDK-MENTION-DEFERRAL-READS-THE-ADDRESS-GRAMMAR",
@@ -398,5 +398,212 @@
     ],
     "acceptance": "`cargo test` green with the local_locus regression. A local-locus layout member's verbatim prose region reaches a read-time row and `explain`'s prose strand, so no layout document's authored span is read and dropped on either face (invariant 6). Non-vacuity per 0048's bar: the regression asserts the narrated span carries the document's actual preamble text, never merely that a strand appeared.",
     "notes": "Swept 09-07 from f07d4f84's own stated remainder ('the local read path is compose's to wire'). Verified on disk: `LayoutDocumentRows.prose` is already populated by `read_layout_document` and discarded by `local_document_rows` at src/compose.rs:883-884, so the fix is wiring, not derivation. Chained on EXPLAIN for src/read.rs. Ripple-reconciled at bb246cc2: src/gate.rs destructures LockFamily exhaustively. scoped at bf2e3eba"
+  },
+  {
+    "tag": "FEATURES-FIXTURE-ONE-HOME(src)",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
+        "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/test_support.rs",
+          "description": "The home: the module's own opening line already declares it \"Shared scaffolding for in-src `#[cfg(test)] mod tests` blocks\" (:1), and it is `#[cfg(test)]`-gated at src/lib.rs:73, so nothing here reaches a release build. Add one base beside `tmpdir` (:9) / `skill_kind` (:22) / `surface_unit` (:70): `pub(crate) fn features(id: &str) -> extract::Features` — the inert member every fixture below starts from, `fields` empty, `body_lines` 0, `rendered_lines`/`rendered_chars` `Some(0)` (NOT `None`: every existing copy spells `Some(0)`, and the extent predicates read the Some), `headings`/`sections`/`directives`/`fenced_blocks`/`nested_members`/`satisfies` empty, `source_dir` None, `edge_placements` None. Each site keeps only what it varies, via struct update: `Features { body_lines: 1, ..test_support::features(id) }`. Two alternatives considered and rejected, both to be named in the commit body: deriving `Default` on `extract::Features` (src/extract.rs:291) — a production API addition whose only consumer would be tests, and whose `rendered_lines: None` contradicts the `Some(0)` every fixture wants; and routing every fixture through the production choke point `builtin_kind::features` (src/builtin_kind.rs:676) the way tests/nested_member.rs:806 does — right where the subject IS extraction, wrong here, since several sites construct feature states extraction never produces."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "`member(id)` (:738) spells all thirteen fields to carry an id and nothing else — the base verbatim. Route it through `test_support::features`; nothing varies, so the local fixture either becomes a one-line forwarder or retires into its call sites."
+        },
+        {
+          "path": "src/coverage.rs",
+          "description": "`artifact(id, satisfies)` (:126) varies `satisfies` alone; the other twelve fields are the base."
+        },
+        {
+          "path": "src/dial.rs",
+          "description": "`dial_member(entries)` (:146) varies `id` (the literal `workstation`) and `fields` (the `ENTRIES_KEY` entry); the rest is the base."
+        },
+        {
+          "path": "src/engine.rs",
+          "description": "`features(id, fields, body_lines, source_dir)` (:1410) varies four columns plus `rendered_lines: Some(body_lines)` — keep those five over the base. `features_with_headings` (:1439) already builds on it and is untouched. `scoped_element_features` (:1306) is production code spelling the same tail (:1312-1325) and stays: it derives a scoped Features from a real one, not a fixture."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "Two copies in one module: `node(name, routes_to)` (:1995) varies `fields`/`body_lines`/`source_dir`, and the inline `let member = Features {…}` at :2664 spells the whole tail a second time. Both take the base. `satisfying` (:2469) already mutates a passed-in Features and stays."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`feature(id, satisfies, description)` (:2240) varies `fields`/`body_lines`/`source_dir`/`satisfies`. `nested_member` (:2431) already rides `feature` and stays. Test-mod only — no narration path is touched, which is why this entry waits behind the two entries that edit this file's `explain` surface rather than racing them."
+        },
+        {
+          "path": "src/roster.rs",
+          "description": "`features(name, satisfies)` (:213) varies `body_lines`/`source_dir`/`satisfies`; `skill_with_model` (:407) and `skill_satisfying` (:413) already ride it and stay. Its local name collides with the base's — either import the base qualified (`test_support::features`) or keep the local wrapper, whichever reads cleaner at the call sites."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Seven in-src test mods each hand-spell the same thirteen-field `Features` literal; `src/test_support.rs` is the fixture home that exists for exactly this.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "src/graph.rs",
+        "asserts": "the module's two copies (the `node` fixture and the inline member) both build off the shared base, with every existing assertion unmoved and green"
+      },
+      {
+        "path": "src/engine.rs",
+        "asserts": "the four-column fixture and its `features_with_headings` derivative still produce the exact feature states the predicate tests judge"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed — this is an extraction, so every test's subject and expectation is byte-identical. Oracle: `rg -n 'edge_placements: ' src/` hits only the three production constructors (src/kind.rs:1269, src/engine.rs:1325, src/compose.rs:1250) and the one base in src/test_support.rs; no `#[cfg(test)]` module spells the field tail.",
+    "notes": "Filed by the post-ship sweep of c2415400..HEAD. feb0c21f's own body named its new in-src test mod's fixtures as repeats of compose.rs's; the `Features` half is the wider one — eight copies over seven modules, diverging on `body_lines` (0 vs 1) and `source_dir` (None vs Some) alone. engineering.md names test scaffolding a surface with one home; `tests/common` is unreachable from a src module, and `src/test_support.rs` is that home crate-side. scoped at dd1d4311"
+  },
+  {
+    "tag": "FEATURES-FIXTURE-ONE-HOME(tests)",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "FEATURES-FIXTURE-ONE-HOME(src)",
+        "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The integration home, which already carries the row half of this job — `kind_facts` (:653), `clause` (:709), `raw_unit` (:518) — and no `Features` builder at all. Add `pub fn features(id: &str) -> Features` in the shape FEATURES-FIXTURE-ONE-HOME(src) lands crate-side, so the two homes spell one base: `fields` empty, `body_lines` 0, `rendered_lines`/`rendered_chars` `Some(0)`, every body-derived vector empty, `source_dir`/`edge_placements` None. `Features` is `pub` on `extract` (src/extract.rs:291), so the whole struct is reachable from an integration test — the copies below are habit, not necessity."
+        },
+        {
+          "path": "tests/extent.rs",
+          "description": "`member(id, lines, chars, body_lines)` (:20) varies `body_lines`/`rendered_lines`/`rendered_chars` — the render/source divergence the file exists to drive, so those three stay explicit over the base."
+        },
+        {
+          "path": "tests/check_cost.rs",
+          "description": "Two inline literals in one test body, `let skill` (:431) and `let rule` (:447), varying `fields`/`body_lines` only."
+        },
+        {
+          "path": "tests/layout_edge_slot.rs",
+          "description": "`guide_features(fills)` (:88) — the fixture's varying columns stay, the tail comes from the base."
+        },
+        {
+          "path": "tests/field_addressing.rs",
+          "description": "`member(fields)` (:26) varies `id` (`acme-tools`) and `fields` (the retained JSON parse)."
+        },
+        {
+          "path": "tests/shape_predicate.rs",
+          "description": "`skill(name, description)` (:20) varies `id` and `fields`."
+        },
+        {
+          "path": "tests/contract_template.rs",
+          "description": "`cited(placements)` (:343) and `formatted(placements)` (:348) — the pair varies `edge_placements`, which is exactly the column this file judges, so it stays explicit."
+        },
+        {
+          "path": "tests/layout_prose_import.rs",
+          "description": "`feature(id)` (:258) varies `id` alone — the base verbatim."
+        },
+        {
+          "path": "tests/prose_include.rs",
+          "description": "`feature(id)` (:194) varies `id` alone — the base verbatim."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "`feature(id, satisfies)` (:27) carries a doc comment claiming the copy is forced — \"duplicated here since this file, being outside the crate, can only build `Features` through its public fields\" (:24-26). The public fields are what `tests/common` builds from too, so the claim retires with the copy; reword it to name the shared home. This file is also EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM's, which is why that entry is a named parent."
+        },
+        {
+          "path": "tests/closed_keys.rs",
+          "description": "`member(fields)` (:22) varies `id`/`fields`."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "`member(id, field)` (:1650) varies `fields`/`body_lines`/`source_dir`."
+        },
+        {
+          "path": "tests/rule_contract.rs",
+          "description": "`rule_features(paths)` (:175) varies `fields` and imports `Features` locally inside the fn (:177) — the import moves with the literal."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Thirteen integration tests each hand-spell the `Features` literal `tests/common` exists to home — one of them documenting the copy as unavoidable, which it is not.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/read_verbs.rs",
+        "asserts": "the local fixture builds off `common::features` and every existing explain/impact assertion is unmoved and green"
+      },
+      {
+        "path": "tests/extent.rs",
+        "asserts": "the render/source divergence the file drives survives the base — the three varied columns stay explicit and the extent cases judge the same feature states"
+      }
+    ],
+    "acceptance": "`cargo test` green with no assertion changed. Oracle: `rg -n 'edge_placements: ' tests/` hits only tests/common/mod.rs — every integration fixture takes its inert tail from the one home, and a fourteenth field on `Features` is a one-site edit rather than a fourteen-site one.",
+    "notes": "Post-ship sweep of c2415400..HEAD, the integration half of the same class. Behind (src) so the base's name, signature and inert shape are decided once and copied, not invented twice; behind EXPLAIN for tests/common/mod.rs and tests/read_verbs.rs, both in that entry's fence. tests/nested_member.rs:806 and tests/type_predicate.rs:62 are excluded on purpose — both already build through a production constructor. scoped at dd1d4311"
+  },
+  {
+    "tag": "LOCK-ROW-FIXTURE-ONE-HOME(src)",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "FEATURES-FIXTURE-ONE-HOME(src)",
+        "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW"
+      ]
+    },
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/test_support.rs",
+          "description": "Two more bases beside the `Features` one FEATURES-FIXTURE-ONE-HOME(src) lands: `pub(crate) fn kind_fact_row(name: &str) -> drift::KindFactRow` (name set, the other thirteen columns absent — `provider`/`governs_root`/`governs_glob`/`commitment`/`format`/`unit_shape`/`content`/`shape`/`collection_address`/`guidance`/`cite` None, `registration`/`templates` empty) and `pub(crate) fn clause_row(predicate: &str, severity: &str) -> drift::ClauseRow` (the two named columns set, the other twenty-one absent). The integration home already proves both shapes — `tests/common/mod.rs`'s `kind_facts` (:653) and `clause` (:709) — so this is the same builder in the home a src module can reach, not a new design."
+        },
+        {
+          "path": "src/kind.rs",
+          "description": "The widest copy: `spec_row()` (:1498) plus ten inline `KindFactRow` literals in the lift tests (:1544, :1595, :1623, :1650, :1683, :1709, :1724, :1775, :1808, :1832), each spelling all fourteen columns to vary one or two. Each becomes `KindFactRow { <the columns this case lifts>, ..test_support::kind_fact_row(\"spec\") }`; `spec_row` itself either forwards or retires."
+        },
+        {
+          "path": "src/admissibility.rs",
+          "description": "`kind_row(name)` (:718) is the base verbatim; five inline literals (:853, :871, :888, :908, :931) vary one collision column each; `clause_row(kind, label, severity)` (:688) spells all twenty-three `ClauseRow` columns to set three. All seven route through the two bases. This file is FEATURES-FIXTURE-ONE-HOME(src)'s too, which is why that entry is a named parent."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`clause_row(severity)` (:1420) spells the twenty-three columns to set `label`/`predicate`/`severity`; five more inline literals (:1454, :1482, :1535, :1549, :1563) do the same for the lift-failure cases. Its signature differs from admissibility.rs's twin — same job, two homes, two shapes — and both collapse onto the one base. The file is LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW's, hence the second parent."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "Two `KindFactRow` literals in the round-trip tests (:5672, :5697), each spelling the tail to vary the columns the write/read pair asserts on."
+        },
+        {
+          "path": "src/coverage_note.rs",
+          "description": "One inline `crate::drift::KindFactRow` literal (:609) inside a `Declarations` fixture."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Five in-src test mods spell `KindFactRow`'s fourteen columns and `ClauseRow`'s twenty-three by hand — including one fixture name living in two homes with two shapes.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "src/kind.rs",
+        "asserts": "every lift test still judges the exact row it built — the varied columns stay explicit over the base and no assertion moves"
+      },
+      {
+        "path": "src/compose.rs",
+        "asserts": "the default-contract lift and its three refusal cases keep their clause rows byte-equivalent through the shared base"
+      }
+    ],
+    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed. Oracle: `rg -n 'collection_address: None' src/` hits only src/test_support.rs, and neither `spec_row`/`kind_row` nor the two divergent `clause_row` builders survives as a per-module copy of the tail.",
+    "notes": "Post-ship sweep of c2415400..HEAD, the lock-row half of the same class — feb0c21f named it in its own commit body (\"its ClauseRow/KindFactRow fixtures repeat what compose.rs keeps\"). Filed as its own entry, not folded into the `Features` one: together they would be twelve files and ~50 sites. Behind (src) for src/test_support.rs and src/admissibility.rs, behind LOCAL-LAYOUT for src/compose.rs. scoped at dd1d4311"
   }
 ]
