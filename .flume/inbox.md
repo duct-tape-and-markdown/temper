@@ -98,9 +98,17 @@ new entry.
   session_start is reporter.rs:66 not :118, cap constant :42 not :39,
   json_manifest.rs:267 is the variant not the raise (:334, via
   `Manifest::read` at :364). Nine abort-path prose assertions to verify-only
-  are in the report. The entry's note that Claude Code never invokes
-  SessionStart when settings.json will not parse carries no retrieved cite —
-  keep it out of the shipped message until cascade supplies one.
+  are in the report. The Claude Code fact the entry's notes rest on now has
+  a retrieved cite and stays as scoping rationale, never in the shipped
+  diagnostic text: code.claude.com/docs/en/settings, "Configuration error"
+  (retrieved 2026-09-07) — unless a managed settings document cannot be
+  parsed, Claude Code skips the broken file or values and continues; a
+  project `.claude/settings.json` that will not parse is skipped whole, so
+  every hook it declares, SessionStart included, does not run, while the
+  user and settings.local.json layers still load. Managed settings are the
+  one layer that warns loudly (docs/en/errors, "managed settings document
+  could not be parsed"). The docs do not say whether the interactive UX
+  warns for non-managed files.
 - **GUARD-UNPARSEABLE-MANIFEST-WRITE-REFUSAL** — landed. cascade reported the
   render header falling to the generic "a member of this write violates its
   contract" on the new rule; re-run here at 12bca4b3 (`guard .`, Write of
