@@ -21,3 +21,21 @@ routing.
   each names every candidate host; add to
   GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS / NESTED-MEMBER-DUPLICATE-KEY-
   ADMISSIBILITY / SDK-MEMBER-TABLE-NESTED-EDGE-TARGET acceptance.
+
+- observed at 3571eb18 (build gate-revert 8e4e6b63, entry
+  SECTION-CONTAINS-LABEL-MARKER-COLLISION) — the build widened
+  `contract::clause_label`'s signature to take the heading and marker, so
+  five callers (`compose`, `engine`, `graph`, `roster`, `schema`) and six
+  tests constructing clause rows changed by two lines each: 14 files for a
+  fix whose entry names three. Before widening files[] to those eleven, cut
+  the design smaller: the label is stamped at emit from `row.field`
+  (`drift.rs` stamp_clause_label); fold heading and marker into that one
+  column at the SDK lowering (`declarations.ts` clauseRow: `field =
+  \`${heading}.${marker}\`` for section_contains, the joined section list
+  for require_sections) so `clause_label(owner, predicate, field)` and
+  every caller stay untouched, and the engine's reader (`contract.rs`
+  clause-from-row) splits the column back for the predicate. Then files[]
+  is `sdk/src/declarations.ts`, `src/contract.rs`, `src/drift.rs`,
+  `tests/lock_declaration_rows.rs`, plus the SDK-compiled regression the
+  audit asked for. Blast radius stays "label values re-spell on those two
+  predicates' rows only", which the audit already accepted.
