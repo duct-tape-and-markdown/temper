@@ -445,6 +445,15 @@ const BUILD_CHANNEL_PATHS = [
   ".flume/amendments/**",
 ];
 
+/**
+ * The SDK's public surface file: every SDK entry that adds a symbol adds a
+ * one-line re-export here, and four fence reverts on 2026-09-06 were this
+ * file alone. Allowed to every scoped build tick alongside the capture
+ * channels, but NOT a channel for the ship predicate — a commit touching
+ * only it is a ship, never a capture.
+ */
+const BUILD_SURFACE_PATHS = ["sdk/src/index.ts"];
+
 /** Prefix forms of the channel globs, for the ship predicate's path test. */
 const CHANNEL_PREFIXES = BUILD_CHANNEL_PATHS.map((g) => g.replace(/\*\*$/, ""));
 
@@ -604,7 +613,7 @@ const factory: ChainFactory = (flume) => {
     extension: entryExtension,
     targetFence: {
       writablePaths: BUILD_WRITABLE_PATHS,
-      entryChannelPaths: BUILD_CHANNEL_PATHS,
+      entryChannelPaths: [...BUILD_CHANNEL_PATHS, ...BUILD_SURFACE_PATHS],
     },
     fenceWhen: (entry) =>
       entry.gate.kind === "open" || entry.gate.kind === "blockedBy",
@@ -749,7 +758,7 @@ const factory: ChainFactory = (flume) => {
     // The per-entry fence is entry.files ∪ these channels; writablePaths is
     // only the ceiling. The capture dirs must be granted here or a scoped
     // tick that files a capture reverts whole, capture included.
-    entryChannelPaths: BUILD_CHANNEL_PATHS,
+    entryChannelPaths: [...BUILD_CHANNEL_PATHS, ...BUILD_SURFACE_PATHS],
     gates: buildGates,
     // The park signal, declared (0.10: ship classification is the chain's
     // call, never inferred from paths by the engine). Build's prompt names
