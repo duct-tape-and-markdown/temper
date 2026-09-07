@@ -40,98 +40,6 @@
     "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`, which f07d4f84's `layout_prose` family has since given a third candidate; this entry waits on the ruling either way. Serialized behind KINDS-IN-PLAY and LAYOUT-UNDECLARED-FINDING for tests/layout_kind.rs. scoped at bf2e3eba"
   },
   {
-    "tag": "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "`narrate_kind` (:591, binding the `KindFactRow` at :601 and holding the whole `kind_facts` slice at :594) renders three strands — guidance and cite, layout regions plus skeleton, hosted kinds — and nothing else (:591-637), so a kind whose row declares only guidance prints one line and stops. Three more strands, all renderable off data already in hand, no signature change: (i) the **locus** — and it is NOT either/or: `hook` carries `governs_root = \".claude\"`, `governs_glob = \"settings.json\"` AND `collection_address = { manifest, key_path }`, so render the collection address (in src/drift.rs: the `KindFactRow` column at :3620, its `manifest`/`key_path` fields at :3659/:3662) as where the MEMBER keys and `governs_root`/`governs_glob` (:3570/:3574) as where the host document is discovered, plus the `registration` channel labels (:3597 — the wire spelling is the call form the SDK writes, `event(event)` for `hook`, per sdk/src/declarations.ts:220-236 and .temper/lock.toml:72) and the `commitment` class (:3585), which is part of where a member lands (a local kind's members are uncommitted); a file-locus kind shows the governs line alone. (ii) the **hosting kinds** inverse — which kinds host members of this one — restored, not dropped: it is the prerequisite for (iii), because the row cannot say whether a member is top-level or embedded (`orientation` is embedded yet its row carries `unit_shape = \"file\"` and no `governs`), and the oracle is a scan over the other `kind_facts` rows' path-less `templates` entries and `content.regions[].member_kind` for this kind's name. (iii) the **address form** — `<kind>:<name>` for a top-level kind, `<host-address>/<kind>/<key>` for one only ever hosted, EMBEDDED VALUE OR FILE CHILD ALIKE: a nested-file child is a `[[declaration.nested_member]]` row carrying `host = \"skill:test-skill\"` (tests/coverage_note.rs:415), so `supporting-doc` takes the host-qualified form exactly as an embedded value does. Which means strand (ii)'s oracle must scan path-BEARING `templates` entries too, not only path-less ones, or a file-child kind's hosts go unnamed and (iii) has nothing to read — read from the single address-grammar home MEMBER-ADDRESS-GRAMMAR-ONE-HOME establishes (`src/member_address.rs`), never a second hand-spelling. Two mechanics: the early return at :611-623 (\"nothing to teach\") fires when guidance, cite, layout, embedded and file-children are all absent, so it must gain the locus and hosting terms or the new strands never print; and the address form must ride that same guard rather than rendering unconditionally off the kind name, or `explain_narrates_a_kind_absent_guidance_cleanly` (tests/read_verbs.rs:1082, which passes `&[]` rows) goes red. Reword that line from \"nothing to teach before a member of it exists\" to naming the strands. All of this must render with ZERO members of the kind in the corpus — the adopter's actual moment, and the reason this is not `corpus_leaves` (:817), which can only report what existing members carry."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Regressions on a MEMBER-LESS surface, per tests[] — the non-vacuity bar is that the fixture carries zero members of the explained kind, so the lines cannot be coming from a corpus read. `explain_kind` (:836) is the helper both new tests use; it synthesizes contracts from the rows, so a kind is only resolvable if it has a row. Keep the existing arm at :1082 where a kind with no row at all still prints its clean \"nothing declared\" line rather than falling silent. It is NOT byte-for-byte: it asserts `contains(\"No authoring guidance is declared\")` (:1117) and the absence of a `‣` marker (:1121), so the reword must keep that opening clause and may change only the tail after the em dash — and the address form must ride the same guard, or the arm goes red on the marker-free line growing an address it has no row to source. No snapshot moves: nothing under tests/snapshots/ asserts explain-kind output, and every CLI-driven `common::explain_in` call in the tree targets a MEMBER, never a kind — tests/layout_kind.rs, tests/lock_declaration_rows.rs, tests/layout_edge_slot.rs:259 (`guide`) and tests/requirement_roster.rs:742/:846 (`data-retention`, `memory-doc`) — so `narrate_kind`'s new strands reach none of them (ripple-reconciled at bb246cc2)."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "VERIFY-ONLY — expect no diff. The `kind_facts(name, governs_root, governs_glob)` builder (:653) always sets BOTH governs fields, so every existing bare-kind test that builds a row gains a locus line: tests/read_verbs.rs:800, :882, :938, :1010, :1048. All five assert with `contains`, so they stay green while their output grows. In the fence so the builder can gain a no-locus variant if a new arm needs one, not because an edit is expected."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`explain kind:<x>` never says where a member of the kind lands or how a reference to one is spelled — the two lines an adopter with no member yet most needs.",
-    "per": {
-      "path": "specs/model/contract.md",
-      "section": "Read verbs"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`explain kind:hook` on a surface with zero hook members names its `hooks.<Event>` collection address, the `.claude/settings.json` document its members are discovered in, its `event(event)` registration channel label, and the address form a reference to one of its members takes"
-      },
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "`explain kind:rule` on a surface with zero rule members names its file locus and its `kind:name` address form; a kind hosted only by another names the `<host-address>/<kind>/<key>` form and the kinds that host it; and a kind with no row at all still prints the \"nothing declared\" line unchanged"
-      }
-    ],
-    "acceptance": "On a surface carrying no member of the kind, `explain kind:<name>` prints where a member of it lands and how a reference to one is spelled, alongside the guidance, layout and hosted-kind strands 3dcc73f1 already renders — the read verb narrating a kind, not only a kind that already has members. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: no kind declares a field set, so it is the fork `(kind-declared-leaf-schema)`. Every upstream this waited on has shipped (76e29dc1, d6b1740f, bb246cc2); its line cites were re-derived against that window this tick. scoped at dd1d4311"
-  },
-  {
-    "tag": "SDK-MENTION-DEFERRAL-READS-THE-ADDRESS-GRAMMAR",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/prose.ts",
-          "description": "`defersToGate` (:77-80) is the one reader of the host-address grammar still spelling it by hand — `address.includes(\"/\")`, then `indexOf(\":\")` with a `colon > 0` test — beside `sdk/src/member-address.ts`, which f35c06e6 (SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME) made the home the twenty-one writers round-trip against. Route it through `parseHostAddress`: `const host = parseHostAddress(address); return host !== undefined && deferrableKinds.has(host.kind);`. The doc comment above it restates the `/` and `:` rules in prose — rewrite it to cite the grammar module's reader rather than re-spell the segments, and name the verdict it now takes on a name-less address."
-        },
-        {
-          "path": "sdk/src/member-address.ts",
-          "description": "`parseHostAddress` (:100) refuses an empty kind and an empty name; narrow it so a name carrying `/` is no host address either — the `/` is this grammar's own segment separator (`segment`, :120, splits on it) and the segmented spellings have their own readers (`parseNestedAddress`, `parseLeafAddress`). That is what lets `defersToGate` drop its `includes(\"/\")` guard without changing its verdict on a nested or leaf address: an unresolved `skill:x/hook/on-enter` must keep refusing at emit, not defer because `skill` is deferrable. The narrowing lands here rather than as a second guard at the call site because the function's only callers today are this module and its test (`rg parseHostAddress sdk/src`)."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "`declaredAtLocusKinds`'s doc (:975-979) states the deferral signal in prose and points at `prose.ts`'s `defersToGate`; ride the new name-less verdict into that sentence if it no longer reads true. Verify-only otherwise — no code change is expected here."
-        },
-        {
-          "path": "sdk/test/member-address.test.ts",
-          "description": "The round-trip arm (:24-38) pins `[\"collaboration\", \":collaboration\", \"rule:\"]` as the segment-shaped holes `parseHostAddress` answers `undefined` for; add a `/`-carrying name (e.g. `skill:x/hook/on-enter`) to that list, so the narrowing is pinned where the grammar's own reader is tested."
-        },
-        {
-          "path": "sdk/test/mention.test.ts",
-          "description": "The two verdicts this consolidation moves, pinned beside the existing deferral arms (:95 defers on a declared at-locus kind, :113 refuses on an undeclared one): a mention of `<declared-at-locus-kind>:` — no name — refuses at emit (`a mention cannot dangle`) where it defers today, and an unresolved nested-shaped address whose head kind IS deferrable still refuses, the verdict `includes(\"/\")` holds today and `parseHostAddress` holds after."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "`defersToGate` hand-reads the host-address grammar beside the module that owns it — route it through the grammar's reader and pin the two verdicts that moves.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/mention.test.ts",
-        "asserts": "a mention of a declared at-locus kind with no name (`source:`) refuses at emit rather than deferring to check, and an unresolved `<deferrable-kind>:<name>/<kind>/<key>` address still refuses"
-      },
-      {
-        "path": "sdk/test/member-address.test.ts",
-        "asserts": "`parseHostAddress` answers `undefined` for a name carrying `/`, beside the existing segment-shaped holes"
-      }
-    ],
-    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) with both pins. `defersToGate` carries no `\":\"` or `\"/\"` literal — the grammar module is its only path to the host address, matching the Rust half where every reader routes through `src/member_address.rs`.",
-    "notes": "Drained from .flume/refactor/build-sdk-address-reader-outside-the-home.md (observed at d6b1740f); re-verified on disk this tick — the hand-read stands unchanged. The entry owns two verdict moves: a name-less address goes from deferring to a loud emit refusal, and the `/` rule moves into `parseHostAddress` instead of staying a call-site guard. Disjoint from the queue's other opens (no SDK file overlap). scoped at bb246cc2"
-  },
-  {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
     "gate": {
       "kind": "deferred",
@@ -353,10 +261,7 @@
   {
     "tag": "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -404,10 +309,10 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
         "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -469,10 +374,10 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "FEATURES-FIXTURE-ONE-HOME(src)",
-        "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM"
+        "FEATURES-FIXTURE-ONE-HOME(src)"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
@@ -558,6 +463,7 @@
         "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW"
       ]
     },
+    "dependsOnForks": [],
     "files": {
       "new": [],
       "edit": [
