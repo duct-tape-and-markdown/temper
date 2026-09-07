@@ -32,4 +32,12 @@ routing.
   ruling to make, not the parse-hiccup default: position, a write that
   makes a hook-bearing manifest unparseable is a block-mode finding at the
   boundary. Cascade holds the guard-hole demolition row open until (1) is
-  ruled; cite the co-owned manifest section for `per`.
+  ruled; cite the co-owned manifest section for `per`. Cascade's stated
+  bar (on #40): emit repair after the fact is not a close — the hook IS
+  the guard, so a rewritten command is the hole by definition, and a
+  check that exits 0 while the checked count drops is a thinnest-pass
+  failure; command-content comparison for members temper placed, or at
+  minimum a check finding on the count drop. On (2) they accept a
+  check-time failure IF the session-start report states outright that
+  settings.json is unparseable and hooks are off — an acceptable
+  alternative to the boundary block, provided it is that loud.
