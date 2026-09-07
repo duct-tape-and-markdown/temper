@@ -1435,14 +1435,14 @@ fn guard_binds_settings_json_when_registration_members_compose() {
     );
 }
 
-/// Regression test for the suffix-path-boundary bug: a file_path ending in
-/// a projected file's bare name but living at an unrelated, deeper path
-/// should resolve Allow, not Block. Example: an absolute path to
-/// `.temper/memory/CLAUDE.md` should not match a projection at root `CLAUDE.md`.
-/// Uses absolute paths as Claude Code actually sends them.
+/// The guard matches a projection by path equality, never by suffix: a `file_path`
+/// ending in a projected file's bare name but living anywhere other than the declared
+/// path resolves Allow, not Block — whether it sits deeper in the tree
+/// (`.temper/memory/CLAUDE.md`) or one segment over in a sibling directory
+/// (`reference/CLAUDE.md`). Uses absolute paths as Claude Code actually sends them.
 #[test]
-fn guard_suffix_path_boundary_rejects_unrelated_deeper_paths() {
-    let root = common::tmpdir("guard-suffix-boundary");
+fn guard_matches_a_projection_by_path_equality_not_suffix() {
+    let root = common::tmpdir("guard-path-equality");
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
 
@@ -1454,14 +1454,16 @@ fn guard_suffix_path_boundary_rejects_unrelated_deeper_paths() {
     )
     .unwrap();
 
-    // A write to the actual root CLAUDE.md projection (absolute path) should be blocked
-    let abs_root_claude = root.join("CLAUDE.md");
-    let payload_root = serde_json::json!({
-        "tool_name": "Write",
-        "tool_input": { "file_path": abs_root_claude.to_string_lossy().as_ref() }
-    })
-    .to_string();
-    let (code, stderr) = common::run_guard(&root, &payload_root);
+    let payload_for = |path: &Path| {
+        serde_json::json!({
+            "tool_name": "Write",
+            "tool_input": { "file_path": path.to_string_lossy().as_ref() }
+        })
+        .to_string()
+    };
+
+    // A write to the actual root CLAUDE.md projection (absolute path) should be blocked.
+    let (code, stderr) = common::run_guard(&root, &payload_for(&root.join("CLAUDE.md")));
     assert_eq!(
         code,
         Some(2),
@@ -1469,39 +1471,98 @@ fn guard_suffix_path_boundary_rejects_unrelated_deeper_paths() {
     );
     assert!(stderr.contains("temper-managed projection"));
 
-    // A write to `.temper/memory/CLAUDE.md` (absolute path, an unrelated file with the same
-    // filename living deeper in the tree) should be allowed. This was the bug:
-    // naive suffix matching would block it because the absolute path ends with `CLAUDE.md`,
-    // even though it's not the declared projection.
-    let abs_deep_claude = root.join(".temper/memory/CLAUDE.md");
-    let payload_deep = serde_json::json!({
-        "tool_name": "Write",
-        "tool_input": { "file_path": abs_deep_claude.to_string_lossy().as_ref() }
-    })
-    .to_string();
-    let (code, stderr) = common::run_guard(&root, &payload_deep);
-    assert_eq!(
-        code,
-        Some(0),
-        "an unrelated path ending in the projection's filename but deeper in the tree (absolute path) should be allowed"
-    );
-    assert!(stderr.is_empty());
+    // Every other path ending in `CLAUDE.md` is a different file, not the projection:
+    // neither one deeper in the tree nor one a single segment over may be blocked.
+    for unrelated in [".temper/memory/CLAUDE.md", "reference/CLAUDE.md"] {
+        let (code, stderr) = common::run_guard(&root, &payload_for(&root.join(unrelated)));
+        assert_eq!(
+            code,
+            Some(0),
+            "`{unrelated}` is not the declared projection and must be allowed"
+        );
+        assert!(stderr.is_empty(), "and surfaces nothing: {stderr}");
+    }
+}
 
-    // A write to `.claude/CLAUDE.md` (absolute path) should also be blocked,
-    // showing that one-level nesting is still bound by the guard.
-    let abs_nested_claude = root.join(".claude/CLAUDE.md");
-    let payload_nested = serde_json::json!({
-        "tool_name": "Write",
-        "tool_input": { "file_path": abs_nested_claude.to_string_lossy().as_ref() }
-    })
-    .to_string();
-    let (code, stderr) = common::run_guard(&root, &payload_nested);
-    assert_eq!(
-        code,
-        Some(2),
-        "a nested version of the single-segment projection path (absolute path) should still be blocked"
-    );
-    assert!(stderr.contains("temper-managed projection"));
+/// `temper guard .` — the invocation shape `install` writes into every settings.json
+/// hook command — must reach the identical verdict as `temper guard <absolute root>`.
+/// A relative root that is never resolved against the working directory normalizes to
+/// the empty path, whose prefix strips trivially off every absolute `file_path`, leaving
+/// it unrelativized and every projection unbound.
+#[test]
+fn guard_reaches_the_same_verdict_from_a_dot_root_as_from_an_absolute_root() {
+    let root = common::tmpdir("guard-dot-root");
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        format!(
+            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+             [[memory]]\nname = \"root\"\nsource_path = \"CLAUDE.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n\n\
+             {CLAUDE_WRITE_LOCK_ROW}"
+        ),
+    )
+    .unwrap();
+
+    // (file_path as the payload spells it, the verdict both invocation forms owe it)
+    let cases: Vec<(String, Option<i32>)> = vec![
+        // The declared projections, absolute — what Claude Code actually sends.
+        (
+            root.join("CLAUDE.md").to_string_lossy().into_owned(),
+            Some(2),
+        ),
+        (
+            root.join(".claude/skills/x/SKILL.md")
+                .to_string_lossy()
+                .into_owned(),
+            Some(2),
+        ),
+        // Undeclared paths, absolute — including one whose bare name matches a projection.
+        (
+            root.join("reference/CLAUDE.md")
+                .to_string_lossy()
+                .into_owned(),
+            Some(0),
+        ),
+        (
+            root.join("src/main.rs").to_string_lossy().into_owned(),
+            Some(0),
+        ),
+        // Out of tree entirely — relativizes against neither root spelling.
+        (
+            common::tmpdir("guard-dot-root-elsewhere")
+                .join("CLAUDE.md")
+                .to_string_lossy()
+                .into_owned(),
+            Some(0),
+        ),
+        // Already harness-relative — the form the fixtures speak.
+        ("CLAUDE.md".to_string(), Some(2)),
+        (".claude/skills/x/SKILL.md".to_string(), Some(2)),
+        ("README.md".to_string(), Some(0)),
+    ];
+
+    for (file_path, expected) in cases {
+        let payload = serde_json::json!({
+            "tool_name": "Write",
+            "tool_input": { "file_path": &file_path }
+        })
+        .to_string();
+        let (abs_code, abs_stderr) = common::run_guard(&root, &payload);
+        let (dot_code, dot_stderr) = common::run_guard_from_root(&root, &payload);
+        assert_eq!(
+            abs_code, expected,
+            "`guard <absolute root>` verdict for {file_path}: {abs_stderr}"
+        );
+        assert_eq!(
+            dot_code, abs_code,
+            "`guard .` must reach the same verdict as `guard <absolute root>` for {file_path}: {dot_stderr}"
+        );
+        assert_eq!(
+            dot_stderr, abs_stderr,
+            "and surface the same finding for {file_path}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

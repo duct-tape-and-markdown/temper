@@ -3007,8 +3007,9 @@ pub struct EmitOwnedEntry {
     /// The member's name.
     pub name: String,
     /// The projected artifact's path as the lock spells it: relative to the harness root.
-    /// A consumer reaching disk joins it onto the root it was aimed at; the guard matches
-    /// it as a suffix of an absolute `file_path` (`install::matches_projection`).
+    /// A consumer reaching disk joins it onto the root it was aimed at; the guard compares
+    /// it for equality against a `file_path` relativized against that same root
+    /// (`install::matches_projection`).
     pub path: PathBuf,
 }
 

@@ -265,15 +265,33 @@ pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
     (run.findings(), run.ok)
 }
 
-/// Run `temper guard <root>` with `payload` on stdin, returning the exit code and
-/// stderr output. Mirrors the existing `check_*` family: the one home for guard
-/// driver scaffolding, consolidating what install.rs and cli.rs were re-implementing
-/// independently.
+/// Run `temper guard <root>` from inside `root` with `payload` on stdin, returning the
+/// exit code and stderr output. Mirrors the existing `check_*` family: the one home for
+/// guard driver scaffolding, consolidating what install.rs and cli.rs were
+/// re-implementing independently. Its `.`-argument twin is [`run_guard_from_root`]: the
+/// two differ in exactly one variable, how the root is spelled.
 pub fn run_guard(root: &Path, payload: &str) -> (Option<i32>, String) {
+    run_guard_spawned_in(root, root.as_os_str(), payload)
+}
+
+/// Run `temper guard .` from inside `root` — the invocation shape `install` writes into
+/// every settings.json guard hook command, where the argument is a bare `.` and the
+/// harness root is the process's working directory.
+pub fn run_guard_from_root(root: &Path, payload: &str) -> (Option<i32>, String) {
+    run_guard_spawned_in(root, std::ffi::OsStr::new("."), payload)
+}
+
+/// Run `temper guard <root_arg>` with the working directory set to `cwd`.
+fn run_guard_spawned_in(
+    cwd: &Path,
+    root_arg: &std::ffi::OsStr,
+    payload: &str,
+) -> (Option<i32>, String) {
     use std::io::Write;
     let mut child = Command::new(env!("CARGO_BIN_EXE_temper"))
         .arg("guard")
-        .arg(root)
+        .arg(root_arg)
+        .current_dir(cwd)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

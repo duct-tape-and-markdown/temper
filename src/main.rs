@@ -601,9 +601,9 @@ fn guarded_manifests(
     Ok(manifests)
 }
 
-/// The harness-relative path a manifest `kind` governs — its `governs` locus, the suffix the
-/// guard matches a pending write's `file_path` against (tolerant of the file_path arriving
-/// absolute, the same suffix compare the projection binding runs). [`None`] for a kind
+/// The harness-relative path a manifest `kind` governs — its `governs` locus, the path the
+/// guard compares a pending write's `file_path` against (tolerant of the file_path arriving
+/// absolute, the same equality compare the projection binding runs). [`None`] for a kind
 /// governing no locus, which has no host file for the guard to watch.
 fn manifest_path(kind: &CustomKind) -> Option<PathBuf> {
     let governs = kind.governs.as_ref()?;

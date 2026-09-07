@@ -25,7 +25,8 @@ pub fn normalize_path(path: &Path) -> PathBuf {
 /// Relativize a file path against a harness root. If the path is absolute, strip the root
 /// prefix and return the relative path. If the path is already relative, return it as-is.
 /// All backslashes are normalized to forward slashes.
-/// Returns `None` if an absolute path is not under the root.
+/// Returns `None` if an absolute path is not under the root, or if a relative root cannot
+/// be resolved against the working directory.
 #[must_use]
 pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
     let file_path_normalized = file_path.replace('\\', "/");
@@ -36,12 +37,26 @@ pub fn relativize_against_root(file_path: &str, root: &Path) -> Option<String> {
         return Some(file_path_normalized);
     }
 
-    let root_normalized = normalize_path(root);
+    let root_absolute = absolute_root(root)?;
 
     file_path_buf
-        .strip_prefix(&root_normalized)
+        .strip_prefix(&root_absolute)
         .ok()
         .map(|rel_path| rel_path.to_string_lossy().replace('\\', "/").to_string())
+}
+
+/// The harness root as an absolute, lexically normalized path. A relative root — `.`, the
+/// form the installed guard hook command carries — is joined onto the working directory
+/// first: [`normalize_path`] erases a lone `.` entirely, and stripping that empty prefix
+/// succeeds against *every* absolute path, leaving it unrelativized. Disk is never touched,
+/// so a root that does not exist resolves the same way any other does.
+fn absolute_root(root: &Path) -> Option<PathBuf> {
+    let absolute = if root.is_absolute() {
+        root.to_path_buf()
+    } else {
+        std::env::current_dir().ok()?.join(root)
+    };
+    Some(normalize_path(&absolute))
 }
 
 /// A harness-relative path: the lock's own vocabulary for source paths. Always

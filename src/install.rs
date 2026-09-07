@@ -879,57 +879,30 @@ fn is_claude_path(file_path: &str) -> bool {
     file_path.contains(&format!("{}/", builtin_kind::CLAUDE_ROOT))
 }
 
-/// Normalize backslashes and check whether a relative `file_path` matches any candidate by
-/// suffix compare — a straight suffix check against `/`-normalized paths
-/// (`PATH-SEP-NORMALIZE`). The match must land on a path-segment boundary:
-/// the byte before the matched suffix, if any, must be `/`. For single-segment
-/// candidates (no `/`), the prefix up to the match must also be single-segment
-/// to ensure unrelated deeper paths don't falsely match.
-///
-/// When called with an absolute `file_path`, relativize it against `root` first.
+/// Whether `file_path` names any candidate — an equality compare of `/`-normalized paths
+/// (`PATH-SEP-NORMALIZE`), both sides spelled harness-relative. A `file_path` arriving
+/// absolute (Claude Code's own convention) is relativized against `root` first; one landing
+/// outside the root matches nothing, since no candidate can name it.
 fn path_matches<'a>(
     file_path: &str,
     root: &Path,
     mut candidates: impl Iterator<Item = &'a Path>,
 ) -> bool {
-    let file_path_to_check =
-        if let Some(rel_path) = crate::path::relativize_against_root(file_path, root) {
-            rel_path
-        } else {
-            // If relativization fails (path not under root), allow the write.
-            return false;
-        };
+    let Some(relative) = crate::path::relativize_against_root(file_path, root) else {
+        return false;
+    };
 
-    let file_path_normalized = file_path_to_check.replace('\\', "/");
-    candidates.any(|candidate| {
-        let candidate_str = candidate.to_string_lossy().replace('\\', "/");
-        if file_path_normalized.ends_with(candidate_str.as_str()) {
-            let match_start = file_path_normalized.len() - candidate_str.len();
-            if match_start == 0 {
-                return true;
-            }
-            // Match must be preceded by a path separator.
-            if file_path_normalized.as_bytes().get(match_start - 1) != Some(&b'/') {
-                return false;
-            }
-            // For single-segment candidates (no `/` in them), ensure the prefix
-            // has no `/` — so `.claude/CLAUDE.md` matches `CLAUDE.md`,
-            // but `.temper/memory/CLAUDE.md` does not.
-            if !candidate_str.contains('/') {
-                let prefix = &file_path_normalized[..match_start - 1];
-                !prefix.contains('/')
-            } else {
-                true
-            }
-        } else {
-            false
-        }
-    })
+    // `./x` and `x` name one file; the lock only ever spells the latter.
+    let file_path_normalized = crate::path::normalize_path(Path::new(&relative))
+        .to_string_lossy()
+        .replace('\\', "/");
+    candidates
+        .any(|candidate| candidate.to_string_lossy().replace('\\', "/") == file_path_normalized)
 }
 
-/// Whether `file_path` names one of `targets` — a straight suffix compare against each
-/// row's `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`), tolerant of `file_path`
-/// arriving absolute (Claude Code's own convention) against a workspace-relative lock row.
+/// Whether `file_path` names one of `targets` — an equality compare against each row's
+/// `/`-normalized `source_path` (`PATH-SEP-NORMALIZE`), tolerant of `file_path` arriving
+/// absolute (Claude Code's own convention) against a workspace-relative lock row.
 fn matches_projection(file_path: &str, root: &Path, targets: &[drift::EmitOwnedEntry]) -> bool {
     path_matches(file_path, root, targets.iter().map(|t| t.path.as_path()))
 }
