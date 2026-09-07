@@ -136,7 +136,14 @@ hard.
   lifetime is the WSL VM's: WSL shut down 09-06 12:42 with a build wave
   mid-flight (four dirty worktrees, no commits lost) and the loop died
   with it; relaunched on the VM's return. Keep a WSL terminal open for
-  the run's duration, or run the loop under a service. `pgrep`
+  the run's duration, or run the loop under a service. Relaunch with
+  `FLUME_WORKTREES_DIR` exported in the shell: the supervisor sweeps stale
+  worktrees BEFORE loading chain.ts, so the chain's `??=` is invisible to
+  the sweep (flume-main's root cause for the four branch-delete failures;
+  engine fix pending in flume's inbox). 09-06 harness commit: the plan
+  honesty gate moved to afterMerge on the trunk, holds `after-build` to
+  the same bar as `no`, and requires an `Inbox routed:` body line
+  accounting for every drained note (plan prompt carries the contract). `pgrep`
   for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
   its own command line.
 
