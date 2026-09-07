@@ -68,6 +68,7 @@ export type {
   KindDefinition,
   KindFacts,
   KindOptions,
+  KindRelocation,
   Layout,
   LayoutRegion,
   Locus,
@@ -80,7 +81,7 @@ export type {
   Template,
   UnitShape,
 } from "./kind.js";
-export { embeddedMemberValue, kind } from "./kind.js";
+export { embeddedMemberValue, kind, relocate } from "./kind.js";
 
 // The assembly — `harness()` and its six fields.
 export type { Admission, EnforcementMode, ExpectBinding, Harness } from "./assembly.js";

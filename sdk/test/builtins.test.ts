@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Clause } from "../src/index.js";
-import { embeddedMemberValue, kind } from "../src/index.js";
+import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
+import type { Rule } from "../src/claude-code.js";
 import {
   agent,
   agentDefaultContract,
@@ -36,6 +37,7 @@ import {
   skillDefaultContract,
   supportingDoc,
   supportingDocDefaultContract,
+  text,
 } from "../src/claude-code.js";
 
 const DEFAULT_CONTRACTS: ReadonlyArray<readonly Clause[]> = [
@@ -761,4 +763,86 @@ test("a nested-file-locus kind requires empty registration", () => {
     registration: [],
   });
   assert.deepEqual(nestedKind.facts.registration, []);
+});
+
+// ---------------------------------------------------------------------------
+// Relocation — adding an edge field to a built-in kind.
+// ---------------------------------------------------------------------------
+
+/**
+ * A corpus's own `rule`: the built-in relocated to carry one added edge field,
+ * `routes_to`, targeting skills. The widened surface is spelled as an ordinary
+ * interface, so the added field is typed at the keystroke — the whole path from the
+ * declaration to the emitted rows carries no `as any` cast.
+ */
+interface RoutingRule extends Rule {
+  readonly routes_to?: string;
+}
+
+/** The relocated `rule` the cases below emit. */
+const routingRule = relocate<RoutingRule>(rule, {
+  edgeFields: [{ field: "routes_to", to: ["skill"] }],
+});
+
+test("a relocated built-in carries the added edge field on its facts, marked as a relocation", () => {
+  assert.deepEqual(routingRule.facts.edgeFields, [{ field: "routes_to", to: ["skill"] }]);
+  // The marker is the authoring layer's provenance fact: same name as the built-in,
+  // so a later kinds-in-play check reads a sanctioned relocation, not a collision.
+  assert.equal(routingRule.facts.relocates, "rule");
+  assert.equal(routingRule.key, "rule");
+  // Every other fact rides through from the base untouched.
+  assert.deepEqual(routingRule.facts.locus, rule.facts.locus);
+  assert.deepEqual(routingRule.facts.registration, rule.facts.registration);
+  assert.equal(routingRule.facts.format, rule.facts.format);
+});
+
+test("a relocated built-in's added edge field is emitted, never silently dropped", () => {
+  const h = harness({
+    members: [
+      routingRule({ name: "style", routes_to: "standards", prose: text`Prefer the standards skill.` }),
+      skill({
+        name: "standards",
+        description: "Use when applying the project's standards; not for anything else.",
+        prose: text`# standards`,
+      }),
+    ],
+  });
+  const result = emit(h);
+
+  // Non-vacuity first (decision 0048's conservation bar): the relocated kind's edge
+  // facts must actually be present before asserting what they say — an assertion over
+  // an empty set passes for the very reason this entry exists.
+  const edges = result.declarations.assembly.filter((row) => row.fact === "edge" && row.from === "rule");
+  assert.ok(edges.length > 0, "the relocated kind must contribute at least one edge fact");
+  assert.deepEqual(edges, [{ fact: "edge", from: "rule", field: "routes_to", to: ["skill"] }]);
+
+  // And the member's own field survives to the projection — the address the edge resolves.
+  const member = result.members.find((row) => row.kind === "rule" && row.name === "style");
+  assert.ok(member, "the relocated member must reach the payload");
+  assert.deepEqual(member.fields, [["routes_to", "standards"]]);
+});
+
+test("relocating a kind refuses an edge field the base already declares", () => {
+  // `installed-plugin` ships a `marketplace` edge of its own. Re-declaring it would emit
+  // two `edge` rows over one `<from, field>` — a cross-wire, not a second relationship.
+  assert.throws(
+    () =>
+      relocate<{ readonly marketplace?: string }>(installedPlugin, {
+        edgeFields: [{ field: "marketplace", to: ["rule"] }],
+      }),
+    /already declared/,
+  );
+});
+
+test("relocating a kind refuses one delta declaring the same edge field twice", () => {
+  assert.throws(
+    () =>
+      relocate<RoutingRule>(rule, {
+        edgeFields: [
+          { field: "routes_to", to: ["skill"] },
+          { field: "routes_to", to: ["rule"] },
+        ],
+      }),
+    /already declared/,
+  );
 });

@@ -1088,6 +1088,20 @@ pub fn assemble_by_kind<'a>(
 }
 
 /// Determine whether a kind-fact row qualifies to overlay a built-in kind's definition.
+///
+/// This is the **lock-row** layer's relocation vocabulary, and it decides *structurally*:
+/// row and built-in are compared fact by fact, because a row is all this side holds — the
+/// authored kind value it compiled from is long gone. The SDK's `facts.relocates` marker
+/// (`sdk/src/kind.ts`, `relocate`) answers the *authoring* layer's distinct question,
+/// before any row exists: which built-in an in-memory `KindFacts` value was derived from,
+/// so two same-named kinds in play read as one sanctioned relocation rather than a name
+/// collision. Provenance there, structure here — and the marker deliberately never reaches
+/// a row, so nothing on this side reads it.
+///
+/// Edge fields take no part in the decision: a kind row carries none — an edge is an
+/// assembly `edge` row keyed by its `from` kind — so a relocation that adds one diverges
+/// on no fact this predicate examines and is admitted like any other
+/// (`tests/graph.rs`).
 fn row_relocates_builtin(
     row: &drift::KindFactRow,
     builtin: &CustomKind,

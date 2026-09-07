@@ -171,6 +171,16 @@ export type KindFacts =
       readonly name: string;
       /** The declared provider authority, when the kind qualifies by one. */
       readonly provider?: string;
+      /**
+       * The built-in kind this facts value **relocates** — set only by {@link relocate},
+       * from the base kind's own name, never authored. It is the authoring layer's
+       * *provenance* fact: the value was derived from the imported built-in, so a
+       * second same-named kind in play is a sanctioned relocation rather than a name
+       * collision. It never reaches a kind-fact row — the lock reader holds no base
+       * value to compare against and re-decides *structurally* instead
+       * (`src/compose.rs`'s `row_relocates_builtin`).
+       */
+      readonly relocates?: string;
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
@@ -219,6 +229,16 @@ export type KindFacts =
       readonly name: string;
       /** The declared provider authority, when the kind qualifies by one. */
       readonly provider?: string;
+      /**
+       * The built-in kind this facts value **relocates** — set only by {@link relocate},
+       * from the base kind's own name, never authored. It is the authoring layer's
+       * *provenance* fact: the value was derived from the imported built-in, so a
+       * second same-named kind in play is a sanctioned relocation rather than a name
+       * collision. It never reaches a kind-fact row — the lock reader holds no base
+       * value to compare against and re-decides *structurally* instead
+       * (`src/compose.rs`'s `row_relocates_builtin`).
+       */
+      readonly relocates?: string;
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
@@ -266,6 +286,16 @@ export type KindFacts =
       readonly name: string;
       /** The declared provider authority, when the kind qualifies by one. */
       readonly provider?: string;
+      /**
+       * The built-in kind this facts value **relocates** — set only by {@link relocate},
+       * from the base kind's own name, never authored. It is the authoring layer's
+       * *provenance* fact: the value was derived from the imported built-in, so a
+       * second same-named kind in play is a sanctioned relocation rather than a name
+       * collision. It never reaches a kind-fact row — the lock reader holds no base
+       * value to compare against and re-decides *structurally* instead
+       * (`src/compose.rs`'s `row_relocates_builtin`).
+       */
+      readonly relocates?: string;
       /** Fact 2, locus — where members live, and for a file locus whether their documents
        * are committed: a `local` commitment class declares the kind reviewed and its
        * members' documents not. */
@@ -441,6 +471,68 @@ export function kind<T extends object>(facts: KindFacts, options: KindOptions = 
     needs: init.needs ?? [],
   });
   return Object.assign(construct, { facts, key: facts.name, render: options.render });
+}
+
+/**
+ * A **relocation delta** — the facts a relocated built-in kind diverges from its base
+ * on. Today exactly one: `edgeFields`, *added* to whatever the base already declares
+ * (never replacing them, which would drop a shipped kind's own edges silently). Each
+ * added field names a key of the relocated kind's typed surface `T`, so an edge can
+ * never be declared over a field the kind does not carry. Every other fact — locus,
+ * format, unit shape, registration, content, templates — rides through unchanged.
+ */
+export interface KindRelocation<T> {
+  /** The edge fields this relocation adds, each over a field of the kind's own surface. */
+  readonly edgeFields: readonly {
+    readonly field: keyof T & string;
+    readonly to: readonly [string, ...string[]];
+  }[];
+}
+
+/**
+ * **Relocate** a built-in kind: the sanctioned way an adopting corpus adds an edge
+ * field to a kind it does not own. Returns a fresh constructor over the widened typed
+ * surface `T` (the base's fields plus the added edge fields, spelled by the caller as
+ * one interface), carrying the base's facts with `delta`'s edge fields appended and the
+ * base's own {@link KindDefinition.render} hook preserved. Ownership, not privilege —
+ * a relocated built-in is an ordinary kind value from here on, and its added edge
+ * reaches the lock as an assembly `edge` row keyed by `from`, exactly as any kind's
+ * does (`declarations.ts`), never as a column on a kind-fact row.
+ *
+ * The produced facts carry `relocates`, naming the base — the marker that tells a
+ * legitimate relocation from a genuine name collision when two same-named kinds are in
+ * play. Identity travels by import: the base is the imported built-in value, so the
+ * provenance is proven here rather than inferred downstream.
+ *
+ * # Throws
+ * If an added edge field re-declares one the base already carries, or one another
+ * entry of the same delta already added — two `edge` rows over one `<from, field>`
+ * cross-wire the graph instead of declaring one relationship.
+ */
+export function relocate<T extends object>(
+  base: KindDefinition<any>,
+  delta: KindRelocation<T>,
+): KindDefinition<T> {
+  const inherited = base.facts.edgeFields ?? [];
+  const claimed = new Set(inherited.map((edge) => edge.field));
+  const added: EdgeField[] = [];
+  for (const edge of delta.edgeFields) {
+    if (claimed.has(edge.field)) {
+      throw new Error(
+        `relocating kind \`${base.facts.name}\`: edge field \`${edge.field}\` is already ` +
+          `declared, and a second declaration of one field cross-wires the graph rather than ` +
+          `adding a relationship (specs/model/representation.md, "kind").`,
+      );
+    }
+    claimed.add(edge.field);
+    added.push({ field: edge.field, to: edge.to });
+  }
+  const facts: KindFacts = {
+    ...base.facts,
+    relocates: base.facts.name,
+    edgeFields: [...inherited, ...added],
+  };
+  return kind<T>(facts, { render: base.render });
 }
 
 /**

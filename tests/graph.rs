@@ -200,6 +200,80 @@ fn an_unadopted_harness_runs_no_graph() {
     );
 }
 
+/// A lock row that **relocates the built-in `rule`** to a `decisions/*.md` locus, every
+/// other fact deferring to the built-in — so `row_relocates_builtin` (`src/compose.rs`)
+/// admits it as a relocation rather than a name collision. It declares no edge of its
+/// own: a kind row carries none, which is exactly why a relocation adding an edge field
+/// needs no engine change.
+fn relocated_rule() -> KindFactRow {
+    common::kind_facts("rule", "decisions", "*.md")
+}
+
+/// Write a relocated-`rule` corpus: the routing rule at the *relocated* `decisions/`
+/// locus (never `.claude/rules/`, so discovering it is proof the relocation took) beside
+/// a real `standards` skill for its route to land on.
+fn write_relocated_rule_harness(root: &Path, routes_to: &str) {
+    common::write_skill(root, "standards", &common::clean_skill("standards"));
+    let decisions = root.join("decisions");
+    fs::create_dir_all(&decisions).unwrap();
+    fs::write(decisions.join("style.md"), routing_rule(routes_to)).unwrap();
+}
+
+/// The lock a relocated `rule` with an added `routes_to` edge compiles to: the kind row
+/// carrying the relocation, the assembly row carrying the edge. The two families are the
+/// whole of it — `relocate()` (`sdk/src/kind.ts`) emits nothing else.
+fn relocated_rule_lock() -> Declarations {
+    Declarations {
+        kinds: vec![relocated_rule()],
+        assembly: routes_to_edge(),
+        ..Declarations::default()
+    }
+}
+
+#[test]
+fn a_relocated_builtins_added_edge_field_resolves_a_real_route() {
+    let root = common::tmpdir("relocated-edge-resolves");
+    // The SDK's sanctioned relocation form (`relocate(rule, { edgeFields: [...] })`)
+    // compiles to exactly this pair of rows. The edge never rides the kind row — it is an
+    // assembly `edge` keyed by its `from` kind — so the engine resolves it against the
+    // relocated kind's members with no change of its own.
+    write_relocated_rule_harness(&root, "standards");
+    common::write_lock(&root, relocated_rule_lock());
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        run.ok,
+        "a relocated built-in's added edge must resolve against a real skill ⇒ zero, got:\n{}",
+        run.output
+    );
+}
+
+#[test]
+fn a_relocated_builtins_added_edge_field_still_catches_a_dangling_route() {
+    let root = common::tmpdir("relocated-edge-dangles");
+    // The conservation half of the case above: were the relocated kind's members never
+    // discovered, there would be no edge to resolve and the clean run would pass
+    // vacuously. Here the route names an absent skill — the run must fail, which it can
+    // only do if the document at the relocated locus was read as a `rule` and its
+    // `routes_to` field folded onto the graph.
+    write_relocated_rule_harness(&root, "absent");
+    common::write_lock(&root, relocated_rule_lock());
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a dangling route off a relocated built-in must fail the run ⇒ non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("style")
+            && run.output.contains("absent")
+            && run.output.contains("routes_to"),
+        "the finding names the relocated member, the dangling target, and the edge field, got:\n{}",
+        run.output
+    );
+}
+
 #[test]
 fn an_acyclic_reference_graph_passes() {
     let root = common::tmpdir("acyclic");
