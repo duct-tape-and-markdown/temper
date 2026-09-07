@@ -691,6 +691,13 @@ const factory: ChainFactory = (flume) => {
       // no commit left state.md untouched, so the continuation marker below is
       // a *previous* tick's — a stale `yes` would re-wake a bailing plan
       // forever. Skip the marker, hand to build iff anything is pickable.
+      // A GATE-REVERT is not a bail: the tick claimed its inputs were clear and
+      // the honesty gate proved otherwise on the trunk (2026-09-06: a drain
+      // reverted for a specs/ commit past the cursor was handed to build on
+      // the previous tick's `after-build`, over an undrained inbox). The
+      // inputs are still live, so plan runs again; flume's identical-failure
+      // breaker bounds a plan that keeps lying.
+      if (result.noCommit === "gate-revert") return ["plan"];
       if (result.noCommit) {
         return result.pendingAfter.some((e) => e.gate.kind === "open")
           ? ["build"]
