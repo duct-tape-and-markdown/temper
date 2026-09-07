@@ -249,6 +249,31 @@ tax.
   mode) with no common shippable core, and plan does not pick among them.
   No dependents.
 
+- `(kind-declared-leaf-schema)` — OPEN, live driver (cascade-integrations
+  assessment of EXPLAIN-KIND-ADOPTER-ENTRY-POINT, GH #47, 09-07). `explain
+  kind:<x>` on a kind with **no member yet** — the adopter's actual moment —
+  can teach nothing about the leaves an embedded child carries, because no
+  kind declares a field set anywhere: `read.rs`'s `corpus_leaves` (:817)
+  unions what existing members carry, and the SDK's `kind()` declaration
+  (`sdk/src/kind.ts`) has locus, identity field, edge fields, content, shape,
+  collection address, templates and guidance — no leaf schema. A member's
+  fields are inferred at emit from the value it composes (`kind.ts:330`,
+  `fields: ReadonlyArray<readonly [string, unknown]>`), so `NestedMemberRow`
+  carries `leaves` as a bare `Record<string, string>` and `KindFactRow` has no
+  leaf column to render from. Two candidate shapes: (a) the kind declares its
+  embedded children's leaf names — a new declaration surface, so a deliberate
+  language change under `contract.md`'s own bar, and one that must not become a
+  second schema competing with the member type it would duplicate; (b) the SDK
+  lowers `keyof T` off the embedded value type at emit, so the lock's kind row
+  carries the leaf set as a *derived* fact and no author writes it twice
+  (`engineering.md`, "Derived state is computed, never stored beside its
+  source" cuts both ways here — the leaf set is derived from the type, and the
+  question is whether the lock may record what only the compiler knows).
+  Session recommendation: (b) — it adds no author-facing surface and the
+  type already is the declaration; (a)'s cost is a second place to be wrong.
+  Dependents: none — EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM ships
+  the other two lines of #47's assessment without it.
+
 - `(embedded-edge-dangling-judgment)` — OPEN, candidate not yet ruled
   (cascade-integrations, GH #52, 09-06). SDK-MEMBER-TABLE-NESTED-EDGE-TARGET
   fixes an embedded value's edge field resolving another host's embedded
