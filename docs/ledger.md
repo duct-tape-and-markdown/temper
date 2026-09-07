@@ -153,7 +153,13 @@ hard.
   between an entry's cherry-pick and its afterMerge verdict is discarded
   (3da55a88 was; recovered by merge + revert 56bc6727). Until the fix:
   never commit to main while the loop log shows a cherry-pick awaiting
-  its gates — check the last `[flume]` line first. `pgrep`
+  its gates — check the last `[flume]` line first. Fixed on flume main
+  (384b0c9: tip check before the reset, revert-refused reporting when it
+  moved), unreleased — the window stays open here until temper's flume
+  pin moves to a cut carrying it. Same flume run has
+  `TickContext.priorAttempts` in flight: when it ships, the plan prompt's
+  `<gate-reverts>` script (`.flume/gate-reverts.mjs`) becomes a native
+  input and the script retires. `pgrep`
   for the loop must use a bracket pattern (`[c]li.js loop`) or it matches
   its own command line.
 
