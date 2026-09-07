@@ -195,7 +195,7 @@
         },
         {
           "path": "src/drift.rs",
-          "description": "Beside `undeclared_layout_members_from_doc` (:2820): the composed-kind counterpart. A composed member's whole trace on the lock is its projection provenance row, not the five `MEMBER_ADDRESS_COLUMNS` (:2764) declaration families a layout host reaches through — so this one joins each discovered site's `source_path` against `read_prior_provenance_from_doc` (:2272), the same rows `emit_owned_targets` (:3268) and `config_stale` (:2713) already walk. Normalize BOTH sides through `normalize_lock_path` (:806) before comparing, exactly as the emit reap-diff does at :1417: the site's path is a `String` from `path::relativize_against_root` (gate.rs:74-77) while `ProvenanceRow.source_path` (:2240) is a `HarnessRelativePath`, and an older lock's `./x` spelling would otherwise forge a finding. A discovered document at a represented kind's locus that no provenance row names is reported `locus.undeclared-member` at `warn`, naming path and kind: `emit` will never maintain it (orphan classification iterates lock rows at :1416, so a disk file with no row is never classified and no orphan-drift is reported over it) and `guard` never bound it, yet Claude Code loads it. Remedy named first is declare the member and re-emit. The `local` remedy is offered only for a CUSTOM kind — a built-in cannot be re-declared until BUILTIN-KIND-RELOCATION-EDGE-FIELDS lands. That the sibling layout message at :2832 offers `local` unconditionally is deliberate, not an inconsistency to fix here: no built-in kind carries `Content::Layout` (it arrives only from a lock row), so every layout kind is one whose commitment the author can respell. Say that in the commit body; tests/layout_kind.rs:715's `local` assertion does not move."
+          "description": "Beside `undeclared_layout_members_from_doc` (:2820): the composed-kind counterpart. A composed member's whole trace on the lock is its projection provenance row, not the five `MEMBER_ADDRESS_COLUMNS` (:2764) declaration families a layout host reaches through — so this one joins each discovered site's `source_path` against `read_prior_provenance_from_doc` (:2272), the same rows `emit_owned_targets` (:3268) and `config_stale` (:2713) already walk. Normalize BOTH sides through `normalize_lock_path` (:806) before comparing, exactly as the emit reap-diff does at :1417: the site's path is a `String` from `path::relativize_against_root` (gate.rs:74-77) while `ProvenanceRow.source_path` (:2240) is a `HarnessRelativePath`, and an older lock's `./x` spelling would otherwise forge a finding. A discovered document at a represented kind's locus that no provenance row names is reported `locus.undeclared-member` at `warn`, naming path and kind: `emit` will never maintain it (orphan classification iterates lock rows at :1416, so a disk file with no row is never classified and no orphan-drift is reported over it) and `guard` never bound it, yet Claude Code loads it. Remedy named first is declare the member and re-emit. The `local` remedy is offered only for a CUSTOM kind — a built-in cannot be re-declared until BUILTIN-KIND-RELOCATION-EDGE-FIELDS lands. That the sibling layout message at :2832 offers `local` unconditionally is deliberate, not an inconsistency to fix here: no built-in kind carries `Content::Layout` (it arrives only from a lock row), so every layout kind is one whose commitment the author can respell. Say that in the commit body; tests/layout_kind.rs:715's `local` assertion does not move. RIDER (comment staleness, this file's next opener carries it): `ClauseRow::field`'s doc comment at :3562 still reads \"The field (or marker) the predicate constrains, when it names one\", which 767f4941 outgrew — `section_contains` and `require_sections` name no field and now carry a SYNTHESIZED `<heading>.<marker>` label from `clauseField` (sdk/src/declarations.ts:171). Reword it as the clause's compiled label, the term `specs/model/pipeline.md` (\"The lock\") uses."
         },
         {
           "path": "src/coverage_note.rs",
@@ -331,7 +331,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
+        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
+        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
       ]
     },
     "dependsOnForks": [
@@ -367,7 +368,7 @@
       }
     ],
     "acceptance": "A layout collection member's own paragraph (not just its sub-headings) reaches a leaf, addressable and visible to leaf predicates, leaf addresses, and explain, matching the composed half's full-leaves behavior. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the captured own-span text is non-empty before checking it resolves as a leaf.",
-    "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists anywhere in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`; this entry waits on it. Re-chained at e6c551cc behind KINDS-IN-PLAY-NAME-COLLISION-REFUSAL: its old parent shipped, leaving tests/layout_kind.rs + sdk/src/kind.ts contended with three live entries. scoped at e6c551cc"
+    "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`, which f07d4f84's `layout_prose` family has since given a third candidate; this entry waits on the ruling either way. Serialized behind KINDS-IN-PLAY and LAYOUT-UNDECLARED-FINDING for tests/layout_kind.rs. scoped at bf2e3eba"
   },
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
@@ -423,7 +424,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
+        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
+        "HOOK-COLLISION-FIXTURE-ROOTS-THE-RUN-AT-TMP"
       ]
     },
     "dependsOnForks": [],
@@ -461,7 +463,7 @@
       }
     ],
     "acceptance": "On a surface carrying no member of the kind, `explain kind:<name>` prints where a member of it lands and how a reference to one is spelled, alongside the guidance, layout and hosted-kind strands 3dcc73f1 already renders — the read verb narrating a kind, not only a kind that already has members. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle and must scan file children too, both new strands ride the early return's guard. scoped at 6b9eacae"
+    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle and must scan file children too. Also serialized behind HOOK-COLLISION (tests/common/mod.rs). scoped at bf2e3eba"
   },
   {
     "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
@@ -502,7 +504,57 @@
       }
     ],
     "acceptance": "Declaring a corpus kind that reuses a built-in's name at a different root refuses loud, naming both loci, unless authored through the sanctioned relocation form. Per 0048's conservation bar, the regression pins non-vacuity: it asserts both colliding KindFacts values are actually compared (non-empty divergence) before checking the refusal fires.",
-    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h: the engine already refuses a diverging same-name row once it reaches the lock — the gap is kindsInPlay's SDK-side first-wins discarding the second kind first. `admit` is a closure inside kindsInPlay, not a standalone export. Blocked on BUILTIN-KIND-RELOCATION-EDGE-FIELDS for the relocation marker, and at e6c551cc also on SECTION-CONTAINS (both edit sdk/src/declarations.ts). scoped at e6c551cc"
+    "notes": "observed at ad10e8cb (cascade F13(c), GH #53); corrected at bf4b4168, item h: the engine already refuses a diverging same-name row once it reaches the lock — the gap is kindsInPlay's SDK-side first-wins discarding the second kind first. `admit` is a closure inside kindsInPlay, not a standalone export. Its second parent SECTION-CONTAINS shipped at 767f4941 (verified: sdk/src/declarations.ts carries `clauseField`), leaving BUILTIN-KIND-RELOCATION-EDGE-FIELDS alone. scoped at bf2e3eba"
+  },
+  {
+    "tag": "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
+        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/drift.rs",
+          "description": "`declared_member_addresses` (:2785) answers off `MEMBER_ADDRESS_COLUMNS` (:2764) — the five families a layout document's CONTENT lowers into — so a declared member whose document yields none of them reads exactly like one emit never saw, and `undeclared_layout_members_from_doc` (:2820) names it. Two shapes reach that state: a layout of `Field` regions only (`LayoutReading.fields`, src/layout.rs:55, lands in no family at all), and a collection region whose document carries no child heading with a prose region that captured nothing. Both are permanent — re-emitting produces the same empty trace, so neither remedy the message offers clears the finding. The bound is documented at :2814-2818; this entry removes it rather than restating it. The cause is that emit's layout branch (:1275-1290) `continue`s before any rollup row and books the source only in `layout_paths` (:1289), an emit-internal set consumed by the reap diff's `owned_paths` (:1396) and written to no committed row — so the lock keeps no record that emit read the document at all. Write one: a `[[declaration.layout_source]]` family, one row per committed layout member emit lowered, carrying the host's `kind:name` address and the harness-relative source path. Write it beside `write_layout_prose` (:3039) in the same `write_declarations` call run at :513-515, lift it with the same `family(...)` helper `layout_prose_row` (:3057) uses, and keep the empty-set-writes-nothing discipline so a layout-less program's lock stays byte-identical. `declared_member_addresses` then reads THAT family alone and `MEMBER_ADDRESS_COLUMNS` retires: presence is the question the oracle asks, never content. Name two rejected alternatives in the commit body — (i) giving the layout source the `[[<kind>]]` provenance row emit skips at :1275, which would read as an emit-owned projection to the reap diff (:1391-1420) and to `config_stale`; (ii) suppressing the finding for kinds whose layout declares no row-producing region, which needs no lock change and covers only the field-only shape, leaving the emptied-collection one live."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Two regressions beside `a_declared_layout_member_draws_no_undeclared_finding` (:696), both built the same way it is (scaffold, write the document, `drift::emit`, `common::check_in`): a declared member of a FIELD-REGIONS-ONLY layout kind draws no finding, and a declared member of a collection-bearing kind whose document holds the collection heading with no child heading and no preamble draws none either. Each pins non-vacuity first the way the siblings do at :665 and :711 — assert the coverage line reports the kind's discovered count before asserting the silence. `a_discovered_layout_document_the_lock_declares_no_member_for_surfaces_an_advisory` (:643) must stay green untouched: the undeclared case still fires, with the same rule id, message and both remedies."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "The malformed-row refusal matrix (~:1640-1660, one case per declaration family) gains the new family: a `[[declaration.layout_source]]` row with a wrong-typed column refuses loud and names the family, the same shape the `satisfies` (:1653) and `mention` (:1655) cases take."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__projection_tree.snap",
+          "description": "The gauntlet's `spec` layout host (tests/gauntlet.rs:43-46) gains one `[[declaration.layout_source]]` row beside its existing `[[declaration.layout_prose]]` one (:227). Accept the moved snapshot; `gauntlet__check_diagnostics.snap` must NOT move — no diagnostic changes on the gauntlet corpus, whose layout member is declared and row-bearing."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A declared layout member whose document yields no declaration row draws `layout.undeclared-member` — a false positive neither remedy the message offers can clear.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "tests/layout_kind.rs",
+        "asserts": "a declared layout member whose document lowers into no declaration row draws no `layout.undeclared-member`, in both the field-only and empty-collection shapes, while an undeclared document still does"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a malformed `layout_source` row refuses loud, naming the family"
+      }
+    ],
+    "acceptance": "`cargo test` green with both new tests/layout_kind.rs regressions, the existing undeclared case at :643 unchanged, and `gauntlet__check_diagnostics.snap` unmoved. `layout.undeclared-member` fires on the absence of the lock's record that emit read the source, never on whether the document had content to lower, so no correctly-declared member can draw it. Per 0048's conservation bar each regression pins non-vacuity: it asserts the run judged the member (a non-zero discovered count in the coverage disclosure) before asserting the silence.",
+    "notes": "Swept 09-07 from 676467cf's own stated bound (src/drift.rs:2814-2818). Re-verified on disk: emit's layout branch `continue`s before any rollup row (drift.rs:1275-1290), so the five content families are a layout member's whole trace, and a field-only layout is rowless by construction. No test pins the false positive today. Chained on CHECK (src/drift.rs) and KINDS-IN-PLAY (tests/layout_kind.rs). scoped at bf2e3eba"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
@@ -731,7 +783,8 @@
         "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
         "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
         "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
-        "REFUSAL-MESSAGE-NAMES-THE-EDIT"
+        "REFUSAL-MESSAGE-NAMES-THE-EDIT",
+        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
       ]
     },
     "dependsOnForks": [],
@@ -806,7 +859,7 @@
       }
     ],
     "acceptance": "`rg 'fn host_address|fn nested_address|fn parse_nested_address|fn parse_leaf_address' src/` returns hits in src/member_address.rs and nowhere else, and so does `rg \"split_once\\(':'\\)\" src/` — the eight hand-splits of the host grammar route through the reader this entry ships. Every caller reads the one module. A host-qualified leaf address resolves through the same parser that reads the nested address it is a tail of, and the bare short forms both parsers accept today keep resolving. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` are green, and so is `cargo doc --no-deps --document-private-items` — the moved symbols carry intra-doc links from two files (graph.rs at :329, :1606, :1675 and :1690; compose.rs at :1199 — compose.rs:1212 is a plain `//` comment no rustdoc gate reads, so it rides) and that gate is denied crate-wide. Known prose cite left stale on purpose: sdk/src/declarations.ts:529 points at `src/read.rs`'s parse_leaf_address; a TS comment no gate reads, so it rides the next entry that opens declarations.ts (SECTION-CONTAINS-LABEL-MARKER-COLLISION or KINDS-IN-PLAY-NAME-COLLISION-REFUSAL) per the standing prose-cite rule, rather than pulling a twice-contended file into this fence.",
-    "notes": "observed at 86aa0e94 (build capture, drained); all three homes re-verified — extract.rs:742, graph.rs:1665/1678/1695, read.rs:1129/1139 — and the divergence confirmed: `resolve_leaf` (:1167) matches `features.id`, a bare id, where `parse_nested_address` demands `<kind>:<name>`. Amended twice: read.rs cites were +294 stale, `resolve_leaf` needs a real edit, `NestedAddress` goes pub, three doc links break; then the eight-site inventory landed here. scoped at 6b9eacae"
+    "notes": "observed at 86aa0e94 (build capture, drained); all three homes re-verified — extract.rs:742, graph.rs:1665/1678/1695, read.rs:1129/1139 — and the divergence confirmed: `resolve_leaf` (:1167) matches `features.id`, a bare id, where `parse_nested_address` demands `<kind>:<name>`. Amended three times: the read.rs cites were +294 stale, `NestedAddress` goes pub, the eight-site inventory landed here; then serialized behind LAYOUT-UNDECLARED-FINDING (src/drift.rs). scoped at bf2e3eba"
   },
   {
     "tag": "SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
@@ -866,5 +919,46 @@
     ],
     "acceptance": "`rg '\\}:\\$\\{|\\}/\\$\\{' sdk/src/*.ts` returns hits in sdk/src/member-address.ts and nowhere else; every producer reads the one module. `pnpm --dir sdk test` (strict tsc + node --test) is green with no behavioural diff, and `cargo test` stays green — the payload and lock rows the SDK emits are byte-identical, which is what makes this an extraction rather than a change.",
     "notes": "Filed 09-07: ab500f80 gave the Rust side one writer/parser and c60ddd3f then shipped exactly this bug class — the SDK member table indexed `kind:name` while the grammar spelled three segments. tests/seam_bindings_current.rs compares row TYPES, not the grammar, so nothing catches the ends drifting. Amended twice from cascade's audits: declarations.ts cites were 26 low, emit.ts:295 and :815 omitted, refusals.test.ts is the real pin, the new test file's description said twenty. scoped at 6b9eacae"
+  },
+  {
+    "tag": "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/compose.rs",
+          "description": "`local_document_rows` (:851) calls `read_layout_document`, which already returns the captured spans on `LayoutDocumentRows.prose` (src/drift.rs:1955), and then extends only `rows.nested` and `rows.satisfies` (:883-884) — the prose is read and dropped. Carry it: extend `rows.prose` too, and in `assemble_lock_family` (:1054-1055) collect the local kinds' prose rows into a new `local_layout_prose: Vec<drift::LayoutProseRow>` field on `LockFamily` (:405), beside `local_members` (:424) and for the same stated reason — the documents are uncommitted, so no consumer below can find them again short of a second walk that could disagree with this read. It does NOT go on `drift::Declarations` (:3331): that is the SDK→engine seam payload with a generated TS twin, and `layout_prose` is emit-derived output the seam has never carried."
+        },
+        {
+          "path": "src/read.rs",
+          "description": "`explain_target` destructures `LockFamily` at :2038 (taking `declarations` and `overlaid_builtin_kinds`) and its prose strand reads `drift::layout_prose_from_doc(&lock_doc)` at :2189 — the committed rows only. Take `local_layout_prose` off the same destructure and union it with the lock-document rows before `prose_strand` (:1989), so one narration covers both faces. Update the strand's sited comment above :2185, which today says the rows are 'a lock row keyed by the host's address' — true of the committed half only once local rows join it."
+        },
+        {
+          "path": "tests/local_locus.rs",
+          "description": "Regression: a local-locus layout kind whose document carries a preamble under a verbatim prose region — `explain <kind>:<id>` narrates the captured span, the same strand a committed layout member gets. Pins the read-time half of f07d4f84, which shipped the committed half and named this one as unwired."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A local-locus layout member's captured prose is read and dropped at read time, so `explain` narrates nothing where the committed half now narrates the span.",
+    "per": {
+      "path": "specs/intent.md",
+      "section": "Invariants"
+    },
+    "tests": [
+      {
+        "path": "tests/local_locus.rs",
+        "asserts": "`explain` on a local-locus layout member narrates its captured prose region, matching the committed half's strand"
+      }
+    ],
+    "acceptance": "`cargo test` green with the local_locus regression. A local-locus layout member's verbatim prose region reaches a read-time row and `explain`'s prose strand, so no layout document's authored span is read and dropped on either face (invariant 6). Non-vacuity per 0048's bar: the regression asserts the narrated span carries the document's actual preamble text, never merely that a strand appeared.",
+    "notes": "Swept 09-07 from f07d4f84's own stated remainder ('the local read path is compose's to wire'). Verified on disk: `LayoutDocumentRows.prose` is already populated by `read_layout_document` and discarded by `local_document_rows` at src/compose.rs:883-884, so the fix is wiring, not derivation. Chained on EXPLAIN for src/read.rs, which transitively covers src/compose.rs (BUILTIN-KIND-RELOCATION). scoped at bf2e3eba"
   }
 ]
