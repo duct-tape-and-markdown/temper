@@ -150,7 +150,12 @@ hard.
   09-07: the gate splits fresh from ignored — an inbox note or specs/
   commit the tick's worktree never held passes, and plan's handoff routes
   to plan over it — so filing to main while a plan tick runs costs one
-  extra plan tick, never a reverted one (0377962d).
+  extra plan tick, never a reverted one (0377962d). One exception the
+  gate cannot cover: when the inbox was non-empty at the tick's start the
+  tick is a drain and edits inbox.md, and an append then collides at end
+  of file — the cherry-pick fails and the tick's work is lost. File
+  mid-tick only when the inbox was empty when the tick began; otherwise
+  hold the note until plan's cherry-pick lands.
   **Trunk-commit window (flume 0.13 regression, confirmed by flume-main,
   fix in flume's inbox):** an afterMerge entry revert rewinds the trunk
   with `reset --keep` and no tip check, so an operator commit landing
