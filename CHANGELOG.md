@@ -29,8 +29,9 @@ breaking changes. Releases are small and frequent.
   Claude Code skips the file whole, hooks included, so the boundary is the
   only placement that can say so. (GH #40)
 - `explain kind:<name>` is the authoring entry point: alongside guidance and
-  cite it now renders the document shape a layout kind reads and the child
-  kinds a host admits. `explain` also accepts the engine's own
+  cite it now renders the document shape a layout kind reads, the child
+  kinds a host admits, the kind's locus and commitment, and the address form
+  a reference to one of its members takes, before any member exists. `explain` also accepts the engine's own
   `<kind>:<name>` member address and the full `<host-address>/<kind>/<key>`
   nested spelling. (GH #47, #49)
 - A nested member can be addressed by its full host-qualified address
