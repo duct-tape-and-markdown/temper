@@ -138,7 +138,8 @@ hard.
   lifetime is the WSL VM's: WSL shut down 09-06 12:42 with a build wave
   mid-flight (four dirty worktrees, no commits lost) and the loop died
   with it; relaunched on the VM's return. Keep a WSL terminal open for
-  the run's duration, or run the loop under a service. Relaunch with
+  the run's duration, or run the loop under a service (second death 09-06
+  20:00, mid-build tick, nothing lost). Relaunch with
   `FLUME_WORKTREES_DIR` exported in the shell: the supervisor sweeps stale
   worktrees BEFORE loading chain.ts, so the chain's `??=` is invisible to
   the sweep (flume-main's root cause for the four branch-delete failures;
