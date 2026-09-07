@@ -319,6 +319,97 @@ pub fn at_locus_under_workspace_admissibility(
     diagnostics
 }
 
+/// The diagnostic `rule` id a kind declaring more than one verbatim prose region reports
+/// under. Sibling of other layout-coherence checks: the region is a declared template,
+/// and a second verbatim prose region is a permanent no-op (Layout::read lands the preamble
+/// in the first one only), so declaring it is a malformed definition.
+const LAYOUT_DUPLICATE_PROSE_REGION_RULE: &str = "layout.duplicate-prose-region";
+
+/// A [`LAYOUT_DUPLICATE_PROSE_REGION_RULE`] finding per kind declaring more than one
+/// verbatim (non-import) prose region in its layout — the second and every subsequent
+/// prose region without an import can never carry a byte, so declaring it is a permanent
+/// no-op the admissible set excludes.
+pub fn layout_duplicate_prose_region_admissibility(
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    custom_rows: &[&drift::KindFactRow],
+    _declarations: &drift::Declarations,
+) -> Result<Vec<check::Diagnostic>, drift::LockRowError> {
+    let mut diagnostics = Vec::new();
+
+    for kind in overlaid_builtin_kinds.values() {
+        if let crate::kind::Content::Layout(layout) = &kind.content {
+            let verbatim_prose_regions: Vec<_> = layout
+                .regions
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, region)| match region {
+                    crate::layout::LayoutRegion::Prose { import: None } => Some(idx),
+                    _ => None,
+                })
+                .collect();
+
+            if verbatim_prose_regions.len() > 1 {
+                let names = verbatim_prose_regions
+                    .iter()
+                    .map(|idx| format!("region {}", idx))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                diagnostics.push(check::Diagnostic::error(
+                    LAYOUT_DUPLICATE_PROSE_REGION_RULE,
+                    &kind.name,
+                    format!(
+                        "kind `{}` declares {} verbatim prose regions ({}) — only the first \
+                         verbatim prose region can carry text (Layout::read lands the preamble \
+                         there only), so a second or later verbatim prose region is a permanent \
+                         no-op; declare imports for additional prose, or remove the duplicates",
+                        kind.name,
+                        verbatim_prose_regions.len(),
+                        names
+                    ),
+                ));
+            }
+        }
+    }
+
+    for row in custom_rows {
+        let custom_kind = CustomKind::from_kind_fact_row(row)?;
+        if let crate::kind::Content::Layout(layout) = &custom_kind.content {
+            let verbatim_prose_regions: Vec<_> = layout
+                .regions
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, region)| match region {
+                    crate::layout::LayoutRegion::Prose { import: None } => Some(idx),
+                    _ => None,
+                })
+                .collect();
+
+            if verbatim_prose_regions.len() > 1 {
+                let names = verbatim_prose_regions
+                    .iter()
+                    .map(|idx| format!("region {}", idx))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                diagnostics.push(check::Diagnostic::error(
+                    LAYOUT_DUPLICATE_PROSE_REGION_RULE,
+                    &custom_kind.name,
+                    format!(
+                        "kind `{}` declares {} verbatim prose regions ({}) — only the first \
+                         verbatim prose region can carry text (Layout::read lands the preamble \
+                         there only), so a second or later verbatim prose region is a permanent \
+                         no-op; declare imports for additional prose, or remove the duplicates",
+                        custom_kind.name,
+                        verbatim_prose_regions.len(),
+                        names
+                    ),
+                ));
+            }
+        }
+    }
+
+    Ok(diagnostics)
+}
+
 /// The diagnostic `rule` id for two distinct kinds resolving to the same `governs`
 /// (root+glob) locus. Sibling of [`KIND_COLLISION_RULE`], which guards the bare-name
 /// namespace; this one guards the locus namespace — a document's kind is its position

@@ -237,6 +237,14 @@ pub fn gate(
         &custom_rows,
         &declarations,
     ));
+    // A kind declaring more than one verbatim prose region declares a permanent no-op: only
+    // the first verbatim prose region can carry text, so declaring a second or later one is
+    // a malformed definition.
+    diagnostics.extend(admissibility::layout_duplicate_prose_region_admissibility(
+        &overlaid_builtin_kinds,
+        &custom_rows,
+        &declarations,
+    )?);
     for row in custom_rows {
         let custom_kind = CustomKind::from_kind_fact_row(row)?;
         let contract = compose::with_joined_clauses(

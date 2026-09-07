@@ -457,3 +457,63 @@ fn a_heading_with_children_swallowed_as_field_when_collection_section_missing_re
         err
     );
 }
+
+#[test]
+fn check_refuses_a_layout_declaring_two_verbatim_prose_regions() {
+    // A layout kind declaring more than one verbatim (non-import) prose region is a
+    // permanent no-op: Layout::read lands the preamble in the first prose region only,
+    // so a second prose region without an import can never carry a byte. The admissibility
+    // gate refuses this loud as a malformed kind definition.
+    let root = common::tmpdir("layout-duplicate-prose");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![KindFactRow {
+                content: Some(LayoutRow {
+                    regions: vec![
+                        LayoutRegionRow {
+                            region: "prose".to_string(),
+                            import: None,
+                            slot: None,
+                            member_kind: None,
+                            key: None,
+                        },
+                        LayoutRegionRow {
+                            region: "field".to_string(),
+                            import: None,
+                            slot: Some("section".to_string()),
+                            member_kind: None,
+                            key: None,
+                        },
+                        LayoutRegionRow {
+                            region: "prose".to_string(),
+                            import: None,
+                            slot: None,
+                            member_kind: None,
+                            key: None,
+                        },
+                    ],
+                }),
+                ..common::kind_facts("spec", "specs", "*.md")
+            }],
+            ..Default::default()
+        },
+    );
+
+    let run = common::check_in(&root, &[], None);
+    assert!(
+        !run.ok,
+        "a layout declaring two verbatim prose regions must make check exit non-zero, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("duplicate-prose-region"),
+        "the refusal must name the rule, got:\n{}",
+        run.output
+    );
+    assert!(
+        run.output.contains("region 0") && run.output.contains("region 2"),
+        "the refusal must name both prose regions (0 and 2), got:\n{}",
+        run.output
+    );
+}
