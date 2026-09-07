@@ -38,7 +38,8 @@ alongside the code (`entry.tests[]` names what must turn green).
   an existing test your change breaks — do NOT ship doomed work.** File the
   exact path(s) and why as a `build-<slug>.md` capture in `.flume/refactor/`
   (plan drains it and re-scopes the entry), commit the capture alone, and
-  end the tick.
+  end the tick. The list is complete only under `cargo test --no-fail-fast`
+  — the default stops at the first red target and hides every later one.
 - `<premise-delta>` shows what already landed on the entry's files since it
   was scoped: an already-landed fix narrows the entry to its remainder, or
   empties it (leave it uncommitted and say so in the report).
