@@ -188,11 +188,15 @@ pub struct CheckRun {
 }
 
 impl CheckRun {
-    /// Returns the github-reporter finding lines — each one `::error`/`::warning …`.
-    /// An announced input is not a finding and rides `::notice`, so it is not one of
-    /// these ([`CheckRun::announcements`] is its reader).
+    /// Returns the github-reporter finding lines — each one `::error`/`::warning`/`::notice …`.
+    /// Error and warning findings are blocking or advisory contract violations; note findings
+    /// are disclosure summaries (what was checked, never blocking). Announced inputs also ride
+    /// `::notice` ([`CheckRun::announcements`] is the reader for those).
     pub fn findings(&self) -> Vec<String> {
         self.workflow_commands("::error", "::warning")
+            .into_iter()
+            .chain(self.workflow_commands("::notice", "::notice"))
+            .collect()
     }
 
     /// Returns the github-reporter announcement lines — each one `::notice …`, naming

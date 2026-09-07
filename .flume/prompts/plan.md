@@ -64,7 +64,16 @@ rule on a digest line.
 1. **Inbox** — `<inbox>` has content or `<refactor-captures>` holds live
    captures. Route each inbox line into pending (with a `per` cite),
    open-questions (no clean cite, or a product fork), or accepted debt
-   (noted in the commit body); remove drained lines. Drain each refactor
+   (noted in the commit body); remove drained lines **by their
+   `- observed at` heading, leaving every other byte of the file identical**
+   — an operator's append and your removal then land in different hunks
+   and the cherry-pick stays clean. Account for every removed note on one
+   body line the harness checks at merge:
+   `Inbox routed: N — dest; dest; …` — one destination group per removed
+   note, in inbox order; a destination is a pending `TAG`, a keyed
+   `(fork-slug)`, `debt`, or `amended:TAG` / `widened:TAG`; several for one
+   note join with `+`. A note that leaves the inbox and appears on no such
+   line reverts the tick. Drain each refactor
    capture into a pending entry citing `specs/process/engineering.md` and
    DELETE the capture file — a claim that no longer holds at HEAD is deleted
    with a note in the commit body (`.flume/refactor/README.md`). A report's claimed

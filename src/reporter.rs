@@ -100,7 +100,11 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
         .iter()
         .filter(|diagnostic| diagnostic.severity == Severity::Warn)
         .collect();
-    if blocking.is_empty() && advisory.is_empty() && announcement.is_empty() {
+    let notes: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Note)
+        .collect();
+    if blocking.is_empty() && advisory.is_empty() && notes.is_empty() && announcement.is_empty() {
         return None;
     }
 
@@ -135,6 +139,18 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
         }
         out.push_str("Advisory findings:\n");
         for diagnostic in &advisory {
+            out.push_str(&format!(
+                "  - [{}] {}: {}\n",
+                diagnostic.rule, diagnostic.artifact, diagnostic.message
+            ));
+        }
+    }
+    if !notes.is_empty() {
+        if !blocking.is_empty() || !advisory.is_empty() {
+            out.push('\n');
+        }
+        out.push_str("Disclosure notes:\n");
+        for diagnostic in &notes {
             out.push_str(&format!(
                 "  - [{}] {}: {}\n",
                 diagnostic.rule, diagnostic.artifact, diagnostic.message
@@ -190,7 +206,11 @@ pub fn github(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
         ));
     }
     for diagnostic in diagnostics {
-        let command = severity_word(diagnostic.severity);
+        let severity = severity_word(diagnostic.severity);
+        let command = match severity {
+            "note" => "notice",
+            other => other,
+        };
         // `title=` carries the rule (escaped as a property value); the artifact
         // rides the body so the annotation names what it is about, then the
         // message (both escaped as command data).
@@ -263,11 +283,13 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
 }
 
 /// Map a [`Severity`] to its normalized word — used by both GitHub and SARIF
-/// renderers to produce a consistent severity string.
+/// renderers to produce a consistent severity string. For GitHub, `note` is mapped
+/// to `notice` by [`github`]; for SARIF, `note` is used directly as a level.
 fn severity_word(severity: Severity) -> &'static str {
     match severity {
         Severity::Error => "error",
         Severity::Warn => "warning",
+        Severity::Note => "note",
     }
 }
 

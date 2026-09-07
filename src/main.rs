@@ -248,8 +248,9 @@ fn main() -> miette::Result<ExitCode> {
             }
 
             // `--deny-advisories` promotes `advisory` (warn) violations to blocking on top
-            // of the always-blocking `required` ones. The session-start reporter is
-            // advisory, so it never gates.
+            // of the always-blocking `required` ones. Note-severity disclosures never block,
+            // even under `--deny-advisories`. The session-start reporter is advisory, so it
+            // never gates.
             let advisory_blocks = deny_advisories
                 && diagnostics
                     .iter()

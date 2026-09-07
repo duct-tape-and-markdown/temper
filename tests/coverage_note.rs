@@ -102,7 +102,7 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
     let (findings, success) = check_harness(&harness);
 
     // (1) The checked-summary names each kind's member count — silence never reads as
-    // "checked". Exactly one summary, `warning`, reporting the two skills checked.
+    // "checked". Exactly one summary, a disclosure note, reporting the two skills checked.
     let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
         checked.len(),
@@ -111,8 +111,8 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
     );
     let summary = checked[0];
     assert!(
-        summary.starts_with("::warning "),
-        "the checked summary is advisory (warn), got: {summary}"
+        summary.starts_with("::notice "),
+        "the checked summary is a disclosure note (never blocking), got: {summary}"
     );
     assert!(
         summary.contains("skill (2)"),
@@ -160,18 +160,24 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
         "the flag cites the Claude Code docs at the point of claim, got: {finding}"
     );
 
-    // The note never gates: no coverage finding is an `::error`, and the clean run
-    // still exits success.
+    // The note never gates: no coverage finding is an `::error`, coverage.checked
+    // is a disclosure note (::notice), coverage.unmodeled-surface is advisory (::warning),
+    // and the clean run still exits success.
     assert!(
         common::findings_for(&findings, "coverage.checked")
             .iter()
-            .chain(common::findings_for(&findings, "coverage.unmodeled-surface").iter())
+            .all(|line| line.starts_with("::notice ")),
+        "coverage.checked is a disclosure note, got: {findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "coverage.unmodeled-surface")
+            .iter()
             .all(|line| line.starts_with("::warning ")),
-        "every coverage-note finding is advisory, got: {findings:#?}"
+        "coverage.unmodeled-surface findings are advisory, got: {findings:#?}"
     );
     assert!(
         success,
-        "the advisory coverage note must not fail the run, got: {findings:#?}"
+        "the coverage note must not fail the run, got: {findings:#?}"
     );
 }
 

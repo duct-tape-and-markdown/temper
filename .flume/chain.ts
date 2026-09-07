@@ -159,21 +159,33 @@ const scopedDelta = (ctx: TickContext): string => {
  * fork-parked spec content never pins the marker. Fail OPEN on bookkeeping
  * errors (missing files, unparseable cursor): a degradation is a missed
  * catch, never a wedged loop.
+ *
+ * Every claim this gate checks is a TRUNK claim — an undrained inbox, a
+ * capture left in place, a specs/ commit past the cursor — so it runs at
+ * afterMerge, on the trunk, after the cherry-pick: an operator note committed
+ * to main after plan's worktree branched is invisible to the tick's own tree
+ * but real on the trunk, and the tick that yields to build over it must be
+ * reverted, not merged. `after-build` is as quiet a claim as `no` (both hand
+ * the baton away asserting the inputs are clear), so both are held to it.
+ * A drain is also held to conservation: every note removed is accounted for
+ * on an `Inbox routed:` line in the commit body, each destination resolving
+ * to a pending tag, a keyed fork, or a named debt/amendment — a note that
+ * leaves the inbox and lands nowhere is the silent loss this gate exists for.
  */
 const planHonestyGate: Gate = {
   name: "continuation marker is honest",
-  when: "afterCommit",
+  when: "afterMerge",
   async run(ctx) {
     // A plan-phase honesty check judges plan's own commits alone: a stale
     // marker written by an earlier tick is not the current commit's
     // dishonesty, and a human `specs:` commit that merely moves HEAD past
     // a cursor is never this gate's to revert. Fail open when the subject
     // is unreadable, per the gate's own posture.
-    if (ctx.commitSha) {
+    {
       try {
         const subject = execFileSync(
           "git",
-          ["show", "-s", "--format=%s", ctx.commitSha],
+          ["show", "-s", "--format=%s", ctx.commitSha ?? "HEAD"],
           { cwd: ctx.repoRoot, encoding: "utf8" },
         ).trim();
         if (!subject.startsWith("plan:")) {
@@ -183,18 +195,16 @@ const planHonestyGate: Gate = {
         // unreadable subject — fall through to the checks, failing open
       }
     }
-    // Every read below is anchored to the commit under judgment, never the
-    // disk this evaluation happens to run on: flume ≥0.12 evaluates a
-    // singleton's gates both in the agent worktree and at the merge site,
-    // and the primary checkout's tree (which the engine no longer touches)
-    // holds the PREVIOUS tick's files — a disk read there judged the commit
-    // by a stale state.md and an inbox it had in fact drained (first
-    // observed reverting the 2026-08-26 inbox-drain tick). Disk is the
-    // fallback only when there is no commit to read (fail-open posture).
-    const fromCommit = (path: string): string | null => {
-      if (!ctx.commitSha) return null;
+    // Every read below is anchored to the TRUNK after the merge (`HEAD` in
+    // ctx.repoRoot), never the tick's own tree and never the disk: the tick's
+    // tree cannot see an operator commit that landed on main after its
+    // worktree branched (2026-09-06: plan yielded to build over seven such
+    // notes), and the primary checkout's disk holds the previous tick's files
+    // (first observed reverting the 2026-08-26 inbox-drain tick). A missing
+    // trunk read falls open, per the gate's posture.
+    const fromTrunk = (path: string, rev = "HEAD"): string | null => {
       try {
-        return execFileSync("git", ["show", `${ctx.commitSha}:${path}`], {
+        return execFileSync("git", ["show", `${rev}:${path}`], {
           cwd: ctx.repoRoot,
           encoding: "utf8",
         });
@@ -202,6 +212,7 @@ const planHonestyGate: Gate = {
         return null;
       }
     };
+    const fromCommit = (path: string): string | null => fromTrunk(path);
     let stateText: string;
     const committedState = fromCommit(".flume/plan/state.md");
     if (committedState !== null) {
@@ -223,8 +234,70 @@ const planHonestyGate: Gate = {
         message: `state.md is ${stateLines} lines (cap 30) — it is a ledger, not a narrative; move reasoning/evidence to the plan commit body and keep \`This tick:\` to one line`,
       };
     }
-    if (!/^Plan continues:\s*no\b/im.test(stateText)) {
+    if (!/^Plan continues:\s*(no|after-build)\b/im.test(stateText)) {
       return { ok: true, message: "marker is yes/absent — re-wake handles it" };
+    }
+    // Conservation of the drain: notes removed from the inbox by this merge are
+    // each accounted for on an `Inbox routed: N — dest; dest; …` body line,
+    // where a dest is a pending tag, a `(fork-slug)`, `debt`, or
+    // `amended:TAG` / `widened:TAG`; several per note join with `+`.
+    {
+      const notesIn = (text: string | null): number =>
+        (text ?? "").split("\n").filter((l) => /^- observed at /.test(l)).length;
+      const removed = notesIn(fromTrunk(".flume/inbox.md", "HEAD~1")) - notesIn(fromTrunk(".flume/inbox.md"));
+      if (removed > 0) {
+        let body = "";
+        try {
+          body = execFileSync("git", ["show", "-s", "--format=%b", "HEAD"], {
+            cwd: ctx.repoRoot,
+            encoding: "utf8",
+          });
+        } catch {
+          body = "";
+        }
+        const routed = /^Inbox routed:\s*(\d+)\s*[—-]\s*(.+)$/im.exec(body);
+        if (!routed) {
+          return {
+            ok: false,
+            message: `this merge removed ${removed} inbox note(s) but the commit body carries no \`Inbox routed: N — …\` line — every drained note must name where it went`,
+          };
+        }
+        const claimed = Number(routed[1]);
+        const dests = routed[2].split(";").map((d) => d.trim()).filter(Boolean);
+        if (claimed !== removed || dests.length !== removed) {
+          return {
+            ok: false,
+            message: `Inbox routed: claims ${claimed} note(s) with ${dests.length} destination(s), but this merge removed ${removed} — one destination group per removed note`,
+          };
+        }
+        let tags = new Set<string>();
+        try {
+          const parsed = JSON.parse(fromTrunk(".flume/plan/pending.json") ?? "[]") as unknown;
+          const list = Array.isArray(parsed)
+            ? parsed
+            : (Object.values(parsed as Record<string, unknown>).find(Array.isArray) as unknown[] | undefined) ?? [];
+          tags = new Set(list.map((e) => String((e as { tag?: string }).tag ?? "")));
+        } catch {
+          tags = new Set<string>(); // unreadable queue — resolution below fails closed on tags only
+        }
+        const forks = fromTrunk(".flume/plan/open-questions.md") ?? "";
+        const unresolved = dests
+          .flatMap((group) => group.split("+").map((d) => d.trim()))
+          .filter((d) => {
+            if (/^debt\b/i.test(d)) return false;
+            const m = /^(?:amended|widened|entry):?\s*([A-Z0-9-]+)$/i.exec(d) ?? /^([A-Z][A-Z0-9-]+)$/.exec(d);
+            if (m) return !tags.has(m[1]);
+            const f = /^\(([a-z0-9-]+)\)$/.exec(d);
+            if (f) return !forks.includes(`(${f[1]})`);
+            return true;
+          });
+        if (unresolved.length > 0) {
+          return {
+            ok: false,
+            message: `Inbox routed: destination(s) resolve to no pending tag, fork, or debt line: ${unresolved.join(", ")}`,
+          };
+        }
+      }
     }
     // Marker says quiet. Live input 1: an undrained inbox.
     {
@@ -247,11 +320,11 @@ const planHonestyGate: Gate = {
     // Live input 2: undrained refactor captures (plan-drained, unlike friction).
     {
       let captures: string[] = [];
-      if (ctx.commitSha) {
+      {
         try {
           captures = execFileSync(
             "git",
-            ["ls-tree", "--name-only", ctx.commitSha, "--", ".flume/refactor/"],
+            ["ls-tree", "--name-only", "HEAD", "--", ".flume/refactor/"],
             { cwd: ctx.repoRoot, encoding: "utf8" },
           )
             .split("\n")
@@ -259,14 +332,6 @@ const planHonestyGate: Gate = {
             .filter((f) => f.endsWith(".md") && !f.endsWith("README.md"));
         } catch {
           captures = []; // unreadable tree — fail open
-        }
-      } else {
-        try {
-          captures = (await readdir(join(ctx.flumeDir, "refactor"))).filter(
-            (f) => f.endsWith(".md") && f !== "README.md",
-          );
-        } catch {
-          captures = []; // no refactor directory — nothing undrained
         }
       }
       if (captures.length > 0) {
@@ -282,7 +347,7 @@ const planHonestyGate: Gate = {
       try {
         const out = execFileSync(
           "git",
-          ["log", "--format=%h", `${cursor}..${ctx.commitSha ?? "HEAD"}`, "--", "specs/"],
+          ["log", "--format=%h", `${cursor}..HEAD`, "--", "specs/"],
           { cwd: ctx.repoRoot, encoding: "utf8" },
         ).trim();
         if (out.length > 0) {
