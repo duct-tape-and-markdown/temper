@@ -28,6 +28,10 @@
 !`CURSOR=$(grep -oE '^- Spec derived through: [0-9a-f]+' .flume/plan/state.md 2>/dev/null | grep -oE '[0-9a-f]+$'); [ -z "$CURSOR" ] && CURSOR=$(git log -1 --format=%h --grep='^plan:' 2>/dev/null); if [ -n "$CURSOR" ]; then echo "specs/ commits past the spec cursor ($CURSOR):"; git log --reverse --format='%h %s' "$CURSOR"..HEAD -- specs/; echo; git diff --stat "$CURSOR"..HEAD -- specs/ | tail -15; else echo "(no cursor and no prior plan commit — treat the whole corpus as the delta)"; fi`
 </spec-delta>
 
+<files-ripple>
+!`node .flume/ripple.mjs 2>/dev/null || echo "(ripple unavailable)"`
+</files-ripple>
+
 <src-tree>
 !`{ find src tests -name '*.rs'; find sdk/src sdk/test -name '*.ts'; } 2>/dev/null | sort`
 </src-tree>
@@ -82,6 +86,14 @@ rule on a digest line.
    have narrowed or moved since filing. A note stamped `observed at <sha>`
    narrows the re-verify to `git log <sha>..HEAD` — diff forward from what
    the reporter saw. Scope to the verified gap, never the reported one.
+   **Before an entry is filed or rewritten, reconcile `<files-ripple>`**:
+   it lists, per pickable entry, the tree paths the entry's own named
+   symbols reach but its `files[]` omits. Each path is either a real
+   consumer (widen `files[]` — an enum or type change reaches every match
+   site, a new finding reaches its wiring site in `gate.rs`, a diagnostic's
+   text reaches `tests/gauntlet.rs` and its `.snap`) or noise you can name;
+   an entry that ships with an unreconciled ripple reverts on the fence at
+   one run per miss (eleven of nineteen build attempts on 2026-09-06).
 
 2. **Spec delta** — `<spec-delta>` lists `specs/` commits past the cursor.
    Read each commit's diff (`git show <sha> -- specs/`) — ratified intent

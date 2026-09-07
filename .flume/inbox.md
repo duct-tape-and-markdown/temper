@@ -64,3 +64,24 @@ routing.
   with `current_dir = root` and `"."` as the argument. GUARD-MANIFEST-WRITE
   is building now and shares `install.rs`/`tests/install.rs` — chain.
   #40 fix (1) verified live in the same run (settings.json Edit blocked).
+
+- observed at 97399cc1 (cascade-integrations, live run of the origin build
+  against a real block-mode harness) — GH #40's two fixes together create a
+  regression on the co-owned manifest: `Edit`/`MultiEdit` to
+  `.claude/settings.json` is refused wholesale with the ".claude/ is
+  projected from the .temper/ surface" message, even an Edit touching only
+  an unmodeled key (`autoMemoryEnabled`, `permissions.allow`) — untrue of
+  a partially governed manifest, and allowed on 0.0.17. Mechanism:
+  `main.rs` runs `manifest_write_findings` first; it returns `None` for an
+  Edit (no whole-file content to judge); the payload falls through to
+  `install::guard`, where fix (1) now lists settings.json as emit-owned.
+  Fix: apply `old_string → new_string` to the on-disk file and run the
+  result through `manifest_write_findings`, so Edit and Write share one
+  rule (the co-owned posture: a write touching only opaque residue is
+  legitimate); fallback, a manifest-specific denial naming the governed
+  members and pointing at Write. Add a test for the residue-only Edit.
+  Verified live in the same run: both #40 fixes bind under `guard .`
+  (drop/empty/`{}` → exit 2 `guard.manifest-dropped-member`; identical or
+  residue-only Write → pass); #49 resolves every kind:name form and
+  refuses `rules:collaboration`; typed leaves f089d445 typechecks
+  cascade's harness with zero drift.
