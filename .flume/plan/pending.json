@@ -2,10 +2,7 @@
   {
     "tag": "GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CHECK-DENY-ADVISORIES-COVERAGE-NOTE-SEVERITY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -126,79 +123,6 @@
     ],
     "acceptance": "A markdown projection with frontmatter, freshly emitted with no prior install run, carries both its managed-projection banner (where applicable) and its frontmatter note; check's gate_installed reports no finding for it.",
     "notes": "observed at bf4b4168 (GH #57). bccf42c0 moved banner placement from install to emit but left the note behind — the part-authored/part-emitted gap invariant 7 forbids, for the note instead of the banner. Subtraction candidate rides along: once emit places both, install's note placement over emit-owned projections is a duplicate to retire — name it in the shipping commit body. Chained on drift.rs/install.rs collisions with the guard/install cluster. scoped at bf4b4168"
-  },
-  {
-    "tag": "CHECK-DENY-ADVISORIES-COVERAGE-NOTE-SEVERITY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "Severity (~19) is a closed two-value enum (Error, Warn); Diagnostic (~35) carries no way to mark a warn-severity finding as disclosure rather than a dialable advisory violation. Add the distinction — a third Severity variant, or a `note`/non-violation flag on Diagnostic — that `--deny-advisories` treats as never-blocking while every reporter still prints it."
-        },
-        {
-          "path": "src/coverage_note.rs",
-          "description": "check (~49) pushes the `coverage.checked` per-kind summary unconditionally at warn severity (its own doc comment: \"Returns warn-severity diagnostics only\"). Mark it with the new non-violation distinction — it is disclosure (what was checked), never a violation a corpus could tune."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "The `--deny-advisories` exit-flip (~250-256) currently promotes ANY warn-severity diagnostic to blocking; it must skip the new non-violation marker so a clean harness's own coverage.checked note never trips it."
-        },
-        {
-          "path": "tests/acceptance.rs",
-          "description": "New case: a clean represented harness (no contract violations) run with `--deny-advisories` exits zero, though `coverage.checked` is present in the output — the case no existing test asserts."
-        },
-        {
-          "path": "src/reporter.rs",
-          "description": "Every reporter renders Severity by matching all its variants — add the new non-violation variant/flag to each match arm so it still prints (disclosure, never suppressed) rather than failing to compile or silently dropping the note."
-        },
-        {
-          "path": "tests/common/mod.rs",
-          "description": "The shared test harness helper constructs Diagnostic/Severity values other test files reuse; widen it for the new variant so dependent tests keep compiling."
-        },
-        {
-          "path": "tests/coverage_note.rs",
-          "description": "Existing assertions pin coverage.checked's severity as plain `warn` — update them to assert the new non-violation marker instead."
-        },
-        {
-          "path": "tests/gauntlet.rs",
-          "description": "The gauntlet's own kitchen-sink corpus check run carries a coverage.checked note in its pinned diagnostics; once the non-violation marker changes what a reporter prints for it (or a case is added exercising --deny-advisories over the corpus), this fixture is a real consumer, not incidental."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "Pins the exact rendered coverage.checked line (currently a plain `::warning title=coverage.checked::…`); update via `cargo insta review` once the reporter's non-violation rendering for this diagnostic lands."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "src/check.rs",
-      "src/coverage_note.rs",
-      "src/main.rs",
-      "src/reporter.rs",
-      "tests/acceptance.rs",
-      "tests/common/mod.rs",
-      "tests/coverage_note.rs",
-      "tests/gauntlet.rs",
-      "tests/snapshots/gauntlet__check_diagnostics.snap"
-    ],
-    "summary": "check --deny-advisories can never pass: the coverage.checked disclosure note is pushed at warn severity unconditionally, and --deny-advisories treats any warn as a blocking violation.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/acceptance.rs",
-        "asserts": "a clean harness with `check --deny-advisories` exits zero even though the coverage.checked summary is present in the diagnostics"
-      }
-    ],
-    "acceptance": "`--deny-advisories` promotes only real advisory violations to blocking, never the coverage.checked disclosure note; a clean represented harness exits zero under it.",
-    "notes": "observed at e1b26728 (cascade GH #42). Intent invariant 5: a shipped coverage clause enters advisory so it is dialable, not so it blocks CI — coverage.checked is disclosure, never a violation. Widened at fb89f675 (gate-revert 1 of 2: a new Severity variant ripples to every renderer and the shared test helper) — files[] now states the ripple up front. scoped at bf4b4168"
   },
   {
     "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
@@ -434,6 +358,11 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      "sdk/src/emit.ts",
+      "sdk/src/index.ts",
+      "sdk/test/emit.test.ts"
+    ],
     "summary": "A render hook cannot cite a nested member by its bare or host-qualified key: edgeTargetFacts throws on an embedded value naming another host's embedded value.",
     "per": {
       "path": "specs/model/representation.md",
@@ -446,12 +375,7 @@
       }
     ],
     "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright. Scoped to the SDK's own rendering path for bare-unique keys and the host-qualified spelling end-to-end at emit; full nested-address resolution at `check` (graph::target_identity has no `/` grammar; embedded_member_features is host-blind) stays out of scope, tracked by GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS / NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY. Per 0049's amendment, this entry's bare-key index is one of the ambiguity bar's named consumers: a duplicate bare `kind:key` across hosts must refuse via uniqueMap (not silently pick one), matching graph::resolves and explain's why_impl. The regression pins non-vacuity: it asserts a real resolved target/thrown refusal, not an empty index short-circuiting either way (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168: items (5)-(7) — index both spellings via the refusing uniqueMap path (never memberTable's registration-row last-wins), fix isProjected/projectionPath order, widen the value type, scope check-side resolution out. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. scoped at 727cceb2",
-    "observedFiles": [
-      "sdk/src/emit.ts",
-      "sdk/src/index.ts",
-      "sdk/test/emit.test.ts"
-    ]
+    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168: items (5)-(7) — index both spellings via the refusing uniqueMap path (never memberTable's registration-row last-wins), fix isProjected/projectionPath order, widen the value type, scope check-side resolution out. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. scoped at 727cceb2"
   },
   {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
