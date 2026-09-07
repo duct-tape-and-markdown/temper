@@ -452,7 +452,16 @@ const BUILD_CHANNEL_PATHS = [
  * channels, but NOT a channel for the ship predicate — a commit touching
  * only it is a ship, never a capture.
  */
-const BUILD_SURFACE_PATHS = ["sdk/src/index.ts"];
+const BUILD_SURFACE_PATHS = [
+  "sdk/src/index.ts",
+  // insta snapshots are the rendered assertions of the whole corpus: a
+  // diagnostic's text or a projection's bytes move here with the change,
+  // and the ripple cannot derive them (the assertion is snapshot bytes, not
+  // a symbol). Six fence misses on 2026-09-06 were a `.snap` alone. The
+  // afterMerge test gate and the entry's acceptance still judge what a
+  // build accepts; the fence only stops partitioning on them.
+  "tests/snapshots/**",
+];
 
 /** Prefix forms of the channel globs, for the ship predicate's path test. */
 const CHANNEL_PREFIXES = BUILD_CHANNEL_PATHS.map((g) => g.replace(/\*\*$/, ""));
