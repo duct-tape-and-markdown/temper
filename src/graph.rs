@@ -22,7 +22,10 @@ use crate::contract::{EdgeBound, Predicate};
 use crate::engine::{self, Selection};
 use crate::extract::{FeatureValue, Features};
 use crate::kind::Registration;
-use crate::read::{parse_leaf_address, resolve_leaf};
+use crate::member_address::{
+    embedded_source_host, parse_host_address, parse_leaf_address, parse_nested_address,
+};
+use crate::read::resolve_leaf;
 
 thread_local! {
     /// Per-thread count of resolved-edge computations. Incremented each time the
@@ -375,11 +378,12 @@ pub fn degree(
 
 /// The host member an edge's source belongs to, or `None` when the source is no embedded
 /// member: read off the source's **own address** when it carries its host
-/// ([`embedded_source_host`]), else off the caller's `(kind, key)` index — the spelling a
-/// declaration row uses when it names an embedded member by key alone.
+/// ([`embedded_source_host`](crate::member_address::embedded_source_host)), else off the
+/// caller's `(kind, key)` index — the spelling a declaration row uses when it names an
+/// embedded member by key alone.
 fn edge_host(from: &Node, embedded_hosts: &BTreeMap<Node, Node>) -> Option<Node> {
-    if let Some((_, host)) = embedded_source_host(&from.1) {
-        return Some(host);
+    if let Some((_, (host_kind, host_name))) = embedded_source_host(&from.1) {
+        return Some((host_kind.to_string(), host_name.to_string()));
     }
     embedded_hosts.get(from).cloned()
 }
@@ -1420,13 +1424,13 @@ const EMBEDDED_LEAF_KIND: &str = "embedded";
 /// that member's node and a bare name (no `:`) addresses a requirement under the reserved
 /// [`REQUIREMENT_KIND`].
 fn node_from_address(address: &str) -> Node {
-    if crate::read::parse_leaf_address(address).is_some() {
+    if parse_leaf_address(address).is_some() {
         return (EMBEDDED_LEAF_KIND.to_string(), address.to_string());
     }
     if let Some(nested) = parse_nested_address(address) {
         return (nested.kind.to_string(), address.to_string());
     }
-    match address.split_once(':') {
+    match parse_host_address(address) {
         Some((kind, name)) => (kind.to_string(), name.to_string()),
         None => (REQUIREMENT_KIND.to_string(), address.to_string()),
     }
@@ -1741,7 +1745,7 @@ fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'
     }
 
     // Fall back to bare address format: kind:name
-    let (kind, identity) = target.split_once(':')?;
+    let (kind, identity) = parse_host_address(target)?;
     to.iter()
         .find(|declared| declared.as_str() == kind)
         .map(|declared| (declared.as_str(), identity))
@@ -1820,95 +1824,6 @@ fn member_named<'f>(members: &'f [Features], identity: &str) -> Option<&'f Featu
     }
 }
 
-/// One parsed **nested-member address** — `<host-address>/<kind>/<key>`
-/// (`skill:use-when-x/hook/on-enter`), the identity `specs/model/representation.md`
-/// ("member") spells for a nested member and the one
-/// [`crate::compose::embedded_features_by_kind`] writes onto every embedded member it
-/// lifts. One parser reads the grammar for every site that reads it — which declared kind
-/// an address names ([`target_identity`]), which member it is ([`member_named`]), and
-/// which host an embedded member's edge belongs to ([`edge_host`]) — so the readers cannot
-/// come to disagree about what an address is.
-struct NestedAddress<'a> {
-    /// The host member's own `<kind>:<name>` address — the segment before the first `/`.
-    host: &'a str,
-    /// The host member's kind — the half of `host` before its `:`.
-    host_kind: &'a str,
-    /// The host member's name — the half of `host` after its `:`.
-    host_name: &'a str,
-    /// The nested member's kind.
-    kind: &'a str,
-    /// The nested member's key among its host's members of that kind.
-    key: &'a str,
-}
-
-/// Spell a nested member's address from its host address, kind and key — the writer beside
-/// [`parse_nested_address`], so the grammar has one home rather than a `format!` per
-/// producer.
-#[must_use]
-pub fn nested_address(host: &str, kind: &str, key: &str) -> String {
-    format!("{host}/{kind}/{key}")
-}
-
-/// Parse a nested-member address, or `None` when `address` is not one.
-///
-/// The grammar is **exactly three** segments — a `<kind>:<name>` host address, the nested
-/// kind, the key — each of them non-empty: an address names exactly one thing or the verb
-/// refuses, so a segment-shaped hole names nothing.
-///
-/// The **leaf tail is ruled out here, explicitly**: `representation.md` spells `/<leaf>`
-/// *beneath* a nested address, and a leaf is its own grain — one addressable authored
-/// string, parsed by [`crate::read::parse_leaf_address`] and resolved against the
-/// serialized leaves. So a fourth segment is no member address: it resolves to no member
-/// and dangles under the name its author wrote, rather than truncating to the member that
-/// happens to contain the leaf — which would answer a leaf reference with a member and put
-/// an arc the author never wrote into the graph.
-fn parse_nested_address(address: &str) -> Option<NestedAddress<'_>> {
-    let (host, rest) = address.split_once('/')?;
-    let (kind, key) = rest.split_once('/')?;
-    // Three segments and no more: a fourth is the `/<leaf>` tail, a different grain.
-    if key.contains('/') || kind.is_empty() || key.is_empty() {
-        return None;
-    }
-    // The host segment is itself a member address, so it carries a kind and a name.
-    let (host_kind, host_name) = host.split_once(':')?;
-    if host_kind.is_empty() || host_name.is_empty() {
-        return None;
-    }
-    Some(NestedAddress {
-        host,
-        host_kind,
-        host_name,
-        kind,
-        key,
-    })
-}
-
-/// The two nodes an embedded member's own address names: its `(kind, key)` — the short
-/// spelling a declaration row uses when it names an embedded member by key alone — and
-/// its **host**'s `(kind, name)`. `None` when `address` is no nested-member address.
-///
-/// The reader half of the grammar [`nested_address`] writes: every consumer that needs a
-/// nested member's host reads it here, off the member's own identity, rather than
-/// re-splitting the address on its own ([`edge_host`], the citation-scoping index
-/// [`embedded_hosts_by_key`] the gate hands `mention_reachable`).
-#[must_use]
-pub fn embedded_source_host(address: &str) -> Option<(Node, Node)> {
-    let nested = parse_nested_address(address)?;
-    Some((
-        (nested.kind.to_string(), nested.key.to_string()),
-        (nested.host_kind.to_string(), nested.host_name.to_string()),
-    ))
-}
-
-/// The **key** segment of a nested member's own address, or `None` when `address` is no
-/// nested-member address — the bare short form a reference may spell, read through the
-/// one parser rather than a fresh split at each reader (`crate::read`'s `explain`
-/// resolution is the other one).
-#[must_use]
-pub fn nested_key(address: &str) -> Option<&str> {
-    parse_nested_address(address).map(|nested| nested.key)
-}
-
 /// Each embedded member's `(kind, key)` node keyed to its **host**'s node — the index
 /// `mention_reachable` needs to judge a body-carried citation under its host's scope,
 /// since an embedded-carried edge keys its source to the embedded member, never the host
@@ -1928,9 +1843,13 @@ pub fn nested_key(address: &str) -> Option<&str> {
 pub fn embedded_hosts_by_key(by_kind: &BTreeMap<&str, &[Features]>) -> BTreeMap<Node, Node> {
     let mut hosts: BTreeMap<Node, Option<Node>> = BTreeMap::new();
     for features in by_kind.values().flat_map(|members| members.iter()) {
-        let Some((source, host)) = embedded_source_host(&features.id) else {
+        let Some(((source_kind, source_key), (host_kind, host_name))) =
+            embedded_source_host(&features.id)
+        else {
             continue;
         };
+        let source: Node = (source_kind.to_string(), source_key.to_string());
+        let host: Node = (host_kind.to_string(), host_name.to_string());
         hosts
             .entry(source)
             .and_modify(|carrier| {

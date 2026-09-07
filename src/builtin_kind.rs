@@ -18,11 +18,12 @@ use serde_json::Value as JsonValue;
 
 use crate::compose::Edge;
 use crate::drift::NestedMemberRow;
-use crate::extract::{self, Features};
+use crate::extract::Features;
 use crate::kind::{
     CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Format, Governs,
     Primitive, Registration, Template, Unit,
 };
+use crate::member_address;
 use crate::tap::TapEvent;
 
 /// The Claude Code harness root directory.
@@ -675,7 +676,7 @@ pub fn rule_features(unit: &Unit) -> Features {
 pub fn features(kind: &CustomKind, unit: &Unit, nested_members: &[NestedMemberRow]) -> Features {
     let mut features = kind.extract(unit);
     features.nested_members = crate::drift::nested_members_from_rows(
-        &extract::host_address(&kind.name, &unit.id),
+        &member_address::host_address(&kind.name, &unit.id),
         nested_members,
     );
     for (key, value) in &unit.frontmatter {

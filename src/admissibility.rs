@@ -13,8 +13,8 @@ use crate::contract::Contract;
 use crate::drift;
 use crate::engine;
 use crate::extract;
-use crate::graph;
 use crate::kind::CustomKind;
+use crate::member_address;
 
 /// The embedded kinds the lock declares: every child kind a host names, whether through
 /// its `templates` column — a *path-less* entry, the embedded layer; a `path` templates a
@@ -111,7 +111,7 @@ pub fn nested_member_coincidence(declarations: &drift::Declarations) -> Vec<chec
                     "`{host}` declares the nested member `{}` {count} times — one address \
                      naming {count} members, a coincidence no reader can resolve; a host's \
                      `(kind, key)` names exactly one of its nested members",
-                    graph::nested_address(host, kind, key),
+                    member_address::nested_address(host, kind, key),
                 ),
             )
         })

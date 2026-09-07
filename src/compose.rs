@@ -31,6 +31,7 @@ use crate::import;
 use crate::json_manifest;
 use crate::kind::{self, CollectionAddress, CustomKind, Unit};
 use crate::layout::Layout;
+use crate::member_address;
 use crate::toml_document;
 use walkdir;
 
@@ -740,7 +741,7 @@ pub fn resolve_kind_units(
     };
 
     for unit in &mut units {
-        let address = extract::host_address(&kind.name, &unit.id);
+        let address = member_address::host_address(&kind.name, &unit.id);
         for row in &declarations.satisfies {
             if row.member != address && row.member != unit.id {
                 continue;
@@ -1049,7 +1050,7 @@ pub fn assemble_lock_family(
         local_members.extend(
             units
                 .iter()
-                .map(|unit| extract::host_address(&kind.name, &unit.id)),
+                .map(|unit| member_address::host_address(&kind.name, &unit.id)),
         );
         assembled.nested_members.extend(rows.nested);
         assembled.satisfies.extend(rows.satisfies);
@@ -1210,8 +1211,8 @@ fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, B
 /// The fields are the author's leaves and **nothing else**. The row's `host` is not among
 /// them: every clause reads this map as the member's typed fields, so a key no author
 /// wrote is one a `closed-keys` clause bound to the kind indicts its author for. The host
-/// rides the member's **identity** instead ([`graph::nested_address`]), where an address's
-/// host segment belongs and where graph resolution already reads it.
+/// rides the member's **identity** instead ([`member_address::nested_address`]), where an
+/// address's host segment belongs and where graph resolution already reads it.
 fn embedded_member_features(
     row: &drift::NestedMemberRow,
     edge_fields: &BTreeSet<String>,
@@ -1223,9 +1224,9 @@ fn embedded_member_features(
         .collect();
     extract::Features {
         // The member's identity is its address, and a nested member's address carries its
-        // host ([`graph::nested_address`]): two hosts may each key a member `common`, and
-        // the host segment is the whole of what tells them apart.
-        id: graph::nested_address(&row.host, &row.kind, &row.key),
+        // host ([`member_address::nested_address`]): two hosts may each key a member
+        // `common`, and the host segment is the whole of what tells them apart.
+        id: member_address::nested_address(&row.host, &row.kind, &row.key),
         fields,
         body_lines: 0,
         // The rendered span `emit` captured off the value's own projection, lifted from

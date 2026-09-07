@@ -18,6 +18,7 @@ use crate::graph;
 use crate::import;
 use crate::install;
 use crate::kind::{self, CustomKind};
+use crate::member_address;
 use crate::roster;
 
 /// Dispatch a single kind through the shared "two-greens" contract validation:
@@ -115,7 +116,7 @@ fn committed_member_sites(
             };
             match class {
                 SiteClass::Layout => sites.layout.push(drift::LayoutMemberSite {
-                    member: extract::host_address(&kind.name, &unit.id),
+                    member: member_address::host_address(&kind.name, &unit.id),
                     source_path,
                 }),
                 SiteClass::File => sites.file.push(drift::LocusMemberSite {

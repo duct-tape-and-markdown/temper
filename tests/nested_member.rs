@@ -742,7 +742,7 @@ mod host_qualified_addresses {
     use temper::drift::{AssemblyFactRow, Declarations, KindFactRow, NestedMemberRow, TemplateRow};
     use temper::extract::Features;
     use temper::kind::{CustomKind, Extraction, Governs};
-    use temper::{admissibility, builtin_kind, compose, drift, graph, read};
+    use temper::{admissibility, builtin_kind, compose, drift, graph, member_address, read};
 
     use crate::common;
 
@@ -814,6 +814,21 @@ mod host_qualified_addresses {
                 )]),
                 "# Alpha\n",
                 "specs/alpha.md",
+            ),
+            rows,
+        )
+    }
+
+    /// A host member carrying no reference field — `alpha`'s counterpart for the cases
+    /// that need a second host in the corpus rather than a second edge.
+    fn host(name: &str, rows: &[NestedMemberRow]) -> Features {
+        builtin_kind::features(
+            &service_kind(),
+            &common::raw_unit(
+                name,
+                BTreeMap::new(),
+                "# Host\n",
+                &format!("specs/{name}.md"),
             ),
             rows,
         )
@@ -1116,6 +1131,39 @@ mod host_qualified_addresses {
             "the finding names the whole authored address, got: {}",
             dangling[0]
         );
+    }
+
+    #[test]
+    fn the_same_leaf_tailed_address_does_name_a_leaf() {
+        // The twin of the refusal above, and the whole reason the two grains share one
+        // parser: `service:beta/domain/common/purpose` names no MEMBER and does name a
+        // LEAF. The head is the host address the nested-member address carries, read the
+        // same way at both grains.
+        let declarations = declarations();
+        let embedded = compose::embedded_features_by_kind(&declarations);
+        let hosts = BTreeMap::from([(
+            "service".to_string(),
+            vec![
+                alpha(&declarations.nested_members, "domain:common"),
+                host("beta", &declarations.nested_members),
+            ],
+        )]);
+        let by_kind = compose::assemble_by_kind(&hosts, &[], &embedded);
+
+        let parsed = member_address::parse_leaf_address("service:beta/domain/common/purpose")
+            .expect("four segments is leaf grain");
+        assert_eq!(parsed.member, "service:beta");
+        let (outer_kind, value) =
+            read::resolve_leaf(&by_kind, &parsed).expect("`beta` carries the `purpose` leaf");
+        assert_eq!(outer_kind, "service");
+        assert_eq!(value, "a domain");
+
+        // Non-vacuity: the host segment is load-bearing, not decoration — the same
+        // `(kind, key, leaf)` under a host the corpus has no member for resolves nowhere,
+        // even though `alpha` carries a `common` domain with a `purpose` of its own.
+        let ghost = member_address::parse_leaf_address("service:ghost/domain/common/purpose")
+            .expect("four segments is leaf grain");
+        assert!(read::resolve_leaf(&by_kind, &ghost).is_none());
     }
 
     #[test]

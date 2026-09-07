@@ -61,6 +61,7 @@ pub mod json_manifest;
 pub(crate) mod json_splice;
 pub mod kind;
 pub mod layout;
+pub mod member_address;
 pub mod path;
 pub mod placement;
 pub mod read;

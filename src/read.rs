@@ -54,6 +54,7 @@ use crate::drift;
 use crate::extract::{self, Features, MemberAddress};
 use crate::graph::{self, DIRECTIVE_FIELD, ResolvedEdge};
 use crate::kind::{self, CustomKind, Registration};
+use crate::member_address::{self, ParsedLeaf, nested_key, parse_leaf_address};
 use crate::roster;
 use crate::tap;
 use crate::tap::TapRecord;
@@ -243,9 +244,9 @@ fn resolve<'a>(
     // A nested member's own `<host-address>/<kind>/<key>` address is its identity, so it
     // resolves by equality against the composed corpus — read before the `<kind>:<name>`
     // split below, whose first `:` would take the *host*'s kind for the member's and miss.
-    // A four-segment leaf address is no member address ([`graph::nested_key`] rules it
-    // out) and falls through to the leaf branch, its own grain.
-    if graph::nested_key(target).is_some()
+    // A four-segment leaf address is no member address ([`nested_key`] rules it
+    // out) and falls to the leaf branch directly below, its own grain.
+    if nested_key(target).is_some()
         && by_kind
             .values()
             .flat_map(|members| members.iter())
@@ -254,7 +255,16 @@ fn resolve<'a>(
         return Species::Member(target);
     }
 
-    if let Some((kind_str, name)) = target.split_once(':')
+    // The leaf grain, ahead of the `<kind>:<name>` split for the same reason: the
+    // canonical leaf address opens with a host address, whose first `:` the split below
+    // would take for the leaf's own and answer `NotFound` under a member's kind. A
+    // malformed `/`-bearing target still reaches the leaf branch further down, where the
+    // leaf reader narrates the malformation in its own voice.
+    if parse_leaf_address(target).is_some() {
+        return Species::Leaf(target);
+    }
+
+    if let Some((kind_str, name)) = member_address::parse_host_address(target)
         && by_kind.contains_key(kind_str)
     {
         let members = by_kind[kind_str];
@@ -287,7 +297,7 @@ fn resolve<'a>(
     let nested: Vec<&'a str> = by_kind
         .values()
         .flat_map(|members| members.iter())
-        .filter(|features| graph::nested_key(&features.id) == Some(target))
+        .filter(|features| nested_key(&features.id) == Some(target))
         .map(|features| features.id.as_str())
         .collect();
 
@@ -1007,7 +1017,7 @@ fn why_one(
         // A nested member of a kind the corpus happens to name `requirement` is a member,
         // not the reserved requirement node — its id is its whole address, which the
         // reserved node's bare name never is.
-        let target = if to_kind == graph::REQUIREMENT_KIND && graph::nested_key(to_id).is_none() {
+        let target = if to_kind == graph::REQUIREMENT_KIND && nested_key(to_id).is_none() {
             format!("requirement `{to_id}`")
         } else {
             format!("`{to_id}` ({to_kind})")
@@ -1171,38 +1181,6 @@ fn impact_impl(
     out
 }
 
-/// A parsed **leaf address** — the `<member>/<kind>/<key>/<child-path>` spelling `impact`
-/// accepts to name a single nested member's leaf. The three identity segments are `/`-separated; the child
-/// path keeps its own dots (`rejected.baked-projection.because`), so it is the whole
-/// remainder after the third slash — `splitn(4, '/')`, never a plain split that would
-/// mangle a dotted collection path.
-pub struct ParsedLeaf<'a> {
-    pub member: &'a str,
-    pub kind: &'a str,
-    pub key: &'a str,
-    pub child_path: &'a str,
-}
-
-/// Parse a `/`-bearing `target` into its four leaf-address segments, or `None` when a
-/// segment is empty (a malformed address the caller reports as such). Keyed and structural
-/// — the address rides the shape the author already wrote, stable under content edits.
-pub fn parse_leaf_address(target: &str) -> Option<ParsedLeaf<'_>> {
-    let mut parts = target.splitn(4, '/');
-    let member = parts.next()?;
-    let kind = parts.next()?;
-    let key = parts.next()?;
-    let child_path = parts.next()?;
-    if member.is_empty() || kind.is_empty() || key.is_empty() || child_path.is_empty() {
-        return None;
-    }
-    Some(ParsedLeaf {
-        member,
-        kind,
-        key,
-        child_path,
-    })
-}
-
 /// Resolve a parsed leaf address against the lock's **serialized nested-member leaves**
 /// ([`Features::embedded_leaves`]) — the tier-1, offline read the leaf-grain `impact` stands
 /// on. Returns the matched leaf's outer kind and authored value, or `None` when no
@@ -1212,9 +1190,17 @@ pub fn resolve_leaf<'a>(
     by_kind: &BTreeMap<&str, &'a [Features]>,
     parsed: &ParsedLeaf<'_>,
 ) -> Option<(String, &'a str)> {
+    // The head is a `<kind>:<name>` host address canonically and a bare member id in the
+    // short form the lock already commits, so both spellings resolve. Cut once, ahead of
+    // the scan — the head is the same for every member — and cut by the grammar's own
+    // reader, so which member a head names is the reading every other consumer of the
+    // address gets.
+    let qualified = member_address::parse_host_address(parsed.member);
     for (&outer_kind, members) in by_kind {
         for features in *members {
-            if features.id != parsed.member {
+            let named = features.id == parsed.member
+                || qualified.is_some_and(|(kind, name)| kind == outer_kind && name == features.id);
+            if !named {
                 continue;
             }
             for (address, value) in features.embedded_leaves() {
@@ -2032,8 +2018,7 @@ fn prose_strand(rows: &[drift::LayoutProseRow], member: &str) -> String {
     let mine: Vec<&drift::LayoutProseRow> = rows
         .iter()
         .filter(|row| {
-            row.member
-                .split_once(':')
+            member_address::parse_host_address(&row.member)
                 .map_or(row.member.as_str(), |(_, name)| name)
                 == member
         })

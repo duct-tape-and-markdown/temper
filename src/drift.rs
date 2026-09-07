@@ -26,7 +26,6 @@ use toml_edit::{
 
 use crate::compose;
 use crate::contract;
-use crate::extract::host_address;
 use crate::graph;
 use crate::hash::{canonicalize_eol, sha256_hex};
 use crate::kind::{
@@ -34,6 +33,7 @@ use crate::kind::{
     commitment_from_row, content_from_row, format_from_row,
 };
 use crate::layout::{Layout, LayoutRegion};
+use crate::member_address::{host_address, parse_host_address};
 use crate::path::HarnessRelativePath;
 use std::cell::Cell;
 
@@ -892,8 +892,7 @@ fn nested_file_path(
         detail,
     };
     let address = host.ok_or_else(|| refuse("it names no host member".to_string()))?;
-    let (host_kind, host_name) = address
-        .split_once(':')
+    let (host_kind, host_name) = parse_host_address(address)
         .ok_or_else(|| refuse(format!("its host `{address}` is no `kind:name` address")))?;
     let host_facts = kind_facts
         .get(host_kind)

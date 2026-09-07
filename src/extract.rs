@@ -735,14 +735,6 @@ fn fence_info(line: &str, fence_char: char) -> String {
         .to_string()
 }
 
-/// This host member's own `kind:name` lock address — the key
-/// [`crate::drift::NestedMemberRow::host`] carries, the identical `${kind}:${name}`
-/// form `sdk/src/declarations.ts`'s `nestedMemberRows` writes it in.
-#[must_use]
-pub fn host_address(kind: &str, id: &str) -> String {
-    format!("{kind}:{id}")
-}
-
 /// The fence marker a line carries, if any: the fence character (`` ` `` or
 /// `~`) and its run length (≥3). Up to three leading spaces are allowed before
 /// the run; four or more is an indented code block, not a fence. Heading and
@@ -1160,11 +1152,6 @@ prose below\n";
         assert_eq!(ValueType::from_name("array"), None);
         assert_eq!(ValueType::from_name("int"), None);
         assert_eq!(ValueType::from_name(""), None);
-    }
-
-    #[test]
-    fn host_address_is_kind_colon_id() {
-        assert_eq!(host_address("rule", "collaboration"), "rule:collaboration");
     }
 
     #[test]

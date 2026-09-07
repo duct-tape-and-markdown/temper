@@ -250,25 +250,42 @@ fn a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage(
     let roster: BTreeMap<String, Requirement> = BTreeMap::new();
 
     // A leaf address never dispatches to `why`/`requirements`, so no custom member is
-    // needed to back it.
-    let out = explain(
+    // needed to back it. Both spellings of the leaf's head are driven: the canonical
+    // `<kind>:<name>` host address the nested grain spells, and the bare member id the
+    // committed locks and the SDK's own leaf writer use. One grammar, two accepted
+    // spellings, one narration.
+    for target in [
+        "spec:20-surface/decision/surface-authority/chosen",
+        "20-surface/decision/surface-authority/chosen",
+    ] {
+        let out = explain(&[], &by_kind, &roster, target);
+        assert!(
+            out.contains("leaf grain:"),
+            "impact's leaf-grain header for `{target}`: {out}"
+        );
+        assert!(
+            out.contains("its declared neighborhood"),
+            "context's leaf-grain header for `{target}`: {out}"
+        );
+        assert!(out.contains("Fallout: none"), "`{target}`: {out}");
+        assert!(
+            out.contains("Coverage:"),
+            "a leaf-grain answer discloses coverage (`specs/intent.md`) for `{target}`: {out}"
+        );
+    }
+
+    // Non-vacuity beside the two that resolve: a leaf address whose head names a member
+    // under the wrong kind resolves to nothing, so the assertions above are not passing on
+    // a head the resolver ignores.
+    let foreign = explain(
         &[],
         &by_kind,
         &roster,
-        "20-surface/decision/surface-authority/chosen",
+        "rule:20-surface/decision/surface-authority/chosen",
     );
     assert!(
-        out.contains("leaf grain:"),
-        "impact's leaf-grain header: {out}"
-    );
-    assert!(
-        out.contains("its declared neighborhood"),
-        "context's leaf-grain header: {out}"
-    );
-    assert!(out.contains("Fallout: none"), "{out}");
-    assert!(
-        out.contains("Coverage:"),
-        "a leaf-grain answer discloses coverage (`specs/intent.md`): {out}"
+        foreign.contains("No leaf"),
+        "a host-qualified head naming the wrong kind resolves to no leaf: {foreign}"
     );
 }
 

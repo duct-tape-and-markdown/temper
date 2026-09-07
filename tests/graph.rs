@@ -2066,6 +2066,86 @@ mod target_set {
             }
         }
 
+        /// The canonical spelling of the same leaf: the head is the host's own
+        /// `<kind>:<name>` address, which is what the nested-member address this leaf is a
+        /// tail of carries. Pinned beside the bare short form below so the one parser is
+        /// held to both — retiring either would re-spell locks the corpus already commits.
+        #[test]
+        fn a_mention_targeting_a_host_qualified_embedded_leaf_resolves_clean() {
+            let root = common::tmpdir("mention-embedded-leaf-qualified");
+            fs::create_dir_all(root.join("specs")).unwrap();
+            fs::write(root.join("specs/note.md"), "# Note\n\nBody.\n").unwrap();
+            common::write_rule_skill_harness(
+                &root,
+                "style",
+                &routing_rule("standards"),
+                "standards",
+                &common::clean_skill("standards"),
+            );
+
+            common::write_lock(
+                &root,
+                Declarations {
+                    mentions: vec![common::mention(
+                        "rule:style",
+                        "note:note/requirement/my-req/chosen",
+                    )],
+                    kinds: vec![note_kind()],
+                    nested_members: vec![requirement_row("my-req", "some value")],
+                    ..Declarations::default()
+                },
+            );
+
+            let run = common::check_in(&root, &[], None);
+            assert!(
+                run.ok,
+                "a mention targeting a host-qualified embedded leaf resolves ⇒ zero, got:\n{}",
+                run.output
+            );
+        }
+
+        #[test]
+        fn a_host_qualified_mention_with_a_bogus_key_still_fires_a_route_finding() {
+            // Non-vacuity for the case above: the canonical spelling is not a spelling the
+            // resolver waves through — a key no nested member carries dangles under it
+            // exactly as it does under the bare form.
+            let root = common::tmpdir("mention-embedded-leaf-qualified-bogus");
+            fs::create_dir_all(root.join("specs")).unwrap();
+            fs::write(root.join("specs/note.md"), "# Note\n\nBody.\n").unwrap();
+            common::write_rule_skill_harness(
+                &root,
+                "style",
+                &routing_rule("standards"),
+                "standards",
+                &common::clean_skill("standards"),
+            );
+
+            common::write_lock(
+                &root,
+                Declarations {
+                    mentions: vec![common::mention(
+                        "rule:style",
+                        "note:note/requirement/ghost-req/chosen",
+                    )],
+                    kinds: vec![note_kind()],
+                    nested_members: vec![requirement_row("my-req", "some value")],
+                    ..Declarations::default()
+                },
+            );
+
+            let run = common::check_in(&root, &[], None);
+            assert!(
+                !run.ok,
+                "a host-qualified leaf address under a bogus key dangles ⇒ non-zero, got:\n{}",
+                run.output
+            );
+            assert!(
+                run.output.contains("graph.route"),
+                "the finding is a route one, got:\n{}",
+                run.output
+            );
+        }
+
         #[test]
         fn a_mention_targeting_a_real_embedded_leaf_resolves_clean() {
             let root = common::tmpdir("mention-embedded-leaf-resolves");
