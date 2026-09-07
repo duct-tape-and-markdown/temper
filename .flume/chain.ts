@@ -833,9 +833,12 @@ const factory: ChainFactory = (flume) => {
     phases: [plan, build],
     humanOnly: [], // no spec phase; the specs/ corpus is authored in-session, never by a phase
     entryExtension,
-    // No `supervisorPolicy`: the v0.7 defaults (quarantineScope "run",
-    // abortThreshold 3, maxParallel 4) match the behavior this bay ran under
-    // pre-0.8, and the metrics record gives no reason to move any knob.
+    // v0.7 defaults (quarantineScope "run", abortThreshold 3) except the
+    // width: this host has ~7 GB and shares it with flume's own loop, and a
+    // wave of four cargo builds plus the trunk gate contends past it (one
+    // supervisor was memory-killed 2026-09-06). Two in flight while both
+    // loops run; the supervisor reads this at launch only.
+    supervisorPolicy: { maxParallel: 2 },
   };
 
   /**
