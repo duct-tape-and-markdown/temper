@@ -116,6 +116,26 @@ pub enum LayoutError {
         /// The unadmitted heading.
         heading: String,
     },
+
+    /// A field or collection region bound a heading with children, while a later
+    /// heading-bound region stayed unbound — the heading's structure was swallowed
+    /// by the wrong region, shifting every later binding by one heading. Covers both
+    /// the title-swallow shape (an extra leading heading) and a missing-section shift
+    /// (a declared section absent, so its position consumed an unrelated heading).
+    #[error(
+        "{path}: heading `{swallowed}` has children but was consumed by {consumed_slot}, leaving {starved_slot} unbound"
+    )]
+    #[diagnostic(code(temper::layout::swallowed_heading))]
+    SwallowedHeading {
+        /// The layout document at fault.
+        path: PathBuf,
+        /// The heading whose children were swallowed.
+        swallowed: String,
+        /// The field or collection slot that wrongly consumed the heading.
+        consumed_slot: String,
+        /// The field or collection slot left unbound because its heading was consumed.
+        starved_slot: String,
+    },
 }
 
 impl Layout {
@@ -142,16 +162,16 @@ impl Layout {
     ) -> Result<LayoutReading, LayoutError> {
         let tree = extract::body_heading_tree(body);
         let mut reading = LayoutReading::default();
-        // The cursor into the document's top-level headings the field/collection regions
-        // consume in order; a preamble taken once by the first verbatim prose region.
         let mut cursor = 0;
         let mut preamble_taken = false;
+        // Track when a field/collection with children consumed a heading, to detect
+        // if the next region is left unbound (structure mismatch).
+        let mut last_swallowed: Option<(String, String)> = None;
+
         for region in &self.regions {
             match region {
                 LayoutRegion::Prose { import } => {
-                    // An importing prose region resolves elsewhere (LAYOUT-PROSE-IMPORT);
-                    // a verbatim one takes the document preamble, once. The blank lines
-                    // that separate regions are structure, trimmed off the captured span.
+                    last_swallowed = None;
                     let span = if import.is_none() && !preamble_taken {
                         preamble_taken = true;
                         extract::body_preamble(body).trim().to_string()
@@ -163,7 +183,23 @@ impl Layout {
                 LayoutRegion::Field { slot } => {
                     // No heading left for the slot: it reads absent, not loud.
                     let Some(node) = next_heading(&tree, &mut cursor) else {
+                        // If the last region swallowed a heading with children, and this
+                        // field is now unbound, the structure is misaligned.
+                        if let Some((swallowed, consumed)) = last_swallowed {
+                            return Err(LayoutError::SwallowedHeading {
+                                path: source_path.to_path_buf(),
+                                swallowed,
+                                consumed_slot: consumed,
+                                starved_slot: slot.clone(),
+                            });
+                        }
                         continue;
+                    };
+                    // Track if this field consumed a heading with children.
+                    last_swallowed = if !node.children.is_empty() {
+                        Some((node.heading.clone(), slot.clone()))
+                    } else {
+                        None
                     };
                     if edge_fields.contains(slot) {
                         reading
@@ -178,7 +214,23 @@ impl Layout {
                 LayoutRegion::Collection { member_kind, key } => {
                     // No heading left for the collection: it reads with zero members.
                     let Some(node) = next_heading(&tree, &mut cursor) else {
+                        // If the last region swallowed a heading with children, and this
+                        // collection is now unbound, the structure is misaligned.
+                        if let Some((swallowed, consumed)) = last_swallowed {
+                            let collection_name = format!("{member_kind} (collection)");
+                            return Err(LayoutError::SwallowedHeading {
+                                path: source_path.to_path_buf(),
+                                swallowed,
+                                consumed_slot: consumed,
+                                starved_slot: collection_name,
+                            });
+                        }
                         continue;
+                    };
+                    last_swallowed = if !node.children.is_empty() {
+                        Some((node.heading.clone(), member_kind.clone()))
+                    } else {
+                        None
                     };
                     for child in &node.children {
                         reading.members.push(read_collection_member(

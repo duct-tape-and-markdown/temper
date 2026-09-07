@@ -416,3 +416,44 @@ fn check_refuses_a_non_fitting_relocated_builtin_layout_document() {
         run.output
     );
 }
+
+#[test]
+fn a_heading_with_children_swallowed_by_field_leaving_collection_unbound_refuses_loud() {
+    // A document with a leading title heading that has subsections, followed by no
+    // other top-level sections. The layout expects field(intent), collection(invariant).
+    // The field region consumes the title heading (with children), leaving the collection
+    // unbound — a heading-count mismatch that silently shifts all later regions.
+    let layout = intent_layout();
+    let doc = "# Title\n\n## Loud or nothing\nA description\n\n## The projection is not the database\nAnother description\n";
+
+    let err = layout
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
+        .unwrap_err();
+
+    assert!(matches!(err, LayoutError::SwallowedHeading { .. }));
+    assert!(
+        err.to_string().contains("Title"),
+        "must name the swallowed heading: {}",
+        err
+    );
+}
+
+#[test]
+fn a_heading_with_children_swallowed_as_field_when_collection_section_missing_refuses_loud() {
+    // A document where the declared field section is missing entirely, so the next
+    // top-level heading (which has children and was meant to be the collection) gets
+    // consumed by the field region, leaving the collection unbound.
+    let layout = intent_layout();
+    let doc = "# Invariants\n\n## Loud or nothing\nA description\n\n## The projection is not the database\nAnother description\n";
+
+    let err = layout
+        .read(doc, std::path::Path::new("specs/intent.md"), &no_edges())
+        .unwrap_err();
+
+    assert!(matches!(err, LayoutError::SwallowedHeading { .. }));
+    assert!(
+        err.to_string().contains("Invariants"),
+        "must name the swallowed heading: {}",
+        err
+    );
+}
