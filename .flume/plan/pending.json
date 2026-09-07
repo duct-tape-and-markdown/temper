@@ -54,7 +54,7 @@
         },
         {
           "path": "tests/read_verbs.rs",
-          "description": "Regressions on a MEMBER-LESS surface, per tests[] — the non-vacuity bar is that the fixture carries zero members of the explained kind, so the lines cannot be coming from a corpus read. `explain_kind` (:819) is the helper both new tests use; it synthesizes contracts from the rows, so a kind is only resolvable if it has a row. Keep the existing arm at :1065 where a kind with no row at all still prints its clean \"nothing declared\" line rather than falling silent. It is NOT byte-for-byte: it asserts `contains(\"No authoring guidance is declared\")` (:1101) and the absence of a `‣` marker (:1105), so the reword must keep that opening clause and may change only the tail after the em dash — and the address form must ride the same guard, or the arm goes red on the marker-free line growing an address it has no row to source. No snapshot moves: nothing under tests/snapshots/ asserts explain-kind output, and the CLI-driven `explain_in` calls in tests/layout_kind.rs and tests/lock_declaration_rows.rs all target members, not kinds."
+          "description": "Regressions on a MEMBER-LESS surface, per tests[] — the non-vacuity bar is that the fixture carries zero members of the explained kind, so the lines cannot be coming from a corpus read. `explain_kind` (:819) is the helper both new tests use; it synthesizes contracts from the rows, so a kind is only resolvable if it has a row. Keep the existing arm at :1065 where a kind with no row at all still prints its clean \"nothing declared\" line rather than falling silent. It is NOT byte-for-byte: it asserts `contains(\"No authoring guidance is declared\")` (:1101) and the absence of a `‣` marker (:1105), so the reword must keep that opening clause and may change only the tail after the em dash — and the address form must ride the same guard, or the arm goes red on the marker-free line growing an address it has no row to source. No snapshot moves: nothing under tests/snapshots/ asserts explain-kind output, and every CLI-driven `common::explain_in` call in the tree targets a MEMBER, never a kind — tests/layout_kind.rs, tests/lock_declaration_rows.rs, tests/layout_edge_slot.rs:259 (`guide`) and tests/requirement_roster.rs:742/:846 (`data-retention`, `memory-doc`) — so `narrate_kind`'s new strands reach none of them (ripple-reconciled at bb246cc2)."
         },
         {
           "path": "tests/common/mod.rs",
@@ -80,6 +80,56 @@
     ],
     "acceptance": "On a surface carrying no member of the kind, `explain kind:<name>` prints where a member of it lands and how a reference to one is spelled, alongside the guidance, layout and hosted-kind strands 3dcc73f1 already renders — the read verb narrating a kind, not only a kind that already has members. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
     "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
+  },
+  {
+    "tag": "SDK-MENTION-DEFERRAL-READS-THE-ADDRESS-GRAMMAR",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "sdk/src/prose.ts",
+          "description": "`defersToGate` (:77-80) is the one reader of the host-address grammar still spelling it by hand — `address.includes(\"/\")`, then `indexOf(\":\")` with a `colon > 0` test — beside `sdk/src/member-address.ts`, which f35c06e6 (SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME) made the home the twenty-one writers round-trip against. Route it through `parseHostAddress`: `const host = parseHostAddress(address); return host !== undefined && deferrableKinds.has(host.kind);`. The doc comment above it restates the `/` and `:` rules in prose — rewrite it to cite the grammar module's reader rather than re-spell the segments, and name the verdict it now takes on a name-less address."
+        },
+        {
+          "path": "sdk/src/member-address.ts",
+          "description": "`parseHostAddress` (:100) refuses an empty kind and an empty name; narrow it so a name carrying `/` is no host address either — the `/` is this grammar's own segment separator (`segment`, :120, splits on it) and the segmented spellings have their own readers (`parseNestedAddress`, `parseLeafAddress`). That is what lets `defersToGate` drop its `includes(\"/\")` guard without changing its verdict on a nested or leaf address: an unresolved `skill:x/hook/on-enter` must keep refusing at emit, not defer because `skill` is deferrable. The narrowing lands here rather than as a second guard at the call site because the function's only callers today are this module and its test (`rg parseHostAddress sdk/src`)."
+        },
+        {
+          "path": "sdk/src/declarations.ts",
+          "description": "`declaredAtLocusKinds`'s doc (:975-979) states the deferral signal in prose and points at `prose.ts`'s `defersToGate`; ride the new name-less verdict into that sentence if it no longer reads true. Verify-only otherwise — no code change is expected here."
+        },
+        {
+          "path": "sdk/test/member-address.test.ts",
+          "description": "The round-trip arm (:24-38) pins `[\"collaboration\", \":collaboration\", \"rule:\"]` as the segment-shaped holes `parseHostAddress` answers `undefined` for; add a `/`-carrying name (e.g. `skill:x/hook/on-enter`) to that list, so the narrowing is pinned where the grammar's own reader is tested."
+        },
+        {
+          "path": "sdk/test/mention.test.ts",
+          "description": "The two verdicts this consolidation moves, pinned beside the existing deferral arms (:95 defers on a declared at-locus kind, :113 refuses on an undeclared one): a mention of `<declared-at-locus-kind>:` — no name — refuses at emit (`a mention cannot dangle`) where it defers today, and an unresolved nested-shaped address whose head kind IS deferrable still refuses, the verdict `includes(\"/\")` holds today and `parseHostAddress` holds after."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "`defersToGate` hand-reads the host-address grammar beside the module that owns it — route it through the grammar's reader and pin the two verdicts that moves.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "sdk/test/mention.test.ts",
+        "asserts": "a mention of a declared at-locus kind with no name (`source:`) refuses at emit rather than deferring to check, and an unresolved `<deferrable-kind>:<name>/<kind>/<key>` address still refuses"
+      },
+      {
+        "path": "sdk/test/member-address.test.ts",
+        "asserts": "`parseHostAddress` answers `undefined` for a name carrying `/`, beside the existing segment-shaped holes"
+      }
+    ],
+    "acceptance": "`pnpm --dir sdk test` green (strict `tsc` + `node --test`) with both pins. `defersToGate` carries no `\":\"` or `\"/\"` literal — the grammar module is its only path to the host address, matching the Rust half where every reader routes through `src/member_address.rs`.",
+    "notes": "Drained from .flume/refactor/build-sdk-address-reader-outside-the-home.md (observed at d6b1740f); re-verified on disk this tick — the hand-read stands unchanged. The entry owns two verdict moves: a name-less address goes from deferring to a loud emit refusal, and the `/` rule moves into `parseHostAddress` instead of staying a call-site guard. Disjoint from the queue's other opens (no SDK file overlap). scoped at bb246cc2"
   },
   {
     "tag": "KIND-DECLARED-CITABLE-HANDLE",
@@ -317,12 +367,20 @@
           "description": "`local_document_rows` (:851) calls `read_layout_document`, which already returns the captured spans on `LayoutDocumentRows.prose` (src/drift.rs:1955), and then extends only `rows.nested` and `rows.satisfies` (:883-884) — the prose is read and dropped. Carry it: extend `rows.prose` too, and in `assemble_lock_family` (:1054-1055) collect the local kinds' prose rows into a new `local_layout_prose: Vec<drift::LayoutProseRow>` field on `LockFamily` (:405), beside `local_members` (:424) and for the same stated reason — the documents are uncommitted, so no consumer below can find them again short of a second walk that could disagree with this read. It does NOT go on `drift::Declarations` (:3331): that is the SDK→engine seam payload with a generated TS twin, and `layout_prose` is emit-derived output the seam has never carried."
         },
         {
+          "path": "src/gate.rs",
+          "description": "`gate_diagnostics` destructures `compose::LockFamily` exhaustively at :167-174 (no `..` arm), so the new `local_layout_prose` field refuses to compile until this site names it — bind it `..`-free like its siblings and leave it unread here (the gate has no prose consumer; `explain` is the reader). Ripple-reconciled: the only other destructure, src/read.rs:2065, already carries `..`."
+        },
+        {
           "path": "src/read.rs",
           "description": "`explain_target` destructures `LockFamily` at :2038 (taking `declarations` and `overlaid_builtin_kinds`) and its prose strand reads `drift::layout_prose_from_doc(&lock_doc)` at :2189 — the committed rows only. Take `local_layout_prose` off the same destructure and union it with the lock-document rows before `prose_strand` (:1989), so one narration covers both faces. Update the strand's sited comment above :2185, which today says the rows are 'a lock row keyed by the host's address' — true of the committed half only once local rows join it."
         },
         {
           "path": "tests/local_locus.rs",
           "description": "Regression: a local-locus layout kind whose document carries a preamble under a verbatim prose region — `explain <kind>:<id>` narrates the captured span, the same strand a committed layout member gets. Pins the read-time half of f07d4f84, which shipped the committed half and named this one as unwired."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "VERIFY-ONLY — expect no diff. Its `layout_prose` assertions read the committed emit-side rows, which this entry does not touch; in the fence only so a wave-mate's green base cannot be mistaken for coverage of the local face. The same holds for tests/layout_kind.rs, tests/check_cost.rs and tests/snapshots/gauntlet__projection_tree.snap, which the ripple names off the shared `layout_prose`/`overlaid_builtin_kinds`/`local_members` symbols: none reads `LockFamily`'s shape, so none moves."
         }
       ],
       "retire": []
@@ -339,6 +397,6 @@
       }
     ],
     "acceptance": "`cargo test` green with the local_locus regression. A local-locus layout member's verbatim prose region reaches a read-time row and `explain`'s prose strand, so no layout document's authored span is read and dropped on either face (invariant 6). Non-vacuity per 0048's bar: the regression asserts the narrated span carries the document's actual preamble text, never merely that a strand appeared.",
-    "notes": "Swept 09-07 from f07d4f84's own stated remainder ('the local read path is compose's to wire'). Verified on disk: `LayoutDocumentRows.prose` is already populated by `read_layout_document` and discarded by `local_document_rows` at src/compose.rs:883-884, so the fix is wiring, not derivation. Chained on EXPLAIN for src/read.rs, which transitively covers src/compose.rs (BUILTIN-KIND-RELOCATION). scoped at bf2e3eba"
+    "notes": "Swept 09-07 from f07d4f84's own stated remainder ('the local read path is compose's to wire'). Verified on disk: `LayoutDocumentRows.prose` is already populated by `read_layout_document` and discarded by `local_document_rows` at src/compose.rs:883-884, so the fix is wiring, not derivation. Chained on EXPLAIN for src/read.rs. Ripple-reconciled at bb246cc2: src/gate.rs destructures LockFamily exhaustively. scoped at bf2e3eba"
   }
 ]
