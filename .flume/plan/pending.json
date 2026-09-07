@@ -49,50 +49,9 @@
     "notes": "observed at ad10e8cb (cascade, GH #46). representation.md: an embedded/nested-file member 'registers nothing... a non-empty registration is a well-formedness fault' — today only enforced at src/admissibility.rs:256's runtime check. Widened at fb89f675 (gate-revert 2 of 2: the SDK's tsc-first test script fails over emit.test.ts/mention.test.ts's existing embedded-registration fixtures) — files[] now states the ripple up front. scoped at bf4b4168"
   },
   {
-    "tag": "GUARD-MANIFEST-WRITE-DROPPED-MEMBER-CONFORMS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "manifest_write_findings (~897) validates only the members the pending `content` carries — it never compares against the roster the lock declares for the manifest's collection address, so a write that empties every registration member (e.g. drops all of `hooks.<Event>`) conforms vacuously at every mode. GuardedManifest (~875) or the call needs the lock's expected member keys for its (kind, address) to detect an emit-owned member present in the lock but absent from the pending content, and report it as a finding at the declared mode."
-        },
-        {
-          "path": "src/main.rs",
-          "description": "guarded_manifests (~524-570) already holds `&declarations` when building each GuardedManifest; thread the expected-key set (declarations.registrations filtered by kind + manifest + key_path) through from there rather than re-deriving it in install.rs."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "New regression: a Write whose content parses as the manifest but omits a hook member the lock declares trips a finding at the declared mode, where today it conforms with zero findings."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A manifest write dropping every declared registration member (e.g. emptying hooks.<Event>) produces no finding — the guard judges only the content it's given, never what the lock expects.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "a represented manifest write that omits a lock-declared registration member is flagged at the declared enforcement mode, not silently conformant"
-      }
-    ],
-    "acceptance": "manifest_write_findings judges the lock's expected member roster as well as the pending content's members: an emit-owned collection entry the lock declares but the pending write drops is a finding at the declared mode.",
-    "notes": "observed at e1b26728 (cascade GH #40, first half) — a 0048 conservation instance on the guard: the write represents less than the lock was given. Serialized behind GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT: both rewrite manifest_write_findings's signature and its main.rs call site. scoped at bf4b4168"
-  },
-  {
     "tag": "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "GUARD-MANIFEST-WRITE-DROPPED-MEMBER-CONFORMS"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -263,7 +222,12 @@
       }
     ],
     "acceptance": "check reports a discovered layout-kind member absent from the lock's declaration rows as a named advisory finding; the pipeline.md split (the gate reads declarations from the lock family and nowhere else, local locus excepted) stays intact — the fix is the finding, not new read-time derivation for committed sources.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry — re-filed verbatim, now routed). scoped at bf4b4168"
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry — re-filed verbatim, now routed). scoped at bf4b4168",
+    "observedFiles": [
+      "src/drift.rs",
+      "src/gate.rs",
+      "tests/layout_kind.rs"
+    ]
   },
   {
     "tag": "LAYOUT-PROSE-REGION-UNREACHABLE-LOCK-EXPLAIN",
@@ -331,6 +295,12 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      ".flume/refactor/mention-reachable-finding.md",
+      "src/compose.rs",
+      "src/graph.rs",
+      "tests/graph.rs"
+    ],
     "summary": "An edge field can't spell a nested target's full host-qualified address — only the bare (kind, identity) short form — so two same-keyed nested members force a rename instead of an address.",
     "per": {
       "path": "specs/model/representation.md",
@@ -343,13 +313,7 @@
       }
     ],
     "acceptance": "target_identity parses the full nested address grammar per representation.md's member section, resolving both bare and host-qualified spellings; explain and findings print the resolved form; the duplicate-key admissibility refusal (NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY) stays the resolver's bar, not the address itself.",
-    "notes": "observed at f8344d20 (session, plan's 0049 spec-delta pass narrowing its own prior routing). 0049's Decision names every verb accepting one address grammar; its Rejected bullet turns down corpus-unique keys as the address itself. scoped at bf4b4168",
-    "observedFiles": [
-      ".flume/refactor/mention-reachable-finding.md",
-      "src/compose.rs",
-      "src/graph.rs",
-      "tests/graph.rs"
-    ]
+    "notes": "observed at f8344d20 (session, plan's 0049 spec-delta pass narrowing its own prior routing). 0049's Decision names every verb accepting one address grammar; its Rejected bullet turns down corpus-unique keys as the address itself. scoped at bf4b4168"
   },
   {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
@@ -391,10 +355,7 @@
   {
     "tag": "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "EXPLAIN-KIND-QUALIFIED-ADDRESS-FORM"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -512,40 +473,6 @@
     "notes": "observed at ad10e8cb (cascade probe F9/F13, GH #50 widened); corrected/widened at bf4b4168 (session, verified by cascade-integrations): items (5)-(7) — index both spellings via the refusing uniqueMap path (never memberTable's intentional registration-row last-wins), fix the isProjected/projectionPath branch order, widen the value type, and scope check-side resolution out. Chained behind KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE (shares sdk/test/emit.test.ts). scoped at bf4b4168"
   },
   {
-    "tag": "EXPLAIN-KIND-QUALIFIED-ADDRESS-FORM",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "resolve (209-245) checks four explicit prefixes (member:/requirement:/kind:/address:) then falls through to bare-name/`/`-address logic; add a fifth, generic `<declared-kind>:<name>` branch after those four (so the reserved words keep meaning what they mean) as a kind-scoped member lookup. There is no shared 'one address grammar' resolver to extend today — address.rs's `FieldPath` is a distinct, narrower type, and `kind:name` is parsed ad hoc at graph.rs's node_from_address (~1334) and target_identity (~1593), and drift.rs's nested-file-locus resolution (~889-897); reuse graph::target_identity's own rules rather than inventing a second grammar (0049 Rejected turns down a corpus-unique key as a second address form — this is a tokenizer addition to the ONE existing grammar, not a new one). An undeclared kind name in the form refuses (matching target_identity's own refusal); a bare cross-kind name collision refuses as ambiguous (mirroring why_impl's ~508 narration) rather than narrating every kind."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Regression: explain memory:CLAUDE resolves the memory member named CLAUDE rather than falling through to the bare-name path; an undeclared kind name in the form is NotFound; a same-named member across two kinds addressed bare is ambiguous, refused naming both kinds."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "explain does not accept the engine's own <kind>:<name> member address form, though every finding and mention target spells it.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "member"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain accepts <kind>:<name> as a kind-scoped member address, matching the engine's own address grammar"
-      }
-    ],
-    "acceptance": "explain <kind>:<name> resolves the named member of that kind, matching representation.md's 'one grammar every row spells and every verb accepts.'",
-    "notes": "observed at ad10e8cb (cascade probe, GH #49); widened at bf4b4168 (cascade-integrations audit, item f): confirmed no shared address resolver exists yet — 'one grammar' means one tokenizer over the existing ad hoc kind:name parse sites, not a fifth namespace beside the four reserved prefixes. EXPLAIN-KIND-ADOPTER-ENTRY-POINT is chained behind this entry since both reshape resolve's qualifier dispatch. scoped at bf4b4168"
-  },
-  {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
     "gate": {
       "kind": "open"
@@ -569,19 +496,6 @@
       ],
       "retire": []
     },
-    "summary": "A section_contains/require_sections clause's compiled label never carries its heading/marker/sections, so every clause of that predicate on one kind folds to one label.",
-    "per": {
-      "path": "specs/model/pipeline.md",
-      "section": "The lock"
-    },
-    "tests": [
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "two section_contains (or require_sections) clauses on one kind, compiled through the real SDK, produce two distinct compiled labels and both gate independently"
-      }
-    ],
-    "acceptance": "An author can declare 'every invariant carries a Test' and '... a Standard' as two independent section_contains clauses on one kind without them folding into one malformed-lock label; the same holds for two require_sections clauses.",
-    "notes": "observed at ad10e8cb (cascade probe, GH #48); corrected at bf4b4168 (session, verified by cascade-integrations): the entry as first filed claimed only the marker drops (heading kept) — wrong on both counts. `field` is undefined for section_contains AND require_sections rows alike (declarations.ts never sets it for either); `section` (heading+marker) IS present in the row but simply never read by clause_label/stamp_clause_label. scoped at bf4b4168",
     "observedFiles": [
       "src/compose.rs",
       "src/contract.rs",
@@ -597,41 +511,20 @@
       "tests/lock_declaration_rows.rs",
       "tests/shape_predicate.rs",
       "tests/type_predicate.rs"
-    ]
-  },
-  {
-    "tag": "EMBEDDED-MEMBER-VALUE-TYPED-LEAVES",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "embeddedMemberValue (461) takes kind: string | KindDefinition<any> and leaves: Record<string, string | Text> untyped against the target kind's own field schema, so an omitted or misspelled leaf typechecks. Make it generic over the kind's T (as kind<T>() already is for MemberInit<T>) so leaves is Record<keyof T, string | Text> with required keys required, when kind is passed as a KindDefinition<T>."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Regression: embeddedMemberValue({ kind: someKindDefinition, leaves: {...} }) fails to typecheck when leaves omits a required key or misspells one."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "embeddedMemberValue's leaves are untyped against the target kind's own schema, so an omitted or misspelled leaf typechecks silently.",
+    ],
+    "summary": "A section_contains/require_sections clause's compiled label never carries its heading/marker/sections, so every clause of that predicate on one kind folds to one label.",
     "per": {
-      "path": "specs/model/representation.md",
-      "section": "member"
+      "path": "specs/model/pipeline.md",
+      "section": "The lock"
     },
     "tests": [
       {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "embeddedMemberValue's leaves are typed against the passed KindDefinition's own field schema"
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "two section_contains (or require_sections) clauses on one kind, compiled through the real SDK, produce two distinct compiled labels and both gate independently"
       }
     ],
-    "acceptance": "Passing a KindDefinition to embeddedMemberValue types leaves against that kind's own schema at tsc time, required keys required, rather than deferring the check to a factory or a required() clause at check.",
-    "notes": "observed at ad10e8cb (cascade F12). Rides the same 'tsc is the first gate' positioning as KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE — the leaf shape is the one thing a posture kind exists to declare, and only a bare kind: string carries no schema to check against (unavoidable; the KindDefinition path should). scoped at e1b26728"
+    "acceptance": "An author can declare 'every invariant carries a Test' and '... a Standard' as two independent section_contains clauses on one kind without them folding into one malformed-lock label; the same holds for two require_sections clauses.",
+    "notes": "observed at ad10e8cb (cascade probe, GH #48); corrected at bf4b4168 (session, verified by cascade-integrations): the entry as first filed claimed only the marker drops (heading kept) — wrong on both counts. `field` is undefined for section_contains AND require_sections rows alike (declarations.ts never sets it for either); `section` (heading+marker) IS present in the row but simply never read by clause_label/stamp_clause_label. scoped at bf4b4168"
   },
   {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
