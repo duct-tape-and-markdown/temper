@@ -29,7 +29,7 @@
 </spec-delta>
 
 <gate-reverts>
-!`node -e 'const fs=require("fs");let out="";for(const f of fs.readdirSync(".flume/prior-attempts").filter(f=>f.endsWith(".json"))){try{const d=JSON.parse(fs.readFileSync(".flume/prior-attempts/"+f,"utf8"));if(d.mode!=="gate-revert")continue;out+="== "+f.replace(/\.json$/,"").toUpperCase()+" — "+d.gate+" @ "+(d.at||"")+"\n   "+d.message+"\n"+(d.details?d.details.split("\n").map(l=>"   "+l).join("\n")+"\n":"");}catch{}}process.stdout.write(out||"(no gate-reverted attempts on record)\n");'`
+!`node .flume/gate-reverts.mjs 2>/dev/null || echo "(gate-reverts unavailable)"`
 </gate-reverts>
 
 <files-ripple>

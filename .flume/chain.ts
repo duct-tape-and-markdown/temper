@@ -697,7 +697,7 @@ const factory: ChainFactory = (flume) => {
       // the previous tick's `after-build`, over an undrained inbox). The
       // inputs are still live, so plan runs again; flume's identical-failure
       // breaker bounds a plan that keeps lying.
-      if (result.noCommit === "gate-revert") return ["plan"];
+      if (result.noCommit === "gate-revert" || result.noCommit === "render-refused") return ["plan"];
       if (result.noCommit) {
         return result.pendingAfter.some((e) => e.gate.kind === "open")
           ? ["build"]
