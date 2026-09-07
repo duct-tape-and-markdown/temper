@@ -165,8 +165,11 @@ fn build_member_index<'a>(
 /// The target species `explain <target>` resolves a positional string into
 /// (`(explain-target-disambiguation)`, ruled 2026-07-04): an explicit `member:`/
 /// `requirement:`/`kind:`/`address:` qualifier always wins outright (an explicit
-/// spelling is never re-checked for ambiguity); absent one, a `/`-bearing target is
-/// always a leaf address (a member, requirement, or kind name never carries a slash).
+/// spelling is never re-checked for ambiguity); absent one, a `/`-bearing target is read
+/// at **member grain first** — a nested member's identity *is* its
+/// `<host-address>/<kind>/<key>` address, so a target the corpus carries by equality is
+/// that member — and only a slashed target no member bears falls through to a leaf
+/// address, the finer grain beneath it.
 /// A bare name checks the member corpus and the requirement roster first — matching
 /// both is `Ambiguous`, matching one resolves it — and only when it names **neither**
 /// does it fall back to the kind set: a kind's bare name never contends with an
@@ -393,12 +396,16 @@ pub fn explain(
                 registrations,
                 repo_files,
                 directive_edges,
-                citations,
                 &member_index,
                 name,
             ));
             out.push('\n');
-            out.push_str(&context_impl(by_kind, citations, &member_index, name));
+            out.push_str(&context_member_impl(
+                by_kind,
+                citations,
+                &member_index,
+                name,
+            ));
             // Compute whether the roster declares a telemetry verifier (has tap registrations).
             let has_declared_telemetry = roster
                 .values()
@@ -997,7 +1004,10 @@ fn why_one(
     // as a resolved edge.
     for edge in dangling_mentions.iter().filter(|edge| edge.from == node) {
         let (to_kind, to_id) = &edge.to;
-        let target = if to_kind == graph::REQUIREMENT_KIND {
+        // A nested member of a kind the corpus happens to name `requirement` is a member,
+        // not the reserved requirement node — its id is its whole address, which the
+        // reserved node's bare name never is.
+        let target = if to_kind == graph::REQUIREMENT_KIND && graph::nested_key(to_id).is_none() {
             format!("requirement `{to_id}`")
         } else {
             format!("`{to_id}` ({to_kind})")
@@ -1076,8 +1086,10 @@ fn narrate_filled(out: &mut String, satisfies: &Satisfies, roster: &BTreeMap<Str
 ///
 /// The family gains **leaf grain**: a `target` naming a nested member's leaf — the `<member>/<kind>/<key>/<child-path>`
 /// address — dispatches to [`impact_leaf`], which resolves the leaf against the lock's
-/// serialized nested-member leaves and reports its **citations separately from fallout**. A `target` with no `/` is
-/// a bare member name and takes the member-grain path below, unchanged.
+/// serialized nested-member leaves and reports its **citations separately from fallout**.
+/// This wrapper owns that dispatch: every other `target` is a member address — a bare
+/// name, or a nested member's own `<host-address>/<kind>/<key>` identity — and takes the
+/// member-grain path in [`impact_impl`], which narrates a member unconditionally.
 ///
 /// A read, never a gate: the caller prints this and exits zero on every input, a name no
 /// member or leaf bears included. `roster` is the namespace `check` gates; `by_kind`,
@@ -1107,13 +1119,16 @@ fn impact(
         registrations,
         repo_files,
         directive_edges,
-        citations,
         &member_index,
         target,
     )
 }
 
-/// Implementation of [`impact`] using a pre-built member index.
+/// Implementation of [`impact`] at **member grain**, using a pre-built member index.
+/// `target` is a member address — its caller ([`impact`], or `explain`'s member branch)
+/// already settled the species, so a nested member's slashed identity resolves here by
+/// the same index lookup a bare name does: the index keys on `Features::id`, which *is*
+/// the whole address.
 #[must_use]
 #[allow(clippy::too_many_arguments)]
 fn impact_impl(
@@ -1122,14 +1137,9 @@ fn impact_impl(
     registrations: &BTreeMap<&str, Vec<Registration>>,
     repo_files: &[String],
     directive_edges: &[ResolvedEdge],
-    citations: &[Citation],
     member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
     target: &str,
 ) -> String {
-    if target.contains('/') {
-        return impact_leaf(by_kind, citations, target);
-    }
-
     let matches: Vec<(&str, &Features)> = member_index
         .get(target)
         .map(|v| v.iter().map(|(k, f)| (*k, *f)).collect())
@@ -1376,8 +1386,11 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 /// only the lock's serialized nested-member leaves (`by_kind`) and declared citations:
 /// offline, tier-1, no runtime.
 ///
-/// A `/`-bearing `address` is a leaf (`<member>/<kind>/<key>/<child-path>`) reported at leaf grain
-/// ([`context_leaf`]); a bare name is a member reported whole ([`context_member_impl`]). Both are
+/// A leaf `address` (`<member>/<kind>/<key>/<child-path>`) is reported at leaf grain
+/// ([`context_leaf`]); every other address is a member — a bare name, or a nested member's
+/// own `<host-address>/<kind>/<key>` identity — reported whole ([`context_member_impl`]).
+/// This wrapper owns that dispatch, the twin of [`impact`]'s: `explain` resolved the
+/// species already and calls the member arm directly. Both are
 /// leaf-grain answers, so both close with the shared [`disclose_coverage`] — a mixed-posture corpus
 /// is the standing state, and an answer hiding what it cannot see erodes the verb.
 ///
@@ -1386,21 +1399,10 @@ fn disclose_coverage(out: &mut String, by_kind: &BTreeMap<&str, &[Features]>) {
 #[must_use]
 fn context(by_kind: &BTreeMap<&str, &[Features]>, citations: &[Citation], address: &str) -> String {
     let member_index = build_member_index(by_kind);
-    context_impl(by_kind, citations, &member_index, address)
-}
-
-/// Implementation of [`context`] using a pre-built member index.
-fn context_impl(
-    by_kind: &BTreeMap<&str, &[Features]>,
-    citations: &[Citation],
-    member_index: &BTreeMap<&str, Vec<(&str, &Features)>>,
-    address: &str,
-) -> String {
     if address.contains('/') {
-        context_leaf(by_kind, citations, member_index, address)
-    } else {
-        context_member_impl(by_kind, citations, member_index, address)
+        return context_leaf(by_kind, citations, &member_index, address);
     }
+    context_member_impl(by_kind, citations, &member_index, address)
 }
 
 /// Narrate a nested member's leaf neighborhood: its nested-member slot and authored
@@ -1483,8 +1485,8 @@ fn context_leaf(
     out
 }
 
-/// Narrate the declared neighborhood of a member using a pre-built member index.
-/// Called by [`context_impl`].
+/// Narrate the declared neighborhood of a member using a pre-built member index — the
+/// member-grain arm [`context`] and `explain`'s member branch both land on.
 fn context_member_impl(
     by_kind: &BTreeMap<&str, &[Features]>,
     citations: &[Citation],

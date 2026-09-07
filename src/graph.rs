@@ -1395,27 +1395,54 @@ pub struct MentionDeclaration {
 /// resolves against the roster rather than the by-kind corpus. Exposed so the read family
 /// renders a requirement-targeted mention as its bare name, never a `requirement:name`
 /// address no author wrote (READ-EDGE-UNIFY).
+///
+/// Reserved among *node* kinds, not among corpus kinds: a corpus may declare a nested
+/// kind spelled `requirement` (this one's members are the roster's, which has no kind at
+/// all), so the two are told apart by the node's id — `reserved_node`.
 pub const REQUIREMENT_KIND: &str = "requirement";
 
 /// The reserved kind an embedded-leaf address resolves under — distinct from [`world`],
 /// [`REQUIREMENT_KIND`], and every artifact kind, so an embedded-leaf mention binds a node
 /// route resolution ([`route_mentions`]) resolves against the embedded leaves. Used with
-/// the full leaf address (e.g., `member/kind/key/child-path`) as the node's id.
+/// the full leaf address (e.g., `member/kind/key/child-path`) as the node's id. Reserved
+/// among node kinds on the same terms as [`REQUIREMENT_KIND`], and told from a corpus
+/// kind of the same name by [`reserved_node`].
 const EMBEDDED_LEAF_KIND: &str = "embedded";
 
-/// Parse an address a mention may name into its graph [`Node`]: `kind:name` parses
-/// into that member's node; a `/`-shaped address resolves an embedded leaf under the
-/// reserved [`EMBEDDED_LEAF_KIND`]; a bare name (no `:`) addresses a requirement under the
-/// reserved [`REQUIREMENT_KIND`].
+/// Parse an address a mention may name into its graph [`Node`], reading the **grammar**
+/// rather than the characters: a four-segment leaf address
+/// (`<member>/<kind>/<key>/<child-path>`, [`parse_leaf_address`]) is an embedded leaf
+/// under the reserved [`EMBEDDED_LEAF_KIND`]; a three-segment nested-member address
+/// (`<host-address>/<kind>/<key>`, [`parse_nested_address`]) is that member's own node —
+/// kind read off the address's second segment, id the whole address, the identity
+/// [`target_identity`] already binds a declared edge to, so the two reference families
+/// cannot disagree about which node one address names; otherwise `kind:name` parses into
+/// that member's node and a bare name (no `:`) addresses a requirement under the reserved
+/// [`REQUIREMENT_KIND`].
 fn node_from_address(address: &str) -> Node {
-    if address.contains('/') {
-        (EMBEDDED_LEAF_KIND.to_string(), address.to_string())
-    } else {
-        match address.split_once(':') {
-            Some((kind, name)) => (kind.to_string(), name.to_string()),
-            None => (REQUIREMENT_KIND.to_string(), address.to_string()),
-        }
+    if crate::read::parse_leaf_address(address).is_some() {
+        return (EMBEDDED_LEAF_KIND.to_string(), address.to_string());
     }
+    if let Some(nested) = parse_nested_address(address) {
+        return (nested.kind.to_string(), address.to_string());
+    }
+    match address.split_once(':') {
+        Some((kind, name)) => (kind.to_string(), name.to_string()),
+        None => (REQUIREMENT_KIND.to_string(), address.to_string()),
+    }
+}
+
+/// Whether a [`Node`] is one of the two **reserved** ones [`node_from_address`] mints for
+/// an address that names no member — a leaf under [`EMBEDDED_LEAF_KIND`], a bare
+/// requirement name under [`REQUIREMENT_KIND`]. Read off the grammar, never the kind
+/// string alone: a corpus is free to declare a nested kind *named* `requirement` or
+/// `embedded`, and such a member's node carries its whole address as its id, which no
+/// reserved node ever does.
+fn reserved_node(node: &Node) -> Option<&str> {
+    if parse_nested_address(&node.1).is_some() {
+        return None;
+    }
+    (node.0 == EMBEDDED_LEAF_KIND || node.0 == REQUIREMENT_KIND).then_some(node.0.as_str())
 }
 
 /// Lift the lock's `mention` rows into [`ResolvedEdge`]s by parsing both addresses
@@ -1457,13 +1484,18 @@ fn mention_finding(
         return None;
     }
     let (kind, name) = &edge.to;
-    if kind == EMBEDDED_LEAF_KIND {
-        let resolved =
-            parse_leaf_address(name).is_some_and(|parsed| resolve_leaf(by_kind, &parsed).is_some());
-        return (!resolved).then(|| dangling_mention(edge));
-    }
-    if kind == REQUIREMENT_KIND {
-        return (!requirements.contains_key(name)).then(|| dangling_mention(edge));
+    // The reserved node kinds are read through [`reserved_node`], not off the kind string:
+    // a nested member's node carries its declared kind, which a corpus may spell
+    // `requirement` — and its identity is its whole address, which resolves at member
+    // grain below exactly as a `kind:name` target does.
+    match reserved_node(&edge.to) {
+        Some(EMBEDDED_LEAF_KIND) => {
+            let resolved = parse_leaf_address(name)
+                .is_some_and(|parsed| resolve_leaf(by_kind, &parsed).is_some());
+            return (!resolved).then(|| dangling_mention(edge));
+        }
+        Some(_) => return (!requirements.contains_key(name)).then(|| dangling_mention(edge)),
+        None => {}
     }
     match resolve_target(by_kind, kind, name) {
         Membership::One(_) => None,
@@ -1979,11 +2011,12 @@ fn ambiguous_route(edge: &Edge, source: &str, target: &str, hosts: &[&str]) -> D
     )
 }
 
-/// Render a mention target [`Node`] as the author wrote it: a member as its `kind:name`
-/// address, a requirement as its bare name.
+/// Render a mention target [`Node`] as the author wrote it: a top-level member as its
+/// `kind:name` address, a requirement as its bare name, and a nested member — or an
+/// embedded leaf — as the whole address that is already its id.
 fn render_target(node: &Node) -> String {
     let (kind, name) = node;
-    if kind == REQUIREMENT_KIND {
+    if reserved_node(node).is_some() || parse_nested_address(name).is_some() {
         name.clone()
     } else {
         format!("{kind}:{name}")
@@ -1996,7 +2029,7 @@ fn render_target(node: &Node) -> String {
 fn dangling_mention(edge: &ResolvedEdge) -> Diagnostic {
     let (from_kind, from_id) = &edge.from;
     let target = render_target(&edge.to);
-    let resolves_against = if edge.to.0 == REQUIREMENT_KIND {
+    let resolves_against = if reserved_node(&edge.to) == Some(REQUIREMENT_KIND) {
         "requirement"
     } else {
         "member"

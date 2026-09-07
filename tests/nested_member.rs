@@ -1040,13 +1040,20 @@ mod host_qualified_addresses {
         }
 
         // The spellings it hands back are real: each full address resolves to the one
-        // member under that host.
+        // member under that host — at member grain, whole, with no leaf-address refusal
+        // riding along. A nested member's identity *is* its three-segment address, so a
+        // reader that re-read it as a malformed four-segment leaf would append the
+        // refusal below to an otherwise correct narration.
         for carrier in ["service:alpha/domain/common", "service:beta/domain/common"] {
             let qualified = explain(&by_kind, carrier);
             assert!(
                 !qualified.contains("names more than one thing")
                     && !qualified.contains("No member"),
                 "`{carrier}` — the spelling the refusal offered — resolves, got: {qualified}"
+            );
+            assert!(
+                !qualified.contains("is not a well-formed leaf address"),
+                "`{carrier}` is a member address, never a malformed leaf one, got: {qualified}"
             );
         }
 
@@ -1060,6 +1067,38 @@ mod host_qualified_addresses {
         assert!(
             resolved.contains("service:gamma/domain/billing"),
             "the bare key resolves to the member under its one host, got: {resolved}"
+        );
+    }
+
+    #[test]
+    fn explain_at_a_nested_members_address_narrates_every_member_strand() {
+        // The positive twin of the refusal arm above: `explain` at a nested member's own
+        // `<host-address>/<kind>/<key>` address narrates the three member-grain strands
+        // — why, impact, context — and nothing else. The species is settled once, at
+        // resolution; the strands below never re-decide it off the address's slashes.
+        let declarations = declarations();
+        let embedded = compose::embedded_features_by_kind(&declarations);
+        let hosts = BTreeMap::from([(
+            "service".to_string(),
+            vec![alpha(&declarations.nested_members, "billing")],
+        )]);
+        let by_kind = compose::assemble_by_kind(&hosts, &[], &embedded);
+
+        let address = "service:alpha/domain/common";
+        let narration = explain(&by_kind, address);
+        for strand in [
+            "everything that holds it in place",
+            "the blast radius if it is removed or renamed",
+            "its declared neighborhood",
+        ] {
+            assert!(
+                narration.contains(&format!("Member `{address}` (domain) — {strand}")),
+                "the `{strand}` strand narrates at member grain, got: {narration}"
+            );
+        }
+        assert!(
+            !narration.contains("is not a well-formed leaf address"),
+            "no strand re-reads the member address as a malformed leaf, got: {narration}"
         );
     }
 

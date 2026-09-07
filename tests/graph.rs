@@ -2137,5 +2137,85 @@ mod target_set {
                 run.output
             );
         }
+
+        #[test]
+        fn a_mention_targeting_a_nested_member_resolves_clean() {
+            // The grain beside the two above: the nested member *itself*, addressed by its
+            // own three-segment `<host-address>/<kind>/<key>` identity. That address names
+            // a member the corpus carries, so the mention resolves — reading it as a
+            // four-segment leaf address instead would dangle a member that exists.
+            let root = common::tmpdir("mention-nested-member-resolves");
+            fs::create_dir_all(root.join("specs")).unwrap();
+            fs::write(root.join("specs/note.md"), "# Note\n\nBody.\n").unwrap();
+            common::write_rule_skill_harness(
+                &root,
+                "style",
+                &routing_rule("standards"),
+                "standards",
+                &common::clean_skill("standards"),
+            );
+
+            common::write_lock(
+                &root,
+                Declarations {
+                    mentions: vec![common::mention(
+                        "rule:style",
+                        "note:note/requirement/my-req",
+                    )],
+                    kinds: vec![note_kind()],
+                    nested_members: vec![requirement_row("my-req", "some value")],
+                    ..Declarations::default()
+                },
+            );
+
+            let run = common::check_in(&root, &[], None);
+            assert!(
+                run.ok,
+                "a mention targeting a real nested member resolves ⇒ zero, got:\n{}",
+                run.output
+            );
+        }
+
+        #[test]
+        fn a_mention_targeting_a_nested_member_no_host_carries_fires_a_route_finding() {
+            // Non-vacuity for the case above: the member grain still dangles on a key no
+            // host carries, so the clean verdict there is resolution, not a swallowed one.
+            let root = common::tmpdir("mention-nested-member-ghost");
+            fs::create_dir_all(root.join("specs")).unwrap();
+            fs::write(root.join("specs/note.md"), "# Note\n\nBody.\n").unwrap();
+            common::write_rule_skill_harness(
+                &root,
+                "style",
+                &routing_rule("standards"),
+                "standards",
+                &common::clean_skill("standards"),
+            );
+
+            common::write_lock(
+                &root,
+                Declarations {
+                    mentions: vec![common::mention("rule:style", "note:note/requirement/ghost")],
+                    kinds: vec![note_kind()],
+                    nested_members: vec![requirement_row("my-req", "some value")],
+                    ..Declarations::default()
+                },
+            );
+
+            let run = common::check_in(&root, &[], None);
+            assert!(
+                !run.ok,
+                "a mention targeting a key no host carries dangles ⇒ non-zero"
+            );
+            assert!(
+                run.output.contains("graph.route"),
+                "the finding is a route one, got:\n{}",
+                run.output
+            );
+            assert!(
+                run.output.contains("note:note/requirement/ghost"),
+                "the finding names the whole authored address, got:\n{}",
+                run.output
+            );
+        }
     }
 }
