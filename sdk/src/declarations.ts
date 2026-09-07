@@ -18,6 +18,7 @@ import type { Clause, Predicate, Requirement, Verifier } from "./contract.js";
 import type { Include, MentionScope } from "./prose.js";
 import { isTextSpan, resolveLeaf } from "./prose.js";
 import { SETTINGS_MANIFEST, TELEMETRY_EVENT_HOOKS, hook, tapHookRegistration } from "./builtins.js";
+import { hostAddress, leafAddress, nestedAddress } from "./member-address.js";
 
 import type {
   AssemblyFactRow,
@@ -571,7 +572,7 @@ function assemblyFactRows(harness: Harness, kinds: readonly KindFacts[]): Assemb
 function satisfiesRows(harness: Harness): SatisfiesRow[] {
   const rows: SatisfiesRow[] = [];
   for (const member of harness.members) {
-    const address = `${member.kind}:${member.name}`;
+    const address = hostAddress(member.kind, member.name);
     for (const requirement of member.satisfies) {
       rows.push({ member: address, requirement });
  }
@@ -593,7 +594,7 @@ function satisfiesRows(harness: Harness): SatisfiesRow[] {
 function mentionRows(harness: Harness): MentionRow[] {
   const rows: MentionRow[] = [];
   for (const member of harness.members) {
-    const address = `${member.kind}:${member.name}`;
+    const address = hostAddress(member.kind, member.name);
     if (member.prose?.kind === "text") {
       for (const mention of member.prose.mentions) {
         rows.push({ member: address, target: mention.target.address });
@@ -619,13 +620,11 @@ function mentionRows(harness: Harness): MentionRow[] {
  * contribute — top-level leaves addressed by their bare field name, a
  * collection entry's leaves addressed `<collection>.<entry>.<field>` (one layer
  * deep, matching the row's own shape) — each row keyed to the leaf's own
- * structural address, the `<member>/<kind>/<key>/<child-path>` grammar
- * `src/read.rs`'s `parse_leaf_address` resolves. A bare-string leaf names no
- * mention.
+ * structural address ({@link leafAddress}). A bare-string leaf names no mention.
  */
 function embeddedLeafMentionRows(hostName: string, value: EmbeddedMemberValue): MentionRow[] {
   const rows: MentionRow[] = [];
-  const addressed = (childPath: string): string => `${hostName}/${value.kind}/${value.key}/${childPath}`;
+  const addressed = (childPath: string): string => leafAddress(hostName, value.kind, value.key, childPath);
   for (const [field, leaf] of Object.entries(value.leaves)) {
     if (typeof leaf === "string") continue;
     for (const mention of leaf.mentions) {
@@ -661,7 +660,7 @@ function includeRows(harness: Harness): IncludeRow[] {
     rows.push({ member: address, source_path: fileURLToPath(new URL(include.path, include.moduleUrl)) });
   };
   for (const member of harness.members) {
-    const address = `${member.kind}:${member.name}`;
+    const address = hostAddress(member.kind, member.name);
     if (member.prose?.kind === "text") {
       for (const include of member.prose.includes) push(address, include);
     } else if (member.prose?.kind === "blocks") {
@@ -816,7 +815,7 @@ function nestedMemberRows(
   const rows: NestedMemberRow[] = [];
   for (const member of harness.members) {
     if (member.prose?.kind !== "blocks") continue;
-    const host = `${member.kind}:${member.name}`;
+    const host = hostAddress(member.kind, member.name);
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       if (!admissions.get(member.kind)?.has(value.kind)) {
@@ -960,11 +959,11 @@ export function declaredRequirements(harness: Harness): Set<string> {
 export function declaredAddresses(harness: Harness): Set<string> {
   const set = declaredRequirements(harness);
   for (const member of harness.members) {
-    set.add(`${member.kind}:${member.name}`);
+    set.add(hostAddress(member.kind, member.name));
     if (member.prose?.kind !== "blocks") continue;
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
-      set.add(`${member.kind}:${member.name}/${value.kind}/${value.key}`);
+      set.add(nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key));
     }
   }
   return set;

@@ -38,6 +38,7 @@ import {
   uniqueMap,
 } from "./declarations.js";
 import type { PayloadMember } from "./generated/index.js";
+import { bareLookupKey, edgeLookupKey, hostAddress, nestedAddress } from "./member-address.js";
 
 // The projected-member shape is the generated `ts-rs` binding, re-exported so the
 // public face keeps the name — a Rust-side member-column rename is a compile
@@ -178,7 +179,7 @@ function hostUnit(host: Member, context: string): string {
     return joinSlash(host.facts.locus.root, host.name);
   }
   throw new Error(
-    `${context}: its host \`${host.kind}:${host.name}\` owns no directory unit — a template's ` +
+    `${context}: its host \`${hostAddress(host.kind, host.name)}\` owns no directory unit — a template's ` +
       `path pattern is relative to the host's unit, and a lone file has no interior for a ` +
       `child to sit in (specs/model/representation.md, "locus").`,
   );
@@ -205,7 +206,7 @@ function nestedFilePath(member: Member): string {
   );
   if (template?.path === undefined) {
     throw new Error(
-      `${context}: its host \`${host.kind}:${host.name}\` templates no file layer for kind ` +
+      `${context}: its host \`${hostAddress(host.kind, host.name)}\` templates no file layer for kind ` +
         `\`${member.kind}\` — the path pattern is the host kind's declared fact, and there is ` +
         `none to compose against (specs/model/representation.md, "locus").`,
     );
@@ -288,11 +289,7 @@ function edgeTargetFacts(
   for (const edge of value.edgeFields ?? []) {
     const address = leaves[edge.field];
     if (address === undefined || address === "") continue;
-    // A one-element `to` set resolves a bare address within its one kind; a
-    // multi-element set reads the kind-qualified `kind:name` the author wrote
-    // (`EdgeField.to`). An already-qualified address carries its own colon, so
-    // only a bare leaf is lifted to `${edge.to[0]}:${address}` for the lookup.
-    const lookup = edge.to.length === 1 && !address.includes(":") ? `${edge.to[0]}:${address}` : address;
+    const lookup = edgeLookupKey(address, edge.to);
     const target = options.members?.get(lookup);
     const reference = `${context}: edge field \`${edge.field}\` names \`${address}\``;
     if (target === undefined) {
@@ -338,7 +335,7 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, lookup: string, r
     };
   }
   if (target.length > 1) {
-    const hosts = target.map((carrier) => `\`${carrier.host.kind}:${carrier.host.name}\``).join(", ");
+    const hosts = target.map((carrier) => `\`${hostAddress(carrier.host.kind, carrier.host.name)}\``).join(", ");
     throw new Error(
       `${reference}, a bare key ${target.length} hosts carry (${hosts}) — a nested member's address ` +
         `composes through its host, so spell the whole \`<host-address>/<kind>/<key>\` ` +
@@ -350,7 +347,7 @@ function resolvedTargetFacts(host: Member, target: EdgeTarget, lookup: string, r
   const carrierPath = projectionPath(carrier);
   return {
     name: value.key,
-    address: `${carrier.kind}:${carrier.name}/${value.kind}/${value.key}`,
+    address: nestedAddress(hostAddress(carrier.kind, carrier.name), value.kind, value.key),
     kind: value.kind,
     path: relativeProjection(projectionPath(host), carrierPath),
     repoRootedPath: carrierPath,
@@ -512,7 +509,7 @@ function edgePlacements(harness: Harness, options: ResolveOptions): Map<string, 
       if (isTextSpan(value)) continue;
       const placed = placedEdges(member, value, options);
       if (placed !== undefined) {
-        entries.push([placementKey(`${member.kind}:${member.name}`, value.kind, value.key), placed]);
+        entries.push([placementKey(hostAddress(member.kind, member.name), value.kind, value.key), placed]);
       }
     }
   }
@@ -552,7 +549,7 @@ function renderedExtents(harness: Harness, options: ResolveOptions): Map<string,
       if (isTextSpan(value)) continue;
       const block = renderMemberBlock(member, value, options);
       entries.push([
-        placementKey(`${member.kind}:${member.name}`, value.kind, value.key),
+        placementKey(hostAddress(member.kind, member.name), value.kind, value.key),
         {
           lines: renderedLineCount(block),
           // Unicode scalar values, matching Rust's `chars().count()` — iterating a string
@@ -768,11 +765,11 @@ function memberTable(harness: Harness): Map<string, EdgeTarget> {
   const table = uniqueMap([
     ...harness.members
       .filter((member) => !isRegistration(member))
-      .map((member) => [`${member.kind}:${member.name}`, member] as [string, EdgeTarget]),
+      .map((member) => [hostAddress(member.kind, member.name), member] as [string, EdgeTarget]),
     ...nestedTargets(harness),
   ]);
   for (const member of harness.members.filter(isRegistration)) {
-    table.set(`${member.kind}:${member.name}`, member);
+    table.set(hostAddress(member.kind, member.name), member);
   }
   return table;
 }
@@ -795,9 +792,10 @@ function nestedTargets(harness: Harness): Array<[string, EdgeTarget]> {
     for (const value of member.prose.values) {
       if (isTextSpan(value)) continue;
       const target: EmbeddedTarget = { host: member, value };
-      qualified.push([`${member.kind}:${member.name}/${value.kind}/${value.key}`, [target]]);
-      const carriers = bare.get(`${value.kind}:${value.key}`);
-      if (carriers === undefined) bare.set(`${value.kind}:${value.key}`, [target]);
+      qualified.push([nestedAddress(hostAddress(member.kind, member.name), value.kind, value.key), [target]]);
+      const key = bareLookupKey(value.kind, value.key);
+      const carriers = bare.get(key);
+      if (carriers === undefined) bare.set(key, [target]);
       else carriers.push(target);
     }
   }
@@ -812,7 +810,7 @@ function orderedMembers(harness: Harness, options: ResolveOptions): PayloadMembe
     .map((member) => ({
       kind: member.kind,
       name: member.name,
-      host: member.host && `${member.host.kind}:${member.host.name}`,
+      host: member.host && hostAddress(member.host.kind, member.host.name),
       // The generated row carries a mutable field list; the member's is read-only,
       // so copy each pair into a fresh tuple — the same values, a shape the row accepts.
       fields: member.fields.map(([name, value]): [string, unknown] => [name, value]),
