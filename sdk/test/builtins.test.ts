@@ -846,3 +846,97 @@ test("relocating a kind refuses one delta declaring the same edge field twice", 
     /already declared/,
   );
 });
+
+/**
+ * The corpus's own `rule`, moved to its own root: the different-root redeclaration a
+ * corpus that keeps its decisions under `decisions/*.md` needs, spelled through the
+ * sanctioned form rather than hand-spread off `kind()`.
+ */
+const decisionRule = relocate<Rule>(rule, { governs: { root: "decisions", glob: "*.md" } });
+
+/** The one `rule` kind-fact row a one-member harness of `ruleKind` compiles to. */
+function ruleKindRow(ruleKind: typeof rule, name: string) {
+  const result = emit(harness({ members: [ruleKind({ name, prose: text`Prefer the standards skill.` })] }));
+  const rows = result.declarations.kinds.filter((row) => row.name === "rule");
+  assert.equal(rows.length, 1, "exactly one `rule` kind-fact row must reach the lock");
+  return rows[0];
+}
+
+test("relocating a built-in to its own root moves the emitted row's governs columns", () => {
+  const base = ruleKindRow(rule, "style");
+  const moved = ruleKindRow(decisionRule, "0001-pick-a-root");
+
+  // Non-vacuity first (decision 0048's conservation bar): the two rows must actually
+  // disagree about the locus before asserting what the moved one says — a row that
+  // never moved satisfies the equalities below for the very reason this entry exists.
+  assert.notDeepEqual(
+    [moved.governs_root, moved.governs_glob],
+    [base.governs_root, base.governs_glob],
+    "the relocated row must govern a different locus than the base's",
+  );
+  assert.equal(moved.governs_root, "decisions");
+  assert.equal(moved.governs_glob, "*.md");
+
+  // And the three facts the lock reader compares before overlaying a row onto its
+  // compiled-in built-in (`src/compose.rs`'s `row_relocates_builtin`) stay byte-equal to
+  // the base's: an SDK-authored relocation is admitted by the engine that today only ever
+  // reads the hand-written twin (`tests/layout_kind.rs`, `tests/dial_kind.rs`).
+  assert.equal(moved.format, base.format);
+  assert.equal(moved.unit_shape, base.unit_shape);
+  assert.deepEqual(moved.registration, base.registration);
+});
+
+test("a locus-moved built-in carries the relocation marker, and never on its row", () => {
+  assert.equal(decisionRule.facts.relocates, "rule");
+  assert.equal(decisionRule.key, "rule");
+  assert.deepEqual(decisionRule.facts.locus, { kind: "at", root: "decisions", glob: "*.md" });
+  // The marker is the authoring layer's provenance fact alone: the lock reader holds no
+  // base value to compare it against and re-decides structurally, so it takes no column.
+  assert.ok(!("relocates" in ruleKindRow(decisionRule, "0001-pick-a-root")));
+});
+
+test("relocating the locus of a kind that governs no glob refuses", () => {
+  // `supporting-doc` sits at the nested-file locus: its path composes from its host
+  // skill's unit, so it carries no `governs` columns to move.
+  assert.throws(
+    () => relocate<Record<never, never>>(supportingDoc, { governs: { root: "docs", glob: "*.md" } }),
+    /governs no glob of its own/,
+  );
+});
+
+test("relocating a kind refuses a delta declaring neither diverging fact", () => {
+  assert.throws(() => relocate<Rule>(rule, {}), /at least one diverging fact/);
+  assert.throws(() => relocate<RoutingRule>(rule, { edgeFields: [] }), /at least one diverging fact/);
+});
+
+test("a locus delta and an edge-field delta compose in one relocation", () => {
+  const routingDecision = relocate<RoutingRule>(rule, {
+    governs: { root: "decisions", glob: "*.md" },
+    edgeFields: [{ field: "routes_to", to: ["skill"] }],
+  });
+  const result = emit(
+    harness({
+      members: [
+        routingDecision({
+          name: "0001-pick-a-root",
+          routes_to: "standards",
+          prose: text`Prefer the standards skill.`,
+        }),
+        skill({
+          name: "standards",
+          description: "Use when applying the project's standards; not for anything else.",
+          prose: text`# standards`,
+        }),
+      ],
+    }),
+  );
+
+  // Neither face drops the other: the row carries the moved locus...
+  const row = result.declarations.kinds.find((candidate) => candidate.name === "rule");
+  assert.ok(row, "the relocated kind must take a kind-fact row");
+  assert.equal(row.governs_root, "decisions");
+  assert.equal(row.governs_glob, "*.md");
+  // ...while the added edge still reaches the lock as its own assembly fact.
+  const edges = result.declarations.assembly.filter((fact) => fact.fact === "edge" && fact.from === "rule");
+  assert.deepEqual(edges, [{ fact: "edge", from: "rule", field: "routes_to", to: ["skill"] }]);
+});

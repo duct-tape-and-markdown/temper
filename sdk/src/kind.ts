@@ -475,29 +475,77 @@ export function kind<T extends object>(facts: KindFacts, options: KindOptions = 
 
 /**
  * A **relocation delta** — the facts a relocated built-in kind diverges from its base
- * on. Today exactly one: `edgeFields`, *added* to whatever the base already declares
- * (never replacing them, which would drop a shipped kind's own edges silently). Each
- * added field names a key of the relocated kind's typed surface `T`, so an edge can
- * never be declared over a field the kind does not carry. Every other fact — locus,
- * format, unit shape, registration, content, templates — rides through unchanged.
+ * on. Two faces, either or both:
+ *
+ * - `edgeFields`, *added* to whatever the base already declares (never replacing them,
+ *   which would drop a shipped kind's own edges silently). Each added field names a key
+ *   of the relocated kind's typed surface `T`, so an edge can never be declared over a
+ *   field the kind does not carry.
+ * - `governs`, *replacing* the base's `at` locus root and glob — moving where the kind's
+ *   members are found, the one fact the engine's own overlay exists to apply
+ *   (`src/compose.rs`'s `overlay_builtin_kind`).
+ *
+ * Every other fact — format, unit shape, registration, content, templates — rides
+ * through unchanged, which is exactly what makes the emitted row still read as a
+ * relocation rather than a name collision on the reading side.
  */
 export interface KindRelocation<T> {
   /** The edge fields this relocation adds, each over a field of the kind's own surface. */
-  readonly edgeFields: readonly {
+  readonly edgeFields?: readonly {
     readonly field: keyof T & string;
     readonly to: readonly [string, ...string[]];
   }[];
+  /**
+   * The locus this relocation moves the kind's members to — root and glob, the two
+   * columns the lock reader's overlay writes back. A file locus's `commitment` class is
+   * deliberately absent: the overlay writes `Governs { root, glob }` and nothing else, so
+   * a `commitment` delta would author a fact the reader drops in silence — a built-in's
+   * commitment class stays the built-in's.
+   */
+  readonly governs?: { readonly root: string; readonly glob: string };
 }
 
 /**
- * **Relocate** a built-in kind: the sanctioned way an adopting corpus adds an edge
- * field to a kind it does not own. Returns a fresh constructor over the widened typed
- * surface `T` (the base's fields plus the added edge fields, spelled by the caller as
- * one interface), carrying the base's facts with `delta`'s edge fields appended and the
- * base's own {@link KindDefinition.render} hook preserved. Ownership, not privilege —
- * a relocated built-in is an ordinary kind value from here on, and its added edge
- * reaches the lock as an assembly `edge` row keyed by `from`, exactly as any kind's
- * does (`declarations.ts`), never as a column on a kind-fact row.
+ * The locus a `governs` delta moves the base to: the base's `at` root and glob replaced,
+ * every other locus fact (its commitment class among them) riding through.
+ *
+ * # Throws
+ * If the base's locus is not `at` — an embedded or nested-file kind governs no glob at
+ * all (its members compose their paths from a host's unit, or own no file), so there is
+ * no locus to move and its row carries no `governs` columns to move it to.
+ */
+function relocatedLocus(
+  base: KindFacts,
+  governs: NonNullable<KindRelocation<never>["governs"]>,
+): Extract<Locus, { kind: "at" }> {
+  if (base.locus.kind !== "at") {
+    throw new Error(
+      `relocating kind \`${base.name}\`: a \`governs\` delta moves the ` +
+        `path glob a kind's members are found at, and this kind's locus is \`${base.locus.kind}\` ` +
+        `— it governs no glob of its own. Drop the \`governs\` face of the delta ` +
+        `(specs/model/representation.md, "locus").`,
+    );
+  }
+  return { ...base.locus, root: governs.root, glob: governs.glob };
+}
+
+/**
+ * **Relocate** a built-in kind: the sanctioned way an adopting corpus moves a kind it
+ * does not own to its own root, adds an edge field to it, or both. Returns a fresh
+ * constructor over the widened typed surface `T` (the base's fields plus the added edge
+ * fields, spelled by the caller as one interface), carrying the base's facts with
+ * `delta`'s edge fields appended, `delta`'s `governs` in place of the base's locus root
+ * and glob, and the base's own {@link KindDefinition.render} hook preserved. Ownership,
+ * not privilege — a relocated built-in is an ordinary kind value from here on, and its
+ * added edge reaches the lock as an assembly `edge` row keyed by `from`, exactly as any
+ * kind's does (`declarations.ts`), never as a column on a kind-fact row.
+ *
+ * A moved locus, by contrast, *is* a kind-fact row column pair: the emitted row carries
+ * the delta's `governs_root`/`governs_glob` while `format`, `unit_shape` and
+ * `registration` stay the base's — which is precisely the three-fact test the lock
+ * reader applies before overlaying the row onto its compiled-in built-in
+ * (`src/compose.rs`'s `row_relocates_builtin`), so the engine reads members at the new
+ * root rather than treating the row as a colliding kind.
  *
  * The produced facts carry `relocates`, naming the base — the marker that tells a
  * legitimate relocation from a genuine name collision when two same-named kinds are in
@@ -507,16 +555,30 @@ export interface KindRelocation<T> {
  * # Throws
  * If an added edge field re-declares one the base already carries, or one another
  * entry of the same delta already added — two `edge` rows over one `<from, field>`
- * cross-wire the graph instead of declaring one relationship.
+ * cross-wire the graph instead of declaring one relationship. If a `governs` delta
+ * names a base whose locus is not `at` ({@link relocatedLocus}). And if the delta
+ * declares neither face, which would mint a marker-bearing clone of the base — a second
+ * same-named kind diverging on nothing, which is a name collision spelled as a
+ * relocation.
  */
 export function relocate<T extends object>(
   base: KindDefinition<any>,
   delta: KindRelocation<T>,
 ): KindDefinition<T> {
+  const declaredEdges = delta.edgeFields ?? [];
+  if (declaredEdges.length === 0 && delta.governs === undefined) {
+    throw new Error(
+      `relocating kind \`${base.facts.name}\`: a relocation declares at least one diverging ` +
+        `fact — \`edgeFields\`, \`governs\`, or both. A delta declaring neither mints a ` +
+        `second kind of the base's own name that diverges on nothing, which reads as a name ` +
+        `collision rather than a relocation (specs/model/representation.md, "kind").`,
+    );
+  }
+  const locus = delta.governs === undefined ? undefined : relocatedLocus(base.facts, delta.governs);
   const inherited = base.facts.edgeFields ?? [];
   const claimed = new Set(inherited.map((edge) => edge.field));
   const added: EdgeField[] = [];
-  for (const edge of delta.edgeFields) {
+  for (const edge of declaredEdges) {
     if (claimed.has(edge.field)) {
       throw new Error(
         `relocating kind \`${base.facts.name}\`: edge field \`${edge.field}\` is already ` +
@@ -527,11 +589,11 @@ export function relocate<T extends object>(
     claimed.add(edge.field);
     added.push({ field: edge.field, to: edge.to });
   }
-  const facts: KindFacts = {
-    ...base.facts,
-    relocates: base.facts.name,
-    edgeFields: [...inherited, ...added],
-  };
+  const edgeFields = [...inherited, ...added];
+  const relocated = { ...base.facts, relocates: base.facts.name, edgeFields };
+  // Two spellings, not one with an optional `locus`: `KindFacts` is a union discriminated
+  // on the locus, so the moved case must carry the `at` locus as its own literal branch.
+  const facts: KindFacts = locus === undefined ? relocated : { ...relocated, locus };
   return kind<T>(facts, { render: base.render });
 }
 
