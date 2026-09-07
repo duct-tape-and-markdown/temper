@@ -1,5 +1,55 @@
 [
   {
+    "tag": "SESSION-START-LOAD-ERROR-BYPASSES-REPORTER",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/main.rs",
+          "description": "`harness_diagnostics(&harness_path, &layers)?` (:240) aborts BEFORE the reporter match (:242-249), so a harness that fails to LOAD never reaches any reporter: miette renders the error to stderr and main exits non-zero with an empty stdout. For `--reporter session-start` that is the placement silently passing — Claude Code's SessionStart hook reads stdout JSON, so the session opens with no temper context and no verdict at all. Catch the load error, lower it to one `error` Diagnostic, and run the SELECTED reporter over it. Terminal/GitHub/SARIF keep exiting non-zero; session-start keeps its advisory exit 0 (the comment at :255 already states why) but MUST print its payload."
+        },
+        {
+          "path": "src/check.rs",
+          "description": "The lowering helper's home — `Diagnostic` is defined here (:47). A `miette::Report` (the load failure) becomes one `error` Diagnostic whose rule id names the failure class and whose message carries the report's own text plus temper's own consequence: the gate did not run this session, so nothing in the harness was checked. Do NOT assert a Claude Code hook-loading consequence in the message without a retrieved cite at the site (collaboration rule, external facts)."
+        },
+        {
+          "path": "src/reporter.rs",
+          "description": "`session_start` (:118 builds the failing-verdict header and NOTIFY_INSTRUCTION into `additionalContext`, capped at :39's 10k limit) must render the load-failure diagnostic the same way it renders a contract failure — one diagnostic source, every placement (distribution.md, same section). Verify the cap logic still holds when the single diagnostic is a long miette message."
+        },
+        {
+          "path": "tests/session_start.rs",
+          "description": "Regression: a harness whose `.claude/settings.json` is not parseable JSON — `json_manifest::Manifest::parse` raises `JsonManifestError::Malformed` (json_manifest.rs:267) through `compose.rs:1324`'s `?` — still prints a well-formed SessionStart payload on stdout, exit 0, whose `additionalContext` names the offending file and states the gate did not run. Pin non-vacuity: the payload is not the clean-pass shape (0048's conservation bar)."
+        },
+        {
+          "path": "tests/cli.rs",
+          "description": "The terminal reporter over the same broken harness still renders the failure and still exits non-zero — the fix must not soften the hard placements while it un-silences the advisory one."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A harness that fails to load aborts before any reporter runs, so the session-start placement contributes no verdict at all — it silently passes.",
+    "per": {
+      "path": "specs/distribution.md",
+      "section": "The placements and their enforcement modes"
+    },
+    "tests": [
+      {
+        "path": "tests/session_start.rs",
+        "asserts": "an unparseable .claude/settings.json still yields a SessionStart JSON payload on stdout naming the file and stating the gate did not run, never an empty stdout"
+      },
+      {
+        "path": "tests/cli.rs",
+        "asserts": "the terminal reporter over the same harness still exits non-zero with the failure rendered"
+      }
+    ],
+    "acceptance": "`temper check . --reporter session-start` on a harness whose source cannot be loaded prints a well-formed SessionStart payload carrying the failure, rather than exiting with an empty stdout — the section's 'never silently passes' held for load errors, not only contract failures. The hard placements (terminal, GitHub, SARIF) still exit non-zero. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "observed at 913dfc2e (cascade-integrations, GH #40, note 2), re-verified this tick: main.rs:240's `?` precedes the reporter match, so every load error bypasses every reporter — the gap generalizes past settings.json. Cascade's bar also asks the message state that Claude Code drops every hook when settings.json is unparseable; that external fact carries no cite in their report, so it enters only with a retrieved one. scoped at ab61fea4"
+  },
+  {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
     "gate": {
       "kind": "blockedBy",
@@ -149,6 +199,10 @@
         {
           "path": "tests/layout_kind.rs",
           "description": "This file already carries the corpus's one existing relocation vocabulary — a lock-row `row_relocates_builtin` (src/compose.rs:1091) recognizes a same-named row as a legitimate built-in relocation purely structurally (format/unit_shape/registration compatible), with no marker field at all, and doesn't examine edgeFields either — so a corpus kind named `rule` with an added edgeField should already flow through that existing Rust-side path with no engine change (matching this entry's own claim). Before minting a new `facts.relocates` marker in the SDK, confirm it doesn't duplicate `row_relocates_builtin`'s concept under a second name; if the marker is genuinely SDK-layer-only (needed before compilation to a KindFactRow), name that distinction explicitly rather than leaving two same-purpose 'relocates' vocabularies unreconciled. Extend this file's relocated-built-in fixtures if a new end-to-end case is the cleanest proof."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "`row_relocates_builtin` is DEFINED here (:1091) and read at :460/:1114 — the corpus's one existing 'relocates' vocabulary. Where the entry concludes the SDK-side `facts.relocates` marker is a distinct, SDK-layer-only concept, that distinction is named at this definition's doc comment so the two vocabularies are reconciled in the same diff, not left as two same-purpose names. Behaviour unchanged: overlay_builtin_kind (:453) never carries edgeFields. Read-only mentions at src/kind.rs:94, src/admissibility.rs:123/426 and tests/lock_declaration_rows.rs:1878 are prose that rides the next entry opening those files (standing prose-cite rule), not this fence."
         }
       ],
       "retire": []
@@ -165,7 +219,7 @@
       }
     ],
     "acceptance": "A corpus can add an edge field to a built-in kind (e.g. rule) via the sanctioned relocation form and have it resolve a real graph edge, checked at check and rendered at emit — no as any cast needed. No engine change required: overlay_builtin_kind (compose.rs:453) never needs to carry edgeFields, since edges never live on a kind row. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the relocated kind's edge fact is actually present (non-empty) in the compiled declarations before checking it resolves a real edge.",
-    "notes": "observed at ad10e8cb (GH #54); reworded at bf4b4168, item g. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — kind() factory moved to kind.ts:431 (was ~336), KindFacts is now a 3-branch locus union; files[] line ref corrected, union-branch caveat added for the relocates marker. No longer blocked in substance. scoped at 727cceb2"
+    "notes": "observed at ad10e8cb (GH #54); reworded at bf4b4168, item g. f8ba355b moved the kind() factory to kind.ts:431 and made KindFacts a 3-branch locus union; files[] carries that caveat. Ripple reconciled 09-07: src/compose.rs added — row_relocates_builtin's definition is where the two 'relocates' vocabularies get reconciled. scoped at ab61fea4"
   },
   {
     "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
@@ -484,6 +538,10 @@
         {
           "path": "tests/nested_member.rs",
           "description": "an_address_with_a_leaf_tail_names_no_member (:903) asserts `service:beta/domain/common/purpose` names no MEMBER — that must stay true under the unified parser (the leaf tail is a different grain, `parse_nested_address`'s own doc comment rules it out at :1685-1693). Re-verify it, and where the file's `resolve` helper reaches it, pin the twin: the same address DOES name a leaf."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "Import-path only: `extract::host_address(&kind.name, &unit.id)` at :73 follows the symbol into the new module. (`target_identity` at :619 is a plain-backtick prose mention, not an intra-doc link — no gate reads it, so it rides per the standing prose-cite rule.)"
         }
       ],
       "retire": []
@@ -504,14 +562,15 @@
       }
     ],
     "acceptance": "`rg 'fn host_address|fn nested_address|fn parse_nested_address|fn parse_leaf_address' src/` returns hits in src/member_address.rs and nowhere else; every caller reads the one module. A host-qualified leaf address resolves through the same parser that reads the nested address it is a tail of, and the bare short forms both parsers accept today keep resolving. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` are green, and so is `cargo doc --no-deps --document-private-items` — the moved symbols carry intra-doc links from four files and that gate is denied crate-wide. Known prose cite left stale on purpose: sdk/src/declarations.ts:503 points at `src/read.rs`'s parse_leaf_address; a TS comment no gate reads, so it rides the next entry that opens declarations.ts (SECTION-CONTAINS-LABEL-MARKER-COLLISION or KINDS-IN-PLAY-NAME-COLLISION-REFUSAL) per the standing prose-cite rule, rather than pulling a twice-contended file into this fence.",
-    "notes": "observed at 86aa0e94 (build refactor capture, drained this tick); all three homes re-verified on disk at e6c551cc — extract.rs:742, graph.rs:1665/1678/1695, read.rs:835/845 — and the disagreement confirmed live: resolve_leaf (read.rs:872) matches ParsedLeaf.member against features.id, a bare id, where parse_nested_address demands `<kind>:<name>` of the same segment. Short-form tolerance follows member_named's shipped precedent (graph.rs:1650), not a new ruling. scoped at e6c551cc"
+    "notes": "observed at 86aa0e94 (build refactor capture, drained); all three homes re-verified at e6c551cc — extract.rs:742, graph.rs:1665/1678/1695, read.rs:835/845 — and the disagreement confirmed live: resolve_leaf (read.rs:872) matches ParsedLeaf.member against features.id, a bare id, where parse_nested_address demands `<kind>:<name>`. Ripple reconciled 09-07: src/gate.rs:73 added. scoped at ab61fea4"
   },
   {
     "tag": "SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL"
+        "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
+        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
       ]
     },
     "dependsOnForks": [],
@@ -558,6 +617,6 @@
       }
     ],
     "acceptance": "`rg '\\}:\\$\\{|\\}/\\$\\{' sdk/src/*.ts` returns hits in sdk/src/member-address.ts and nowhere else; every producer reads the one module. `pnpm --dir sdk test` (strict tsc + node --test) is green with no behavioural diff, and `cargo test` stays green — the payload and lock rows the SDK emits are byte-identical, which is what makes this an extraction rather than a change.",
-    "notes": "Post-ship reconciliation sweep 09-07, b46a306e..HEAD: ab500f80 gave the Rust side one writer (`graph::nested_address`) and one parser, and c60ddd3f then shipped a bug that was exactly this class — the SDK member table indexed `kind:name` while the grammar spelled three segments, so an embedded edge target resolved nowhere. The seam gate (tests/seam_bindings_current.rs) compares row TYPES, not the grammar, so nothing catches the two ends drifting. scoped at 1f79d12a"
+    "notes": "Filed in the 09-07 sweep, b46a306e..HEAD: ab500f80 gave the Rust side one writer/parser and c60ddd3f then shipped exactly this bug class — the SDK member table indexed `kind:name` while the grammar spelled three segments. tests/seam_bindings_current.rs compares row TYPES, not the grammar, so nothing catches the ends drifting. Ripple reconciled 09-07: the src/graph.rs and src/read.rs hits are the RUST twin's homes, so this now serializes behind it. scoped at ab61fea4"
   }
 ]

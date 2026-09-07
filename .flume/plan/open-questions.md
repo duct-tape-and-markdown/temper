@@ -71,7 +71,36 @@ tax.
   duplicate what those already model (0036's own "Rejected: a local
   registration manifest" concern, at committed-file stakes). What's missing
   is the human ruling on the mechanism, session-argued as 0036 was — not a
-  waiting-for-demand fork, the demand already shipped. No dependents.
+  waiting-for-demand fork, the demand already shipped.
+  **Sharpened 09-07** (cascade-integrations, GH #40, observed at 913dfc2e;
+  re-verified on disk this tick): the missing container kind is also why
+  **the guard can be switched off through the manifest it protects,
+  silently**. Replacing `temper guard .` with `true` in the `PreToolUse`
+  command exits 0 at the boundary and at the next `check`. Two mechanisms,
+  one cause. (i) `emit_manifest` (`drift.rs:1655`) computes the SHA of every
+  represented manifest's bytes, but `drift::emit` pushes the rollup row
+  carrying it **only** `if let Some((kind, name)) = &build.container`
+  (`:1505`) — an ownerless manifest is emit-owned by path (`:1401`) and
+  fingerprint-less, so `config_stale` (`:2713`, which walks rows carrying
+  `source_path` + `emit_hash`) can never see the hand-edit. This repo's own
+  `.temper/lock.toml` proves it: six `[[declaration.registration]]` rows name
+  `manifest = "settings.json"` and no row anywhere carries its `source_path`.
+  (ii) `RegistrationRow.fields` are seam-inbound and dropped from the lock by
+  design (`drift.rs:3823`, 0018 "the projection is not the database"), so the
+  hook's command exists in no committed row to compare — which is why the
+  boundary half cascade also asks for (a bytes digest `manifest_write_findings`
+  compares) is 0018's question, not a fixup. `pipeline.md` "Drift" promises a
+  finding for "a **committed projection** differing from its byte fingerprint";
+  a represented manifest with no container member has no fingerprint to
+  differ from. The cheapest answer needing no new mechanism is this fork's
+  own subject: a kind governing the committed file makes `build.container`
+  `Some`, the rollup row appear under a real kind, and `config_stale` fire —
+  where a synthetic `[[manifest]]` rollup row under a non-kind label would
+  mint a phantom kind the by-kind corpus, `coverage.checked`, and
+  admissibility must each be taught to ignore (the disease the layout-prose
+  refactor capture documented before f07d4f84 drained it into a real
+  `layout_prose` family). No entry filed: both faces rest on this ruling.
+  No dependents.
 
 - `(external-commitment)` — OPEN, live driver (GH #29, human-ruled 09-03,
   PARK). No locus shape expresses "committed, not an emit target, still a
