@@ -190,6 +190,12 @@ pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projecte
 /// contract broken, not the file edited. States the same binding limit: tool-mediated writes only.
 const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this write violates its contract — fix the member to conform, or challenge the contract. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
+/// The header `temper guard` prints when a pending `Edit`/`MultiEdit` to a represented
+/// manifest cannot be reconstructed into the whole manifest it would land, so no member was
+/// checked at all. A co-owned manifest never earns the blanket projection wording
+/// ([`GUARD_MESSAGE`]) — the way through is a write the guard can read, not an untouched file.
+const GUARD_MANIFEST_EDIT_MESSAGE: &str = "temper-governed manifest: this edit cannot be reconstructed into the manifest it would land, so its governed members went unchecked — re-issue the change as a whole-file Write. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: any `file_path`
 /// value, captured so the guard can test it for lock-declared projection-set membership
 /// when targets are present, or fall back to the `.claude/` locus check when no lock
@@ -923,18 +929,178 @@ pub struct GuardedManifest {
     pub expected_keys: Vec<String>,
 }
 
+/// One string replacement a pending `Edit`/`MultiEdit` payload asks for: the exact text to
+/// find, its replacement, and whether every occurrence is replaced rather than the single
+/// unambiguous one (`code.claude.com/docs/en/tools-reference`, retrieved 2026-09-07).
+struct PendingEdit {
+    /// The exact text the edit finds — matched byte-for-byte, never trimmed or re-indented.
+    old: String,
+    /// The text it is replaced with.
+    new: String,
+    /// Replace every occurrence rather than requiring exactly one.
+    replace_all: bool,
+}
+
+/// The full manifest text a pending write would land, as far as the guard can reconstruct it.
+enum PendingManifest {
+    /// The whole file the write would leave on disk — a `Write`'s `content`, or the on-disk
+    /// file with the payload's edits applied.
+    Text(String),
+    /// The payload carries no write shape this guard understands (neither whole-file
+    /// `content` nor any edit strings), so there is nothing to check.
+    Unrecognized,
+    /// The payload is an edit the guard cannot honestly apply — the file is unreadable, or
+    /// its text does not carry the edit's `old_string` exactly once.
+    Unreconstructable,
+}
+
+/// The rule id the [`PendingManifest::Unreconstructable`] denial carries — distinct from a
+/// member's contract violation, since nothing was checked: the guard could not build the
+/// manifest the write would land.
+const GUARD_MANIFEST_EDIT_RULE: &str = "guard.manifest-edit-unreconstructable";
+
+/// The full manifest text `input`'s pending write would leave on disk. A `Write` carries it
+/// outright as `content`; an `Edit`/`MultiEdit` carries only replacement strings
+/// (`old_string`/`new_string`, or an `edits` array of them), so the on-disk file at
+/// `file_path` is read and the edits applied in sequence — the same whole manifest either
+/// shape would produce, so one rule judges both.
+///
+/// Field names per `code.claude.com/docs/en/tools-reference` (retrieved 2026-09-07); that
+/// reference documents `Write` and `Edit` only — `MultiEdit`'s `edits` array of the same
+/// per-edit fields is UNVERIFIED, kept because the guard's own hook matcher still binds the
+/// tool. A misread there costs a denial the author resolves with `Write`, never a silent pass.
+fn pending_manifest(input: &JsonValue, file_path: &str, root: &Path) -> PendingManifest {
+    if let Some(content) = input.get("content").and_then(JsonValue::as_str) {
+        return PendingManifest::Text(content.to_string());
+    }
+
+    let edits = match input.get("edits") {
+        Some(value) => {
+            let Some(array) = value.as_array() else {
+                return PendingManifest::Unreconstructable;
+            };
+            let mut edits = Vec::with_capacity(array.len());
+            for entry in array {
+                let Some(edit) = read_edit(entry) else {
+                    return PendingManifest::Unreconstructable;
+                };
+                edits.push(edit);
+            }
+            edits
+        }
+        None => match read_edit(input) {
+            Some(edit) => vec![edit],
+            // A payload carrying one edit string but not its partner is an edit that cannot
+            // be applied, not a shape the guard fails to recognize — only a payload naming
+            // neither falls through to the caller's projection binding.
+            None if input.get("old_string").is_some() || input.get("new_string").is_some() => {
+                return PendingManifest::Unreconstructable;
+            }
+            None => return PendingManifest::Unrecognized,
+        },
+    };
+
+    let Some(relative) = crate::path::relativize_against_root(file_path, root) else {
+        return PendingManifest::Unreconstructable;
+    };
+    let Ok(mut text) = fs::read_to_string(root.join(relative)) else {
+        return PendingManifest::Unreconstructable;
+    };
+    for edit in &edits {
+        let Some(edited) = apply_edit(&text, edit) else {
+            return PendingManifest::Unreconstructable;
+        };
+        text = edited;
+    }
+    PendingManifest::Text(text)
+}
+
+/// One [`PendingEdit`] off an object carrying the edit fields — the whole `tool_input` of an
+/// `Edit`, or one entry of a `MultiEdit`'s `edits`. [`None`] when the object carries no edit
+/// strings at all.
+fn read_edit(value: &JsonValue) -> Option<PendingEdit> {
+    Some(PendingEdit {
+        old: value
+            .get("old_string")
+            .and_then(JsonValue::as_str)?
+            .to_string(),
+        new: value
+            .get("new_string")
+            .and_then(JsonValue::as_str)?
+            .to_string(),
+        replace_all: value
+            .get("replace_all")
+            .and_then(JsonValue::as_bool)
+            .unwrap_or(false),
+    })
+}
+
+/// `text` with `edit` applied, or [`None`] when the edit cannot be honestly applied: an empty
+/// or absent `old`, or — without `replace_all` — one occurring more than once, the ambiguity
+/// Claude Code itself refuses to resolve. Reconstructing a manifest from a guess is worse
+/// than declining to check it.
+fn apply_edit(text: &str, edit: &PendingEdit) -> Option<String> {
+    if edit.old.is_empty() {
+        return None;
+    }
+    if edit.replace_all {
+        return text
+            .contains(&edit.old)
+            .then(|| text.replace(&edit.old, &edit.new));
+    }
+    let mut hits = text.match_indices(&edit.old);
+    let (at, _) = hits.next()?;
+    if hits.next().is_some() {
+        return None;
+    }
+    let mut out = String::with_capacity(text.len() + edit.new.len());
+    out.push_str(&text[..at]);
+    out.push_str(&edit.new);
+    out.push_str(&text[at + edit.old.len()..]);
+    Some(out)
+}
+
+/// The finding a pending edit to `manifest` earns when the guard cannot reconstruct the
+/// manifest it would land — naming the members left unchecked and the write shape that can
+/// be checked, never the blanket projection wording a co-owned manifest has no business
+/// hearing.
+fn unreconstructable_edit_finding(manifest: &GuardedManifest) -> Diagnostic {
+    let governed = if manifest.expected_keys.is_empty() {
+        format!(
+            "the members it governs at `{}`",
+            manifest.address.key_path.wire_label()
+        )
+    } else {
+        format!(
+            "its lock-declared members `{}` at `{}`",
+            manifest.expected_keys.join("`, `"),
+            manifest.address.key_path.wire_label()
+        )
+    };
+    let path = manifest.path.to_string_lossy().replace('\\', "/");
+    Diagnostic::error(
+        GUARD_MANIFEST_EDIT_RULE,
+        path.clone(),
+        format!(
+            "cannot reconstruct `{path}` from this edit — the file is unreadable, or its text does not carry the edited string exactly once — so {} went unchecked; re-issue the change as a whole-file `Write`.",
+            governed
+        ),
+    )
+}
+
 /// Check a pending `PreToolUse` write against every represented manifest's contract —
 /// entry 4 of the manifest write side, extending the `.claude/`-projection binding
 /// ([`guard`]) to the manifest members the write face now governs.
 ///
-/// Returns `None` when the write targets no represented manifest (a non-manifest path, a
-/// payload with no whole-file `content`, or content that will not parse as this manifest) —
-/// the caller falls back to the projection-drift binding. Returns `Some(findings)` when the
-/// write does target one: `findings` is empty for a conforming manifest (a co-owned manifest
-/// write touching only opaque residue, or members that all pass), or the error-severity
-/// contract violations its members trip, to be surfaced at the author's declared enforcement
-/// mode. Only a whole-file `content` (a `Write`) is validated — a partial `Edit`/`MultiEdit`
-/// payload carries no full manifest to check, so it reads as no-manifest and CI backstops it.
+/// Returns `None` when the write targets no represented manifest — a non-manifest path, or a
+/// payload carrying no write shape at all — and the caller falls back to the projection-drift
+/// binding. Returns `Some(findings)` when the write does target one: `findings` is empty for a
+/// conforming manifest (a co-owned manifest write touching only opaque residue, or members
+/// that all pass), or the error-severity findings its members trip, to be surfaced at the
+/// author's declared enforcement mode. `Write` and `Edit`/`MultiEdit` are judged by one rule —
+/// the manifest the write would land ([`pending_manifest`]) — and an edit the guard cannot
+/// reconstruct earns its own finding rather than falling through to the projection binding,
+/// whose wording denies a co-owned manifest wholesale.
 #[must_use]
 pub fn manifest_write_findings(
     payload: &str,
@@ -944,20 +1110,37 @@ pub fn manifest_write_findings(
     let value: JsonValue = serde_json::from_str(payload).ok()?;
     let input = value.get("tool_input")?;
     let file_path = input.get("file_path").and_then(JsonValue::as_str)?;
-    let content = input.get("content").and_then(JsonValue::as_str)?;
 
-    let mut matched = false;
-    let mut findings = Vec::new();
-    for manifest in manifests {
-        if !path_matches(file_path, root, std::iter::once(manifest.path.as_path())) {
-            continue;
+    let matched: Vec<&GuardedManifest> = manifests
+        .iter()
+        .filter(|manifest| path_matches(file_path, root, std::iter::once(manifest.path.as_path())))
+        .collect();
+    if matched.is_empty() {
+        return None;
+    }
+
+    // Resolved once the path is known to name a manifest, so no unrelated write ever costs
+    // a disk read.
+    let content = match pending_manifest(input, file_path, root) {
+        PendingManifest::Text(text) => text,
+        PendingManifest::Unrecognized => return None,
+        PendingManifest::Unreconstructable => {
+            return Some(
+                matched
+                    .into_iter()
+                    .map(unreconstructable_edit_finding)
+                    .collect(),
+            );
         }
-        matched = true;
+    };
+
+    let mut findings = Vec::new();
+    for manifest in matched {
         // A pending write that will not even parse as a manifest is left to CI (the write
         // would trip `check`'s own loud malformed read); the guard is conservative and only
         // ever fails to forge a finding, never suppresses honest work over a parse hiccup.
         let Ok(parsed) =
-            json_manifest::Manifest::parse(&manifest.path, content, &[&manifest.address])
+            json_manifest::Manifest::parse(&manifest.path, &content, &[&manifest.address])
         else {
             continue;
         };
@@ -996,14 +1179,23 @@ pub fn manifest_write_findings(
                 .filter(|finding| finding.severity == Severity::Error),
         );
     }
-    matched.then_some(findings)
+    Some(findings)
 }
 
-/// Render a represented manifest's contract violations for the guard's in-band surface: the
-/// [`GUARD_MANIFEST_MESSAGE`] header, then one `<rule>: <finding>` line per violation.
+/// Render a represented manifest's findings for the guard's in-band surface: the header its
+/// findings earn — [`GUARD_MANIFEST_MESSAGE`] for a member that broke its contract,
+/// [`GUARD_MANIFEST_EDIT_MESSAGE`] for an edit that could not be reconstructed and so checked
+/// nothing — then one `<rule>: <finding>` line per finding.
 #[must_use]
 pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
-    let mut out = String::from(GUARD_MANIFEST_MESSAGE);
+    let unreconstructable = findings
+        .iter()
+        .any(|finding| finding.rule == GUARD_MANIFEST_EDIT_RULE);
+    let mut out = String::from(if unreconstructable {
+        GUARD_MANIFEST_EDIT_MESSAGE
+    } else {
+        GUARD_MANIFEST_MESSAGE
+    });
     for finding in findings {
         out.push_str(&format!("\n  {}: {}", finding.rule, finding.message));
     }

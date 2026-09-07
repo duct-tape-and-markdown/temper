@@ -1737,6 +1737,156 @@ fn guard_flags_manifest_write_that_omits_lock_declared_member() {
     );
 }
 
+/// A `PreToolUse` `Edit` payload — the partial shape carrying replacement strings rather
+/// than the whole file, which the guard reconstructs against the on-disk manifest.
+fn edit_payload(file_path: &str, old_string: &str, new_string: &str) -> String {
+    serde_json::json!({
+        "tool_name": "Edit",
+        "tool_input": {
+            "file_path": file_path,
+            "old_string": old_string,
+            "new_string": new_string,
+        },
+    })
+    .to_string()
+}
+
+/// A `block` harness whose lock declares the `SessionStart` hook member — which makes
+/// `.claude/settings.json` both a represented manifest and an emit-owned projection, the
+/// exact overlap an `Edit` to it has to be judged under.
+fn settings_manifest_harness(slug: &str, settings: &str) -> PathBuf {
+    let root = common::tmpdir(slug);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n",
+    )
+    .unwrap();
+    common::write_settings(&root, settings);
+    root
+}
+
+/// A `.claude/settings.json` carrying the lock-declared `SessionStart` hook beside residue
+/// no kind models (`autoMemoryEnabled`) — the co-owned shape the manifest binding exists for.
+const CO_OWNED_SETTINGS: &str = r#"{
+  "autoMemoryEnabled": false,
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "temper check . --reporter session-start" } ] }
+    ]
+  }
+}
+"#;
+
+#[test]
+fn guard_allows_an_edit_touching_only_unmodeled_manifest_residue() {
+    // `.claude/settings.json` is co-owned: the lock governs its `hooks` segment, and its
+    // `autoMemoryEnabled`/`permissions` residue is the author's. An `Edit` touching only that
+    // residue is legitimate — the guard reconstructs the manifest the edit would land, finds
+    // every governed member intact and conforming, and passes it, never falling through to
+    // the blanket `.claude/`-is-projected denial the same path earns for a projection write.
+    let root = settings_manifest_harness("guard-manifest-edit-residue", CO_OWNED_SETTINGS);
+
+    let (code, stderr) = common::run_guard(
+        &root,
+        &edit_payload(
+            ".claude/settings.json",
+            "\"autoMemoryEnabled\": false",
+            "\"autoMemoryEnabled\": true",
+        ),
+    );
+    assert_eq!(
+        code,
+        Some(0),
+        "an edit touching only unmodeled residue passes even under `block`: {stderr}"
+    );
+    assert!(
+        stderr.is_empty(),
+        "a conforming edit surfaces nothing: {stderr}"
+    );
+
+    // The same reconstruction judges an edit that *drops* a governed member: replacing the
+    // `hooks` segment wholesale denies, at the manifest's own wording — one rule for `Write`
+    // and `Edit` alike.
+    let (dropped_code, dropped_stderr) = common::run_guard(
+        &root,
+        &edit_payload(
+            ".claude/settings.json",
+            "\"SessionStart\"",
+            "\"NotARealEvent\"",
+        ),
+    );
+    assert_eq!(
+        dropped_code,
+        Some(2),
+        "an edit dropping a lock-declared member is denied"
+    );
+    assert!(
+        dropped_stderr.contains("lock declares member") && dropped_stderr.contains("SessionStart"),
+        "the denial names the dropped member: {dropped_stderr}"
+    );
+}
+
+#[test]
+fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
+    // An edit whose `old_string` is not on disk cannot be honestly applied, so no member was
+    // checked. That is a denial — but a manifest-specific one, naming the governed members
+    // and the write shape the guard can read. The blanket projection wording would tell the
+    // author to re-emit a file they co-own, which is false.
+    let root =
+        settings_manifest_harness("guard-manifest-edit-unreconstructable", CO_OWNED_SETTINGS);
+
+    let (code, stderr) = common::run_guard(
+        &root,
+        &edit_payload(
+            ".claude/settings.json",
+            "\"neverOnDisk\": 1",
+            "\"neverOnDisk\": 2",
+        ),
+    );
+    assert_eq!(code, Some(2), "an unreconstructable edit is denied");
+    assert!(
+        stderr.contains("temper-governed manifest"),
+        "the denial speaks as the manifest binding: {stderr}"
+    );
+    assert!(
+        !stderr.contains("temper-managed projection"),
+        "a co-owned manifest never earns the blanket projection denial: {stderr}"
+    );
+    assert!(
+        stderr.contains("SessionStart") && stderr.contains("Write"),
+        "the denial names the governed members and points at a whole-file write: {stderr}"
+    );
+
+    // An absent file is unreconstructable for the same reason, and denies the same way.
+    let bare = common::tmpdir("guard-manifest-edit-absent-file");
+    let temper_dir = bare.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"block\"\n\n\
+         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n",
+    )
+    .unwrap();
+
+    let (absent_code, absent_stderr) = common::run_guard(
+        &bare,
+        &edit_payload(".claude/settings.json", "\"a\": 1", "\"a\": 2"),
+    );
+    assert_eq!(
+        absent_code,
+        Some(2),
+        "an edit to an unreadable manifest is denied"
+    );
+    assert!(
+        absent_stderr.contains("temper-governed manifest")
+            && !absent_stderr.contains("temper-managed projection"),
+        "an unreadable manifest still speaks as the manifest binding: {absent_stderr}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
 // directly over a hand-built payload.
