@@ -9,7 +9,100 @@ breaking changes. Releases are small and frequent.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- `check` names a document at a governed locus the lock declares no member
+  for (`locus.undeclared-member`, warn). A stray `.claude/rules/x.md` or
+  `.claude/agents/x.md` that Claude Code would load, `emit` would never
+  maintain, and `check` previously counted in silence now carries a finding
+  naming the document and its kind's locus; the coverage line reports
+  declared and undeclared counts per kind. Under `--deny-advisories` this
+  exits non-zero. (GH #58)
+- `guard` binds a write into a represented committed kind's governed locus
+  when no member is declared there, at the kind's enforcement mode. In
+  `block` mode a hand `Write` creating a file under any governed locus,
+  `specs/` included for a harness that governs it, is refused with the
+  locus named; declared projections keep their drift wording. (GH #58)
+- `guard` refuses a `Write`, `Edit`, or `MultiEdit` that would leave a
+  represented manifest unparseable (`guard.manifest-unparseable`). An
+  unparseable `.claude/settings.json` makes the harness unloadable and
+  Claude Code skips the file whole, hooks included, so the boundary is the
+  only placement that can say so. (GH #40)
+- `explain kind:<name>` is the authoring entry point: alongside guidance and
+  cite it now renders the document shape a layout kind reads and the child
+  kinds a host admits. `explain` also accepts the engine's own
+  `<kind>:<name>` member address and the full `<host-address>/<kind>/<key>`
+  nested spelling. (GH #47, #49)
+- A nested member can be addressed by its full host-qualified address
+  (`<host-address>/<kind>/<key>`) in edge fields and in the SDK's
+  `embeddedMemberValue`, so two same-keyed members under different hosts no
+  longer force a rename. (GH #50, #51; decision 0049)
+- A built-in kind gains a sanctioned relocation form for added edge fields:
+  `relocate(builtinKind, { edgeFields })` emits one `edge` fact row and no
+  kind-fact change. (GH #54)
+- SDK: `embeddedMemberValue`'s leaves are typed against the kind's field
+  schema, and `KindFacts.registration` is narrowed per locus, so an omitted
+  leaf or a registration on an embedded kind fails `tsc` rather than
+  `check`. (GH #46)
+
+### Changed
+
+- A bare nested-member key that more than one host carries is refused at
+  resolution, naming every host, in edges, mentions, and `explain`; it
+  previously resolved to whichever member the scan reached first. A
+  same-host duplicate `(kind, key)` is refused at admissibility. Address
+  the member by its full spelling. (decision 0049, amended)
+- Two `edge` fact rows spelling one `(from, field)` slot are refused at
+  admissibility as a malformed lock; they previously resolved every
+  reference twice and reported spurious `graph.route` findings.
+- A layout declaring more than one verbatim prose region is refused at
+  admissibility; only the first could ever carry bytes.
+- `--deny-advisories` no longer fails a clean harness: disclosure notes such
+  as `coverage.checked` are reported at a `note` severity that never
+  blocks, and only declared-clause violations escalate. (GH #42)
+- Admissibility refusals name the declaration to open, not only the
+  collision that exists.
+- `emit` places the managed-by note for a frontmatter projection itself,
+  so a fresh emit no longer reports `install.gate-installed` until a
+  separate `install` converges it. (GH #57)
+- Every `section_contains` and `require_sections` clause carries its own
+  compiled label, so a kind may declare more than one of each. (GH #48)
+- An embedded member's host rides its identity, not a synthetic key in its
+  fields; a `closed-keys` clause on an embedded kind no longer indicts a key
+  no author wrote.
+
+### Fixed
+
+- The `session-start` reporter runs over a harness that cannot be loaded.
+  A load fault (malformed lock, non-UTF-8 member, duplicate declaration
+  key) previously aborted before any reporter, so the SessionStart hook
+  received empty stdout and the session opened with no verdict, the shape
+  of a clean pass. It now carries one blocking finding whose rule is the
+  fault's own code; terminal, GitHub, and SARIF reporters still exit
+  non-zero.
+- `guard` blocks under the invocation `install` wires (`temper guard .`):
+  a relative root is resolved before a `file_path` is relativized against
+  it, and an absolute `file_path` matches a single-segment target such as
+  `CLAUDE.md`. `mode: block` on the root memory file was cosmetic before
+  this. (GH #39)
+- `guard` judges an `Edit` or `MultiEdit` to a represented manifest by the
+  manifest it would land, so an edit touching only co-owned residue of
+  `.claude/settings.json` (`permissions`, `autoMemoryEnabled`) is allowed
+  and a member the lock declares cannot be dropped through an edit.
+  (GH #38, #40)
+- `.claude/settings.json` is recognised as emit-owned: registration
+  members live under `[[declaration.registration]]`, which the ownership
+  scan did not read, leaving the manifest unguarded.
+- A discovered layout document the lock declares no member for is named
+  (`layout.undeclared-member`) instead of reading as an empty host. (GH #43)
+- A layout's positional heading binding reports the mismatch when a leading
+  title or a missing section shifts every later region. (GH #41, #45)
+- `install` reports a synthesized hook placement an authored hook member
+  supersedes as its own outcome, and `check` no longer flags that hook as
+  needing install forever.
+- A render hook or embedded value can cite a nested member as an edge
+  target; the member table previously indexed top-level members only.
+  (GH #50)
 
 ## [0.0.17] — 2026-09-04
 
