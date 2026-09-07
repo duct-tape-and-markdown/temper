@@ -1,69 +1,8 @@
 [
   {
-    "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/admissibility.rs",
-          "description": "New well-formedness check beside nested_member_admissibility (~60-79, the real neighbor — not satisfies_label_admissibility, which judges a different, host-blind ambiguity): a single host declaring the SAME (kind, key) nested member twice is a malformed lock, refused at admissibility. Two DIFFERENT hosts sharing a (kind, key) are NOT coincident under 0049's grammar (`spec:alpha/invariant/x` and `spec:beta/invariant/x` are distinct addresses) — that case is a resolution-time ambiguity, not an admissibility refusal; see graph.rs below."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`member_named` (:1650) is the ONE membership lookup `resolves` (:1632), `edge_resolves` (:1380) and `member_at` (:466) all read since ab500f80 consolidated them, and its own doc comment (:1646-1649) already names this entry's ruling as owed: a bare key `also names an embedded member, taking whichever member of the kind carries it first ... refusing it is a policy decision owned elsewhere`. Decide it here. Because ab500f80 also made an embedded member's identity ITS ADDRESS (`compose::embedded_member_features`, :1201, `id: graph::nested_address(...)` at :1214), the host is read straight off `features.id` via `parse_nested_address` — no plumbing, no carrier to thread. When a BARE (unqualified) key matches more than one nested member of a kind across different hosts, refuse naming every colliding host; the full host-qualified address always resolves. The refusal cannot be produced AT the lookup — `member_named` returns `Option<&Features>` and `resolves` returns `bool`, neither of which can carry a diagnostic — so it is raised where the dangling diagnostics are already built (the `resolved_edges`/dangling path, and `edge_resolves` for the mention family), as a `graph.route` finding. `by_kind`'s pooled per-kind Vec (`compose::embedded_features_by_kind`, :1139) is what pools the candidates a bare key sees."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`explain`'s bare-name resolution needs the same ambiguity refusal, naming every host the name could mean — and the site is `resolve` (:209), NOT `why_impl` (:832). `resolve` matches by equality (`f.id == name` at :242 for the `kind:name` form, `f.id == target` at :255 for the bare form); since ab500f80 an embedded member's `features.id` is its full nested address, so a bare nested key resolves to NOTHING in explain today — there is no first-match collapse to convert, and the work is an ADDITION at `resolve`: match a bare name against nested members' key segment through the address parser, then refuse naming every host when more than one carries it. (`why_impl`'s dedup at :853 collapses one id borne by several KINDS — a different case `resolve` already refuses as `Species::Ambiguous` at :269-274; leave it alone.) This is what 0049 requires of `explain`: a bare name resolves exactly as an edge's bare identity does, within one declared kind when unique, refused as ambiguous otherwise."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "`embedded_hosts_by_source` (:622) is the last partial implementation of \"which host owns this nested member\": it builds a `(kind, key) -> host` BTreeMap off nested_member rows with a plain `.insert()` (:628), so a cross-host duplicate silently keeps whichever row inserts last, feeding `mention_reachable`'s citation scoping (doc at :615-621). Give it the same ambiguity judgment rather than a third lookup with a third failure mode (engineering.md, \"One job, one home\"). It also hand-parses the host address at :627 (`row.host.split_once(':')`) — and there is NO host-address parser anywhere in the tree to point it at: `graph::parse_nested_address` demands three slash-separated segments and returns `None` on a bare two-segment `kind:name`, and `extract::host_address` is a writer only. So either read the host off the member's own `features.id` (ab500f80 put it there) and stop parsing `row.host` here at all — preferred — or add the reader half beside the writer. Do not claim `parse_nested_address` already owns this grammar. The full hand-parse inventory, for the record and for MEMBER-ADDRESS-GRAMMAR-ONE-HOME to inherit, is EIGHT sites, all re-verified at 6b9eacae: gate.rs:627, graph.rs:333, :1348, :1624, :1703, read.rs:238, :1994, drift.rs:892. Three corrections to the five an earlier cut listed: drift.rs:891-893 does not split a different string — it splits a host address into (host_kind, host_name) and its refusal names the `kind:name` grammar verbatim; graph.rs:1703 (the host-segment split INSIDE `parse_nested_address`) is the site that literally becomes the reader half; and read.rs:1994 (`prose_strand`, taking the name segment off a `LayoutProseRow.member`) is an eighth. This entry rewrites only gate.rs:627; the other seven are MEMBER-ADDRESS's, whose files[] now carries them."
-        },
-        {
-          "path": "tests/nested_member.rs",
-          "description": "Three regressions: (1) one host declaring the same (kind, key) nested member twice refuses at admissibility; (2) two different hosts each declaring a same-kind-same-key nested member: a bare/explain-name reference to that key refuses at resolution naming both hosts, while either host's full `<host-address>/<kind>/<key>` address always resolves; (3) the same cross-host duplicate reaching `embedded_hosts_by_source` (a body-carried edge citation scoped through it) is judged the same way, not silently mapped to whichever host inserted last. PLUS one existing arm this entry inverts, in-fence and easy to miss: `host_qualified_addresses::a_bare_key_still_names_an_embedded_member` (:886) asserts the bare key `common` resolves with no dangling, over a fixture (`declarations()`, :779-802) that deliberately carries `domain_row(\"service:alpha\", \"common\")` and `domain_row(\"service:beta\", \"common\")` — a cross-host duplicate, so its verdict flips to the refusal. Its own comment at :776-778 (\"the same key twice, which is the whole point of addressing by host\") stays true; the sentence that must change is the one claiming the short form still resolves."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The one out-of-fence test that pins the prior policy this entry overturns: `embedded_edge_targets::a_bare_nested_member_address_matches_first_same_key` (:1188, in tests/graph.rs) builds two `service` hosts each declaring a `domain` member keyed `common`, spells the bare `common` on an edge, and asserts `run.ok` because \"bare nested member addresses should resolve to the first match (ambiguous but deterministic)\". That IS the codified ambiguity `graph::member_named`'s doc calls \"a policy decision owned elsewhere\", so deciding it necessarily rewrites this test — into the refusal naming both carrier hosts, or into a host-qualified spelling that still resolves. Same corpus, inverted verdict; keep the case."
-        },
-        {
-          "path": "tests/check_cost.rs",
-          "description": "VERIFY-ONLY compile guard, expect no diff: :470 binds `graph::resolved_edges(&edges, &by_kind)` and :474 `graph::acyclic(resolved_edges)`, so the ambiguity judgment must need no new parameter on either — its candidate pool IS `by_kind` (`compose::embedded_features_by_kind`) and each embedded member's host rides its own `features.id`. In the fence so a forced signature change lands visibly here rather than failing the fence at the merge."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A duplicate (kind, key) nested member is coincident only within one host; across hosts a bare address is ambiguous at resolution, never silently picked.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "member"
-    },
-    "tests": [
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "same-host duplicate (kind, key) refuses at admissibility; cross-host duplicate (kind, key) refuses only a bare/unqualified reference, at resolution, naming both hosts, across every bare-key consumer (graph::resolves, explain's `resolve`, src/read.rs:209, embedded_hosts_by_source) — and tests/graph.rs's bare-key edge case is re-pinned to the same verdict"
-      },
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a bare nested-member address matching two hosts refuses at resolution naming both, where the suite previously asserted first-match-wins; the host-qualified spelling of either still resolves"
-      }
-    ],
-    "acceptance": "A host repeating its own (kind, key) nested member refuses loud at admissibility. Two different hosts sharing a (kind, key) are legal (distinct addresses per 0049); a bare or explain-name reference ambiguous between them refuses at resolution naming every host, while the full host-qualified address to either always resolves. The refusal matches the SDK's, which SHIPPED this same bar at c60ddd3f (sdk/src/emit.ts:340-347: names every carrier host and points at the whole `<host-address>/<kind>/<key>` spelling) — one verdict at both ends of the seam, not two wordings. The bar fires at every consumer of a bare key, not only graph::member_named: explain's `resolve` and embedded_hosts_by_source (gate.rs) each name every candidate host too. The regression pins non-vacuity: each case asserts at least one real colliding pair is judged, not an empty read short-circuiting to 'no ambiguity' (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168. Plumbing shipped with ab500f80: identity IS the address, three lookups are one `member_named`, only the judgment is left. Fence widened 09-07 from a build capture. Amended from cascade's audits: the refusal is raised where dangling diagnostics are built, explain's site is `resolve` not `why_impl`, gate.rs cites +50, tests/nested_member.rs:886 inverts, the hand-parse inventory is re-counted to eight. scoped at 6b9eacae"
-  },
-  {
     "tag": "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -172,7 +111,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
         "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS"
       ]
     },
@@ -252,10 +190,7 @@
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -658,7 +593,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
         "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
         "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
         "REFUSAL-MESSAGE-NAMES-THE-EDIT",
