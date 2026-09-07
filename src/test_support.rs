@@ -81,3 +81,27 @@ pub(crate) fn surface_unit(member: &crate::frontmatter::Member) -> Unit {
         satisfies_clauses: member.satisfies.clone(),
     }
 }
+
+/// An inert [`Features`](crate::extract::Features) carrying nothing but `id` — the base
+/// every in-src fixture starts from, so a test spells only the columns it varies via
+/// struct update: `Features { body_lines: 1, ..test_support::features(id) }`.
+///
+/// The rendered extents are `Some(0)`, not `None`: an `extent` clause reads the `Some`,
+/// and a fixture that wants the undecidable case says so by overriding.
+pub(crate) fn features(id: &str) -> crate::extract::Features {
+    crate::extract::Features {
+        id: id.to_string(),
+        fields: std::collections::BTreeMap::new(),
+        body_lines: 0,
+        rendered_lines: Some(0),
+        rendered_chars: Some(0),
+        headings: Vec::new(),
+        sections: Vec::new(),
+        source_dir: None,
+        directives: Vec::new(),
+        fenced_blocks: Vec::new(),
+        nested_members: Vec::new(),
+        satisfies: Vec::new(),
+        edge_placements: None,
+    }
+}

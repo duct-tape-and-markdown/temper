@@ -212,19 +212,11 @@ mod tests {
     /// `satisfies` — the facts the satisfier set is built from.
     fn features(name: &str, satisfies: &[&str]) -> Features {
         Features {
-            id: name.to_string(),
-            fields: BTreeMap::new(),
             body_lines: 1,
             rendered_lines: Some(1),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
             source_dir: Some(name.to_string()),
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
-            edge_placements: None,
+            ..crate::test_support::features(name)
         }
     }
 

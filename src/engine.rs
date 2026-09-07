@@ -1418,19 +1418,11 @@ mod tests {
             .map(|(k, v)| ((*k).to_string(), v.clone()))
             .collect::<BTreeMap<_, _>>();
         Features {
-            id: id.to_string(),
             fields,
             body_lines,
             rendered_lines: Some(body_lines),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
             source_dir: source_dir.map(str::to_string),
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
-            satisfies: Vec::new(),
-            edge_placements: None,
+            ..crate::test_support::features(id)
         }
     }
 

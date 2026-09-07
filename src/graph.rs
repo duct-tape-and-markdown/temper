@@ -2001,19 +2001,11 @@ mod tests {
             );
         }
         Features {
-            id: name.to_string(),
             fields,
             body_lines: 1,
             rendered_lines: Some(1),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
             source_dir: Some(name.to_string()),
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
-            satisfies: Vec::new(),
-            edge_placements: None,
+            ..crate::test_support::features(name)
         }
     }
 
@@ -2662,19 +2654,10 @@ mod tests {
             JsonValue::String("**/*.rs".to_string()),
         );
         let member = Features {
-            id: "rust".to_string(),
             fields,
             body_lines: 1,
             rendered_lines: Some(1),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
-            source_dir: None,
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
-            satisfies: Vec::new(),
-            edge_placements: None,
+            ..crate::test_support::features("rust")
         };
 
         assert!(dead_registration(&channel, &member, &["src/a/foo.rs".to_string()]).is_none());

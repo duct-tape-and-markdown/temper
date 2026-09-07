@@ -2493,19 +2493,12 @@ mod impact_tests {
             );
         }
         Features {
-            id: id.to_string(),
             fields,
             body_lines: 1,
             rendered_lines: Some(1),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
             source_dir: Some(id.to_string()),
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| (*s).to_string()).collect(),
-            edge_placements: None,
+            ..crate::test_support::features(id)
         }
     }
 

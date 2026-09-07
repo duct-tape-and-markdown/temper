@@ -141,26 +141,17 @@ impl Dial {
 mod tests {
     use super::*;
 
+    use crate::test_support;
+
     /// One dial member carrying `entries` under the entries key, and nothing else — the
     /// only feature this module's read looks at.
     fn dial_member(entries: Option<JsonValue>) -> Features {
         Features {
-            id: "workstation".to_string(),
             fields: entries
                 .into_iter()
                 .map(|value| (ENTRIES_KEY.to_string(), value))
                 .collect(),
-            body_lines: 0,
-            rendered_lines: Some(0),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
-            source_dir: None,
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
-            satisfies: Vec::new(),
-            edge_placements: None,
+            ..test_support::features("workstation")
         }
     }
 

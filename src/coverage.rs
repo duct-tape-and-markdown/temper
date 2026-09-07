@@ -120,24 +120,14 @@ mod tests {
     use super::*;
     use crate::check::Severity;
     use crate::extract::Features;
+    use crate::test_support;
 
     /// A minimal [`Features`] carrying just an id and its `satisfies` edges — the
     /// only fields the coverage check reads.
     fn artifact(id: &str, satisfies: &[&str]) -> Features {
         Features {
-            id: id.to_string(),
-            fields: BTreeMap::new(),
-            body_lines: 0,
-            rendered_lines: Some(0),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
-            source_dir: None,
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
             satisfies: satisfies.iter().map(|s| s.to_string()).collect(),
-            edge_placements: None,
+            ..test_support::features(id)
         }
     }
 

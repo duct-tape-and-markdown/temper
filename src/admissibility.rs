@@ -683,6 +683,7 @@ mod tests {
 
     use crate::builtin_kind;
     use crate::extract::Features;
+    use crate::test_support;
 
     /// A [`drift::ClauseRow`] at `label`, carrying only the columns a collision reads.
     fn clause_row(kind: Option<&str>, label: &str, severity: &str) -> drift::ClauseRow {
@@ -731,25 +732,6 @@ mod tests {
             collection_address: None,
             guidance: None,
             cite: None,
-        }
-    }
-
-    /// A minimal [`Features`] carrying just the id a bare `satisfies` label resolves by.
-    fn member(id: &str) -> Features {
-        Features {
-            id: id.to_string(),
-            fields: BTreeMap::new(),
-            body_lines: 0,
-            rendered_lines: Some(0),
-            rendered_chars: Some(0),
-            headings: Vec::new(),
-            sections: Vec::new(),
-            source_dir: None,
-            directives: Vec::new(),
-            fenced_blocks: Vec::new(),
-            nested_members: Vec::new(),
-            satisfies: Vec::new(),
-            edge_placements: None,
         }
     }
 
@@ -836,8 +818,8 @@ mod tests {
             }],
             ..drift::Declarations::default()
         };
-        let skills = vec![member("review")];
-        let rules = vec![member("review")];
+        let skills = vec![test_support::features("review")];
+        let rules = vec![test_support::features("review")];
         let by_kind: BTreeMap<&str, &[Features]> =
             BTreeMap::from([("skill", skills.as_slice()), ("rule", rules.as_slice())]);
         let message =
