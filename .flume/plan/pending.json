@@ -188,52 +188,6 @@
     "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`, which f07d4f84's `layout_prose` family has since given a third candidate; this entry waits on the ruling either way. Serialized behind KINDS-IN-PLAY and LAYOUT-UNDECLARED-FINDING for tests/layout_kind.rs. scoped at bf2e3eba"
   },
   {
-    "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "Add `relocate(base, delta)` beside the existing `kind()` factory (~431 — shifted from ~336 by f8ba355b's discriminated-union narrowing, verified on disk 09-07). KindFacts is now three inlined object-literal union branches, one per locus shape (~168-310), each already near-fully duplicated by design (that commit's own rationale: no intermediate named types requiring root-level exports). A spread-merge (`{...base, edgeFields: delta.edgeFields}`) should stay within whichever branch `base` already is and type-check as KindFacts without touching all three by hand — confirm this holds under real tsc rather than assuming, since a marker field no branch currently declares (e.g. `facts.relocates`) is exactly the case a discriminated union complicates; if it doesn't type-check cleanly, a side-channel marker (outside KindFacts) is the fallback, not a third duplication of the union. Mark the produced facts with a relocation marker (e.g. `facts.relocates`) so KINDS-IN-PLAY-NAME-COLLISION-REFUSAL can later tell a legitimate relocation from a genuine name collision."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "SDK-side payload assertion: a relocated `rule` kind declaring an added edgeField emits the fact in its compiled declarations (no `as any`, no dropped field)."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Rust regression: the emitted edge fact from a relocated built-in resolves a real graph.route edge — proving no engine change is needed, since edges are always read from assembly `edge` rows keyed by `from` kind (never carried on a kind row itself); `graph.route` isn't assertable from an SDK test, hence the split."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "This file already carries the corpus's one existing relocation vocabulary — a lock-row `row_relocates_builtin` (src/compose.rs:1091) recognizes a same-named row as a legitimate built-in relocation purely structurally (format/unit_shape/registration compatible), with no marker field at all, and doesn't examine edgeFields either — so a corpus kind named `rule` with an added edgeField should already flow through that existing Rust-side path with no engine change (matching this entry's own claim). Before minting a new `facts.relocates` marker in the SDK, confirm it doesn't duplicate `row_relocates_builtin`'s concept under a second name; if the marker is genuinely SDK-layer-only (needed before compilation to a KindFactRow), name that distinction explicitly rather than leaving two same-purpose 'relocates' vocabularies unreconciled. Extend this file's relocated-built-in fixtures if a new end-to-end case is the cleanest proof."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "`row_relocates_builtin` is DEFINED here (:1091) and read at :460/:1114 — the corpus's one existing 'relocates' vocabulary. Where the entry concludes the SDK-side `facts.relocates` marker is a distinct, SDK-layer-only concept, that distinction is named at this definition's doc comment so the two vocabularies are reconciled in the same diff, not left as two same-purpose names. Behaviour unchanged: overlay_builtin_kind (:453) never carries edgeFields. Read-only mentions at src/kind.rs:94, src/admissibility.rs:123/426 and tests/lock_declaration_rows.rs:1878 are prose that rides the next entry opening those files (standing prose-cite rule), not this fence."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A built-in kind cannot take an added edge field; the SDK has no sanctioned relocation constructor and an as any cast drops the edge fact silently.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "a relocated built-in kind's added edge field is emitted, not silently dropped by an as any cast"
-      }
-    ],
-    "acceptance": "A corpus can add an edge field to a built-in kind (e.g. rule) via the sanctioned relocation form and have it resolve a real graph edge, checked at check and rendered at emit — no as any cast needed. No engine change required: overlay_builtin_kind (compose.rs:453) never needs to carry edgeFields, since edges never live on a kind row. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the relocated kind's edge fact is actually present (non-empty) in the compiled declarations before checking it resolves a real edge.",
-    "notes": "observed at ad10e8cb (GH #54); reworded at bf4b4168, item g. f8ba355b moved the kind() factory to kind.ts:431 and made KindFacts a 3-branch locus union; files[] carries that caveat. Ripple reconciled 09-07: src/compose.rs added — row_relocates_builtin's definition is where the two 'relocates' vocabularies get reconciled. scoped at ab61fea4"
-  },
-  {
     "tag": "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL",
     "gate": {
       "kind": "open"
@@ -324,10 +278,7 @@
   {
     "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -636,7 +587,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
         "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
         "REFUSAL-MESSAGE-NAMES-THE-EDIT",
         "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
@@ -730,7 +680,9 @@
         "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
       ]
     },
+    "dependsOnForks": [],
     "files": {
+      "new": [],
       "edit": [
         {
           "path": "tests/common/mod.rs",
@@ -756,7 +708,8 @@
           "path": "tests/read_verbs.rs",
           "description": "Retire `explain_via_cli` at :1113 — the fifth spelling of the same runner under a different name (stdout+stderr); its callers read `common::explain_in`."
         }
-      ]
+      ],
+      "retire": []
     },
     "summary": "One `temper explain` CLI runner is written five times across five test files, in two variants that disagree on whether a refusal's stderr is captured at all.",
     "per": {
