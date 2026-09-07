@@ -44,52 +44,6 @@
     "notes": "observed at ad10e8cb (F11, GH #43 leaves gap); corrected at bf4b4168: 'the composed half already names it prose' is false — no reserved own-span leaf name exists in the corpus today. Reserving one is a Decision, tracked by fork `layout-own-span-leaf`, which f07d4f84's `layout_prose` family has since given a third candidate; this entry waits on the ruling either way. Serialized behind KINDS-IN-PLAY and LAYOUT-UNDECLARED-FINDING for tests/layout_kind.rs. scoped at bf2e3eba"
   },
   {
-    "tag": "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "The `contains('/')` guard in `impact_impl` (:1129) and `context_impl` (:1399) re-decides a species `resolve` (:212) already settled. Since 9c5c7a71 a nested member's identity IS `<host-address>/<kind>/<key>`, so `Species::Member` reaches both `_impl`s carrying a slashed name; `parse_leaf_address` (:1179) is `splitn(4, '/')` and returns `None` on three segments, so each strand returns the \"is not a well-formed leaf address\" refusal (:1240, :1420) — two copies appended to a correct `why` narration (:374-401). Move the leaf dispatch up into the wrappers that own it: `impact` (:1090) already carries its own guard at :1099, so `impact_impl` drops :1129-1131; `context` (:1387) has none of its own — it borrows `context_impl`'s — so the guard moves from :1399 into `context`, leaving `context_impl` to narrate a member unconditionally. Both `_impl` bodies then resolve the slashed id through `build_member_index` (:149), which keys on `features.id` and so already holds a nested member's whole address — no new lookup, no new index. `explain`'s Leaf branch (:432-445) is untouched: it calls the wrappers with an address `resolve` classed as a leaf. Correct the stale rule in `resolve`'s doc comment (:169-170) — “a `/`-bearing target is always a leaf address (a member, requirement, or kind name never carries a slash)” has been false since 9c5c7a71; the order the body already implements (nested member by equality at :245, then the leaf fallthrough at :264) is what it must state. This file's own unit tests drive `impact` at leaf addresses (:2479, :2520, :2542, :2556) and stay green untouched — they exercise the wrapper, which keeps the guard."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "`node_from_address` (:1353) carries the same wrong discriminator with no nested check at all: `if address.contains('/')` classes EVERY slashed address under `EMBEDDED_LEAF_KIND` (:1347), so a mention naming a nested member's canonical address (`note:note/requirement/my-req`) reaches `mention_finding` (:1394) as an embedded leaf, `parse_leaf_address` returns `None` at :1405, and a member that exists draws a false `graph.route` dangling — the exact spelling `explain`'s own ambiguity refusal hands the author to retry with. Re-cut the dispatch to read the grammar rather than the character: a four-segment address (`read::parse_leaf_address`) is the embedded leaf; a three-segment one (`nested_key`, :1815, which already rejects a four-segment key at :1776) is a member node whose kind is the address's own `<kind>` segment and whose id is the whole address — the identity `target_identity` (:1644) already binds for declared edges, so the two reference families stop disagreeing; the colon split and the `REQUIREMENT_KIND` default (:1358-1360) stay last, unchanged. Two consequences to name in the commit body rather than discover: `resolved_import_edges` (:1485) parses both ends through this same function, and a mention whose `from` side is a nested member now carries its real kind instead of `embedded`, which is the node kind `mention_reachable` scopes on."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The `embedded_mention` module (:2040) already pins both leaf verdicts over the `note:note` host (`requirement_row`, :2055; `a_mention_targeting_a_real_embedded_leaf_resolves_clean` at :2070 and its bogus-key twin at :2102). Add the member-grain pair beside them, both red before this entry: a mention targeting `note:note/requirement/my-req` — the nested member itself, not its leaf — resolves clean, and one targeting `note:note/requirement/ghost` still fires `graph.route`. The two existing leaf cases must stay green unmoved: the four-segment address keeps its leaf grain."
-        },
-        {
-          "path": "tests/nested_member.rs",
-          "description": "`explain_refuses_a_bare_key_two_hosts_carry` (:1018) already drives `explain` at both carriers' full addresses (:1043-1051) but asserts only `!contains(\"names more than one thing\") && !contains(\"No member\")` — coarse enough that today's two stray refusals ride through it. Narrow that arm and add the positive twin: `explain` at `service:alpha/domain/common` carries no \"is not a well-formed leaf address\" line anywhere and narrates all three member-grain strands. `an_address_with_a_leaf_tail_names_no_member` (:1071) stays green untouched — a four-segment address is still no member address, and that is the non-vacuity this fix must not eat."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "A nested member's three-segment address is re-read as a malformed leaf: `explain` appends two refusals to a correct narration, and a mention naming one falsely dangles.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "member"
-    },
-    "tests": [
-      {
-        "path": "tests/nested_member.rs",
-        "asserts": "`explain` at a nested member's full `<kind>:<name>/<kind>/<key>` address narrates why/impact/context and emits no leaf-address refusal anywhere"
-      },
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a mention naming a nested member's canonical address resolves clean at `check`, and one naming a key no host carries still fires `graph.route`"
-      }
-    ],
-    "acceptance": "`specs/model/representation.md` (\"member\") makes the three address spellings one grammar every verb accepts; both verbs accept the nested one. `explain <kind>:<name>/<kind>/<key>` narrates at member grain with no \"is not a well-formed leaf address\" line in its output, and a four-segment leaf address still narrates at leaf grain through the wrappers that keep the dispatch. A mention naming a nested member's canonical address resolves at `check` where it fires `graph.route` today, while `a_mention_targeting_a_real_embedded_leaf_resolves_clean` and its bogus-key twin stay green unmoved. The species discriminator survives at exactly two kinds of site — `resolve`'s classification and each read wrapper's leaf dispatch — with no character test left in `impact_impl`, `context_impl`, or `node_from_address`. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade-integrations, #54 rehearsal, observed at ae74bf49). Re-verified on disk: the refusal text is read.rs:1240/:1420, reached because `splitn(4, '/')` needs four segments. The mention half is this tick's find, not the report's — the same wrong discriminator at a gate verdict. Serialized behind ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL and made a parent of MEMBER-ADDRESS-GRAMMAR-ONE-HOME; both share files. scoped at 2e0de83a"
-  },
-  {
     "tag": "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
     "gate": {
       "kind": "blockedBy",
@@ -136,50 +90,9 @@
     "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
   },
   {
-    "tag": "RELOCATE-CANNOT-MOVE-A-BUILTINS-LOCUS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "`KindRelocation<T>` (:484) carries `edgeFields` only, and `relocate` (:512) rides the base's locus through unchanged (its own doc says so at :481) — so the delta cannot spell the ONE fact the engine's overlay exists to apply. `overlay_builtin_kind` (src/compose.rs:453) carries a matched row's `governs` ALWAYS (\"a relocation may declare no other diverging fact at all\", the doc at :441), and `row_relocates_builtin` (:1105) compares format/unit_shape/registration and never governs, so a governs-diverging row is already admitted — the engine half needs nothing. Add `governs?: { root: string; glob: string }` to the delta and merge it into the base's `at`-locus branch. Root and glob ONLY, never `commitment`: the overlay writes `kind::Governs { root, glob }` (:445) and nothing else, so a `commitment` delta would author a fact the lock reader drops silently — a built-in's commitment stays unrespellable, the same rule CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS's remedy message already holds. Throw when the base's locus is not `at` (an embedded or nested-file kind governs no glob, so there is no locus to move and its row carries no governs columns at all), and throw when a delta declares neither face rather than minting a marker-bearing clone of the base."
-        },
-        {
-          "path": "sdk/test/builtins.test.ts",
-          "description": "Regression through the compile path (`compileDeclarations`), beside the relocation arms 77581333 added here: a `rule` relocated to a `decisions/*.md` root emits a kind-fact row whose `governs_root`/`governs_glob` are the delta's — non-vacuity first (0048's bar): assert they DIFFER from the unrelocated base's row before asserting they are the delta's. In the same arm assert `format`, `unit_shape` and `registration` stay byte-equal to the base's row: those three are exactly what `row_relocates_builtin` (src/compose.rs:1105) compares, so this pins that an SDK-authored relocation is still admitted by the engine that today only ever reads the hand-written twin (tests/layout_kind.rs:347's `relocated_rule_with_layout`, tests/dial_kind.rs:351). Three more arms: the produced facts carry `relocates: \"rule\"`; a `governs` delta over a non-`at` base throws; an edge-field delta and a `governs` delta compose in one call, neither dropping the other."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The SDK's `relocate` cannot move a built-in's locus — the one fact the engine's overlay exists to apply — so a different-root redeclaration is still hand-built and unmarked.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "a built-in relocated to its own root emits that root's governs columns while format/unit_shape/registration stay byte-equal to the base's row — the three facts the engine's overlay test compares"
-      },
-      {
-        "path": "sdk/test/builtins.test.ts",
-        "asserts": "a `governs` delta over a non-`at`-locus base throws, and a locus delta composes with an edge-field delta in one call"
-      }
-    ],
-    "acceptance": "A corpus moves a built-in to its own root through the sanctioned form — `relocate(rule, { governs: { root: \"decisions\", glob: \"*.md\" } })` — and the emitted kind-fact row both carries the new locus and still satisfies `row_relocates_builtin`'s three-fact overlay test, so the engine reads members there. The facts carry the `relocates` marker, so KINDS-IN-PLAY-NAME-COLLISION-REFUSAL can except the very case its own summary names. `pnpm --dir sdk test` green; no Rust change, no snapshot moves.",
-    "notes": "Post-ship audit of 77581333 (this tick): the relocation form shipped edge-fields-only, so the different-root redeclaration cascade reported (GH #53, F13(c)) — the case KINDS-IN-PLAY-NAME-COLLISION-REFUSAL's own summary names — is still hand-spread off `kind()`, minting no marker and refused by that entry. Ripple named, not widened: src/compose.rs, tests/layout_kind.rs, tests/dial_kind.rs are the engine's structural twin, read-only cites here. scoped at c2415400"
-  },
-  {
     "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "RELOCATE-CANNOT-MOVE-A-BUILTINS-LOCUS"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -487,8 +400,7 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
-        "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF"
+        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
       ]
     },
     "dependsOnForks": [],
