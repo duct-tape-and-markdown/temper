@@ -113,6 +113,8 @@ breaking changes. Releases are small and frequent.
 - A render hook or embedded value can cite a nested member as an edge
   target; the member table previously indexed top-level members only.
   (GH #50)
+- A local-commitment layout member's captured prose reaches `explain`;
+  the read kept its collection and fill rows and dropped the spans.
 - `explain` on a full nested-member address renders the member and stops;
   it previously appended a "not a well-formed leaf address" refusal after
   a successful resolution.
