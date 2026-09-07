@@ -259,74 +259,9 @@
     "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
   },
   {
-    "tag": "FEATURES-FIXTURE-ONE-HOME(src)",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/test_support.rs",
-          "description": "The home: the module's own opening line already declares it \"Shared scaffolding for in-src `#[cfg(test)] mod tests` blocks\" (:1), and it is `#[cfg(test)]`-gated at src/lib.rs:73, so nothing here reaches a release build. Add one base beside `tmpdir` (:9) / `skill_kind` (:22) / `surface_unit` (:70): `pub(crate) fn features(id: &str) -> extract::Features` — the inert member every fixture below starts from, `fields` empty, `body_lines` 0, `rendered_lines`/`rendered_chars` `Some(0)` (NOT `None`: every existing copy spells `Some(0)`, and the extent predicates read the Some), `headings`/`sections`/`directives`/`fenced_blocks`/`nested_members`/`satisfies` empty, `source_dir` None, `edge_placements` None. Each site keeps only what it varies, via struct update: `Features { body_lines: 1, ..test_support::features(id) }`. Two alternatives considered and rejected, both to be named in the commit body: deriving `Default` on `extract::Features` (src/extract.rs:291) — a production API addition whose only consumer would be tests, and whose `rendered_lines: None` contradicts the `Some(0)` every fixture wants; and routing every fixture through the production choke point `builtin_kind::features` (src/builtin_kind.rs:676) the way tests/nested_member.rs:806 does — right where the subject IS extraction, wrong here, since several sites construct feature states extraction never produces."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "`member(id)` (:738) spells all thirteen fields to carry an id and nothing else — the base verbatim. Route it through `test_support::features`; nothing varies, so the local fixture either becomes a one-line forwarder or retires into its call sites."
-        },
-        {
-          "path": "src/coverage.rs",
-          "description": "`artifact(id, satisfies)` (:126) varies `satisfies` alone; the other twelve fields are the base."
-        },
-        {
-          "path": "src/dial.rs",
-          "description": "`dial_member(entries)` (:146) varies `id` (the literal `workstation`) and `fields` (the `ENTRIES_KEY` entry); the rest is the base."
-        },
-        {
-          "path": "src/engine.rs",
-          "description": "`features(id, fields, body_lines, source_dir)` (:1410) varies four columns plus `rendered_lines: Some(body_lines)` — keep those five over the base. `features_with_headings` (:1439) already builds on it and is untouched. `scoped_element_features` (:1306) is production code spelling the same tail (:1312-1325) and stays: it derives a scoped Features from a real one, not a fixture."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Two copies in one module: `node(name, routes_to)` (:1995) varies `fields`/`body_lines`/`source_dir`, and the inline `let member = Features {…}` at :2664 spells the whole tail a second time. Both take the base. `satisfying` (:2469) already mutates a passed-in Features and stays."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "`feature(id, satisfies, description)` (:2240) varies `fields`/`body_lines`/`source_dir`/`satisfies`. `nested_member` (:2431) already rides `feature` and stays. Test-mod only — no narration path is touched, which is why this entry waits behind the two entries that edit this file's `explain` surface rather than racing them."
-        },
-        {
-          "path": "src/roster.rs",
-          "description": "`features(name, satisfies)` (:213) varies `body_lines`/`source_dir`/`satisfies`; `skill_with_model` (:407) and `skill_satisfying` (:413) already ride it and stay. Its local name collides with the base's — either import the base qualified (`test_support::features`) or keep the local wrapper, whichever reads cleaner at the call sites."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Seven in-src test mods each hand-spell the same thirteen-field `Features` literal; `src/test_support.rs` is the fixture home that exists for exactly this.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "src/graph.rs",
-        "asserts": "the module's two copies (the `node` fixture and the inline member) both build off the shared base, with every existing assertion unmoved and green"
-      },
-      {
-        "path": "src/engine.rs",
-        "asserts": "the four-column fixture and its `features_with_headings` derivative still produce the exact feature states the predicate tests judge"
-      }
-    ],
-    "acceptance": "`cargo test` and `cargo clippy --all-targets -- -D warnings` green with no assertion changed — this is an extraction, so every test's subject and expectation is byte-identical. Oracle: `rg -n 'edge_placements: ' src/` hits only the three production constructors (src/kind.rs:1269, src/engine.rs:1325, src/compose.rs:1250) and the one base in src/test_support.rs; no `#[cfg(test)]` module spells the field tail.",
-    "notes": "Filed by the post-ship sweep of c2415400..HEAD. feb0c21f's own body named its new in-src test mod's fixtures as repeats of compose.rs's; the `Features` half is the wider one — eight copies over seven modules, diverging on `body_lines` (0 vs 1) and `source_dir` (None vs Some) alone. engineering.md names test scaffolding a surface with one home; `tests/common` is unreachable from a src module, and `src/test_support.rs` is that home crate-side. scoped at dd1d4311"
-  },
-  {
     "tag": "FEATURES-FIXTURE-ONE-HOME(tests)",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "FEATURES-FIXTURE-ONE-HOME(src)"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -408,10 +343,7 @@
   {
     "tag": "LOCK-ROW-FIXTURE-ONE-HOME(src)",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "FEATURES-FIXTURE-ONE-HOME(src)"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
