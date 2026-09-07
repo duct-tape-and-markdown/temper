@@ -1,52 +1,5 @@
 [
   {
-    "tag": "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/check.rs",
-          "description": "Declaration rows for a layout source come from exactly two paths: emit over the program's declared members (drift.rs derive_layout_rows) and check's read-time derivation for local-locus kinds only (compose.rs local_document_rows). A discovered committed member of a layout kind that the program never declares is read at check for its field slots (compose.rs layout_unit) and for nothing else: coverage prints `invariant (0)`, explain says \"Nested members: none\", every leaf address fails, and no finding names the cause. Add a finding, advisory (config.stale posture), when a discovered committed layout-kind member has no matching provenance row in the lock — naming the two remedies: declare it in the program and re-emit, or declare the kind local."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "The new finding sits beside config_stale (~2643) — the freshness-fact family the gate already reads disk-vs-lock through — rather than a second comparison mechanism."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "Regression: a committed layout-kind document discovery finds but the program's member list omits produces the new advisory finding naming the file and remedy, rather than reading as zero coverage with no explanation."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "gate() (~496-521) is where every advisory family already wires in (install::gate_installed, coverage_note::check, drift::config_stale_from_doc) — the new finding joins that same call chain rather than being reachable from check.rs alone."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "src/drift.rs",
-      "src/gate.rs",
-      "tests/layout_kind.rs"
-    ],
-    "summary": "A committed layout document discovery finds but the program never declares yields no declaration rows anywhere — coverage, explain, and leaf addresses all read silently empty, no finding names why.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/layout_kind.rs",
-        "asserts": "a discovered committed member of a layout kind with no provenance row in the lock surfaces an advisory finding naming the file and the remedy, instead of reading as silent zero coverage"
-      }
-    ],
-    "acceptance": "check reports a discovered layout-kind member absent from the lock's declaration rows as a named advisory finding; the pipeline.md split (the gate reads declarations from the lock family and nowhere else, local locus excepted) stays intact — the fix is the finding, not new read-time derivation for committed sources. Per 0048's conservation bar, the regression pins non-vacuity: it asserts a non-zero count of discovered committed members judged before checking the advisory finding, so the test cannot pass over an empty read.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10, GH #43 as retitled; drained by plan tick ab4a3ead with no entry — re-filed verbatim, now routed). Vacuity-pin bar added per cadabd8e inbox note. scoped at bf4b4168"
-  },
-  {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
     "gate": {
       "kind": "blockedBy",
@@ -84,47 +37,9 @@
     "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 3 of 4); narrowed at bf4b4168, item d: the read.rs/narrate_kind item targeted narration that doesn't exist (narrate_kind prints guidance/cite only) — that half collapses, since LAYOUT-LOUD-READ-SWALLOWED-REGION's new LayoutError message now carries the region-naming bar directly. Chained behind LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL and NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY (shared src/admissibility.rs). scoped at bf4b4168"
   },
   {
-    "tag": "EXPLAIN-KIND-ADOPTER-ENTRY-POINT",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/read.rs",
-          "description": "resolve's explicit `kind:` prefix branch (~221-224: `target.strip_prefix(\"kind:\")` unconditionally returns `Species::Kind(name)`) has no existence check — unlike the bare-name fallthrough a few lines below, which already gates on `contracts.contains_key(target)`. Fold in the same check so an undeclared qualified kind name is NotFound (GH #47), rather than narrate_kind (476) reporting 'no guidance declared' identically for a declared-but-unguided kind and an undeclared one. Then extend narrate_kind: `Contract` (contract.rs:24) carries only name/clauses/guidance — no regions or templates — so a layout kind's regions and a composed kind's admitted embedded kinds must be narrated from whatever data the engine already populates for them (declarations.layouts / declarations.nested_members); define what 'composed kind' means here or drop the term."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Regression: explain kind:<undeclared-name> reads NotFound; explain kind:<layout-kind> prints its regions and a fitting skeleton; explain kind:<composed-host-kind> prints its admitted embedded kinds and leaves."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "Make explain kind:<x> the adopter's authoring entry point: NotFound for an undeclared kind, a skeleton for a layout kind, admitted embedded kinds for a composed kind.",
-    "per": {
-      "path": "specs/intent.md",
-      "section": "Invariants"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain kind:<x> is the adopter's authoring entry point for every kind shape, and NotFound for an undeclared name"
-      }
-    ],
-    "acceptance": "explain kind:<x> resolves NotFound for a name no kind declares; for a layout kind it narrates the regions in order plus a skeleton document; for a composed kind it narrates the admitted embedded kinds and their leaves.",
-    "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 4 of 4; GH #47 folded in); corrected at bf4b4168, item e: the gap is the literal `kind:` prefix branch (read.rs:221-224), unconditional, no existence check. Post-ship reconciliation 09-07: EXPLAIN-KIND-QUALIFIED-ADDRESS-FORM shipped (e4d2b7b2) via a separate `<kind>:<name>` split_once branch (~227) — the strip_prefix(\"kind:\") branch this entry targets is confirmed untouched, still 221-224. No longer chained. scoped at 727cceb2"
-  },
-  {
     "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT",
-        "EXPLAIN-KIND-ADOPTER-ENTRY-POINT"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -213,10 +128,7 @@
   {
     "tag": "BUILTIN-KIND-RELOCATION-EDGE-FIELDS",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "CHECK-UNDECLARED-LAYOUT-MEMBER-SILENT"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
