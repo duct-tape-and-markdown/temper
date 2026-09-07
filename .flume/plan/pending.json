@@ -44,7 +44,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
         "EXPLAIN-CLI-RUNNER-ONE-HOME"
       ]
     },
@@ -305,95 +304,9 @@
     "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
   },
   {
-    "tag": "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "src/member_address.rs",
-          "description": "The one home for the member-address grammar `specs/model/representation.md` (\"member\") spells — `<kind>:<name>`, `<host-address>/<kind>/<key>`, and `/<leaf>` beneath it — with a writer and a parser per spelling and the leaf address parsed as a TAIL of the nested one rather than a second, differently-shaped parse. Distinct from `src/address.rs`, which is field addressing (a clause's `field` path), not member addressing; a new flat top-level module is what `specs/process/architecture.md` (\"The tree stays flat\") calls for, and engineering.md's \"One job, one home\" obliges the commit body to name `src/address.rs` as the near-duplicate considered and why it did not fit. Eight symbols move in: the two writers `extract::host_address` and `graph::nested_address`; the nested parser `graph::NestedAddress` + `parse_nested_address`; its two thin readers `graph::embedded_source_host` (:1802) and `graph::nested_key` (:1815) — both pure grammar, built on nothing but the parser, so they follow it or `parse_nested_address` goes `pub` for their sake alone; and the leaf pair `read::ParsedLeaf` + `parse_leaf_address`. `graph::embedded_hosts_by_key` (:1835) does NOT move — it indexes `Features`, which is corpus work, not grammar; it imports the reader instead. One design call the builder makes explicitly: `embedded_source_host` returns `graph::Node` (`pub type Node = (String, String)`, graph.rs:82), so either member_address.rs takes a `use crate::graph::Node` (a leaf module depending on graph for a tuple alias) or the reader returns `(&str, &str)` pairs and its two callers (graph.rs's `edge_host` :332, `embedded_hosts_by_key` :1841) do the `to_string`. Prefer the second — the grammar module owes graph nothing. It also ships the READER half the tree still lacks: a `<kind>:<name>` host-address parser. There is none today, so the grammar is hand-split at FIVE surviving duplicate sites, re-verified on disk at 67abe15f — graph.rs:1357, graph.rs:1651, read.rs:254, read.rs:2034, drift.rs:892 — plus graph.rs:1780, the host split inside `parse_nested_address` itself, which is the one home once the parser moves rather than a site to re-point. Each of the five is a one-to-three-line substitution in a file already in this fence. (The eight-site inventory this entry carried was cut to six by 9c5c7a71: gate.rs:627 went with the deleted `embedded_hosts_by_source`, and graph.rs:333 folded into `embedded_source_host`.)"
-        }
-      ],
-      "edit": [
-        {
-          "path": "src/lib.rs",
-          "description": "Declare `pub mod member_address;` in the alphabetical run (~63-64, between `layout` and `path`)."
-        },
-        {
-          "path": "src/extract.rs",
-          "description": "Move `host_address` (:742) and its unit test `host_address_is_kind_colon_id` (:1166) into the new module. Its doc comment already names the two other writers of the same `${kind}:${name}` form (drift::NestedMemberRow::host, sdk/src/declarations.ts's nestedMemberRows) — that comment moves with it."
-        },
-        {
-          "path": "src/graph.rs",
-          "description": "Move `NestedAddress` (:1738), `nested_address` (:1755), `parse_nested_address` (:1772), `embedded_source_host` (:1802) and `nested_key` (:1815) into the new module. `parse_nested_address` becomes `pub`, and so do `NestedAddress` and THREE of its five fields — `host` (:1739), `kind` (:1744), `key` (:1746) — which graph.rs still reads after the move at :1645/:1647 (`target_identity`) and :1705 (`member_lookup`); `host_kind`/`host_name` (:1741, :1743) are read only by `embedded_source_host`, which moves with them, so they stay private to the new module. Re-point the surviving callers — `target_identity` (:1644), `member_lookup` (:1704), `edge_host` (:332, which now calls `embedded_source_host`, not the parser), `embedded_hosts_by_key` (:1841) — and route this file's TWO surviving host-address hand-splits through the new reader: :1357 (`node_from_address`, a `kind:name` address with a REQUIREMENT_KIND default when no colon) and :1651 (`target_identity`'s bare `kind:name` fallback). :1780 is the split inside `parse_nested_address` and moves with it. Intra-doc links: :329 ([`embedded_source_host`]) and :1633 ([`parse_nested_address`]) stay in graph.rs and must gain the new module path; and the moving comments carry five links to items that STAY in graph.rs — [`target_identity`] and [`member_named`] (:1735), [`edge_host`] (:1736 and :1799), [`embedded_hosts_by_key`] (:1800) — which break under the crate-wide `-D broken_intra_doc_links` once the comments land elsewhere; the first three are private in graph.rs, so absolute paths will not save them — rewrite or drop. :1767's [`crate::read::parse_leaf_address`] re-points at the new module (both ends move). `src/graph.rs:25`'s `use crate::read::{parse_leaf_address, resolve_leaf};` splits: `parse_leaf_address` follows into the new module, `resolve_leaf` stays in read.rs (graph.rs:1405 calls both inside `edge_resolves`)."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "Move `ParsedLeaf` (:1169) and `parse_leaf_address` (:1179) into the new module and re-cut the parse as the nested address's `/<leaf>` tail: the first segment is a `<kind>:<name>` host address, not the bare member id it reads today. `resolve_leaf` (:1201) stays in read.rs but MUST be edited, not merely re-imported — it compares `parsed.member` to `features.id` at :1207, and a top-level member's `features.id` is the bare id, so re-cutting the parser alone leaves `spec:20-surface/decision/surface-authority/chosen` resolving nowhere and this entry's acceptance unmet; the outer kind is already in hand as the loop key at :1205, so match `parsed.member` against BOTH `features.id` and the host-qualified `host_address(outer_kind, &features.id)`. Keep the bare short form resolving alongside the canonical one: the committed mention targets at tests/graph.rs:1939/:1973 and the SDK's own leaf writer spell it bare, so retiring it would re-spell committed locks against 0024. Bare-key ambiguity is already ruled and SHIPPED (9c5c7a71): `graph::member_lookup` answers `Membership::Ambiguous` when several hosts carry one key — do not restore first-match-wins, and do not re-decide it here. Three callers take the moved import: `impact_leaf` (:1238), `context_leaf` (:1418, resolving at :1426) and graph.rs:1405. Two host-address hand-splits in this file read the new module's parser as well: :254 (the `kind:name` species resolution) and :2034 (`prose_strand`, taking the name segment off a `LayoutProseRow.member`). This file also gained three `graph::nested_key` call sites at 9c5c7a71 — :245, :287, and the plain-`//` comment naming it at :243 — all of which follow the reader into the new module (import-path plus one comment word; no rustdoc gate reads a `//` line)."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "Import-path only: `extract::host_address` (:743, :1052), `graph::nested_address` (:1214), and the two intra-doc links naming it (:1199, :1212)."
-        },
-        {
-          "path": "src/drift.rs",
-          "description": "`use crate::extract::host_address` (:29) and its five call sites (:1292, :1909, :1976, :2170, :2413) take the new import path — and one real edit beside them: `nested_file_path` (:879) hand-splits its host address at :891-893, refusing with \"its host `{address}` is no `kind:name` address\". That is the writer's own inverse; it reads the new module's host parser, and the refusal wording stays."
-        },
-        {
-          "path": "src/admissibility.rs",
-          "description": "Import-path only: `graph::nested_address(host, kind, key)` at :113 — a writer call site 9c5c7a71 added after this entry was last scoped, caught by the ripple check at 67abe15f. Unfenced, it is one `cargo build` failure the moment the writer moves."
-        },
-        {
-          "path": "src/builtin_kind.rs",
-          "description": "Import-path only: the `extract::host_address` call site (:678)."
-        },
-        {
-          "path": "src/gate.rs",
-          "description": "Import-path only, and only that now: `extract::host_address(&kind.name, &unit.id)` at :73 follows the writer into the new module. The second reader this entry once predicted here is GONE — 9c5c7a71 deleted `embedded_hosts_by_source` and its `row.host.split_once(':')`, and the consumer at :524 now calls `graph::embedded_hosts_by_key`, which stays in graph.rs; re-verified at 67abe15f, no `split_once(':')` survives in this file. (`target_identity` at :619 is a plain-backtick prose mention, not an intra-doc link — no gate reads it, so it rides per the standing prose-cite rule.)"
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "The two embedded-leaf mention fixtures spell the leaf address bare — `note/requirement/my-req/chosen` (:1939) and `note/requirement/my-req/rejected` (:1973). Add the canonical host-qualified spelling beside them so both forms are pinned: the canonical one resolves, and a bogus key under it still fires `graph.route`."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "a_leaf_address_walks_impact_and_context_at_leaf_grain_and_discloses_coverage (:239) drives `explain` at the bare spelling `20-surface/decision/surface-authority/chosen` (:258). Extend it to the canonical `spec:20-surface/...` spelling, asserting the same leaf-grain narration."
-        },
-        {
-          "path": "tests/nested_member.rs",
-          "description": "an_address_with_a_leaf_tail_names_no_member (:903) asserts `service:beta/domain/common/purpose` names no MEMBER — that must stay true under the unified parser (the leaf tail is a different grain, `parse_nested_address`'s own doc comment rules it out at :1688-1694). Re-verify it, and where the file's `resolve` helper reaches it, pin the twin: the same address DOES name a leaf."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "One member-address grammar is written and parsed in three unrelated modules, and its nested and leaf parsers disagree on whether the first segment is `<kind>:<name>` or a bare id.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/read_verbs.rs",
-        "asserts": "explain at the canonical host-qualified leaf address `<kind>:<name>/<kind>/<key>/<leaf>` narrates at leaf grain, and the bare-member short form still does"
-      },
-      {
-        "path": "tests/graph.rs",
-        "asserts": "a mention targeting a host-qualified embedded-leaf address route-resolves at check, and a bogus key under the same spelling still fires graph.route"
-      }
-    ],
-    "acceptance": "`rg 'fn host_address|fn nested_address|fn parse_nested_address|fn parse_leaf_address|fn embedded_source_host|fn nested_key' src/` returns hits in src/member_address.rs and nowhere else, and so does `rg \"split_once\\\\(':'\\\\)\" src/` — the five surviving hand-splits of the host grammar route through the reader this entry ships, and the sixth rides inside the parser that moved. Every caller reads the one module. A host-qualified leaf address resolves through the same parser that reads the nested address it is a tail of, and the bare short forms both parsers accept today keep resolving. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` are green, and so is `cargo doc --no-deps --document-private-items` — the moved symbols carry intra-doc links from two files (graph.rs at :329, :1633, :1735, :1736, :1767, :1799, :1800; compose.rs at :1199 — compose.rs:1212 is a plain `//` comment no rustdoc gate reads, so it rides) and that gate is denied crate-wide. Known prose cite left stale on purpose: sdk/src/declarations.ts:529 points at `src/read.rs`'s parse_leaf_address; a TS comment no gate reads, so it rides the next entry that opens declarations.ts (SECTION-CONTAINS-LABEL-MARKER-COLLISION or KINDS-IN-PLAY-NAME-COLLISION-REFUSAL) per the standing prose-cite rule, rather than pulling a twice-contended file into this fence.",
-    "notes": "Refactor capture build-member-address-inventory-delta drained here (observed 1d480a99): 9c5c7a71 closed 2 of the 8 hand-splits — gate.rs:627 went with the deleted `embedded_hosts_by_source`, graph.rs:333 folded into the new reader `embedded_source_host`. Five duplicates survive, all re-verified on disk. Every graph.rs and read.rs cite re-cut (+~40/+70); two moving readers and three new `nested_key` callers added; src/admissibility.rs:113 folded in from the ripple. scoped at 67abe15f"
-  },
-  {
     "tag": "EXPLAIN-CLI-RUNNER-ONE-HOME",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -447,10 +360,7 @@
   {
     "tag": "SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
