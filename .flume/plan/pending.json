@@ -234,6 +234,48 @@
     "notes": "observed at ad10e8cb (GH #54); reworded at bf4b4168, item g. f8ba355b moved the kind() factory to kind.ts:431 and made KindFacts a 3-branch locus union; files[] carries that caveat. Ripple reconciled 09-07: src/compose.rs added — row_relocates_builtin's definition is where the two 'relocates' vocabularies get reconciled. scoped at ab61fea4"
   },
   {
+    "tag": "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL",
+    "gate": {
+      "kind": "open"
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/graph.rs",
+          "description": "`admissibility` (:155, doc at :141 \"Two decidable clauses\") gains clause (c): no two edges share a `(from, field)` slot. `contract.md` (\"edge\") gives a field ONE target set (\"The kind declares the field's target as a non-empty set of kinds\"), so two rows spelling one slot are a malformed lock — the assembly-fact sibling of `nested_member_coincidence` (src/admissibility.rs:95). `edge_id` (:1869) already renders exactly that slot as `{from}.{field}`, so group by it and report ONCE per coincident slot, not once per row, naming the count and each distinct `to` set. Key on `(from, field)` ALONE, regardless of `to`: two identical rows are equally malformed — they double every `ResolvedEdge`, inflating `degree`'s (:255) in/out counts with a phantom arc. The SKIP half is what makes this more than a second diagnostic and is load-bearing: `resolved_edges` (:1262) and `check` (:137) re-derive per-edge admissibility through `is_admissible` (:1589), whose `(&Edge, &BTreeMap)` signature cannot see a coincidence, so compute the coincident-slot set once over `edges` and skip both arms exactly as clauses (a)/(b) are skipped. Resolving either arm is a guess between two declarations, and without the skip the author gets the new refusal PLUS the false-dangling pile the coincidence causes — the reported symptom, where every pre-existing `cites` target \"resolves to no directive artifact\" while the new row's targets \"resolve to no skill artifact\". Message names the EDIT, not just the state (the bar REFUSAL-MESSAGE-NAMES-THE-EDIT audits): merge the rows into one `edge` fact whose `to` set lists every target kind, the spec's own spelling. Cost: the pre-pass is O(edges) over an already-loaded slice, never a new walk over members, so `resolved_edges_count()` (:39) — pinned at tests/check_cost.rs:467 — must not move; do not add a second `resolved_edges` invocation. Unit tests land in the inline `mod tests` (:1969) beside this clause family's two siblings, `an_edge_with_an_empty_reference_field_is_inadmissible` (:2122) and `an_edge_over_an_unmodeled_target_kind_is_inadmissible_and_skipped` (:2102), reusing `routes_to_edge` (:2008) and `node` (:1982). tests/graph.rs is deliberately NOT in this fence: it sits inside BUILTIN-KIND-RELOCATION-EDGE-FIELDS's, which is also `open`. Likewise src/gate.rs — its call-site comment at :476-480 enumerates two admissibility clauses and goes stale with this change; under the standing prose-cite rule it rides that file's next opener (CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS already edits it), never this entry."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "The end-to-end half, in the suite that already owns malformed-assembly-row behaviour: `edge_fact` (:2570), `common::write_lock`, `lock_text` (:2581) and `check_in` are all here, alongside the three existing `to`-column arms (:2586, :2627, :2665) — the last of which (`an_edge_facts_target_column_that_is_neither_string_nor_string_array_refuses_loud`) is the exact shape to copy. Add one arm writing two `edge_fact` rows for the same `from`/`field` with DIFFERENT `to` sets, plus a member whose reference field cites a real target of the first set, and assert the run fails naming the slot once and that the output carries no `graph.route` dangling for that member — the skip proved, not just the refusal. This is the reported fixture verbatim. Second arm for the identical-rows case (same `from`/`field`/`to` twice) so the `to`-blind keying is pinned rather than incidental."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "Two `assembly` edge rows for one (from, field) slot are both accepted and both resolved, cross-wiring every existing reference into false dangling errors.",
+    "per": {
+      "path": "specs/model/contract.md",
+      "section": "edge"
+    },
+    "tests": [
+      {
+        "path": "src/graph.rs",
+        "asserts": "two edges sharing a `(from, field)` slot draw exactly one `graph.admissibility` error naming the slot and the merge edit, and neither arm reaches `resolved_edges` — no `graph.route` finding is forged from either `to` set"
+      },
+      {
+        "path": "src/graph.rs",
+        "asserts": "non-vacuity first (0048's bar): the same fixture with ONE edge row resolves its references to real targets and draws no finding, so the refusal is not an empty read"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "a committed lock carrying two `fact = \"edge\"` rows for one `from`/`field` fails `check` naming the slot once, with no dangling-route noise; two byte-identical rows refuse the same way"
+      }
+    ],
+    "acceptance": "A hand-authored or SDK-written lock declaring one kind's reference field twice refuses at the assembly tier, once, naming the slot and the merge that fixes it — and neither declaration resolves, so the refusal arrives alone rather than buried under the false `graph.route` danglings the coincidence forges today. `to`-blind keying means identical rows refuse too, so no phantom arc inflates a `degree` bound. `resolved_edges_count()` is unmoved and tests/check_cost.rs stays green untouched; no snapshot moves (the gauntlet corpus declares no coincident slot). `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Routed from inbox 09-07 (cascade probe of 67abe15f — a mis-staged fixture, not a defect claim). Re-verified at HEAD: `edges_from_declarations` (drift.rs:5217) pushes one Edge per row, unkeyed, and `resolved_edges` loops every one. Reachable from the SDK too: `assemblyFactRows` (sdk/src/declarations.ts:461) writes one row per `edgeFields` entry, unchecked. `layout_edge_fields` (drift.rs:1866) unions into a set — harmless. Read verbs out of scope per precedent. scoped at c5551f5d"
+  },
+  {
     "tag": "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
     "gate": {
       "kind": "blockedBy",
