@@ -95,7 +95,10 @@ fn emit_compiles_every_projection_and_the_whole_lock_from_the_payload() {
     let rule_path = harness.join(".claude").join("rules").join("rust.md");
     assert_eq!(
         fs::read_to_string(&rule_path).unwrap(),
-        format!("---\npaths: [\"src/**/*.rs\"]\n---\n{RUST_BODY}")
+        format!(
+            "---\n{}\npaths: [\"src/**/*.rs\"]\n---\n{RUST_BODY}",
+            placement::NOTE_COMMENT
+        )
     );
 
     let skill_path = harness
@@ -106,7 +109,8 @@ fn emit_compiles_every_projection_and_the_whole_lock_from_the_payload() {
     assert_eq!(
         fs::read_to_string(&skill_path).unwrap(),
         format!(
-            "---\nname: \"coordinate\"\ndescription: \"Use when coordinating agents across axes.\"\n---\n{COORDINATE_BODY}"
+            "---\n{}\nname: \"coordinate\"\ndescription: \"Use when coordinating agents across axes.\"\n---\n{COORDINATE_BODY}",
+            placement::NOTE_COMMENT
         )
     );
 
@@ -162,6 +166,63 @@ fn a_freshly_emitted_markdown_projection_carries_the_managed_projection_banner()
     // A re-emit should be unchanged (idempotent).
     let report2 = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
     assert_eq!(outcome(&report2, "root"), EmitOutcome::Unchanged);
+}
+
+#[test]
+fn a_freshly_emitted_frontmatter_projection_carries_its_note_with_no_install_run() {
+    // Emit owns a represented projection's bytes in full — no file is part-emitted and
+    // part-installed — so the `#` managed-by note lands in the same pass that writes the
+    // frontmatter block, and `check`'s self-verify has nothing left to nudge for.
+    let (harness, into) = workspace("emit-note");
+    let payload = basic_payload(vec![
+        common::rule_member("rust", Some(&["src/**/*.rs"]), RUST_BODY),
+        common::skill_member(
+            "coordinate",
+            "Use when coordinating agents across axes.",
+            COORDINATE_BODY,
+        ),
+    ]);
+    drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+
+    // Delete a projection and re-emit it from nothing: the note is emit's to write, not
+    // carried over from bytes a prior `install` left on disk.
+    let skill_path = harness
+        .join(".claude")
+        .join("skills")
+        .join("coordinate")
+        .join("SKILL.md");
+    fs::remove_file(&skill_path).unwrap();
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Emitted);
+
+    let content = fs::read_to_string(&skill_path).unwrap();
+    assert!(
+        content.starts_with(&format!("---\n{}\n", placement::NOTE_COMMENT)),
+        "a re-emitted projection carries its note as the leading frontmatter line, got: {content}"
+    );
+
+    // Idempotent: the marker locates the note already there, so a re-emit neither
+    // doubles it nor churns the file.
+    let report = drift::emit(&payload, &into, EmitOptions::default()).unwrap();
+    assert_eq!(outcome(&report, "coordinate"), EmitOutcome::Unchanged);
+    assert_eq!(
+        fs::read_to_string(&skill_path)
+            .unwrap()
+            .matches(placement::NOTE_MARKER)
+            .count(),
+        1
+    );
+
+    // The gate agrees: with the harness represented and no `install` run behind it,
+    // `check`'s self-verify names no missing managed-by note.
+    fs::write(into.join("harness.ts"), "export default {};\n").unwrap();
+    let findings = temper::install::gate_installed(&harness);
+    assert!(
+        !findings
+            .iter()
+            .any(|f| f.message.contains("managed-by note")),
+        "a freshly emitted projection needs no install run to converge its note, got: {findings:?}"
+    );
 }
 
 #[test]
@@ -392,11 +453,17 @@ fn a_crlf_or_lone_cr_body_emits_an_lf_only_projection() {
     );
     assert_eq!(
         String::from_utf8(crlf_bytes.clone()).unwrap(),
-        "---\npaths: [\"src/**/*.rs\"]\n---\n# Windows-authored\n\nCarries CRLF line endings.\n"
+        format!(
+            "---\n{}\npaths: [\"src/**/*.rs\"]\n---\n# Windows-authored\n\nCarries CRLF line endings.\n",
+            placement::NOTE_COMMENT
+        )
     );
     assert_eq!(
         String::from_utf8(lonecr_bytes.clone()).unwrap(),
-        "---\npaths: [\"src/**/*.rs\"]\n---\n# Old-Mac-authored\nCarries lone CR line endings.\n"
+        format!(
+            "---\n{}\npaths: [\"src/**/*.rs\"]\n---\n# Old-Mac-authored\nCarries lone CR line endings.\n",
+            placement::NOTE_COMMENT
+        )
     );
 
     // The lock's emit_hash is computed over the same normalized bytes written to disk.

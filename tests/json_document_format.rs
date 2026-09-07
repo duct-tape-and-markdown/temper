@@ -438,9 +438,10 @@ fn an_include_into_a_json_document_refuses_rather_than_fingerprinting_dropped_by
 #[test]
 fn the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_as_they_were() {
     // The dispatch's other branches, pinned: `yaml-frontmatter` and a kind declaring no
-    // format keep today's bytes — a frontmatter block over a body, and a body headed by
-    // the managed-projection banner emit places on frontmatterless markdown. The
-    // format decides the face; it does not perturb the faces it did not select.
+    // format keep today's bytes — a frontmatter block headed by the managed-by note, and
+    // a body headed by the managed-projection banner, the two forms emit places by
+    // whether the artifact renders frontmatter. The format decides the face; it does not
+    // perturb the faces it did not select.
     let (harness, into) = workspace("json-document-emit-peers");
     let payload = Payload {
         version: temper::drift::SEAM_VERSION,
@@ -468,7 +469,10 @@ fn the_write_dispatch_leaves_a_frontmatter_member_and_a_formatless_one_exactly_a
 
     assert_eq!(
         fs::read_to_string(harness.join(".claude/rules/rust.md")).unwrap(),
-        format!("---\npaths: [\"src/**/*.rs\"]\n---\n{RULE_BODY}")
+        format!(
+            "---\n{}\npaths: [\"src/**/*.rs\"]\n---\n{RULE_BODY}",
+            temper::placement::NOTE_COMMENT
+        )
     );
     assert_eq!(
         fs::read_to_string(harness.join("CLAUDE.md")).unwrap(),

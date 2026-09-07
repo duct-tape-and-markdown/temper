@@ -1094,7 +1094,7 @@ fn gate_installed_never_scaffolds_and_reflects_represented_vs_not() {
 }
 
 #[test]
-fn gate_installed_names_drifted_un_noted_files() {
+fn gate_installed_names_stale_noted_files() {
     let root = write_harness("gate-drifted", false);
     let temper_dir = root.join(".temper");
     fs::create_dir_all(&temper_dir).unwrap();
@@ -1117,29 +1117,25 @@ fn gate_installed_names_drifted_un_noted_files() {
         "gate_installed must be clean after successful install"
     );
 
-    // Simulate drift: strip the managed-by note itself (line 2, inside the
-    // frontmatter block) and keep the frontmatter intact. Removing the opener
-    // instead would make the file frontmatterless, whose banner is emit's
-    // (EMIT-BANNER-OWNERSHIP-MOVE) and whose drift is check's hash to catch —
-    // not this gate's.
+    // Simulate the one drift this gate still owns: a *stale note wording*, the marked
+    // line carrying a retired phrasing. Deleting the note outright is not this gate's
+    // case — emit writes the note with the rest of the projection's bytes, so an absent
+    // note is a hand-edit the drift hash catches, exactly as it is for the banner.
     let skill_file = root
         .join(".claude")
         .join("skills")
         .join("coordinate")
         .join("SKILL.md");
     let content = fs::read_to_string(&skill_file).unwrap();
-    let lines: Vec<&str> = content.lines().collect();
-
+    const RETIRED_NOTE: &str = "# temper: managed projection — do not edit.";
     assert!(
-        lines
-            .get(1)
-            .is_some_and(|l| l.starts_with("# temper: managed projection")),
-        "line 2 must be the placed note, got: {content}"
+        content.contains(temper::placement::NOTE_COMMENT),
+        "the emitted skill must carry the current note, got: {content}"
     );
-    let modified = [&lines[..1], &lines[2..]].concat().join("\n") + "\n";
+    let modified = content.replacen(temper::placement::NOTE_COMMENT, RETIRED_NOTE, 1);
     fs::write(&skill_file, modified).unwrap();
 
-    // gate_installed should now report the drifted file.
+    // gate_installed should now report the stale placement.
     let findings = install::gate_installed(&root);
     assert_eq!(
         findings.len(),
@@ -1153,7 +1149,7 @@ fn gate_installed_names_drifted_un_noted_files() {
     );
     assert!(
         msg.contains("SKILL.md"),
-        "message must name the specific un-noted file, got: {msg}"
+        "message must name the specific stale-noted file, got: {msg}"
     );
 }
 
@@ -1815,8 +1811,12 @@ fn emit_from_harness(harness: &Path) {
 }
 
 #[test]
-fn emit_never_stamps_the_managed_by_note() {
-    let harness = write_harness("emit-no-note", false);
+fn emit_stamps_the_managed_by_note_but_never_the_schema_modeline() {
+    // The ownership split, pinned from install's side: emit writes a projection's bytes
+    // whole, note included, so a fresh emit needs no install run to converge it. The
+    // yaml-language-server modeline stays install's — it names a schema artifact that
+    // may not exist yet, so only install can decide it is safe to point at.
+    let harness = write_harness("emit-note", false);
     emit_from_harness(&harness);
 
     for rel in [
@@ -1827,7 +1827,11 @@ fn emit_never_stamps_the_managed_by_note() {
         PathBuf::from(".claude").join("rules").join("rust.md"),
     ] {
         let projected = fs::read_to_string(harness.join(&rel)).unwrap();
-        assert!(!projected.contains("# temper: managed projection"));
+        assert!(
+            projected.starts_with(&format!("---\n{}\n", temper::placement::NOTE_COMMENT)),
+            "{}: emit stamps the note as the leading frontmatter line, got: {projected}",
+            rel.display()
+        );
         assert!(!projected.contains("# yaml-language-server:"));
     }
 }

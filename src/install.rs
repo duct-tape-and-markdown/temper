@@ -53,7 +53,7 @@ use crate::import;
 use crate::json_manifest;
 use crate::json_splice::{self, Edit};
 use crate::kind::{self, CollectionAddress, CustomKind};
-use crate::placement::{MODELINE_MARKER, NOTE_MARKER};
+use crate::placement::{MODELINE_MARKER, NOTE_COMMENT, NOTE_MARKER};
 
 /// The SDK program's entry file — scaffolded once by the lift, run by every
 /// subsequent `emit`.
@@ -198,11 +198,6 @@ const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this
 /// a false negative routes to CI (the backstop wall), a false positive would block honest
 /// work.
 const GUARD_FILE_PATH_MATCH: &str = r#""file_path"[[:space:]]*:[[:space:]]*"([^"]*)""#;
-
-/// The managed-by note itself: a frontmatter comment stating the file is generated and
-/// pointing at the surface. Cost-free metadata YAML frontmatter tolerates — never
-/// stamped by `emit`.
-const NOTE_COMMENT: &str = "# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.";
 
 /// The one question `install` asks, exactly once, after the discovery report:
 /// there is one
@@ -703,7 +698,7 @@ fn evaluate_placements(
         });
     }
 
-    // The note is applied first so the modeline stays the leading frontmatter line.
+    // The note is converged first so the modeline stays the leading frontmatter line.
     for target in targets {
         // A lock row names its path against the harness root, so it is joined onto the
         // root this install was aimed at — never resolved against the ambient cwd.
@@ -714,12 +709,11 @@ fn evaluate_placements(
         })?;
         let mut current = source;
 
-        // The managed-by note in the frontmatter `#` comment form when frontmatter is
-        // present. Content drives the choice — `project_note` declines a frontmatterless
-        // source. The banner for frontmatterless markdown is now placed by emit, so install
-        // only converges its wording if it already exists (a stale wording re-places).
-        let noted = project_note(&current);
-        if let Some(desired) = noted {
+        // Converge a stale note wording where the frontmatter `#` note already exists.
+        // Never creates one: emit places both marker forms — the `#` note on a
+        // frontmatter projection, the banner on a frontmatterless markdown one — so
+        // install's whole job here is re-wording a retired placement.
+        if let Some(desired) = converge_note_wording(&current) {
             let outcome = drift::place(&path, &desired, None, dry_run)?;
             entries.push(InstallEntry {
                 placement: Placement::Note,
@@ -1931,40 +1925,32 @@ fn project_modeline(source: &str, schema_ref: &str) -> Option<String> {
     Some(format!("---\n{modeline}\n{rest}"))
 }
 
-/// Project an artifact source with the managed-by note inserted as a frontmatter
-/// comment, or `None` when it has no frontmatter to carry it — a memory `CLAUDE.md`
-/// and every frontmatterless kind, which `emit` serves with the
-/// block-level HTML-comment banner instead ([`converge_banner_wording`] only re-words a
-/// stale one). Applied *before* the modeline so the
-/// modeline stays the leading line.
+/// Converge the managed-by note's wording if a frontmatter `source` already carries a
+/// marked note, or `None` when there is nothing to converge — a source with no
+/// frontmatter block, or one whose frontmatter carries no note. Never creates a note:
+/// `emit` places it on every projection that renders frontmatter, and a file emit owns
+/// in full is never part-installed.
 ///
-/// **Content-drift-aware**: idempotence keys on the note's *bytes*, not the bare [`NOTE_MARKER`]
-/// prefix. A marked line whose body still matches [`NOTE_COMMENT`] is returned
-/// verbatim (no churn); a marked line carrying a retired wording — the reword that
-/// [`NOTE_COMMENT`] shipped — is *re-placed*, splicing the current [`NOTE_COMMENT`]
-/// over the stale line so a changed placement re-places instead of reporting
-/// `Unchanged`. Presence-only keying let a stale note pass `gate_installed` forever.
+/// **Content-drift-aware**, exactly like [`converge_banner_wording`]: idempotence keys on
+/// the note's *bytes*, not the bare [`NOTE_MARKER`] prefix. A marked line whose body
+/// still matches [`NOTE_COMMENT`] is returned verbatim (no churn); a marked line carrying
+/// a retired wording is *re-placed*, splicing the current [`NOTE_COMMENT`] over the stale
+/// line so a changed placement re-places instead of reporting `Unchanged`. Presence-only
+/// keying let a stale note pass `gate_installed` forever.
 ///
-/// Byte-faithful (`.claude/rules/rust.md`, round-trip discipline): the note line is
-/// the only rewritten bytes. The note rides `install`, never `emit` — the author does
-/// not write this YAML comment, so the content-faithful projector preserves it across
-/// re-emits via [`placement::placement_lines`](crate::placement::placement_lines), which anchors `emit` to preserve
-/// managed comments verbatim in the re-rendered frontmatter.
-fn project_note(source: &str) -> Option<String> {
-    let (rest, matter) = frontmatter::frontmatter_matter(source)?;
-    if let Some(existing) = matter
+/// Byte-faithful (round-trip discipline): the note line is the only rewritten bytes.
+fn converge_note_wording(source: &str) -> Option<String> {
+    let (_, matter) = frontmatter::frontmatter_matter(source)?;
+    let existing = matter
         .lines()
-        .find(|line| line.trim_start().starts_with(NOTE_MARKER))
-    {
-        if existing == NOTE_COMMENT {
-            return Some(source.to_string());
-        }
-        // Stale wording: splice the current note over the marked line, leaving every
-        // other byte — the modeline, the other fields, the body — untouched. The
-        // marker is distinctive, so the first occurrence is this note line.
-        return Some(source.replacen(existing, NOTE_COMMENT, 1));
+        .find(|line| line.trim_start().starts_with(NOTE_MARKER))?;
+    if existing == NOTE_COMMENT {
+        return Some(source.to_string());
     }
-    Some(format!("---\n{NOTE_COMMENT}\n{rest}"))
+    // Stale wording: splice the current note over the marked line, leaving every
+    // other byte — the modeline, the other fields, the body — untouched. The
+    // marker is distinctive, so the first occurrence is this note line.
+    Some(source.replacen(existing, NOTE_COMMENT, 1))
 }
 
 /// Converge the banner wording if a frontmatterless markdown `source` already carries

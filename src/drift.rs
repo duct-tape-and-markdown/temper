@@ -2315,11 +2315,11 @@ fn emit_one(
     };
 
     // Read the committed projection first — never to merge authored content, but to
-    // tell `Emitted` from the idempotent no-op *and* to carry install's frontmatter
-    // placements (the schema modeline, the managed-by note) and the banner emit places
-    // through the whole-file re-emit. The schema modeline and managed-by note ride
-    // `install`; the banner rides `emit` for every markdown projection. An absent source
-    // carries no placements and is not a conflict: emit writes it.
+    // tell `Emitted` from the idempotent no-op *and* to carry the managed metadata
+    // comments through the whole-file re-emit. The managed-by note and banner ride
+    // `emit`, which places them below; the schema modeline rides `install`, so emit
+    // only preserves it. An absent source carries no placements and is not a conflict:
+    // emit writes it.
     let current = match fs::read(&disk_path) {
         Ok(bytes) => Some(bytes),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
@@ -2335,16 +2335,29 @@ fn emit_one(
         .map(|bytes| crate::placement::placement_lines(&String::from_utf8_lossy(bytes)))
         .unwrap_or_default();
 
-    // Emit places the managed-projection banner on markdown projections that have no
-    // frontmatter, since it owns the projected bytes and the banner is part of the
-    // projection contract. For frontmatterless projections, the banner heads the body.
-    if projection.fields.is_empty()
-        && crate::placement::is_markdown_path(&projection.source_path)
+    // Emit owns a represented projection's bytes in full, so it places the
+    // managed-projection marker itself rather than leaving a freshly emitted file
+    // part-emitted and part-installed until the next `install`. The rendered form
+    // follows the artifact's own shape: a frontmatter block carries the `#` note as its
+    // leading line, a frontmatterless markdown body carries the HTML-comment banner at
+    // its head. A body that renders neither (a JSON document, a frontmatterless
+    // non-markdown file) has nowhere inert to hold a marker and takes none.
+    let marker = if renders_frontmatter(projection.format, &projection.fields) {
+        Some((
+            crate::placement::NOTE_MARKER,
+            crate::placement::NOTE_COMMENT,
+        ))
+    } else if crate::placement::is_markdown_path(&projection.source_path) {
+        Some((crate::placement::BANNER_MARKER, crate::placement::BANNER))
+    } else {
+        None
+    };
+    if let Some((marker, line)) = marker
         && !placements
             .iter()
-            .any(|p| p.trim_start().starts_with(crate::placement::BANNER_MARKER))
+            .any(|p| p.trim_start().starts_with(marker))
     {
-        placements.push(crate::placement::BANNER.to_string());
+        placements.push(line.to_string());
     }
 
     let render = || {
@@ -2387,6 +2400,15 @@ fn emit_one(
     Ok((row(EmitOutcome::Emitted), hash))
 }
 
+/// Whether `format` over `fields` renders a `---`-delimited frontmatter block — the one
+/// projection shape with a slot for the `#` managed-by note. [`project_bytes`] renders by
+/// this predicate and [`emit_one`] picks the marker form by it, so the writer and the
+/// marker can never disagree about which artifacts carry frontmatter.
+#[must_use]
+pub fn renders_frontmatter(format: Option<Format>, fields: &[(String, JsonValue)]) -> bool {
+    matches!(format, Some(Format::YamlFrontmatter) | None) && !fields.is_empty()
+}
+
 /// Re-emit the desired projection deterministically through the canonical write face
 /// `format` names — **the one write dispatch**, the read side's `read_file_unit` match
 /// mirrored: a `json-document` kind renders its fields as the whole JSON artifact, every
@@ -2395,19 +2417,19 @@ fn emit_one(
 /// disagree with this one.
 ///
 /// The authored content is *generated*, not patched — a hand-edited
-/// field is not preserved (that is drift, routed to the authored source). Install's
-/// metadata comments are the one exception the caller feeds in: they ride `install`,
-/// never `emit`, so emit round-trips the ones
-/// already on disk rather than dropping them. A JSON document carries none by
-/// construction — install places its metadata as a frontmatter comment or a markdown
-/// banner, neither of which a JSON artifact's bytes can hold — so that face takes no
+/// field is not preserved (that is drift, routed to the authored source). The managed
+/// metadata comments are the one exception the caller feeds in: the managed-by note and
+/// banner emit itself places, and the schema modeline install owns, so emit round-trips
+/// the ones already on disk rather than dropping them. A JSON document carries none by
+/// construction — the metadata forms are a frontmatter comment and a markdown banner,
+/// neither of which a JSON artifact's bytes can hold — so that face takes no
 /// `placements`. It renders `fields` alone: a JSON document has no prose slot, so `body`
 /// reaches this face empty or not at all — [`emit`]'s projection loop refuses a
 /// `json-document` member carrying one ([`DriftError::BodyHasNoHome`]) rather than let
 /// this arm drop it. An artifact with no fields (a rule that
 /// carries no `paths`/unknown keys, a memory `CLAUDE.md`) projects to its body alone —
-/// no frontmatter block, so install's metadata there is a block-level HTML-comment
-/// banner heading the body, round-tripped the same way.
+/// no frontmatter block, so its metadata is the block-level HTML-comment banner heading
+/// the body, round-tripped the same way.
 ///
 /// `None` when `format` names a **read face only** (`toml-document`): there is no write
 /// face to render through, and inventing one here would be the silent degrade
@@ -2431,8 +2453,8 @@ pub fn project_bytes(
         Some(Format::TomlDocument) => return None,
         Some(Format::YamlFrontmatter) | None => {}
     }
-    if fields.is_empty() {
-        // A frontmatterless projection: install's banner, if any, heads the body with
+    if !renders_frontmatter(format, fields) {
+        // A frontmatterless projection: the banner, if any, heads the body with
         // one blank line between; otherwise the body alone.
         let mut out = String::new();
         for line in placements {

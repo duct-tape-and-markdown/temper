@@ -4,15 +4,23 @@
 use crate::frontmatter;
 
 /// The managed-by note's stable marker — the comment prefix that *locates* an already
-/// placed note (so a second `install` never duplicates it); whether that note is then
-/// left verbatim or re-placed keys on the line's bytes vs `NOTE_COMMENT`, not this
-/// prefix (`project_note`, content-drift-aware).
+/// placed note, so emit never doubles it and install never re-creates one emit already
+/// wrote; whether that note is then left verbatim or re-placed keys on the line's bytes
+/// vs [`NOTE_COMMENT`], not this prefix (`converge_note_wording`, content-drift-aware).
 pub const NOTE_MARKER: &str = "# temper: managed projection";
+
+/// The managed-by note itself: a frontmatter comment stating the file is generated and
+/// pointing at the surface. Cost-free metadata YAML frontmatter tolerates. Placed by
+/// `emit` on every projection that renders a frontmatter block — emit owns a
+/// represented projection's bytes in full, so no file is part-emitted, part-installed
+/// (`specs/model/pipeline.md`, "Emit") — and only *converged* by `install`, which
+/// re-places a retired wording it finds and creates nothing.
+pub const NOTE_COMMENT: &str = "# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.";
 
 /// The banner form's stable marker — the block-level HTML comment prefix that *locates*
 /// an already placed banner on a frontmatterless projection, the [`NOTE_MARKER`]
 /// counterpart for a body that carries no frontmatter to hold the `#` note
-/// (`project_banner`, content-drift-aware).
+/// (`converge_banner_wording`, content-drift-aware).
 pub const BANNER_MARKER: &str = "<!-- temper: managed projection";
 
 /// The managed-by note's block-level HTML-comment form, for a frontmatterless
@@ -87,9 +95,10 @@ pub fn strip_leading_banner(body: &str) -> &str {
     body
 }
 
-/// Whether `line` is one of install's managed metadata comments — the schema modeline
-/// or the managed-by note. The single predicate install's idempotence and emit's
-/// preservation share, so the two projectors never disagree on which lines are install's.
+/// Whether `line` is one of the managed metadata comments — the schema modeline
+/// (install's) or the managed-by note (emit's). The single predicate install's
+/// idempotence and emit's preservation share, so the two projectors never disagree on
+/// which lines are managed.
 fn is_placement_comment(line: &str) -> bool {
     let trimmed = line.trim_start();
     trimmed.starts_with(MODELINE_MARKER) || trimmed.starts_with(NOTE_MARKER)
@@ -107,6 +116,16 @@ mod tests {
         assert_eq!(placement_lines(&source), vec![NOTE_BANNER.to_string()]);
         // A bare frontmatterless body carries no placement.
         assert!(placement_lines("# Project\n\nMemory body.\n").is_empty());
+    }
+
+    #[test]
+    fn placement_lines_round_trips_the_frontmatter_note_of_a_frontmatter_source() {
+        let source = format!("---\n{NOTE_COMMENT}\nname: rust\n---\n# Body\n");
+        assert_eq!(placement_lines(&source), vec![NOTE_COMMENT.to_string()]);
+        // The note's own bytes carry the marker, so a placed note is re-found.
+        assert!(NOTE_COMMENT.starts_with(NOTE_MARKER));
+        // A frontmatter block with no managed comment carries no placement.
+        assert!(placement_lines("---\nname: rust\n---\n# Body\n").is_empty());
     }
 
     #[test]

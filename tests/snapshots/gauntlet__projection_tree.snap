@@ -21,6 +21,7 @@ This workstation's own knob.
 
 === .claude/rules/authoring.md ===
 ---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 paths: ["src/**/*.rs"]
 ---
 # Authoring
@@ -32,6 +33,7 @@ See [conventions](conventions.md).
 
 === .claude/rules/conventions.md ===
 ---
+# temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file.
 paths: ["src/**/*.rs"]
 ---
 # Conventions
@@ -87,14 +89,14 @@ emit_hash = "552edf7357834fb223293bc7f5c3316f1341b3e1e62e7cd617ba62031b988d6c"
 [[rule]]
 name = "authoring"
 source_path = ".claude/rules/authoring.md"
-source_hash = "ccd836dc68503a80568f24b18262bd9cc1c80e2b279157c81a44e36d47915982"
-emit_hash = "ccd836dc68503a80568f24b18262bd9cc1c80e2b279157c81a44e36d47915982"
+source_hash = "c88e5507a7dd1b893526721f3969643b809cfb0d5d64d97b3496d9510ec857c6"
+emit_hash = "c88e5507a7dd1b893526721f3969643b809cfb0d5d64d97b3496d9510ec857c6"
 
 [[rule]]
 name = "conventions"
 source_path = ".claude/rules/conventions.md"
-source_hash = "a17cb4c1a0288874d07ef7a6ae07a7693a9533cd7029dbbbfe9c18a613ab0de0"
-emit_hash = "a17cb4c1a0288874d07ef7a6ae07a7693a9533cd7029dbbbfe9c18a613ab0de0"
+source_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
+emit_hash = "91b938d6690fd4243ad70d28c5a58cf0d21451df41a86eaf7a5f8677ca2cfe73"
 
 [[declaration.kind]]
 name = "guide"
