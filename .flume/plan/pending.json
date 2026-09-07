@@ -27,6 +27,14 @@
         {
           "path": "tests/common/mod.rs",
           "description": "run_guard(root, payload) (263-276) always invokes `temper guard <root>` with an absolute tempdir path — no test exercises `guard .` from within the harness root, which is exactly the form `install.rs` writes into every settings.json's guard hook command. Add a variant (or a parameter) that spawns with `.current_dir(root)` and the literal argument `\".\"`, for the new regression below to use."
+        },
+        {
+          "path": "src/drift.rs",
+          "description": "EmitOwnedEntry::path's doc comment (~3011) states the guard matches it \"as a suffix of an absolute file_path\" — stale once path_matches drops the suffix fallback for an equality compare; reword to match."
+        },
+        {
+          "path": "src/main.rs",
+          "description": "manifest_path's doc comment (~601-603) states the guard match is \"tolerant of the file_path arriving absolute... the same suffix compare the projection binding runs\" — stale for the same reason; reword to name the equality compare."
         }
       ],
       "retire": []
@@ -98,6 +106,10 @@
         {
           "path": "tests/install.rs",
           "description": "b7b2a7a6 shipped with no test at all for detect_hook_member_conflicts/SupersededByMember (only a trailing-newline diff landed in this file). Add one exercising install::run with an authored hook member superseding a synthesized placement (pattern at ~581, ~825): install's render names `superseded-by-member`, and gate_installed/`check` report no finding for it."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
+          "description": "The gauntlet corpus carries an authored hook member alongside synthesized placements; excluding SupersededByMember from gate_installed's tally changes which pieces of the pinned install.gate-installed message (missing/drifted: session-start hook, guard hook, …) still fire for it — update via `cargo insta review`."
         }
       ],
       "retire": []
@@ -198,6 +210,14 @@
         {
           "path": "tests/coverage_note.rs",
           "description": "Existing assertions pin coverage.checked's severity as plain `warn` — update them to assert the new non-violation marker instead."
+        },
+        {
+          "path": "tests/gauntlet.rs",
+          "description": "The gauntlet's own kitchen-sink corpus check run carries a coverage.checked note in its pinned diagnostics; once the non-violation marker changes what a reporter prints for it (or a case is added exercising --deny-advisories over the corpus), this fixture is a real consumer, not incidental."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
+          "description": "Pins the exact rendered coverage.checked line (currently a plain `::warning title=coverage.checked::…`); update via `cargo insta review` once the reporter's non-violation rendering for this diagnostic lands."
         }
       ],
       "retire": []
@@ -247,6 +267,10 @@
         {
           "path": "tests/layout_kind.rs",
           "description": "Regression: a committed layout-kind document discovery finds but the program's member list omits produces the new advisory finding naming the file and remedy, rather than reading as zero coverage with no explanation."
+        },
+        {
+          "path": "src/gate.rs",
+          "description": "gate() (~496-521) is where every advisory family already wires in (install::gate_installed, coverage_note::check, drift::config_stale_from_doc) — the new finding joins that same call chain rather than being reachable from check.rs alone."
         }
       ],
       "retire": []
@@ -290,6 +314,10 @@
         {
           "path": "tests/layout_kind.rs",
           "description": "Regression: a layout with a prose region declared after a collection region still binds the document's preamble to it (existing behavior, per 0019's preamble-or-import rule), and the captured span is now visible via a leaf/row `explain` and the lock can address, not silently dropped."
+        },
+        {
+          "path": "tests/snapshots/gauntlet__projection_tree.snap",
+          "description": "The gauntlet corpus mirrors real spec content through a layout kind (e.g. specs/model/representation.md's `invariant` sections); once a layout's prose region lowers to a row, this fixture gains a new `nested_member` (kind=\"prose\") row per prose-bearing member — update via `cargo insta review`, verifying the new rows' content matches the actual captured preamble rather than accepting a diff blind."
         }
       ],
       "retire": []
@@ -336,6 +364,10 @@
         {
           "path": "tests/graph.rs",
           "description": "Regression: two same-keyed nested members under different hosts are each addressable from an edge field via the full `<host-address>/<kind>/<key>` form, resolving to the correct one rather than forcing a rename."
+        },
+        {
+          "path": "src/compose.rs",
+          "description": "embedded_member_features (~1194-1204, lifting a NestedMemberRow to the Features `resolved_edges`/`resolves` matches against) sets `id: row.key.clone()` and drops `row.host` — so once target_identity parses a host-qualified address, nothing in the pooled by_kind map can pick the one matching member out of same-kind-same-key duplicates by host. Resolve this without widening the shared `Features` struct's shape (it has ~30 literal-construction call sites across src/tests — a new hard field ripples all of them, well past one comfortable entry): thread the host through some narrower channel reachable from resolved_edges for the host-qualified case only (e.g. the existing generic `fields` bag, or a second host-qualified lookup built alongside by_kind), leaving the bare short-form's existing ambiguous-first-match behavior for NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY to refuse. If no such narrow channel is workable, stop and say so rather than fanning the Features shape out — that's a re-split, not a silent widen."
         }
       ],
       "retire": []
@@ -579,6 +611,10 @@
         {
           "path": "tests/layout_kind.rs",
           "description": "Regression: a layout collection member whose body is `### Title` + a paragraph + `**Test.** ...` (no sub-headings) materializes a non-empty leaves map carrying the paragraph under the ruled key."
+        },
+        {
+          "path": "sdk/src/kind.ts",
+          "description": "FRAMEWORK_KEYS (~245) reserves `prose` as a member-level value only; once `(layout-own-span-leaf)` rules a reserved own-span leaf key, an author's sub-heading slugging to that same name needs a collision guard (or explicit precedence rule) — the exact key and whether it joins FRAMEWORK_KEYS stays whatever the fork rules, not invented here."
         }
       ],
       "retire": []
@@ -617,6 +653,10 @@
         {
           "path": "tests/graph.rs",
           "description": "Rust regression: the emitted edge fact from a relocated built-in resolves a real graph.route edge — proving no engine change is needed, since edges are always read from assembly `edge` rows keyed by `from` kind (never carried on a kind row itself); `graph.route` isn't assertable from an SDK test, hence the split."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "This file already carries the corpus's one existing relocation vocabulary — a lock-row `row_relocates_builtin` (src/compose.rs:1091) recognizes a same-named row as a legitimate built-in relocation purely structurally (format/unit_shape/registration compatible), with no marker field at all, and doesn't examine edgeFields either — so a corpus kind named `rule` with an added edgeField should already flow through that existing Rust-side path with no engine change (matching this entry's own claim). Before minting a new `facts.relocates` marker in the SDK, confirm it doesn't duplicate `row_relocates_builtin`'s concept under a second name; if the marker is genuinely SDK-layer-only (needed before compilation to a KindFactRow), name that distinction explicitly rather than leaving two same-purpose 'relocates' vocabularies unreconciled. Extend this file's relocated-built-in fixtures if a new end-to-end case is the cleanest proof."
         }
       ],
       "retire": []
@@ -654,6 +694,10 @@
         {
           "path": "sdk/test/builtins.test.ts",
           "description": "Regression via the harness's compile path (compileDeclarations): a harness declaring a corpus kind under a built-in's exact name at a different root refuses at load, naming both loci; the sanctioned relocation form still passes."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "The Rust-side twin of this refusal already exists and is tested here: compose::partition_kind_rows/row_relocates_builtin judges a same-named lock row as a legitimate relocation or a collision purely structurally, with no marker field. If BUILTIN-KIND-RELOCATION-EDGE-FIELDS's `admit` comparison in kindsInPlay ends up replicating that same format/unit_shape/registration compatibility test in TS (rather than inventing a `facts.relocates` flag), an end-to-end fixture here proves the two layers agree; note which design landed."
         }
       ],
       "retire": []
