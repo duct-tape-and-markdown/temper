@@ -183,6 +183,20 @@ const POST_TOOL_USE_MARKER: &str = "temper check";
 /// under the `warn` or `block` enforcement mode.
 pub const GUARD_MESSAGE: &str = "temper-managed projection: .claude/ is projected from the .temper/ surface — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
+/// The message `temper guard` prints when a pending write lands inside a represented
+/// committed kind's governed locus and names no member the lock declares there. It is
+/// the boundary half of `check`'s `locus.undeclared-member`
+/// ([`drift::undeclared_locus_members_from_doc`]) and names the same remedy in the same
+/// words — one fact must not be spoken two ways at two placements. Unlike
+/// [`GUARD_MESSAGE`], the file is not a projection the author edited: it is a document
+/// the program declares nothing about, so the finding names the governing kind rather
+/// than an owning module. States the same binding limit.
+fn undeclared_locus_message(kind: &str) -> String {
+    format!(
+        "temper-governed locus: this write lands a document at the `{kind}` kind's governed locus that the lock declares no member for — `emit` will never maintain it and `check` reports it undeclared, yet Claude Code loads it; declare the member in the program and re-emit. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it."
+    )
+}
+
 /// The header `temper guard` prints when a pending write to a represented manifest carries a
 /// member that violates its contract — the per-member contract findings ([`GuardedManifest`])
 /// follow it, one per line. Unlike a `.claude/` projection ([`GUARD_MESSAGE`]), a manifest is
@@ -818,21 +832,58 @@ pub enum GuardVerdict {
     Block,
 }
 
+/// One governed locus the `PreToolUse` guard binds a pending write against — a
+/// represented **committed** kind's `governs` locus, spelled as the one `/`-separated
+/// pattern `glob::compile_glob` compiles (`governs.root` joined to
+/// `governs.glob` through [`drift::join_locus`], the same join `manifest_path` makes).
+/// Assembled by the caller off the embedded kind set overlaid with the lock's
+/// relocations, so the loci the guard binds are the loci discovery walks.
+///
+/// Not [`CustomKind::owns_source`]: that matches a glob's *leaf* against a bare
+/// filename (`rule`'s `*.md` matches any markdown anywhere), which dispatches a
+/// discovered file to its kind but cannot decide whether a path is *in* a locus.
+pub struct GuardedLocus {
+    /// The governing kind's bare name, as the finding reports it.
+    pub kind: String,
+    /// The locus pattern — the kind's `governs` root joined to its glob, `/`-separated.
+    pub pattern: String,
+}
+
+/// `temper guard`'s decision over one pending write: the verdict it reached and the
+/// finding that goes with it. The message is empty for [`GuardVerdict::Allow`] and for
+/// [`GuardVerdict::Note`], which surfaces nothing in-band — it rides the next report.
+/// Carried together because the two bindings speak different findings at the same
+/// mode: a declared projection is drift ([`GUARD_MESSAGE`]), a write inside a governed
+/// locus is an undeclared member (`undeclared_locus_message`).
+pub struct GuardDecision {
+    /// What the guard decided — allow silently, defer out-of-band, surface in-band, deny.
+    pub verdict: GuardVerdict,
+    /// The finding text the surfacing verdicts print, empty when nothing surfaces.
+    pub message: String,
+}
+
 /// Decide `temper guard`'s verdict over a raw `PreToolUse` `payload` at `mode`'s
 /// enforcement mode, bound to `targets` — the lock's emit-owned projection set
-/// ([`drift::emit_owned_targets`]). `targets` is `None` for a harness with no
-/// `lock.toml` at all (never emitted, or the file removed out from under an
+/// ([`drift::emit_owned_targets`]) — and to `loci`, the governed loci of the
+/// represented committed kinds ([`GuardedLocus`]). `targets` is `None` for a harness
+/// with no `lock.toml` at all (never emitted, or the file removed out from under an
 /// already-installed hook): with no declared set to consult, the guard falls
 /// back to binding any `.claude/` `file_path`, matching the pre-lock behavior —
-/// absent evidence must never silently suppress the guard.
+/// absent evidence must never silently suppress the guard, and `loci` is not consulted
+/// there because an unrepresented harness declares no member anywhere.
 ///
 /// **Binding scope**: This guard binds only Claude Code's tool-mediated writes
 /// (Write, Edit, MultiEdit tools). Direct Bash or PowerShell writes are not
 /// instrumented by this guard and bypass it entirely — CI or manual review
 /// must catch drift from those paths.
 ///
-/// A `file_path` naming no declared projection (with `targets` present) or no
-/// `.claude/` locus (with `targets` absent) is [`GuardVerdict::Allow`]. Otherwise
+/// Two bindings under a lock, in order: the `file_path` names a declared projection (a
+/// direct edit to an emit-owned file — drift), else it falls inside a governed locus
+/// the lock declares no member at (a document `emit` will never maintain and Claude
+/// Code loads anyway). Representation must not *loosen* the boundary: before the second
+/// binding, creating `.claude/rules/stray.md` in a represented harness passed while the
+/// no-lock fallback bound the very same write. A `file_path` matching neither (or, with
+/// `targets` absent, naming no `.claude/` locus) is [`GuardVerdict::Allow`]. Otherwise
 /// the finding maps onto the mode vocabulary, split by where it goes: `note` defers
 /// it out-of-band ([`GuardVerdict::Note`]), `warn` surfaces it in-band
 /// ([`GuardVerdict::Warn`]), `block` denies the call ([`GuardVerdict::Block`]).
@@ -842,28 +893,49 @@ pub fn guard(
     mode: EnforcementMode,
     root: &Path,
     targets: Option<&[drift::EmitOwnedEntry]>,
-) -> GuardVerdict {
+    loci: &[GuardedLocus],
+) -> GuardDecision {
+    let allow = || GuardDecision {
+        verdict: GuardVerdict::Allow,
+        message: String::new(),
+    };
     let Some(file_path) = extract_file_path(payload) else {
-        return GuardVerdict::Allow;
+        return allow();
     };
 
-    // When targets are declared, check the file_path against them.
-    if let Some(targets) = targets {
-        if !matches_projection(&file_path, root, targets) {
-            return GuardVerdict::Allow;
+    // When targets are declared, check the file_path against them, then against the
+    // governed loci that declare no member for it.
+    let message = if let Some(targets) = targets {
+        if matches_projection(&file_path, root, targets) {
+            GUARD_MESSAGE.to_string()
+        } else if let Some(locus) = matches_governed_locus(&file_path, root, loci) {
+            undeclared_locus_message(&locus.kind)
+        } else {
+            return allow();
         }
     } else {
         // Fallback: with no lock, bind only `.claude/` paths (the documented no-lock
         // fallback behavior — absent evidence must never suppress the guard).
         if !is_claude_path(&file_path) {
-            return GuardVerdict::Allow;
+            return allow();
         }
-    }
+        GUARD_MESSAGE.to_string()
+    };
 
-    match mode {
+    let verdict = match mode {
         EnforcementMode::Note => GuardVerdict::Note,
         EnforcementMode::Warn => GuardVerdict::Warn,
         EnforcementMode::Block => GuardVerdict::Block,
+    };
+    GuardDecision {
+        // `note` records the finding out-of-band only — never into the live session — so
+        // the message it would have spoken is dropped here rather than at the caller.
+        message: if verdict == GuardVerdict::Note {
+            String::new()
+        } else {
+            message
+        },
+        verdict,
     }
 }
 
@@ -913,6 +985,31 @@ fn path_matches<'a>(
 /// absolute (Claude Code's own convention) against a workspace-relative lock row.
 fn matches_projection(file_path: &str, root: &Path, targets: &[drift::EmitOwnedEntry]) -> bool {
     path_matches(file_path, root, targets.iter().map(|t| t.path.as_path()))
+}
+
+/// The first of `loci` whose pattern `file_path` falls inside, or `None` for a path in
+/// no governed locus. Spelled harness-relative on both sides, exactly as
+/// [`path_matches`] spells its equality compare: a `file_path` arriving absolute
+/// (Claude Code's own convention) is relativized against `root` first, and one landing
+/// outside the root is in no locus, since every locus is rooted in the harness.
+///
+/// The match itself is [`crate::glob::compile_glob`] — `literal_separator(true)`, so
+/// `*`/`?` stay inside one segment and `**` crosses them. That is exactly
+/// `import::scan_locus`'s per-segment walk semantics reached in one compare, so the
+/// guard binds the paths discovery would have walked and no others.
+fn matches_governed_locus<'a>(
+    file_path: &str,
+    root: &Path,
+    loci: &'a [GuardedLocus],
+) -> Option<&'a GuardedLocus> {
+    let relative = crate::path::relativize_against_root(file_path, root)?;
+    let normalized = crate::path::normalize_path(Path::new(&relative))
+        .to_string_lossy()
+        .replace('\\', "/");
+    loci.iter().find(|locus| {
+        crate::glob::compile_glob(&locus.pattern)
+            .is_some_and(|matcher| matcher.is_match(&normalized))
+    })
 }
 
 /// One represented manifest the `PreToolUse` guard checks a pending write against — its

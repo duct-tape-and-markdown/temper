@@ -22,7 +22,7 @@ use temper::compose;
 use temper::drift;
 use temper::gate;
 use temper::install;
-use temper::kind::{CollectionAddress, CustomKind, Format};
+use temper::kind::{CollectionAddress, Commitment, CustomKind, Format};
 use temper::read;
 use temper::reporter;
 use temper::schema;
@@ -348,8 +348,9 @@ fn main() -> miette::Result<ExitCode> {
         }
         Command::Guard { path } => {
             // The guard at Claude Code's write boundary: read the `PreToolUse` payload
-            // from stdin, and — when it names one of the lock's emit-owned projections —
-            // act at the author's declared enforcement mode, three values split by where the
+            // from stdin, and — when it names one of the lock's emit-owned projections, or
+            // lands inside a governed locus the lock declares no member at — act at the
+            // author's declared enforcement mode, three values split by where the
             // finding goes: `note` allows and defers out-of-band (exit 0, no in-band
             // message — the next report, never the session); `warn` allows and surfaces
             // in-band (exit 0); `block` denies (exit 2). temper never escalates past the
@@ -365,6 +366,7 @@ fn main() -> miette::Result<ExitCode> {
             let lock_present = workspace_dir.join(temper::LOCK_FILENAME).is_file();
             let targets = drift::emit_owned_targets(&workspace_dir);
             let manifests = guarded_manifests(&declarations)?;
+            let loci = guarded_loci(&declarations)?;
             let mut payload = String::new();
             io::Read::read_to_string(&mut io::stdin(), &mut payload).into_diagnostic()?;
 
@@ -391,24 +393,24 @@ fn main() -> miette::Result<ExitCode> {
                 });
             }
 
-            Ok(
-                match install::guard(
-                    &payload,
-                    mode,
-                    &path,
-                    lock_present.then_some(targets.as_slice()),
-                ) {
-                    install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
-                    install::GuardVerdict::Warn => {
-                        eprintln!("{}", install::GUARD_MESSAGE);
-                        ExitCode::SUCCESS
-                    }
-                    install::GuardVerdict::Block => {
-                        eprintln!("{}", install::GUARD_MESSAGE);
-                        ExitCode::from(2)
-                    }
-                },
-            )
+            let decision = install::guard(
+                &payload,
+                mode,
+                &path,
+                lock_present.then_some(targets.as_slice()),
+                &loci,
+            );
+            Ok(match decision.verdict {
+                install::GuardVerdict::Allow | install::GuardVerdict::Note => ExitCode::SUCCESS,
+                install::GuardVerdict::Warn => {
+                    eprintln!("{}", decision.message);
+                    ExitCode::SUCCESS
+                }
+                install::GuardVerdict::Block => {
+                    eprintln!("{}", decision.message);
+                    ExitCode::from(2)
+                }
+            })
         }
         Command::Tap { path } => {
             // Advisory recording at Claude Code's lifecycle boundary: read the hook
@@ -616,6 +618,64 @@ fn guarded_manifests(
         });
     }
     Ok(manifests)
+}
+
+/// Every governed locus the `PreToolUse` guard binds a pending write against — one
+/// [`install::GuardedLocus`] per **committed** kind that owns a file locus of its own,
+/// whether an embedded built-in ([`builtin_kind::definitions`], overlaid with the lock's
+/// relocations) or a lock-declared custom kind.
+///
+/// Sourced from the embedded kind data rather than the lock's `[[declaration.kind]]`
+/// rows, the one call [`guarded_manifests`] already makes: a kind row exists only for a
+/// kind the program actually *uses*, so a lock carrying no `agent` member carries no
+/// `agent` row, and a row-sourced locus set would leave `.claude/agents/` unbound — the
+/// hole this closes, and a disagreement with `check`, which walks every overlaid
+/// built-in. Pure embedded data: no disk read and no walk, so the guard's per-tool-call
+/// cost bound is the existing one.
+///
+/// Four exclusions, each on its own fact: a `local`-commitment kind's documents are the
+/// author's own by declaration (never an emit input or target, so no member is ever
+/// declared for them); a kind with no `governs` locus composes its paths from a host and
+/// governs no glob; a kind carrying a `collection_address` is a manifest whose members
+/// [`guarded_manifests`] checks by contract, not by locus; and a `.`-rooted locus
+/// (`memory`'s `**/CLAUDE.md`) would judge every `CLAUDE.md` in the tree, vendored ones
+/// included, because the guard has no ignore reader where discovery prunes by the
+/// repo's ignore rules — binding it would disagree with `check`.
+///
+/// # Errors
+///
+/// Propagates the lock-row lift errors the overlay and the custom-row partition raise.
+fn guarded_loci(declarations: &drift::Declarations) -> miette::Result<Vec<install::GuardedLocus>> {
+    let builtin_defs = builtin_kind::definitions();
+
+    let push = |kind: &CustomKind, loci: &mut Vec<install::GuardedLocus>| {
+        let Some(governs) = kind.governs.as_ref() else {
+            return;
+        };
+        if kind.commitment == Some(Commitment::Local)
+            || kind.collection_address.is_some()
+            || governs.root == "."
+        {
+            return;
+        }
+        loci.push(install::GuardedLocus {
+            kind: kind.name.clone(),
+            pattern: drift::join_locus(&governs.root, &governs.glob)
+                .to_string_lossy()
+                .replace('\\', "/"),
+        });
+    };
+
+    let mut loci = Vec::new();
+    for kind in builtin_defs.values() {
+        let kind = compose::overlay_builtin_kind(kind, declarations)?;
+        push(&kind, &mut loci);
+    }
+    let (custom_rows, _collisions) = compose::partition_kind_rows(declarations, &builtin_defs)?;
+    for row in custom_rows {
+        push(&CustomKind::from_kind_fact_row(row)?, &mut loci);
+    }
+    Ok(loci)
 }
 
 /// The harness-relative path a manifest `kind` governs — its `governs` locus, the path the

@@ -1352,18 +1352,23 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     );
     assert!(stderr.contains("temper-managed projection"));
 
-    // A write to a `.claude/` path with no corresponding declared target should
-    // still be allowed (the fallback check only applies when no targets exist).
-    let (allow_code, allow_stderr) = common::run_guard(
+    // A `.claude/` path with no declared target is not a projection — but it lands in
+    // the `skill` kind's governed locus and the lock declares no member there, so the
+    // locus binding catches it. Representation must not loosen the boundary the no-lock
+    // fallback would have held.
+    let (undeclared_code, undeclared_stderr) = common::run_guard(
         &root,
         "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/skills/x/SKILL.md\"}}",
     );
     assert_eq!(
-        allow_code,
-        Some(0),
-        "an undeclared .claude/ path is allowed when targets exist"
+        undeclared_code,
+        Some(2),
+        "an undeclared document at a governed locus is bound, not allowed (block mode)"
     );
-    assert!(allow_stderr.is_empty());
+    assert!(
+        undeclared_stderr.contains("`skill` kind's governed locus"),
+        "the finding must name the kind whose locus the write landed in, got: {undeclared_stderr}"
+    );
 
     // A write to an entirely different path should be allowed.
     let (other_code, other_stderr) = common::run_guard(
@@ -1372,6 +1377,186 @@ fn guard_binds_declared_locus_targets_outside_claude() {
     );
     assert_eq!(other_code, Some(0));
     assert!(other_stderr.is_empty());
+}
+
+/// A represented harness whose lock declares one `rule` projection and nothing else —
+/// the fixture the governed-locus binding is judged on. `mode` is the caller's, so one
+/// writer serves the block/warn/note arms.
+fn represented_rule_harness(name: &str, mode: &str) -> std::path::PathBuf {
+    let root = common::tmpdir(name);
+    let temper_dir = root.join(".temper");
+    fs::create_dir_all(&temper_dir).unwrap();
+    fs::write(
+        temper_dir.join("lock.toml"),
+        format!(
+            "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n[[rule]]\nname = \"safety\"\nsource_path = \".claude/rules/safety.md\"\nsource_hash = \"abc\"\nemit_hash = \"abc\"\n"
+        ),
+    )
+    .unwrap();
+    root
+}
+
+/// A pending write creating a document inside a represented committed kind's governed
+/// locus that the lock declares no member for is bound at the author's declared mode —
+/// `emit` will never maintain the file and Claude Code loads it anyway. Before this, a
+/// path that was not an exact lock row was allowed outright, so representation *loosened*
+/// the boundary the no-lock fallback held.
+#[test]
+fn guard_binds_an_undeclared_write_inside_a_governed_locus() {
+    // block — the write is denied and the finding names the governing kind and the
+    // declare-and-re-emit remedy `check`'s `locus.undeclared-member` names.
+    let block_root = represented_rule_harness("guard-undeclared-locus-block", "block");
+    let (code, stderr) = common::run_guard(
+        &block_root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "block mode must deny an undeclared document at the `rule` locus, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("`rule` kind's governed locus"),
+        "the finding must name the kind whose locus it landed in, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("declare the member in the program and re-emit"),
+        "the finding must name the same remedy `check` names, got: {stderr}"
+    );
+
+    // `.claude/agents/` is the arm a lock-row-sourced locus set would have missed: a
+    // `[[declaration.kind]]` row exists only for a kind the program uses, and this lock
+    // carries none. The locus set is embedded kind data, so the binding holds anyway.
+    let (agent_code, agent_stderr) = common::run_guard(
+        &block_root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/agents/stray.md\"}}",
+    );
+    assert_eq!(
+        agent_code,
+        Some(2),
+        "a kind the lock carries no row for still binds its locus, got: {agent_stderr}"
+    );
+    assert!(
+        agent_stderr.contains("`agent` kind's governed locus"),
+        "the finding must name the `agent` kind, got: {agent_stderr}"
+    );
+
+    // warn — allowed, with the finding surfaced in-band.
+    let warn_root = represented_rule_harness("guard-undeclared-locus-warn", "warn");
+    let (warn_code, warn_stderr) = common::run_guard(
+        &warn_root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
+    );
+    assert_eq!(warn_code, Some(0), "warn mode allows the write");
+    assert!(
+        warn_stderr.contains("`rule` kind's governed locus"),
+        "warn surfaces the finding in-band, got: {warn_stderr}"
+    );
+
+    // note — allowed, and nothing reaches the live session.
+    let note_root = represented_rule_harness("guard-undeclared-locus-note", "note");
+    let (note_code, note_stderr) = common::run_guard(
+        &note_root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/stray.md\"}}",
+    );
+    assert_eq!(note_code, Some(0), "note mode allows the write");
+    assert!(
+        note_stderr.is_empty(),
+        "note records out-of-band only, got: {note_stderr}"
+    );
+}
+
+/// The arms the governed-locus binding must leave exactly where they were: a declared
+/// projection keeps the projection wording, a `local`-commitment locus is never bound by
+/// it, a manifest locus stays the manifest arm's, and an unrepresented harness keeps the
+/// `.claude/` fallback.
+#[test]
+fn the_governed_locus_binding_leaves_the_neighbouring_guard_arms_alone() {
+    let root = represented_rule_harness("guard-locus-neighbours", "block");
+
+    // A declared projection is drift, not an undeclared member — the projection binding
+    // is consulted first and its wording is what the author reads.
+    let (declared_code, declared_stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/rules/safety.md\"}}",
+    );
+    assert_eq!(declared_code, Some(2));
+    assert!(
+        declared_stderr.contains("temper-managed projection"),
+        "a declared projection keeps the projection finding, got: {declared_stderr}"
+    );
+
+    // A `local`-commitment kind's documents are the author's own by declaration — never
+    // an emit input or target — so no member is ever declared at their loci and the
+    // binding must not fire there. `settings.local.json` and the dial are the two.
+    for local_path in [".claude/settings.local.json", ".temper/dial.toml"] {
+        let (local_code, local_stderr) = common::run_guard(
+            &root,
+            &format!(
+                "{{\"tool_name\":\"Write\",\"tool_input\":{{\"file_path\":\"{local_path}\"}}}}"
+            ),
+        );
+        assert_eq!(
+            local_code,
+            Some(0),
+            "a local-commitment locus is never bound by the locus binding ({local_path}), got: {local_stderr}"
+        );
+        assert!(local_stderr.is_empty());
+    }
+
+    // A manifest kind's locus stays `manifest_write_findings`'s: `.claude/settings.json`
+    // is not emit-owned in this lock (no registration rows), and the `collection_address`
+    // exclusion keeps the locus binding off it, so the write is allowed exactly as before.
+    let (manifest_code, manifest_stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\".claude/settings.json\"}}",
+    );
+    assert_eq!(
+        manifest_code,
+        Some(0),
+        "a manifest locus is the manifest arm's, not the locus binding's, got: {manifest_stderr}"
+    );
+    assert!(manifest_stderr.is_empty());
+
+    // `memory` governs `.` with `**/CLAUDE.md`, and the guard has no ignore reader where
+    // discovery prunes by the repo's ignore rules — so the `.`-rooted locus is excluded
+    // by construction rather than judging every CLAUDE.md in the tree.
+    let (memory_code, memory_stderr) = common::run_guard(
+        &root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"vendor/dep/CLAUDE.md\"}}",
+    );
+    assert_eq!(
+        memory_code,
+        Some(0),
+        "a `.`-rooted locus is excluded, got: {memory_stderr}"
+    );
+    assert!(memory_stderr.is_empty());
+
+    // No lock at all: the `.claude/` fallback is untouched, and it is a substring match
+    // on `.claude/`, so it binds `settings.local.json` too — "never bound" is a claim
+    // about the locus binding under a lock, never about the fallback.
+    let bare_root = common::tmpdir("guard-locus-no-lock");
+    fs::create_dir_all(&bare_root).unwrap();
+    for bound in [".claude/rules/stray.md", ".claude/settings.local.json"] {
+        let (code, stderr) = common::run_guard(
+            &bare_root,
+            &format!("{{\"tool_name\":\"Write\",\"tool_input\":{{\"file_path\":\"{bound}\"}}}}"),
+        );
+        assert_eq!(code, Some(0), "the no-lock default mode is warn ({bound})");
+        assert!(
+            stderr.contains("temper-managed projection"),
+            "the no-lock fallback binds any `.claude/` path ({bound}), got: {stderr}"
+        );
+    }
+    let (outside_code, outside_stderr) = common::run_guard(
+        &bare_root,
+        "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"specs/intent.md\"}}",
+    );
+    assert_eq!(outside_code, Some(0));
+    assert!(
+        outside_stderr.is_empty(),
+        "with no lock nothing outside `.claude/` binds, got: {outside_stderr}"
+    );
 }
 
 /// .claude/settings.json is composed from registration-member kinds (hook,
