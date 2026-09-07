@@ -2751,6 +2751,94 @@ pub fn config_stale_from_doc(
 }
 
 // ---------------------------------------------------------------------------
+// layout.undeclared-member — the second disk-vs-lock fact, over declaration rows
+// rather than fingerprints
+// ---------------------------------------------------------------------------
+
+/// The diagnostic `rule` id a discovered-but-undeclared layout document reports under.
+const LAYOUT_UNDECLARED_MEMBER_RULE: &str = "layout.undeclared-member";
+
+/// The `[declaration]` families that carry a member's own `kind:name` address, paired
+/// with the column each spells it in. A layout host reaches the lock only through these:
+/// its document is a source, so `emit` writes it no `[[<kind>]]` rollup row of its own.
+const MEMBER_ADDRESS_COLUMNS: &[(&str, &str)] = &[
+    ("nested_member", "host"),
+    ("satisfies", "member"),
+    ("mention", "member"),
+    (LAYOUT_PROSE_FAMILY, "member"),
+    (LAYOUT_IMPORT_FAMILY, "member"),
+];
+
+/// One discovered committed layout-kind member, as the gate found it on disk — the
+/// address the lock is asked about and the path a finding names.
+pub struct LayoutMemberSite {
+    /// The member's own `kind:name` address.
+    pub member: String,
+    /// The document's path, harness-relative, as the finding reports it.
+    pub source_path: String,
+}
+
+/// Every member address the lock's declaration rows name, read raw off the document.
+/// Columns are taken as strings without lifting the rows: a malformed row is refused loud
+/// by the readers that own it, and here an unreadable row must never be what *forges* a
+/// finding — so anything unparseable simply contributes no address.
+fn declared_member_addresses(doc: &DocumentMut) -> BTreeSet<String> {
+    let mut addresses = BTreeSet::new();
+    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+        return addresses;
+    };
+    for (family, column) in MEMBER_ADDRESS_COLUMNS {
+        let Some(rows) = table.get(family).and_then(Item::as_array_of_tables) else {
+            continue;
+        };
+        addresses.extend(
+            rows.iter()
+                .filter_map(|row| row.get(column).and_then(Item::as_str))
+                .map(str::to_string),
+        );
+    }
+    addresses
+}
+
+/// The `layout.undeclared-member` findings for the discovered committed layout documents
+/// `sites` names — one per member the lock's declaration rows never mention.
+///
+/// A layout document is a *source*: `emit` projects nothing at its path and writes it no
+/// rollup row, so the whole of its trace on the lock is the rows it was lowered into. A
+/// member the program never declared is still discovered and read for its field slots, and
+/// then read for nothing else — its collections count zero, `explain` reports no nested
+/// members, and every leaf address under it fails to resolve. This states the cause.
+///
+/// **Advisory** (`warn`), the posture [`config_stale`] takes: the harness is checkable, one
+/// document short of what its author meant to gate.
+///
+/// The one bound: a *declared* layout member whose document yields no rows at all — a
+/// layout of field regions alone, or an empty collection with no captured prose — leaves
+/// the same empty trace as an undeclared one and is named here too. Both remedies the
+/// finding offers are sound for it, and silence over the real case is the worse trade.
+#[must_use]
+pub fn undeclared_layout_members_from_doc(
+    doc: &DocumentMut,
+    sites: &[LayoutMemberSite],
+) -> Vec<crate::check::Diagnostic> {
+    let declared = declared_member_addresses(doc);
+    sites
+        .iter()
+        .filter(|site| !declared.contains(&site.member))
+        .map(|site| {
+            crate::check::Diagnostic::warn(
+                LAYOUT_UNDECLARED_MEMBER_RULE,
+                site.source_path.as_str(),
+                format!(
+                    "layout document `{}` (member `{}`) is discovered but the lock declares no member for it — its body's members, prose, and leaf addresses are absent from every read, so its collections count zero and `explain` reports none; declare the member in the program and re-emit, or declare its kind `local` so `check` derives the rows at read time",
+                    site.source_path, site.member
+                ),
+            )
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
 // prose source dependencies — the content a layout import or composed-prose include
 // fingerprints (one shape, two families)
 // ---------------------------------------------------------------------------

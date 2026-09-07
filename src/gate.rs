@@ -17,7 +17,7 @@ use crate::extract;
 use crate::graph;
 use crate::import;
 use crate::install;
-use crate::kind::CustomKind;
+use crate::kind::{self, CustomKind};
 use crate::roster;
 
 /// Dispatch a single kind through the shared "two-greens" contract validation:
@@ -43,6 +43,42 @@ fn two_greens_dispatch(
     diagnostics.extend(engine::validate(&contract, features));
 
     (contract, diagnostics)
+}
+
+/// Every discovered member of a **committed layout kind**, across both at-locus
+/// dispatchers — the population whose whole trace on the lock is the declaration rows
+/// `emit` lowered its document into.
+///
+/// A local-locus kind is excluded: its rows are derived at read time
+/// ([`compose::assemble_lock_family`]) and were never the lock's to carry.
+fn committed_layout_sites(
+    harness_root: &Path,
+    overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
+    builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
+    custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
+) -> Vec<drift::LayoutMemberSite> {
+    let builtin_pairs = overlaid_builtin_kinds
+        .iter()
+        .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
+    let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
+    builtin_pairs
+        .chain(custom_pairs)
+        .filter(|(kind, _)| {
+            matches!(kind.content, kind::Content::Layout(_))
+                && kind.commitment != Some(kind::Commitment::Local)
+        })
+        .flat_map(|(kind, uaf)| {
+            uaf.units.iter().filter_map(|unit| {
+                Some(drift::LayoutMemberSite {
+                    member: extract::host_address(&kind.name, &unit.id),
+                    source_path: crate::path::relativize_against_root(
+                        &unit.source_path.to_string_lossy(),
+                        harness_root,
+                    )?,
+                })
+            })
+        })
+        .collect()
 }
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
@@ -519,6 +555,20 @@ pub fn gate(
     // fingerprints recorded), advisory so a hand-edited or un-re-emitted projection is
     // surfaced without failing the run.
     diagnostics.extend(drift::config_stale_from_doc(&lock_doc, workspace));
+
+    // The second disk-vs-lock fact, over declaration rows rather than fingerprints: a
+    // committed layout document discovery found that the lock declares no member for. Its
+    // body reaches nothing — no collection member, no captured prose, no leaf address —
+    // and every downstream read of it is silently empty, so the cause is named here.
+    diagnostics.extend(drift::undeclared_layout_members_from_doc(
+        &lock_doc,
+        &committed_layout_sites(
+            harness_root,
+            &overlaid_builtin_kinds,
+            &builtin_units_and_features,
+            &custom_units_and_features,
+        ),
+    ));
 
     // The source-dependency freshness facts: a fingerprinted layout-import or
     // composed-prose include target whose bytes no longer match the lock — the target

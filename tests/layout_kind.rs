@@ -639,3 +639,81 @@ fn explain_in(root: &std::path::Path, target: &str) -> String {
     narration.push_str(&String::from_utf8_lossy(&out.stderr));
     narration
 }
+
+#[test]
+fn a_discovered_layout_document_the_lock_declares_no_member_for_surfaces_an_advisory() {
+    // The lock declares the `intent` kind but no member of it — the shape an author
+    // reaches by writing the document and never composing it into the program. Discovery
+    // still finds `specs/intent.md` and reads it for its field slots; every other read of
+    // it comes back empty, because a layout host's whole trace on the lock is the rows
+    // `emit` lowered its document into and there are none.
+    let root = common::tmpdir("layout-undeclared-member");
+    common::write_lock(
+        &root,
+        Declarations {
+            kinds: vec![intent_kind_facts()],
+            ..Default::default()
+        },
+    );
+    let specs = root.join("specs");
+    fs::create_dir_all(&specs).unwrap();
+    fs::write(specs.join("intent.md"), INTENT_DOC).unwrap();
+
+    let run = common::check_in(&root, &[], None);
+
+    // Non-vacuity: the run really did discover and judge the member. Without this the
+    // advisory below could pass over a read that found nothing at all.
+    assert!(
+        run.output.contains("intent (1)"),
+        "the case is vacuous unless the run judged the discovered member: {}",
+        run.output
+    );
+
+    assert!(
+        run.output.contains("layout.undeclared-member"),
+        "an undeclared layout document must be named, never left as silent zero coverage: {}",
+        run.output
+    );
+    assert!(
+        run.output.contains("specs/intent.md"),
+        "the finding names the document: {}",
+        run.output
+    );
+    assert!(
+        run.output.contains("re-emit") && run.output.contains("local"),
+        "the finding names both remedies — declare and re-emit, or declare the kind local: {}",
+        run.output
+    );
+    // Advisory: it states the gap, it never fails the run.
+    assert!(
+        run.ok,
+        "the finding is advisory — the run stays green: {}",
+        run.output
+    );
+}
+
+#[test]
+fn a_declared_layout_member_draws_no_undeclared_finding() {
+    // The same document and kind, this time composed into the program: `emit` lowers it
+    // into the lock's declaration rows, so the gate finds its member declared.
+    let harness = common::scaffold("layout-declared-member");
+    fs::write(harness.join("specs").join("intent.md"), INTENT_DOC).unwrap();
+    drift::emit(
+        &intent_payload(),
+        &harness.join(".temper"),
+        EmitOptions::default(),
+    )
+    .unwrap();
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        run.output.contains("intent (1)"),
+        "the case is vacuous unless the run judged the declared member: {}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("layout.undeclared-member"),
+        "a declared layout member draws no finding: {}",
+        run.output
+    );
+}
