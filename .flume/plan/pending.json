@@ -318,53 +318,6 @@
     "notes": "observed at ad10e8cb (GH #51 half); corrected at bf4b4168 (refusing every cross-host duplicate hard-codes the alternative 0049 rejects). Widened at cadabd8e: embedded_hosts_by_source is a third bare-key consumer, plus the vacuity-pin bar. Post-ship reconciliation 09-07: GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS shipped (77682915), so \"embedded_member_features drops row.host\" is stale — it smuggles it through the fields map; the plumbing is now this entry's new parent. scoped at b46a306e"
   },
   {
-    "tag": "SDK-MEMBER-TABLE-NESTED-EDGE-TARGET",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "memberTable (~700-709) indexes top-level composed members by `kind:key`, last-wins for registration rows (intentional, kept as-is per c054dbce — multiple matcher groups on one hook event legitimately share a key). edgeTargetFacts (~255-270), called unconditionally from resolveMemberLeaves (~307) for every embedded value with an edge field, throws when the target is an embedded value elsewhere: at ~270 any `:`-bearing leaf is treated as a whole lookup key, so a host-qualified address (which contains `/`) is never even attempted. Add a SECOND bare-key index for embedded/nested values keyed by `kind:key`, refusing a duplicate bare key across hosts via the same throwing mechanism `uniqueMap` (~233-241) already uses elsewhere — never memberTable's registration-row last-wins, which is a different, intentional case. Also index the full `<host-address>/<kind>/<key>` spelling; never treat a bare `kind:key` string as the whole key once it also contains `/` (0049 Rejected: no third address form). Before calling isProjected (~604-606, false for an embedded locus) or projectionPath (~206-213, throws on one), branch: an embedded target derives its path via `projectionPath(host)` instead. Widen the table's resolved-value type — a nested target is an `EmbeddedMemberValue` (kind.ts:471), not a `Member` (kind.ts:318)."
-        },
-        {
-          "path": "sdk/src/index.ts",
-          "description": "The root barrel's re-export line — the 2026-09-07 fence revert was this path alone. Widening memberTable's resolved-value type to EmbeddedMemberValue (kind.ts:471) surfaces that type at the public boundary, so its re-export belongs here; declared rather than left to the chain's blanket allowance so it also counts for the ship predicate."
-        },
-        {
-          "path": "sdk/test/emit.test.ts",
-          "description": "Regression: an embedded value's edge field naming another host's embedded value — by bare `kind:key` and by full host-qualified address — resolves target facts and renders, rather than throwing 'resolves to no composed member'."
-        },
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "The existing dangling-target test (~292, `rule:ghost` → /resolves to no composed member/) and the registration-target test (~298, `hook:PreToolUse` → /owns no projection to reference/) both narrow to true-absence and registration-member cases only, now that an embedded-locus target resolves instead of throwing."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      "sdk/src/emit.ts",
-      "sdk/src/index.ts",
-      "sdk/test/emit.test.ts"
-    ],
-    "summary": "A render hook cannot cite a nested member by its bare or host-qualified key: edgeTargetFacts throws on an embedded value naming another host's embedded value.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "kind"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "an edge field on an embedded value naming a nested (non-top-level) target resolves and renders, by both bare-unique key and full host-qualified address"
-      }
-    ],
-    "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright. Scoped to the SDK's own rendering path for bare-unique keys and the host-qualified spelling end-to-end at emit; full nested-address resolution at `check` stays out of scope — GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS shipped it (77682915: graph::target_identity now parses the `/` grammar), and what remains there is EMBEDDED-MEMBER-HOST-CARRIED-NOT-SMUGGLED (the host's carrier) and NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY (the ambiguity refusal). This entry stays the SDK's own rendering path and must not wait on either. Per 0049's amendment, this entry's bare-key index is one of the ambiguity bar's named consumers: a duplicate bare `kind:key` across hosts must refuse via uniqueMap (not silently pick one), matching graph::resolves and explain's why_impl. The regression pins non-vacuity: it asserts a real resolved target/thrown refusal, not an empty index short-circuiting either way (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168. KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites are kind.ts:471/318. The 2026-09-07 fence revert billed sdk/src/index.ts, now declared. Ripple hits declarations.ts/kind.ts/prose.ts re-verified noise (EmbeddedMemberValue's definition and doc-comment sites). 09-07: the Rust-side caveat in acceptance was stale, re-cut against disk. scoped at b46a306e"
-  },
-  {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
     "gate": {
       "kind": "open"
