@@ -2303,6 +2303,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let compose::LockFamily {
         declarations,
         overlaid_builtin_kinds,
+        local_layout_prose,
         ..
     } = compose::assemble_lock_family(
         &discovery,
@@ -2447,11 +2448,19 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &path_to_id,
     );
     // The prose strand joins here rather than inside `explain`: a captured prose region
-    // is a lock row keyed by the host's address, not a decidable feature of the member
-    // corpus every other strand ranges over, so it rides the lock document this read
-    // already parsed instead of widening the corpus `explain` and the gate share.
+    // is a row keyed by the host's address, not a decidable feature of the member corpus
+    // every other strand ranges over, so it rides the reads this verb already made
+    // instead of widening the corpus `explain` and the gate share.
+    //
+    // Both faces, unioned: a committed layout host's spans are lock rows off the document
+    // this read already parsed, while a **local**-locus host's never enter the lock and
+    // reach here only on the family's own read ([`compose::LockFamily::local_layout_prose`]).
+    // One narration over the two, so an author asking about a member is told what its
+    // document captured regardless of which face its kind is committed under.
     if let Species::Member(name) = resolve(&by_kind, &roster, &contracts, target) {
-        let strand = prose_strand(&drift::layout_prose_from_doc(&lock_doc)?, name);
+        let mut prose_rows = drift::layout_prose_from_doc(&lock_doc)?;
+        prose_rows.extend(local_layout_prose);
+        let strand = prose_strand(&prose_rows, name);
         if !strand.is_empty() {
             narration.push('\n');
             narration.push_str(&strand);

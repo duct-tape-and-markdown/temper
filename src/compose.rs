@@ -423,6 +423,13 @@ pub struct LockFamily {
     /// below can find them again short of re-walking the kind's glob — a second read that
     /// could disagree with this one about which members exist.
     pub local_members: Vec<String>,
+    /// What every local member's verbatim prose regions captured, in the same read that
+    /// produced the rows above — retained here for `local_members`' own reason: the
+    /// documents are uncommitted, so these spans reach no lock and no consumer below can
+    /// find them again short of a second walk that could disagree with this read about
+    /// what the document says. The committed face's twin rows ride the lock
+    /// ([`drift::layout_prose`]); `explain` reads the two as one set.
+    pub local_layout_prose: Vec<drift::LayoutProseRow>,
     /// This machine's own dial: the severities it re-reads the clauses above at. Read
     /// with the rest of the family for the same one-read reason, and kept apart from both
     /// row sets for the joined clauses': a dial declares nothing about what this harness
@@ -883,6 +890,7 @@ fn local_document_rows(
         )?;
         rows.nested.extend(document.nested);
         rows.satisfies.extend(document.satisfies);
+        rows.prose.extend(document.prose);
     }
     Ok(rows)
 }
@@ -1033,6 +1041,7 @@ pub fn assemble_lock_family(
 ) -> miette::Result<LockFamily> {
     let mut assembled = committed.clone();
     let mut local_members: BTreeSet<String> = BTreeSet::new();
+    let mut local_layout_prose: Vec<drift::LayoutProseRow> = Vec::new();
 
     let builtin_defs = builtin_kind::definitions();
     let mut overlaid_builtin_kinds = BTreeMap::new();
@@ -1054,6 +1063,10 @@ pub fn assemble_lock_family(
         );
         assembled.nested_members.extend(rows.nested);
         assembled.satisfies.extend(rows.satisfies);
+        // Beside the family rather than into `assembled`: `layout_prose` is emit-derived
+        // output, and `Declarations` is the SDK→engine seam payload, which has never
+        // carried it.
+        local_layout_prose.extend(rows.prose);
     }
     let joined = read_layer_clauses(layers)?;
     Ok(LockFamily {
@@ -1062,6 +1075,7 @@ pub fn assemble_lock_family(
         joined_clauses: joined.clauses,
         joined_locks: joined.locks,
         local_members: local_members.into_iter().collect(),
+        local_layout_prose,
         overlaid_builtin_kinds,
     })
 }

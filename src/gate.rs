@@ -169,6 +169,10 @@ pub fn gate(
         joined_clauses,
         joined_locks,
         local_members,
+        // The gate has no prose consumer — `explain` is the reader — but the destructure
+        // stays `..`-free, so a row family added to the family lands here as a compile
+        // error rather than a silent drop.
+        local_layout_prose: _,
         dial,
         overlaid_builtin_kinds,
     } = compose::assemble_lock_family(&discovery, &committed, layers, &empty_cache)?;

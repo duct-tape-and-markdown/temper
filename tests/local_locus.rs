@@ -10,8 +10,9 @@
 //!   than presumptions about authorship.
 //! - **check** reads a local member's document in place under whatever format its kind
 //!   declares and gates it, deriving the rows the lock never carries — a layout's
-//!   collection members and `satisfies` fills — at read time, under the kind the
-//!   committed lock declares.
+//!   collection members, `satisfies` fills and captured prose spans — at read time, under
+//!   the kind the committed lock declares; `explain` narrates that read's prose rows, the
+//!   strand a committed host gets off the lock.
 //! - **emit** writes nothing at a local member's path, rows none of it, and never reaps
 //!   it — including across the transition from a committed kind to a local one, where a
 //!   prior rollup row would otherwise read the live document as an orphan.
@@ -251,6 +252,50 @@ fn check_derives_a_local_members_rows_at_read_time_under_the_declared_kind() {
     assert!(
         common::findings_for(&findings, "requirement.unfilled").is_empty(),
         "the document's own `satisfies` fill reaches the roster: {findings:?}"
+    );
+}
+
+#[test]
+fn explain_narrates_a_local_members_captured_prose_region() {
+    // A local member's captured spans reach no lock, so the read that derives its
+    // collection and fill rows is the only one that will ever hold them. The prose strand
+    // a committed layout host gets off its lock rows (`tests/layout_kind.rs`) is the
+    // strand this face has to get off that read — one narration over the two faces.
+    let harness = scaffold(
+        "local-explain-prose",
+        Declarations {
+            kinds: vec![knob_kind_facts()],
+            requirements: vec![common::requirement("knob-is-governed", true, None)],
+            ..Default::default()
+        },
+    );
+
+    // The span the document's lead prose region captures, taken off the document itself
+    // so the assertion below cannot drift from what the fixture declares.
+    let preamble = KNOB_DOC.lines().next().unwrap();
+    assert!(
+        !preamble.is_empty(),
+        "the case is vacuous unless the document opens on a span"
+    );
+
+    // And the lock carries no prose row of its own — whatever the narration shows came
+    // off the local read, never off a committed twin.
+    assert!(
+        drift::layout_prose(&harness.join(".temper"))
+            .unwrap()
+            .is_empty(),
+        "a local member's span never enters the lock"
+    );
+
+    let narration = common::explain_in(&harness, "knob:knob");
+
+    assert!(
+        narration.contains("Prose regions") && narration.contains("region 0"),
+        "explain names the region that captured the span: {narration}"
+    );
+    assert!(
+        narration.contains(preamble),
+        "explain carries the document's own preamble verbatim: {narration}"
     );
 }
 
