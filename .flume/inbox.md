@@ -44,3 +44,31 @@ rest is an amendment to the entry, not a re-cut:
   labels the new message cannot contain; the session-start negatives
   (:110, :171, :232, :178) exclude NOTIFY_INSTRUCTION text, which only an
   error-severity finding emits.
+
+## explain on a nested member address appends two "is not a well-formed leaf address" lines — observed at ae74bf49
+
+From cascade-integrations' #54 rehearsal: `explain` on a
+`<host-address>/<kind>/<key>` address renders the member correctly, then
+appends two copies of "is not a well-formed leaf address" — the read verb
+trying the leaf namespace after the member namespace already resolved.
+Cosmetic, but a refusal text on a successful resolution is a lie in the
+output. Verify at HEAD in `src/read.rs`'s resolve path (the nested match
+landed at 9c5c7a71) and fold into whichever address-grammar entry owns the
+reader, or file alone if neither touches that branch.
+
+## a source build and the published binary print the same `temper --version`; the SDK shim runs the published one regardless of PATH — observed at ae74bf49
+
+From cascade-integrations, an ask, not a defect claim against a ship:
+`temper --version` prints `temper 0.0.17` for a source build at ae74bf49
+and for the published platform binary alike, and `sdk/bin/temper.js`
+execs the `optionalDependencies` platform package whatever PATH says. So
+an adopter probing an unreleased build under pnpm scripts silently runs
+the published engine — lock and projections are byte-identical, only the
+gate verdict differs, and nothing in the output tells the two apart. Two
+candidate shapes, either closes it: a `-dev+<sha>` suffix on a non-tag
+build (a `build.rs` reading `git describe`, falling back to the crate
+version when git is absent), or the shim honouring an explicit override
+(an env var naming a binary) — the suffix is the one the adopter can read
+back, so it is the one to prefer, with the override as the pnpm-script
+half. `specs/distribution.md` owns packaging; check whether it speaks to
+version identity at all before scoping, and surface a fork if it does not.
