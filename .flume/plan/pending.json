@@ -34,11 +34,19 @@
         },
         {
           "path": "tests/acceptance.rs",
-          "description": "Two whole-stdout negative assertions stand in for “the clean member trips no `extent` finding” and break on THIS entry's intended behaviour: `check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract`'s `!output.contains(\"00-intent\")` (:358) and `check_reads_a_custom_kind_rooted_outside_specs`'s `!output.contains(\"0001-short\")` (:395). Their shared fixture `author_custom_kind_lock` (:286) writes a lock carrying one `[[declaration.kind]]` row and one `[[declaration.clause]]` row and NO member rows, then drops two documents at the declared locus — a represented harness whose every discovered member is undeclared, precisely the population this entry names, so `locus.undeclared-member` fires over both and the coarse assertion trips on the NEW rule rather than on an `extent` one. Narrow each assertion to the `extent` rule — the claim it actually makes — rather than to whole stdout, so a second rule naming the same artifact cannot forge a failure. Do NOT instead declare the fixture's members: the kind-declared/members-not shape is the commonest adoption shape and the point of the fixture. Both `assert!(ok, …)` arms stay as written — the new finding is `warn`, advisory without `--deny-advisories` — and the two `--deny-advisories` arms already expect `!ok`."
+          "description": "Two whole-stdout negative assertions stand in for “the clean member trips no `extent` finding” and break on THIS entry's intended behaviour: `check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract`'s `!output.contains(\"00-intent\")` (:358) and `check_reads_a_custom_kind_rooted_outside_specs`'s `!output.contains(\"0001-short\")` (:395). Their shared fixture `author_custom_kind_lock` (:286) writes a lock carrying one `[[declaration.kind]]` row and one `[[declaration.clause]]` row and NO member rows, then drops two documents at the declared locus — a represented harness whose every discovered member is undeclared, precisely the population this entry names, so `locus.undeclared-member` fires over both and the coarse assertion trips on the NEW rule rather than on an `extent` one. Narrow each assertion to the `extent` rule — the claim it actually makes — rather than to whole stdout, so a second rule naming the same artifact cannot forge a failure. Do NOT instead declare the fixture's members: the kind-declared/members-not shape is the commonest adoption shape and the point of the fixture. Both `assert!(ok, …)` arms stay as written — the new finding is `warn`, advisory without `--deny-advisories` — and the two `--deny-advisories` arms already expect `!ok`. One more narrowing in the same file, from the same sweep: both `--deny-advisories` arms (:362-368 and :399-405) assert `!ok` and then `contains(\"extent\")`. Once `locus.undeclared-member` is a `warn` over these very fixtures, `!ok` holds for a second, unrelated reason and the arm stops proving that the *extent* clause escalated. Pin each arm to the extent finding itself — the rule id at promoted severity — rather than to the exit code alone, so the assertion still fails if `extent` stops firing."
         },
         {
           "path": "sdk/src/generated/ClauseRow.ts",
           "description": "RIDER-only — touched if and only if the `src/drift.rs` `ClauseRow::field` doc reword rides this entry. `ts-rs` exports that doc comment verbatim into this committed binding, so rewording it makes the file stale and fails `tests/seam_bindings_current.rs::committed_bindings_byte_match_a_fresh_export`. Regenerate with `BLESS_SEAM_BINDINGS=1 cargo test --test seam_bindings_current` and commit the result; never hand-edit it (the file's own header forbids it). Drop the rider and this path stays untouched — it is in the fence so the rider is shippable, not so it must ship."
+        },
+        {
+          "path": "tests/json_document_format.rs",
+          "description": "`the_declared_format_decides_which_adapter_reads_the_artifact` (:208) writes a lock carrying a `plugin-manifest` kind row and a `required` clause and NO member row, then drops `.claude-plugin/plugin.json` at the declared locus — a `Content::File` JSON-document kind, so squarely inside this entry's population and a site the new finding fires over. Its `!run.output.contains(\"description\")` (:238) stands in for “no finding over a field the document carries” and passes today only because the new message happens not to use that word. Narrow it to the `required` rule id in this same pass rather than leaving a tripwire one wording change away. Its `assert!(run.ok)` (:233) stays as written — `locus.undeclared-member` is `warn`, advisory without `--deny-advisories`."
+        },
+        {
+          "path": "tests/toml_document.rs",
+          "description": "The twin site: `the_declared_format_decides_which_adapter_reads_the_artifact` (:156) writes a `knob` kind row (`common::kind_facts`, carrying no `commitment = \"local\"`, so committed and inside the population) with no member row, over `.claude/local/knob.toml`. `!run.output.contains(\"mode\")` (:183) is the same coarse stand-in for the `required` claim — narrow it to the rule id. Neither this nor the JSON twin trips at HEAD; both are one wording change from a false failure, which is why they are narrowed with the rule they guard rather than left."
         }
       ],
       "retire": []
@@ -62,8 +70,8 @@
         "asserts": "an unrepresented harness (no lock) checked under the built-in default contract reports no `locus.undeclared-member` at all, however many documents discovery finds"
       }
     ],
-    "acceptance": "Invariant 6's \"no read or lowering represents less than it was given\" holds for a discovered document with no declared member: `check` names it, the disclosure counts it apart, and neither fires on an unrepresented harness or on a declared-and-emitted one. 676467cf's `layout.undeclared-member` keeps its rule id and wording — tests/layout_kind.rs is untouched and green. The `coverage.checked` rendering is unchanged wherever no kind has an undeclared member — `tests/snapshots/gauntlet__check_diagnostics.snap` does not move, which the registration kinds' `Content::Fields` class is what buys. Stated consequence, not an accident: `locus.undeclared-member` is `warn`, and `--deny-advisories` (src/main.rs:256-259) promotes every `Warn` while exempting `Note`, so from this entry on CI fails for any represented harness carrying an undeclared document at a governed locus. That is the teeth; it is also what an adopter meets first. Blast radius is measured, not estimated: a full implementation run at 17137adc (build's own `--no-fail-fast`, captured at 6d4e68d6) found `tests/acceptance.rs` to be the entire remainder — `tests/layout_kind.rs` untouched and `tests/snapshots/gauntlet__check_diagnostics.snap` unmoved. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade, GH #58, observed at ab61fea4). Re-verified: gate.rs filters sites to `Content::Layout`, and orphan classification walks lock rows only, so a disk file with no row is invisible to `emit`. Worse than the layout case — the stranger is in what Claude Code loads. Guard half is GUARD-UNDECLARED-LOCUS-WRITE. Amended three times: manifest exclusion + path normalization; the site predicate spelled once; now build's measured fence gap folded in. scoped at b549d390"
+    "acceptance": "Invariant 6's \"no read or lowering represents less than it was given\" holds for a discovered document with no declared member: `check` names it, the disclosure counts it apart, and neither fires on an unrepresented harness or on a declared-and-emitted one. 676467cf's `layout.undeclared-member` keeps its rule id and wording — tests/layout_kind.rs is untouched and green. The `coverage.checked` rendering is unchanged wherever no kind has an undeclared member — `tests/snapshots/gauntlet__check_diagnostics.snap` does not move, which the registration kinds' `Content::Fields` class is what buys. Stated consequence, not an accident: `locus.undeclared-member` is `warn`, and `--deny-advisories` (src/main.rs:256-259) promotes every `Warn` while exempting `Note`, so from this entry on CI fails for any represented harness carrying an undeclared document at a governed locus. That is the teeth; it is also what an adopter meets first. Blast radius is measured, not estimated: a full implementation run at 17137adc (build's own `--no-fail-fast`, captured at 6d4e68d6) found `tests/acceptance.rs` to be the entire remainder — `tests/layout_kind.rs` untouched and `tests/snapshots/gauntlet__check_diagnostics.snap` unmoved. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green. The gauntlet snapshot is this predicate's tripwire, not a stale file: the `Content::Fields` exclusion is exactly what keeps the gauntlet corpus's three `settings.json` hook members out of the finding, so a builder who loosens the predicate sees `tests/snapshots/gauntlet__check_diagnostics.snap` move. No re-bless there without re-deriving the predicate first.",
+    "notes": "Routed from inbox 09-07 (cascade, GH #58, observed at ab61fea4). Re-verified: gate.rs filters sites to `Content::Layout`, and orphan classification walks lock rows only, so a disk file with no row is invisible to `emit`. Worse than the layout case — the stranger is in what Claude Code loads. Guard half is GUARD-UNDECLARED-LOCUS-WRITE. Amended four times; latest: cascade's coarse-assertion sweep. scoped at 2e0de83a"
   },
   {
     "tag": "GUARD-UNDECLARED-LOCUS-WRITE",
@@ -236,6 +244,55 @@
     ],
     "acceptance": "A hand-authored or SDK-written lock declaring one kind's reference field twice refuses at the assembly tier, once, naming the slot and the merge that fixes it — and neither declaration resolves, so the refusal arrives alone rather than buried under the false `graph.route` danglings the coincidence forges today. `to`-blind keying means identical rows refuse too, so no phantom arc inflates a `degree` bound. `resolved_edges_count()` is unmoved and tests/check_cost.rs stays green untouched; no snapshot moves (the gauntlet corpus declares no coincident slot). `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
     "notes": "Routed from inbox 09-07 (cascade probe of 67abe15f — a mis-staged fixture, not a defect claim). Re-verified at HEAD: `edges_from_declarations` (drift.rs:5217) pushes one Edge per row, unkeyed, and `resolved_edges` loops every one. SDK half narrowed at 77581333, not closed: `relocate` (kind.ts:512) throws on a duplicated `<from, field>` on ITS path only — `kind()` and `assemblyFactRows` (declarations.ts:461) still write one row per entry unchecked. scoped at c2415400"
+  },
+  {
+    "tag": "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL"
+      ]
+    },
+    "dependsOnForks": [],
+    "files": {
+      "new": [],
+      "edit": [
+        {
+          "path": "src/read.rs",
+          "description": "The `contains('/')` guard in `impact_impl` (:1129) and `context_impl` (:1399) re-decides a species `resolve` (:212) already settled. Since 9c5c7a71 a nested member's identity IS `<host-address>/<kind>/<key>`, so `Species::Member` reaches both `_impl`s carrying a slashed name; `parse_leaf_address` (:1179) is `splitn(4, '/')` and returns `None` on three segments, so each strand returns the \"is not a well-formed leaf address\" refusal (:1240, :1420) — two copies appended to a correct `why` narration (:374-401). Move the leaf dispatch up into the wrappers that own it: `impact` (:1090) already carries its own guard at :1099, so `impact_impl` drops :1129-1131; `context` (:1387) has none of its own — it borrows `context_impl`'s — so the guard moves from :1399 into `context`, leaving `context_impl` to narrate a member unconditionally. Both `_impl` bodies then resolve the slashed id through `build_member_index` (:149), which keys on `features.id` and so already holds a nested member's whole address — no new lookup, no new index. `explain`'s Leaf branch (:432-445) is untouched: it calls the wrappers with an address `resolve` classed as a leaf. Correct the stale rule in `resolve`'s doc comment (:169-170) — “a `/`-bearing target is always a leaf address (a member, requirement, or kind name never carries a slash)” has been false since 9c5c7a71; the order the body already implements (nested member by equality at :245, then the leaf fallthrough at :264) is what it must state. This file's own unit tests drive `impact` at leaf addresses (:2479, :2520, :2542, :2556) and stay green untouched — they exercise the wrapper, which keeps the guard."
+        },
+        {
+          "path": "src/graph.rs",
+          "description": "`node_from_address` (:1353) carries the same wrong discriminator with no nested check at all: `if address.contains('/')` classes EVERY slashed address under `EMBEDDED_LEAF_KIND` (:1347), so a mention naming a nested member's canonical address (`note:note/requirement/my-req`) reaches `mention_finding` (:1394) as an embedded leaf, `parse_leaf_address` returns `None` at :1405, and a member that exists draws a false `graph.route` dangling — the exact spelling `explain`'s own ambiguity refusal hands the author to retry with. Re-cut the dispatch to read the grammar rather than the character: a four-segment address (`read::parse_leaf_address`) is the embedded leaf; a three-segment one (`nested_key`, :1815, which already rejects a four-segment key at :1776) is a member node whose kind is the address's own `<kind>` segment and whose id is the whole address — the identity `target_identity` (:1644) already binds for declared edges, so the two reference families stop disagreeing; the colon split and the `REQUIREMENT_KIND` default (:1358-1360) stay last, unchanged. Two consequences to name in the commit body rather than discover: `resolved_import_edges` (:1485) parses both ends through this same function, and a mention whose `from` side is a nested member now carries its real kind instead of `embedded`, which is the node kind `mention_reachable` scopes on."
+        },
+        {
+          "path": "tests/graph.rs",
+          "description": "The `embedded_mention` module (:2040) already pins both leaf verdicts over the `note:note` host (`requirement_row`, :2055; `a_mention_targeting_a_real_embedded_leaf_resolves_clean` at :2070 and its bogus-key twin at :2102). Add the member-grain pair beside them, both red before this entry: a mention targeting `note:note/requirement/my-req` — the nested member itself, not its leaf — resolves clean, and one targeting `note:note/requirement/ghost` still fires `graph.route`. The two existing leaf cases must stay green unmoved: the four-segment address keeps its leaf grain."
+        },
+        {
+          "path": "tests/nested_member.rs",
+          "description": "`explain_refuses_a_bare_key_two_hosts_carry` (:1018) already drives `explain` at both carriers' full addresses (:1043-1051) but asserts only `!contains(\"names more than one thing\") && !contains(\"No member\")` — coarse enough that today's two stray refusals ride through it. Narrow that arm and add the positive twin: `explain` at `service:alpha/domain/common` carries no \"is not a well-formed leaf address\" line anywhere and narrates all three member-grain strands. `an_address_with_a_leaf_tail_names_no_member` (:1071) stays green untouched — a four-segment address is still no member address, and that is the non-vacuity this fix must not eat."
+        }
+      ],
+      "retire": []
+    },
+    "summary": "A nested member's three-segment address is re-read as a malformed leaf: `explain` appends two refusals to a correct narration, and a mention naming one falsely dangles.",
+    "per": {
+      "path": "specs/model/representation.md",
+      "section": "member"
+    },
+    "tests": [
+      {
+        "path": "tests/nested_member.rs",
+        "asserts": "`explain` at a nested member's full `<kind>:<name>/<kind>/<key>` address narrates why/impact/context and emits no leaf-address refusal anywhere"
+      },
+      {
+        "path": "tests/graph.rs",
+        "asserts": "a mention naming a nested member's canonical address resolves clean at `check`, and one naming a key no host carries still fires `graph.route`"
+      }
+    ],
+    "acceptance": "`specs/model/representation.md` (\"member\") makes the three address spellings one grammar every verb accepts; both verbs accept the nested one. `explain <kind>:<name>/<kind>/<key>` narrates at member grain with no \"is not a well-formed leaf address\" line in its output, and a four-segment leaf address still narrates at leaf grain through the wrappers that keep the dispatch. A mention naming a nested member's canonical address resolves at `check` where it fires `graph.route` today, while `a_mention_targeting_a_real_embedded_leaf_resolves_clean` and its bogus-key twin stay green unmoved. The species discriminator survives at exactly two kinds of site — `resolve`'s classification and each read wrapper's leaf dispatch — with no character test left in `impact_impl`, `context_impl`, or `node_from_address`. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green.",
+    "notes": "Routed from inbox 09-07 (cascade-integrations, #54 rehearsal, observed at ae74bf49). Re-verified on disk: the refusal text is read.rs:1240/:1420, reached because `splitn(4, '/')` needs four segments. The mention half is this tick's find, not the report's — the same wrong discriminator at a gate verdict. Serialized behind ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL and made a parent of MEMBER-ADDRESS-GRAMMAR-ONE-HOME; both share files. scoped at 2e0de83a"
   },
   {
     "tag": "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
@@ -638,7 +695,8 @@
       "tags": [
         "CHECK-UNDECLARED-MEMBER-AT-A-GOVERNED-LOCUS",
         "REFUSAL-MESSAGE-NAMES-THE-EDIT",
-        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER"
+        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
+        "NESTED-MEMBER-ADDRESS-READ-AS-A-MALFORMED-LEAF"
       ]
     },
     "dependsOnForks": [],
