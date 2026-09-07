@@ -1887,6 +1887,126 @@ fn guard_denies_an_unreconstructable_manifest_edit_with_the_manifest_message() {
     );
 }
 
+/// A `block` harness's lock is one line different per enforcement mode — the manifest
+/// binding's verdict is a function of the mode alone, so the unparseable case exercises
+/// all three off one lock body.
+fn settings_manifest_lock(mode: &str) -> String {
+    format!(
+        "[[declaration.assembly]]\nfact = \"mode\"\nvalue = \"{mode}\"\n\n\
+         [[declaration.registration]]\nkind = \"hook\"\nkey = \"SessionStart\"\nmanifest = \"settings.json\"\nkey_path = \"hooks.<Event>\"\n"
+    )
+}
+
+/// The pending content that reproduces the reported failure: a `.claude/settings.json`
+/// that is decidably not JSON.
+const UNPARSEABLE_SETTINGS: &str = "{ not json";
+
+#[test]
+fn guard_refuses_a_write_that_would_leave_a_represented_manifest_unparseable() {
+    // The write the guard used to wave through: the bytes reconstruct in full and are not a
+    // manifest. Deferring it to a later placement assumed one exists — for this file class
+    // none does. An unparseable `.claude/settings.json` makes the harness unloadable, so the
+    // next `check` aborts before any reporter runs, and the `SessionStart` hook that would
+    // have carried the verdict is declared in the file that no longer parses. The boundary
+    // is the only placement left.
+    let root = settings_manifest_harness("guard-manifest-unparseable-block", CO_OWNED_SETTINGS);
+
+    let (code, stderr) = common::run_guard(
+        &root,
+        &write_payload(".claude/settings.json", UNPARSEABLE_SETTINGS),
+    );
+    assert_eq!(
+        code,
+        Some(2),
+        "a `block` harness denies a write that would leave the manifest unparseable: {stderr}"
+    );
+    assert!(
+        stderr.contains("guard.manifest-unparseable"),
+        "the denial carries its own rule id: {stderr}"
+    );
+    assert!(
+        stderr.contains(".claude/settings.json") && stderr.contains("line 1"),
+        "the finding names the manifest path and the parse fault: {stderr}"
+    );
+    assert!(
+        !stderr.contains("temper-managed projection"),
+        "a co-owned manifest never earns the blanket projection denial: {stderr}"
+    );
+    assert_eq!(
+        stderr.matches("guard.manifest-unparseable").count(),
+        1,
+        "the three collection addresses sharing settings.json report one finding, not three: {stderr}"
+    );
+}
+
+#[test]
+fn guard_follows_the_declared_mode_for_an_unparseable_manifest_write() {
+    // The refusal is a finding like any other: it rides main.rs's existing three-valued
+    // dispatch rather than escalating past the mode the lock declares. `warn` surfaces it
+    // in-band and allows the write; `note` allows it with no in-band message at all.
+    for (mode, expect_stderr) in [("warn", true), ("note", false)] {
+        let root = common::tmpdir(&format!("guard-manifest-unparseable-{mode}"));
+        let temper_dir = root.join(".temper");
+        fs::create_dir_all(&temper_dir).unwrap();
+        fs::write(temper_dir.join("lock.toml"), settings_manifest_lock(mode)).unwrap();
+        common::write_settings(&root, CO_OWNED_SETTINGS);
+
+        let (code, stderr) = common::run_guard(
+            &root,
+            &write_payload(".claude/settings.json", UNPARSEABLE_SETTINGS),
+        );
+        assert_eq!(code, Some(0), "`{mode}` allows the write, never blocks");
+        assert_eq!(
+            stderr.contains("guard.manifest-unparseable"),
+            expect_stderr,
+            "`{mode}` in-band surfacing mismatch: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn guard_reserves_the_unparseable_refusal_for_content_that_is_not_a_manifest() {
+    // The new refusal is decided on the reconstructed bytes alone, so it must not swallow
+    // either neighbour: a write landing a well-formed manifest still passes silently, and an
+    // edit the guard cannot reconstruct still earns the reconstruction rule — nothing was
+    // reconstructed there, so nothing can be said about whether it parses.
+    let root =
+        settings_manifest_harness("guard-manifest-unparseable-neighbours", CO_OWNED_SETTINGS);
+
+    let (ok_code, ok_stderr) = common::run_guard(
+        &root,
+        &write_payload(".claude/settings.json", CO_OWNED_SETTINGS),
+    );
+    assert_eq!(
+        ok_code,
+        Some(0),
+        "a parseable, conforming write is still allowed: {ok_stderr}"
+    );
+    assert!(
+        ok_stderr.is_empty(),
+        "and still surfaces nothing: {ok_stderr}"
+    );
+
+    let (edit_code, edit_stderr) = common::run_guard(
+        &root,
+        &edit_payload(
+            ".claude/settings.json",
+            "\"neverOnDisk\": 1",
+            "\"neverOnDisk\": 2",
+        ),
+    );
+    assert_eq!(
+        edit_code,
+        Some(2),
+        "an unreconstructable edit is still denied"
+    );
+    assert!(
+        edit_stderr.contains("guard.manifest-edit-unreconstructable")
+            && !edit_stderr.contains("guard.manifest-unparseable"),
+        "an edit that reconstructs nothing keeps its own rule: {edit_stderr}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // emit's own note/modeline discipline — unrelated to install, still exercised
 // directly over a hand-built payload.

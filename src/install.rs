@@ -196,6 +196,14 @@ const GUARD_MANIFEST_MESSAGE: &str = "temper-governed manifest: a member of this
 /// ([`GUARD_MESSAGE`]) — the way through is a write the guard can read, not an untouched file.
 const GUARD_MANIFEST_EDIT_MESSAGE: &str = "temper-governed manifest: this edit cannot be reconstructed into the manifest it would land, so its governed members went unchecked — re-issue the change as a whole-file Write. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
 
+/// The header `temper guard` prints when the manifest a pending write would land was
+/// reconstructed in full and does not parse. No later placement catches this one: a harness
+/// carrying an unparseable manifest cannot load, so the next `check` aborts before any
+/// reporter runs — and for `.claude/settings.json` the `SessionStart` hook that would have
+/// carried the verdict is declared in the file that no longer parses. The boundary is the
+/// only placement left, so it speaks rather than deferring to CI.
+const GUARD_MANIFEST_UNPARSEABLE_MESSAGE: &str = "temper-governed manifest: this write would leave the manifest unparseable, so nothing it governs can be checked — and a harness that cannot load aborts the next temper check before any reporter runs, so no later placement catches it either. Fix the JSON before landing it. This guard binds only Claude Code tool-mediated writes (Write/Edit/MultiEdit); direct Bash/PowerShell writes are not bound by it.";
+
 /// The extended-regex `temper guard` greps the `PreToolUse` payload for: any `file_path`
 /// value, captured so the guard can test it for lock-declared projection-set membership
 /// when targets are present, or fall back to the `.claude/` locus check when no lock
@@ -959,6 +967,11 @@ enum PendingManifest {
 /// manifest the write would land.
 const GUARD_MANIFEST_EDIT_RULE: &str = "guard.manifest-edit-unreconstructable";
 
+/// The rule id the unparseable-manifest denial carries. Distinct from
+/// [`GUARD_MANIFEST_EDIT_RULE`], which covers a payload the guard could not reconstruct at
+/// all: here the bytes *were* reconstructed and are decidably not a manifest.
+const GUARD_MANIFEST_UNPARSEABLE_RULE: &str = "guard.manifest-unparseable";
+
 /// The full manifest text `input`'s pending write would leave on disk. A `Write` carries it
 /// outright as `content`; an `Edit`/`MultiEdit` carries only replacement strings
 /// (`old_string`/`new_string`, or an `edits` array of them), so the on-disk file at
@@ -1088,6 +1101,29 @@ fn unreconstructable_edit_finding(manifest: &GuardedManifest) -> Diagnostic {
     )
 }
 
+/// The finding a pending write earns when the manifest it would land was reconstructed in
+/// full and does not parse — naming the manifest path and the parse fault, so the author
+/// reads what is wrong with the bytes rather than which member went unchecked (none did:
+/// there are no members to read out of a document that is not a manifest).
+fn unparseable_manifest_finding(
+    manifest: &GuardedManifest,
+    error: &json_manifest::JsonManifestError,
+) -> Diagnostic {
+    // `Manifest::parse` raises `Malformed` and nothing else — its `detail` is the parse
+    // fault alone, without the path the message already names. Any other variant would
+    // arrive from a future parse failure, so it renders whole rather than being dropped.
+    let detail = match error {
+        json_manifest::JsonManifestError::Malformed { detail, .. } => detail.clone(),
+        other => other.to_string(),
+    };
+    let path = manifest.path.to_string_lossy().replace('\\', "/");
+    Diagnostic::error(
+        GUARD_MANIFEST_UNPARSEABLE_RULE,
+        path.clone(),
+        format!("`{path}` would not parse as a manifest after this write: {detail}"),
+    )
+}
+
 /// Check a pending `PreToolUse` write against every represented manifest's contract —
 /// entry 4 of the manifest write side, extending the `.claude/`-projection binding
 /// ([`guard`]) to the manifest members the write face now governs.
@@ -1100,7 +1136,10 @@ fn unreconstructable_edit_finding(manifest: &GuardedManifest) -> Diagnostic {
 /// author's declared enforcement mode. `Write` and `Edit`/`MultiEdit` are judged by one rule —
 /// the manifest the write would land ([`pending_manifest`]) — and an edit the guard cannot
 /// reconstruct earns its own finding rather than falling through to the projection binding,
-/// whose wording denies a co-owned manifest wholesale.
+/// whose wording denies a co-owned manifest wholesale. A write whose reconstructed bytes are
+/// not a manifest at all earns a third finding ([`GUARD_MANIFEST_UNPARSEABLE_RULE`]): that
+/// one cannot be deferred to a later placement, since a harness carrying an unparseable
+/// manifest never loads.
 #[must_use]
 pub fn manifest_write_findings(
     payload: &str,
@@ -1135,15 +1174,27 @@ pub fn manifest_write_findings(
     };
 
     let mut findings = Vec::new();
+    // One finding per manifest path, not per collection address: the three addresses that
+    // share `.claude/settings.json` all fail the same parse and would otherwise say so
+    // three times.
+    let mut reported_unparseable: std::collections::BTreeSet<&Path> =
+        std::collections::BTreeSet::new();
     for manifest in matched {
-        // A pending write that will not even parse as a manifest is left to CI (the write
-        // would trip `check`'s own loud malformed read); the guard is conservative and only
-        // ever fails to forge a finding, never suppresses honest work over a parse hiccup.
-        let Ok(parsed) =
-            json_manifest::Manifest::parse(&manifest.path, &content, &[&manifest.address])
-        else {
-            continue;
-        };
+        // A pending write whose reconstructed bytes are not a manifest is refused here
+        // rather than deferred: the deferral assumed a later placement would catch it, and
+        // for this file class none can — a harness carrying an unparseable manifest cannot
+        // load, so `check` aborts before any reporter runs and the `SessionStart` hook that
+        // would have carried the verdict is itself declared in the unparseable file.
+        let parsed =
+            match json_manifest::Manifest::parse(&manifest.path, &content, &[&manifest.address]) {
+                Ok(parsed) => parsed,
+                Err(error) => {
+                    if reported_unparseable.insert(manifest.path.as_path()) {
+                        findings.push(unparseable_manifest_finding(manifest, &error));
+                    }
+                    continue;
+                }
+            };
 
         // Check that all lock-declared members are present in the pending write.
         let present_keys: std::collections::BTreeSet<_> =
@@ -1183,15 +1234,17 @@ pub fn manifest_write_findings(
 }
 
 /// Render a represented manifest's findings for the guard's in-band surface: the header its
-/// findings earn — [`GUARD_MANIFEST_MESSAGE`] for a member that broke its contract,
-/// [`GUARD_MANIFEST_EDIT_MESSAGE`] for an edit that could not be reconstructed and so checked
-/// nothing — then one `<rule>: <finding>` line per finding.
+/// findings earn — [`GUARD_MANIFEST_UNPARSEABLE_MESSAGE`] for a write that would leave the
+/// manifest unparseable, [`GUARD_MANIFEST_EDIT_MESSAGE`] for an edit that could not be
+/// reconstructed and so checked nothing, [`GUARD_MANIFEST_MESSAGE`] for a member that broke
+/// its contract — then one `<rule>: <finding>` line per finding. The two "nothing was
+/// checked" headers outrank the contract wording, which would misname the fault.
 #[must_use]
 pub fn render_manifest_findings(findings: &[Diagnostic]) -> String {
-    let unreconstructable = findings
-        .iter()
-        .any(|finding| finding.rule == GUARD_MANIFEST_EDIT_RULE);
-    let mut out = String::from(if unreconstructable {
+    let carries = |rule: &str| findings.iter().any(|finding| finding.rule == rule);
+    let mut out = String::from(if carries(GUARD_MANIFEST_UNPARSEABLE_RULE) {
+        GUARD_MANIFEST_UNPARSEABLE_MESSAGE
+    } else if carries(GUARD_MANIFEST_EDIT_RULE) {
         GUARD_MANIFEST_EDIT_MESSAGE
     } else {
         GUARD_MANIFEST_MESSAGE
