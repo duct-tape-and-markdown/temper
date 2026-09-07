@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Clause } from "../src/index.js";
+import { embeddedMemberValue, kind } from "../src/index.js";
 import {
   agent,
   agentDefaultContract,
@@ -707,4 +708,37 @@ test("disable-model-invocation/user-invocable/paths are ordinary declared fields
     skill.facts.registration,
     [{ via: "user-invoked" }, { via: "description-trigger", field: "description" }],
   );
+});
+
+test("embeddedMemberValue's leaves are typed against the passed KindDefinition's own field schema", () => {
+  // When passing a KindDefinition, leaves is required to have all keys of that kind's fields.
+  // Create a test kind with known string-valued fields to verify the typing.
+  interface TestDecision {
+    readonly chosen: string;
+    readonly rationale: string;
+  }
+
+  const testDecision = kind<TestDecision>({
+    name: "test-decision",
+    locus: { kind: "embedded" },
+    unitShape: "file",
+    registration: [],
+  });
+
+  // This call verifies that leaves must include both 'chosen' and 'rationale' fields.
+  const value = embeddedMemberValue({
+    kind: testDecision,
+    key: "demo-decision",
+    leaves: {
+      chosen: "option-a",
+      rationale: "This option provides the best trade-off.",
+    },
+  });
+
+  assert.equal(value.kind, "test-decision");
+  assert.equal(value.key, "demo-decision");
+  assert.deepEqual(value.leaves, {
+    chosen: "option-a",
+    rationale: "This option provides the best trade-off.",
+  });
 });

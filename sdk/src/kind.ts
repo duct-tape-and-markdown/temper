@@ -458,6 +458,18 @@ export interface ResolvedEmbeddedMemberValue {
  * composed value's shape. A bare string names a kind whose facts are out of reach, so
  * such a value renders with no target facts.
  */
+export function embeddedMemberValue<T extends object>(init: {
+  kind: KindDefinition<T>;
+  key: string;
+  leaves: Readonly<Record<keyof T, string | Text>>;
+  collections?: EmbeddedMemberValue["collections"];
+}): EmbeddedMemberValue;
+export function embeddedMemberValue(init: {
+  kind: string;
+  key: string;
+  leaves: Readonly<Record<string, string | Text>>;
+  collections?: EmbeddedMemberValue["collections"];
+}): EmbeddedMemberValue;
 export function embeddedMemberValue(init: {
   kind: string | KindDefinition<any>;
   key: string;
