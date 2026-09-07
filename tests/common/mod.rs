@@ -286,6 +286,24 @@ pub fn check_harness(harness: &Path) -> (Vec<String>, bool) {
     (run.findings(), run.ok)
 }
 
+/// Run `temper explain <target>` from `root`, returning stdout and stderr
+/// concatenated. The combined stream is the contract, not a convenience: `explain`
+/// narrates to stdout but refuses to stderr, so a stdout-only reader watching for a
+/// string's *absence* reads a refusal as agreement. Every `explain` run over the real
+/// binary reaches the verb here — the four private copies this replaced disagreed on
+/// exactly that, two of them stdout-only.
+pub fn explain_in(root: &Path, target: &str) -> String {
+    let out = Command::new(env!("CARGO_BIN_EXE_temper"))
+        .current_dir(root)
+        .arg("explain")
+        .arg(target)
+        .output()
+        .unwrap();
+    let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
+    narration.push_str(&String::from_utf8_lossy(&out.stderr));
+    narration
+}
+
 /// Run `temper guard <root>` from inside `root` with `payload` on stdin, returning the
 /// exit code and stderr output. Mirrors the existing `check_*` family: the one home for
 /// guard driver scaffolding, consolidating what install.rs and cli.rs were

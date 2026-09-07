@@ -616,7 +616,7 @@ fn a_prose_region_declared_after_a_collection_captures_the_preamble_into_an_addr
 
     // And the read verb narrates it: an author asking about the member is told which
     // region captured the preamble and what it captured.
-    let narration = explain_in(&harness, "intent");
+    let narration = common::explain_in(&harness, "intent");
     assert!(
         narration.contains("Prose regions") && narration.contains("region 1"),
         "explain names the capturing region: {narration}"
@@ -625,19 +625,6 @@ fn a_prose_region_declared_after_a_collection_captures_the_preamble_into_an_addr
         narration.contains(TRAILING_PROSE_PREAMBLE),
         "explain carries the captured span: {narration}"
     );
-}
-
-/// Run `temper explain <target>` from `root`, capturing stdout+stderr.
-fn explain_in(root: &std::path::Path, target: &str) -> String {
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
-        .current_dir(root)
-        .arg("explain")
-        .arg(target)
-        .output()
-        .unwrap();
-    let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
-    narration.push_str(&String::from_utf8_lossy(&out.stderr));
-    narration
 }
 
 #[test]

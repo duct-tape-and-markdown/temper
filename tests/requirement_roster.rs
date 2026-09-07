@@ -24,7 +24,6 @@
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 
 mod common;
 
@@ -32,9 +31,6 @@ use temper::compose::Verifier;
 use temper::drift::{
     ClauseRow, Declarations, DegreeBoundRow, EdgeBoundRow, RequirementRow, SatisfiesRow,
 };
-
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// Compile a golden lock at `<root>/.temper/lock.toml` carrying just the declared
 /// `clauses` — the SDK-emitted fixture standing in for an `expect` binding's
@@ -700,17 +696,6 @@ fn a_lock_declared_satisfies_row_fills_a_requirement_with_no_surface_overlay_aut
     );
 }
 
-/// Run `temper explain <target>` from `root`, returning its stdout narration.
-fn explain_in(root: &Path, target: &str) -> String {
-    let out = Command::new(BIN)
-        .current_dir(root)
-        .arg("explain")
-        .arg(target)
-        .output()
-        .unwrap();
-    String::from_utf8_lossy(&out.stdout).into_owned()
-}
-
 #[test]
 fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_fabricated_rationale()
  {
@@ -754,7 +739,7 @@ fn a_lock_declared_satisfies_row_fills_a_custom_kind_member_in_explain_with_no_f
     // `explain`'s narration must agree with that verdict: the member narrates as
     // filling `governance`, not as opting into no requirements at all — the exact
     // narration/verdict split this entry closes.
-    let out = explain_in(&root, "data-retention");
+    let out = common::explain_in(&root, "data-retention");
     assert!(
         out.contains("Requirements it satisfies") && out.contains("governance"),
         "explain must narrate the lock-declared fill as a satisfied requirement, got:\n{out}"
@@ -858,7 +843,7 @@ fn a_memory_members_satisfies_row_fills_a_memory_narrowed_requirement() {
 
     // `explain` must agree with the gate's fill verdict — one shared corpus, not two
     // independent derivations that could silently disagree.
-    let out = explain_in(&root, "memory-doc");
+    let out = common::explain_in(&root, "memory-doc");
     assert!(
         out.contains("required, filled by 1 member(s)"),
         "explain must report the memory member as the requirement's satisfier, matching the gate's verdict, got:\n{out}"

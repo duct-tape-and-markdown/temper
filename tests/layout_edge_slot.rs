@@ -71,20 +71,6 @@ fn edge(from: &str, field: &str, to: &str) -> AssemblyFactRow {
     }
 }
 
-/// Run `temper explain <target>` from `root`, capturing stdout+stderr — the read verb
-/// that narrates a member's resolved edges in and out.
-fn explain_in(root: &std::path::Path, target: &str) -> String {
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
-        .current_dir(root)
-        .arg("explain")
-        .arg(target)
-        .output()
-        .unwrap();
-    let mut narration = String::from_utf8_lossy(&out.stdout).into_owned();
-    narration.push_str(&String::from_utf8_lossy(&out.stderr));
-    narration
-}
-
 /// The `guide` host's `satisfies` fill claims as the lock carries them, in derived order
 /// — the exact rows emit wrote, read straight back off the committed lock.
 fn guide_fills(into: &std::path::Path) -> Vec<String> {
@@ -270,7 +256,7 @@ fn a_declared_relationship_edge_slots_entries_reach_the_gate_and_read_verbs() {
     // A read verb narrates the same resolved edge the gate ranges over — the entry parsed
     // as an address, never a verbatim span (a span would resolve to no node and narrate
     // nothing).
-    let narration = explain_in(&harness, "guide");
+    let narration = common::explain_in(&harness, "guide");
     assert!(
         narration.contains("points at `standards`") && narration.contains("routes_to"),
         "`explain` narrates the host's resolved out-edge: {narration}"

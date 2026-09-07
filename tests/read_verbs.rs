@@ -1124,21 +1124,6 @@ fn explain_narrates_a_kind_absent_guidance_cleanly() {
     );
 }
 
-/// Run `temper explain <target>` from `root`, capturing combined stdout+stderr — the
-/// CLI seam this file's other tests bypass by calling the read library directly, needed
-/// here to prove the SDK's row change survives a real emit/lock round trip.
-fn explain_via_cli(root: &std::path::Path, target: &str) -> String {
-    let out = std::process::Command::new(env!("CARGO_BIN_EXE_temper"))
-        .current_dir(root)
-        .arg("explain")
-        .arg(target)
-        .output()
-        .unwrap();
-    let mut combined = String::from_utf8_lossy(&out.stdout).into_owned();
-    combined.push_str(&String::from_utf8_lossy(&out.stderr));
-    combined
-}
-
 /// A custom embedded kind declaring `guidance`/`cite`, admitted over `memory` with no
 /// member of it ever instantiated — the exact shape 0045's ruling exists for: a kind
 /// absent a unit is not a kind absent counsel.
@@ -1180,7 +1165,7 @@ fn explain_narrates_a_custom_embedded_kinds_guidance_after_a_full_sdk_round_trip
     temper::drift::emit_program(&into, temper::drift::EmitOptions::default())
         .expect("the SDK program emits a lock carrying the embedded kind's row");
 
-    let out = explain_via_cli(&harness, "kind:decision");
+    let out = common::explain_in(&harness, "kind:decision");
     assert!(
         out.contains("State the decision's rationale, not just its verdict."),
         "the embedded kind's declared guidance narrates through the real lock: {out}"

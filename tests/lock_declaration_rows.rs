@@ -13,7 +13,6 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 mod common;
 
@@ -32,9 +31,6 @@ use temper::kind::{
     CollectionAddress, CollectionKeyPath, Content, CustomKind, Extraction, Primitive,
 };
 use temper::layout::{Layout, LayoutRegion};
-
-/// The binary under test, located by Cargo at compile time.
-const BIN: &str = env!("CARGO_BIN_EXE_temper");
 
 /// A host kind declaring both nesting layers a template can name: the embedded
 /// `decision` child kind (the shape [`tests/nested_member.rs`]'s `decision_kind` declares
@@ -450,7 +446,7 @@ fn a_requirements_prose_reaches_explains_narration_through_the_engine() {
     );
     common::author_satisfies(&root, "skills", "governance-doc", &["governance"]);
 
-    let out = explain_in(&root, "governance");
+    let out = common::explain_in(&root, "governance");
     assert!(
         out.contains("the corpus declares a governance model an architecture doc must satisfy"),
         "explain's engine-composed narration must carry the lock-declared prose verbatim, got:\n{out}"
@@ -1374,7 +1370,7 @@ fn a_registration_member_surfaces_in_the_lock_and_reaches_the_read_graph() {
 
     // Governable end to end: the read family resolves the bare `gmail` to the member and
     // narrates it as a node — not only the `mcp-server` kind that addresses the collection.
-    let out = explain_in(&harness, "gmail");
+    let out = common::explain_in(&harness, "gmail");
     assert!(
         out.contains("Member `gmail` (mcp-server)"),
         "the represented manifest's member is a governable read-graph node, got:\n{out}"
@@ -1941,7 +1937,7 @@ fn a_lock_declared_nested_member_row_folds_a_builtin_hosts_embedded_member() {
     )
     .unwrap();
 
-    let out = explain_in(&root, "uses-directive");
+    let out = common::explain_in(&root, "uses-directive");
     assert!(
         out.contains("Nested members (the embedded members it carries):"),
         "the lock's declared nested-member row must surface as a visible nested \
@@ -2481,17 +2477,6 @@ fn clean_rule(name: &str) -> String {
     format!("# {name}\n\nBody.\n")
 }
 
-/// Run `temper explain <target>` from `root`, returning its stdout narration.
-fn explain_in(root: &Path, target: &str) -> String {
-    let out = Command::new(BIN)
-        .current_dir(root)
-        .arg("explain")
-        .arg(target)
-        .output()
-        .unwrap();
-    String::from_utf8_lossy(&out.stdout).into_owned()
-}
-
 /// The `gate` requirement's declaration row, typed to `rule`, carrying a required
 /// `degree` clause bounding incoming edges to at least one.
 fn incoming_degree_requirement() -> RequirementRow {
@@ -2555,7 +2540,7 @@ fn a_mention_binds_the_graph_so_degree_counts_it_and_explain_narrates_it() {
         "the mention alone satisfies the rule's incoming degree bound ⇒ clean, got:\n{output}"
     );
 
-    let out = explain_in(&root, "coordinate");
+    let out = common::explain_in(&root, "coordinate");
     assert!(
         out.contains("it points at `rust` (rule) via its `mention` field"),
         "explain narrates the mention's resolved target rather than \"points at no member\": {out}"
