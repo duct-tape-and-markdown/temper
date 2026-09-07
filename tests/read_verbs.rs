@@ -12,6 +12,7 @@
 use std::collections::BTreeMap;
 
 use temper::compose::Requirement;
+use temper::drift::{self, LayoutRegionRow, LayoutRow, TemplateRow};
 use temper::extract::{EmbeddedMember, Features};
 use temper::read::{self, CustomMember};
 use temper::tap::{self, TAP_RECORD_VERSION, TapEvent, TapRecord};
@@ -90,7 +91,7 @@ fn explain_over_log(
         custom,
         roster,
         &BTreeMap::new(),
-        &BTreeMap::new(),
+        &[],
         by_kind,
         &[],
         &[],
@@ -675,7 +676,7 @@ fn explain_narrates_kind_guidance_in_governing_contract() {
         &custom,
         &roster,
         &contracts,
-        &BTreeMap::new(),
+        &[],
         &by_kind,
         &[],
         &[],
@@ -734,7 +735,7 @@ fn explain_omits_governing_contract_guidance_when_absent() {
         &custom,
         &roster,
         &contracts,
-        &BTreeMap::new(),
+        &[],
         &by_kind,
         &[],
         &[],
@@ -776,18 +777,18 @@ fn explain_narrates_a_bare_kinds_guidance_with_no_member_of_it_in_the_corpus() {
             clauses: Vec::new(),
         },
     );
-    let mut kind_cites: BTreeMap<String, String> = BTreeMap::new();
-    kind_cites.insert(
-        "decision".to_string(),
-        "https://example.com/decisions (retrieved 2026-07-24)".to_string(),
-    );
+    // The cite rides the kind's own fact row: `Contract` has no column for it.
+    let kinds = [drift::KindFactRow {
+        cite: Some("https://example.com/decisions (retrieved 2026-07-24)".to_string()),
+        ..common::kind_facts("decision", "decisions", "*.md")
+    }];
 
     let registrations = BTreeMap::new();
     let out = temper::read::explain(
         &[],
         &roster,
         &contracts,
-        &kind_cites,
+        &kinds,
         &by_kind,
         &[],
         &[],
@@ -807,6 +808,256 @@ fn explain_narrates_a_bare_kinds_guidance_with_no_member_of_it_in_the_corpus() {
     assert!(
         out.contains("https://example.com/decisions"),
         "a bare kind name narrates its declared cite alongside its guidance: {out}"
+    );
+}
+
+/// Call `read::explain` for a kind target over the kind-fact rows and the by-kind
+/// corpus the bare-kind narration reads — its declared layout and nesting off the rows,
+/// an admitted embedded kind's leaves off the corpus. Every row's kind is threaded into
+/// `contracts` too, since that map is the existence oracle both kind spellings resolve
+/// against.
+fn explain_kind(
+    kinds: &[drift::KindFactRow],
+    by_kind: &BTreeMap<&str, &[Features]>,
+    target: &str,
+) -> String {
+    use temper::contract::Contract;
+    let contracts: BTreeMap<String, Contract> = kinds
+        .iter()
+        .map(|row| {
+            (
+                row.name.clone(),
+                Contract {
+                    name: row.name.clone(),
+                    guidance: None,
+                    clauses: Vec::new(),
+                },
+            )
+        })
+        .collect();
+    let registrations = BTreeMap::new();
+    temper::read::explain(
+        &[],
+        &BTreeMap::new(),
+        &contracts,
+        kinds,
+        by_kind,
+        &[],
+        &[],
+        &registrations,
+        &[],
+        &[],
+        &[],
+        &[],
+        0,
+        target,
+        &BTreeMap::new(),
+    )
+}
+
+#[test]
+fn a_kind_qualified_name_no_kind_declares_is_not_found() {
+    // The explicit `kind:` spelling is checked against the same kind set the bare name
+    // resolves against: `kind:frobnicate` is a name nothing declares, and reading it as
+    // a kind with nothing to teach would say "no guidance declared" — the answer a
+    // *declared* kind gives — for a kind that does not exist.
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+    let kinds = [common::kind_facts("decision", "decisions", "*.md")];
+
+    let missing = explain_kind(&kinds, &by_kind, "kind:frobnicate");
+    assert!(
+        missing.contains("No member, requirement, kind, or leaf address named `kind:frobnicate`"),
+        "a qualified name no kind declares is NotFound: {missing}"
+    );
+    assert!(
+        !missing.contains("No authoring guidance is declared"),
+        "it never reads as a declared kind with nothing to teach: {missing}"
+    );
+
+    let declared = explain_kind(&kinds, &by_kind, "kind:decision");
+    assert!(
+        declared.contains("No authoring guidance is declared"),
+        "the declared-but-unguided kind still narrates under the same spelling: {declared}"
+    );
+}
+
+/// A layout kind's regions in wire form — a leading verbatim prose region, an `intent`
+/// field section, and an `invariant` member collection.
+fn intent_layout() -> LayoutRow {
+    LayoutRow {
+        regions: vec![
+            LayoutRegionRow {
+                region: "prose".to_string(),
+                import: None,
+                slot: None,
+                member_kind: None,
+                key: None,
+            },
+            LayoutRegionRow {
+                region: "field".to_string(),
+                import: None,
+                slot: Some("intent".to_string()),
+                member_kind: None,
+                key: None,
+            },
+            LayoutRegionRow {
+                region: "collection".to_string(),
+                import: None,
+                slot: None,
+                member_kind: Some("invariant".to_string()),
+                key: None,
+            },
+        ],
+    }
+}
+
+#[test]
+fn a_layout_kind_narrates_its_regions_in_order_and_a_document_that_fits_them() {
+    // The authoring entry point for a kind whose body is typed: an author with no
+    // member of it to copy reads the regions the document is parsed as, in order, and a
+    // skeleton carrying every position the reader binds.
+    let kinds = [drift::KindFactRow {
+        content: Some(intent_layout()),
+        ..common::kind_facts("intent", "specs", "intent.md")
+    }];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+
+    let out = explain_kind(&kinds, &by_kind, "kind:intent");
+    let region_lines: Vec<&str> = out
+        .lines()
+        .filter(|line| {
+            line.starts_with("  1.") || line.starts_with("  2.") || line.starts_with("  3.")
+        })
+        .collect();
+    assert_eq!(region_lines.len(), 3, "one line per declared region: {out}");
+    assert!(
+        region_lines[0].contains("prose") && region_lines[0].contains("preamble"),
+        "the first region is the verbatim prose one, which takes the preamble: {out}"
+    );
+    assert!(
+        region_lines[1].contains("field `intent`"),
+        "the second region names the field slot it fills: {out}"
+    );
+    assert!(
+        region_lines[2].contains("collection of `invariant`"),
+        "the third region names the member kind its child headings instantiate: {out}"
+    );
+
+    let skeleton = out
+        .split("A document that fits it:")
+        .nth(1)
+        .unwrap_or_default();
+    assert!(
+        skeleton.contains("<the preamble"),
+        "the skeleton opens on the preamble the prose region captures: {out}"
+    );
+    assert!(
+        skeleton.contains("<the span filling the `intent` field>"),
+        "the skeleton marks the heading whose span fills the field slot: {out}"
+    );
+    assert!(
+        skeleton.contains("## <heading>") && skeleton.contains("one `invariant` member"),
+        "the skeleton marks a collection child heading as one member: {out}"
+    );
+    // The layout declares no heading text, so the skeleton must not invent one.
+    assert!(
+        !skeleton.contains("# Intent"),
+        "a heading a region binds is a placeholder, never a title the layout never declared: {out}"
+    );
+}
+
+#[test]
+fn a_layouts_trailing_prose_region_still_leads_the_skeleton() {
+    // The preamble is the span before the first heading whatever position its region
+    // takes, so a trailing prose region's span still opens the document — the one thing
+    // reading the region list top-to-bottom would get backwards.
+    let kinds = [drift::KindFactRow {
+        content: Some(LayoutRow {
+            regions: vec![
+                LayoutRegionRow {
+                    region: "field".to_string(),
+                    import: None,
+                    slot: Some("intent".to_string()),
+                    member_kind: None,
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "prose".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: None,
+                    key: None,
+                },
+            ],
+        }),
+        ..common::kind_facts("intent", "specs", "intent.md")
+    }];
+    let by_kind: BTreeMap<&str, &[Features]> = BTreeMap::new();
+
+    let out = explain_kind(&kinds, &by_kind, "kind:intent");
+    let skeleton = out
+        .split("A document that fits it:")
+        .nth(1)
+        .unwrap_or_default();
+    let preamble = skeleton
+        .find("<the preamble")
+        .expect("the skeleton carries a preamble");
+    let heading = skeleton
+        .find("# <heading>")
+        .expect("the skeleton carries the field's heading");
+    assert!(
+        preamble < heading,
+        "the preamble leads the skeleton though its region is declared last: {out}"
+    );
+}
+
+#[test]
+fn a_composed_kind_narrates_the_embedded_kinds_it_admits_and_their_leaves() {
+    // A composed kind — one admitting child kinds into its own body, through a
+    // path-less template or a layout collection — is the shape an author most needs
+    // told: what may be embedded, and what each embedded member is made of.
+    let kinds = [drift::KindFactRow {
+        templates: vec![
+            TemplateRow {
+                kind: "decision".to_string(),
+                path: None,
+            },
+            TemplateRow {
+                kind: "supporting-doc".to_string(),
+                path: Some("*.md".to_string()),
+            },
+        ],
+        content: Some(intent_layout()),
+        ..common::kind_facts("spec", "specs", "*.md")
+    }];
+    let mut chosen = feature("spec:s/decision/baked-projection", &[]);
+    chosen.fields = BTreeMap::from([
+        (
+            "because".to_string(),
+            serde_json::Value::String("the projection is not the database".to_string()),
+        ),
+        (
+            "chosen".to_string(),
+            serde_json::Value::String("declaration rows".to_string()),
+        ),
+    ]);
+    let decisions = [chosen];
+    let invariants: [Features; 0] = [];
+    let by_kind: BTreeMap<&str, &[Features]> =
+        BTreeMap::from([("decision", &decisions[..]), ("invariant", &invariants[..])]);
+
+    let out = explain_kind(&kinds, &by_kind, "kind:spec");
+    assert!(
+        out.contains("• `decision` — the leaves its members carry today: `because`, `chosen`"),
+        "an admitted embedded kind narrates the leaves its members carry: {out}"
+    );
+    assert!(
+        out.contains("• `invariant` — no member of it is in this surface yet"),
+        "a layout collection's member kind is admitted too, and an empty one says so: {out}"
+    );
+    assert!(
+        out.contains("• `supporting-doc` — at `*.md`"),
+        "a templated file child is narrated as a unit of its own, never an embedded kind: {out}"
     );
 }
 
@@ -833,7 +1084,7 @@ fn explain_narrates_a_kind_absent_guidance_cleanly() {
         &[],
         &roster,
         &contracts,
-        &BTreeMap::new(),
+        &[],
         &by_kind,
         &[],
         &[],
@@ -1247,7 +1498,7 @@ fn a_nested_instructions_loaded_record_joins_to_its_placement_folded_member_id()
         &[],
         &roster,
         &BTreeMap::new(),
-        &BTreeMap::new(),
+        &[],
         &by_kind,
         &[],
         &[],

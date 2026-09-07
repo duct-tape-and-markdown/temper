@@ -219,7 +219,17 @@ fn resolve<'a>(
         return Species::Requirement(name);
     }
     if let Some(name) = target.strip_prefix("kind:") {
-        return Species::Kind(name);
+        // The one qualifier whose namespace is checked here: `member:`/`requirement:`
+        // hand a missing name to a traversal that says so in its own voice, while a
+        // kind's narration would read "no guidance declared" — the *declared-but-silent*
+        // answer — for a kind nothing declares. The check is `contracts`, the same
+        // oracle the bare-name fallthrough below resolves a kind against, so the two
+        // spellings agree on which kinds exist.
+        return if contracts.contains_key(name) {
+            Species::Kind(name)
+        } else {
+            Species::NotFound(target)
+        };
     }
     if let Some(address) = target.strip_prefix("address:") {
         return Species::Leaf(address);
@@ -286,9 +296,10 @@ fn resolve<'a>(
 /// `roster` is the requirement namespace `check` gates; `contracts` are the resolved
 /// contracts the gate judges with, keyed by kind, so [`why`] can name a member's
 /// clauses by the addresses their findings print and a bare kind name resolves against
-/// its keys; `kind_cites` is each kind's declared authoring `cite`, keyed the same way
-/// (`Contract` carries `guidance` alone, so a kind's `cite` travels alongside rather
-/// than widening `Contract` for this one caller); `edges` is the
+/// its keys; `kind_facts` is the lock's own `kind` family — the declared `cite`, body
+/// layout and nesting templates a bare-kind narration reads, none of which `Contract`
+/// (name, clauses, guidance) has a column for, so they travel as the rows themselves
+/// rather than widening `Contract` for this one caller; `edges` is the
 /// declared relationship set [`why`]'s edge walk resolves; `mention_edges` is the
 /// already-resolved mention edge set the same walk folds in, so a member's only
 /// outgoing reference being a mention still narrates rather than reading "it points at
@@ -309,7 +320,7 @@ pub fn explain(
     custom: &[CustomMember],
     roster: &BTreeMap<String, Requirement>,
     contracts: &BTreeMap<String, Contract>,
-    kind_cites: &BTreeMap<String, String>,
+    kind_facts: &[drift::KindFactRow],
     by_kind: &BTreeMap<&str, &[Features]>,
     edges: &[Edge],
     mention_edges: &[ResolvedEdge],
@@ -378,7 +389,7 @@ pub fn explain(
             name,
             path_to_id,
         ),
-        Species::Kind(name) => narrate_kind(name, contracts, kind_cites),
+        Species::Kind(name) => narrate_kind(name, contracts, kind_facts, by_kind),
         Species::Leaf(address) => {
             let mut out = impact(
                 roster,
@@ -496,29 +507,61 @@ fn narrate_governing_contract(
     out.push('\n');
 }
 
-/// `explain`'s **bare-kind** narration: `name`'s declared authoring guidance/cite, the
+/// `explain`'s **bare-kind** narration — the adopter's authoring entry point for a
+/// kind: what it teaches, what shape a document of it takes, and what it hosts. The
 /// pre-member counterpart to [`narrate_governing_contract`] — teaching at authoring
-/// time (`(clause)`, decision 0045) rather than at a member's own moment of failure, and
-/// readable with no member of `name` in the corpus yet. `contracts` carries the
-/// guidance (the same map [`why`]'s governing-contract narration reads); `kind_cites`
-/// carries the cite `Contract` has no column for. A kind declaring neither narrates a
-/// clean "nothing declared" line rather than silence, so an empty result still confirms
-/// the kind resolved and was read, not skipped.
+/// time (`(clause)`, decision 0045) rather than at a member's own moment of failure,
+/// and readable with no member of `name` in the corpus yet.
+///
+/// Three strands, each present only when the kind declares it:
+///
+/// * **guidance and cite** — off `contracts` (the same map [`why`]'s governing-contract
+///   narration reads) and off the kind's own fact row, which carries the `cite`
+///   `Contract` has no column for.
+/// * **layout** — a `content`-declaring kind's regions in declared document order, plus
+///   a skeleton document that fits them ([`layout_skeleton`]). The regions are the whole
+///   of what [`crate::layout::Layout::read`] admits, so an author who has never seen a
+///   member of the kind can still write a document the reader places.
+/// * **hosted kinds** — the child kinds the row admits. An **embedded** kind (a
+///   path-less `templates` entry, or a layout collection region's `member_kind`) lives
+///   in the host's own body and is narrated with the leaves its members carry; a
+///   **file** child (a `templates` entry carrying a `path`) owns its own unit and is
+///   narrated with that path.
+///
+/// A kind declaring none of the three narrates a clean "nothing declared" line rather
+/// than silence, so an empty result still confirms the kind resolved and was read, not
+/// skipped.
 fn narrate_kind(
     name: &str,
     contracts: &BTreeMap<String, Contract>,
-    kind_cites: &BTreeMap<String, String>,
+    kind_facts: &[drift::KindFactRow],
+    by_kind: &BTreeMap<&str, &[Features]>,
 ) -> String {
     let mut out = format!("Kind `{name}`:\n\n");
     let guidance = contracts
         .get(name)
         .and_then(|contract| contract.guidance.as_deref());
-    let cite = kind_cites.get(name).map(String::as_str);
-    if guidance.is_none() && cite.is_none() {
+    let facts = kind_facts.iter().find(|row| row.name == name);
+    let cite = facts.and_then(|row| row.cite.as_deref());
+    let layout = facts.and_then(|row| row.content.as_ref());
+    let embedded = facts.map(admitted_embedded_kinds).unwrap_or_default();
+    let file_children: Vec<&drift::TemplateRow> = facts
+        .iter()
+        .flat_map(|row| row.templates.iter())
+        .filter(|template| template.path.is_some())
+        .collect();
+
+    if guidance.is_none()
+        && cite.is_none()
+        && layout.is_none()
+        && embedded.is_empty()
+        && file_children.is_empty()
+    {
         let _ = writeln!(
             out,
-            "No authoring guidance is declared for `{name}` — nothing to teach before a \
-             member of it exists.\n"
+            "No authoring guidance is declared for `{name}`, and it declares neither a \
+             body layout nor a kind it hosts — nothing to teach before a member of it \
+             exists.\n"
         );
         return out;
     }
@@ -528,8 +571,259 @@ fn narrate_kind(
     if let Some(cite) = cite {
         let _ = writeln!(out, "  [source: {cite}]");
     }
-    out.push('\n');
+    if guidance.is_some() || cite.is_some() {
+        out.push('\n');
+    }
+    if let Some(layout) = layout {
+        narrate_layout(&mut out, layout);
+    }
+    narrate_hosted_kinds(&mut out, name, &embedded, &file_children, by_kind);
     out
+}
+
+/// The **embedded** child kinds `row` admits, in declaration order and deduplicated:
+/// a path-less `templates` entry (a `path` templates a *file* child, which owns its own
+/// unit) and a layout collection region's `member_kind`. The set
+/// [`crate::admissibility::declared_embedded_kinds`] gates every `nested_member` row
+/// against, narrowed to this one host — so what `explain` tells an author a kind admits
+/// is what the lock's own rows are judged against.
+fn admitted_embedded_kinds(row: &drift::KindFactRow) -> Vec<&str> {
+    let mut kinds: Vec<&str> = Vec::new();
+    for template in &row.templates {
+        if template.path.is_none() && !kinds.contains(&template.kind.as_str()) {
+            kinds.push(&template.kind);
+        }
+    }
+    if let Some(content) = &row.content {
+        for member_kind in content
+            .regions
+            .iter()
+            .filter_map(|r| r.member_kind.as_deref())
+        {
+            if !kinds.contains(&member_kind) {
+                kinds.push(member_kind);
+            }
+        }
+    }
+    kinds
+}
+
+/// Narrate a `content`-declaring kind's layout: its regions in declared document order,
+/// then a skeleton document that fits them.
+///
+/// Two truths the region list states because only the reader knows them: the document's
+/// preamble binds to the **first** verbatim prose region wherever that region is
+/// declared (a later one reads empty), and a heading-bound region takes the *next*
+/// unconsumed top-level heading whatever its title — the layout never names a heading.
+fn narrate_layout(out: &mut String, layout: &drift::LayoutRow) {
+    if layout.regions.is_empty() {
+        let _ = writeln!(
+            out,
+            "Its body is a declared layout that declares no region: a member's document \
+             admits no heading at all, and no region reads its prose.\n"
+        );
+        return;
+    }
+    let _ = writeln!(
+        out,
+        "Its body is a declared layout, read as these regions in declared document order:"
+    );
+    let mut preamble_taken = false;
+    for (index, region) in layout.regions.iter().enumerate() {
+        let position = index + 1;
+        match region.region.as_str() {
+            "prose" => {
+                if let Some(import) = &region.import {
+                    let _ = writeln!(
+                        out,
+                        "  {position}. prose — the contents of `{import}`, spliced in at \
+                         emit; nothing is authored here."
+                    );
+                } else if preamble_taken {
+                    let _ = writeln!(
+                        out,
+                        "  {position}. prose — reads empty: the preamble binds to the \
+                         first verbatim prose region, which an earlier one already took."
+                    );
+                } else {
+                    preamble_taken = true;
+                    let _ = writeln!(
+                        out,
+                        "  {position}. prose — the document's preamble, verbatim: the \
+                         span before its first heading, wherever this region is declared."
+                    );
+                }
+            }
+            "field" => {
+                // A `field` row with no `slot` is refused when the lock lifts it
+                // (`kind::layout_region_from_row`), so the fallback names the malformed
+                // row rather than inventing a slot for it.
+                let slot = region.slot.as_deref().unwrap_or("<no slot declared>");
+                let _ = writeln!(
+                    out,
+                    "  {position}. field `{slot}` — the next top-level heading, whatever \
+                     its title; its span fills the `{slot}` slot."
+                );
+            }
+            "collection" => {
+                let member_kind = region
+                    .member_kind
+                    .as_deref()
+                    .unwrap_or("<no member kind declared>");
+                let keying = match region.key.as_deref() {
+                    None => "keyed by its slugged heading".to_string(),
+                    Some(key) => format!(
+                        "keyed by the span under its own `{key}` sub-heading, which a \
+                         retitle leaves untouched"
+                    ),
+                };
+                let _ = writeln!(
+                    out,
+                    "  {position}. collection of `{member_kind}` — the next top-level \
+                     heading, whatever its title; each child heading under it is one \
+                     `{member_kind}` member, {keying}."
+                );
+            }
+            other => {
+                let _ = writeln!(
+                    out,
+                    "  {position}. `{other}` — a region primitive outside the three this \
+                     read narrates."
+                );
+            }
+        }
+    }
+    let _ = writeln!(out, "\nA document that fits it:\n");
+    for line in layout_skeleton(&layout.regions) {
+        if line.is_empty() {
+            out.push('\n');
+        } else {
+            let _ = writeln!(out, "    {line}");
+        }
+    }
+    out.push('\n');
+}
+
+/// The skeleton document a layout's `regions` admit — the scaffold an author fills in,
+/// with every position the reader binds marked and nothing invented.
+///
+/// Headings are placeholders because a layout declares none: a region binds the next
+/// heading whatever its title, so the skeleton can only say *that* a heading belongs
+/// there. The preamble leads whatever position its region takes — it is the span before
+/// the first heading, which is where the reader looks for it regardless.
+fn layout_skeleton(regions: &[drift::LayoutRegionRow]) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    if regions
+        .iter()
+        .any(|region| region.region == "prose" && region.import.is_none())
+    {
+        lines.push("<the preamble — verbatim prose, before any heading>".to_string());
+        lines.push(String::new());
+    }
+    for region in regions {
+        match region.region.as_str() {
+            "field" => {
+                let slot = region.slot.as_deref().unwrap_or("<slot>");
+                lines.push("# <heading>".to_string());
+                lines.push(format!("<the span filling the `{slot}` field>"));
+                lines.push(String::new());
+            }
+            "collection" => {
+                let member_kind = region.member_kind.as_deref().unwrap_or("<member kind>");
+                lines.push("# <heading>".to_string());
+                lines.push("## <heading>".to_string());
+                if let Some(key) = region.key.as_deref() {
+                    lines.push(format!("### {key}"));
+                    lines.push(format!(
+                        "<one `{member_kind}` member, keyed by this span; its other \
+                         sub-headings are its leaves>"
+                    ));
+                } else {
+                    lines.push(format!(
+                        "<one `{member_kind}` member; its own sub-headings are its leaves>"
+                    ));
+                }
+                lines.push(String::new());
+            }
+            _ => {}
+        }
+    }
+    while lines.last().is_some_and(String::is_empty) {
+        lines.pop();
+    }
+    lines
+}
+
+/// Narrate the child kinds a host admits: the embedded ones with the leaves their
+/// members carry, then the file children with the path their units sit at. Silent when
+/// the kind hosts neither — a kind that nests nothing has no strand, not an empty
+/// heading.
+///
+/// A leaf list is the corpus's, not a declaration: an embedded kind declares no field
+/// set anywhere, so the leaves shown are the union of what the members of it in this
+/// surface carry today, read off `by_kind` — the same corpus the gate ranges over, whose
+/// embedded entries are the lock's `nested_member` rows lifted leaf-by-leaf into fields
+/// ([`crate::compose::embedded_features_by_kind`]), never a second read of the lock.
+fn narrate_hosted_kinds(
+    out: &mut String,
+    name: &str,
+    embedded: &[&str],
+    file_children: &[&drift::TemplateRow],
+    by_kind: &BTreeMap<&str, &[Features]>,
+) {
+    if !embedded.is_empty() {
+        let _ = writeln!(
+            out,
+            "Kinds it hosts in its own body — a `{name}` member admits these, and no other:"
+        );
+        for kind in embedded {
+            let leaves = corpus_leaves(by_kind, kind);
+            if leaves.is_empty() {
+                let _ = writeln!(
+                    out,
+                    "  • `{kind}` — no member of it is in this surface yet, so it carries \
+                     no leaf to show."
+                );
+            } else {
+                let _ = writeln!(
+                    out,
+                    "  • `{kind}` — the leaves its members carry today: {}",
+                    leaves
+                        .iter()
+                        .map(|leaf| format!("`{leaf}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+        }
+        out.push('\n');
+    }
+    if !file_children.is_empty() {
+        let _ = writeln!(
+            out,
+            "Kinds it hosts as file children — each owns its own unit under a `{name}` \
+             member's:"
+        );
+        for template in file_children {
+            let path = template.path.as_deref().unwrap_or("<no path declared>");
+            let _ = writeln!(out, "  • `{}` — at `{path}`", template.kind);
+        }
+        out.push('\n');
+    }
+}
+
+/// Every leaf name the members of `kind` in this surface carry, deduplicated and
+/// sorted — the fields an embedded member's `nested_member` row lifted into.
+fn corpus_leaves(by_kind: &BTreeMap<&str, &[Features]>, kind: &str) -> Vec<String> {
+    let mut leaves: Vec<String> = by_kind
+        .get(kind)
+        .into_iter()
+        .flat_map(|members| members.iter())
+        .flat_map(|features| features.fields.keys().cloned())
+        .collect();
+    leaves.sort();
+    leaves.dedup();
+    leaves
 }
 
 /// Implementation of [`why`] using a pre-built member index.
@@ -1822,14 +2116,6 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
     let embedded_features = compose::embedded_features_by_kind(&declarations);
     let by_kind = compose::assemble_by_kind(&builtin_features, &custom_kinds, &embedded_features);
 
-    // Every kind-fact row's declared `cite`, keyed by kind name — `Contract` carries
-    // `guidance` alone, so a bare-kind narration's cite travels this separate map.
-    let kind_cites: BTreeMap<String, String> = declarations
-        .kinds
-        .iter()
-        .filter_map(|row| Some((row.name.clone(), row.cite.clone()?)))
-        .collect();
-
     // The one requirement namespace: the assembly's declared `[requirement.*]`
     // roster — a custom-kind member has no channel of its own to publish one (the
     // pre-0016 own-path surface that once carried it is retired).
@@ -1882,7 +2168,7 @@ pub fn explain_target(target: &str) -> miette::Result<String> {
         &custom_members,
         &roster,
         &contracts,
-        &kind_cites,
+        &declarations.kinds,
         &by_kind,
         &assembly_edges,
         &mention_edges,
