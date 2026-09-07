@@ -324,6 +324,19 @@ pub fn degree(
     diagnostics
 }
 
+/// The host member an edge's source belongs to, or `None` when the source is no embedded
+/// member: read off the source's **own address** when it carries its host
+/// ([`parse_nested_address`]), else off the caller's `(kind, key)` index — the spelling a
+/// declaration row uses when it names an embedded member by key alone.
+fn edge_host(from: &Node, embedded_hosts: &BTreeMap<Node, Node>) -> Option<Node> {
+    if let Some(nested) = parse_nested_address(&from.1)
+        && let Some((kind, name)) = nested.host.split_once(':')
+    {
+        return Some((kind.to_string(), name.to_string()));
+    }
+    embedded_hosts.get(from).cloned()
+}
+
 /// Check the **`mention-reachable`** predicate over every declared [`Selection`]: for
 /// each clause bound to one, return a [`Diagnostic`] — at the clause's own declared
 /// severity — per selected member whose authored mention cannot fire where its target
@@ -360,11 +373,10 @@ pub fn degree(
 /// check once read alone.
 ///
 /// An edge a **body-carried** member declares is judged under its *host*'s scope, not
-/// the embedded member's own: the embedded source keys to `(embedded-kind, key)`, so
-/// `embedded_hosts` maps it back to `(host-kind, host-id)` and the host's `scope_field`
-/// gates it. This mirrors the target-side [`target_identity`] seam — a member's
-/// reference set is the union of the edges its fields *and* its embedded members
-/// declare, so a body-carried consult is the host's citation to scope.
+/// the embedded member's own ([`edge_host`]): a member's reference set is the union of the
+/// edges its fields *and* its embedded members declare, so a body-carried consult is the
+/// host's citation to scope. `embedded_hosts` is the caller's `(embedded-kind, key)` →
+/// `(host-kind, host-id)` index, read for a source spelled without its host.
 #[must_use]
 pub fn mention_reachable(
     selections: &[Selection],
@@ -394,7 +406,8 @@ pub fn mention_reachable(
             for (kind, features) in &selection.members {
                 let source = ((*kind).to_string(), features.id.clone());
                 for edge in all_edges.iter().filter(|edge| {
-                    edge.from == source || embedded_hosts.get(&edge.from) == Some(&source)
+                    edge.from == source
+                        || edge_host(&edge.from, embedded_hosts).as_ref() == Some(&source)
                 }) {
                     // A mention whose target composes no member has no gate to read —
                     // `route_mentions` owns that verdict, so this clause stays silent.
@@ -452,10 +465,7 @@ pub fn mention_reachable(
 /// decide a mention's route, read here for the target's own features.
 fn member_at<'f>(node: &Node, by_kind: &BTreeMap<&str, &'f [Features]>) -> Option<&'f Features> {
     let (kind, name) = node;
-    by_kind
-        .get(kind.as_str())?
-        .iter()
-        .find(|features| features.id == *name)
+    member_named(by_kind.get(kind.as_str())?, name)
 }
 
 /// The first source glob whose resolved path set is not contained in the gate's resolved
@@ -1383,7 +1393,7 @@ fn edge_resolves(
     } else {
         by_kind
             .get(kind.as_str())
-            .is_some_and(|members| members.iter().any(|features| features.id == *name))
+            .is_some_and(|members| member_named(members, name).is_some())
     }
 }
 
@@ -1590,6 +1600,11 @@ fn edge_targets(source: &Features, field: &str) -> Vec<String> {
 /// - a **multi-element** set resolves only a `kind:name` whose kind is one of its
 ///   elements. A bare name, or an address naming an undeclared kind, resolves to
 ///   nothing.
+/// - a **nested member's own address** — `<host-address>/<kind>/<key>` — names its kind
+///   in its second segment, so a multi-element set takes it exactly as it takes a
+///   `kind:name`: by the kind the address spells, with the whole address carried on as the
+///   identity [`resolves`] matches ([`parse_nested_address`] rules on the grammar, the
+///   `/<leaf>` tail included).
 fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'a str)> {
     if let [only] = to {
         let identity = target
@@ -1599,19 +1614,10 @@ fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'
         return Some((only.as_str(), identity));
     }
 
-    // Check for nested member address format: <host-address>/<kind>/<key>
-    // e.g., "skill:use-when-x/hook/on-enter"
-    if let Some(first_slash) = target.find('/')
-        && let host_part = &target[..first_slash]
-        && host_part.contains(':')
+    if let Some(nested) = parse_nested_address(target)
+        && to.iter().any(|declared| declared.as_str() == nested.kind)
     {
-        let rest = &target[first_slash + 1..];
-        if let Some(second_slash) = rest.find('/') {
-            let nested_kind = &rest[..second_slash];
-            if to.iter().any(|declared| declared.as_str() == nested_kind) {
-                return Some((nested_kind, target));
-            }
-        }
+        return Some((nested.kind, target));
     }
 
     // Fall back to bare address format: kind:name
@@ -1624,32 +1630,81 @@ fn target_identity<'a>(target: &'a str, to: &'a [String]) -> Option<(&'a str, &'
 /// Whether `identity` names a real member of `kind` in the corpus — the one membership
 /// test route resolution runs, over the same map [`check`] and [`resolved_edges`] read.
 fn resolves(by_kind: &BTreeMap<&str, &[Features]>, kind: &str, identity: &str) -> bool {
-    let members = by_kind.get(kind).copied().unwrap_or(&[]);
+    by_kind
+        .get(kind)
+        .is_some_and(|members| member_named(members, identity).is_some())
+}
 
-    // Check for nested member address: host-address/kind/key
-    // e.g., "skill:use-when-x/hook/on-enter"
-    if let Some(first_slash) = identity.find('/')
-        && let host_part = &identity[..first_slash]
-        && host_part.contains(':')
-    {
-        let rest = &identity[first_slash + 1..];
-        if let Some(second_slash) = rest.find('/') {
-            let nested_key = &rest[second_slash + 1..];
-            // For host-qualified nested members, match both the key and the host.
-            return members.iter().any(|features| {
-                features.id == nested_key
-                    && features
-                        .fields
-                        .get("__nested_member_host__")
-                        .and_then(|v| v.as_str())
-                        .map(|host| host == host_part)
-                        .unwrap_or(false)
-            });
-        }
+/// The member of `members` an authored name addresses — the one membership lookup
+/// [`resolves`], [`edge_resolves`] and [`member_at`] all read, so route resolution and the
+/// target's own features can never disagree about which member a name meant.
+///
+/// A member's identity **is** its address, so a name resolves by equality — an embedded
+/// member's `<host-address>/<kind>/<key>` included, whose host segment is the whole of
+/// what tells two same-keyed members under different hosts apart.
+///
+/// A **bare key** also names an embedded member, taking whichever member of the kind
+/// carries it first. That short form is what the corpus already writes; which of several
+/// same-keyed members it means is an open ambiguity, and refusing it is a policy decision
+/// owned elsewhere, never a verdict this lookup invents.
+fn member_named<'f>(members: &'f [Features], identity: &str) -> Option<&'f Features> {
+    members.iter().find(|features| {
+        features.id == identity
+            || parse_nested_address(&features.id).is_some_and(|nested| nested.key == identity)
+    })
+}
+
+/// One parsed **nested-member address** — `<host-address>/<kind>/<key>`
+/// (`skill:use-when-x/hook/on-enter`), the identity `specs/model/representation.md`
+/// ("member") spells for a nested member and the one
+/// [`crate::compose::embedded_features_by_kind`] writes onto every embedded member it
+/// lifts. One parser reads the grammar for every site that reads it — which declared kind
+/// an address names ([`target_identity`]), which member it is ([`member_named`]), and
+/// which host an embedded member's edge belongs to ([`edge_host`]) — so the readers cannot
+/// come to disagree about what an address is.
+struct NestedAddress<'a> {
+    /// The host member's own `<kind>:<name>` address — the segment before the first `/`.
+    host: &'a str,
+    /// The nested member's kind.
+    kind: &'a str,
+    /// The nested member's key among its host's members of that kind.
+    key: &'a str,
+}
+
+/// Spell a nested member's address from its host address, kind and key — the writer beside
+/// [`parse_nested_address`], so the grammar has one home rather than a `format!` per
+/// producer.
+#[must_use]
+pub fn nested_address(host: &str, kind: &str, key: &str) -> String {
+    format!("{host}/{kind}/{key}")
+}
+
+/// Parse a nested-member address, or `None` when `address` is not one.
+///
+/// The grammar is **exactly three** segments — a `<kind>:<name>` host address, the nested
+/// kind, the key — each of them non-empty: an address names exactly one thing or the verb
+/// refuses, so a segment-shaped hole names nothing.
+///
+/// The **leaf tail is ruled out here, explicitly**: `representation.md` spells `/<leaf>`
+/// *beneath* a nested address, and a leaf is its own grain — one addressable authored
+/// string, parsed by [`crate::read::parse_leaf_address`] and resolved against the
+/// serialized leaves. So a fourth segment is no member address: it resolves to no member
+/// and dangles under the name its author wrote, rather than truncating to the member that
+/// happens to contain the leaf — which would answer a leaf reference with a member and put
+/// an arc the author never wrote into the graph.
+fn parse_nested_address(address: &str) -> Option<NestedAddress<'_>> {
+    let (host, rest) = address.split_once('/')?;
+    let (kind, key) = rest.split_once('/')?;
+    // Three segments and no more: a fourth is the `/<leaf>` tail, a different grain.
+    if key.contains('/') || kind.is_empty() || key.is_empty() {
+        return None;
     }
-
-    // Bare address lookup
-    members.iter().any(|features| features.id == identity)
+    // The host segment is itself a member address, so it carries a kind and a name.
+    let (host_kind, host_name) = host.split_once(':')?;
+    if host_kind.is_empty() || host_name.is_empty() {
+        return None;
+    }
+    Some(NestedAddress { host, kind, key })
 }
 
 /// An edge's declared target set, rendered for a diagnostic: one kind reads as its own

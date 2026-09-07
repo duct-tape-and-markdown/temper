@@ -15,6 +15,8 @@ use temper::contract::{self, Clause, Contract, Predicate, Severity as ClauseSeve
 use temper::engine::{self, Locus};
 use temper::extract::Features;
 
+mod common;
+
 /// A manifest-shaped member: the fields are the retained parse, exactly as the
 /// `json-document` read face hands them over.
 fn member(fields: serde_json::Value) -> Features {
@@ -244,4 +246,93 @@ fn an_embedded_member_is_no_less_decidable_than_a_document_one() {
         engine::admissibility(&contract, &Locus::Embedded("hook".to_string())).is_empty(),
         "`closed-keys` decides over an embedded member's own leaves"
     );
+}
+
+#[test]
+fn the_writers_own_embedded_members_carry_no_key_for_a_closed_set_to_indict() {
+    // The seam gate: not a hand-built `Features`, but the members
+    // `compose::embedded_features_by_kind` really writes, judged by the contract their
+    // kind declares. An engine-carried key on that member would be a finding against an
+    // author who wrote no such key — a false positive no fixture built by hand can catch.
+    use temper::drift::{Declarations, KindFactRow, NestedMemberRow, TemplateRow};
+
+    let row = |host: &str, leaves: Vec<(&str, &str)>| NestedMemberRow {
+        host: host.to_string(),
+        kind: "hook".to_string(),
+        key: "on-enter".to_string(),
+        leaves: leaves
+            .into_iter()
+            .map(|(name, text)| (name.to_string(), text.to_string()))
+            .collect(),
+        collections: Vec::new(),
+        placed_edges: None,
+        rendered_lines: None,
+        rendered_chars: None,
+    };
+    let declarations = Declarations {
+        kinds: vec![KindFactRow {
+            templates: vec![TemplateRow {
+                kind: "hook".to_string(),
+                path: None,
+            }],
+            ..common::kind_facts("settings", "specs", "*.md")
+        }],
+        // Two hosts keying the same member name: the case the host has to be carried
+        // *somewhere* for, and the one that must not pay for it in fields.
+        nested_members: vec![
+            row("settings:project", vec![("name", "on-enter")]),
+            row("settings:local", vec![("name", "on-enter")]),
+        ],
+        ..Declarations::default()
+    };
+
+    let members = temper::compose::embedded_features_by_kind(&declarations);
+    let hooks = members.get("hook").expect("`hook` is a declared kind");
+    // Non-vacuity: a real member set was judged, not an empty corpus short-circuiting to
+    // silence — and each member's host is on its identity, not among its keys.
+    assert_eq!(hooks.len(), 2);
+    for hook in hooks {
+        assert!(hook.id.ends_with("/hook/on-enter"), "id is the address");
+    }
+
+    let hook_clause = |predicate: Predicate| Clause {
+        label: contract::clause_label(Some("hook"), predicate.key(), predicate.target()),
+        severity: ClauseSeverity::Required,
+        predicate,
+        guidance: None,
+        source: None,
+    };
+    let closed = Contract {
+        name: "hook".to_string(),
+        guidance: None,
+        clauses: vec![
+            hook_clause(Predicate::Required {
+                field: "name".to_string(),
+            }),
+            hook_clause(Predicate::ClosedKeys),
+        ],
+    };
+    assert!(
+        engine::admissibility(&closed, &Locus::Embedded("hook".to_string())).is_empty(),
+        "the pairing is admissible — the clause has keys to close over"
+    );
+    assert!(
+        engine::validate(&closed, hooks).is_empty(),
+        "no key the host never authored: {:?}",
+        messages(&engine::validate(&closed, hooks))
+    );
+
+    // And the clause is live over this very set: a leaf the kind does not declare is a
+    // finding, so the silence above is judgment, not a no-op.
+    let widened = Declarations {
+        nested_members: vec![row(
+            "settings:project",
+            vec![("name", "on-enter"), ("shell", "true")],
+        )],
+        ..declarations
+    };
+    let widened_members = temper::compose::embedded_features_by_kind(&widened);
+    let diagnostics = engine::validate(&closed, &widened_members["hook"]);
+    assert_eq!(diagnostics.len(), 1);
+    assert!(messages(&diagnostics)[0].contains("`shell`"));
 }

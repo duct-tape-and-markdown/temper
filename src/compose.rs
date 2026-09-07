@@ -1128,8 +1128,9 @@ pub fn partition_kind_rows<'a>(
 /// membership. Its members are the run's assembled `nested_member` rows of that kind
 /// — a committed host's off the lock, a local host's derived at [`assemble_lock_family`],
 /// so a clause over it selects a local host's members and a committed host's alike — each
-/// lifted to a member whose id is the row's key and whose fields are its leaves, so an
-/// edge resolves against it by identity ([`embedded_member_features`]). A declared kind
+/// lifted to a member whose id is the row's own `<host-address>/<kind>/<key>` address and
+/// whose fields are its leaves, so an edge resolves against it by identity
+/// ([`embedded_member_features`]). A declared kind
 /// with no rows keys to an empty slice — modeled, so an edge targeting it is admissible
 /// and a dangling entry is a route finding, not an admissibility one; a kind no host
 /// declares is absent, so an edge targeting it stays an admissibility finding. Depth is
@@ -1191,23 +1192,26 @@ fn edge_fields_by_kind(declarations: &drift::Declarations) -> BTreeMap<String, B
 /// `format-places-edges` clause decidable without the engine ever seeing the format that
 /// rendered the value. An unfilled field is no edge, so it is no obligation: ranging over
 /// the kind's whole declared set would read an absent edge as one the format dropped.
+///
+/// The fields are the author's leaves and **nothing else**. The row's `host` is not among
+/// them: every clause reads this map as the member's typed fields, so a key no author
+/// wrote is one a `closed-keys` clause bound to the kind indicts its author for. The host
+/// rides the member's **identity** instead ([`graph::nested_address`]), where an address's
+/// host segment belongs and where graph resolution already reads it.
 fn embedded_member_features(
     row: &drift::NestedMemberRow,
     edge_fields: &BTreeSet<String>,
 ) -> extract::Features {
-    let mut fields: BTreeMap<String, serde_json::Value> = row
+    let fields: BTreeMap<String, serde_json::Value> = row
         .leaves
         .iter()
         .map(|(name, text)| (name.clone(), serde_json::Value::String(text.clone())))
         .collect();
-    // Store the host address for nested member host-qualified resolution.
-    // This enables distinction between same-keyed members under different hosts.
-    fields.insert(
-        "__nested_member_host__".to_string(),
-        serde_json::Value::String(row.host.clone()),
-    );
     extract::Features {
-        id: row.key.clone(),
+        // The member's identity is its address, and a nested member's address carries its
+        // host ([`graph::nested_address`]): two hosts may each key a member `common`, and
+        // the host segment is the whole of what tells them apart.
+        id: graph::nested_address(&row.host, &row.kind, &row.key),
         fields,
         body_lines: 0,
         // The rendered span `emit` captured off the value's own projection, lifted from

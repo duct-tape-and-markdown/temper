@@ -728,3 +728,205 @@ fn a_shipped_skills_bundled_reference_document_is_discovered_as_its_supporting_d
         }]
     );
 }
+
+/// **Host-qualified resolution** — an embedded member's identity is its address
+/// (`<host-address>/<kind>/<key>`), so an edge resolves to the member under the host it
+/// names, and nothing about the host rides the member's typed fields.
+///
+/// Every member here is built by the real writers: the host's by `builtin_kind::features`
+/// off its lock rows, the embedded members' by `compose::embedded_features_by_kind`, and
+/// the edges by `drift::edges_from_declarations` off the same lock.
+mod host_qualified_addresses {
+    use std::collections::BTreeMap;
+
+    use temper::drift::{AssemblyFactRow, Declarations, KindFactRow, NestedMemberRow, TemplateRow};
+    use temper::extract::Features;
+    use temper::kind::{CustomKind, Extraction, Governs};
+    use temper::{builtin_kind, compose, drift, graph};
+
+    use crate::common;
+
+    /// The `service` host kind: it templates an embedded `domain` child and carries a
+    /// `serves` reference field.
+    fn service_kind() -> CustomKind {
+        CustomKind::new(
+            "service",
+            Governs {
+                root: "specs".to_string(),
+                glob: "*.md".to_string(),
+            },
+            Extraction::new(Vec::new()),
+        )
+    }
+
+    /// One `domain` member keyed `key`, nested under `host`.
+    fn domain_row(host: &str, key: &str) -> NestedMemberRow {
+        NestedMemberRow {
+            host: host.to_string(),
+            kind: "domain".to_string(),
+            key: key.to_string(),
+            leaves: BTreeMap::from([("purpose".to_string(), "a domain".to_string())]),
+            collections: Vec::new(),
+            placed_edges: None,
+            rendered_lines: None,
+            rendered_chars: None,
+        }
+    }
+
+    /// The lock the corpus commits: `service` templating the embedded `domain` kind, the
+    /// `service.serves → domain` edge, and one `common`-keyed domain under each of two
+    /// hosts — the same key twice, which is the whole point of addressing by host.
+    fn declarations() -> Declarations {
+        Declarations {
+            kinds: vec![KindFactRow {
+                templates: vec![TemplateRow {
+                    kind: "domain".to_string(),
+                    path: None,
+                }],
+                ..common::kind_facts("service", "specs", "*.md")
+            }],
+            assembly: vec![AssemblyFactRow {
+                fact: "edge".to_string(),
+                value: None,
+                from: Some("service".to_string()),
+                field: Some("serves".to_string()),
+                to: Some(vec!["domain".to_string()]),
+            }],
+            nested_members: vec![
+                domain_row("service:alpha", "common"),
+                domain_row("service:beta", "common"),
+                domain_row("service:gamma", "billing"),
+            ],
+            ..Declarations::default()
+        }
+    }
+
+    /// The `alpha` host member, its `serves` field naming `target`, built through the sole
+    /// choke point every member's `Features` is built through.
+    fn alpha(rows: &[NestedMemberRow], target: &str) -> Features {
+        builtin_kind::features(
+            &service_kind(),
+            &common::raw_unit(
+                "alpha",
+                BTreeMap::from([(
+                    "serves".to_string(),
+                    serde_json::Value::String(target.to_string()),
+                )]),
+                "# Alpha\n",
+                "specs/alpha.md",
+            ),
+            rows,
+        )
+    }
+
+    /// The corpus `alpha`'s `serves` edge resolves against, and the resolution over it.
+    fn resolve(target: &str) -> (Vec<graph::ResolvedEdge>, Vec<String>) {
+        let declarations = declarations();
+        let embedded = compose::embedded_features_by_kind(&declarations);
+        // Non-vacuity: the same key really is carried by two members of the same kind, so
+        // a resolution that ignored the host would have something to get wrong.
+        let domains = embedded.get("domain").expect("`domain` is a declared kind");
+        assert_eq!(
+            domains
+                .iter()
+                .filter(|features| features.id.ends_with("/domain/common"))
+                .count(),
+            2,
+            "two same-keyed members under different hosts"
+        );
+
+        let hosts = BTreeMap::from([(
+            "service".to_string(),
+            vec![alpha(&declarations.nested_members, target)],
+        )]);
+        let by_kind = compose::assemble_by_kind(&hosts, &[], &embedded);
+        let edges = drift::edges_from_declarations(&declarations).expect("the edge row is whole");
+        let result = graph::resolved_edges(&edges, &by_kind);
+        let dangling = result
+            .dangling_diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect();
+        (result.resolved, dangling)
+    }
+
+    #[test]
+    fn a_host_qualified_target_resolves_to_the_member_under_that_host() {
+        let (resolved, dangling) = resolve("service:beta/domain/common");
+        assert!(dangling.is_empty(), "the address resolves: {dangling:?}");
+        assert_eq!(
+            resolved
+                .iter()
+                .map(|edge| edge.to.clone())
+                .collect::<Vec<_>>(),
+            vec![(
+                "domain".to_string(),
+                "service:beta/domain/common".to_string()
+            )],
+            "the arc lands on `beta`'s member, not the same-keyed one under `alpha`"
+        );
+    }
+
+    #[test]
+    fn a_host_qualified_target_naming_a_host_without_that_member_dangles() {
+        // `common` exists — twice — but never under `gamma`. The key alone is not the
+        // member: an address that names a host carrying no such member resolves to
+        // nothing rather than being cross-attributed to a same-keyed member elsewhere.
+        let (resolved, dangling) = resolve("service:gamma/domain/common");
+        assert!(resolved.is_empty());
+        assert_eq!(dangling.len(), 1);
+        assert!(
+            dangling[0].contains("service:gamma/domain/common"),
+            "the finding names the address its author wrote, got: {}",
+            dangling[0]
+        );
+    }
+
+    #[test]
+    fn a_bare_key_still_names_an_embedded_member() {
+        // The short form the corpus already writes: within a one-kind target set a bare
+        // key names a member of that kind. Which of several same-keyed members it means is
+        // an open ambiguity — this pins only that the short form still resolves.
+        let (resolved, dangling) = resolve("common");
+        assert!(dangling.is_empty(), "the bare key resolves: {dangling:?}");
+        assert_eq!(
+            resolved
+                .iter()
+                .map(|edge| edge.to.clone())
+                .collect::<Vec<_>>(),
+            vec![("domain".to_string(), "common".to_string())],
+            "the arc carries the identity its author spelled"
+        );
+    }
+
+    #[test]
+    fn an_address_with_a_leaf_tail_names_no_member() {
+        // `/<leaf>` beneath a nested address addresses a *leaf* — one authored string, a
+        // grain of its own. A four-segment address is therefore no member address: it
+        // dangles under the name its author wrote rather than truncating to the member
+        // that contains the leaf, which would answer a leaf reference with a member.
+        let (resolved, dangling) = resolve("service:beta/domain/common/purpose");
+        assert!(resolved.is_empty());
+        assert_eq!(dangling.len(), 1);
+        assert!(
+            dangling[0].contains("service:beta/domain/common/purpose"),
+            "the finding names the whole authored address, got: {}",
+            dangling[0]
+        );
+    }
+
+    #[test]
+    fn an_embedded_members_fields_are_its_leaves_and_nothing_else() {
+        // The host is the address's business, never a field: a member reaching clause
+        // judgment carries only what its author wrote.
+        let embedded = compose::embedded_features_by_kind(&declarations());
+        for features in embedded.get("domain").expect("`domain` is declared") {
+            assert_eq!(
+                features.fields.keys().collect::<Vec<_>>(),
+                vec!["purpose"],
+                "`{}` carries only its authored leaves",
+                features.id
+            );
+        }
+    }
+}
