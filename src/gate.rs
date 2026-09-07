@@ -45,40 +45,88 @@ fn two_greens_dispatch(
     (contract, diagnostics)
 }
 
-/// Every discovered member of a **committed layout kind**, across both at-locus
-/// dispatchers — the population whose whole trace on the lock is the declaration rows
-/// `emit` lowered its document into.
+/// Every discovered member of a **committed** kind, across both at-locus dispatchers,
+/// split by the content class that decides which lock evidence answers for it: a layout
+/// document's whole trace is the declaration rows `emit` lowered it into, a file
+/// document's is its projection provenance row.
+#[derive(Default)]
+struct CommittedMemberSites {
+    /// Members of a layout-content kind.
+    layout: Vec<drift::LayoutMemberSite>,
+    /// Members of a file-content kind at a governed locus.
+    file: Vec<drift::LocusMemberSite>,
+}
+
+/// Which of [`CommittedMemberSites`]'s two populations a kind's members join, or `None`
+/// for a kind neither asks about.
+#[derive(Clone, Copy)]
+enum SiteClass {
+    Layout,
+    File,
+}
+
+/// The content class `kind`'s discovered members belong to, or `None` where the lock is
+/// owed no per-member evidence about them.
 ///
-/// A local-locus kind is excluded: its rows are derived at read time
-/// ([`compose::assemble_lock_family`]) and were never the lock's to carry.
-fn committed_layout_sites(
+/// The file arm's three conjuncts each carry weight. `Content::File` drops the four
+/// registration kinds — a hook, an installed plugin, a known marketplace, an MCP server
+/// are `Content::Fields` members of a host manifest, whose lock residue is a
+/// `[[declaration.registration]]` row and never a provenance row, so asking the
+/// provenance rows about them would forge a finding over every one of them. `governs`
+/// drops a nested-file child, whose path composes from its host and which holds no
+/// rollup row of its own. `commitment` drops a local-locus kind, whose rows are derived
+/// at read time ([`compose::assemble_lock_family`]) and were never the lock's to carry.
+fn site_class(kind: &CustomKind) -> Option<SiteClass> {
+    if kind.commitment == Some(kind::Commitment::Local) {
+        return None;
+    }
+    match kind.content {
+        kind::Content::Layout(_) => Some(SiteClass::Layout),
+        kind::Content::File if kind.governs.is_some() => Some(SiteClass::File),
+        _ => None,
+    }
+}
+
+/// One site walk over every discovered kind, collecting each admitted member into its
+/// content class's population ([`site_class`] is the sole admission predicate).
+fn committed_member_sites(
     harness_root: &Path,
     overlaid_builtin_kinds: &BTreeMap<String, CustomKind>,
     builtin: &BTreeMap<String, compose::KindUnitsAndFeatures>,
     custom: &[(CustomKind, compose::KindUnitsAndFeatures)],
-) -> Vec<drift::LayoutMemberSite> {
+) -> CommittedMemberSites {
+    // A built-in's commitment is not the author's to respell, so the two dispatchers'
+    // members are tagged apart here — the one fact the `local` remedy turns on.
     let builtin_pairs = overlaid_builtin_kinds
         .iter()
-        .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf)));
-    let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf));
-    builtin_pairs
-        .chain(custom_pairs)
-        .filter(|(kind, _)| {
-            matches!(kind.content, kind::Content::Layout(_))
-                && kind.commitment != Some(kind::Commitment::Local)
-        })
-        .flat_map(|(kind, uaf)| {
-            uaf.units.iter().filter_map(|unit| {
-                Some(drift::LayoutMemberSite {
+        .filter_map(|(name, kind)| builtin.get(name).map(|uaf| (kind, uaf, false)));
+    let custom_pairs = custom.iter().map(|(kind, uaf)| (kind, uaf, true));
+    let mut sites = CommittedMemberSites::default();
+    for (kind, uaf, is_custom) in builtin_pairs.chain(custom_pairs) {
+        let Some(class) = site_class(kind) else {
+            continue;
+        };
+        for unit in &uaf.units {
+            let Some(source_path) = crate::path::relativize_against_root(
+                &unit.source_path.to_string_lossy(),
+                harness_root,
+            ) else {
+                continue;
+            };
+            match class {
+                SiteClass::Layout => sites.layout.push(drift::LayoutMemberSite {
                     member: extract::host_address(&kind.name, &unit.id),
-                    source_path: crate::path::relativize_against_root(
-                        &unit.source_path.to_string_lossy(),
-                        harness_root,
-                    )?,
-                })
-            })
-        })
-        .collect()
+                    source_path,
+                }),
+                SiteClass::File => sites.file.push(drift::LocusMemberSite {
+                    kind: kind.name.clone(),
+                    source_path,
+                    custom: is_custom,
+                }),
+            }
+        }
+    }
+    sites
 }
 
 /// Produce the merged diagnostic set for a surface `workspace` against the active
@@ -540,12 +588,41 @@ pub fn gate(
     // severity.
     diagnostics.extend(install::gate_installed(harness_root));
 
+    // The one site walk over every discovered kind, feeding both disk-vs-lock facts
+    // below and the coverage note's undeclared disclosure above them.
+    let sites = committed_member_sites(
+        harness_root,
+        &overlaid_builtin_kinds,
+        &builtin_units_and_features,
+        &custom_units_and_features,
+    );
+
+    // Both undeclared-member facts are asked only of a *represented* harness:
+    // `read_lock_document` cannot tell an absent lock from an empty one, and where there
+    // is no lock every discovered member is undeclared — so the question is the lock's
+    // presence, not its contents.
+    let represented = workspace.join(crate::LOCK_FILENAME).is_file();
+
+    // The file-locus half of the disk-vs-lock fact: a document at a represented kind's
+    // governed locus that no provenance row names. Unlike the guard, a `.`-rooted locus
+    // is kept: discovery already prunes by the repo's ignore rules, so the walk judged is
+    // the walk made.
+    let undeclared_locus = if represented {
+        drift::undeclared_locus_members_from_doc(&lock_doc, &sites.file)
+    } else {
+        drift::UndeclaredLocusMembers {
+            findings: Vec::new(),
+            counts: BTreeMap::new(),
+        }
+    };
+
     // The wedge's advisory coverage note: state which kinds checked how many members,
     // and name the known Claude Code surfaces present on disk that no kind — built-in
     // or locked custom — governs, so the gate's silence about an unmodeled surface never
     // reads as "checked". Warn-only — it leaves the run's exit code and the session-start
     // verdict unchanged. Threads the already-parsed `committed.kinds` to avoid a redundant
-    // lock re-parse (COVERAGE-NOTE-LOCK-PARSE-HOIST).
+    // lock re-parse (COVERAGE-NOTE-LOCK-PARSE-HOIST), and the undeclared counts so the
+    // one line that says what was checked cannot silently absorb an undeclared member.
     let mut nested_member_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in &committed.nested_members {
         *nested_member_counts.entry(row.kind.clone()).or_default() += 1;
@@ -555,6 +632,7 @@ pub fn gate(
         &builtin_kind::definitions(),
         &member_counts,
         &nested_member_counts,
+        &undeclared_locus.counts,
         &committed.kinds,
     )?);
 
@@ -568,16 +646,15 @@ pub fn gate(
     // The second disk-vs-lock fact, over declaration rows rather than fingerprints: a
     // committed layout document discovery found that the lock declares no member for. Its
     // body reaches nothing — no collection member, no captured prose, no leaf address —
-    // and every downstream read of it is silently empty, so the cause is named here.
-    diagnostics.extend(drift::undeclared_layout_members_from_doc(
-        &lock_doc,
-        &committed_layout_sites(
-            harness_root,
-            &overlaid_builtin_kinds,
-            &builtin_units_and_features,
-            &custom_units_and_features,
-        ),
-    ));
+    // and every downstream read of it is silently empty, so the cause is named here. Its
+    // file-locus counterpart was decided above, where the coverage note reads its counts.
+    if represented {
+        diagnostics.extend(drift::undeclared_layout_members_from_doc(
+            &lock_doc,
+            &sites.layout,
+        ));
+    }
+    diagnostics.extend(undeclared_locus.findings);
 
     // The source-dependency freshness facts: a fingerprinted layout-import or
     // composed-prose include target whose bytes no longer match the lock — the target

@@ -39,8 +39,11 @@ const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 ///
 /// `member_counts` is the per-kind checked-member count the gate already loaded,
 /// keyed by each kind's bare row label; `nested_member_counts` is the per-kind
-/// embedded-member count grouped from the lock's nested_member rows; `kinds` is the
-/// built-in kind set. `locked_kinds` are the kind-fact rows from the committed lock
+/// embedded-member count grouped from the lock's nested_member rows;
+/// `undeclared_counts` is how many of each kind's discovered members no lock row
+/// declares, disclosed apart so the one line stating what was checked cannot silently
+/// absorb a document the program does not declare; `kinds` is the built-in kind set.
+/// `locked_kinds` are the kind-fact rows from the committed lock
 /// (an empty slice for an unadopted harness), so a locked custom kind's `governs`
 /// suppresses a known surface exactly as a built-in's does. Nothing here is ever
 /// `error` and none of it is a session-start verdict: the summary of what was checked is
@@ -59,6 +62,7 @@ pub fn check(
     kinds: &BTreeMap<String, CustomKind>,
     member_counts: &BTreeMap<String, usize>,
     nested_member_counts: &BTreeMap<String, usize>,
+    undeclared_counts: &BTreeMap<String, usize>,
     locked_kinds: &[crate::drift::KindFactRow],
 ) -> miette::Result<Vec<Diagnostic>> {
     let mut diagnostics = Vec::new();
@@ -78,8 +82,18 @@ pub fn check(
         .map(|kind| {
             let discovered_count = member_counts.get(*kind).copied().unwrap_or(0);
             let embedded_count = nested_member_counts.get(*kind).copied();
+            let undeclared = undeclared_counts.get(*kind).copied().unwrap_or(0);
             match (discovered_count, embedded_count) {
                 (0, Some(n)) => format!("{} ({} embedded)", kind, n),
+                // The mark appends only where there IS an undeclared member, so a kind
+                // whose members are all declared renders exactly as it always has.
+                (n, _) if undeclared > 0 => format!(
+                    "{} ({}: {} declared, {} undeclared)",
+                    kind,
+                    n,
+                    n.saturating_sub(undeclared),
+                    undeclared
+                ),
                 (n, _) => format!("{} ({})", kind, n),
             }
         })
@@ -469,6 +483,7 @@ mod tests {
             &builtin_set(),
             &counts,
             &BTreeMap::new(),
+            &BTreeMap::new(),
             &[],
         )
         .unwrap();
@@ -495,6 +510,7 @@ mod tests {
             &builtin_set(),
             &counts,
             &BTreeMap::new(),
+            &BTreeMap::new(),
             &[],
         )
         .unwrap();
@@ -514,6 +530,7 @@ mod tests {
             Path::new("/nonexistent-harness-root"),
             &builtin_set(),
             &counts,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &[],
         )
@@ -631,6 +648,7 @@ mod tests {
             &builtin_set(),
             &counts,
             &BTreeMap::new(),
+            &BTreeMap::new(),
             &locked.kinds,
         )
         .unwrap();
@@ -650,7 +668,15 @@ mod tests {
 
         let counts = BTreeMap::new();
         // No lock exists, so pass an empty slice for locked_kinds
-        let diagnostics = check(&root, &builtin_set(), &counts, &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(
+            &root,
+            &builtin_set(),
+            &counts,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         assert!(
             diagnostics
@@ -675,7 +701,15 @@ mod tests {
         .unwrap();
 
         let kinds = BTreeMap::from([("hook".to_string(), hook_kind())]);
-        let diagnostics = check(&root, &kinds, &BTreeMap::new(), &BTreeMap::new(), &[]).unwrap();
+        let diagnostics = check(
+            &root,
+            &kinds,
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+            &[],
+        )
+        .unwrap();
 
         let finding = diagnostics
             .iter()
@@ -824,6 +858,7 @@ mod tests {
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
+            &BTreeMap::new(),
             &[],
         )
         .unwrap();
@@ -845,6 +880,7 @@ mod tests {
         let diagnostics = check(
             &root,
             &builtin_set(),
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &[],
@@ -872,6 +908,7 @@ mod tests {
 
         let diagnostics = check(
             &root,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
@@ -903,6 +940,7 @@ mod tests {
 
         let diagnostics = check(
             &root,
+            &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),
             &BTreeMap::new(),

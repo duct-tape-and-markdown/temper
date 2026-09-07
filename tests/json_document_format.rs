@@ -234,8 +234,11 @@ fn the_declared_format_decides_which_adapter_reads_the_artifact() {
         "a conforming plugin manifest gates clean: {}",
         run.output
     );
+    // Pinned to the `required` clause's own rule id, never to whole stdout: the lock
+    // declares this kind and no member of it, so `locus.undeclared-member` names the
+    // manifest too — a second rule over the same artifact, and not this claim's business.
     assert!(
-        !run.output.contains("description"),
+        common::findings_for(&run.findings(), "plugin-manifest.required.description").is_empty(),
         "no finding over a field the document carries: {}",
         run.output
     );

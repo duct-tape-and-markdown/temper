@@ -328,6 +328,16 @@ fn check_from(cwd: &Path, root: &Path, extra: &[&str]) -> (bool, String) {
     (run.ok, run.stdout)
 }
 
+/// The same run under the GitHub reporter — one line per finding, so a claim about one
+/// rule is pinned to that rule's own lines. A whole-stdout `contains` cannot make such a
+/// claim: a second rule naming the same artifact moves it.
+fn check_findings(cwd: &Path, root: &Path, extra: &[&str]) -> (bool, Vec<String>) {
+    let mut args = vec![root.to_str().unwrap()];
+    args.extend_from_slice(extra);
+    let run = common::check_in(cwd, &args, Some("github"));
+    (run.ok, run.findings())
+}
+
 /// The custom-kind acceptance:
 /// over a corpus whose lock declares a `spec` kind + an advisory `extent`
 /// clause naming it, `check` names that clause and the offending member in its
@@ -344,27 +354,47 @@ fn check_dispatches_the_spec_custom_kind_through_its_extractor_and_contract() {
     fs::write(specs.join("00-intent.md"), "# Intent\n\nThe north star.\n").unwrap();
     fs::write(specs.join("15-kinds.md"), over_length_body()).unwrap();
 
-    let (ok, output) = check_from(&corpus, &corpus, &[]);
+    let (ok, findings) = check_findings(&corpus, &corpus, &[]);
     assert!(
         ok,
         "an advisory-only spec violation must exit zero without --deny-advisories"
     );
-    assert!(
-        output.contains("extent") && output.contains("15-kinds"),
-        "the over-length spec's own extent clause must name itself and the \
-         offending member, got:\n{output}"
+    let extent = common::findings_for(&findings, "spec.extent");
+    assert_eq!(
+        extent.len(),
+        1,
+        "the over-length spec's own extent clause must fire exactly once, got: \
+         {findings:#?}"
     );
     assert!(
-        !output.contains("00-intent"),
-        "the clean spec must trip no extent finding, got:\n{output}"
+        extent[0].contains("15-kinds"),
+        "and name the offending member, got: {}",
+        extent[0]
+    );
+    // Pinned to the `extent` rule, never to whole stdout: the lock declares this kind
+    // and no member of it, so `locus.undeclared-member` names the clean spec too — a
+    // second rule over the same artifact, and not this claim's business.
+    assert!(
+        !extent[0].contains("00-intent"),
+        "the clean spec must trip no extent finding, got: {}",
+        extent[0]
     );
 
-    let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
+    let (ok, findings) = check_findings(&corpus, &corpus, &["--deny-advisories"]);
     assert!(
         !ok,
         "the over-length spec must exit non-zero under --deny-advisories"
     );
-    assert!(output.contains("extent") && output.contains("15-kinds"));
+    // The exit code alone no longer proves the escalation — a second advisory over the
+    // same corpus would carry it — so the arm pins the promoted finding itself.
+    let extent = common::findings_for(&findings, "spec.extent");
+    assert_eq!(extent.len(), 1, "got: {findings:#?}");
+    assert!(
+        extent[0].starts_with("::warning ") && extent[0].contains("15-kinds"),
+        "the promoted finding is the over-length spec's own advisory extent \
+         violation, got: {}",
+        extent[0]
+    );
 }
 
 /// A custom kind authored **outside** `specs/` (`adr/*.md`), the same shape as the
@@ -381,27 +411,42 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
     fs::write(adrs.join("0001-short.md"), "# ADR 1\n\nDecided.\n").unwrap();
     fs::write(adrs.join("0002-long.md"), over_length_body()).unwrap();
 
-    let (ok, output) = check_from(&corpus, &corpus, &[]);
+    let (ok, findings) = check_findings(&corpus, &corpus, &[]);
     assert!(
         ok,
         "an advisory-only ADR violation must exit zero without --deny-advisories"
     );
-    assert!(
-        output.contains("extent") && output.contains("0002-long"),
-        "the over-length ADR's own extent clause must name itself and the \
-         offending member, got:\n{output}"
+    let extent = common::findings_for(&findings, "adr.extent");
+    assert_eq!(
+        extent.len(),
+        1,
+        "the over-length ADR's own extent clause must fire exactly once, got: \
+         {findings:#?}"
     );
     assert!(
-        !output.contains("0001-short"),
-        "the clean ADR must trip no extent finding, got:\n{output}"
+        extent[0].contains("0002-long"),
+        "and name the offending member, got: {}",
+        extent[0]
+    );
+    assert!(
+        !extent[0].contains("0001-short"),
+        "the clean ADR must trip no extent finding, got: {}",
+        extent[0]
     );
 
-    let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
+    let (ok, findings) = check_findings(&corpus, &corpus, &["--deny-advisories"]);
     assert!(
         !ok,
         "the over-length ADR must exit non-zero under --deny-advisories"
     );
-    assert!(output.contains("extent") && output.contains("0002-long"));
+    let extent = common::findings_for(&findings, "adr.extent");
+    assert_eq!(extent.len(), 1, "got: {findings:#?}");
+    assert!(
+        extent[0].starts_with("::warning ") && extent[0].contains("0002-long"),
+        "the promoted finding is the over-length ADR's own advisory extent \
+         violation, got: {}",
+        extent[0]
+    );
 }
 
 /// A represented harness that violates nothing exits **zero** under

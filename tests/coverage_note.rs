@@ -270,6 +270,7 @@ fn a_corrupt_lock_rejects_loud_while_a_missing_one_degrades_to_the_built_in_kind
         &empty_kinds,
         &BTreeMap::new(),
         &BTreeMap::new(),
+        &BTreeMap::new(),
         &[],
     )
     .expect("a missing lock degrades to the built-in kinds, never an error");
@@ -297,6 +298,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
         &empty_kinds,
         &BTreeMap::new(),
         &BTreeMap::new(),
+        &BTreeMap::new(),
         &[],
     )
     .unwrap();
@@ -319,6 +321,7 @@ fn a_wholly_ungoverned_mcp_json_keeps_the_full_finding_a_governed_one_retires_it
     let full = coverage_note::check(
         &governed,
         &builtins,
+        &BTreeMap::new(),
         &BTreeMap::new(),
         &BTreeMap::new(),
         &[],
@@ -368,6 +371,25 @@ fn a_locked_custom_kind_suppresses_the_surface_it_governs() {
         "the checked-count message must not say 'built-in' when a custom kind is counted, got: {summary}"
     );
 
+    // The fixture's own skill is on disk but not in the emitted payload, so this
+    // represented harness carries exactly one undeclared member — pinned here rather
+    // than left implicit, since it is what the arms above are read against.
+    let undeclared = common::findings_for(&findings, "locus.undeclared-member");
+    assert_eq!(
+        undeclared.len(),
+        1,
+        "the one skill the lock declares no member for is named, got: {findings:#?}"
+    );
+    assert!(
+        undeclared[0].contains(".claude/skills/coordinate/SKILL.md"),
+        "the finding names the stray document's path, got: {}",
+        undeclared[0]
+    );
+    assert!(
+        summary.contains("skill (1: 0 declared, 1 undeclared)"),
+        "and the disclosure counts it apart from the declared members, got: {summary}"
+    );
+
     assert!(
         success,
         "the advisory coverage note must not fail the run, got: {findings:#?}"
@@ -412,9 +434,141 @@ key = "overview"
         summary.contains("supporting-doc (1 embedded)"),
         "an embedded kind with nested members must show a nonzero embedded-marked count, got: {summary}"
     );
-    // The file-based skill kind should also appear with its discovered count.
+    // The file-based skill kind should also appear with its discovered count — and,
+    // since this fixture's lock carries nested_member rows alone and no provenance row
+    // for the skill on disk, that one member is undeclared and is disclosed apart.
     assert!(
-        summary.contains("skill (1)"),
-        "the summary should also include the discovered skill kind, got: {summary}"
+        summary.contains("skill (1: 0 declared, 1 undeclared)"),
+        "the summary should also include the discovered skill kind, marked undeclared \
+         where no lock row declares it, got: {summary}"
+    );
+}
+
+/// Commit a lock at `<root>/.temper/lock.toml` declaring the `rule` built-in and
+/// projecting one member per name through it — a *represented* harness whose
+/// `.claude/rules/` locus carries exactly the members the lock's provenance rows name.
+fn lock_rules(root: &Path, names: &[&str]) {
+    let payload = Payload {
+        version: drift::SEAM_VERSION,
+        declarations: Declarations {
+            kinds: vec![common::rule_kind_facts(None, &[])],
+            ..Declarations::default()
+        },
+        members: names
+            .iter()
+            .map(|name| common::rule_member(name, None, &format!("# {name}\n\nBody.\n")))
+            .collect(),
+    };
+    drift::emit(&payload, &root.join(".temper"), EmitOptions::default()).unwrap();
+}
+
+#[test]
+fn an_undeclared_document_at_a_governed_locus_is_named_and_counted_apart() {
+    // A represented harness carrying one declared rule and one stranger dropped beside
+    // it: `emit` will never maintain the stranger and `guard` never bound it, yet Claude
+    // Code loads it — so `check` names it rather than counting it as checked.
+    let harness = common::tmpdir("undeclared-locus-member");
+    lock_rules(&harness, &["declared"]);
+    common::write_rule(&harness, "stranger");
+
+    let (findings, success) = check_harness(&harness);
+
+    let undeclared = common::findings_for(&findings, "locus.undeclared-member");
+    assert_eq!(
+        undeclared.len(),
+        1,
+        "exactly the one undeclared document is named, got: {findings:#?}"
+    );
+    let finding = undeclared[0];
+    assert!(
+        finding.starts_with("::warning "),
+        "the finding is advisory, not blocking, got: {finding}"
+    );
+    assert!(
+        finding.contains(".claude/rules/stranger.md"),
+        "the finding names the document's path, got: {finding}"
+    );
+    assert!(
+        finding.contains("`rule`"),
+        "and the kind whose locus it sits at, got: {finding}"
+    );
+
+    // The disclosure counts the stranger apart, so the one line stating what was
+    // checked cannot absorb a member the program does not declare.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("rule (2: 1 declared, 1 undeclared)"),
+        "the disclosure states declared and undeclared apart, got: {}",
+        checked[0]
+    );
+
+    assert!(
+        success,
+        "the finding is advisory — it never fails the run on its own, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn a_declared_and_emitted_member_reports_neither_the_finding_nor_an_undeclared_count() {
+    // The same harness with both documents declared and emitted.
+    let harness = common::tmpdir("declared-locus-member");
+    lock_rules(&harness, &["declared", "stranger"]);
+
+    let (findings, _success) = check_harness(&harness);
+
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    // The non-zero declared read is asserted FIRST: without it the silence below could
+    // be an empty walk reading as clean.
+    assert!(
+        checked[0].contains("rule (2)"),
+        "both members are discovered and declared, got: {}",
+        checked[0]
+    );
+    assert!(
+        !checked[0].contains("undeclared"),
+        "and nothing is marked undeclared, got: {}",
+        checked[0]
+    );
+    assert!(
+        common::findings_for(&findings, "locus.undeclared-member").is_empty(),
+        "a declared, emitted member trips no undeclared finding, got: {findings:#?}"
+    );
+}
+
+#[test]
+fn an_unrepresented_harness_reports_no_undeclared_member_however_many_it_finds() {
+    // No lock at all: every discovered member is undeclared, and naming them all would
+    // be noise rather than a finding — the built-in default contract still checks them.
+    let harness = common::tmpdir("unrepresented-locus-members");
+    write_skill(&harness, "coordinate");
+    common::write_rule(&harness, "rust");
+    common::write_rule(&harness, "collaboration");
+
+    let (findings, _success) = check_harness(&harness);
+
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("rule (2)") && checked[0].contains("skill (1)"),
+        "the three discovered members are checked and counted as always, got: {}",
+        checked[0]
+    );
+    assert!(
+        common::findings_for(&findings, "locus.undeclared-member").is_empty(),
+        "an unrepresented harness names no undeclared member, got: {findings:#?}"
     );
 }

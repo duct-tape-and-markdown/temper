@@ -2839,6 +2839,106 @@ pub fn undeclared_layout_members_from_doc(
 }
 
 // ---------------------------------------------------------------------------
+// locus.undeclared-member — the file-locus half of the same disk-vs-lock fact
+// ---------------------------------------------------------------------------
+
+/// The diagnostic `rule` id a discovered-but-undeclared document at a governed file
+/// locus reports under.
+const LOCUS_UNDECLARED_MEMBER_RULE: &str = "locus.undeclared-member";
+
+/// One discovered committed member of a **file-content** kind at a governed locus, as
+/// the gate found it on disk — the path the lock is asked about, the kind that governs
+/// it, and whether the author may respell that kind's commitment.
+pub struct LocusMemberSite {
+    /// The governing kind's bare name, as the finding reports it.
+    pub kind: String,
+    /// The document's path, harness-relative, as the finding reports it. Compared
+    /// against a provenance row's `source_path` through [`normalize_lock_path`], so an
+    /// older lock's `./x` spelling still matches the site's bare `x`.
+    pub source_path: String,
+    /// Whether the governing kind is a lock-declared *custom* kind. A built-in's
+    /// commitment cannot be respelled — no lock row relocates it off its embedded
+    /// committed class, and `relocate`'s delta is edge-fields-only — so the `local`
+    /// remedy is offered only where the author actually owns the kind's declaration.
+    pub custom: bool,
+}
+
+/// The `locus.undeclared-member` verdict over a represented harness's governed file
+/// loci: the findings to report, plus how many fell to each kind.
+///
+/// Both come off one pass over one predicate: the count the `coverage.checked`
+/// disclosure states apart is the same set the findings name, never a second
+/// re-derivation of it.
+pub struct UndeclaredLocusMembers {
+    /// One `locus.undeclared-member` finding per discovered document no provenance row
+    /// names.
+    pub findings: Vec<crate::check::Diagnostic>,
+    /// How many undeclared members fell to each kind, keyed by bare kind name.
+    pub counts: BTreeMap<String, usize>,
+}
+
+/// The `locus.undeclared-member` findings for the discovered committed file documents
+/// `sites` names — one per document the lock's provenance rows never name.
+///
+/// A file-content member's whole trace on the lock is its **projection provenance row**,
+/// not the [`MEMBER_ADDRESS_COLUMNS`] declaration families a layout host reaches through
+/// — so this joins each site's path against the same rows [`emit_owned_targets`] and
+/// [`config_stale`] walk. Both sides normalize through [`normalize_lock_path`], exactly
+/// as the emit reap-diff does: the site's path arrives as a `String` from
+/// [`crate::path::relativize_against_root`] while a row's is a
+/// [`HarnessRelativePath`], and an older lock's `./x` spelling would otherwise forge a
+/// finding.
+///
+/// A document at a represented kind's locus that no row names is the file-locus twin of
+/// the layout stranger: `emit` will never maintain it — orphan classification iterates
+/// *lock rows*, so a disk file with no row is never classified and no orphan-drift is
+/// reported over it — and `guard` never bound it, yet Claude Code loads it. Remedy named
+/// first is to declare the member and re-emit.
+///
+/// **Advisory** (`warn`), the posture [`config_stale`] and
+/// [`undeclared_layout_members_from_doc`] take: the harness is checkable, one document
+/// short of what its author meant to gate.
+///
+/// The caller gates this on the lock's *presence*: on an unrepresented harness every
+/// discovered member is undeclared, and naming them all would be noise, not a finding.
+#[must_use]
+pub fn undeclared_locus_members_from_doc(
+    doc: &DocumentMut,
+    sites: &[LocusMemberSite],
+) -> UndeclaredLocusMembers {
+    let declared: BTreeSet<String> = read_prior_provenance_from_doc(doc)
+        .into_iter()
+        .map(|row| normalize_lock_path(&row.source_path))
+        .collect();
+    let mut verdict = UndeclaredLocusMembers {
+        findings: Vec::new(),
+        counts: BTreeMap::new(),
+    };
+    for site in sites {
+        if declared.contains(&normalize_lock_path(&site.source_path)) {
+            continue;
+        }
+        *verdict.counts.entry(site.kind.clone()).or_default() += 1;
+        // The `local` remedy is a custom kind's alone; a built-in's commitment is not
+        // the author's to respell, so offering it there would name a move that refuses.
+        let local_remedy = if site.custom {
+            ", or declare its kind `local` so `check` derives its rows at read time"
+        } else {
+            ""
+        };
+        verdict.findings.push(crate::check::Diagnostic::warn(
+            LOCUS_UNDECLARED_MEMBER_RULE,
+            site.source_path.as_str(),
+            format!(
+                "document `{}` sits at the `{}` kind's governed locus but the lock declares no member for it — `emit` will never maintain it and `guard` never bound it, yet Claude Code loads it; declare the member in the program and re-emit{local_remedy}",
+                site.source_path, site.kind
+            ),
+        ));
+    }
+    verdict
+}
+
+// ---------------------------------------------------------------------------
 // prose source dependencies — the content a layout import or composed-prose include
 // fingerprints (one shape, two families)
 // ---------------------------------------------------------------------------
@@ -3559,7 +3659,14 @@ pub struct ClauseRow {
     pub kind: Option<String>,
     /// The predicate's clause key (`required`, `max_len`, …).
     pub predicate: String,
-    /// The field (or marker) the predicate constrains, when it names one.
+    /// The clause's **compiled label** segment ([`crate::contract::clause_label`]) — the
+    /// field the predicate constrains where it names one, and otherwise the identity the
+    /// seam synthesizes from the arguments the row already carries (`section_contains`
+    /// and `require_sections` name no field, so `clauseField` in
+    /// `sdk/src/declarations.ts` lowers a `<heading>.<marker>` / joined-sections segment
+    /// here instead). `None` where the predicate needs no segment to label uniquely. A
+    /// synthesized segment labels only: those two predicates are reconstructed from
+    /// their own `section`/`sections` columns, never round-tripped through this one.
     #[serde(default)]
     pub field: Option<String>,
     /// The clause's declared severity (`required` / `advisory`).

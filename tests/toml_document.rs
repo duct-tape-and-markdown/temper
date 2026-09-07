@@ -179,8 +179,11 @@ fn the_declared_format_decides_which_adapter_reads_the_artifact() {
 
     let run = common::check_harness_in(&dir, Some("github"));
     assert!(run.ok, "a conforming knob gates clean: {}", run.output);
+    // Pinned to the `required` clause's own rule id, never to whole stdout: the lock
+    // declares this kind and no member of it, so `locus.undeclared-member` names the
+    // document too — a second rule over the same artifact, and not this claim's business.
     assert!(
-        !run.output.contains("mode"),
+        common::findings_for(&run.findings(), "knob.required.mode").is_empty(),
         "no finding over a field the document carries: {}",
         run.output
     );

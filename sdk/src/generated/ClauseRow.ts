@@ -51,7 +51,14 @@ kind?: string,
  */
 predicate: string, 
 /**
- * The field (or marker) the predicate constrains, when it names one.
+ * The clause's **compiled label** segment ([`crate::contract::clause_label`]) — the
+ * field the predicate constrains where it names one, and otherwise the identity the
+ * seam synthesizes from the arguments the row already carries (`section_contains`
+ * and `require_sections` name no field, so `clauseField` in
+ * `sdk/src/declarations.ts` lowers a `<heading>.<marker>` / joined-sections segment
+ * here instead). `None` where the predicate needs no segment to label uniquely. A
+ * synthesized segment labels only: those two predicates are reconstructed from
+ * their own `section`/`sections` columns, never round-tripped through this one.
  */
 field?: string, 
 /**
