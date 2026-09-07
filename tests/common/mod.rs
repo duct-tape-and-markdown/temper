@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Once;
+use std::sync::{Once, OnceLock};
 
 use temper::drift::{
     self, ClauseRow, CountBoundRow, Declarations, DegreeBoundRow, EmitOptions, KindFactRow,
@@ -22,16 +22,37 @@ use temper::drift::{
 use temper::frontmatter::Member;
 use temper::kind::Unit;
 
-/// A fresh, empty temp directory, uniquely named via the sanctioned `tempfile`
-/// crate — replaces the hand-rolled counter+pid+label naming scheme every
-/// caller carried before this consolidation. Persisted with `.keep()`: like
-/// the hand-rolled scheme it replaces, nothing here auto-deletes, since
-/// callers hand the path across process boundaries (a built binary, a
-/// vendored `node` subprocess) that outlive the `TempDir` guard's scope.
+/// The fixed prefix every test binary's per-run fixture parent is named under, so
+/// a sweep of all fixture debris this suite ever wrote is one `rm -rf
+/// $TMPDIR/temper-fixtures-*`.
+const RUN_PARENT_PREFIX: &str = "temper-fixtures-";
+
+/// The one per-run parent directory every [`tmpdir`] nests under, created once per
+/// test binary. Two things ride on the nesting: fixture debris is sweepable by the
+/// one prefix above (persisted dirs otherwise accumulate at the temp root
+/// monotonically), and a fixture that re-roots a walk above itself is bounded to
+/// this binary's own fixtures instead of the whole temp root.
+fn run_parent() -> &'static Path {
+    static RUN_PARENT: OnceLock<PathBuf> = OnceLock::new();
+    RUN_PARENT.get_or_init(|| {
+        tempfile::Builder::new()
+            .prefix(RUN_PARENT_PREFIX)
+            .tempdir()
+            .expect("failed to create the per-run fixture parent")
+            .keep()
+    })
+}
+
+/// A fresh, empty temp directory under this run's parent ([`run_parent`]), uniquely
+/// named via the sanctioned `tempfile` crate — replaces the hand-rolled
+/// counter+pid+label naming scheme every caller carried before this consolidation.
+/// Persisted with `.keep()`: like the hand-rolled scheme it replaces, nothing here
+/// auto-deletes, since callers hand the path across process boundaries (a built
+/// binary, a vendored `node` subprocess) that outlive the `TempDir` guard's scope.
 pub fn tmpdir(label: &str) -> PathBuf {
     tempfile::Builder::new()
         .prefix(label)
-        .tempdir()
+        .tempdir_in(run_parent())
         .expect("failed to create temp dir")
         .keep()
 }

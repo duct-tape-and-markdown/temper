@@ -11,7 +11,9 @@
 
 mod common;
 
-use common::{check_harness, write_settings};
+use std::fs;
+
+use common::{check_harness, write_rule, write_settings};
 
 use temper::builtin_kind;
 use temper::builtin_lock;
@@ -246,7 +248,13 @@ fn two_kinds_at_the_same_collection_address_trip_collision_loud() {
     // Regression: two fields-only kinds declaring the same collectionAddress are
     // accepted silently, the corpus unions their selections and cross-applies contracts.
     // The check gate must refuse the collision loud with a named admissibility finding.
-    let harness = common::tmpdir("collection-address-collision");
+    // The case is rooted decidably: the fixture harness is a *child* of the temp dir,
+    // and a real `rule` member is planted in that parent. The gate discovers it only if
+    // the run roots above the fixture — so `rule (0)` below pins the run's corpus root
+    // to the fixture itself.
+    let parent = common::tmpdir("collection-address-collision");
+    let harness = parent.join("collision");
+    write_rule(&parent, "planted");
 
     // Write a lock that declares two kinds at the same collection address. The first is
     // the built-in `hook` kind at `settings.json#hooks.<Event>`; the second is a custom
@@ -263,8 +271,9 @@ name = "custom_hook"
 shape = "fields"
 collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
 "#;
-    let lock_path = harness.join("lock.toml");
-    fs::write(&lock_path, lock).expect("write lock");
+    let workspace = harness.join(".temper");
+    fs::create_dir_all(&workspace).expect("create workspace");
+    fs::write(workspace.join("lock.toml"), lock).expect("write lock");
 
     let (findings, ok) = check_harness(&harness);
 
@@ -296,7 +305,18 @@ collection_address = { manifest = "settings.json", key_path = "hooks.<Event>" }
         !ok,
         "a collection-address collision is a required-severity finding — the run fails, got: {findings:#?}"
     );
-}
 
-// Re-export std::fs for the test above.
-use std::fs;
+    // The gate walked the fixture, never the directory enclosing it: the rule planted
+    // beside the fixture is not in the checked corpus.
+    let checked = common::findings_for(&findings, "coverage.checked");
+    assert_eq!(
+        checked.len(),
+        1,
+        "expected exactly one checked summary, got: {findings:#?}"
+    );
+    assert!(
+        checked[0].contains("rule (0)"),
+        "the run gates the fixture, so the rule planted in its parent is never discovered, got: {}",
+        checked[0]
+    );
+}
