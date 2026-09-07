@@ -16,7 +16,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -817,6 +817,21 @@ const factory: ChainFactory = (flume) => {
       // the stranded-bail blind spot §3 of the migration guide names).
       if (result.noCommit) {
         return ["plan"];
+      }
+      // A capture is a bill to plan, and it beats chaining: a wave whose
+      // entry committed only a `.flume/refactor/` capture (cherry-picked,
+      // `shipped` false, entry still pending) leaves that entry pickable, and
+      // the next wave re-picks it against the premise the capture just
+      // refuted (2026-09-07: a $7 Opus run against a shape its own capture
+      // said cannot reach green). Live captures on the trunk → plan drains
+      // first; the honesty gate already holds plan to leaving none behind.
+      try {
+        const live = readdirSync(resolve(CHAIN_DIR, "refactor")).filter(
+          (f) => f.endsWith(".md") && f !== "README.md",
+        );
+        if (live.length > 0) return ["plan"];
+      } catch {
+        // no refactor dir — nothing undrained
       }
       // Waves chain: ship bookkeeping auto-opens blockedBy gates its own wave
       // satisfied (runtime, 07-18), so when pickable entries remain the next
