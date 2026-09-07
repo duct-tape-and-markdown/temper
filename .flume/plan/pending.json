@@ -4,7 +4,6 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE",
         "CHECK-DENY-ADVISORIES-COVERAGE-NOTE-SEVERITY"
       ]
     },
@@ -91,55 +90,9 @@
     "notes": "observed at 97399cc1 (cascade-integrations, live run of the origin build's GH #40 fixes against a real block-mode harness) — the co-owned-manifest regression GH #40's own two fixes created together, verified live in the same run (both #40 fixes bind correctly under guard . otherwise). Serialized behind GUARD-PATH-MATCH-ABSOLUTE-SINGLE-SEGMENT: both edit src/install.rs and tests/install.rs. scoped at cadabd8e"
   },
   {
-    "tag": "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/install.rs",
-          "description": "gate_installed (~561-609) runs evaluate_placements as a dry run and tallies ANY placement entry whose outcome isn't Unchanged into the per-kind hook/guard/post_tool_use flags that drive the `install.gate-installed` finding. b7b2a7a6 added `ApplyOutcome::SupersededByMember` (drift.rs:2518) for exactly the case where a synthesized hook placement is correctly superseded by an authored `hook` kind member — but gate_installed was never updated to treat it like Unchanged, so `check` now flags that correctly-authored hook forever, the same false positive `install`'s own render just stopped showing. Exclude SupersededByMember from the tally alongside Unchanged."
-        },
-        {
-          "path": "tests/install.rs",
-          "description": "b7b2a7a6 shipped with no test at all for detect_hook_member_conflicts/SupersededByMember (only a trailing-newline diff landed in this file). Add one exercising install::run with an authored hook member superseding a synthesized placement (pattern at ~581, ~825): install's render names `superseded-by-member`, and gate_installed/`check` report no finding for it."
-        },
-        {
-          "path": "tests/snapshots/gauntlet__check_diagnostics.snap",
-          "description": "The gauntlet corpus carries an authored hook member alongside synthesized placements; excluding SupersededByMember from gate_installed's tally changes which pieces of the pinned install.gate-installed message (missing/drifted: session-start hook, guard hook, …) still fire for it — update via `cargo insta review`."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "gate_installed still tallies the new SupersededByMember outcome as needing install, so check flags a correctly-authored hook member forever — the false positive moved, not fixed.",
-    "per": {
-      "path": "specs/distribution.md",
-      "section": "The placements and their enforcement modes"
-    },
-    "tests": [
-      {
-        "path": "tests/install.rs",
-        "asserts": "an authored hook member superseding a synthesized placement reports no install.gate-installed finding at check, and no test previously exercised this path at all"
-      }
-    ],
-    "acceptance": "A harness whose authored `hook` kind member supersedes a synthesized placement (SessionStart/guard/post-tool-use) reports no `install.gate-installed` finding, matching install's own SupersededByMember render; a regression exercises install::run with a real superseding hook member.",
-    "notes": "observed at bf4b4168 (cascade audit of INSTALL-HOOK-PLACEMENT-FALSE-APPLIED's amendments 3-4), re-verified after that entry shipped (b7b2a7a6/bd10edd1 on disk): gate_installed was not touched by the fix, and no regression test exists for the new outcome at all. scoped at bd10edd1",
-    "observedFiles": [
-      "src/install.rs",
-      "tests/install.rs",
-      "tests/snapshots/gauntlet__check_diagnostics.snap"
-    ]
-  },
-  {
     "tag": "EMIT-PROJECTION-NOTE-DEFERRED-TO-INSTALL",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "INSTALL-GATE-INSTALLED-SUPERSEDED-FALSE-POSITIVE"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -322,6 +275,10 @@
       ],
       "retire": []
     },
+    "observedFiles": [
+      "src/drift.rs",
+      "tests/layout_kind.rs"
+    ],
     "summary": "A layout's verbatim prose region span is read but never becomes a lock row or reaches explain, so an author can't see which region captured the preamble or what it captured.",
     "per": {
       "path": "specs/intent.md",
@@ -334,63 +291,7 @@
       }
     ],
     "acceptance": "A layout document's verbatim prose region content reaches a row or projection explain can narrate, instead of being read by Layout::read and then dropped on the floor by every downstream consumer. Per 0048's conservation bar, the regression pins non-vacuity: it asserts the captured prose span is non-empty before checking it reaches the row/explain surface, so the test cannot pass over an empty read.",
-    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (refuses a second prose region at admissibility) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. Vacuity-pin bar added per cadabd8e inbox note. scoped at bf4b4168",
-    "observedFiles": [
-      "src/drift.rs",
-      "tests/layout_kind.rs"
-    ]
-  },
-  {
-    "tag": "GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "src/graph.rs",
-          "description": "target_identity (~1593) keys an edge target on a bare `(kind, identity)` pair, splitting `target` on its first `:` — it has no path to accept representation.md's own nested-member address grammar (`<host-address>/<kind>/<key>`). Parse the full address grammar here (host-qualified and bare short forms both), so `resolved_edges` (~1252) and its dangling-diagnostic path both carry the parsed host-qualified identity through to findings."
-        },
-        {
-          "path": "sdk/src/kind.ts",
-          "description": "EdgeField (~55)'s `to` is a target-kind set only; an edge field's entries are free-text addresses at the instance, so the SDK itself needs no schema change — confirm this at scoping and note if a validator narrows what an entry may spell."
-        },
-        {
-          "path": "src/read.rs",
-          "description": "explain's edge/finding narration prints a resolved or dangling target's identity; once target_identity carries the parsed host-qualified form, the printed address should show it rather than the bare short form alone."
-        },
-        {
-          "path": "tests/graph.rs",
-          "description": "Regression: two same-keyed nested members under different hosts are each addressable from an edge field via the full `<host-address>/<kind>/<key>` form, resolving to the correct one rather than forcing a rename."
-        },
-        {
-          "path": "src/compose.rs",
-          "description": "embedded_member_features (~1194-1204, lifting a NestedMemberRow to the Features `resolved_edges`/`resolves` matches against) sets `id: row.key.clone()` and drops `row.host` — so once target_identity parses a host-qualified address, nothing in the pooled by_kind map can pick the one matching member out of same-kind-same-key duplicates by host. Resolve this without widening the shared `Features` struct's shape (it has ~30 literal-construction call sites across src/tests — a new hard field ripples all of them, well past one comfortable entry): thread the host through some narrower channel reachable from resolved_edges for the host-qualified case only (e.g. the existing generic `fields` bag, or a second host-qualified lookup built alongside by_kind), leaving the bare short-form's existing ambiguous-first-match behavior for NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY to refuse. If no such narrow channel is workable, stop and say so rather than fanning the Features shape out — that's a re-split, not a silent widen."
-        }
-      ],
-      "retire": []
-    },
-    "observedFiles": [
-      ".flume/refactor/mention-reachable-finding.md",
-      "src/compose.rs",
-      "src/graph.rs",
-      "tests/graph.rs"
-    ],
-    "summary": "An edge field can't spell a nested target's full host-qualified address — only the bare (kind, identity) short form — so two same-keyed nested members force a rename instead of an address.",
-    "per": {
-      "path": "specs/model/representation.md",
-      "section": "member"
-    },
-    "tests": [
-      {
-        "path": "tests/graph.rs",
-        "asserts": "an edge field entry spelling `<host-address>/<kind>/<key>` resolves to that exact nested member, alongside the existing bare `kind:identity` short form"
-      }
-    ],
-    "acceptance": "target_identity parses the full nested address grammar per representation.md's member section, resolving both bare and host-qualified spellings; explain and findings print the resolved form; the duplicate-key admissibility refusal (NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY) stays the resolver's bar, not the address itself. The regression pins non-vacuity: it asserts a resolved host-qualified address is actually produced, not a false/empty short-circuit, before checking the verdict (0048's conservation bar). This entry's read.rs narration change shares the file with NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY's bare-name ambiguity refusal — the printed resolved form must compose with that refusal, never bypass it for a bare target.",
-    "notes": "observed at f8344d20 (session, plan's 0049 spec-delta pass narrowing its own prior routing). 0049's Decision names every verb accepting one address grammar; its Rejected bullet turns down corpus-unique keys as the address itself. Vacuity-pin + read.rs-sharing bar added per cadabd8e inbox note. scoped at bf4b4168"
+    "notes": "observed at ad10e8cb, re-filed at d760aa04 (cascade F10 refinement, GH #43). Distinct from LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL (refuses a second prose region at admissibility) and LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF (a collection member's own span) — this is the top-level prose region's own visibility gap. Vacuity-pin bar added per cadabd8e inbox note. scoped at bf4b4168"
   },
   {
     "tag": "REFUSAL-MESSAGE-NAMES-THE-EDIT",
@@ -466,10 +367,7 @@
   {
     "tag": "NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -548,7 +446,12 @@
       }
     ],
     "acceptance": "A render hook on an embedded value whose edge field targets another host's embedded value resolves that target's engine-derived facts (name, address, kind, projection path) and renders, instead of emit refusing outright. Scoped to the SDK's own rendering path for bare-unique keys and the host-qualified spelling end-to-end at emit; full nested-address resolution at `check` (graph::target_identity has no `/` grammar; embedded_member_features is host-blind) stays out of scope, tracked by GRAPH-EDGE-TARGET-HOST-QUALIFIED-ADDRESS / NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY. Per 0049's amendment, this entry's bare-key index is one of the ambiguity bar's named consumers: a duplicate bare `kind:key` across hosts must refuse via uniqueMap (not silently pick one), matching graph::resolves and explain's why_impl. The regression pins non-vacuity: it asserts a real resolved target/thrown refusal, not an empty index short-circuiting either way (0048's conservation bar).",
-    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168: items (5)-(7) — index both spellings via the refusing uniqueMap path (never memberTable's registration-row last-wins), fix isProjected/projectionPath order, widen the value type, scope check-side resolution out. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. scoped at 727cceb2"
+    "notes": "observed at ad10e8cb (F9/F13, GH #50 widened); corrected/widened at bf4b4168: items (5)-(7) — index both spellings via the refusing uniqueMap path (never memberTable's registration-row last-wins), fix isProjected/projectionPath order, widen the value type, scope check-side resolution out. Post-ship reconciliation 09-07: KIND-REGISTRATION-EMPTY-EMBEDDED-TYPE shipped (f8ba355b) — EmbeddedMemberValue/Member cites corrected to kind.ts:471/318; emit.ts refs unaffected. scoped at 727cceb2",
+    "observedFiles": [
+      "sdk/src/emit.ts",
+      "sdk/src/index.ts",
+      "sdk/test/emit.test.ts"
+    ]
   },
   {
     "tag": "SECTION-CONTAINS-LABEL-MARKER-COLLISION",
