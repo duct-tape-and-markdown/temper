@@ -12,15 +12,27 @@ use std::fmt;
 
 use miette::GraphicalReportHandler;
 
-/// The severity of a [`Diagnostic`]. Only `error` raises the process exit code;
-/// `warn` is advisory. (The slice-1 rule table in the spec uses exactly these
-/// two levels.)
+/// The severity of a [`Diagnostic`] — the *reported* level, distinct from the
+/// author-declared [`contract::Severity`](crate::contract::Severity) a clause carries
+/// (`required`/`advisory`, mapped by [`engine::severity_of`](crate::engine::severity_of)).
+///
+/// `Error` and `Warn` are the two levels a violation is reported at: `Error` raises the
+/// process exit code, `Warn` is the advisory a corpus can escalate with
+/// `--deny-advisories`. `Note` is the third and is not a violation at all — it is
+/// **disclosure**, what the gate checked, which no contract declares and no dial can
+/// tune, so nothing promotes it to blocking.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     /// A correctness/contract violation. Any `Error` makes `check` exit non-zero.
     Error,
-    /// A best-practice advisory that does not fail the run.
+    /// A best-practice advisory that does not fail the run on its own. Escalated to
+    /// blocking by `--deny-advisories` — it is a violation, so a corpus may demand it.
     Warn,
+    /// A disclosure note: a statement of what was checked, never a violation. Every
+    /// reporter prints it (invariant 6 — the gate's silence must never read as
+    /// "checked"), and no flag promotes it to blocking, because there is no contract
+    /// clause behind it to escalate.
+    Note,
 }
 
 /// A single lint finding: which rule fired, on which artifact, with what message.
@@ -84,6 +96,16 @@ impl Diagnostic {
         Self::new(Severity::Warn, rule, artifact, message)
     }
 
+    /// A `note`-severity disclosure — what the gate checked, never a violation, so
+    /// `--deny-advisories` never promotes it.
+    pub fn note(
+        rule: impl Into<String>,
+        artifact: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::new(Severity::Note, rule, artifact, message)
+    }
+
     /// A finding at an explicit [`Severity`].
     pub fn new(
         severity: Severity,
@@ -117,6 +139,7 @@ impl miette::Diagnostic for Diagnostic {
         Some(match self.severity {
             Severity::Error => miette::Severity::Error,
             Severity::Warn => miette::Severity::Warning,
+            Severity::Note => miette::Severity::Advice,
         })
     }
 
@@ -231,7 +254,7 @@ pub fn render(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
 }
 
 /// Whether any diagnostic is `error` severity — the signal that drives `check`'s
-/// non-zero process exit. Warn-only runs return `false`.
+/// non-zero process exit. Warn-only and note-only runs return `false`.
 pub fn any_error(diagnostics: &[Diagnostic]) -> bool {
     diagnostics
         .iter()

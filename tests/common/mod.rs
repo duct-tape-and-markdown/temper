@@ -187,25 +187,34 @@ pub struct CheckRun {
     pub stdout: String,
 }
 
+/// The `title=` every announcement line carries, and the one thing that tells an
+/// announcement apart from a disclosure note — both ride `::notice`, since neither is
+/// a problem, so the command alone cannot separate them.
+const ANNOUNCE_TITLE: &str = "title=temper.announce::";
+
 impl CheckRun {
-    /// Returns the github-reporter finding lines — each one `::error`/`::warning …`.
-    /// An announced input is not a finding and rides `::notice`, so it is not one of
-    /// these ([`CheckRun::announcements`] is its reader).
+    /// Returns the github-reporter finding lines — each one `::error`/`::warning`/
+    /// `::notice …`, in output order. A `::notice` finding is a disclosure note (what
+    /// the gate checked); an announced input rides `::notice` too but is not a finding,
+    /// so it is excluded here ([`CheckRun::announcements`] is its reader).
     pub fn findings(&self) -> Vec<String> {
-        self.workflow_commands("::error", "::warning")
+        self.workflow_commands(|line| {
+            (line.starts_with("::error") || line.starts_with("::warning"))
+                || (line.starts_with("::notice") && !line.contains(ANNOUNCE_TITLE))
+        })
     }
 
     /// Returns the github-reporter announcement lines — each one `::notice …`, naming
     /// one input that judged the run beyond the committed harness.
     pub fn announcements(&self) -> Vec<String> {
-        self.workflow_commands("::notice", "::notice")
+        self.workflow_commands(|line| line.starts_with("::notice") && line.contains(ANNOUNCE_TITLE))
     }
 
-    /// The output's workflow-command lines opening with either prefix.
-    fn workflow_commands(&self, one: &str, other: &str) -> Vec<String> {
+    /// The output's workflow-command lines the predicate selects, in output order.
+    fn workflow_commands(&self, keep: impl Fn(&str) -> bool) -> Vec<String> {
         self.output
             .lines()
-            .filter(|line| line.starts_with(one) || line.starts_with(other))
+            .filter(|line| keep(line))
             .map(str::to_string)
             .collect()
     }

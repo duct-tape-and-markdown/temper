@@ -21,7 +21,10 @@ use crate::drift;
 use crate::glob::compile_glob;
 use crate::kind::CustomKind;
 
-/// The advisory rule id for the per-kind member-count summary.
+/// The rule id for the per-kind member-count summary — a **disclosure note**
+/// ([`Severity::Note`](crate::check::Severity::Note)), not an advisory: it states what
+/// was checked, so there is no clause behind it a corpus could dial and nothing for
+/// `--deny-advisories` to promote.
 const CHECKED_RULE: &str = "coverage.checked";
 
 /// The advisory rule id for a known surface present on disk that no kind governs.
@@ -32,17 +35,19 @@ const UNMODELED_RULE: &str = "coverage.unmodeled-surface";
 /// `UNMODELED_RULE` finding never covers.
 const UNCLAIMED_RULE: &str = "coverage.unclaimed-entry";
 
-/// Compute the wedge's advisory coverage note over the harness at `root`.
+/// Compute the wedge's coverage note over the harness at `root`.
 ///
 /// `member_counts` is the per-kind checked-member count the gate already loaded,
 /// keyed by each kind's bare row label; `nested_member_counts` is the per-kind
 /// embedded-member count grouped from the lock's nested_member rows; `kinds` is the
 /// built-in kind set. `locked_kinds` are the kind-fact rows from the committed lock
 /// (an empty slice for an unadopted harness), so a locked custom kind's `governs`
-/// suppresses a known surface exactly as a built-in's does. Returns `warn`-severity
-/// diagnostics only (never `error`, never a session-start verdict): a summary of what
-/// was checked, then one finding per known Claude Code surface present on disk that no
-/// in-scope kind governs — so the gate's silence about an unmodeled surface never reads
+/// suppresses a known surface exactly as a built-in's does. Nothing here is ever
+/// `error` and none of it is a session-start verdict: the summary of what was checked is
+/// a `note`-severity **disclosure** (no clause declares it, so `--deny-advisories` never
+/// promotes it), and each finding naming a known Claude Code surface present on disk that
+/// no in-scope kind governs is a `warn`-severity advisory — a real gap the corpus closes
+/// by modelling the surface — so the gate's silence about an unmodeled surface never reads
 /// as "checked".
 ///
 /// # Errors
@@ -80,7 +85,7 @@ pub fn check(
         })
         .collect();
     let kind_count = all_kinds.len();
-    diagnostics.push(Diagnostic::warn(
+    diagnostics.push(Diagnostic::note(
         CHECKED_RULE,
         "harness",
         format!(
@@ -457,7 +462,7 @@ mod tests {
     }
 
     #[test]
-    fn the_checked_summary_reports_each_kind_count_and_is_warn() {
+    fn the_checked_summary_reports_each_kind_count_and_is_a_disclosure_note() {
         let counts = BTreeMap::from([("skill".to_string(), 2usize), ("rule".to_string(), 3usize)]);
         let diagnostics = check(
             Path::new("/nonexistent-harness-root"),
@@ -471,7 +476,9 @@ mod tests {
             .iter()
             .find(|d| d.rule == CHECKED_RULE)
             .expect("a checked-summary diagnostic");
-        assert_eq!(summary.severity, Severity::Warn);
+        // Disclosure, never a violation: nothing a corpus declared, so nothing
+        // `--deny-advisories` may promote to blocking.
+        assert_eq!(summary.severity, Severity::Note);
         assert!(summary.message.contains("skill (2)"));
         assert!(summary.message.contains("rule (3)"));
         // The total pluralizes and names both kinds, with no "built-in" qualifier —

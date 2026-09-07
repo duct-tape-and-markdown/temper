@@ -47,6 +47,7 @@ fn render_diagnostics(diagnostics: &[Diagnostic]) -> String {
         let severity = match diagnostic.severity {
             Severity::Error => "error",
             Severity::Warn => "warn",
+            Severity::Note => "note",
         };
         out.push_str(&format!(
             "{severity} {}: {}\n",
@@ -401,4 +402,26 @@ fn check_reads_a_custom_kind_rooted_outside_specs() {
         "the over-length ADR must exit non-zero under --deny-advisories"
     );
     assert!(output.contains("extent") && output.contains("0002-long"));
+}
+
+/// A represented harness that violates nothing exits **zero** under
+/// `--deny-advisories`, even though the always-on `coverage.checked` summary rides in
+/// the output. The flag escalates advisory *violations* — clauses a corpus declared and
+/// could dial — and a disclosure note is neither, so nothing about it is promotable:
+/// without this the strict CI policy could never pass on any harness.
+#[test]
+fn deny_advisories_never_blocks_on_the_coverage_disclosure_note() {
+    let corpus = common::tmpdir("clean-under-deny-advisories");
+    common::write_skill(&corpus, "coordinate", &common::clean_skill("coordinate"));
+
+    let (ok, output) = check_from(&corpus, &corpus, &["--deny-advisories"]);
+    assert!(
+        ok,
+        "a clean harness must exit zero under --deny-advisories, got:\n{output}"
+    );
+    assert!(
+        output.contains("coverage.checked"),
+        "and the disclosure note is still printed, never suppressed to earn that \
+         zero, got:\n{output}"
+    );
 }

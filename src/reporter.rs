@@ -6,8 +6,8 @@
 //! never re-judges the harness, so the gate's verdict is identical whichever
 //! reporter renders it:
 //!
-//! - [`github`] — GitHub Actions `::error`/`::warning::` workflow-command lines,
-//!   one per finding, so findings land as annotations inline on the PR;
+//! - [`github`] — GitHub Actions `::error`/`::warning`/`::notice::` workflow-command
+//!   lines, one per finding, so findings land as annotations inline on the PR;
 //! - [`sarif`] — a SARIF 2.1.0 log for code-scanning, so findings land in the
 //!   team's security review surface;
 //! - [`session_start`] — the `claude-session-start` reporter, the JSON payload a
@@ -100,7 +100,15 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
         .iter()
         .filter(|diagnostic| diagnostic.severity == Severity::Warn)
         .collect();
-    if blocking.is_empty() && advisory.is_empty() && announcement.is_empty() {
+    let disclosure: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Note)
+        .collect();
+    if blocking.is_empty()
+        && advisory.is_empty()
+        && disclosure.is_empty()
+        && announcement.is_empty()
+    {
         return None;
     }
 
@@ -141,6 +149,20 @@ fn context(diagnostics: &[Diagnostic], announcement: &Announcement) -> Option<St
             ));
         }
     }
+    if !disclosure.is_empty() {
+        if !blocking.is_empty() || !advisory.is_empty() {
+            out.push('\n');
+        }
+        // Last, under its own heading: a disclosure is not a finding to act on — it is
+        // what the gate checked, said out loud so silence never reads as "checked".
+        out.push_str("Checked:\n");
+        for diagnostic in &disclosure {
+            out.push_str(&format!(
+                "  - [{}] {}: {}\n",
+                diagnostic.rule, diagnostic.artifact, diagnostic.message
+            ));
+        }
+    }
     Some(out)
 }
 
@@ -167,13 +189,15 @@ const SARIF_VERSION: &str = "2.1.0";
 const ANNOUNCE_TITLE: &str = "temper.announce";
 
 /// Render the diagnostic set as GitHub Actions workflow-command lines — one
-/// `::error` / `::warning::` annotation per finding, so findings surface inline on
-/// the PR, led by one `::notice` per announced input.
+/// `::error` / `::warning` / `::notice::` annotation per finding, so findings surface
+/// inline on the PR, led by one `::notice` per announced input.
 ///
 /// Each line carries the rule as the annotation `title=` and the finding message
-/// as the command body; the [`Severity`] picks the command (`error` / `warning`).
-/// An announced input has no severity — it is not a finding — so it rides
-/// `::notice`, the command for a message that is not a problem. Data and property
+/// as the command body; the [`Severity`] picks the command
+/// ([`workflow_command`]: `error` / `warning` / `notice`). An announced input has no
+/// severity — it is not a finding — so it rides `::notice` too, the command for a
+/// message that is not a problem; the `title=` tells the two apart, an announcement
+/// always spelling [`ANNOUNCE_TITLE`] and a disclosure note its own rule id. Data and property
 /// values are escaped per GitHub's workflow-command rules ([`escape_data`] /
 /// [`escape_property`]) so a message containing a newline, `%`, `:`, or `,` can
 /// never break out of its line. Purely a presentation of the shared diagnostic set
@@ -190,7 +214,7 @@ pub fn github(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
         ));
     }
     for diagnostic in diagnostics {
-        let command = severity_word(diagnostic.severity);
+        let command = workflow_command(diagnostic.severity);
         // `title=` carries the rule (escaped as a property value); the artifact
         // rides the body so the annotation names what it is about, then the
         // message (both escaped as command data).
@@ -209,7 +233,7 @@ pub fn github(diagnostics: &[Diagnostic], announcement: &Announcement) -> String
 /// `temper`, one `results` entry per diagnostic.
 ///
 /// Each result maps the rule to `ruleId`, the message to `message.text`, the
-/// [`Severity`] to `level` (`error` / `warning`), and the artifact to a
+/// [`Severity`] to `level` (`error` / `warning` / `note`), and the artifact to a
 /// `locations` `artifactLocation.uri`. The [`Announcement`] rides the run's
 /// `properties` bag — SARIF's own home for a tool-specific fact about the run,
 /// which is what an announced input is: it names what judged these results rather
@@ -222,7 +246,7 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
     let results: Vec<serde_json::Value> = diagnostics
         .iter()
         .map(|diagnostic| {
-            let level = severity_word(diagnostic.severity);
+            let level = sarif_level(diagnostic.severity);
             json!({
                 "ruleId": diagnostic.rule,
                 "level": level,
@@ -262,12 +286,30 @@ pub fn sarif(diagnostics: &[Diagnostic], announcement: &Announcement) -> String 
     log.to_string()
 }
 
-/// Map a [`Severity`] to its normalized word — used by both GitHub and SARIF
-/// renderers to produce a consistent severity string.
-fn severity_word(severity: Severity) -> &'static str {
+/// Map a [`Severity`] to its SARIF `level` word. SARIF 2.1.0 defines exactly
+/// `error` / `warning` / `note` for a result level, so a disclosure note lands as
+/// `note` — present in the log, never a violation.
+fn sarif_level(severity: Severity) -> &'static str {
     match severity {
         Severity::Error => "error",
         Severity::Warn => "warning",
+        Severity::Note => "note",
+    }
+}
+
+/// Map a [`Severity`] to the GitHub Actions workflow command that carries it. GitHub
+/// spells the annotation levels `error` / `warning` / `notice` — its own vocabulary, not
+/// SARIF's ([`sarif_level`]), so the two are named apart rather than one string
+/// re-mapped into the other (code.claude.com is not the source here:
+/// docs.github.com/actions/reference/workflow-commands-for-github-actions, retrieved
+/// 2026-09-06). A disclosure note rides `::notice` — the command for a message that is
+/// not a problem — never `::debug`, which is hidden unless debug logging is on and would
+/// suppress the disclosure.
+fn workflow_command(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Error => "error",
+        Severity::Warn => "warning",
+        Severity::Note => "notice",
     }
 }
 

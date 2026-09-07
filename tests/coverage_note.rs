@@ -13,9 +13,11 @@
 //! the kinds handed in carry no `mcp-server` row; under the built-in set it is governed
 //! whole and retires its finding.
 //! The GitHub reporter gives a machine-parseable finding
-//! set: each finding is one `::warning title=<rule>::<artifact>: …` line, so the
-//! coverage note's advisories are asserted exactly. Every coverage-note finding is
-//! `warning` (advisory) — it never gates and never injects a session-start verdict.
+//! set: each finding is one `::<level> title=<rule>::<artifact>: …` line, so the
+//! coverage note's levels are asserted exactly. Nothing here gates or injects a
+//! session-start verdict: the checked summary is a `::notice` disclosure (no clause
+//! behind it, so `--deny-advisories` never promotes it) and each ungoverned-surface
+//! flag is a `::warning` advisory — a gap the corpus can close.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -102,7 +104,8 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
     let (findings, success) = check_harness(&harness);
 
     // (1) The checked-summary names each kind's member count — silence never reads as
-    // "checked". Exactly one summary, `warning`, reporting the two skills checked.
+    // "checked". Exactly one summary, a disclosure `notice`, reporting the two skills
+    // checked.
     let checked = common::findings_for(&findings, "coverage.checked");
     assert_eq!(
         checked.len(),
@@ -111,8 +114,8 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
     );
     let summary = checked[0];
     assert!(
-        summary.starts_with("::warning "),
-        "the checked summary is advisory (warn), got: {summary}"
+        summary.starts_with("::notice "),
+        "the checked summary is disclosure (note), never a violation, got: {summary}"
     );
     assert!(
         summary.contains("skill (2)"),
@@ -160,18 +163,24 @@ fn a_partially_governed_settings_json_names_only_the_present_ungoverned_residue(
         "the flag cites the Claude Code docs at the point of claim, got: {finding}"
     );
 
-    // The note never gates: no coverage finding is an `::error`, and the clean run
-    // still exits success.
+    // Neither level gates: no coverage finding is an `::error`, and the clean run still
+    // exits success. The two are apart — what was checked is disclosure, what is
+    // ungoverned is an advisory the corpus can close.
     assert!(
         common::findings_for(&findings, "coverage.checked")
             .iter()
-            .chain(common::findings_for(&findings, "coverage.unmodeled-surface").iter())
+            .all(|line| line.starts_with("::notice ")),
+        "the checked summary is disclosure, got: {findings:#?}"
+    );
+    assert!(
+        common::findings_for(&findings, "coverage.unmodeled-surface")
+            .iter()
             .all(|line| line.starts_with("::warning ")),
-        "every coverage-note finding is advisory, got: {findings:#?}"
+        "every ungoverned-surface flag is advisory, got: {findings:#?}"
     );
     assert!(
         success,
-        "the advisory coverage note must not fail the run, got: {findings:#?}"
+        "the coverage note must not fail the run, got: {findings:#?}"
     );
 }
 

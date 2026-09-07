@@ -69,7 +69,8 @@ enum Command {
         #[arg(long, conflicts_with = "root")]
         harness: Option<PathBuf>,
         /// Also fail the run on `advisory` (warn-severity) violations, not just
-        /// `required` ones — the strict CI policy.
+        /// `required` ones — the strict CI policy. Disclosure notes are not violations
+        /// and never block.
         #[arg(long)]
         deny_advisories: bool,
         /// A policy layer to join, named as the lock that carries it (the lock file, or a
@@ -208,7 +209,7 @@ enum Command {
 enum Reporter {
     /// The default: miette's graphical terminal render ([`check::render`]).
     Terminal,
-    /// GitHub Actions `::error`/`::warning::` workflow-command annotations, inline
+    /// GitHub Actions `::error`/`::warning`/`::notice::` workflow-command annotations, inline
     /// on the PR ([`reporter::github`]).
     Github,
     /// A SARIF 2.1.0 log for code-scanning ingestion ([`reporter::sarif`]).
@@ -248,8 +249,10 @@ fn main() -> miette::Result<ExitCode> {
             }
 
             // `--deny-advisories` promotes `advisory` (warn) violations to blocking on top
-            // of the always-blocking `required` ones. The session-start reporter is
-            // advisory, so it never gates.
+            // of the always-blocking `required` ones. `Warn` exactly, never any
+            // non-error: a `Note` is disclosure with no clause behind it to escalate, so
+            // a clean harness's own `coverage.checked` summary can never trip the flag.
+            // The session-start reporter is advisory, so it never gates.
             let advisory_blocks = deny_advisories
                 && diagnostics
                     .iter()
