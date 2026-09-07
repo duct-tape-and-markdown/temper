@@ -28,6 +28,10 @@
 !`CURSOR=$(grep -oE '^- Spec derived through: [0-9a-f]+' .flume/plan/state.md 2>/dev/null | grep -oE '[0-9a-f]+$'); [ -z "$CURSOR" ] && CURSOR=$(git log -1 --format=%h --grep='^plan:' 2>/dev/null); if [ -n "$CURSOR" ]; then echo "specs/ commits past the spec cursor ($CURSOR):"; git log --reverse --format='%h %s' "$CURSOR"..HEAD -- specs/; echo; git diff --stat "$CURSOR"..HEAD -- specs/ | tail -15; else echo "(no cursor and no prior plan commit — treat the whole corpus as the delta)"; fi`
 </spec-delta>
 
+<gate-reverts>
+!`node -e 'const fs=require("fs");let out="";for(const f of fs.readdirSync(".flume/prior-attempts").filter(f=>f.endsWith(".json"))){try{const d=JSON.parse(fs.readFileSync(".flume/prior-attempts/"+f,"utf8"));if(d.mode!=="gate-revert")continue;out+="== "+f.replace(/\.json$/,"").toUpperCase()+" — "+d.gate+" @ "+(d.at||"")+"\n   "+d.message+"\n"+(d.details?d.details.split("\n").map(l=>"   "+l).join("\n")+"\n":"");}catch{}}process.stdout.write(out||"(no gate-reverted attempts on record)\n");'`
+</gate-reverts>
+
 <files-ripple>
 !`node .flume/ripple.mjs 2>/dev/null || echo "(ripple unavailable)"`
 </files-ripple>
@@ -86,6 +90,13 @@ rule on a digest line.
    have narrowed or moved since filing. A note stamped `observed at <sha>`
    narrows the re-verify to `git log <sha>..HEAD` — diff forward from what
    the reporter saw. Scope to the verified gap, never the reported one.
+   **`<gate-reverts>` is a bill, not a report**: each record names an entry
+   build already tried and the exact paths its commit needed outside
+   `files[]` (or the gate that failed). Fold every listed path into that
+   entry's `files[]` this tick, or say in the commit body why the path is
+   wrong to touch and re-cut the entry — an entry re-picked with the same
+   allowance reverts the same way and trips flume's identical-failure
+   breaker (three times on 2026-09-06).
    **Before an entry is filed or rewritten, reconcile `<files-ripple>`**:
    it lists, per pickable entry, the tree paths the entry's own named
    symbols reach but its `files[]` omits. Each path is either a real
