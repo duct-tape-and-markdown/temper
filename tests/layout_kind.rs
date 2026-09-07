@@ -717,3 +717,129 @@ fn a_declared_layout_member_draws_no_undeclared_finding() {
         run.output
     );
 }
+
+/// A layout of **field regions alone** lowers into no declaration row at all — no
+/// collection member, no captured prose, no import. Before the lock kept a
+/// `layout_source` record, that emptiness was the member's whole trace and read exactly
+/// like a document `emit` never saw, so a correctly declared member drew the undeclared
+/// advisory — a false positive neither remedy the message offers could clear.
+#[test]
+fn a_declared_field_only_layout_member_draws_no_undeclared_finding() {
+    const FIELD_ONLY_DOC: &str = "# Intent\ntemper makes a harness good.\n";
+
+    let field_only_kind = KindFactRow {
+        content: Some(LayoutRow {
+            regions: vec![LayoutRegionRow {
+                region: "field".to_string(),
+                import: None,
+                slot: Some("intent".to_string()),
+                member_kind: None,
+                key: None,
+            }],
+        }),
+        ..common::kind_facts("intent", "specs", "intent.md")
+    };
+    let payload = Payload {
+        declarations: Declarations {
+            kinds: vec![field_only_kind],
+            ..Default::default()
+        },
+        ..intent_payload()
+    };
+
+    let harness = common::scaffold("layout-field-only-member");
+    fs::write(harness.join("specs").join("intent.md"), FIELD_ONLY_DOC).unwrap();
+    drift::emit(&payload, &harness.join(".temper"), EmitOptions::default()).unwrap();
+
+    // Non-vacuity twice over: the lowering really does yield nothing, and the run really
+    // did discover and judge the member whose silence is asserted below.
+    let into = harness.join(".temper");
+    assert!(
+        drift::read_declarations(&into)
+            .unwrap()
+            .nested_members
+            .is_empty()
+            && drift::layout_prose(&into).unwrap().is_empty(),
+        "the case is vacuous unless the document lowered into no declaration row",
+    );
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        run.output.contains("intent (1)"),
+        "the case is vacuous unless the run judged the declared member: {}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("layout.undeclared-member"),
+        "a declared member of a field-only layout draws no finding: {}",
+        run.output
+    );
+}
+
+/// The other rowless shape, and the one that survives any per-kind suppression: a
+/// collection-bearing layout whose *document* holds the collection heading with no child
+/// heading and no preamble. The kind declares a row-producing region; this member's body
+/// simply had nothing to give it, and declaration must not turn on that.
+#[test]
+fn a_declared_layout_member_whose_document_lowers_to_nothing_draws_no_undeclared_finding() {
+    const EMPTY_COLLECTION_DOC: &str = "# Invariants\n";
+
+    let empty_collection_kind = KindFactRow {
+        content: Some(LayoutRow {
+            regions: vec![
+                LayoutRegionRow {
+                    region: "prose".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: None,
+                    key: None,
+                },
+                LayoutRegionRow {
+                    region: "collection".to_string(),
+                    import: None,
+                    slot: None,
+                    member_kind: Some("invariant".to_string()),
+                    key: None,
+                },
+            ],
+        }),
+        ..common::kind_facts("intent", "specs", "intent.md")
+    };
+    let payload = Payload {
+        declarations: Declarations {
+            kinds: vec![empty_collection_kind],
+            ..Default::default()
+        },
+        ..intent_payload()
+    };
+
+    let harness = common::scaffold("layout-empty-collection-member");
+    fs::write(
+        harness.join("specs").join("intent.md"),
+        EMPTY_COLLECTION_DOC,
+    )
+    .unwrap();
+    drift::emit(&payload, &harness.join(".temper"), EmitOptions::default()).unwrap();
+
+    let into = harness.join(".temper");
+    assert!(
+        drift::read_declarations(&into)
+            .unwrap()
+            .nested_members
+            .is_empty()
+            && drift::layout_prose(&into).unwrap().is_empty(),
+        "the case is vacuous unless the collection and the prose region both read empty",
+    );
+
+    let run = common::check_in(&harness, &[], None);
+    assert!(
+        run.output.contains("intent (1)"),
+        "the case is vacuous unless the run judged the declared member: {}",
+        run.output
+    );
+    assert!(
+        !run.output.contains("layout.undeclared-member"),
+        "a declared member whose document lowered into no row draws no finding: {}",
+        run.output
+    );
+}

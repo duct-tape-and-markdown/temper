@@ -1683,6 +1683,41 @@ fn read_declarations_rejects_a_wrong_typed_column() {
     );
 }
 
+/// The `layout_source` family — the lock's record that `emit` read a layout document —
+/// holds the same bar as every other declaration family: a present row the SDK could not
+/// have emitted is corruption refused loud, naming the family. It rides its own reader
+/// rather than `read_declarations`, exactly as `layout_prose` does: a layout source is
+/// derived by emit, never declared by the program.
+#[test]
+fn a_malformed_layout_source_row_refuses_loud() {
+    let dir = common::tmpdir("malformed-layout-source");
+    fs::write(
+        dir.join("lock.toml"),
+        "[[declaration.layout_source]]\nmember = 42\nsource_path = \"specs/intent.md\"\n",
+    )
+    .unwrap();
+
+    let err = drift::layout_sources(&dir).unwrap_err();
+    let message = err.to_string();
+    assert!(
+        message.contains("layout_source") && message.contains("member"),
+        "a wrong-typed column names its family and column, got:\n{message}"
+    );
+
+    // Non-vacuity: the same reader lifts a well-formed row without complaint, so the
+    // refusal above is the malformation's and not the family's.
+    let ok = common::tmpdir("well-formed-layout-source");
+    fs::write(
+        ok.join("lock.toml"),
+        "[[declaration.layout_source]]\nmember = \"intent:intent\"\nsource_path = \"specs/intent.md\"\n",
+    )
+    .unwrap();
+    let rows = drift::layout_sources(&ok).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].member, "intent:intent");
+    assert_eq!(rows[0].source_path, "specs/intent.md");
+}
+
 /// A malformed element inside a present row's array column fails the whole row — a
 /// tolerant row, never a tolerant element.
 #[test]

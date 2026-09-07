@@ -496,7 +496,9 @@ pub(crate) struct RollupEntry {
 /// own. `layout_imports` and `includes` are the layout sources' and composed prose's
 /// fingerprinted content dependencies, written into the same `[declaration]` table
 /// under their own families; `layout_prose` is what those sources' *verbatim* prose
-/// regions captured, the span an import region has no equivalent of.
+/// regions captured, the span an import region has no equivalent of; `layout_sources`
+/// records that emit read each layout document at all, the one fact about a layout host
+/// that does not depend on what its body had to give.
 pub(crate) fn write_rollup(
     into: &Path,
     rollups: &BTreeMap<String, Vec<RollupEntry>>,
@@ -504,6 +506,7 @@ pub(crate) fn write_rollup(
     layout_imports: &[LayoutImportRow],
     includes: &[LayoutImportRow],
     layout_prose: &[LayoutProseRow],
+    layout_sources: &[LayoutSourceRow],
 ) -> Result<(), DriftError> {
     let mut doc = DocumentMut::new();
     for (kind, rows) in rollups {
@@ -513,6 +516,7 @@ pub(crate) fn write_rollup(
     write_source_deps(&mut doc, LAYOUT_IMPORT_FAMILY, layout_imports);
     write_source_deps(&mut doc, INCLUDE_FAMILY, includes);
     write_layout_prose(&mut doc, layout_prose);
+    write_layout_sources(&mut doc, layout_sources);
 
     let path = into.join(crate::LOCK_FILENAME);
     crate::fs_util::write_creating_parents(&path, doc.to_string().as_bytes())
@@ -1135,6 +1139,10 @@ pub fn emit(
     // into the program's own `satisfies` family, so a layout host's fills reach the
     // roster/coverage/graph tiers exactly as a file-content member's do.
     let mut layout_satisfies: Vec<SatisfiesRow> = Vec::new();
+    // The lock's record that emit *read* each committed layout document — the layout
+    // host's only trace that does not depend on what its body lowered into, and so the
+    // fact `layout.undeclared-member` asks about.
+    let mut layout_source_rows: Vec<LayoutSourceRow> = Vec::new();
     let mut layout_paths: BTreeSet<String> = BTreeSet::new();
     // The local-locus members this pass passed over: emit writes nothing at their paths
     // and rows none of them, but the paths are still owned — an author's uncommitted
@@ -1286,6 +1294,10 @@ pub fn emit(
             layout_import_rows.extend(derivation.imports);
             layout_prose_rows.extend(derivation.prose);
             layout_satisfies.extend(derivation.satisfies);
+            layout_source_rows.push(LayoutSourceRow {
+                member: host_address(&member.kind, &member.name),
+                source_path: to_lock_path(&source_path),
+            });
             layout_paths.insert(to_lock_path(&source_path));
             continue;
         }
@@ -1552,6 +1564,7 @@ pub fn emit(
             &layout_import_rows,
             &include_rows,
             &layout_prose_rows,
+            &layout_source_rows,
         )?;
     }
 
@@ -2758,17 +2771,6 @@ pub fn config_stale_from_doc(
 /// The diagnostic `rule` id a discovered-but-undeclared layout document reports under.
 const LAYOUT_UNDECLARED_MEMBER_RULE: &str = "layout.undeclared-member";
 
-/// The `[declaration]` families that carry a member's own `kind:name` address, paired
-/// with the column each spells it in. A layout host reaches the lock only through these:
-/// its document is a source, so `emit` writes it no `[[<kind>]]` rollup row of its own.
-const MEMBER_ADDRESS_COLUMNS: &[(&str, &str)] = &[
-    ("nested_member", "host"),
-    ("satisfies", "member"),
-    ("mention", "member"),
-    (LAYOUT_PROSE_FAMILY, "member"),
-    (LAYOUT_IMPORT_FAMILY, "member"),
-];
-
 /// One discovered committed layout-kind member, as the gate found it on disk — the
 /// address the lock is asked about and the path a finding names.
 pub struct LayoutMemberSite {
@@ -2778,50 +2780,48 @@ pub struct LayoutMemberSite {
     pub source_path: String,
 }
 
-/// Every member address the lock's declaration rows name, read raw off the document.
-/// Columns are taken as strings without lifting the rows: a malformed row is refused loud
-/// by the readers that own it, and here an unreadable row must never be what *forges* a
-/// finding — so anything unparseable simply contributes no address.
-fn declared_member_addresses(doc: &DocumentMut) -> BTreeSet<String> {
-    let mut addresses = BTreeSet::new();
-    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
-        return addresses;
-    };
-    for (family, column) in MEMBER_ADDRESS_COLUMNS {
-        let Some(rows) = table.get(family).and_then(Item::as_array_of_tables) else {
-            continue;
-        };
-        addresses.extend(
-            rows.iter()
-                .filter_map(|row| row.get(column).and_then(Item::as_str))
-                .map(str::to_string),
-        );
-    }
-    addresses
+/// Every layout host address the lock records `emit` as having read — the
+/// `[[declaration.layout_source]]` family alone, one row per committed layout member emit
+/// lowered. Presence is the whole question: what the document *lowered into* is content,
+/// and a member's declaration can never turn on whether its body had anything to give.
+///
+/// `None` when the family is present but malformed. The lock is tool-written, so a row the
+/// SDK could not have emitted is corruption — refused loud by [`layout_sources_from_doc`],
+/// the reader that owns it — and here an unreadable row must never be what *forges* a
+/// finding, so the oracle declines rather than reading corruption as absence.
+fn declared_member_addresses(doc: &DocumentMut) -> Option<BTreeSet<String>> {
+    Some(
+        layout_sources_from_doc(doc)
+            .ok()?
+            .into_iter()
+            .map(|row| row.member)
+            .collect(),
+    )
 }
 
 /// The `layout.undeclared-member` findings for the discovered committed layout documents
-/// `sites` names — one per member the lock's declaration rows never mention.
+/// `sites` names — one per member the lock carries no [`LayoutSourceRow`] for.
 ///
 /// A layout document is a *source*: `emit` projects nothing at its path and writes it no
-/// rollup row, so the whole of its trace on the lock is the rows it was lowered into. A
-/// member the program never declared is still discovered and read for its field slots, and
-/// then read for nothing else — its collections count zero, `explain` reports no nested
-/// members, and every leaf address under it fails to resolve. This states the cause.
+/// rollup row, so its `layout_source` record is the lock's only evidence that emit read it
+/// at all. A member the program never declared is still discovered and read for its field
+/// slots, and then read for nothing else — its collections count zero, `explain` reports no
+/// nested members, and every leaf address under it fails to resolve. This states the cause.
 ///
 /// **Advisory** (`warn`), the posture [`config_stale`] takes: the harness is checkable, one
 /// document short of what its author meant to gate.
 ///
-/// The one bound: a *declared* layout member whose document yields no rows at all — a
-/// layout of field regions alone, or an empty collection with no captured prose — leaves
-/// the same empty trace as an undeclared one and is named here too. Both remedies the
-/// finding offers are sound for it, and silence over the real case is the worse trade.
+/// What is asked is that record's *presence*, never what the document lowered into: a
+/// declared member of a field-regions-only layout, or one whose collection emptied, yields
+/// no content row anywhere and must still read as declared.
 #[must_use]
 pub fn undeclared_layout_members_from_doc(
     doc: &DocumentMut,
     sites: &[LayoutMemberSite],
 ) -> Vec<crate::check::Diagnostic> {
-    let declared = declared_member_addresses(doc);
+    let Some(declared) = declared_member_addresses(doc) else {
+        return Vec::new();
+    };
     sites
         .iter()
         .filter(|site| !declared.contains(&site.member))
@@ -2881,8 +2881,8 @@ pub struct UndeclaredLocusMembers {
 /// `sites` names — one per document the lock's provenance rows never name.
 ///
 /// A file-content member's whole trace on the lock is its **projection provenance row**,
-/// not the [`MEMBER_ADDRESS_COLUMNS`] declaration families a layout host reaches through
-/// — so this joins each site's path against the same rows [`emit_owned_targets`] and
+/// not the [`layout_source`](LayoutSourceRow) record a layout host reaches the lock
+/// through — so this joins each site's path against the same rows [`emit_owned_targets`] and
 /// [`config_stale`] walk. Both sides normalize through [`normalize_lock_path`], exactly
 /// as the emit reap-diff does: the site's path arrives as a `String` from
 /// [`crate::path::relativize_against_root`] while a row's is a
@@ -3186,6 +3186,87 @@ pub fn layout_prose_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutProseRow>, D
 /// present row is malformed.
 pub fn layout_prose(workspace_dir: &Path) -> miette::Result<Vec<LayoutProseRow>> {
     Ok(layout_prose_from_doc(&read_lock_document(workspace_dir)?)?)
+}
+
+// ---------------------------------------------------------------------------
+// layout sources — the lock's record that emit read a layout document
+// ---------------------------------------------------------------------------
+
+/// One committed layout member `emit` lowered — the lock's record that emit *read* the
+/// document, independent of whatever the document had to give.
+///
+/// A layout host's document is a source, so emit projects nothing at its path and writes
+/// it no `[[<kind>]]` rollup row. Without this row the host's whole trace on the lock
+/// would be the content families its document lowered into, and a member whose document
+/// yields none of them — a layout of field regions alone, an emptied collection — would be
+/// indistinguishable from one emit never saw. This row is the presence fact
+/// [`undeclared_layout_members_from_doc`] asks about, so that oracle never has to read
+/// content to answer a question about declaration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayoutSourceRow {
+    /// The layout host's own `kind:name` address.
+    pub member: String,
+    /// The document's path, harness-relative, in the lock's spelling.
+    pub source_path: String,
+}
+
+/// The lock family a committed layout member's source record rides under.
+const LAYOUT_SOURCE_FAMILY: &str = "layout_source";
+
+/// Write the layout-source records into a lock document's `[declaration]` table as
+/// `[[declaration.layout_source]]`, in emit order — the same discipline
+/// [`write_layout_prose`] keeps, an empty set writing nothing so a layout-less program's
+/// lock stays byte-identical.
+fn write_layout_sources(doc: &mut DocumentMut, rows: &[LayoutSourceRow]) {
+    if rows.is_empty() {
+        return;
+    }
+    let Some(table) = declaration_table_mut(doc) else {
+        return;
+    };
+    let mut array = ArrayOfTables::new();
+    for row in rows {
+        let mut entry = Table::new();
+        entry["member"] = value(row.member.clone());
+        entry["source_path"] = value(row.source_path.clone());
+        array.push(entry);
+    }
+    table.insert(LAYOUT_SOURCE_FAMILY, Item::ArrayOfTables(array));
+}
+
+/// Lift one layout-source row off its `[[declaration.layout_source]]` table — both
+/// columns required, the row carrying no optional facet.
+fn layout_source_row(row: &Table) -> Result<LayoutSourceRow, RowError> {
+    Ok(LayoutSourceRow {
+        member: req_str(row, "member")?,
+        source_path: req_str(row, "source_path")?,
+    })
+}
+
+/// Every layout-source row from an already-parsed lock document — the committed layout
+/// members emit lowered this lock's pass.
+///
+/// # Errors
+///
+/// Returns a [`DriftError::LockRow`] if a present row is malformed.
+pub fn layout_sources_from_doc(doc: &DocumentMut) -> Result<Vec<LayoutSourceRow>, DriftError> {
+    let Some(table) = doc.get("declaration").and_then(Item::as_table_like) else {
+        return Ok(Vec::new());
+    };
+    Ok(family(table, LAYOUT_SOURCE_FAMILY, layout_source_row)?)
+}
+
+/// Every layout-source row a lock at `workspace_dir` carries. A missing lock or an absent
+/// family yields none; a present malformed row is surfaced loud.
+///
+/// # Errors
+///
+/// Returns a [`DriftError`] if the lock exists but cannot be read or parsed, or if a
+/// present row is malformed.
+pub fn layout_sources(workspace_dir: &Path) -> miette::Result<Vec<LayoutSourceRow>> {
+    Ok(layout_sources_from_doc(&read_lock_document(
+        workspace_dir,
+    )?)?)
 }
 
 /// The drift findings for source dependencies under `family` from an already-parsed

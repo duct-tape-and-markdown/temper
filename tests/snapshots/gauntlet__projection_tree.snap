@@ -229,6 +229,10 @@ member = "spec:representation"
 region_index = 0
 prose = "The representation model, authored in prose."
 
+[[declaration.layout_source]]
+member = "spec:representation"
+source_path = "docs/guides/operate-the-gate/representation.md"
+
 === docs/guides/operate-the-gate/GUIDE.md ===
 <!-- temper: managed projection — a direct edit here is drift; edit the owning .temper/ module or document and re-run temper emit, never this generated file. -->
 
