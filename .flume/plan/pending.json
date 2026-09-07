@@ -42,10 +42,7 @@
   {
     "tag": "EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM",
     "gate": {
-      "kind": "blockedBy",
-      "tags": [
-        "EXPLAIN-CLI-RUNNER-ONE-HOME"
-      ]
+      "kind": "open"
     },
     "dependsOnForks": [],
     "files": {
@@ -302,115 +299,6 @@
     "tests": [],
     "acceptance": "A JSON- or TOML-document kind (settings-local, plugin-manifest, marketplace, dial, or a declared kind sharing one of those formats) gets keystroke schema validation wired by `install`, once a modeline-equivalent mechanism is designed for its format.",
     "notes": "Surfaced by inbox #13 (observed at fc77716) alongside SCHEMA-KIND-DOMAIN-WIDEN; deliberately split so the YAML-frontmatter widening isn't blocked on this open design question. scoped at 162e1cce."
-  },
-  {
-    "tag": "EXPLAIN-CLI-RUNNER-ONE-HOME",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [],
-      "edit": [
-        {
-          "path": "tests/common/mod.rs",
-          "description": "The one home: add `explain_in(root, target) -> String` beside `check_in`/`check_harness_in`/`run_guard`, capturing combined stdout+stderr — the module header already names absorbing per-suite copies as its purpose, and `#![allow(dead_code)]` at :10 covers the binaries that never call it."
-        },
-        {
-          "path": "tests/layout_kind.rs",
-          "description": "Retire the private `explain_in` at :631 (stdout+stderr variant); its one call site at :619 reads `common::explain_in`."
-        },
-        {
-          "path": "tests/layout_edge_slot.rs",
-          "description": "Retire the private `explain_in` at :76 (stdout+stderr variant); its one call site at :273 reads the shared one."
-        },
-        {
-          "path": "tests/requirement_roster.rs",
-          "description": "Retire the private `explain_in` at :704 — the stdout-ONLY variant. Its call sites (:757, :861) now see stderr too, so the `!out.contains(\"It fills no requirements\")` assertion at :763 can no longer read an empty narration as agreement."
-        },
-        {
-          "path": "tests/lock_declaration_rows.rs",
-          "description": "Retire the private `explain_in` at :2450 — the other stdout-only variant. Four call sites (:453, :1377, :1909, :2523); the negative assertions at :1920 and :2529 gain the same stderr coverage."
-        },
-        {
-          "path": "tests/read_verbs.rs",
-          "description": "Retire `explain_via_cli` at :1113 — the fifth spelling of the same runner under a different name (stdout+stderr); its callers read `common::explain_in`."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "One `temper explain` CLI runner is written five times across five test files, in two variants that disagree on whether a refusal's stderr is captured at all.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "tests/requirement_roster.rs",
-        "asserts": "the lock-declared-satisfies narration case still passes reading combined stdout+stderr — the positive `Requirements it satisfies` assertion unchanged, its paired negative now ranging over a stream a refusal would actually appear in"
-      },
-      {
-        "path": "tests/lock_declaration_rows.rs",
-        "asserts": "the nested-member and mention narration cases still pass on the shared runner, with `rendered-key` and `it points at no member` still absent from a now-combined stream"
-      }
-    ],
-    "acceptance": "`rg -n 'arg\\(\"explain\"\\)' tests/` returns hits in tests/common/mod.rs and nowhere else — the four `explain_in` copies and `explain_via_cli` are gone and every caller reads the one runner. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green with no assertion rewritten: this is an extraction, and any call site needing its expectation changed to pass is the divergence being reported, not absorbed. Stated honestly, because it bounds the claim: no test is vacuous today — each of the three `!out.contains(...)` assertions over a stdout-only runner (requirement_roster.rs:763, lock_declaration_rows.rs:1920, :2529) is paired with a positive `contains` on the same string, which an empty stdout fails first. What this closes is the latent hazard those two variants carry, that a refusal renders to stderr and a stdout-only reader sees silence. If MEMBER-ADDRESS-GRAMMAR-ONE-HOME or EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM unifies the runner first as its own consolidation, this entry drains to whatever sites survive rather than being re-shipped.",
-    "notes": "Swept 09-07 from the files-ripple on EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM: `explain_in` is not a shared helper but four private copies (layout_kind.rs:631, layout_edge_slot.rs:76, requirement_roster.rs:704, lock_declaration_rows.rs:2450), plus read_verbs.rs:1113's `explain_via_cli` — one job, five sites, two variants. Chained on the three entries sharing tests/lock_declaration_rows.rs, tests/layout_kind.rs and tests/read_verbs.rs. scoped at ea3c0484"
-  },
-  {
-    "tag": "SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
-    "gate": {
-      "kind": "open"
-    },
-    "dependsOnForks": [],
-    "files": {
-      "new": [
-        {
-          "path": "sdk/src/member-address.ts",
-          "description": "The SDK's one home for the member-address grammar `specs/model/representation.md` (\"member\") spells — `<kind>:<name>`, `<host-address>/<kind>/<key>`, and `/<leaf>` beneath it — a writer per spelling plus the parser the writers round-trip against, mirroring the Rust module MEMBER-ADDRESS-GRAMMAR-ONE-HOME lands (`graph::nested_address` and `parse_nested_address` are the shape to match, so the two ends of the seam cannot disagree about what an address is). Internal: not re-exported from sdk/src/index.ts, which is the curated authoring API and gains no consumer here (engineering.md, \"An export earns its consumer\")."
-        },
-        {
-          "path": "sdk/test/member-address.test.ts",
-          "description": "The test that would have caught this: every writer's output parses back through the one parser, and the qualified spelling built for the member table equals the one built for `declaredAddresses` and for `EdgeTargetFacts.address` given the same host and value — the agreement twenty-one inline literals can only assert by inspection."
-        }
-      ],
-      "edit": [
-        {
-          "path": "sdk/src/emit.ts",
-          "description": "Thirteen live address-producing lines here, not the nine this entry first counted: the member table's top-level keys (:771, :775), the nested table's qualified (:798) and bare (:799-800) spellings, `resolvedTargetFacts`'s returned address (:353), the placement keys (:515, :555), the host on payload members (:815), and the three diagnostic-prose spellings (:181, :208, :341) — which render an address into a message and take the same writer, so a refusal quotes the spelling the resolver actually looked up. Plus the bare-form LIFT at :295 (`edge.to.length === 1 && !address.includes(\":\") ? `${edge.to[0]}:${address}` : address`), the direct counterpart of Rust `target_identity`'s single-element prefix strip (src/graph.rs:1609-1614), and its verbatim restatement in the comment at :294 — both matched by this entry's own acceptance regex, so both move or the acceptance stays red. Design bar on that one: the bare `kind:key` spelling is what 0049 lists under Rejected (\"Corpus-unique keys as the address ... Uniqueness is the resolver's bar, not the grammar's\"), so expose it as a LOOKUP KEY, never as an address writer — the two ends already agree (Rust strips the prefix back off before matching) and a builder must not \"fix\" the apparent mismatch."
-        },
-        {
-          "path": "sdk/src/declarations.ts",
-          "description": "Seven sites, every cite 26 higher than this entry first spelled them: the host address at :480, :502, :570, :725 and :869, the qualified nested address at :873, and the leaf address at :534 — whose own doc comment (the block at :523-531, the cross-seam cite at :529) points at `src/read.rs`'s `parse_leaf_address` as the grammar it must match, the cite that goes stale the moment either side moves. That cite is re-pointed at the new module here, discharging the stale-prose exception MEMBER-ADDRESS-GRAMMAR-ONE-HOME's acceptance parks on this file."
-        },
-        {
-          "path": "sdk/src/prose.ts",
-          "description": "`mentionOf` (:29) spells `${member.kind}:${member.name}` — its doc comment (:24-26) calls it \"the convention every corpus repeats to cite a member from prose, captured once here\", which is true of this function and false of the module: it is one of twenty-one producers across three files. Read the writer."
-        },
-        {
-          "path": "sdk/test/refusals.test.ts",
-          "description": "VERIFY-ONLY — expect no diff, and the file this entry's \"byte-identical\" claim actually rides on: :320's case pins the ambiguous-bare-key refusal and :361 asserts its wording byte-for-byte (`/a bare key 2 hosts carry \\(`rule:rust`, `rule:sdk`\\)/`). Routing emit.ts:341's prose spelling through a writer must leave that string untouched. In the fence so a forced wording change can land visibly rather than as a surprise red."
-        }
-      ],
-      "retire": []
-    },
-    "summary": "The member-address grammar is spelled by twenty-one inline template literals across three SDK modules, with no writer and no parser — the TS half of a consolidation the Rust half already has.",
-    "per": {
-      "path": "specs/process/engineering.md",
-      "section": "One job, one home"
-    },
-    "tests": [
-      {
-        "path": "sdk/test/member-address.test.ts",
-        "asserts": "each address writer round-trips through the one parser, and the qualified nested spelling the member table, declaredAddresses and EdgeTargetFacts each produce for one host+value are byte-identical"
-      },
-      {
-        "path": "sdk/test/emit.test.ts",
-        "asserts": "unchanged and green — the extraction is behaviour-preserving, so the existing edge-resolution and member-table suites are the non-vacuity pin"
-      }
-    ],
-    "acceptance": "`rg '\\}:\\$\\{|\\}/\\$\\{' sdk/src/*.ts` returns hits in sdk/src/member-address.ts and nowhere else; every producer reads the one module. `pnpm --dir sdk test` (strict tsc + node --test) is green with no behavioural diff, and `cargo test` stays green — the payload and lock rows the SDK emits are byte-identical, which is what makes this an extraction rather than a change.",
-    "notes": "Filed 09-07: ab500f80 gave the Rust side one writer/parser and c60ddd3f then shipped exactly this bug class — the SDK member table indexed `kind:name` while the grammar spelled three segments. tests/seam_bindings_current.rs compares row TYPES, not the grammar, so nothing catches the ends drifting. Amended twice from cascade's audits: declarations.ts cites were 26 low, emit.ts:295 and :815 omitted, refusals.test.ts is the real pin, the new test file's description said twenty. scoped at 6b9eacae"
   },
   {
     "tag": "LOCAL-LAYOUT-PROSE-REACHES-NO-READ-TIME-ROW",
