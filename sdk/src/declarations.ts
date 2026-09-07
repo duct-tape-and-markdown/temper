@@ -10,6 +10,7 @@
  */
 
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 import type { Harness } from "./assembly.js";
 import type { EmbeddedMemberValue, KindFacts, Layout, Registration } from "./kind.js";
@@ -361,6 +362,91 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
 }
 
 /**
+ * The locus a colliding kind is declared at, for {@link resolveNameCollision}'s refusal:
+ * an `at` kind names the path its members are found at, and every other locus names
+ * itself — a kind that governs no glob has no path of its own to name.
+ */
+function locusLabel(facts: KindFacts): string {
+  const { locus } = facts;
+  if (locus.kind !== "at") return `the \`${locus.kind}\` locus`;
+  return `\`${locus.root === "." ? locus.glob : `${locus.root}/${locus.glob}`}\``;
+}
+
+/**
+ * A kind's facts with the three faces a relocation may diverge from its base on erased:
+ * the `relocates` marker, the appended `edgeFields`, and an `at` locus's moved root and
+ * glob (`kind.ts`'s `KindRelocation`). Two values agreeing here are one kind up to a
+ * relocation delta; the delta's own faces are checked on their own terms.
+ */
+function relocationInvariants(facts: KindFacts): Record<string, unknown> {
+  const bare: Record<string, unknown> = { ...facts };
+  delete bare.relocates;
+  delete bare.edgeFields;
+  if (facts.locus.kind === "at") bare.locus = { ...facts.locus, root: "", glob: "" };
+  return bare;
+}
+
+/**
+ * Whether `relocation` was derived from `base` — the provenance the relocation-wins rule
+ * rests on. The marker names the base, `relocate` only ever *appends* edge fields (so the
+ * base's are a prefix of the relocation's), and every other fact rides through unchanged:
+ * the base's facts are a subset by construction, which is exactly what makes keeping the
+ * relocation lossless. Checked rather than assumed, because the marker carries a name and
+ * a name is what is in dispute — a value bearing it whose facts are not the other's
+ * superset is a third kind of the same name, and dropping *that* would be the very silent
+ * loss this decision exists to end.
+ */
+function isRelocationOf(relocation: KindFacts, base: KindFacts): boolean {
+  if (relocation.relocates !== base.name || base.relocates !== undefined) return false;
+  const inherited = base.edgeFields ?? [];
+  const declared = relocation.edgeFields ?? [];
+  return (
+    declared.length >= inherited.length &&
+    isDeepStrictEqual(declared.slice(0, inherited.length), inherited) &&
+    isDeepStrictEqual(relocationInvariants(relocation), relocationInvariants(base))
+  );
+}
+
+/**
+ * Which of two `KindFacts` values sharing one name is the kind in play — a decision that
+ * must not depend on the order the two arrived in, since {@link kindsInPlay} draws its
+ * facts from `members`, then `expect`, then `admit`, then embedded templates, and a kind
+ * legitimately reaches it through any of them.
+ *
+ * A **relocation** wins over its base whichever way round they arrive
+ * ({@link isRelocationOf} proves the provenance): the base's facts are the relocation's
+ * minus the delta, so keeping the base would silently drop the relocation's added edge
+ * fields and moved locus. Two values that are structurally equal are one kind declared
+ * twice — keep the first. Anything else is a genuine collision and refuses: kind identity
+ * travels by import, never by string (`representation.md`, "kind"), while the lock is a
+ * string-keyed medium, so the second kind has no name to reach the engine
+ * under and dropping it is a silent loss of everything it declared. Two relocations of
+ * one base collide the same way — each is still a kind of the base's own name.
+ *
+ * # Throws
+ * On a collision, naming the kind and both loci — the two declarations an author has to
+ * go look at.
+ */
+function resolveNameCollision(held: KindFacts, arriving: KindFacts): KindFacts {
+  // At most one holds: each direction demands the other value carry no marker at all.
+  if (isRelocationOf(held, arriving)) return held;
+  if (isRelocationOf(arriving, held)) return arriving;
+  if (isDeepStrictEqual(held, arriving)) return held;
+  throw new Error(
+    held.relocates !== undefined && arriving.relocates !== undefined
+      ? `two relocations of kind \`${held.name}\` are in play, at ${locusLabel(held)} and ` +
+        `${locusLabel(arriving)}, and they diverge. A relocation is still a kind of its base's ` +
+        `name, so a second one collides with the first: relocate the base once and import that ` +
+        `one value wherever it is used (specs/model/representation.md, "kind").`
+      : `two kinds named \`${held.name}\` are in play, at ${locusLabel(held)} and ` +
+        `${locusLabel(arriving)}. Kind identity travels by import, never by string, and the lock ` +
+        `is keyed by name — the second kind has no name of its own to reach the engine under. ` +
+        `Import the declared kind rather than redeclaring it; to move a built-in to another root ` +
+        `or add an edge field to it, use \`relocate()\` (specs/model/representation.md, "kind").`,
+  );
+}
+
+/**
  * Every kind in play, at any locus — member kinds ∪ expect kinds ∪ their embedded
  * children — name-sorted, so every family derived from it inherits one stable order.
  *
@@ -373,14 +459,22 @@ function kindFactRow(facts: KindFacts, admissions: AdmissionsByHost): KindFactRo
  * Only *embedded* children are drawn in. A path-carrying template is the nested-file
  * layer, whose child owns a unit and reaches the lock through `expect` like any other
  * unit kind; pulling one in here would forge it a kind-fact row it never declared.
+ *
+ * Two facts values arriving under one name are decided by {@link resolveNameCollision},
+ * never by arrival order: the deduped facts are what `assemblyFactRows` derives every
+ * `edge` row from, so first-wins would drop a relocation's added edge on the floor
+ * whenever the base happened to be named first.
  */
 function kindsInPlay(harness: Harness): KindFacts[] {
   const byName = new Map<string, KindFacts>();
   const pending: KindFacts[] = [];
   const admit = (facts: KindFacts): void => {
-    if (byName.has(facts.name)) return;
-    byName.set(facts.name, facts);
-    pending.push(facts);
+    const held = byName.get(facts.name);
+    if (held === facts) return;
+    const winner = held === undefined ? facts : resolveNameCollision(held, facts);
+    if (winner === held) return;
+    byName.set(facts.name, winner);
+    pending.push(winner);
   };
   for (const member of harness.members) admit(member.facts);
   for (const binding of harness.expect) admit(binding.kind.facts);

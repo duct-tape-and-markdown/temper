@@ -7,8 +7,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Clause } from "../src/index.js";
+import type { Clause, Harness } from "../src/index.js";
 import { embeddedMemberValue, emit, harness, kind, relocate } from "../src/index.js";
+import { compileDeclarations } from "../src/declarations.js";
 import type { Rule } from "../src/claude-code.js";
 import {
   agent,
@@ -939,4 +940,106 @@ test("a locus delta and an edge-field delta compose in one relocation", () => {
   // ...while the added edge still reaches the lock as its own assembly fact.
   const edges = result.declarations.assembly.filter((fact) => fact.fact === "edge" && fact.from === "rule");
   assert.deepEqual(edges, [{ fact: "edge", from: "rule", field: "routes_to", to: ["skill"] }]);
+});
+
+// ---------------------------------------------------------------------------
+// Name collisions — two `KindFacts` values in play under one name.
+// ---------------------------------------------------------------------------
+
+/**
+ * The `rule` edge facts a harness compiles to. `assemblyFactRows` derives one `edge` row
+ * per `edgeFields` entry from exactly the facts `kindsInPlay` deduped, so a kind dropped
+ * on a name collision shows here as a missing relationship and nowhere else.
+ */
+function ruleEdgeFacts(h: Harness) {
+  return compileDeclarations(h).assembly.filter((fact) => fact.fact === "edge" && fact.from === "rule");
+}
+
+/** The added edge `routingRule` and only `routingRule` declares. */
+const ROUTES_TO = { fact: "edge", from: "rule", field: "routes_to", to: ["skill"] };
+
+test("a relocation wins over its base whichever order the two reach kinds-in-play", () => {
+  // `kindsInPlay` reads `members` before `expect`, so the two arrangements below name the
+  // relocation first and second respectively — and must compile to the same kind.
+  const relocationFirst = harness({
+    members: [routingRule({ name: "style", routes_to: "standards", prose: text`Prefer the standards skill.` })],
+    expect: [{ kind: rule, clauses: [] }],
+  });
+  const baseFirst = harness({
+    members: [rule({ name: "style", prose: text`Prefer the standards skill.` })],
+    expect: [{ kind: routingRule, clauses: [] }],
+  });
+
+  // Non-vacuity first (decision 0048's conservation bar): the assertion is pinned to a
+  // fact the base's own facts lack, so a dropped relocation cannot satisfy it — an empty
+  // edge family is exactly what first-wins produced.
+  assert.deepEqual(ruleEdgeFacts(relocationFirst), [ROUTES_TO]);
+  assert.deepEqual(ruleEdgeFacts(baseFirst), [ROUTES_TO]);
+});
+
+/** A corpus's own kind that reuses the built-in `rule`'s name at a root of its own. */
+const impostorRule = kind<Record<never, never>>({
+  name: "rule",
+  locus: { kind: "at", root: "docs", glob: "*.md" },
+  unitShape: "file",
+  registration: [],
+});
+
+test("two same-named kinds neither relocating the other refuse, naming both loci", () => {
+  const h = harness({
+    members: [rule({ name: "style", prose: text`Prefer the standards skill.` })],
+    expect: [{ kind: impostorRule, clauses: [] }],
+  });
+  assert.throws(compileDeclarations.bind(null, h), (error: Error) => {
+    assert.match(error.message, /two kinds named `rule` are in play/);
+    // Both loci: the refusal names the two declarations the author has to go look at.
+    assert.match(error.message, /\.claude\/rules\/\*\.md/);
+    assert.match(error.message, /docs\/\*\.md/);
+    return true;
+  });
+});
+
+test("two diverging relocations of one base refuse the same way", () => {
+  // Each is a kind of the base's own name; neither relocates the *other*, so the marker
+  // cannot pick a winner and the lock's one `rule` row has two candidates.
+  const h = harness({
+    members: [routingRule({ name: "style", routes_to: "standards", prose: text`Prefer the standards skill.` })],
+    expect: [{ kind: decisionRule, clauses: [] }],
+  });
+  assert.throws(compileDeclarations.bind(null, h), (error: Error) => {
+    assert.match(error.message, /two relocations of kind `rule` are in play/);
+    assert.match(error.message, /\.claude\/rules\/\*\.md/);
+    assert.match(error.message, /decisions\/\*\.md/);
+    return true;
+  });
+});
+
+test("two structurally equal declarations of one name are one kind, not a collision", () => {
+  // The pair the refusal above must not catch: distinct values, identical facts. It is
+  // what proves the two candidates are actually compared rather than refused on the name.
+  const twin = kind<Record<never, never>>({
+    name: "rule",
+    locus: { kind: "at", root: "docs", glob: "*.md" },
+    unitShape: "file",
+    registration: [],
+  });
+  assert.notEqual(twin, impostorRule);
+  const h = harness({
+    members: [impostorRule({ name: "style", prose: text`Prefer the standards skill.` })],
+    expect: [{ kind: twin, clauses: [] }],
+  });
+  const rows = compileDeclarations(h).kinds.filter((row) => row.name === "rule");
+  assert.equal(rows.length, 1, "one name is one kind-fact row");
+  assert.equal(rows[0].governs_root, "docs");
+});
+
+test("a kind sharing a relocation's name without its provenance still refuses", () => {
+  // The marker names `rule`, but `impostorRule` is not the value `routingRule` was
+  // derived from — its facts are no subset of the relocation's. Keeping the relocation
+  // here would be the same silent drop the marker exists to license only where it is safe.
+  const h = harness({
+    members: [routingRule({ name: "style", routes_to: "standards", prose: text`Prefer the standards skill.` })],
+    expect: [{ kind: impostorRule, clauses: [] }],
+  });
+  assert.throws(compileDeclarations.bind(null, h), /two kinds named `rule` are in play/);
 });
