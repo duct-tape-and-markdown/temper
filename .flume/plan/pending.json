@@ -141,7 +141,7 @@
       }
     ],
     "acceptance": "Every admissibility refusal message names the edit an author would make — the colliding clauses/members and their discriminator — never the lock state alone.",
-    "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 3 of 4); narrowed at bf4b4168, item d: the read.rs/narrate_kind item targeted narration that doesn't exist (narrate_kind prints guidance/cite only) — that half collapses, since LAYOUT-LOUD-READ-SWALLOWED-REGION's new LayoutError message now carries the region-naming bar directly. Chained behind LAYOUT-DUPLICATE-PROSE-REGION-REFUSAL and NESTED-MEMBER-DUPLICATE-KEY-ADMISSIBILITY (shared src/admissibility.rs). scoped at bf4b4168"
+    "notes": "observed at ad10e8cb (John, 09-05 redirect, entry 3 of 4); narrowed at bf4b4168, item d: the read.rs/narrate_kind half collapsed (narrate_kind prints guidance/cite only). Both parents its notes named have since shipped (f07d4f84, 9c5c7a71); the live chain is CHECK-UNDECLARED over src/gate.rs. 9c5c7a71's `nested_member_coincidence` is the bar's own exemplar — it names the address spelled twice, not the lock state — so the audit measures the rest against it. scoped at ea3c0484"
   },
   {
     "tag": "LAYOUT-COLLECTION-MEMBER-OWN-SPAN-LEAF",
@@ -280,7 +280,8 @@
     "gate": {
       "kind": "blockedBy",
       "tags": [
-        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
+        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME",
+        "EXPLAIN-CLI-RUNNER-ONE-HOME"
       ]
     },
     "dependsOnForks": [],
@@ -318,7 +319,7 @@
       }
     ],
     "acceptance": "On a surface carrying no member of the kind, `explain kind:<name>` prints where a member of it lands and how a reference to one is spelled, alongside the guidance, layout and hosted-kind strands 3dcc73f1 already renders — the read verb narrating a kind, not only a kind that already has members. `cargo test` and `cargo clippy --all-targets -- -D warnings` green.",
-    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle and must scan file children too. Also serialized behind HOOK-COLLISION (tests/common/mod.rs). scoped at bf2e3eba"
+    "notes": "Routed from inbox 09-07 (cascade on GH #47, observed at ab61fea4). Their fourth line — the leaves an embedded kind's members carry before any member exists — is NOT here: a kind declares no field set anywhere, so it is the fork `(kind-declared-leaf-schema)`. Amended twice 09-07: the locus is not either/or, commitment joins it, the hosting-kinds inverse is the address form's oracle. HOOK-COLLISION shipped (76e29dc1); the live chain is MEMBER-ADDRESS then EXPLAIN-CLI-RUNNER. scoped at ea3c0484"
   },
   {
     "tag": "KINDS-IN-PLAY-NAME-COLLISION-REFUSAL",
@@ -718,6 +719,62 @@
     ],
     "acceptance": "`rg 'fn host_address|fn nested_address|fn parse_nested_address|fn parse_leaf_address|fn embedded_source_host|fn nested_key' src/` returns hits in src/member_address.rs and nowhere else, and so does `rg \"split_once\\\\(':'\\\\)\" src/` — the five surviving hand-splits of the host grammar route through the reader this entry ships, and the sixth rides inside the parser that moved. Every caller reads the one module. A host-qualified leaf address resolves through the same parser that reads the nested address it is a tail of, and the bare short forms both parsers accept today keep resolving. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` are green, and so is `cargo doc --no-deps --document-private-items` — the moved symbols carry intra-doc links from two files (graph.rs at :329, :1633, :1735, :1736, :1767, :1799, :1800; compose.rs at :1199 — compose.rs:1212 is a plain `//` comment no rustdoc gate reads, so it rides) and that gate is denied crate-wide. Known prose cite left stale on purpose: sdk/src/declarations.ts:529 points at `src/read.rs`'s parse_leaf_address; a TS comment no gate reads, so it rides the next entry that opens declarations.ts (SECTION-CONTAINS-LABEL-MARKER-COLLISION or KINDS-IN-PLAY-NAME-COLLISION-REFUSAL) per the standing prose-cite rule, rather than pulling a twice-contended file into this fence.",
     "notes": "Refactor capture build-member-address-inventory-delta drained here (observed 1d480a99): 9c5c7a71 closed 2 of the 8 hand-splits — gate.rs:627 went with the deleted `embedded_hosts_by_source`, graph.rs:333 folded into the new reader `embedded_source_host`. Five duplicates survive, all re-verified on disk. Every graph.rs and read.rs cite re-cut (+~40/+70); two moving readers and three new `nested_key` callers added; src/admissibility.rs:113 folded in from the ripple. scoped at 67abe15f"
+  },
+  {
+    "tag": "EXPLAIN-CLI-RUNNER-ONE-HOME",
+    "gate": {
+      "kind": "blockedBy",
+      "tags": [
+        "ASSEMBLY-EDGE-SLOT-COINCIDENCE-REFUSAL",
+        "LAYOUT-UNDECLARED-FINDING-FIRES-ON-A-ROWLESS-MEMBER",
+        "MEMBER-ADDRESS-GRAMMAR-ONE-HOME"
+      ]
+    },
+    "files": {
+      "edit": [
+        {
+          "path": "tests/common/mod.rs",
+          "description": "The one home: add `explain_in(root, target) -> String` beside `check_in`/`check_harness_in`/`run_guard`, capturing combined stdout+stderr — the module header already names absorbing per-suite copies as its purpose, and `#![allow(dead_code)]` at :10 covers the binaries that never call it."
+        },
+        {
+          "path": "tests/layout_kind.rs",
+          "description": "Retire the private `explain_in` at :631 (stdout+stderr variant); its one call site at :619 reads `common::explain_in`."
+        },
+        {
+          "path": "tests/layout_edge_slot.rs",
+          "description": "Retire the private `explain_in` at :76 (stdout+stderr variant); its one call site at :273 reads the shared one."
+        },
+        {
+          "path": "tests/requirement_roster.rs",
+          "description": "Retire the private `explain_in` at :704 — the stdout-ONLY variant. Its call sites (:757, :861) now see stderr too, so the `!out.contains(\"It fills no requirements\")` assertion at :763 can no longer read an empty narration as agreement."
+        },
+        {
+          "path": "tests/lock_declaration_rows.rs",
+          "description": "Retire the private `explain_in` at :2450 — the other stdout-only variant. Four call sites (:453, :1377, :1909, :2523); the negative assertions at :1920 and :2529 gain the same stderr coverage."
+        },
+        {
+          "path": "tests/read_verbs.rs",
+          "description": "Retire `explain_via_cli` at :1113 — the fifth spelling of the same runner under a different name (stdout+stderr); its callers read `common::explain_in`."
+        }
+      ]
+    },
+    "summary": "One `temper explain` CLI runner is written five times across five test files, in two variants that disagree on whether a refusal's stderr is captured at all.",
+    "per": {
+      "path": "specs/process/engineering.md",
+      "section": "One job, one home"
+    },
+    "tests": [
+      {
+        "path": "tests/requirement_roster.rs",
+        "asserts": "the lock-declared-satisfies narration case still passes reading combined stdout+stderr — the positive `Requirements it satisfies` assertion unchanged, its paired negative now ranging over a stream a refusal would actually appear in"
+      },
+      {
+        "path": "tests/lock_declaration_rows.rs",
+        "asserts": "the nested-member and mention narration cases still pass on the shared runner, with `rendered-key` and `it points at no member` still absent from a now-combined stream"
+      }
+    ],
+    "acceptance": "`rg -n 'arg\\(\"explain\"\\)' tests/` returns hits in tests/common/mod.rs and nowhere else — the four `explain_in` copies and `explain_via_cli` are gone and every caller reads the one runner. `cargo test --no-fail-fast` and `cargo clippy --all-targets -- -D warnings` green with no assertion rewritten: this is an extraction, and any call site needing its expectation changed to pass is the divergence being reported, not absorbed. Stated honestly, because it bounds the claim: no test is vacuous today — each of the three `!out.contains(...)` assertions over a stdout-only runner (requirement_roster.rs:763, lock_declaration_rows.rs:1920, :2529) is paired with a positive `contains` on the same string, which an empty stdout fails first. What this closes is the latent hazard those two variants carry, that a refusal renders to stderr and a stdout-only reader sees silence. If MEMBER-ADDRESS-GRAMMAR-ONE-HOME or EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM unifies the runner first as its own consolidation, this entry drains to whatever sites survive rather than being re-shipped.",
+    "notes": "Swept 09-07 from the files-ripple on EXPLAIN-KIND-REGISTRATION-LOCUS-AND-ADDRESS-FORM: `explain_in` is not a shared helper but four private copies (layout_kind.rs:631, layout_edge_slot.rs:76, requirement_roster.rs:704, lock_declaration_rows.rs:2450), plus read_verbs.rs:1113's `explain_via_cli` — one job, five sites, two variants. Chained on the three entries sharing tests/lock_declaration_rows.rs, tests/layout_kind.rs and tests/read_verbs.rs. scoped at ea3c0484"
   },
   {
     "tag": "SDK-MEMBER-ADDRESS-GRAMMAR-ONE-HOME",

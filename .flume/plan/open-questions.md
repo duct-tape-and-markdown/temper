@@ -139,7 +139,23 @@ tax.
   keep event-only identity and refuse only an *edge* whose target address
   is ambiguous (more than one member), leaving unaddressed duplicates
   legal. Session recommendation: (a), with (c)'s edge refusal as the
-  interim if (a)'s grammar change is too wide for 0.0.16. Dependents:
+  interim if (a)'s grammar change is too wide for 0.0.16.
+  **Sharpened 09-07** (post-ship audit of 9c5c7a71, measured on disk this
+  tick): (c) is no longer a mechanism to build — it is a branch to widen.
+  `graph::member_lookup` now answers a three-way `Membership` (`One`,
+  `Ambiguous(carriers)`, `Missing`) and both reference families already
+  raise the ambiguity as a finding naming every carrier — `resolved_edges`
+  for declared edges, `route_mentions` for mentions — with `explain`
+  refusing the same spelling. But it is scoped to a **bare nested key**
+  several hosts carry; the equality branch above it still answers
+  `find(|f| f.id == identity)`, so two top-level members sharing one
+  identity resolve to whichever the scan reaches first, silently. This
+  repo's own harness is that case at three: `.claude/settings.json`
+  carries three `PostToolUse` groups, which is why `check` reports
+  `hook (6)` over four distinct addresses. So the cost of leaving this
+  unruled is now visible inside one function — resolution total for a
+  nested key, first-wins for a top-level one, both cited to the same
+  `representation.md` ("member") sentence. Dependents:
   HOOK-COLLECTION-ADDRESS-DUPLICATE-REFUSAL.
 
 - `(layout-title-heading-admission)` — OPEN, live driver (GH #45(b)). Does a
@@ -297,7 +313,10 @@ tax.
   would have turned this incident into a one-line answer. The objection (b)
   must answer: on the common path the resolved root and the argument agree,
   so the line must fire only on divergence or it is noise on every run. No
-  dependents — the fixture entry ships without it.
+  dependents — the fixture entry shipped without it (76e29dc1, verified on
+  disk this tick: its lock moved under `.temper/` and the case now pins
+  `rule (0)` to prove which root the run walked). The gap the fixture's own
+  diagnosis exposed is untouched: nothing in that run names the root.
 
 - `(kind-declared-leaf-schema)` — OPEN, live driver (cascade-integrations
   assessment of EXPLAIN-KIND-ADOPTER-ENTRY-POINT, GH #47, 09-07). `explain
